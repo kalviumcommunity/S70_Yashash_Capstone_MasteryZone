@@ -2,6 +2,8 @@ Project: GoalConnect: Mastery Zone
 Description
 The Virtual Group Learning Hub is an online platform that connects individuals with similar learning goals into small, interactive study groups. Whether the goal is to learn coding, pick up a new language, or stay motivated with fitness, this platform facilitates collaborative learning and accountability through shared progress tracking and group interactions.
 
+
+
 Key Features
 ~ User Authentication: Signup/Login via Email and Google
 ~ Group Creation & Management: Users can create and join learning groups based on interests and goals
@@ -12,12 +14,16 @@ Key Features
 ~ Notifications: Alerts for new group activities and progress updates
 ~ Admin Dashboard: Manage users, groups, and content
 
+
+
 Tech Stack
 ~ Frontend: React.js, Tailwind CSS
 ~ Backend: Node.js, Express.js
 ~ Database: MongoDB / Firebase Firestore
 ~ Authentication: Firebase Auth / JWT
 ~ Hosting: Vercel (Frontend), Render (Backend)
+
+
 
 Daily Plan & Timeline
 Week 1: Project Setup & Design
