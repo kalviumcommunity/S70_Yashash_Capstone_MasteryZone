@@ -1,42 +1,114 @@
-#root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
+/* Background Gradient */
+.signup-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  align-content: center;
+  height: 100vh;
+  width: 100vw;
+  margin-left: -8px;
+  margin-top: -8px;
+  background: linear-gradient(135deg, #b430a2, #580253);
+  position: fixed;
+}
+
+/* Form Box */
+.signup-box {
+  background: #fff;
+  padding: 40px;
+  height: 70%;
   text-align: center;
+  width: 350px;
+  display: flex;
+  justify-items: center;
+  flex-direction: column;
+  justify-content: center;
+  gap: 50px;
+  box-shadow: 10px 10px 10px rgba(0, 0, 0, 0.5);
+  
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
+/* Heading */
+.signup-heading {
+  color: #8d22a8;
+  font-size: 30px;
+  font-weight: bold;
+  margin-bottom: 5px;
+  margin-top: -50px;
 }
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
-}
-
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.Creat-a-new-account{
+  position: relative;
+  top: 80px;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
+/* Error Message */
+.error-text {
+  position: relative;
+  top: 35px;
+  left:1px;
+  color: red;
+  font-size: 14px;
 }
 
-.card {
-  padding: 2em;
+/* Input Fields */
+.input-group {
+  display: flex;
+  text-align: left;
+  margin-bottom: 30px;
+  width: 100%;
+  justify-content: center;
 }
 
-.read-the-docs {
-  color: #888;
+.input-group input {
+  width: 80%;
+  padding: 12px;
+  font-size: 16px;
+  border: 1px solid #e37acc;
+  color: black;
+  border-radius: 5px;
+  outline: none;
+  transition: 0.3s;
+  background: #e986f4;
+}
+
+.input-group input:focus {
+  border-color: #5c007a;
+  box-shadow: 0px 0px 7px rgba(92, 0, 122, 0.5);
+}
+
+/* Button */
+.signup-button {
+  width: 150px;
+  height: 70px;
+  background: #7b1078;
+  color: white;
+  padding: 18px;
+  border: none;
+  font-size: 14px;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: 0.3s;
+  margin-top: 20px;
+  font-family: inherit;
+  font-size: x-large;
+  font-weight: bold;
+}
+
+.signup-button:hover {
+  background: #ad0797;
+  box-shadow: 0px 5px 15px rgba(155, 0, 135, 0.3);
+}
+
+.checkbox{
+  position: relative;
+  bottom: 15px;
+  display: flex;
+  color: black;
+  margin-left: 20px;
+}
+
+
+a{
+  color: black;
+  cursor: pointer;
 }
