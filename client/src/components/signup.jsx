@@ -123,7 +123,7 @@ const Signup = () => {
 
           {/* Back Button */}
           <div className="back">
-            <a href="#"><u>BACK</u></a>
+            <a href="/"><u>BACK</u></a>
           </div>
         </form>
       </div>

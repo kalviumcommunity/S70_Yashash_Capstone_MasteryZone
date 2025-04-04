@@ -112,3 +112,142 @@ a{
   color: black;
   cursor: pointer;
 }
+
+
+
+/* Login page */  
+
+/* Background */
+.container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  align-content: center;
+  height: 100vh;
+  width: 100vw;
+  margin-left: -8px;
+  margin-top: -8px;
+  background-image: url('./assets/login_bg.webp');
+  background-repeat: no-repeat;
+  background-size: cover;
+  position: fixed;
+}
+
+/* Login Box */
+.login-box {
+  background: white;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  width: 450px;
+  height: 600px;
+  text-align: center;
+}
+
+/* Image */
+
+
+.login-image {
+  width: 100%;
+  
+}
+
+/* Title */
+.title {
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 20px;
+}
+
+/* Input Fields */
+.input-group{
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.input-field1 {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #f9a8d4;
+  padding: 5px;
+  border-radius: 2em;
+  width: 300px;
+
+}
+
+.input-field1 input {
+  border: none;
+  background: transparent;
+  width: 75%;
+  font-size: 16px;
+  color: #333;
+}
+
+.input-field1 input:focus {
+  outline: none;
+}
+
+.icon {
+  color: #555;
+  margin-left: 15px;
+}
+
+/* Options */
+.options {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  margin-top: 0px;
+  margin-left: 70px;
+  margin-right: 70px;
+}
+
+.forgot-password {
+  color: #6a0572;
+  text-decoration: none;
+}
+
+.forgot-password:hover {
+  text-decoration: underline;
+}
+
+/* Login Button */
+.login-button {
+  width: 70%;
+  background: #6a0572;
+  color: white;
+  padding: 15px;
+  border: none;
+  border-radius: 15px;
+  font-size: 16px;
+  margin-top: 20px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.login-button:hover {
+  background: #54014a;
+}
+
+/* Signup Text */
+.signup-text {
+  margin-top: 10px;
+  font-size: 14px;
+}
+
+.signup-text a {
+  color: #6a0572;
+  text-decoration: none;
+}
+
+.signup-text a:hover {
+  text-decoration: underline;
+}
+
+
+
+/* reset passward */
+
+/* Full Page Background */
