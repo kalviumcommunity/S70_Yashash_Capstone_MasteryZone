@@ -21,5 +21,16 @@ const createAdminLog = async (req, res) => {
   }
 };
 
-module.exports = { getAllAdminLogs, createAdminLog };
+// PUT: Update admin log by ID
+const updateAdminLog = async (req, res) => {
+  try {
+    const log = await AdminActivityLog.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!log) return res.status(404).json({ error: "Admin log not found" });
+    res.json(log);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};
+
+module.exports = { getAllAdminLogs, createAdminLog, updateAdminLog };
 
