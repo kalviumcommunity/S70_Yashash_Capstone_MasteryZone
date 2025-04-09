@@ -21,5 +21,17 @@ const createProgress = async (req, res) => {
   }
 };
 
-module.exports = { getAllProgress, createProgress };
+// PUT: Update progress by ID
+const updateProgress = async (req, res) => {
+  try {
+    const progress = await Progress.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!progress) return res.status(404).json({ error: "Progress not found" });
+    res.json(progress);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};
+
+module.exports = { getAllProgress, createProgress, updateProgress };
+
 

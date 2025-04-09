@@ -11,6 +11,7 @@ const getAllGroups = async (req, res) => {
   }
 };
 
+
 // POST: Create new group
 const createGroup = async (req, res) => {
   try {
@@ -22,5 +23,16 @@ const createGroup = async (req, res) => {
   }
 };
 
-module.exports = { getAllGroups, createGroup };
+// PUT: Update group by ID
+const updateGroup = async (req, res) => {
+  try {
+    const group = await Group.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!group) return res.status(404).json({ error: "Group not found" });
+    res.json(group);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};
+
+module.exports = { getAllGroups, createGroup, updateGroup };
 

@@ -21,5 +21,16 @@ const createResource = async (req, res) => {
   }
 };
 
-module.exports = { getAllResources, createResource };
+// PUT: Update resource by ID
+const updateResource = async (req, res) => {
+  try {
+    const resource = await Resource.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!resource) return res.status(404).json({ error: "Resource not found" });
+    res.json(resource);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};
+
+module.exports = { getAllResources, createResource, updateResource };
 
