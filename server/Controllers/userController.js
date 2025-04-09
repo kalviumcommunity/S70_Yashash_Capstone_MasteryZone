@@ -10,7 +10,6 @@ const getAllUsers = async (req, res) => {
   }
 };
 
-// POST: Create new user
 const createUser = async (req, res) => {
   try {
     const user = new User(req.body); // Make sure your request includes required fields
@@ -21,4 +20,16 @@ const createUser = async (req, res) => {
   }
 };
 
-module.exports = { getAllUsers, createUser };
+
+/// PUT: Update user by ID
+const updateUser = async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!user) return res.status(404).json({ error: "User not found" });
+    res.json(user);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};
+
+module.exports = { getAllUsers, createUser, updateUser };
