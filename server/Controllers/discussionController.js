@@ -22,5 +22,16 @@ const createDiscussion = async (req, res) => {
   }
 };
 
-module.exports = { getAllDiscussions, createDiscussion };
+// PUT: Update discussion by ID
+const updateDiscussion = async (req, res) => {
+  try {
+    const discussion = await Discussion.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!discussion) return res.status(404).json({ error: "Discussion not found" });
+    res.json(discussion);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};
+
+module.exports = { getAllDiscussions, createDiscussion, updateDiscussion };
 

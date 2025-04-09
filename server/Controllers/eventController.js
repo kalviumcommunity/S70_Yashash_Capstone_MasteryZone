@@ -22,5 +22,17 @@ const createEvent = async (req, res) => {
   }
 };
 
-module.exports = { getAllEvents, createEvent };
+// PUT: Update event by ID
+const updateEvent = async (req, res) => {
+  try {
+    const event = await Event.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!event) return res.status(404).json({ error: "Event not found" });
+    res.json(event);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};
+
+module.exports = { getAllEvents, createEvent, updateEvent };
+
 
