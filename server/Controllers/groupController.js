@@ -1,4 +1,4 @@
-const Group = require("../models/Group");
+const Group = require("../models/GroupSchema");
 
 // GET all groups
 const getAllGroups = async (req, res) => {

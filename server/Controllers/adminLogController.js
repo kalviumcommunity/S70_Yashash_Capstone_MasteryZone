@@ -1,4 +1,4 @@
-const AdminActivityLog = require("../models/AdminActivityLog");
+const AdminActivityLog = require("../models/AdminActSchema");
 
 // GET all admin logs
 const getAllAdminLogs = async (req, res) => {
