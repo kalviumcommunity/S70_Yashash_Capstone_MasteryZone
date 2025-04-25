@@ -1,4 +1,4 @@
-const Resource = require("../models/Resource");
+const Resource = require("../models/ResourceSchema");
 
 // GET all resources
 const getAllResources = async (req, res) => {
