@@ -1,5 +1,6 @@
-const User = require("../models/User");
+const User = require("../models/UserSchema");
 
+// Red component
 // GET all users
 const getAllUsers = async (req, res) => {
   try {
@@ -10,8 +11,10 @@ const getAllUsers = async (req, res) => {
   }
 };
 
+// Write component
 const createUser = async (req, res) => {
   try {
+    console.log(req.body)
     const user = new User(req.body); // Make sure your request includes required fields
     await user.save();
     res.status(201).json(user);
