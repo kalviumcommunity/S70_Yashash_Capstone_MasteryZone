@@ -1,4 +1,4 @@
-const Discussion = require("../models/Discussion");
+const Discussion = require("../models/DiscussionSchema");
 
 // GET all discussions
 const getAllDiscussions = async (req, res) => {
