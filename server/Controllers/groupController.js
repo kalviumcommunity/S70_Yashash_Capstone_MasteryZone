@@ -34,5 +34,29 @@ const updateGroup = async (req, res) => {
   }
 };
 
-module.exports = { getAllGroups, createGroup, updateGroup };
+
+
+const addUserToGroup = async (req, res) => {
+  const { userId, groupId } = req.body;
+
+  const group = await Group.findById(groupId);
+  const user = await User.findById(userId);
+
+  if (!group || !user) {
+    return res.status(404).json({ message: "User or group not found" });
+  }
+
+  // Add user to group
+  group.members.push(user._id);
+  await group.save();
+
+  // Add group to user
+  user.groups.push(group._id);
+  await user.save();
+
+  res.status(200).json({ message: "User added to group" });
+};
+
+
+module.exports = { getAllGroups, createGroup, updateGroup , addUserToGroup};
 
