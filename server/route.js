@@ -7,8 +7,15 @@ const { getAllDiscussions, createDiscussion, updateDiscussion } = require("./Con
 const { getAllEvents, createEvent, updateEvent } = require("./Controllers/eventController")
 const { getAllGroups, createGroup, updateGroup } = require("./Controllers/groupController");
 const { getAllNotifications, createNotification, updateNotification } = require("./Controllers/notificationController");
+const { addUserToGroup } = require('../controllers/groupController');
 const { getAllProgress, createProgress, updateProgress } = require("./Controllers/progressController");
 const { getAllResources, createResource, updateResource } = require("./Controllers/resourceController");
+const express = require('express');
+const router = express.Router();
+
+router.post('/add-user', addUserToGroup);
+
+module.exports = router;
 
 //USER routes
 router.get('/users', getAllUsers)
@@ -57,6 +64,7 @@ router.get('/resources', getAllResources)
 router.post('/createResources', createResource)
 router.put("/updateResources/:id", updateResource)
 
+router.post('/add-user', addUserToGroup);
 
 
 module.exports = router;
