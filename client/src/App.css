@@ -117,7 +117,6 @@ a{
 
 /* Login page */  
 
-/* Background */
 .container {
   display: flex;
   justify-content: center;
@@ -244,6 +243,21 @@ a{
 
 .signup-text a:hover {
   text-decoration: underline;
+}
+
+.google-button {
+  margin-top: 10px;
+  background-color: #4285F4;
+  color: white;
+  padding: 10px;
+  width: 100%;
+  border: none;
+  border-radius: 5px;
+  font-weight: bold;
+  cursor: pointer;
+}
+.google-button:hover {
+  background-color: #357ae8;
 }
 
 
