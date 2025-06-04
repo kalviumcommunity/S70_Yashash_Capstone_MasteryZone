@@ -1,5 +1,4 @@
 const express = require("express");
-const router = express.Router();
 
 const { getAllUsers, createUser, updateUser } = require("./Controllers/userController");
 const { getAllAdminLogs, createAdminLog, updateAdminLog } = require("./Controllers/adminLogController");
@@ -15,7 +14,6 @@ const router = express.Router();
 
 router.post('/add-user', addUserToGroup);
 
-module.exports = router;
 
 //USER routes
 router.get('/users', getAllUsers)
@@ -65,6 +63,7 @@ router.post('/createResources', createResource)
 router.put("/updateResources/:id", updateResource)
 
 router.post('/add-user', addUserToGroup);
-
-
+    
+    
 module.exports = router;
+    
