@@ -67,7 +67,7 @@
 /* Background Wet Glass Area */
 .home-body {
   flex: 1;
-  background-image: url('../assets/forgt-pass-3.jpg');
+  background-image: url('../assets/home_bg.jpg');
   background-repeat: no-repeat;
   background-size: cover;
   background-position: center;
