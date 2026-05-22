@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { FaArrowLeft } from "react-icons/fa";
 import "./home.css"; // Import the styling
 
 const Home = () => {
@@ -40,7 +39,27 @@ const Home = () => {
         <div className="home-logo">
           <span className="mastery">MASTERY</span>
           <span className="zone">ZONE</span>
-          <span className="registered">✪</span>
+          {/* Registered icon match */}
+          <span className="registered-wrapper">
+            <svg
+              className="registered-icon"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <circle
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="#000000"
+                strokeWidth="2"
+                fill="none"
+              />
+              <polygon
+                points="12,7 13.5,10.5 17,11 14.5,13.5 15,17 12,15 9,17 9.5,13.5 7,11 10.5,10.5"
+                fill="#000000"
+              />
+            </svg>
+          </span>
         </div>
       </header>
 
@@ -95,11 +114,29 @@ const Home = () => {
 
           {/* Bottom Controls */}
           <div className="home-bottom-controls">
-            {/* Back Button */}
+            {/* Back Button matching the exact circular icon style */}
             <button className="back-circle-btn" onClick={handleBackToLogin} title="Back to Login">
-              <span className="back-arrow-icon">
-                <FaArrowLeft size={16} />
-              </span>
+              <svg
+                className="back-circle-icon"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <circle
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="#ffffff"
+                  strokeWidth="2"
+                  fill="none"
+                />
+                <path
+                  d="M14 8L10 12L14 16"
+                  stroke="#ffffff"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
             </button>
 
             {/* Start Trial Button */}
