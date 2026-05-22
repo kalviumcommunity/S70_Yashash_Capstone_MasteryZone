@@ -1,4 +1,5 @@
 const Group = require("../models/GroupSchema");
+const User = require("../models/User");
 
 // GET all groups
 const getAllGroups = async (req, res) => {

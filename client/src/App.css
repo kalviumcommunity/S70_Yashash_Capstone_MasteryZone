@@ -69,6 +69,7 @@
   outline: none;
   transition: 0.3s;
   background: #e986f4;
+  box-sizing: border-box;
 }
 
 .input-group input:focus {
@@ -142,11 +143,8 @@ a{
 }
 
 /* Image */
-
-
 .login-image {
   width: 100%;
-  
 }
 
 /* Title */
@@ -177,15 +175,20 @@ a{
 }
 
 .input-field1 input {
-  border: none;
-  background: transparent;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
   width: 75%;
   font-size: 16px;
   color: #333;
 }
 
 .input-field1 input:focus {
-  outline: none;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
 }
 
 .icon {
@@ -201,6 +204,7 @@ a{
   margin-top: 0px;
   margin-left: 70px;
   margin-right: 70px;
+  align-self: stretch;
 }
 
 .forgot-password {
@@ -255,9 +259,21 @@ a{
   border-radius: 5px;
   font-weight: bold;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 16px;
+  transition: background-color 0.3s;
 }
 .google-button:hover {
   background-color: #357ae8;
+}
+.google-button svg {
+  background-color: white;
+  border-radius: 50%;
+  padding: 2px;
+  box-sizing: border-box;
 }
 
 

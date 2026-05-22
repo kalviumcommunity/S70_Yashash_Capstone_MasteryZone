@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { FaEye, FaEyeSlash } from "react-icons/fa";
 import "../App.css"; // Import the CSS file
 
 const Signup = () => {
@@ -11,32 +12,131 @@ const Signup = () => {
   });
 
   const [error, setError] = useState("");
-  // here the error wiil be empty string.When it get error the "setError" method updates the error string
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [touched, setTouched] = useState({});
+  const [validationErrors, setValidationErrors] = useState({});
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-    // when the user enters the data "setFormData" method update to key value pairs like [firstName:"Alice"]
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+    setTouched({ ...touched, [name]: true });
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();  
-    // e.preventDefault(); prevents the page from reloading.
+  useEffect(() => {
+    const errors = {};
+    
+    if (touched.firstName) {
+      if (!formData.firstName.trim()) {
+        errors.firstName = "First name is required";
+      } else if (formData.firstName.length < 2) {
+        errors.firstName = "Must be at least 2 characters";
+      }
+    }
+    
+    if (touched.lastName) {
+      if (!formData.lastName.trim()) {
+        errors.lastName = "Last name is required";
+      } else if (formData.lastName.length < 2) {
+        errors.lastName = "Must be at least 2 characters";
+      }
+    }
+    
+    if (touched.email) {
+      if (!formData.email.trim()) {
+        errors.email = "Email is required";
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+        errors.email = "Invalid email format";
+      }
+    }
+    
+    if (touched.password) {
+      if (!formData.password) {
+        errors.password = "Password is required";
+      } else if (formData.password.length < 6) {
+        errors.password = "Must be at least 6 characters";
+      }
+    }
+    
+    if (touched.confirmPassword) {
+      if (!formData.confirmPassword) {
+        errors.confirmPassword = "Confirm password is required";
+      } else if (formData.confirmPassword !== formData.password) {
+        errors.confirmPassword = "Passwords do not match";
+      }
+    }
+    
+    setValidationErrors(errors);
 
-    // Destructuring formData to extract values
+    // Clear sticky general submit error once all validation errors are solved
+    if (Object.keys(errors).length === 0) {
+      setError("");
+    }
+  }, [formData, touched]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();  
+
+    const allTouched = {
+      firstName: true,
+      lastName: true,
+      email: true,
+      password: true,
+      confirmPassword: true,
+    };
+    setTouched(allTouched);
+
     const { firstName, lastName, email, password, confirmPassword } = formData;
 
-    if (!firstName || !lastName || !email || !password || !confirmPassword) {
-      setError("All fields are required");
+    const errors = {};
+    if (!firstName.trim()) errors.firstName = "First name is required";
+    else if (firstName.length < 2) errors.firstName = "Must be at least 2 characters";
+
+    if (!lastName.trim()) errors.lastName = "Last name is required";
+    else if (lastName.length < 2) errors.lastName = "Must be at least 2 characters";
+
+    if (!email.trim()) errors.email = "Email is required";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = "Invalid email format";
+
+    if (!password) errors.password = "Password is required";
+    else if (password.length < 6) errors.password = "Must be at least 6 characters";
+
+    if (!confirmPassword) errors.confirmPassword = "Confirm password is required";
+    else if (confirmPassword !== password) errors.confirmPassword = "Passwords do not match";
+
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      setError("Please fix the validation errors before submitting.");
       return;
     }
 
-    if (password !== confirmPassword) {
-      setError("Passwords do not match");
-      return;
-    }
+    try {
+      const response = await fetch("/auth/signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          firstName,
+          lastName,
+          email,
+          password,
+        }),
+      });
 
-    console.log("User Signed Up:", formData);
-    setError(""); // Clear error after successful submission
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.message || "Registration failed");
+        return;
+      }
+
+      setError("");
+      alert(`Account created successfully! Your generated username is: ${data.newUser.username}`);
+      window.location.href = "/login";
+    } catch (err) {
+      setError("Failed to connect to server");
+    }
   };
 
   return (
@@ -50,7 +150,7 @@ const Signup = () => {
 
         <form onSubmit={handleSubmit}>
           {/* First Name */}
-          <div className="input-group">
+          <div className="input-group" style={{ position: "relative" }}>
             <input
               type="text"
               className="inputs"
@@ -59,10 +159,15 @@ const Signup = () => {
               value={formData.firstName}
               onChange={handleChange}
             />
+            {validationErrors.firstName && (
+              <span style={{ position: "absolute", bottom: "-20px", left: "10%", color: "#ff4d4d", fontSize: "11px", fontWeight: "bold" }}>
+                {validationErrors.firstName}
+              </span>
+            )}
           </div>
 
           {/* Last Name */}
-          <div className="input-group">
+          <div className="input-group" style={{ position: "relative" }}>
             <input
               type="text"
               className="inputs"
@@ -71,10 +176,15 @@ const Signup = () => {
               value={formData.lastName}
               onChange={handleChange}
             />
+            {validationErrors.lastName && (
+              <span style={{ position: "absolute", bottom: "-20px", left: "10%", color: "#ff4d4d", fontSize: "11px", fontWeight: "bold" }}>
+                {validationErrors.lastName}
+              </span>
+            )}
           </div>
 
           {/* Email */}
-          <div className="input-group">
+          <div className="input-group" style={{ position: "relative" }}>
             <input
               type="email"
               className="inputs"
@@ -83,30 +193,77 @@ const Signup = () => {
               value={formData.email}
               onChange={handleChange}
             />
+            {validationErrors.email && (
+              <span style={{ position: "absolute", bottom: "-20px", left: "10%", color: "#ff4d4d", fontSize: "11px", fontWeight: "bold" }}>
+                {validationErrors.email}
+              </span>
+            )}
           </div>
 
           {/* Password */}
-          <div className="input-group">
-            <input
-              type="password"
-              className="inputs"
-              name="password"
-              placeholder="Password"
-              value={formData.password}
-              onChange={handleChange}
-            />
+          <div className="input-group" style={{ position: "relative" }}>
+            <div style={{ position: "relative", width: "80%", display: "flex", alignItems: "center" }}>
+              <input
+                type={showPassword ? "text" : "password"}
+                className="inputs"
+                name="password"
+                placeholder="Password"
+                value={formData.password}
+                onChange={handleChange}
+                style={{ width: "100%", paddingRight: "40px", boxSizing: "border-box" }}
+              />
+              <span
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: "absolute",
+                  right: "15px",
+                  cursor: "pointer",
+                  color: "#555",
+                  display: "flex",
+                  alignItems: "center"
+                }}
+              >
+                {showPassword ? <FaEyeSlash /> : <FaEye />}
+              </span>
+            </div>
+            {validationErrors.password && (
+              <span style={{ position: "absolute", bottom: "-20px", left: "10%", color: "#ff4d4d", fontSize: "11px", fontWeight: "bold" }}>
+                {validationErrors.password}
+              </span>
+            )}
           </div>
 
           {/* Confirm Password */}
-          <div className="input-group">
-            <input
-              type="password"
-              className="inputs"
-              name="confirmPassword"
-              placeholder="Re-enter passward"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-            />
+          <div className="input-group" style={{ position: "relative" }}>
+            <div style={{ position: "relative", width: "80%", display: "flex", alignItems: "center" }}>
+              <input
+                type={showConfirmPassword ? "text" : "password"}
+                className="inputs"
+                name="confirmPassword"
+                placeholder="Re-enter passward"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                style={{ width: "100%", paddingRight: "40px", boxSizing: "border-box" }}
+              />
+              <span
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                style={{
+                  position: "absolute",
+                  right: "15px",
+                  cursor: "pointer",
+                  color: "#555",
+                  display: "flex",
+                  alignItems: "center"
+                }}
+              >
+                {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
+              </span>
+            </div>
+            {validationErrors.confirmPassword && (
+              <span style={{ position: "absolute", bottom: "-20px", left: "10%", color: "#ff4d4d", fontSize: "11px", fontWeight: "bold" }}>
+                {validationErrors.confirmPassword}
+              </span>
+            )}
           </div>
 
           {/* Remember Me Checkbox */}
@@ -123,7 +280,7 @@ const Signup = () => {
 
           {/* Back Button */}
           <div className="back">
-            <a href="/"><u>BACK</u></a>
+            <a href="/login"><u>BACK</u></a>
           </div>
         </form>
       </div>
