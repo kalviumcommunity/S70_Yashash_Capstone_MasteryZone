@@ -74,6 +74,7 @@ const Login = () => {
 
       localStorage.setItem("token", data.token);
       alert(`Welcome back, ${data.user.username}! Login successful.`);
+      window.location.href = "/home";
     } catch (err) {
       alert("Failed to connect to server");
     }
