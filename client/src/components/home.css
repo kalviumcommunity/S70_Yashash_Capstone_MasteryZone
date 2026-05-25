@@ -185,7 +185,7 @@
   font-weight: bold;
   cursor: pointer;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.65);
-  transition: all 0.2s ease-in-out;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   letter-spacing: 1.5px;
   outline: none;
   min-width: 165px;
@@ -193,16 +193,22 @@
 }
 
 .interest-pill:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.85);
+  transform: translateY(-4px) scale(1.05);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.9);
   background-color: #111111;
+}
+
+.interest-pill:active {
+  transform: translateY(0) scale(0.95);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
 }
 
 /* Active State for selected buttons matching background aesthetics */
 .interest-pill.active {
-  background-color: #6a0572;
+  background-color: #39FF14;
+  color: #000000;
   border-color: #ffffff;
-  box-shadow: 0 0 15px rgba(106, 5, 114, 0.8), 0 5px 15px rgba(0,0,0,0.6);
+  box-shadow: 0 0 20px rgba(57, 255, 20, 0.7), 0 5px 15px rgba(0,0,0,0.6);
 }
 
 /* Bottom Controls */
@@ -246,7 +252,7 @@
 
 /* Start Trial Button */
 .start-trial-btn {
-  background-color: #ffffff;
+  background: linear-gradient(135deg, #ffffff, #f0f0f0);
   color: #000000;
   border: none;
   border-radius: 50px;
@@ -256,13 +262,400 @@
   font-weight: 800;
   cursor: pointer;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.35);
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   letter-spacing: 0.2px;
   outline: none;
 }
 
 .start-trial-btn:hover {
-  background-color: #f5f5f5;
+  background: linear-gradient(135deg, #ffffff, #e2e2e2);
+  transform: translateY(-4px) scale(1.03);
+  box-shadow: 0 12px 25px rgba(255, 255, 255, 0.4), 0 8px 20px rgba(0, 0, 0, 0.5);
+}
+
+.start-trial-btn:active {
+  transform: translateY(0) scale(0.95);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+}
+
+/* Premium Profile Section */
+.profile-section {
+  position: absolute;
+  right: 40px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+}
+
+.profile-avatar-wrapper {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6a0572, #ab2346);
+  padding: 3px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.profile-avatar-wrapper:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 20px rgba(106, 5, 114, 0.4);
+}
+
+.profile-avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #ffffff;
+}
+
+.profile-avatar-placeholder {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background-color: #ffffff;
+  color: #6a0572;
+  font-family: 'Inter', sans-serif;
+  font-weight: 800;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Glassmorphism Dropdown */
+.profile-dropdown {
+  position: absolute;
+  top: 65px;
+  right: 0;
+  width: 240px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  padding: 10px 0;
+  animation: slideDownFade 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  z-index: 100;
+}
+
+@keyframes slideDownFade {
+  from {
+    opacity: 0;
+    transform: translateY(-15px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.dropdown-header {
+  padding: 12px 20px;
+  display: flex;
+  flex-direction: column;
+  color: #333;
+}
+
+.dropdown-header strong {
+  font-family: 'Inter', sans-serif;
+  font-size: 16px;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+
+.dropdown-header span {
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  color: #666;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dropdown-divider {
+  height: 1px;
+  background-color: #e2e8f0;
+  margin: 5px 0;
+}
+
+.dropdown-item {
+  background: transparent;
+  border: none;
+  width: 100%;
+  text-align: left;
+  padding: 12px 20px;
+  font-family: 'Inter', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  color: #4a5568;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dropdown-item:hover {
+  background-color: #f7fafc;
+  color: #6a0572;
+  padding-left: 24px;
+}
+
+.dropdown-item.text-danger {
+  color: #e53e3e;
+}
+
+.dropdown-item.text-danger:hover {
+  background-color: #fff5f5;
+  color: #c53030;
+}
+
+/* Glassmorphism Modals */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.glass-modal {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 16px;
+  padding: 30px;
+  width: 400px;
+  max-width: 90%;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+  text-align: center;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  animation: scaleUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.modal-title {
+  font-family: 'Inter', sans-serif;
+  font-size: 24px;
+  font-weight: 800;
+  color: #1a202c;
+  margin-top: 0;
+  margin-bottom: 15px;
+}
+
+.modal-text {
+  font-family: 'Inter', sans-serif;
+  font-size: 16px;
+  color: #4a5568;
+  margin-bottom: 30px;
+  line-height: 1.5;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+}
+
+.btn-cancel, .btn-confirm, .btn-primary {
+  flex: 1;
+  padding: 12px;
+  border-radius: 8px;
+  font-family: 'Inter', sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+}
+
+.btn-cancel {
+  background-color: #edf2f7;
+  color: #4a5568;
+}
+
+.btn-cancel:hover {
+  background-color: #e2e8f0;
+}
+
+.btn-confirm {
+  background-color: #e53e3e;
+  color: white;
+}
+
+.btn-confirm:hover {
+  background-color: #c53030;
   transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 4px 12px rgba(229, 62, 62, 0.3);
+}
+
+.btn-primary {
+  background-color: #6a0572;
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: #ab2346;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(106, 5, 114, 0.3);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleUp {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* Settings Modal Specifics */
+.settings-modal {
+  text-align: left;
+}
+
+.setting-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 0;
+  border-bottom: 1px solid #edf2f7;
+}
+
+.setting-row:last-of-type {
+  border-bottom: none;
+}
+
+.setting-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.setting-name {
+  font-family: 'Inter', sans-serif;
+  font-weight: 700;
+  color: #2d3748;
+  font-size: 16px;
+  margin-bottom: 4px;
+}
+
+.setting-desc {
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  color: #718096;
+}
+
+/* iOS Style Toggle Switch */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 28px;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #cbd5e0;
+  transition: .4s;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  transition: .4s;
+}
+
+input:checked + .slider {
+  background-color: #6a0572;
+}
+
+input:checked + .slider:before {
+  transform: translateX(22px);
+}
+
+.slider.round {
+  border-radius: 34px;
+}
+
+.slider.round:before {
+  border-radius: 50%;
+}
+
+/* Basic Dark Mode Adjustments */
+.dark-mode .home-header {
+  background-color: #1a202c;
+  border-bottom: 2px solid #2d3748;
+}
+
+.dark-mode .home-logo .mastery {
+  color: #ffffff;
+}
+
+.dark-mode .home-logo .registered-icon {
+  stroke: #ffffff;
+}
+.dark-mode .home-logo .registered-icon polygon {
+  fill: #ffffff;
+}
+
+/* Responsive Design Adjustments */
+@media screen and (max-width: 768px) {
+  .interests-row {
+    gap: 15px;
+  }
+  
+  .interest-pill {
+    padding: 10px 25px;
+    font-size: 16px;
+    min-width: 130px;
+  }
+  
+  .start-trial-btn {
+    padding: 12px 28px;
+    font-size: 16px;
+    width: 100%;
+  }
+
+  .home-quotes {
+    padding: 0 15px;
+  }
+
+  .home-quote-primary {
+    font-size: 20px;
+  }
+
+  .home-quote-secondary {
+    font-size: 16px;
+  }
 }

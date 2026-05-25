@@ -3,6 +3,7 @@ import { FaUser, FaLock, FaEye, FaEyeSlash } from "react-icons/fa";
 import { FcGoogle } from "react-icons/fc";
 import { signInWithPopup } from "firebase/auth";
 import { auth, provider } from "../firebase/firebaseConfig";
+import { useNavigate } from "react-router-dom";
 
 import "../App.css";
 
@@ -12,16 +13,35 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [touched, setTouched] = useState({});
   const [validationErrors, setValidationErrors] = useState({});
+  const navigate = useNavigate();
 
   const handleGoogleLogin = async () => {
     try {
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
-      console.log("Logged in user:", user);
-      alert(`Welcome, ${user.displayName}`);
+      
+      const token = await user.getIdToken();
+
+      const response = await fetch("/auth/firebase-login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.message || "Firebase Login failed on server");
+        return;
+      }
+
+      localStorage.setItem("token", data.token);
+      navigate("/home");
     } catch (error) {
       console.error("Google Login Error:", error);
-      alert("Failed to login with Google");
+      alert("Failed to login with Google: " + (error.message || "Unknown error"));
     }
   };
 
@@ -73,8 +93,7 @@ const Login = () => {
       }
 
       localStorage.setItem("token", data.token);
-      alert(`Welcome back, ${data.user.username}! Login successful.`);
-      window.location.href = "/home";
+      navigate("/home");
     } catch (err) {
       alert("Failed to connect to server");
     }
@@ -98,6 +117,7 @@ const Login = () => {
               <input
                 type="text"
                 placeholder="Username or E-Mail"
+                autoComplete="off"
                 value={identifier}
                 onChange={(e) => {
                   setIdentifier(e.target.value);
@@ -116,6 +136,7 @@ const Login = () => {
               <input
                 type={showPassword ? "text" : "password"}
                 placeholder="Password"
+                autoComplete="new-password"
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value);
