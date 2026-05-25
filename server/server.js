@@ -10,7 +10,8 @@ const app = express();
 const PORT = process.env.PORT || 5012; // Use environment variable or fallback to 5012
 
 
-app.use(express.json()); // Middleware to parse JSON requests
+app.use(express.json({ limit: '50mb' })); // Middleware to parse JSON requests
+app.use(express.urlencoded({ limit: '50mb', extended: true })); // Middleware to parse URL-encoded bodies
 app.use(cookieParser()); // Use cookie parser
 app.use("/api", router)
 app.use('/auth', authRoutes);

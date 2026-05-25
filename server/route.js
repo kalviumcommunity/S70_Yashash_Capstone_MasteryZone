@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const authenticateToken = require("./middleware/authMiddleware");
 
 const { getAllUsers, createUser, updateUser } = require("./Controllers/userController");
 const { getAllAdminLogs, createAdminLog, updateAdminLog } = require("./Controllers/adminLogController");
@@ -9,6 +10,9 @@ const { getAllGroups, createGroup, updateGroup, addUserToGroup } = require("./Co
 const { getAllNotifications, createNotification, updateNotification } = require("./Controllers/notificationController");
 const { getAllProgress, createProgress, updateProgress } = require("./Controllers/progressController");
 const { getAllResources, createResource, updateResource } = require("./Controllers/resourceController");
+
+// Apply JWT protection to all routes in this file
+router.use(authenticateToken);
 
 router.post('/add-user', addUserToGroup);
 

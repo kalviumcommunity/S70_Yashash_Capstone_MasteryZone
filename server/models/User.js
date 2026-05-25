@@ -23,7 +23,13 @@ const userSchema = new mongoose.Schema({
   interests: [String],
   groups: [{ type: mongoose.Schema.Types.ObjectId, ref: "Group" }],
   progress: [{ type: mongoose.Schema.Types.ObjectId, ref: "Progress" }],
-  role: { type: String, enum: ["user", "admin"], default: "user" }
+  role: { type: String, enum: ["user", "admin"], default: "user" },
+  preferences: {
+    notifications: { type: Boolean, default: true },
+    darkMode: { type: Boolean, default: false }
+  },
+  resetPasswordToken: String,
+  resetPasswordExpires: Date
 }, { timestamps: true });
 
 const User = mongoose.models.User || mongoose.model('User', userSchema);

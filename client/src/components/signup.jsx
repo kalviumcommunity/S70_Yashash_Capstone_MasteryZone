@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
+import { useNavigate } from "react-router-dom";
 import "../App.css"; // Import the CSS file
 
 const Signup = () => {
@@ -10,6 +11,8 @@ const Signup = () => {
     password: "",
     confirmPassword: "",
   });
+
+  const navigate = useNavigate();
 
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -132,8 +135,7 @@ const Signup = () => {
       }
 
       setError("");
-      alert(`Account created successfully! Your generated username is: ${data.newUser.username}`);
-      window.location.href = "/login";
+      navigate("/login");
     } catch (err) {
       setError("Failed to connect to server");
     }
@@ -156,6 +158,7 @@ const Signup = () => {
               className="inputs"
               name="firstName"
               placeholder="First Name"
+              autoComplete="off"
               value={formData.firstName}
               onChange={handleChange}
             />
@@ -173,6 +176,7 @@ const Signup = () => {
               className="inputs"
               name="lastName"
               placeholder="Last Name"
+              autoComplete="off"
               value={formData.lastName}
               onChange={handleChange}
             />
@@ -190,6 +194,7 @@ const Signup = () => {
               className="inputs"
               name="email"
               placeholder="E-Mail"
+              autoComplete="off"
               value={formData.email}
               onChange={handleChange}
             />
@@ -208,6 +213,7 @@ const Signup = () => {
                 className="inputs"
                 name="password"
                 placeholder="Password"
+                autoComplete="new-password"
                 value={formData.password}
                 onChange={handleChange}
                 style={{ width: "100%", paddingRight: "40px", boxSizing: "border-box" }}
@@ -241,6 +247,7 @@ const Signup = () => {
                 className="inputs"
                 name="confirmPassword"
                 placeholder="Re-enter passward"
+                autoComplete="new-password"
                 value={formData.confirmPassword}
                 onChange={handleChange}
                 style={{ width: "100%", paddingRight: "40px", boxSizing: "border-box" }}
