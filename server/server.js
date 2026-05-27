@@ -28,6 +28,16 @@ mongoose.connect(MONGO_URI)
   .catch((err)=>console.log("🔌Error connecting to MongoDB:", err.message))
 
 
+const path = require('path');
+
+// Serve static frontend files
+app.use(express.static(path.join(__dirname, '../client/dist')));
+
+// Catch-all route to serve the React app for non-API requests (SPA routing)
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+});
+
 // Start Server
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port http://localhost:${PORT}`);
