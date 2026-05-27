@@ -12,7 +12,7 @@ const PORT = process.env.PORT || 5012; // Use environment variable or fallback t
 
 // CORS - allow requests from frontend
 app.use(cors({
-  origin: process.env.CLIENT_URL || "*",
+  origin: true,
   credentials: true,
 }));
 
