@@ -3,6 +3,8 @@ import { FaEye, FaEyeSlash } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import "../App.css"; // Import the CSS file
 
+const API_BASE = import.meta.env.VITE_API_URL || "";
+
 const Signup = () => {
   const [formData, setFormData] = useState({
     firstName: "",
@@ -114,7 +116,7 @@ const Signup = () => {
     }
 
     try {
-      const response = await fetch("/auth/signup", {
+      const response = await fetch(`${API_BASE}/auth/signup`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

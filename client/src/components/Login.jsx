@@ -7,6 +7,8 @@ import { useNavigate } from "react-router-dom";
 
 import "../App.css";
 
+const API_BASE = import.meta.env.VITE_API_URL || "";
+
 const Login = () => {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -22,7 +24,7 @@ const Login = () => {
       
       const token = await user.getIdToken();
 
-      const response = await fetch("/auth/firebase-login", {
+      const response = await fetch(`${API_BASE}/auth/firebase-login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -74,7 +76,7 @@ const Login = () => {
     }
 
     try {
-      const response = await fetch("/auth/login", {
+      const response = await fetch(`${API_BASE}/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

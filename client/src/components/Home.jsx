@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import "./home.css";
 
+const API_BASE = import.meta.env.VITE_API_URL || "";
+
 const Home = () => {
   const [selectedInterests, setSelectedInterests] = useState({
     CODING: false,
@@ -29,7 +31,7 @@ const Home = () => {
         return;
       }
       try {
-        const response = await fetch("/auth/me", {
+        const response = await fetch(`${API_BASE}/auth/me`, {
           headers: {
             Authorization: `Bearer ${token}`
           }
@@ -103,7 +105,7 @@ const Home = () => {
 
     try {
       const token = localStorage.getItem("token");
-      const response = await fetch("/auth/me", {
+      const response = await fetch(`${API_BASE}/auth/me`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`
@@ -134,7 +136,7 @@ const Home = () => {
       
       try {
         const token = localStorage.getItem("token");
-        const response = await fetch("/auth/avatar", {
+        const response = await fetch(`${API_BASE}/auth/avatar`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
@@ -162,7 +164,7 @@ const Home = () => {
 
     try {
       const token = localStorage.getItem("token");
-      await fetch("/auth/preferences", {
+      await fetch(`${API_BASE}/auth/preferences`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
