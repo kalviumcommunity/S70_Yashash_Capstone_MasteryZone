@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import "./home.css";
 
-const API_BASE = import.meta.env.VITE_API_URL || "";
+const API_BASE = import.meta.env.VITE_API_URL || "https://s70-yashash-capstone-masteryzone-2-1111-4u4i.onrender.com";
 
 const Home = () => {
   const [selectedInterests, setSelectedInterests] = useState({
