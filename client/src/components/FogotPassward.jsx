@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { FaUser } from "react-icons/fa";
 import "./forgot.css";
 
-const API_BASE = import.meta.env.VITE_API_URL || "https://s70-yashash-capstone-masteryzone-2-1111-4u4i.onrender.com";
+const API_BASE = import.meta.env.VITE_API_URL || "https://s70-yashash-capstone-masteryzone-2-1111-of4n.onrender.com";
 
 const ForgotPassword = () => {
   const [usernameOrEmail, setUsernameOrEmail] = useState("");
