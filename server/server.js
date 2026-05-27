@@ -22,9 +22,10 @@ app.use(cookieParser()); // Use cookie parser
 app.use("/api", router)
 app.use('/auth', authRoutes);
 
-mongoose.connect(process.env.db_url)
+const MONGO_URI = process.env.db_url || "mongodb+srv://yashashyashash1_db_user:yashash87920@masteryzone1111.gyw8std.mongodb.net/masteryzone?retryWrites=true&w=majority&appName=masteryzone1111";
+mongoose.connect(MONGO_URI)
   .then(() => console.log("✅ MongoDB Connected Successfully"))
-  .catch((err)=>console.log("🔌Error connecting to MongoDB"))
+  .catch((err)=>console.log("🔌Error connecting to MongoDB:", err.message))
 
 
 // Start Server
