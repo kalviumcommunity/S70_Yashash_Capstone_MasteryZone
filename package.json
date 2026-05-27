@@ -1,0 +1,9 @@
+{
+  "name": "masteryzone",
+  "version": "1.0.0",
+  "description": "MasteryZone Capstone Project",
+  "scripts": {
+    "build": "cd server && npm install",
+    "start": "cd server && node server.js"
+  }
+}
