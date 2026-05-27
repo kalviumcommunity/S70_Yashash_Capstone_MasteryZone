@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { FaUser } from "react-icons/fa";
 import "./forgot.css";
 
+const API_BASE = import.meta.env.VITE_API_URL || "";
+
 const ForgotPassword = () => {
   const [usernameOrEmail, setUsernameOrEmail] = useState("");
   const [touched, setTouched] = useState({});
@@ -28,7 +30,7 @@ const ForgotPassword = () => {
     }
 
     try {
-      const response = await fetch("/auth/forgot-password", {
+      const response = await fetch(`${API_BASE}/auth/forgot-password`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
