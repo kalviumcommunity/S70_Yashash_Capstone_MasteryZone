@@ -366,22 +366,20 @@ const Home = () => {
             <h2 className="modal-title">Edit Profile</h2>
             <form onSubmit={handleProfileSave}>
               <div className="input-group" style={{ marginBottom: "15px" }}>
-                <label style={{ display: "block", marginBottom: "5px", color: "white" }}>Username</label>
+                <label style={{ display: "block", marginBottom: "5px", color: "inherit", fontWeight: "bold" }}>Username</label>
                 <input 
                   type="text" 
-                  className="auth-input"
-                  style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.1)", color: "white" }}
+                  className="auth-input profile-input"
                   value={profileForm.username}
                   onChange={(e) => setProfileForm({ ...profileForm, username: e.target.value })}
                   required
                 />
               </div>
               <div className="input-group" style={{ marginBottom: "20px" }}>
-                <label style={{ display: "block", marginBottom: "5px", color: "white" }}>Bio (Optional)</label>
+                <label style={{ display: "block", marginBottom: "5px", color: "inherit", fontWeight: "bold" }}>Bio (Optional)</label>
                 <textarea 
-                  className="auth-input"
+                  className="auth-input profile-input"
                   rows="3"
-                  style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.1)", color: "white", resize: "none" }}
                   value={profileForm.bio}
                   onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })}
                   placeholder="Tell us about yourself..."
