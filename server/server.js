@@ -8,9 +8,53 @@ const cookieParser = require('cookie-parser');
 const authRoutes = require("./routes/authRoutes");
 const certificationRoutes = require("./routes/certificationRoutes");
 const memberRoutes = require("./routes/memberRoutes");
+const http = require('http');
+const { Server } = require('socket.io');
 dotenv.config(); // Load environment variables from .env file
 const app = express();
 const PORT = process.env.PORT || 5012; // Use environment variable or fallback to 5012
+
+// Create HTTP Server
+const server = http.createServer(app);
+
+// Initialize Socket.io
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
+
+// Store online users: { socketId: username }
+const onlineUsers = new Map();
+
+io.on("connection", (socket) => {
+  console.log("🔌 User connected:", socket.id);
+
+  // When a user logs into the app/chat
+  socket.on("user_joined", (username) => {
+    onlineUsers.set(socket.id, username);
+    io.emit("update_online_users", Array.from(onlineUsers.values()));
+  });
+
+  // When a user sends a direct message
+  socket.on("send_dm", ({ toUser, fromUser, roomCode }) => {
+    // Find socket id of toUser
+    for (const [id, username] of onlineUsers.entries()) {
+      if (username === toUser) {
+        io.to(id).emit("receive_dm", { fromUser, roomCode });
+        break;
+      }
+    }
+  });
+
+  // When a user disconnects
+  socket.on("disconnect", () => {
+    console.log("🔌 User disconnected:", socket.id);
+    onlineUsers.delete(socket.id);
+    io.emit("update_online_users", Array.from(onlineUsers.values()));
+  });
+});
 
 // CORS - allow requests from frontend
 app.use(cors({
@@ -43,6 +87,6 @@ app.get(/.*/, (req, res) => {
 });
 
 // Start Server
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`🚀 Server running on port http://localhost:${PORT}`);
 });
