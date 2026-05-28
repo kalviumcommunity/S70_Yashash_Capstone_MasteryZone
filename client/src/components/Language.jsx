@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import CertificationCard from "./CertificationCard";
-import MembershipPortal from "./MembershipPortal";
+import CollaborationHub from "./CollaborationHub";
 import "./language.css";
 import fitnessIllustration from "../assets/fitness_illustration.png";
 
@@ -1975,7 +1975,7 @@ const Language = () => {
 
             {/* TAB 7: Language Membership & Family Roster */}
             {activeTab === "members" && (
-              <MembershipPortal zone="LANGUAGE" themeColor="#ff007f" />
+              <CollaborationHub zone="LANGUAGE" themeColor="#ff007f" />
             )}
 
           </div>

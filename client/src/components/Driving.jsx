@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import CertificationCard from "./CertificationCard";
-import MembershipPortal from "./MembershipPortal";
+import CollaborationHub from "./CollaborationHub";
 import "./driving.css";
 import fitnessIllustration from "../assets/fitness_illustration.png";
 
@@ -1928,7 +1928,7 @@ const Driving = () => {
 
             {/* TAB 7: Driving Team Membership & Family Roster */}
             {activeTab === "members" && (
-              <MembershipPortal zone="DRIVING" themeColor="#ffd700" />
+              <CollaborationHub zone="DRIVING" themeColor="#ffd700" />
             )}
 
           </div>
