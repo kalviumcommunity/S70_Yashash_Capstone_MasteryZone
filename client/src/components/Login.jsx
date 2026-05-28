@@ -4,6 +4,7 @@ import { FcGoogle } from "react-icons/fc";
 import { signInWithPopup } from "firebase/auth";
 import { auth, provider } from "../firebase/firebaseConfig";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 
 import "../App.css";
 
@@ -40,6 +41,7 @@ const Login = () => {
       }
 
       localStorage.setItem("token", data.token);
+      toast.success("Login successful!");
       navigate("/home");
     } catch (error) {
       console.error("Google Login Error:", error);
@@ -95,6 +97,7 @@ const Login = () => {
       }
 
       localStorage.setItem("token", data.token);
+      toast.success("Login successful!");
       navigate("/home");
     } catch (err) {
       alert("Failed to connect to server");
@@ -118,6 +121,7 @@ const Login = () => {
       }
 
       localStorage.setItem("token", data.token);
+      toast.success("Guest login successful!");
       navigate("/home");
     } catch (err) {
       alert("Failed to connect to server");

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import "../App.css"; // Import the CSS file
 
 const API_BASE = import.meta.env.VITE_API_URL || "https://s70-yashash-capstone-masteryzone-2.onrender.com";
@@ -137,6 +138,7 @@ const Signup = () => {
       }
 
       setError("");
+      toast.success("Registration successful! Please log in.");
       navigate("/login");
     } catch (err) {
       setError("Failed to connect to server");
