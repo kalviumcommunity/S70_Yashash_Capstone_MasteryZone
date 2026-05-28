@@ -24,6 +24,7 @@ const CollaborationHub = ({ zone, themeColor }) => {
   const [activeChatUser, setActiveChatUser] = useState(null); // username of currently active 1-on-1 chat
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [privateChatInput, setPrivateChatInput] = useState('');
+  const [chatMode, setChatMode] = useState('GLOBAL'); // 'GLOBAL' or 'PRIVATE'
   
   const socketRef = useRef(null);
   const chatScrollRef = useRef(null);
@@ -273,12 +274,6 @@ const CollaborationHub = ({ zone, themeColor }) => {
                 >
                   Email
                 </button>
-                <button 
-                  className={`invite-tab ${inviteTab === 'DM' ? 'active' : ''}`}
-                  onClick={() => setInviteTab('DM')}
-                >
-                  Direct Message
-                </button>
               </div>
 
               <div className="invite-tab-content">
@@ -310,76 +305,6 @@ const CollaborationHub = ({ zone, themeColor }) => {
                         Send Mail Invite
                       </button>
                     </form>
-                  </div>
-                )}
-
-                {inviteTab === 'DM' && (
-                  <div className="tab-pane dm-pane">
-                    {!activeChatUser ? (
-                      <>
-                        <div className="dm-search-bar">
-                          <input 
-                            type="text" 
-                            placeholder="Search users to chat..." 
-                            value={userSearchQuery}
-                            onChange={e => setUserSearchQuery(e.target.value)}
-                          />
-                        </div>
-                        <div className="online-users-list">
-                          {onlineUsers.filter(u => u.toLowerCase().includes(userSearchQuery.toLowerCase())).length === 0 ? (
-                            <p style={{textAlign: 'center', marginTop: '20px'}}>No matching users online.</p>
-                          ) : (
-                            onlineUsers.filter(u => u.toLowerCase().includes(userSearchQuery.toLowerCase())).map(user => (
-                              <div key={user} className="online-user-item" onClick={() => setActiveChatUser(user)} style={{ cursor: 'pointer' }}>
-                                <div className="user-info">
-                                  <span className="online-dot"></span>
-                                  <span className="user-name">{user}</span>
-                                </div>
-                                <span className="dm-open-icon">💬</span>
-                              </div>
-                            ))
-                          )}
-                        </div>
-                      </>
-                    ) : (
-                      <div className="private-chat-container">
-                        <div className="private-chat-header">
-                          <button className="back-to-users-btn" onClick={() => setActiveChatUser(null)}>← Back</button>
-                          <h4>Chat with {activeChatUser}</h4>
-                        </div>
-                        
-                        <div className="private-chat-messages" ref={privateChatScrollRef}>
-                          {!(privateChats[activeChatUser] && privateChats[activeChatUser].length > 0) ? (
-                            <p className="empty-chat-msg">Say hi to {activeChatUser}!</p>
-                          ) : (
-                            privateChats[activeChatUser].map(msg => {
-                              const isMe = msg.fromUser === (displayName || 'A MasteryZone Host');
-                              return (
-                                <div key={msg.id} className={`chat-bubble-wrapper ${isMe ? 'mine' : 'theirs'}`}>
-                                  <div className="chat-bubble" style={{ background: isMe ? themeColor : '#e0e0e0', color: '#000' }}>
-                                    {msg.text}
-                                    <span className="chat-bubble-time" style={{ color: 'rgba(0,0,0,0.5)' }}>{msg.time}</span>
-                                  </div>
-                                </div>
-                              );
-                            })
-                          )}
-                        </div>
-
-                        <form className="private-chat-input-area" onSubmit={handleSendPrivateMessage}>
-                          <input 
-                            type="text" 
-                            placeholder="Type a message..."
-                            value={privateChatInput}
-                            onChange={(e) => setPrivateChatInput(e.target.value)}
-                            autoFocus
-                          />
-                          <button type="submit" className="send-chat-btn" disabled={!privateChatInput.trim()} style={{ background: themeColor, color: '#000' }}>
-                            ➤
-                          </button>
-                        </form>
-                      </div>
-                    )}
                   </div>
                 )}
               </div>
@@ -467,50 +392,148 @@ const CollaborationHub = ({ zone, themeColor }) => {
         </div>
         
         <div className="landing-right global-chat-panel">
-          <div className="global-chat-header" style={{ borderBottom: `2px solid ${themeColor}` }}>
-            <h3>💬 {zone} Global Lounge</h3>
-            <span className="online-count">{onlineUsers.length + 1} Online</span>
-          </div>
-          
-          <div className="global-chat-messages" ref={chatScrollRef}>
-            {chatMessages.length === 0 ? (
-              <div className="empty-chat-msg">
-                <span style={{ fontSize: '40px' }}>👋</span>
-                <p>Welcome to the {zone} Lounge! Be the first to say hello.</p>
-              </div>
-            ) : (
-              chatMessages.map(msg => {
-                const isMe = msg.user === displayName;
-                return (
-                  <div key={msg.id} className={`chat-bubble-wrapper ${isMe ? 'mine' : 'theirs'}`}>
-                    {!isMe && <span className="chat-bubble-name">{msg.user}</span>}
-                    <div className="chat-bubble" style={{ background: isMe ? themeColor : '#2c2c2c', color: isMe ? '#000' : '#fff' }}>
-                      {msg.text}
-                      <span className="chat-bubble-time" style={{ color: isMe ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.5)' }}>{msg.time}</span>
-                    </div>
-                  </div>
-                );
-              })
+          <div className="global-chat-header" style={{ borderBottom: `2px solid ${themeColor}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <select 
+                value={chatMode} 
+                onChange={(e) => {
+                  setChatMode(e.target.value);
+                  setActiveChatUser(null);
+                }}
+                className="chat-mode-dropdown"
+                style={{
+                  background: 'transparent',
+                  color: '#fff',
+                  border: `1px solid ${themeColor}`,
+                  padding: '5px 10px',
+                  borderRadius: '8px',
+                  outline: 'none',
+                  fontSize: '16px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="GLOBAL" style={{ color: '#000' }}>🌍 Global Lounge</option>
+                <option value="PRIVATE" style={{ color: '#000' }}>🔒 Private Chat</option>
+              </select>
+            </div>
+            {chatMode === 'GLOBAL' && (
+              <span className="online-count">{onlineUsers.length + 1} Online</span>
             )}
           </div>
           
-          <form className="global-chat-input-area" onSubmit={handleSendGlobalMessage}>
-            <input 
-              type="text" 
-              placeholder={displayName ? "Type a message..." : "Set your name on the left to chat..."}
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              disabled={!displayName}
-            />
-            <button 
-              type="submit" 
-              className="send-chat-btn"
-              disabled={!displayName || !chatInput.trim()}
-              style={{ background: themeColor, color: '#000' }}
-            >
-              ➤
-            </button>
-          </form>
+          {chatMode === 'GLOBAL' ? (
+            <>
+              <div className="global-chat-messages" ref={chatScrollRef}>
+                {chatMessages.length === 0 ? (
+                  <div className="empty-chat-msg">
+                    <span style={{ fontSize: '40px' }}>👋</span>
+                    <p>Welcome to the {zone} Lounge! Be the first to say hello.</p>
+                  </div>
+                ) : (
+                  chatMessages.map(msg => {
+                    const isMe = msg.user === displayName;
+                    return (
+                      <div key={msg.id} className={`chat-bubble-wrapper ${isMe ? 'mine' : 'theirs'}`}>
+                        {!isMe && <span className="chat-bubble-name">{msg.user}</span>}
+                        <div className="chat-bubble" style={{ background: isMe ? themeColor : '#2c2c2c', color: isMe ? '#000' : '#fff' }}>
+                          {msg.text}
+                          <span className="chat-bubble-time" style={{ color: isMe ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.5)' }}>{msg.time}</span>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+              
+              <form className="global-chat-input-area" onSubmit={handleSendGlobalMessage}>
+                <input 
+                  type="text" 
+                  placeholder={displayName ? "Type a message..." : "Set your name on the left to chat..."}
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  disabled={!displayName}
+                />
+                <button 
+                  type="submit" 
+                  className="send-chat-btn"
+                  disabled={!displayName || !chatInput.trim()}
+                  style={{ background: themeColor, color: '#000' }}
+                >
+                  ➤
+                </button>
+              </form>
+            </>
+          ) : (
+            <div className="private-chat-section" style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '15px' }}>
+              {!activeChatUser ? (
+                <>
+                  <div className="dm-search-bar" style={{ marginBottom: '15px' }}>
+                    <input 
+                      type="text" 
+                      placeholder="Search online users to DM..." 
+                      value={userSearchQuery}
+                      onChange={e => setUserSearchQuery(e.target.value)}
+                    />
+                  </div>
+                  <div className="online-users-list" style={{ overflowY: 'auto', flex: 1 }}>
+                    {onlineUsers.filter(u => u.toLowerCase().includes(userSearchQuery.toLowerCase())).length === 0 ? (
+                      <p style={{textAlign: 'center', marginTop: '20px', color: '#888'}}>No matching users online.</p>
+                    ) : (
+                      onlineUsers.filter(u => u.toLowerCase().includes(userSearchQuery.toLowerCase())).map(user => (
+                        <div key={user} className="online-user-item" onClick={() => setActiveChatUser(user)} style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', padding: '12px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', marginBottom: '8px' }}>
+                          <div className="user-info" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <span className="online-dot" style={{ width: '8px', height: '8px', background: '#00e676', borderRadius: '50%' }}></span>
+                            <span className="user-name" style={{ color: '#fff', fontWeight: 'bold' }}>{user}</span>
+                          </div>
+                          <span className="dm-open-icon">💬</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="private-chat-container" style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#1e1e1e', borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
+                  <div className="private-chat-header" style={{ background: 'rgba(255,255,255,0.05)', padding: '15px', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <button className="back-to-users-btn" onClick={() => setActiveChatUser(null)} style={{ background: 'transparent', border: 'none', color: themeColor, cursor: 'pointer', fontWeight: 'bold' }}>← Back</button>
+                    <h4 style={{ margin: 0, color: '#fff' }}>{activeChatUser}</h4>
+                  </div>
+                  
+                  <div className="private-chat-messages" ref={privateChatScrollRef} style={{ flex: 1, overflowY: 'auto', padding: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {!(privateChats[activeChatUser] && privateChats[activeChatUser].length > 0) ? (
+                      <p className="empty-chat-msg" style={{ color: '#888', textAlign: 'center', margin: 'auto' }}>Say hi to {activeChatUser}!</p>
+                    ) : (
+                      privateChats[activeChatUser].map(msg => {
+                        const isMe = msg.fromUser === (displayName || 'A MasteryZone Host');
+                        return (
+                          <div key={msg.id} className={`chat-bubble-wrapper ${isMe ? 'mine' : 'theirs'}`}>
+                            <div className="chat-bubble" style={{ background: isMe ? themeColor : '#333', color: isMe ? '#000' : '#fff' }}>
+                              {msg.text}
+                              <span className="chat-bubble-time" style={{ color: isMe ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.5)' }}>{msg.time}</span>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  <form className="private-chat-input-area" onSubmit={handleSendPrivateMessage} style={{ display: 'flex', padding: '10px', background: 'rgba(255,255,255,0.05)', borderTop: '1px solid rgba(255,255,255,0.1)', gap: '10px' }}>
+                    <input 
+                      type="text" 
+                      placeholder="Type a message..."
+                      value={privateChatInput}
+                      onChange={(e) => setPrivateChatInput(e.target.value)}
+                      style={{ flex: 1, padding: '10px', borderRadius: '20px', border: 'none', background: 'rgba(255,255,255,0.1)', color: '#fff', outline: 'none' }}
+                      autoFocus
+                    />
+                    <button type="submit" className="send-chat-btn" disabled={!privateChatInput.trim()} style={{ background: themeColor, color: '#000', border: 'none', borderRadius: '50%', width: '40px', height: '40px', cursor: 'pointer' }}>
+                      ➤
+                    </button>
+                  </form>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
