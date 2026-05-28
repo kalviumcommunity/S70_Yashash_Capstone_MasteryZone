@@ -658,20 +658,6 @@ input:checked + .slider:before {
   .home-quote-secondary {
     font-size: 16px;
   }
-
-  .glass-modal {
-    width: 90%;
-    padding: 20px;
-  }
-  
-  .profile-section {
-    right: 20px;
-  }
-
-  .profile-dropdown {
-    width: 200px;
-    right: -10px;
-  }
 }
 
 /* Profile Modal Inputs */
