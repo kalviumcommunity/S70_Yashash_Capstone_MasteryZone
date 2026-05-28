@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import "./coding.css";
 import codingIllustration from "../assets/coding_illustration.png";
 import keyboardProd from "../assets/keyboard_prod.png";
@@ -295,7 +296,7 @@ const Coding = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalSelectedLanguage, setModalSelectedLanguage] = useState("JAVASCRIPT");
   const [showVideo, setShowVideo] = useState(false);
-  const [useYoutube, setUseYoutube] = useState(false); // Default to our high-fidelity local vector animations (immune to firewalls)
+  const [useYoutube, setUseYoutube] = useState(true); // Default to true to play actual videos
 
   // E-Commerce Central Cart State
   const [cart, setCart] = useState([]);
@@ -636,20 +637,19 @@ const Coding = () => {
     setIsModalOpen(true);
     setModalSelectedLanguage(activeCategory);
     setShowVideo(false);
-    setUseYoutube(false);
+    setUseYoutube(true);
   };
 
   const handleModalLanguageSelect = (category) => {
     setModalSelectedLanguage(category);
     setShowVideo(false);
-    setUseYoutube(false);
+    setUseYoutube(true);
   };
 
   const handlePlayVideo = () => {
     setShowVideo(true);
   };
 
-  // E-Commerce Handlers
   const addToCart = (product) => {
     setCart((prevCart) => {
       const exists = prevCart.find((item) => item.id === product.id);
@@ -659,6 +659,11 @@ const Coding = () => {
         );
       }
       return [...prevCart, { ...product, quantity: 1 }];
+    });
+    toast.success(`${product.name} added to cart!`, {
+      position: "top-right",
+      autoClose: 2000,
+      theme: "dark",
     });
   };
 
