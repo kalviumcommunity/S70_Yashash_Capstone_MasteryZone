@@ -34,6 +34,7 @@ const Language = () => {
   const [modalSelectedExercise, setModalSelectedExercise] = useState("KANNADA");
   const [showVideo, setShowVideo] = useState(false);
   const [useYoutube, setUseYoutube] = useState(true);
+  const [showBackConfirm, setShowBackConfirm] = useState(false);
 
   // E-Commerce Central Cart State
   const [cart, setCart] = useState([]);
@@ -415,7 +416,7 @@ const Language = () => {
   }, [activeTab]);
 
   const handleBack = () => {
-    navigate("/home");
+    setShowBackConfirm(true);
   };
 
   // Navigates directly back to the Language landing home view (Dashboard)
@@ -2464,6 +2465,34 @@ const Language = () => {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Back Confirmation Modal */}
+      {showBackConfirm && (
+        <div className="fitness-modal-overlay" style={{ zIndex: 2000 }}>
+          <div className="fitness-modal-container" style={{ width: "420px", textAlign: "center", padding: "40px", borderColor: "#4facfe" }}>
+            <h2 className="fitness-modal-title" style={{ fontSize: "28px", color: "#4facfe" }}>LEAVE ZONE?</h2>
+            <p className="fitness-modal-subtitle" style={{ color: "#ffffff", marginBottom: "35px", fontSize: "16px", textTransform: "none" }}>Are you sure you want to return to the Dashboard?</p>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: "20px" }}>
+              <button 
+                onClick={() => setShowBackConfirm(false)}
+                style={{ flex: 1, padding: "14px", background: "rgba(255,255,255,0.05)", color: "white", border: "2px solid rgba(255,255,255,0.2)", borderRadius: "30px", fontWeight: "bold", cursor: "pointer", transition: "all 0.2s" }}
+                onMouseOver={(e) => e.target.style.background = "rgba(255,255,255,0.1)"}
+                onMouseOut={(e) => e.target.style.background = "rgba(255,255,255,0.05)"}
+              >
+                STAY
+              </button>
+              <button 
+                onClick={() => navigate("/home")}
+                style={{ flex: 1, padding: "14px", background: "#4facfe", color: "white", border: "2px solid #4facfe", borderRadius: "30px", fontWeight: "bold", cursor: "pointer", boxShadow: "0 4px 15px rgba(79, 172, 254, 0.4)", transition: "all 0.2s" }}
+                onMouseOver={(e) => e.target.style.transform = "scale(1.05)"}
+                onMouseOut={(e) => e.target.style.transform = "scale(1)"}
+              >
+                LEAVE
+              </button>
+            </div>
           </div>
         </div>
       )}
