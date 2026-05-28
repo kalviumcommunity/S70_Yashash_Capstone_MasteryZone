@@ -21,6 +21,7 @@ const Profile = () => {
     email: "",
     bio: "Setting up my Mastery Zone...",
     avatarUrl: "",
+    bannerUrl: "",
     joinDate: "May 2026",
     level: "Mastery Seeker",
     xp: 0
@@ -67,6 +68,7 @@ const Profile = () => {
             email: data.user.email || "",
             bio: data.user.bio || "Setting up my Mastery Zone...",
             avatarUrl: data.user.avatarUrl || "",
+            bannerUrl: data.user.bannerUrl || "",
             joinDate: "May 2026",
             level: `Level ${Math.floor(calculatedXp / 100) + 1} - Mastery Seeker`,
             xp: calculatedXp % 100 // Percentage for the bar
@@ -120,6 +122,64 @@ const Profile = () => {
     };
   };
 
+  const handleBannerUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = async () => {
+      const base64Image = reader.result;
+      const previousBanner = user.bannerUrl;
+      setUser({ ...user, bannerUrl: base64Image }); // Optimistic UI
+      
+      const token = localStorage.getItem("token");
+      try {
+        const response = await fetch(`${API_BASE}/auth/banner`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ bannerUrl: base64Image })
+        });
+        
+        if (response.ok) toast.success("Banner photo updated!");
+        else {
+          setUser({ ...user, bannerUrl: previousBanner });
+          toast.error("Failed to update banner.");
+        }
+      } catch (error) {
+        setUser({ ...user, bannerUrl: previousBanner });
+        toast.error("Error connecting to server.");
+      }
+    };
+  };
+
+  const handleBannerRemove = async () => {
+    const previousBanner = user.bannerUrl;
+    setUser({ ...user, bannerUrl: "" }); // Optimistic UI
+    
+    const token = localStorage.getItem("token");
+    try {
+      const response = await fetch(`${API_BASE}/auth/banner`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) toast.success("Banner photo removed!");
+      else {
+        setUser({ ...user, bannerUrl: previousBanner });
+        toast.error("Failed to remove banner.");
+      }
+    } catch (error) {
+      setUser({ ...user, bannerUrl: previousBanner });
+      toast.error("Error connecting to server.");
+    }
+  };
+
   const handleInlineSave = async (field, value) => {
     setUser({ ...user, [field]: value }); // Optimistic update
     
@@ -146,15 +206,24 @@ const Profile = () => {
     <div className="profile-page-container" style={focusMode ? { filter: 'brightness(0.6)' } : {}}>
       
       {/* Dynamic Wide Banner */}
-      <div className="profile-banner">
+      <div 
+        className="profile-banner" 
+        style={user.bannerUrl ? { backgroundImage: `url(${user.bannerUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}}
+      >
         <div className="profile-banner-overlay"></div>
         <div className="banner-controls">
           <button className="icon-btn" onClick={() => navigate("/home")} title="Back to Dashboard">
             <FaArrowLeft />
           </button>
-          <button className="icon-btn" title="Change Banner Image">
+          {user.bannerUrl && (
+            <button className="icon-btn" onClick={handleBannerRemove} title="Remove Banner Image" style={{ marginLeft: '10px' }}>
+              <i className="fa-solid fa-trash" style={{ color: 'white' }}></i>
+            </button>
+          )}
+          <label className="icon-btn" title="Change Banner Image" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginLeft: '10px' }}>
             <FaImage />
-          </button>
+            <input type="file" style={{ display: 'none' }} accept="image/*" onChange={handleBannerUpload} />
+          </label>
         </div>
       </div>
 
