@@ -101,6 +101,29 @@ const Login = () => {
     }
   };
 
+  const handleGuestLogin = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/auth/guest-login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        }
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.message || "Guest Login failed");
+        return;
+      }
+
+      localStorage.setItem("token", data.token);
+      navigate("/home");
+    } catch (err) {
+      alert("Failed to connect to server");
+    }
+  };
+
   return (
     <div className="container">
       <div className="login-box">
@@ -178,6 +201,10 @@ const Login = () => {
 
         <button onClick={handleGoogleLogin} className="google-button">
           <FcGoogle size={20} /> Sign in with Google
+        </button>
+
+        <button onClick={handleGuestLogin} className="google-button" style={{ marginTop: '10px', backgroundColor: '#333', color: 'white', border: 'none' }}>
+          Login as Guest (Interviewer)
         </button>
 
       </div>
