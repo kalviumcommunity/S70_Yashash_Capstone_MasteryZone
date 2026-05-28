@@ -6,27 +6,56 @@ const MOCK_QUESTIONS = {
   Fitness: [
     { q: "What is the primary muscle group targeted by a bench press?", options: ["Pectorals", "Latissimus Dorsi", "Quadriceps", "Deltoids"], a: 0 },
     { q: "Which of these is a macronutrient?", options: ["Vitamin C", "Protein", "Calcium", "Iron"], a: 1 },
-    { q: "What does HIIT stand for?", options: ["Heavy Intensity Interval Training", "High Intensity Interval Training", "Hard Intense Interval Training", "Hyper Intensity Internal Training"], a: 1 }
+    { q: "What does HIIT stand for?", options: ["Heavy Intensity Interval Training", "High Intensity Interval Training", "Hard Intense Interval Training", "Hyper Intensity Internal Training"], a: 1 },
+    { q: "How many calories are in one gram of fat?", options: ["4", "7", "9", "12"], a: 2 },
+    { q: "Which exercise is considered the 'king' of lower body exercises?", options: ["Leg Extension", "Squat", "Calf Raise", "Hamstring Curl"], a: 1 },
+    { q: "What is hypertrophy?", options: ["Muscle shrinkage", "Muscle growth", "Fat loss", "Bone density increase"], a: 1 },
+    { q: "Which energy system provides the quickest burst of energy?", options: ["Oxidative", "Glycolytic", "ATP-PC", "Aerobic"], a: 2 },
+    { q: "What does BMI stand for?", options: ["Body Mass Indicator", "Basic Muscle Index", "Body Mass Index", "Base Metabolic Index"], a: 2 },
+    { q: "Which vitamin is synthesized by the skin when exposed to sunlight?", options: ["Vitamin A", "Vitamin B12", "Vitamin C", "Vitamin D"], a: 3 },
+    { q: "What is the recommended minimum duration for moderate aerobic exercise per week?", options: ["60 mins", "150 mins", "300 mins", "500 mins"], a: 1 }
   ],
   Coding: [
     { q: "What does HTML stand for?", options: ["Hyper Text Markup Language", "High Text Machine Language", "Hyperlinks and Text Markup Language", "Home Tool Markup Language"], a: 0 },
     { q: "Which symbol is used for comments in JavaScript?", options: ["//", "<!--", "/*", "#"], a: 0 },
-    { q: "What is React?", options: ["A database", "A CSS framework", "A JavaScript library for building user interfaces", "An operating system"], a: 2 }
+    { q: "What is React?", options: ["A database", "A CSS framework", "A JavaScript library for building user interfaces", "An operating system"], a: 2 },
+    { q: "Which of the following is not a primitive data type in JS?", options: ["String", "Number", "Object", "Boolean"], a: 2 },
+    { q: "What does CSS stand for?", options: ["Computer Style Sheets", "Cascading Style Sheets", "Colorful Style Sheets", "Creative Style Sheets"], a: 1 },
+    { q: "Which command is used to push code to GitHub?", options: ["git pull", "git push", "git commit", "git clone"], a: 1 },
+    { q: "What is a closure in JavaScript?", options: ["A function inside another function that has access to the outer function's variables", "A way to close the browser window", "A method to end a loop", "A syntax error"], a: 0 },
+    { q: "Which HTTP method is typically used to create a new resource?", options: ["GET", "POST", "PUT", "DELETE"], a: 1 },
+    { q: "What is the virtual DOM?", options: ["A direct copy of the real DOM", "A lightweight Javascript representation of the DOM", "A browser extension", "A 3D rendering engine"], a: 1 },
+    { q: "Which keyword is used to declare a block-scoped variable in JS?", options: ["var", "let", "const", "Both let and const"], a: 3 }
   ],
   Driving: [
     { q: "What does a solid double yellow line mean?", options: ["Passing allowed", "No passing allowed", "One-way traffic", "Car-pool lane"], a: 1 },
     { q: "When should you use your turn signal?", options: ["Only when other cars are around", "100 feet before turning", "Right as you turn", "Turn signals are optional"], a: 1 },
-    { q: "What is the standard speed limit in a residential area?", options: ["25 mph", "45 mph", "15 mph", "35 mph"], a: 0 }
+    { q: "What is the standard speed limit in a residential area?", options: ["25 mph", "45 mph", "15 mph", "35 mph"], a: 0 },
+    { q: "What shape is a stop sign?", options: ["Hexagon", "Octagon", "Triangle", "Circle"], a: 1 },
+    { q: "What does a flashing red traffic light mean?", options: ["Yield", "Stop, then proceed when safe", "Caution", "Speed up"], a: 1 },
+    { q: "When parking uphill on a street with a curb, which way should you turn your wheels?", options: ["Towards the curb", "Away from the curb", "Straight", "It doesn't matter"], a: 1 },
+    { q: "What does a yellow diamond-shaped sign indicate?", options: ["Speed limit", "Warning", "Stop", "Hospital ahead"], a: 1 },
+    { q: "When driving in fog, you should use your:", options: ["High beams", "Low beams", "Parking lights", "Hazard lights"], a: 1 },
+    { q: "Who has the right-of-way at a 4-way stop?", options: ["The biggest car", "The car that arrived first", "The car to the left", "The car to the right"], a: 1 },
+    { q: "What is the legal blood alcohol limit for drivers over 21 in most US states?", options: ["0.08%", "0.05%", "0.10%", "0.00%"], a: 0 }
   ],
   Language: [
     { q: "What is a 'verb'?", options: ["A person, place, or thing", "An action word", "A descriptive word", "A connecting word"], a: 1 },
     { q: "What is the past tense of 'run'?", options: ["Runned", "Running", "Ran", "Runs"], a: 2 },
-    { q: "Which language has the most native speakers?", options: ["English", "Spanish", "Mandarin Chinese", "Hindi"], a: 2 }
+    { q: "Which language has the most native speakers?", options: ["English", "Spanish", "Mandarin Chinese", "Hindi"], a: 2 },
+    { q: "What is a synonym for 'happy'?", options: ["Sad", "Angry", "Joyful", "Tired"], a: 2 },
+    { q: "What is an adjective?", options: ["An action", "A naming word", "A word that describes a noun", "A punctuation mark"], a: 2 },
+    { q: "Which language is known as the 'language of love'?", options: ["German", "French", "Russian", "Arabic"], a: 1 },
+    { q: "What does 'polyglot' mean?", options: ["Someone who loves geometry", "Someone who speaks multiple languages", "A type of ancient script", "A language learning app"], a: 1 },
+    { q: "What is the longest word in the English language?", options: ["Supercalifragilisticexpialidocious", "Pneumonoultramicroscopicsilicovolcanoconiosis", "Antidisestablishmentarianism", "Hippopotomonstrosesquippedaliophobia"], a: 1 },
+    { q: "Which script is used to write Russian?", options: ["Latin", "Cyrillic", "Arabic", "Devanagari"], a: 1 },
+    { q: "What is the study of the history of words called?", options: ["Etymology", "Entomology", "Phonetics", "Syntax"], a: 0 }
   ]
 };
 
-const ProctoredExam = ({ zone, onClose, title }) => {
+const ProctoredExam = ({ zone, onClose, title, onPurchase }) => {
   const [examState, setExamState] = useState('PRE_FLIGHT'); // PRE_FLIGHT, IN_PROGRESS, COMPLETED, TERMINATED
+  const [questions, setQuestions] = useState([]);
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [score, setScore] = useState(0);
@@ -37,8 +66,15 @@ const ProctoredExam = ({ zone, onClose, title }) => {
   const streamRef = useRef(null);
   const examContainerRef = useRef(null);
 
-  const questions = MOCK_QUESTIONS[zone] || MOCK_QUESTIONS.Coding; // Fallback
   const MAX_WARNINGS = 3;
+
+  // Initialize and Shuffle Questions
+  useEffect(() => {
+    const allQuestions = MOCK_QUESTIONS[zone] || MOCK_QUESTIONS.Coding;
+    // Shuffle the array and pick the first 5 questions
+    const shuffled = [...allQuestions].sort(() => 0.5 - Math.random());
+    setQuestions(shuffled.slice(0, 5));
+  }, [zone]);
 
   // Initialize Camera
   const startCamera = async () => {
@@ -181,6 +217,15 @@ const ProctoredExam = ({ zone, onClose, title }) => {
     onClose();
   };
 
+  const handlePurchase = () => {
+    stopCamera();
+    exitFullscreen();
+    onClose();
+    if (onPurchase) {
+      onPurchase();
+    }
+  };
+
   return (
     <div className="proctored-exam-overlay" ref={examContainerRef}>
       
@@ -193,12 +238,13 @@ const ProctoredExam = ({ zone, onClose, title }) => {
       )}
 
       {/* 1. Pre-Flight Check */}
-      {examState === 'PRE_FLIGHT' && (
+      {examState === 'PRE_FLIGHT' && questions.length > 0 && (
         <div className="exam-panel pre-flight-panel">
           <h2 className="exam-title">{title} - Free Trial Test</h2>
           <div className="security-notice">
             <h3>🔒 Kalvium-Style Strict Proctoring Enabled</h3>
             <ul>
+              <li>This test contains {questions.length} randomly selected questions.</li>
               <li>You must grant camera access to verify your identity.</li>
               <li>The exam will run in strictly enforced Full-Screen Mode.</li>
               <li>Switching tabs or exiting fullscreen will result in a warning.</li>
@@ -215,7 +261,7 @@ const ProctoredExam = ({ zone, onClose, title }) => {
       )}
 
       {/* 2. In Progress */}
-      {examState === 'IN_PROGRESS' && (
+      {examState === 'IN_PROGRESS' && questions.length > 0 && (
         <div className="exam-panel in-progress-panel">
           <div className="exam-header">
             <div className="exam-progress">Question {currentQuestionIdx + 1} of {questions.length}</div>
@@ -262,9 +308,13 @@ const ProctoredExam = ({ zone, onClose, title }) => {
             <span>{Math.round((score / questions.length) * 100)}%</span>
           </div>
           <p>You answered {score} out of {questions.length} correctly.</p>
-          <div className="result-actions">
-            <button className="exam-primary-btn" onClick={handleClose}>Back to Dashboard</button>
-            <p className="upsell-text">Ready for the real deal? Purchase the full certification.</p>
+          <div className="result-actions" style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '20px', alignItems: 'center' }}>
+            <button className="exam-primary-btn" onClick={handlePurchase} style={{ background: '#ffcc00', color: '#000', padding: '16px 40px', fontSize: '20px' }}>
+              Unlock Full Certification
+            </button>
+            <button className="exam-secondary-btn" onClick={handleClose}>
+              Back to Dashboard
+            </button>
           </div>
         </div>
       )}
