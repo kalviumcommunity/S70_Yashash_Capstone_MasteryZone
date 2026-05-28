@@ -48,6 +48,12 @@ io.on("connection", (socket) => {
     }
   });
 
+  // When a user sends a global chat message
+  socket.on("send_global_message", (messageData) => {
+    // messageData: { user: string, text: string, time: string, zone: string }
+    io.emit("receive_global_message", messageData);
+  });
+
   // When a user disconnects
   socket.on("disconnect", () => {
     console.log("🔌 User disconnected:", socket.id);
