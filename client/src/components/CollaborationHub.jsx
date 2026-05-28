@@ -1,7 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { JitsiMeeting } from '@jitsi/react-sdk';
 import { toast } from 'react-toastify';
+import { io } from 'socket.io-client';
 import './CollaborationHub.css';
+
+const SOCKET_SERVER_URL = import.meta.env.VITE_API_URL || "http://localhost:5012";
 
 const CollaborationHub = ({ zone, themeColor }) => {
   const [view, setView] = useState('LANDING'); // 'LANDING', 'PREJOIN', 'MEETING'
@@ -12,6 +15,35 @@ const CollaborationHub = ({ zone, themeColor }) => {
   // Host-specific state for the "Meeting Ready" invite modal overlay
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteTab, setInviteTab] = useState('LINK'); // 'LINK', 'EMAIL', 'DM'
+  
+  // Socket.io states
+  const [onlineUsers, setOnlineUsers] = useState([]);
+  const socketRef = useRef(null);
+
+  // Initialize Socket.io on component mount
+  useEffect(() => {
+    socketRef.current = io(SOCKET_SERVER_URL);
+    
+    // Fallback display name for socket if not joined meeting yet
+    const name = displayName || `User_${Math.floor(Math.random() * 1000)}`;
+    socketRef.current.emit("user_joined", name);
+
+    socketRef.current.on("update_online_users", (users) => {
+      // Filter out self from online users list
+      setOnlineUsers(users.filter(u => u !== name));
+    });
+
+    socketRef.current.on("receive_dm", (data) => {
+      toast.info(`New Message from ${data.fromUser}:\nJoin my session! Code: ${data.roomCode}`, {
+        autoClose: false,
+        position: "top-right"
+      });
+    });
+
+    return () => {
+      socketRef.current.disconnect();
+    };
+  }, [displayName]);
 
   // Generate a fresh code for hosts
   const generateRoomCode = () => {
@@ -198,20 +230,31 @@ const CollaborationHub = ({ zone, themeColor }) => {
                   <div className="tab-pane dm-pane">
                     <p>Select an online member to send a direct message invite.</p>
                     <div className="online-users-list">
-                      {['Alex_Coder', 'Fitness_Guru99', 'Polyglot_Jane'].map(user => (
-                        <div key={user} className="online-user-item">
-                          <div className="user-info">
-                            <span className="online-dot"></span>
-                            <span className="user-name">{user}</span>
+                      {onlineUsers.length === 0 ? (
+                        <p style={{textAlign: 'center', marginTop: '20px'}}>No other users online right now.</p>
+                      ) : (
+                        onlineUsers.map(user => (
+                          <div key={user} className="online-user-item">
+                            <div className="user-info">
+                              <span className="online-dot"></span>
+                              <span className="user-name">{user}</span>
+                            </div>
+                            <button 
+                              className="dm-send-btn"
+                              onClick={() => {
+                                socketRef.current.emit("send_dm", {
+                                  toUser: user,
+                                  fromUser: displayName || 'A MasteryZone Host',
+                                  roomCode: roomCode
+                                });
+                                toast.success(`Direct Message sent to ${user}!`);
+                              }}
+                            >
+                              Message Invite
+                            </button>
                           </div>
-                          <button 
-                            className="dm-send-btn"
-                            onClick={() => toast.success(`Direct Message sent to ${user}!`)}
-                          >
-                            Message Invite
-                          </button>
-                        </div>
-                      ))}
+                        ))
+                      )}
                     </div>
                   </div>
                 )}
@@ -264,7 +307,7 @@ const CollaborationHub = ({ zone, themeColor }) => {
         <div className="landing-left">
           <h1 className="landing-headline">Premium video meetings.<br/>Now free for everyone.</h1>
           <p className="landing-subheadline">
-            We re-engineered the service we built for secure group collaboration to make it free and available for all {zone} learners.
+            We built the MasteryZone Live Hub for secure, real-time group collaboration. It is now free and available for all {zone} learners.
           </p>
           
           <div className="landing-actions">
@@ -295,7 +338,7 @@ const CollaborationHub = ({ zone, themeColor }) => {
           
           <div className="landing-divider"></div>
           <p className="landing-footer-text">
-            <a href="#">Learn more</a> about Google Meet clones and WebRTC security.
+            <a href="#">Learn more</a> about MasteryZone Live Hub and WebRTC security.
           </p>
         </div>
         

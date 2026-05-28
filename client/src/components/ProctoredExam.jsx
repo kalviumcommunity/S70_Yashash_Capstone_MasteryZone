@@ -242,7 +242,7 @@ const ProctoredExam = ({ zone, onClose, title, onPurchase }) => {
         <div className="exam-panel pre-flight-panel">
           <h2 className="exam-title">{title} - Free Trial Test</h2>
           <div className="security-notice">
-            <h3>🔒 Kalvium-Style Strict Proctoring Enabled</h3>
+            <h3>🔒 MasteryZone Secure Proctoring Enabled</h3>
             <ul>
               <li>This test contains {questions.length} randomly selected questions.</li>
               <li>You must grant camera access to verify your identity.</li>
