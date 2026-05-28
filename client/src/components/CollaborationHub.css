@@ -111,7 +111,7 @@
   position: relative;
 }
 
-/* Modal Overlay */
+/* Advanced Modal Overlay */
 .invite-modal-overlay {
   position: absolute;
   top: 0;
@@ -127,31 +127,83 @@
   animation: fadeIn 0.3s ease-out;
 }
 
-.invite-modal {
+.advanced-invite-modal {
   background: #fff;
   color: #3c4043;
-  padding: 30px;
+  padding: 0;
   border-radius: 12px;
-  width: 360px;
+  width: 450px;
   box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.invite-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 25px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.invite-modal-header h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.close-modal-btn {
+  background: transparent;
+  border: none;
+  font-size: 20px;
+  color: #5f6368;
+  cursor: pointer;
+}
+
+.invite-tabs {
+  display: flex;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.invite-tab {
+  flex: 1;
+  padding: 12px 0;
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 600;
+  color: #5f6368;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s;
+}
+
+.invite-tab.active {
+  color: #1a73e8;
+  border-bottom-color: #1a73e8;
+  background: #fff;
+}
+
+.invite-tab-content {
+  padding: 25px;
+}
+
+.tab-pane {
   display: flex;
   flex-direction: column;
   gap: 15px;
 }
 
-.invite-modal h3 {
-  margin: 0;
-  font-size: 22px;
-  font-weight: 500;
-}
-
-.invite-modal p {
+.tab-pane p {
   margin: 0;
   font-size: 14px;
   line-height: 1.5;
   color: #5f6368;
 }
 
+/* Link Pane */
 .invite-code-box {
   background: #f1f3f4;
   padding: 15px;
@@ -186,20 +238,77 @@
   color: #80868b !important;
 }
 
-.close-modal-btn {
-  align-self: flex-end;
-  background: transparent;
-  border: none;
-  color: #1a73e8;
-  font-weight: 600;
-  font-size: 14px;
-  cursor: pointer;
-  padding: 8px 16px;
-  border-radius: 4px;
+/* Email Pane */
+.email-pane form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
 }
 
-.close-modal-btn:hover {
-  background: rgba(26, 115, 232, 0.1);
+.email-pane .form-group input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #dadce0;
+  border-radius: 6px;
+  font-size: 15px;
+  background: #fff;
+  color: #000;
+  box-sizing: border-box;
+}
+
+.send-invite-btn {
+  padding: 12px;
+  border: none;
+  border-radius: 6px;
+  color: #000;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* DM Pane */
+.online-users-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.online-user-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  background: #f1f3f4;
+  border-radius: 6px;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.online-dot {
+  width: 10px;
+  height: 10px;
+  background: #34a853;
+  border-radius: 50%;
+}
+
+.user-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.dm-send-btn {
+  background: #1a73e8;
+  color: #fff;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
 }
 
 
