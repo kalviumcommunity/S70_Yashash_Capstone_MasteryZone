@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import "./language.css";
 import fitnessIllustration from "../assets/fitness_illustration.png";
 
@@ -460,6 +461,11 @@ const Language = () => {
         );
       }
       return [...prevCart, { ...product, quantity: 1 }];
+    });
+    toast.success(`${product.name} added to cart!`, {
+      position: "top-right",
+      autoClose: 2000,
+      theme: "dark",
     });
   };
 

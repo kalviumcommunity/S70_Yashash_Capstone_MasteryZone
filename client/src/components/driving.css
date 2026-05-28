@@ -3246,3 +3246,34 @@
 
 
 
+\n
+/* Custom Overrides for MasteryZone */
+.fitness-modal-exercise-pill.active,
+.fitness-exercise-btn.active,
+.driving-modal-exercise-pill.active,
+.driving-exercise-btn.active,
+.fitness-modal-exercise-pill.lang-active,
+.lang-active,
+.modal-sidebar-item.active,
+.sidebar-item.active {
+  background-color: #00A859 !important;
+  border-color: #00A859 !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 4px 12px rgba(0, 168, 89, 0.4) !important;
+}
+
+.qty-btn {
+  background-color: #333 !important;
+  color: #00A859 !important;
+  padding: 4px 12px !important;
+  border-radius: 6px !important;
+  border: 1px solid #00A859 !important;
+  font-weight: bold !important;
+  cursor: pointer !important;
+  transition: all 0.2s !important;
+}
+
+.qty-btn:hover {
+  background-color: #00A859 !important;
+  color: #fff !important;
+}

@@ -10,26 +10,30 @@ import Driving from "./components/Driving.jsx";
 import Language from "./components/Language.jsx";
 
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import './App.css'
 
 function App() {
   return(
-    <Router>
-      <Routes>
-        <Route path="/" element={<Login />} />
-        <Route path="/login" element={<Login />} /> 
-        <Route path="/signup" element={<Signup/>} /> 
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password/:token" element={<ResetPassword />} />
-        <Route path="/home" element={<Home />} />
-        <Route path="/fitness" element={<Fitness />} />
-        <Route path="/coding" element={<Coding />} />
-        <Route path="/driving" element={<Driving />} />
-        <Route path="/language" element={<Language />} />
+    <>
+      <Router>
+        <Routes>
+          <Route path="/" element={<Login />} />
+          <Route path="/login" element={<Login />} /> 
+          <Route path="/signup" element={<Signup/>} /> 
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password/:token" element={<ResetPassword />} />
+          <Route path="/home" element={<Home />} />
+          <Route path="/fitness" element={<Fitness />} />
+          <Route path="/coding" element={<Coding />} />
+          <Route path="/driving" element={<Driving />} />
+          <Route path="/language" element={<Language />} />
 
-      </Routes>
-    </Router>
-
+        </Routes>
+      </Router>
+      <ToastContainer position="top-right" theme="dark" autoClose={2000} />
+    </>
   )
 }
 
