@@ -94,6 +94,10 @@ router.post('/guest-login', async (req, res) => {
       user = await User.create({ username: 'guest_user', email: guestEmail, password: hashedPassword });
     }
 
+    // Reset certifications for guest user on each login
+    const Certification = require('../models/CertificationSchema');
+    await Certification.deleteMany({ userId: user._id });
+
     const token = jwt.sign({ userId: user._id, email: user.email }, JWT_SECRET, { expiresIn: '1d' });
 
     res.status(200).json({

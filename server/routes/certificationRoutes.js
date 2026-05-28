@@ -24,6 +24,11 @@ router.post("/enroll", authenticateToken, async (req, res) => {
     }
 
     const trialExpiresAt = isTrial ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) : null;
+    
+    // If purchasing (not a trial), instantly certify
+    const status = isTrial ? 'active' : 'completed';
+    const progress = isTrial ? 0 : 100;
+    const currentModule = isTrial ? 1 : totalModules;
 
     const newCert = new Certification({
       userId: req.user.userId,
@@ -32,7 +37,10 @@ router.post("/enroll", authenticateToken, async (req, res) => {
       name,
       totalModules,
       isTrial,
-      trialExpiresAt
+      trialExpiresAt,
+      status,
+      progress,
+      currentModule
     });
 
     await newCert.save();
