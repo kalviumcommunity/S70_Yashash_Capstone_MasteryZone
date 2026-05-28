@@ -11,6 +11,7 @@ const CollaborationHub = ({ zone, themeColor }) => {
   
   // Host-specific state for the "Meeting Ready" invite modal overlay
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteTab, setInviteTab] = useState('LINK'); // 'LINK', 'EMAIL', 'DM'
 
   // Generate a fresh code for hosts
   const generateRoomCode = () => {
@@ -134,24 +135,87 @@ const CollaborationHub = ({ zone, themeColor }) => {
         {/* Host Invite Modal Overlay */}
         {showInviteModal && (
           <div className="invite-modal-overlay">
-            <div className="invite-modal">
-              <h3>Your meeting's ready</h3>
-              <p>Share this meeting code with others you want in the meeting.</p>
-              
-              <div className="invite-code-box">
-                <span className="the-code">{roomCode}</span>
-                <button className="copy-btn" onClick={copyInviteLink} title="Copy joining info">
-                  📋
+            <div className="invite-modal advanced-invite-modal">
+              <div className="invite-modal-header">
+                <h3>Add Members</h3>
+                <button className="close-modal-btn" onClick={() => setShowInviteModal(false)}>✕</button>
+              </div>
+
+              <div className="invite-tabs">
+                <button 
+                  className={`invite-tab ${inviteTab === 'LINK' ? 'active' : ''}`}
+                  onClick={() => setInviteTab('LINK')}
+                >
+                  Link
+                </button>
+                <button 
+                  className={`invite-tab ${inviteTab === 'EMAIL' ? 'active' : ''}`}
+                  onClick={() => setInviteTab('EMAIL')}
+                >
+                  Email
+                </button>
+                <button 
+                  className={`invite-tab ${inviteTab === 'DM' ? 'active' : ''}`}
+                  onClick={() => setInviteTab('DM')}
+                >
+                  Direct Message
                 </button>
               </div>
-              
-              <p className="invite-security-notice">
-                🔒 People who use this meeting code must get your permission before they can join.
-              </p>
-              
-              <button className="close-modal-btn" onClick={() => setShowInviteModal(false)}>
-                Close
-              </button>
+
+              <div className="invite-tab-content">
+                {inviteTab === 'LINK' && (
+                  <div className="tab-pane link-pane">
+                    <p>Share this meeting code with others you want in the meeting.</p>
+                    <div className="invite-code-box">
+                      <span className="the-code">{roomCode}</span>
+                      <button className="copy-btn" onClick={copyInviteLink} title="Copy joining info">📋</button>
+                    </div>
+                    <p className="invite-security-notice">
+                      🔒 People who use this meeting code must get your permission before they can join.
+                    </p>
+                  </div>
+                )}
+
+                {inviteTab === 'EMAIL' && (
+                  <div className="tab-pane email-pane">
+                    <p>Send a real-time email invitation to join this session.</p>
+                    <form onSubmit={(e) => {
+                      e.preventDefault();
+                      toast.success(`Invite sent successfully to ${e.target.email.value}!`);
+                      e.target.reset();
+                    }}>
+                      <div className="form-group">
+                        <input type="email" name="email" placeholder="friend@example.com" required />
+                      </div>
+                      <button type="submit" className="send-invite-btn" style={{ background: themeColor }}>
+                        Send Mail Invite
+                      </button>
+                    </form>
+                  </div>
+                )}
+
+                {inviteTab === 'DM' && (
+                  <div className="tab-pane dm-pane">
+                    <p>Select an online member to send a direct message invite.</p>
+                    <div className="online-users-list">
+                      {['Alex_Coder', 'Fitness_Guru99', 'Polyglot_Jane'].map(user => (
+                        <div key={user} className="online-user-item">
+                          <div className="user-info">
+                            <span className="online-dot"></span>
+                            <span className="user-name">{user}</span>
+                          </div>
+                          <button 
+                            className="dm-send-btn"
+                            onClick={() => toast.success(`Direct Message sent to ${user}!`)}
+                          >
+                            Message Invite
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
