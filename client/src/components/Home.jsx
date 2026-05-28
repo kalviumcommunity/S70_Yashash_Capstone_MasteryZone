@@ -16,6 +16,8 @@ const Home = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [profileForm, setProfileForm] = useState({ username: '', bio: '' });
   const [preferences, setPreferences] = useState({ notifications: true, darkMode: false });
   const [isExiting, setIsExiting] = useState(false);
 
@@ -125,7 +127,7 @@ const Home = () => {
     fileInputRef.current.click();
   };
 
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
@@ -133,6 +135,11 @@ const Home = () => {
     reader.readAsDataURL(file);
     reader.onload = async () => {
       const base64Image = reader.result;
+      
+      // Optimistic UI Update
+      const previousAvatar = user.avatarUrl;
+      setUser({ ...user, avatarUrl: base64Image });
+      setIsDropdownOpen(false);
       
       try {
         const token = localStorage.getItem("token");
@@ -145,17 +152,76 @@ const Home = () => {
           body: JSON.stringify({ avatarUrl: base64Image })
         });
         
-        if (response.ok) {
-          const data = await response.json();
-          setUser({ ...user, avatarUrl: data.avatarUrl });
-          setIsDropdownOpen(false);
-        } else {
+        if (!response.ok) {
+          setUser({ ...user, avatarUrl: previousAvatar });
           alert("Failed to update profile photo. Image might be too large.");
         }
       } catch (error) {
         console.error("Error updating photo", error);
+        setUser({ ...user, avatarUrl: previousAvatar });
       }
     };
+  };
+
+  const handleRemovePhoto = async () => {
+    // Optimistic UI Update
+    const previousAvatar = user.avatarUrl;
+    setUser({ ...user, avatarUrl: null });
+    setIsDropdownOpen(false);
+    
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(`${API_BASE}/auth/avatar`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      if (!response.ok) {
+        setUser({ ...user, avatarUrl: previousAvatar });
+        alert("Failed to remove profile photo.");
+      }
+    } catch (error) {
+      console.error("Error removing photo", error);
+      setUser({ ...user, avatarUrl: previousAvatar });
+    }
+  };
+
+  const openProfileModal = () => {
+    setProfileForm({ username: user.username, bio: user.bio || '' });
+    setIsProfileModalOpen(true);
+    setIsDropdownOpen(false);
+  };
+
+  const handleProfileSave = async (e) => {
+    e.preventDefault();
+    const previousUser = { ...user };
+    
+    // Optimistic UI Update
+    setUser({ ...user, username: profileForm.username, bio: profileForm.bio });
+    setIsProfileModalOpen(false);
+    
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(`${API_BASE}/auth/profile`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(profileForm)
+      });
+      
+      if (!response.ok) {
+        const data = await response.json();
+        setUser(previousUser);
+        alert(data.message || "Failed to update profile.");
+      }
+    } catch (error) {
+      console.error("Error updating profile", error);
+      setUser(previousUser);
+      alert("Error updating profile");
+    }
   };
 
   const handlePreferenceChange = async (key, value) => {
@@ -212,9 +278,17 @@ const Home = () => {
                   <span>{user.email}</span>
                 </div>
                 <div className="dropdown-divider"></div>
+                <button className="dropdown-item" onClick={openProfileModal}>
+                  Edit Profile
+                </button>
                 <button className="dropdown-item" onClick={handlePhotoUploadClick}>
                   Update Photo
                 </button>
+                {user.avatarUrl && (
+                  <button className="dropdown-item text-danger" onClick={handleRemovePhoto}>
+                    Remove Photo
+                  </button>
+                )}
                 <input 
                   type="file" 
                   accept="image/*" 
@@ -281,6 +355,43 @@ const Home = () => {
               <button className="btn-cancel" onClick={() => setIsLogoutModalOpen(false)}>Cancel</button>
               <button className="btn-confirm" onClick={handleLogoutConfirm}>Yes, Log Out</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Profile Edit Modal */}
+      {isProfileModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content glass-modal">
+            <h2 className="modal-title">Edit Profile</h2>
+            <form onSubmit={handleProfileSave}>
+              <div className="input-group" style={{ marginBottom: "15px" }}>
+                <label style={{ display: "block", marginBottom: "5px", color: "white" }}>Username</label>
+                <input 
+                  type="text" 
+                  className="auth-input"
+                  style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.1)", color: "white" }}
+                  value={profileForm.username}
+                  onChange={(e) => setProfileForm({ ...profileForm, username: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="input-group" style={{ marginBottom: "20px" }}>
+                <label style={{ display: "block", marginBottom: "5px", color: "white" }}>Bio (Optional)</label>
+                <textarea 
+                  className="auth-input"
+                  rows="3"
+                  style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.1)", color: "white", resize: "none" }}
+                  value={profileForm.bio}
+                  onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })}
+                  placeholder="Tell us about yourself..."
+                ></textarea>
+              </div>
+              <div className="modal-actions" style={{ marginTop: '20px' }}>
+                <button type="button" className="btn-cancel" onClick={() => setIsProfileModalOpen(false)}>Cancel</button>
+                <button type="submit" className="btn-confirm">Save Changes</button>
+              </div>
+            </form>
           </div>
         </div>
       )}
