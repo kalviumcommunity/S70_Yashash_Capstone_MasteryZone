@@ -127,12 +127,6 @@ const Login = () => {
   return (
     <div className="container">
       <div className="login-box">
-        <img
-          src="https://c4.wallpaperflare.com/wallpaper/699/818/498/digital-art-artwork-sun-3d-wallpaper-preview.jpg"
-          alt="Banner"
-          className="login-image"
-        />
-
         <h2 className="title">Login</h2>
 
         <form onSubmit={handleLoginSubmit} style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "center" }}>
@@ -150,7 +144,7 @@ const Login = () => {
                 }}
               />
               {validationErrors.identifier && (
-                <span style={{ position: "absolute", bottom: "-13px", left: "20px", color: "#d90429", fontSize: "11px", fontWeight: "bold" }}>
+                <span className="validation-error">
                   {validationErrors.identifier}
                 </span>
               )}
@@ -176,7 +170,7 @@ const Login = () => {
                 {showPassword ? <FaEyeSlash /> : <FaEye />}
               </span>
               {validationErrors.password && (
-                <span style={{ position: "absolute", bottom: "-13px", left: "20px", color: "#d90429", fontSize: "11px", fontWeight: "bold" }}>
+                <span className="validation-error">
                   {validationErrors.password}
                 </span>
               )}
@@ -203,7 +197,7 @@ const Login = () => {
           <FcGoogle size={20} /> Sign in with Google
         </button>
 
-        <button onClick={handleGuestLogin} className="google-button" style={{ marginTop: '10px', backgroundColor: '#333', color: 'white', border: 'none' }}>
+        <button onClick={handleGuestLogin} className="google-button guest-btn">
           Login as Guest (Interviewer)
         </button>
 
