@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import { FaArrowLeft, FaCamera, FaMedal, FaImage, FaCrosshairs, FaRegClock, FaPalette } from "react-icons/fa";
+import { FaArrowLeft, FaCamera, FaMedal, FaImage, FaCrosshairs, FaRegClock, FaPalette, FaTrophy } from "react-icons/fa";
 import "./profile.css";
 
 const API_BASE = import.meta.env.VITE_API_URL || "https://s70-yashash-capstone-masteryzone-2.onrender.com";
