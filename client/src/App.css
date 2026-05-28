@@ -298,3 +298,30 @@ a:hover, .forgot-password:hover {
   0% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0px); }
   100% { opacity: 0; transform: scale(1.05) translateY(-20px); filter: blur(8px); }
 }
+
+/* Mobile Responsiveness */
+@media screen and (max-width: 600px) {
+  .login-box, .signup-box {
+    padding: 30px 20px;
+    width: 90%;
+    margin: 0 auto;
+  }
+  .title, .signup-heading {
+    font-size: 24px;
+  }
+  .input-field1 {
+    padding: 10px 15px;
+  }
+  .input-field1 input {
+    font-size: 14px;
+  }
+  .login-button, .signup-button {
+    padding: 12px;
+    font-size: 15px;
+  }
+  .options {
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+  }
+}

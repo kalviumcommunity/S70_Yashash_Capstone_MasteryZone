@@ -658,4 +658,60 @@ input:checked + .slider:before {
   .home-quote-secondary {
     font-size: 16px;
   }
+
+  .glass-modal {
+    width: 90%;
+    padding: 20px;
+  }
+  
+  .profile-section {
+    right: 20px;
+  }
+
+  .profile-dropdown {
+    width: 200px;
+    right: -10px;
+  }
+}
+
+/* Profile Modal Inputs */
+.profile-input {
+  width: 100%;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.2) !important;
+  background: rgba(0, 0, 0, 0.05) !important;
+  color: #1a202c !important;
+  font-size: 15px;
+  box-sizing: border-box;
+  resize: none;
+  font-family: 'Inter', sans-serif;
+  transition: all 0.3s ease;
+}
+
+.profile-input:focus {
+  outline: none;
+  border-color: #6a0572 !important;
+  background: rgba(255, 255, 255, 1) !important;
+  box-shadow: 0 0 0 2px rgba(106, 5, 114, 0.2);
+}
+
+.dark-mode .profile-input {
+  color: white !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+}
+
+.dark-mode .profile-input:focus {
+  border-color: #f9a8d4 !important;
+  box-shadow: 0 0 0 2px rgba(249, 168, 212, 0.3);
+}
+
+.dark-mode .glass-modal {
+  background: rgba(30, 30, 40, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.dark-mode .modal-title {
+  color: #ffffff;
 }
