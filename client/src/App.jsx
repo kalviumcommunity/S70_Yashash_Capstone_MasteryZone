@@ -5,6 +5,8 @@ import "react-toastify/dist/ReactToastify.css";
 import './App.css'
 import { GlobalLoader, FitnessLoader, CodingLoader, DrivingLoader, LanguageLoader } from "./components/Loaders.jsx";
 
+import ErrorBoundary from "./components/ErrorBoundary.jsx";
+
 // Lazy load all major components
 const Signup = lazy(() => import("./components/signup.jsx"));
 const Login = lazy(() => import("./components/Login.jsx"));
@@ -19,7 +21,7 @@ const Language = lazy(() => import("./components/Language.jsx"));
 
 function App() {
   return(
-    <>
+    <ErrorBoundary>
       <Router>
         <Routes>
           <Route path="/" element={<Suspense fallback={<GlobalLoader />}><Login /></Suspense>} />
@@ -36,7 +38,7 @@ function App() {
         </Routes>
       </Router>
       <ToastContainer position="top-right" theme="dark" autoClose={2000} />
-    </>
+    </ErrorBoundary>
   )
 }
 
