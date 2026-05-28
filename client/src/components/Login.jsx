@@ -207,7 +207,7 @@ const Login = () => {
           <FcGoogle size={20} /> Sign in with Google
         </button>
 
-        <button onClick={handleGuestLogin} className="google-button" style={{ marginTop: '10px', backgroundColor: '#333', color: 'white', border: 'none' }}>
+        <button onClick={handleGuestLogin} className="google-button" style={{ marginTop: '10px', backgroundColor: '#FFD700', color: 'black', border: 'none', fontWeight: 'bold' }}>
           Login as Guest (Interviewer)
         </button>
 
