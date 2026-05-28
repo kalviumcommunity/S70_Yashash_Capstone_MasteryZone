@@ -56,7 +56,7 @@ const Profile = () => {
         const certResponse = await fetch(`${API_BASE}/api/certifications`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        const certData = await certResponse.ok ? await certResponse.json() : [];
+        const certData = certResponse.ok ? await certResponse.json() : [];
         
         // Calculate XP based on modules completed across all certs
         const calculatedXp = certData.reduce((acc, curr) => acc + (curr.currentModule * 5), 0);
