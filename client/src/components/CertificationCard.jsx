@@ -48,8 +48,8 @@ const CertificationCard = ({ certData, zone, onUpdate }) => {
       });
 
       if (response.ok) {
-        toast.success(`Successfully enrolled in ${certData.name}!`);
-        setStatus('active');
+        toast.success(`Successfully enrolled and certified in ${certData.name}!`);
+        setStatus('completed');
         if (onUpdate) onUpdate();
       } else {
         const data = await response.json();
@@ -134,24 +134,7 @@ const CertificationCard = ({ certData, zone, onUpdate }) => {
             </button>
           )}
 
-          {status === 'active' && (
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#ccc', marginBottom: '5px' }}>
-                <span>Module {currentModule} of {certData.modules}</span>
-                <span>{Math.round(progress)}%</span>
-              </div>
-              <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', marginBottom: '15px', overflow: 'hidden' }}>
-                <div style={{ height: '100%', background: 'var(--theme-color, #00A859)', width: `${progress}%`, transition: 'width 0.5s ease-out' }}></div>
-              </div>
-              <button 
-                onClick={handleCompleteModule} 
-                disabled={loading}
-                style={{ width: '100%', padding: '12px', background: 'var(--theme-color, #00A859)', color: '#000', border: 'none', borderRadius: '8px', fontWeight: '800', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px' }}
-              >
-                <FaPlay /> {loading ? 'Saving...' : 'Study & Complete Module'}
-              </button>
-            </div>
-          )}
+
 
           {status === 'completed' && (
             <div style={{ padding: '12px', background: 'rgba(0, 168, 89, 0.2)', color: '#00A859', borderRadius: '8px', textAlign: 'center', fontWeight: '800', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px' }}>

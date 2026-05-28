@@ -386,7 +386,7 @@ const ProctoredExam = ({ zone, onClose, title, onPurchase }) => {
           <p>You answered {score} out of {questions.length} correctly.</p>
           <div className="result-actions" style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '20px', alignItems: 'center' }}>
             <button className="exam-primary-btn" onClick={handlePurchase} style={{ background: '#ffcc00', color: '#000', padding: '16px 40px', fontSize: '20px' }}>
-              Unlock Full Certification
+              Purchase Certification
             </button>
             <button className="exam-secondary-btn" onClick={handleClose}>
               Back to Dashboard
