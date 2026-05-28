@@ -15,5 +15,8 @@ export default defineConfig({
         changeOrigin: true,
       }
     }
+  },
+  build: {
+    cssCodeSplit: false
   }
 })
