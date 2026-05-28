@@ -1040,9 +1040,9 @@
 }
 
 .lang-cert-card:hover {
-  transform: translateY(-5px);
-  border-color: rgba(206, 119, 166, 0.6);
-  box-shadow: 0 12px 40px rgba(206, 119, 166, 0.22);
+  transform: translateY(-8px) scale(1.02);
+  border-color: rgba(206, 119, 166, 0.8);
+  box-shadow: 0 15px 45px rgba(206, 119, 166, 0.35), 0 0 15px rgba(206, 119, 166, 0.2);
 }
 
 .lang-cert-card.lang-enrolled {

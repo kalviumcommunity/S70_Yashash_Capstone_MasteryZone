@@ -320,8 +320,6 @@ const Home = () => {
         </div>
       )}
 
-      )}
-
       {/* App Settings Modal */}
       {isSettingsModalOpen && (
         <div className="modal-overlay">
