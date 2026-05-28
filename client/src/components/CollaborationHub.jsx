@@ -18,7 +18,10 @@ const CollaborationHub = ({ zone, themeColor }) => {
   
   // Socket.io states
   const [onlineUsers, setOnlineUsers] = useState([]);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState('');
   const socketRef = useRef(null);
+  const chatScrollRef = useRef(null);
 
   // Initialize Socket.io on component mount
   useEffect(() => {
@@ -40,10 +43,24 @@ const CollaborationHub = ({ zone, themeColor }) => {
       });
     });
 
+    socketRef.current.on("receive_global_message", (msg) => {
+      // Only append if it's for this zone
+      if (msg.zone === zone) {
+        setChatMessages(prev => [...prev, msg]);
+      }
+    });
+
     return () => {
       socketRef.current.disconnect();
     };
-  }, [displayName]);
+  }, [displayName, zone]);
+
+  // Auto-scroll chat to bottom
+  useEffect(() => {
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+    }
+  }, [chatMessages, view]);
 
   // Generate a fresh code for hosts
   const generateRoomCode = () => {
@@ -94,6 +111,28 @@ const CollaborationHub = ({ zone, themeColor }) => {
     navigator.clipboard.writeText(inviteText);
     toast.success("Invite copied to clipboard!");
     setShowInviteModal(false);
+  };
+
+  const handleSendGlobalMessage = (e) => {
+    e.preventDefault();
+    if (!chatInput.trim()) return;
+    
+    // We need a display name to chat, if they haven't set one, prompt them
+    if (!displayName.trim()) {
+      toast.error("Please enter your name in the 'Join' section first to chat!");
+      return;
+    }
+
+    const msgData = {
+      id: Date.now().toString(),
+      user: displayName,
+      text: chatInput,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      zone: zone
+    };
+
+    socketRef.current.emit("send_global_message", msgData);
+    setChatInput('');
   };
 
   // 1. MEETING VIEW (Jitsi Embedded)
@@ -342,14 +381,51 @@ const CollaborationHub = ({ zone, themeColor }) => {
           </p>
         </div>
         
-        <div className="landing-right">
-          <div className="carousel-illustration">
-            <div className="carousel-img" style={{ background: `radial-gradient(circle at center, rgba(255,255,255,0.1) 0%, transparent 70%), ${themeColor}22` }}>
-              <span style={{ fontSize: '100px' }}>🌐</span>
-            </div>
-            <h3>Get a link you can share</h3>
-            <p>Click <strong>New meeting</strong> to get a link you can send to people you want to meet with</p>
+        <div className="landing-right global-chat-panel">
+          <div className="global-chat-header" style={{ borderBottom: `2px solid ${themeColor}` }}>
+            <h3>💬 {zone} Global Lounge</h3>
+            <span className="online-count">{onlineUsers.length + 1} Online</span>
           </div>
+          
+          <div className="global-chat-messages" ref={chatScrollRef}>
+            {chatMessages.length === 0 ? (
+              <div className="empty-chat-msg">
+                <span style={{ fontSize: '40px' }}>👋</span>
+                <p>Welcome to the {zone} Lounge! Be the first to say hello.</p>
+              </div>
+            ) : (
+              chatMessages.map(msg => {
+                const isMe = msg.user === displayName;
+                return (
+                  <div key={msg.id} className={`chat-bubble-wrapper ${isMe ? 'mine' : 'theirs'}`}>
+                    {!isMe && <span className="chat-bubble-name">{msg.user}</span>}
+                    <div className="chat-bubble" style={{ background: isMe ? themeColor : '#2c2c2c', color: isMe ? '#000' : '#fff' }}>
+                      {msg.text}
+                      <span className="chat-bubble-time" style={{ color: isMe ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.5)' }}>{msg.time}</span>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+          
+          <form className="global-chat-input-area" onSubmit={handleSendGlobalMessage}>
+            <input 
+              type="text" 
+              placeholder={displayName ? "Type a message..." : "Set your name on the left to chat..."}
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              disabled={!displayName}
+            />
+            <button 
+              type="submit" 
+              className="send-chat-btn"
+              disabled={!displayName || !chatInput.trim()}
+              style={{ background: themeColor, color: '#000' }}
+            >
+              ➤
+            </button>
+          </form>
         </div>
       </div>
     </div>
