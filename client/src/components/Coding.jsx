@@ -171,7 +171,7 @@ const GodBanner = () => {
         ctx.globalAlpha = s.alpha * flicker;
         ctx.fillStyle = `hsl(${300 + Math.sin(frame * 0.02 + s.x) * 40},80%,70%)`;
         ctx.shadowBlur = 8;
-        ctx.shadowColor = "#ce77a6";
+        ctx.shadowColor = "#00A859";
         ctx.fillText(s.text, s.x * W, s.y * H);
         ctx.shadowBlur = 0;
       });
@@ -180,9 +180,9 @@ const GodBanner = () => {
       // ── Horizontal neon scan line ──
       const scanY = ((frame * 0.8) % (H + 20)) - 10;
       const scanGrd = ctx.createLinearGradient(0, scanY - 2, 0, scanY + 2);
-      scanGrd.addColorStop(0, "rgba(206,119,166,0)");
-      scanGrd.addColorStop(0.5, "rgba(206,119,166,0.18)");
-      scanGrd.addColorStop(1, "rgba(206,119,166,0)");
+      scanGrd.addColorStop(0, "rgba(0, 168, 89,0)");
+      scanGrd.addColorStop(0.5, "rgba(0, 168, 89,0.18)");
+      scanGrd.addColorStop(1, "rgba(0, 168, 89,0)");
       ctx.fillStyle = scanGrd;
       ctx.fillRect(0, scanY - 2, W, 4);
 
@@ -350,7 +350,7 @@ const Coding = () => {
     email: "",
     tier: "gold", // "silver", "gold", "platinum"
     cycle: "monthly", // "monthly", "annual"
-    accentColor: "#ce77a6", // Neon Pink, Cyan (#00f0ff), Gold (#ffd700), Lavender (#b78bb1)
+    accentColor: "#00A859", // Neon Pink, Cyan (#00f0ff), Gold (#ffd700), Lavender (#b78bb1)
     avatarType: "athlete" // "athlete" (Elite Coder), "beast" (Cyber Beast), "ninja" (Git Ninja), "guru" (Code Guru)
   });
   const [rosterList, setRosterList] = useState([]); // Additional team developers
@@ -541,7 +541,7 @@ const Coding = () => {
         ctx.strokeStyle = "rgba(208, 119, 166, 0.38)";
         ctx.lineWidth = 3.2;
         ctx.shadowBlur = 8;
-        ctx.shadowColor = "#ce77a6";
+        ctx.shadowColor = "#00A859";
 
         for (let x = 0; x < canvas.width; x += 3) {
           const cycle = (x + pulseOffset) % 280;
@@ -576,7 +576,7 @@ const Coding = () => {
           ctx.strokeStyle = "rgba(208, 119, 166, " + r.opacity + ")";
           ctx.lineWidth = 2.5;
           ctx.shadowBlur = 6;
-          ctx.shadowColor = "#ce77a6";
+          ctx.shadowColor = "#00A859";
           ctx.beginPath();
           ctx.arc(centerX, centerY, r.radius, 0, Math.PI * 2);
           ctx.stroke();
@@ -1148,52 +1148,52 @@ const Coding = () => {
       case "HTML":
         return (
           <svg className="workout-svg-anim" viewBox="0 0 200 200">
-            <circle cx="100" cy="100" r="85" fill="none" stroke="rgba(206, 119, 166, 0.15)" strokeWidth="4" />
+            <circle cx="100" cy="100" r="85" fill="none" stroke="rgba(0, 168, 89, 0.15)" strokeWidth="4" />
             <g className="bicep-forearm-group">
-              <text x="50%" y="45%" textAnchor="middle" fill="#ce77a6" fontSize="32" fontWeight="900" fontFamily="Courier New">&lt;HTML&gt;</text>
+              <text x="50%" y="45%" textAnchor="middle" fill="#00A859" fontSize="32" fontWeight="900" fontFamily="Courier New">&lt;HTML&gt;</text>
               <text x="50%" y="75%" textAnchor="middle" fill="#ffffff" fontSize="16" fontWeight="bold" fontFamily="Courier New">&lt;div&gt; Hello &lt;/div&gt;</text>
             </g>
             <line x1="40" y1="140" x2="160" y2="140" stroke="#844e7c" strokeWidth="6" strokeLinecap="round" />
             {/* Blinking Cursor */}
-            <rect x="145" y="60" width="3" height="20" fill="#ce77a6" className="chest-barbell-group" />
+            <rect x="145" y="60" width="3" height="20" fill="#00A859" className="chest-barbell-group" />
           </svg>
         );
       case "CSS":
         return (
           <svg className="workout-svg-anim" viewBox="0 0 200 200">
-            <circle cx="100" cy="100" r="85" fill="none" stroke="rgba(206, 119, 166, 0.15)" strokeWidth="4" />
+            <circle cx="100" cy="100" r="85" fill="none" stroke="rgba(0, 168, 89, 0.15)" strokeWidth="4" />
             {/* Visual Margin / Border / Padding expander */}
             <rect x="50" y="50" width="100" height="100" rx="10" fill="none" stroke="#844e7c" strokeWidth="3" />
             <g className="squat-body-group">
-              <rect x="65" y="65" width="70" height="70" rx="6" fill="rgba(206, 119, 166, 0.15)" stroke="#ce77a6" strokeWidth="4" />
+              <rect x="65" y="65" width="70" height="70" rx="6" fill="rgba(0, 168, 89, 0.15)" stroke="#00A859" strokeWidth="4" />
               <text x="50%" y="54%" textAnchor="middle" dominantBaseline="middle" fill="#ffffff" fontSize="11" fontWeight="bold">BOX-MODEL</text>
             </g>
-            <text x="50%" y="82%" textAnchor="middle" fill="#ce77a6" fontSize="11" fontWeight="800" fontFamily="Courier">border-radius: 50%</text>
+            <text x="50%" y="82%" textAnchor="middle" fill="#00A859" fontSize="11" fontWeight="800" fontFamily="Courier">border-radius: 50%</text>
           </svg>
         );
       case "JAVASCRIPT":
         return (
           <svg className="workout-svg-anim" viewBox="0 0 200 200">
-            <circle cx="100" cy="100" r="85" fill="none" stroke="rgba(206, 119, 166, 0.15)" strokeWidth="4" />
+            <circle cx="100" cy="100" r="85" fill="none" stroke="rgba(0, 168, 89, 0.15)" strokeWidth="4" />
             {/* Rotating Gear 1 */}
             <g className="warmup-arms-group" transform="translate(100, 85)">
-              <circle cx="0" cy="0" r="28" fill="none" stroke="#ce77a6" strokeWidth="6" strokeDasharray="10, 5" />
-              <circle cx="0" cy="0" r="10" fill="#ce77a6" />
+              <circle cx="0" cy="0" r="28" fill="none" stroke="#00A859" strokeWidth="6" strokeDasharray="10, 5" />
+              <circle cx="0" cy="0" r="10" fill="#00A859" />
             </g>
             <text x="50%" y="78%" textAnchor="middle" fill="#ffffff" fontSize="13" fontWeight="900" fontFamily="monospace">const fn = () =&gt; &#123;&#125;</text>
-            <text x="50%" y="90%" textAnchor="middle" fill="#ce77a6" fontSize="12" fontWeight="700" fontFamily="monospace">async / await</text>
+            <text x="50%" y="90%" textAnchor="middle" fill="#00A859" fontSize="12" fontWeight="700" fontFamily="monospace">async / await</text>
           </svg>
         );
       case "SQL":
         return (
           <svg className="workout-svg-anim" viewBox="0 0 200 200">
-            <circle cx="100" cy="100" r="85" fill="none" stroke="rgba(206, 119, 166, 0.15)" strokeWidth="4" />
+            <circle cx="100" cy="100" r="85" fill="none" stroke="rgba(0, 168, 89, 0.15)" strokeWidth="4" />
             {/* Database cylinders */}
             <g className="shoulder-press-group">
               <ellipse cx="100" cy="50" rx="35" ry="12" fill="#844e7c" stroke="#ffffff" strokeWidth="2.5" />
-              <path d="M65 50 v25 a35 12 0 0 0 70 0 v-25" fill="#ce77a6" stroke="#ffffff" strokeWidth="2.5" />
+              <path d="M65 50 v25 a35 12 0 0 0 70 0 v-25" fill="#00A859" stroke="#ffffff" strokeWidth="2.5" />
               <path d="M65 75 v25 a35 12 0 0 0 70 0 v-25" fill="#844e7c" stroke="#ffffff" strokeWidth="2.5" />
-              <path d="M65 100 v25 a35 12 0 0 0 70 0 v-25" fill="#ce77a6" stroke="#ffffff" strokeWidth="2.5" />
+              <path d="M65 100 v25 a35 12 0 0 0 70 0 v-25" fill="#00A859" stroke="#ffffff" strokeWidth="2.5" />
             </g>
             <text x="50%" y="82%" textAnchor="middle" fill="#ffffff" fontSize="13" fontWeight="950" fontFamily="monospace">SELECT * FROM users</text>
           </svg>
@@ -1201,40 +1201,40 @@ const Coding = () => {
       case "PYTHON":
         return (
           <svg className="workout-svg-anim" viewBox="0 0 200 200">
-            <circle cx="100" cy="100" r="85" fill="none" stroke="rgba(206, 119, 166, 0.15)" strokeWidth="4" />
+            <circle cx="100" cy="100" r="85" fill="none" stroke="rgba(0, 168, 89, 0.15)" strokeWidth="4" />
             {/* Winding neon loop path representing snake/loop */}
             <g className="tricep-forearm-group">
-              <path d="M 60,60 C 80,40 120,40 140,60 C 160,80 160,120 140,140 C 120,160 80,160 60,140 C 40,120 40,80 60,60 Z" fill="none" stroke="#ce77a6" strokeWidth="6" strokeLinecap="round" strokeDasharray="30, 15" />
+              <path d="M 60,60 C 80,40 120,40 140,60 C 160,80 160,120 140,140 C 120,160 80,160 60,140 C 40,120 40,80 60,60 Z" fill="none" stroke="#00A859" strokeWidth="6" strokeLinecap="round" strokeDasharray="30, 15" />
             </g>
             <text x="50%" y="54%" textAnchor="middle" dominantBaseline="middle" fill="#ffffff" fontSize="15" fontWeight="bold" fontFamily="monospace">def print_loop():</text>
-            <text x="50%" y="64%" textAnchor="middle" dominantBaseline="middle" fill="#ce77a6" fontSize="12" fontWeight="bold" fontFamily="monospace">for i in range(N):</text>
+            <text x="50%" y="64%" textAnchor="middle" dominantBaseline="middle" fill="#00A859" fontSize="12" fontWeight="bold" fontFamily="monospace">for i in range(N):</text>
           </svg>
         );
       case "JAVA":
         return (
           <svg className="workout-svg-anim" viewBox="0 0 200 200">
-            <circle cx="100" cy="100" r="85" fill="none" stroke="rgba(206, 119, 166, 0.15)" strokeWidth="4" />
+            <circle cx="100" cy="100" r="85" fill="none" stroke="rgba(0, 168, 89, 0.15)" strokeWidth="4" />
             {/* Steaming Coffee Cup in Neon */}
             <path d="M60 90 h80 v40 a40 40 0 0 1 -80 0 Z" fill="#844e7c" stroke="#ffffff" strokeWidth="3" />
             <path d="M140 100 h12 a10 10 0 0 1 10 10 v0 a10 10 0 0 1 -10 10 h-12" fill="none" stroke="#ffffff" strokeWidth="3" />
             <line x1="50" y1="140" x2="150" y2="140" stroke="#ffffff" strokeWidth="4" strokeLinecap="round" />
             {/* Rising Steam */}
             <g className="back-row-group">
-              <path d="M 80,75 Q 85,60 80,45" fill="none" stroke="#ce77a6" strokeWidth="3.5" strokeLinecap="round" />
-              <path d="M 100,75 Q 105,60 100,45" fill="none" stroke="#ce77a6" strokeWidth="3.5" strokeLinecap="round" />
-              <path d="M 120,75 Q 125,60 120,45" fill="none" stroke="#ce77a6" strokeWidth="3.5" strokeLinecap="round" />
+              <path d="M 80,75 Q 85,60 80,45" fill="none" stroke="#00A859" strokeWidth="3.5" strokeLinecap="round" />
+              <path d="M 100,75 Q 105,60 100,45" fill="none" stroke="#00A859" strokeWidth="3.5" strokeLinecap="round" />
+              <path d="M 120,75 Q 125,60 120,45" fill="none" stroke="#00A859" strokeWidth="3.5" strokeLinecap="round" />
             </g>
           </svg>
         );
       case "C++":
         return (
           <svg className="workout-svg-anim" viewBox="0 0 200 200">
-            <circle cx="100" cy="100" r="85" fill="none" stroke="rgba(206, 119, 166, 0.15)" strokeWidth="4" />
+            <circle cx="100" cy="100" r="85" fill="none" stroke="rgba(0, 168, 89, 0.15)" strokeWidth="4" />
             {/* Brackets compiling block */}
             <g className="chest-barbell-group">
-              <text x="25%" y="50%" dominantBaseline="middle" fill="#ce77a6" fontSize="48" fontWeight="800" fontFamily="Courier">[</text>
-              <rect x="70" y="60" width="60" height="60" rx="4" fill="rgba(206,119,166,0.15)" stroke="#ffffff" strokeWidth="2.5" />
-              <text x="75%" y="50%" dominantBaseline="middle" fill="#ce77a6" fontSize="48" fontWeight="800" fontFamily="Courier">]</text>
+              <text x="25%" y="50%" dominantBaseline="middle" fill="#00A859" fontSize="48" fontWeight="800" fontFamily="Courier">[</text>
+              <rect x="70" y="60" width="60" height="60" rx="4" fill="rgba(0, 168, 89,0.15)" stroke="#ffffff" strokeWidth="2.5" />
+              <text x="75%" y="50%" dominantBaseline="middle" fill="#00A859" fontSize="48" fontWeight="800" fontFamily="Courier">]</text>
             </g>
             <text x="50%" y="84%" textAnchor="middle" fill="#ffffff" fontSize="13" fontWeight="950" fontFamily="monospace">#include &lt;iostream&gt;</text>
           </svg>
@@ -1242,12 +1242,12 @@ const Coding = () => {
       case "REACT":
         return (
           <svg className="workout-svg-anim" viewBox="0 0 200 200">
-            <circle cx="100" cy="100" r="85" fill="none" stroke="rgba(206, 119, 166, 0.15)" strokeWidth="4" />
+            <circle cx="100" cy="100" r="85" fill="none" stroke="rgba(0, 168, 89, 0.15)" strokeWidth="4" />
             {/* Rotating atom orbits */}
             <g className="warmup-arms-group" transform="translate(100, 100)">
-              <ellipse cx="0" cy="0" rx="72" ry="24" fill="none" stroke="#ce77a6" strokeWidth="3" transform="rotate(30)" />
-              <ellipse cx="0" cy="0" rx="72" ry="24" fill="none" stroke="#ce77a6" strokeWidth="3" transform="rotate(90)" />
-              <ellipse cx="0" cy="0" rx="72" ry="24" fill="none" stroke="#ce77a6" strokeWidth="3" transform="rotate(150)" />
+              <ellipse cx="0" cy="0" rx="72" ry="24" fill="none" stroke="#00A859" strokeWidth="3" transform="rotate(30)" />
+              <ellipse cx="0" cy="0" rx="72" ry="24" fill="none" stroke="#00A859" strokeWidth="3" transform="rotate(90)" />
+              <ellipse cx="0" cy="0" rx="72" ry="24" fill="none" stroke="#00A859" strokeWidth="3" transform="rotate(150)" />
               <circle cx="0" cy="0" r="10" fill="#ffffff" />
             </g>
           </svg>
@@ -1255,8 +1255,8 @@ const Coding = () => {
       default:
         return (
           <svg className="workout-svg-anim" viewBox="0 0 200 200">
-            <circle cx="100" cy="100" r="85" fill="none" stroke="rgba(206, 119, 166, 0.15)" strokeWidth="4" />
-            <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle" fill="#ce77a6" fontSize="16" fontWeight="bold">ACTIVE CODE</text>
+            <circle cx="100" cy="100" r="85" fill="none" stroke="rgba(0, 168, 89, 0.15)" strokeWidth="4" />
+            <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle" fill="#00A859" fontSize="16" fontWeight="bold">ACTIVE CODE</text>
           </svg>
         );
     }
@@ -2380,7 +2380,7 @@ const Coding = () => {
                         <div className="form-group">
                           <label>Choose Neon Theme Color</label>
                           <div className="pass-color-pills">
-                            <button type="button" className={`color-pill pink ${membershipForm.accentColor === "#ce77a6" ? "active" : ""}`} onClick={() => setMembershipForm({ ...membershipForm, accentColor: "#ce77a6" })}></button>
+                            <button type="button" className={`color-pill pink ${membershipForm.accentColor === "#00A859" ? "active" : ""}`} onClick={() => setMembershipForm({ ...membershipForm, accentColor: "#00A859" })}></button>
                             <button type="button" className={`color-pill cyan ${membershipForm.accentColor === "#00f0ff" ? "active" : ""}`} onClick={() => setMembershipForm({ ...membershipForm, accentColor: "#00f0ff" })}></button>
                             <button type="button" className={`color-pill gold-gold ${membershipForm.accentColor === "#ffd700" ? "active" : ""}`} onClick={() => setMembershipForm({ ...membershipForm, accentColor: "#ffd700" })}></button>
                             <button type="button" className={`color-pill lavender ${membershipForm.accentColor === "#b78bb1" ? "active" : ""}`} onClick={() => setMembershipForm({ ...membershipForm, accentColor: "#b78bb1" })}></button>
@@ -2553,7 +2553,7 @@ const Coding = () => {
                       </div>
                     </div>
 
-                    <button className="continue-shopping-btn" style={{ marginTop: "30px" }} onClick={() => { setMembershipSuccess(false); setRosterList([]); setMembershipForm({ primaryName: "", email: "", tier: "gold", cycle: "monthly", accentColor: "#ce77a6", avatarType: "athlete" }); setActiveTab("dashboard"); }}>
+                    <button className="continue-shopping-btn" style={{ marginTop: "30px" }} onClick={() => { setMembershipSuccess(false); setRosterList([]); setMembershipForm({ primaryName: "", email: "", tier: "gold", cycle: "monthly", accentColor: "#00A859", avatarType: "athlete" }); setActiveTab("dashboard"); }}>
                       Return to Coding Dashboard
                     </button>
                   </div>
@@ -2641,7 +2641,7 @@ const Coding = () => {
                     </div>
                   )}
                   <span
-                    style={{ color: "#ce77a6", cursor: "pointer", textDecoration: "underline", fontSize: "14px", fontWeight: "bold" }}
+                    style={{ color: "#00A859", cursor: "pointer", textDecoration: "underline", fontSize: "14px", fontWeight: "bold" }}
                     onClick={() => setUseYoutube(!useYoutube)}
                   >
                     {useYoutube ? "Switch to High-Clarity Vector Guide" : "Switch to YouTube Stream Player"}

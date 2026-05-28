@@ -87,7 +87,7 @@ const Language = () => {
     email: "",
     tier: "gold", // "silver", "gold", "platinum"
     cycle: "monthly", // "monthly", "annual"
-    accentColor: "#ce77a6", // Neon Pink, Cyan (#00f0ff), Gold (#ffd700), Lavender (#b78bb1)
+    accentColor: "#00A859", // Neon Pink, Cyan (#00f0ff), Gold (#ffd700), Lavender (#b78bb1)
     avatarType: "athlete" // "athlete", "beast", "ninja", "guru"
   });
   const [rosterList, setRosterList] = useState([]); // Secondary roster members
@@ -200,7 +200,7 @@ const Language = () => {
         speedY: Math.random() * -1.4 - 0.3,
         angle: Math.random() * Math.PI * 2,
         rotationSpeed: Math.random() * 0.02 - 0.01,
-        color: i % 2 === 0 ? "#ce77a6" : "#844e7c",
+        color: i % 2 === 0 ? "#00A859" : "#844e7c",
         opacity: Math.random() * 0.3 + 0.1
       });
     }
@@ -225,7 +225,7 @@ const Language = () => {
       ctx.strokeStyle = "rgba(208, 119, 166, 0.28)";
       ctx.lineWidth = 3.5;
       ctx.shadowBlur = 10;
-      ctx.shadowColor = "#ce77a6";
+      ctx.shadowColor = "#00A859";
 
       for (let x = 0; x < canvas.width; x += 3) {
         const cycle = (x + ekgOffset) % 400;
@@ -342,7 +342,7 @@ const Language = () => {
         ctx.strokeStyle = "rgba(208, 119, 166, 0.38)";
         ctx.lineWidth = 3.2;
         ctx.shadowBlur = 8;
-        ctx.shadowColor = "#ce77a6";
+        ctx.shadowColor = "#00A859";
 
         for (let x = 0; x < canvas.width; x += 3) {
           const cycle = (x + pulseOffset) % 280;
@@ -377,7 +377,7 @@ const Language = () => {
           ctx.strokeStyle = "rgba(208, 119, 166, " + r.opacity + ")";
           ctx.lineWidth = 2.5;
           ctx.shadowBlur = 6;
-          ctx.shadowColor = "#ce77a6";
+          ctx.shadowColor = "#00A859";
           ctx.beginPath();
           ctx.arc(centerX, centerY, r.radius, 0, Math.PI * 2);
           ctx.stroke();
@@ -679,16 +679,16 @@ const Language = () => {
       case "BICEPS":
         return (
           <svg className="lang-workout-svg-anim" viewBox="0 0 200 200">
-            <circle cx="100" cy="100" r="85" fill="none" stroke="rgba(206, 119, 166, 0.15)" strokeWidth="4" />
+            <circle cx="100" cy="100" r="85" fill="none" stroke="rgba(0, 168, 89, 0.15)" strokeWidth="4" />
             <path d="M40 180 L70 110 L60 60" stroke="#844e7c" strokeWidth="6" strokeLinecap="round" fill="none" />
-            <circle cx="60" cy="60" r="14" fill="#ce77a6" />
-            <line x1="60" y1="60" x2="100" y2="120" stroke="#ce77a6" strokeWidth="8" strokeLinecap="round" />
+            <circle cx="60" cy="60" r="14" fill="#00A859" />
+            <line x1="60" y1="60" x2="100" y2="120" stroke="#00A859" strokeWidth="8" strokeLinecap="round" />
             <g className="lang-bicep-forearm-group">
-              <line x1="100" y1="120" x2="150" y2="120" stroke="#ce77a6" strokeWidth="7" strokeLinecap="round" />
+              <line x1="100" y1="120" x2="150" y2="120" stroke="#00A859" strokeWidth="7" strokeLinecap="round" />
               <g transform="translate(150, 120)">
                 <line x1="0" y1="-25" x2="0" y2="25" stroke="#ffffff" strokeWidth="4" strokeLinecap="round" />
-                <rect x="-8" y="-25" width="16" height="8" rx="2" fill="#ce77a6" />
-                <rect x="-8" y="17" width="16" height="8" rx="2" fill="#ce77a6" />
+                <rect x="-8" y="-25" width="16" height="8" rx="2" fill="#00A859" />
+                <rect x="-8" y="17" width="16" height="8" rx="2" fill="#00A859" />
               </g>
             </g>
             <circle cx="100" cy="120" r="6" fill="#ffffff" />
@@ -697,37 +697,37 @@ const Language = () => {
       case "CHEST":
         return (
           <svg className="lang-workout-svg-anim" viewBox="0 0 200 200">
-            <circle cx="100" cy="100" r="85" fill="none" stroke="rgba(206, 119, 166, 0.15)" strokeWidth="4" />
+            <circle cx="100" cy="100" r="85" fill="none" stroke="rgba(0, 168, 89, 0.15)" strokeWidth="4" />
             <line x1="30" y1="140" x2="170" y2="140" stroke="#844e7c" strokeWidth="8" strokeLinecap="round" />
             <line x1="60" y1="140" x2="60" y2="180" stroke="#844e7c" strokeWidth="6" />
             <line x1="140" y1="140" x2="140" y2="180" stroke="#844e7c" strokeWidth="6" />
-            <rect x="70" y="125" width="60" height="15" rx="5" fill="#ce77a6" />
-            <circle cx="60" cy="132" r="10" fill="#ce77a6" />
+            <rect x="70" y="125" width="60" height="15" rx="5" fill="#00A859" />
+            <circle cx="60" cy="132" r="10" fill="#00A859" />
             <g className="lang-chest-barbell-group">
               <line x1="20" y1="90" x2="180" y2="90" stroke="#ffffff" strokeWidth="4" />
-              <rect x="25" y="75" width="10" height="30" rx="2" fill="#ce77a6" />
+              <rect x="25" y="75" width="10" height="30" rx="2" fill="#00A859" />
               <rect x="37" y="80" width="8" height="20" rx="2" fill="#844e7c" />
-              <rect x="165" y="75" width="10" height="30" rx="2" fill="#ce77a6" />
+              <rect x="165" y="75" width="10" height="30" rx="2" fill="#00A859" />
               <rect x="155" y="80" width="8" height="20" rx="2" fill="#844e7c" />
-              <polyline points="75,125 75,90" stroke="rgba(206,119,166,0.8)" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-              <polyline points="125,125 125,90" stroke="rgba(206,119,166,0.8)" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+              <polyline points="75,125 75,90" stroke="rgba(0, 168, 89,0.8)" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+              <polyline points="125,125 125,90" stroke="rgba(0, 168, 89,0.8)" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
             </g>
           </svg>
         );
       case "LEGS":
         return (
           <svg className="lang-workout-svg-anim" viewBox="0 0 200 200">
-            <circle cx="100" cy="100" r="85" fill="none" stroke="rgba(206, 119, 166, 0.15)" strokeWidth="4" />
+            <circle cx="100" cy="100" r="85" fill="none" stroke="rgba(0, 168, 89, 0.15)" strokeWidth="4" />
             <line x1="30" y1="180" x2="170" y2="180" stroke="#844e7c" strokeWidth="5" strokeLinecap="round" />
             <g className="lang-squat-body-group">
-              <line x1="130" y1="170" x2="130" y2="120" stroke="#ce77a6" strokeWidth="7" strokeLinecap="round" />
-              <line x1="130" y1="120" x2="95" y2="110" stroke="#ce77a6" strokeWidth="7" strokeLinecap="round" />
-              <line x1="95" y1="110" x2="85" y2="60" stroke="#ce77a6" strokeWidth="8" strokeLinecap="round" />
+              <line x1="130" y1="170" x2="130" y2="120" stroke="#00A859" strokeWidth="7" strokeLinecap="round" />
+              <line x1="130" y1="120" x2="95" y2="110" stroke="#00A859" strokeWidth="7" strokeLinecap="round" />
+              <line x1="95" y1="110" x2="85" y2="60" stroke="#00A859" strokeWidth="8" strokeLinecap="round" />
               <circle cx="85" cy="42" r="10" fill="#ffffff" />
               <g transform="translate(85, 60)">
                 <line x1="-45" y1="0" x2="45" y2="0" stroke="#ffffff" strokeWidth="4" />
-                <rect x="-55" y="-15" width="10" height="30" rx="2" fill="#ce77a6" />
-                <rect x="45" y="-15" width="10" height="30" rx="2" fill="#ce77a6" />
+                <rect x="-55" y="-15" width="10" height="30" rx="2" fill="#00A859" />
+                <rect x="45" y="-15" width="10" height="30" rx="2" fill="#00A859" />
               </g>
             </g>
           </svg>
@@ -735,14 +735,14 @@ const Language = () => {
       case "TRICEPS":
         return (
           <svg className="lang-workout-svg-anim" viewBox="0 0 200 200">
-            <circle cx="100" cy="100" r="85" fill="none" stroke="rgba(206, 119, 166, 0.15)" strokeWidth="4" />
+            <circle cx="100" cy="100" r="85" fill="none" stroke="rgba(0, 168, 89, 0.15)" strokeWidth="4" />
             <line x1="60" y1="30" x2="140" y2="30" stroke="#844e7c" strokeWidth="6" strokeLinecap="round" />
             <line x1="60" y1="30" x2="60" y2="180" stroke="#844e7c" strokeWidth="4" />
             <path d="M75 180 L75 90 L85 70" stroke="#844e7c" strokeWidth="6" strokeLinecap="round" fill="none" />
-            <circle cx="85" cy="55" r="10" fill="#ce77a6" />
-            <line x1="85" y1="70" x2="100" y2="120" stroke="#ce77a6" strokeWidth="8" strokeLinecap="round" />
+            <circle cx="85" cy="55" r="10" fill="#00A859" />
+            <line x1="85" y1="70" x2="100" y2="120" stroke="#00A859" strokeWidth="8" strokeLinecap="round" />
             <g className="lang-tricep-forearm-group">
-              <line x1="100" y1="120" x2="100" y2="165" stroke="#ce77a6" strokeWidth="7" strokeLinecap="round" />
+              <line x1="100" y1="120" x2="100" y2="165" stroke="#00A859" strokeWidth="7" strokeLinecap="round" />
               <line x1="90" y1="165" x2="110" y2="165" stroke="#ffffff" strokeWidth="4" strokeLinecap="round" />
               <line x1="100" y1="165" x2="100" y2="30" stroke="rgba(255,255,255,0.4)" strokeWidth="2.5" strokeDasharray="3,3" />
             </g>
@@ -752,19 +752,19 @@ const Language = () => {
       case "BACK":
         return (
           <svg className="lang-workout-svg-anim" viewBox="0 0 200 200">
-            <circle cx="100" cy="100" r="85" fill="none" stroke="rgba(206, 119, 166, 0.15)" strokeWidth="4" />
+            <circle cx="100" cy="100" r="85" fill="none" stroke="rgba(0, 168, 89, 0.15)" strokeWidth="4" />
             <line x1="40" y1="130" x2="160" y2="130" stroke="#844e7c" strokeWidth="6" strokeLinecap="round" />
             <line x1="60" y1="130" x2="60" y2="170" stroke="#844e7c" strokeWidth="4" />
             <line x1="140" y1="130" x2="140" y2="170" stroke="#844e7c" strokeWidth="4" />
-            <line x1="140" y1="125" x2="85" y2="95" stroke="#ce77a6" strokeWidth="8" strokeLinecap="round" />
+            <line x1="140" y1="125" x2="85" y2="95" stroke="#00A859" strokeWidth="8" strokeLinecap="round" />
             <circle cx="75" cy="85" r="10" fill="#ffffff" />
-            <line x1="85" y1="95" x2="110" y2="112" stroke="#ce77a6" strokeWidth="6" strokeLinecap="round" />
+            <line x1="85" y1="95" x2="110" y2="112" stroke="#00A859" strokeWidth="6" strokeLinecap="round" />
             <g className="lang-back-row-group">
-              <line x1="110" y1="112" x2="110" y2="155" stroke="#ce77a6" strokeWidth="6" strokeLinecap="round" />
+              <line x1="110" y1="112" x2="110" y2="155" stroke="#00A859" strokeWidth="6" strokeLinecap="round" />
               <g transform="translate(110, 155)">
                 <line x1="-20" y1="0" x2="20" y2="0" stroke="#ffffff" strokeWidth="4" strokeLinecap="round" />
-                <rect x="-20" y="-8" width="6" height="16" rx="1" fill="#ce77a6" />
-                <rect x="14" y="-8" width="6" height="16" rx="1" fill="#ce77a6" />
+                <rect x="-20" y="-8" width="6" height="16" rx="1" fill="#00A859" />
+                <rect x="14" y="-8" width="6" height="16" rx="1" fill="#00A859" />
               </g>
             </g>
             <circle cx="110" cy="112" r="4.5" fill="#ffffff" />
@@ -773,38 +773,38 @@ const Language = () => {
       case "WARM UP":
         return (
           <svg className="lang-workout-svg-anim" viewBox="0 0 200 200">
-            <circle cx="100" cy="100" r="85" fill="none" stroke="rgba(206, 119, 166, 0.15)" strokeWidth="4" />
+            <circle cx="100" cy="100" r="85" fill="none" stroke="rgba(0, 168, 89, 0.15)" strokeWidth="4" />
             <line x1="100" y1="180" x2="100" y2="85" stroke="#844e7c" strokeWidth="7" strokeLinecap="round" />
-            <circle cx="100" cy="65" r="12" fill="#ce77a6" />
+            <circle cx="100" cy="65" r="12" fill="#00A859" />
             <g className="lang-warmup-arms-group">
               <line x1="100" y1="85" x2="50" y2="85" stroke="#ffffff" strokeWidth="5" strokeLinecap="round" />
               <line x1="100" y1="85" x2="150" y2="85" stroke="#ffffff" strokeWidth="5" strokeLinecap="round" />
-              <circle cx="50" cy="85" r="5" fill="#ce77a6" />
-              <circle cx="150" cy="85" r="5" fill="#ce77a6" />
+              <circle cx="50" cy="85" r="5" fill="#00A859" />
+              <circle cx="150" cy="85" r="5" fill="#00A859" />
             </g>
-            <circle cx="100" cy="85" r="6" fill="#ce77a6" />
+            <circle cx="100" cy="85" r="6" fill="#00A859" />
           </svg>
         );
       case "SHOULDER":
         return (
           <svg className="lang-workout-svg-anim" viewBox="0 0 200 200">
-            <circle cx="100" cy="100" r="85" fill="none" stroke="rgba(206, 119, 166, 0.15)" strokeWidth="4" />
+            <circle cx="100" cy="100" r="85" fill="none" stroke="rgba(0, 168, 89, 0.15)" strokeWidth="4" />
             <line x1="80" y1="180" x2="80" y2="95" stroke="#844e7c" strokeWidth="6" strokeLinecap="round" />
             <line x1="60" y1="180" x2="140" y2="180" stroke="#844e7c" strokeWidth="5" />
-            <line x1="90" y1="150" x2="90" y2="95" stroke="#ce77a6" strokeWidth="7" strokeLinecap="round" />
+            <line x1="90" y1="150" x2="90" y2="95" stroke="#00A859" strokeWidth="7" strokeLinecap="round" />
             <circle cx="90" cy="78" r="10" fill="#ffffff" />
             <g className="lang-shoulder-press-group">
-              <polyline points="90,95 60,95 60,50" stroke="#ce77a6" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+              <polyline points="90,95 60,95 60,50" stroke="#00A859" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
               <g transform="translate(60, 50)">
                 <line x1="-18" y1="0" x2="18" y2="0" stroke="#ffffff" strokeWidth="4" strokeLinecap="round" />
-                <rect x="-18" y="-6" width="6" height="12" rx="1.5" fill="#ce77a6" />
-                <rect x="12" y="-6" width="6" height="12" rx="1.5" fill="#ce77a6" />
+                <rect x="-18" y="-6" width="6" height="12" rx="1.5" fill="#00A859" />
+                <rect x="12" y="-6" width="6" height="12" rx="1.5" fill="#00A859" />
               </g>
-              <polyline points="90,95 120,95 120,50" stroke="#ce77a6" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+              <polyline points="90,95 120,95 120,50" stroke="#00A859" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
               <g transform="translate(120, 50)">
                 <line x1="-18" y1="0" x2="18" y2="0" stroke="#ffffff" strokeWidth="4" strokeLinecap="round" />
-                <rect x="-18" y="-6" width="6" height="12" rx="1.5" fill="#ce77a6" />
-                <rect x="12" y="-6" width="6" height="12" rx="1.5" fill="#ce77a6" />
+                <rect x="-18" y="-6" width="6" height="12" rx="1.5" fill="#00A859" />
+                <rect x="12" y="-6" width="6" height="12" rx="1.5" fill="#00A859" />
               </g>
             </g>
           </svg>
@@ -812,8 +812,8 @@ const Language = () => {
       default:
         return (
           <svg className="lang-workout-svg-anim" viewBox="0 0 200 200">
-            <circle cx="100" cy="100" r="85" fill="none" stroke="rgba(206, 119, 166, 0.15)" strokeWidth="4" />
-            <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle" fill="#ce77a6" fontSize="16" fontWeight="bold">ACTIVE WORKOUT</text>
+            <circle cx="100" cy="100" r="85" fill="none" stroke="rgba(0, 168, 89, 0.15)" strokeWidth="4" />
+            <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle" fill="#00A859" fontSize="16" fontWeight="bold">ACTIVE WORKOUT</text>
           </svg>
         );
     }
@@ -2195,7 +2195,7 @@ const Language = () => {
                         <div className="lang-form-group">
                           <label>Choose Neon Theme Color</label>
                           <div className="lang-pass-color-pills">
-                            <button type="button" className={`color-pill pink ${membershipForm.accentColor === "#ce77a6" ? "lang-active" : ""}`} onClick={() => setMembershipForm({ ...membershipForm, accentColor: "#ce77a6" })}></button>
+                            <button type="button" className={`color-pill pink ${membershipForm.accentColor === "#00A859" ? "lang-active" : ""}`} onClick={() => setMembershipForm({ ...membershipForm, accentColor: "#00A859" })}></button>
                             <button type="button" className={`color-pill cyan ${membershipForm.accentColor === "#00f0ff" ? "lang-active" : ""}`} onClick={() => setMembershipForm({ ...membershipForm, accentColor: "#00f0ff" })}></button>
                             <button type="button" className={`color-pill gold-gold ${membershipForm.accentColor === "#ffd700" ? "lang-active" : ""}`} onClick={() => setMembershipForm({ ...membershipForm, accentColor: "#ffd700" })}></button>
                             <button type="button" className={`color-pill lavender ${membershipForm.accentColor === "#b78bb1" ? "lang-active" : ""}`} onClick={() => setMembershipForm({ ...membershipForm, accentColor: "#b78bb1" })}></button>
@@ -2368,7 +2368,7 @@ const Language = () => {
                       </div>
                     </div>
 
-                    <button className="lang-continue-shopping-btn" style={{ marginTop: "30px" }} onClick={() => { setMembershipSuccess(false); setRosterList([]); setMembershipForm({ primaryName: "", email: "", tier: "gold", cycle: "monthly", accentColor: "#ce77a6", avatarType: "athlete" }); setActiveTab("dashboard"); }}>
+                    <button className="lang-continue-shopping-btn" style={{ marginTop: "30px" }} onClick={() => { setMembershipSuccess(false); setRosterList([]); setMembershipForm({ primaryName: "", email: "", tier: "gold", cycle: "monthly", accentColor: "#00A859", avatarType: "athlete" }); setActiveTab("dashboard"); }}>
                       Return to Language Dashboard
                     </button>
                   </div>
@@ -2456,7 +2456,7 @@ const Language = () => {
                     </div>
                   )}
                   <span
-                    style={{ color: "#ce77a6", cursor: "pointer", textDecoration: "underline", fontSize: "14px", fontWeight: "bold" }}
+                    style={{ color: "#00A859", cursor: "pointer", textDecoration: "underline", fontSize: "14px", fontWeight: "bold" }}
                     onClick={() => setUseYoutube(!useYoutube)}
                   >
                     {useYoutube ? "Switch to High-Clarity Vector Guide" : "Switch to YouTube Stream Player"}
