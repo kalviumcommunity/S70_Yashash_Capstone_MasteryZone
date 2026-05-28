@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import CertificationCard from "./CertificationCard";
-import MembershipPortal from "./MembershipPortal";
+import CollaborationHub from "./CollaborationHub";
 import "./coding.css";
 import codingIllustration from "../assets/coding_illustration.png";
 
@@ -2160,7 +2160,7 @@ const Coding = () => {
 
             {/* TAB 7: Gym/Team Membership & Family Roster */}
             {activeTab === "members" && (
-              <MembershipPortal zone="CODING" themeColor="#00A859" />
+              <CollaborationHub zone="CODING" themeColor="#00f0ff" />
             )}
 
           </div>
