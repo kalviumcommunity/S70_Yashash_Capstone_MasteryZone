@@ -1,177 +1,130 @@
-/* Background Gradient */
+/* ==============================================================
+   Mastery Zone - Premium Glassmorphism Auth UI
+   ============================================================== */
+
+/* Animated Gradient Background */
+.container,
 .signup-container {
   display: flex;
   justify-content: center;
   align-items: center;
-  align-content: center;
   height: 100vh;
   width: 100vw;
-  margin-left: -8px;
-  margin-top: -8px;
-  background: linear-gradient(135deg, #b430a2, #580253);
+  margin: 0;
+  padding: 0;
   position: fixed;
+  top: 0;
+  left: 0;
+  background: linear-gradient(-45deg, #0f0c29, #302b63, #24243e, #6a0572);
+  background-size: 400% 400%;
+  animation: gradientBG 15s ease infinite;
+  overflow: hidden;
 }
 
-/* Form Box */
+@keyframes gradientBG {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Glassmorphism Panels */
+.login-box,
 .signup-box {
-  background: #fff;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+  border-radius: 24px;
   padding: 40px;
-  height: 70%;
+  width: 400px;
+  max-width: 90%;
   text-align: center;
-  width: 350px;
   display: flex;
-  justify-items: center;
   flex-direction: column;
-  justify-content: center;
-  gap: 50px;
-  box-shadow: 10px 10px 10px rgba(0, 0, 0, 0.5);
-  
-}
-
-/* Heading */
-.signup-heading {
-  color: #8d22a8;
-  font-size: 30px;
-  font-weight: bold;
-  margin-bottom: 5px;
-  margin-top: -50px;
-}
-.Creat-a-new-account{
-  position: relative;
-  top: 80px;
-}
-
-/* Error Message */
-.error-text {
-  position: relative;
-  top: 35px;
-  left:1px;
-  color: red;
-  font-size: 14px;
-}
-
-/* Input Fields */
-.input-group {
-  display: flex;
-  text-align: left;
-  margin-bottom: 30px;
-  width: 100%;
-  justify-content: center;
-}
-
-.input-group input {
-  width: 80%;
-  padding: 12px;
-  font-size: 16px;
-  border: 1px solid #e37acc;
-  color: black;
-  border-radius: 5px;
-  outline: none;
-  transition: 0.3s;
-  background: #e986f4;
+  align-items: center;
+  gap: 20px;
+  color: #fff;
+  z-index: 10;
   box-sizing: border-box;
 }
 
-.input-group input:focus {
-  border-color: #5c007a;
-  box-shadow: 0px 0px 7px rgba(92, 0, 122, 0.5);
-}
-
-/* Button */
-.signup-button {
-  width: 150px;
-  height: 70px;
-  background: #7b1078;
-  color: white;
-  padding: 18px;
-  border: none;
-  font-size: 14px;
-  border-radius: 50px;
-  cursor: pointer;
-  transition: 0.3s;
-  margin-top: 20px;
-  font-family: inherit;
-  font-size: x-large;
-  font-weight: bold;
-}
-
-.signup-button:hover {
-  background: #ad0797;
-  box-shadow: 0px 5px 15px rgba(155, 0, 135, 0.3);
-}
-
-.checkbox{
-  position: relative;
-  bottom: 15px;
-  display: flex;
-  color: black;
-  margin-left: 20px;
-}
-
-
-a{
-  color: black;
-  cursor: pointer;
-}
-
-
-
-/* Login page */  
-
-.container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  align-content: center;
-  height: 100vh;
-  width: 100vw;
-  margin-left: -8px;
-  margin-top: -8px;
-  background-image: url('./assets/login_bg.webp');
-  background-repeat: no-repeat;
-  background-size: cover;
-  position: fixed;
-}
-
-/* Login Box */
-.login-box {
-  background: white;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-  width: 450px;
-  height: 600px;
-  text-align: center;
-}
-
-/* Image */
-.login-image {
-  width: 100%;
-}
-
-/* Title */
-.title {
-  font-size: 24px;
-  font-weight: bold;
-  margin-bottom: 20px;
-}
-
-/* Input Fields */
-.input-group{
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  flex-direction: column;
+.signup-box {
+  width: 480px;
+  padding: 30px 40px;
   gap: 15px;
+  height: auto;
+}
+
+.login-box form, .signup-box form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+}
+
+/* Titles */
+.title,
+.signup-heading {
+  font-size: 32px;
+  font-weight: 800;
+  color: #fff;
+  margin: 0 0 10px 0;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  text-shadow: 0 0 10px rgba(255,255,255,0.3);
+}
+
+.signup-heading { font-size: 26px; }
+.Creat-a-new-account { margin: 0; padding: 0; }
+
+/* Input Fields & Groups */
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  align-items: center;
+  position: relative;
+  margin: 0 !important;
 }
 
 .input-field1 {
   display: flex;
-  justify-content: center;
   align-items: center;
-  background: #f9a8d4;
-  padding: 5px;
-  border-radius: 2em;
-  width: 300px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 12px 15px;
+  border-radius: 12px;
+  width: 100%;
+  transition: all 0.3s ease;
+  box-sizing: border-box;
+}
 
+.input-field1:focus-within {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: #f9a8d4;
+  box-shadow: 0 0 15px rgba(249, 168, 212, 0.3);
+}
+
+/* For signup inputs */
+.signup-box .inputs {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 14px 15px;
+  border-radius: 12px;
+  color: #fff;
+  font-size: 15px;
+  transition: all 0.3s ease;
+  box-sizing: border-box;
+  outline: none;
+}
+.signup-box .inputs:focus {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: #f9a8d4;
+  box-shadow: 0 0 15px rgba(249, 168, 212, 0.3);
 }
 
 .input-field1 input {
@@ -179,147 +132,169 @@ a{
   background: transparent !important;
   box-shadow: none !important;
   outline: none !important;
-  width: 75%;
-  font-size: 16px;
-  color: #333;
+  width: 100%;
+  font-size: 15px;
+  color: #fff;
+  margin-left: 10px;
 }
 
-.input-field1 input:focus {
-  border: none !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  outline: none !important;
+.input-field1 input::placeholder,
+.signup-box .inputs::placeholder {
+  color: rgba(255, 255, 255, 0.6);
 }
 
-/* Fix autofill white background styling globally */
+/* Fix autofill in WebKit */
 input:-webkit-autofill,
 input:-webkit-autofill:hover, 
 input:-webkit-autofill:focus, 
 input:-webkit-autofill:active {
     transition: background-color 5000s ease-in-out 0s !important;
-    -webkit-text-fill-color: #333 !important;
+    -webkit-text-fill-color: #fff !important;
 }
 
 .icon {
-  color: #555;
-  margin-left: 15px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 16px;
 }
 
 /* Options */
 .options {
   display: flex;
   justify-content: space-between;
+  width: 100%;
   font-size: 14px;
-  margin-top: 0px;
-  margin-left: 70px;
-  margin-right: 70px;
-  align-self: stretch;
+  color: rgba(255, 255, 255, 0.8);
+  margin-top: 5px;
+  box-sizing: border-box;
+  padding: 0 5px;
 }
-
-.forgot-password {
-  color: #6a0572;
-  text-decoration: none;
+.checkbox {
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  color: rgba(255,255,255,0.8);
+  align-self: flex-start;
+  margin: 5px 0 0 5px;
 }
-
-.forgot-password:hover {
-  text-decoration: underline;
-}
-
-/* Login Button */
-.login-button {
-  width: 70%;
-  background: #6a0572;
-  color: white;
-  padding: 15px;
-  border: none;
-  border-radius: 15px;
-  font-size: 16px;
-  margin-top: 20px;
+.options label, .checkbox label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   cursor: pointer;
-  transition: background 0.3s;
 }
 
-.login-button:hover {
-  background: #54014a;
-}
-
-/* Signup Text */
-.signup-text {
-  margin-top: 10px;
-  font-size: 14px;
-}
-
-.signup-text a {
-  color: #6a0572;
+a, .forgot-password {
+  color: #f9a8d4;
   text-decoration: none;
+  font-weight: 500;
+  transition: color 0.3s;
 }
 
-.signup-text a:hover {
+a:hover, .forgot-password:hover {
+  color: #fff;
   text-decoration: underline;
+}
+
+/* Buttons */
+.login-button,
+.signup-button {
+  width: 100%;
+  background: linear-gradient(90deg, #b430a2, #6a0572);
+  color: white;
+  padding: 14px;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-top: 10px;
+  box-shadow: 0 4px 15px rgba(106, 5, 114, 0.4);
+}
+
+.login-button:hover,
+.signup-button:hover {
+  background: linear-gradient(90deg, #c736b3, #81088b);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(106, 5, 114, 0.6);
+}
+.login-button:active,
+.signup-button:active {
+  transform: translateY(1px);
 }
 
 .google-button {
-  margin-top: 10px;
-  background-color: #4285F4;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   color: white;
-  padding: 10px;
+  padding: 12px;
   width: 100%;
-  border: none;
-  border-radius: 5px;
+  border-radius: 12px;
   font-weight: bold;
   cursor: pointer;
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
-  font-size: 16px;
-  transition: background-color 0.3s;
+  font-size: 15px;
+  transition: all 0.3s ease;
+  margin-top: 10px;
 }
 .google-button:hover {
-  background-color: #357ae8;
+  background: rgba(255, 255, 255, 0.2);
 }
 .google-button svg {
-  background-color: white;
+  background: white;
   border-radius: 50%;
   padding: 2px;
-  box-sizing: border-box;
+}
+.guest-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+.guest-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
+/* Sign up text */
+.signup-text {
+  font-size: 14px;
+  color: rgba(255,255,255,0.8) !important;
+  margin: 5px 0 0 0;
+}
+.back { margin-top: 5px; }
 
+/* Errors */
+.error-text {
+  color: #ff4d4d;
+  font-size: 14px;
+  font-weight: bold;
+  margin: 0;
+  text-shadow: 0 0 5px rgba(255,0,0,0.5);
+}
 
-/* reset passward */
-
-/* Full Page Background */
+/* Validation span absolute fixes */
+.validation-error {
+  position: absolute;
+  bottom: -15px;
+  left: 10px;
+  color: #ff4d4d;
+  font-size: 11px;
+  font-weight: bold;
+}
 
 /* Page Transitions */
 .page-enter {
   animation: pageEnterAnim 0.6s cubic-bezier(0.165, 0.84, 0.44, 1) forwards;
 }
-
 .page-exit {
   animation: pageExitAnim 0.6s cubic-bezier(0.165, 0.84, 0.44, 1) forwards;
 }
-
 @keyframes pageEnterAnim {
-  0% {
-    opacity: 0;
-    transform: scale(0.97) translateY(20px);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
+  0% { opacity: 0; transform: scale(0.97) translateY(20px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
 }
-
 @keyframes pageExitAnim {
-  0% {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-    filter: blur(0px);
-  }
-  100% {
-    opacity: 0;
-    transform: scale(1.05) translateY(-20px);
-    filter: blur(8px);
-  }
+  0% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0px); }
+  100% { opacity: 0; transform: scale(1.05) translateY(-20px); filter: blur(8px); }
 }

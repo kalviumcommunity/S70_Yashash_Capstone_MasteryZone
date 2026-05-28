@@ -165,7 +165,7 @@ const Signup = () => {
               onChange={handleChange}
             />
             {validationErrors.firstName && (
-              <span style={{ position: "absolute", bottom: "-20px", left: "10%", color: "#ff4d4d", fontSize: "11px", fontWeight: "bold" }}>
+              <span className="validation-error">
                 {validationErrors.firstName}
               </span>
             )}
@@ -183,7 +183,7 @@ const Signup = () => {
               onChange={handleChange}
             />
             {validationErrors.lastName && (
-              <span style={{ position: "absolute", bottom: "-20px", left: "10%", color: "#ff4d4d", fontSize: "11px", fontWeight: "bold" }}>
+              <span className="validation-error">
                 {validationErrors.lastName}
               </span>
             )}
@@ -201,7 +201,7 @@ const Signup = () => {
               onChange={handleChange}
             />
             {validationErrors.email && (
-              <span style={{ position: "absolute", bottom: "-20px", left: "10%", color: "#ff4d4d", fontSize: "11px", fontWeight: "bold" }}>
+              <span className="validation-error">
                 {validationErrors.email}
               </span>
             )}
@@ -235,7 +235,7 @@ const Signup = () => {
               </span>
             </div>
             {validationErrors.password && (
-              <span style={{ position: "absolute", bottom: "-20px", left: "10%", color: "#ff4d4d", fontSize: "11px", fontWeight: "bold" }}>
+              <span className="validation-error">
                 {validationErrors.password}
               </span>
             )}
@@ -269,7 +269,7 @@ const Signup = () => {
               </span>
             </div>
             {validationErrors.confirmPassword && (
-              <span style={{ position: "absolute", bottom: "-20px", left: "10%", color: "#ff4d4d", fontSize: "11px", fontWeight: "bold" }}>
+              <span className="validation-error">
                 {validationErrors.confirmPassword}
               </span>
             )}
