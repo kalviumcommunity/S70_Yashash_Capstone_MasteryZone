@@ -37,12 +37,29 @@ io.on("connection", (socket) => {
     io.emit("update_online_users", Array.from(onlineUsers.values()));
   });
 
-  // When a user sends a direct message
+  // When a user sends a direct message (invite)
   socket.on("send_dm", ({ toUser, fromUser, roomCode }) => {
     // Find socket id of toUser
     for (const [id, username] of onlineUsers.entries()) {
       if (username === toUser) {
         io.to(id).emit("receive_dm", { fromUser, roomCode });
+        break;
+      }
+    }
+  });
+
+  // When a user sends a private 1-on-1 chat message
+  socket.on("send_private_msg", (messageData) => {
+    const { toUser, fromUser, text, time } = messageData;
+    // Find socket id of toUser
+    for (const [id, username] of onlineUsers.entries()) {
+      if (username === toUser) {
+        io.to(id).emit("receive_private_msg", {
+          id: Date.now().toString(),
+          fromUser,
+          text,
+          time
+        });
         break;
       }
     }
