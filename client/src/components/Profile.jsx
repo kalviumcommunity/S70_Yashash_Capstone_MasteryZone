@@ -37,7 +37,9 @@ const Profile = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // Fetch user data
+  const [certs, setCerts] = useState([]);
+
+  // Fetch user data and certifications
   useEffect(() => {
     const fetchUser = async () => {
       const token = localStorage.getItem("token");
@@ -50,6 +52,15 @@ const Profile = () => {
           headers: { Authorization: `Bearer ${token}` }
         });
         const data = await response.json();
+        
+        const certResponse = await fetch(`${API_BASE}/api/certifications`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const certData = await certResponse.ok ? await certResponse.json() : [];
+        
+        // Calculate XP based on modules completed across all certs
+        const calculatedXp = certData.reduce((acc, curr) => acc + (curr.currentModule * 5), 0);
+        
         if (response.ok) {
           setUser({
             username: data.user.username,
@@ -57,9 +68,10 @@ const Profile = () => {
             bio: data.user.bio || "Setting up my Mastery Zone...",
             avatarUrl: data.user.avatarUrl || "",
             joinDate: "May 2026",
-            level: "Level 14 - Mastery Seeker",
-            xp: 75 // Percentage for the bar
+            level: `Level ${Math.floor(calculatedXp / 100) + 1} - Mastery Seeker`,
+            xp: calculatedXp % 100 // Percentage for the bar
           });
+          setCerts(certData);
         }
       } catch (err) {
         console.error(err);
@@ -204,16 +216,19 @@ const Profile = () => {
               <h3 className="widget-title"><FaTrophy /> Certifications Earned</h3>
             </div>
             <div className="certs-gallery">
-              <div className="cert-card">
-                <div style={{ fontSize: '40px', marginBottom: '10px' }}>🥇</div>
-                <h4>Mastery Initiate</h4>
-                <p style={{ color: '#888', fontSize: '12px' }}>May 2026</p>
-              </div>
-              <div className="cert-card" style={{ opacity: 0.5 }}>
-                <div style={{ fontSize: '40px', marginBottom: '10px' }}>💻</div>
-                <h4>Frontend Ninja</h4>
-                <p style={{ color: '#888', fontSize: '12px' }}>In Progress...</p>
-              </div>
+              {certs.length > 0 ? certs.map(c => (
+                <div key={c._id} className="cert-card" style={{ opacity: c.status === 'completed' ? 1 : 0.5 }}>
+                  <div style={{ fontSize: '40px', marginBottom: '10px' }}>
+                    {c.status === 'completed' ? '🥇' : '💻'}
+                  </div>
+                  <h4>{c.name}</h4>
+                  <p style={{ color: '#888', fontSize: '12px' }}>
+                    {c.status === 'completed' ? 'Certified' : `${Math.round(c.progress)}% In Progress...`}
+                  </p>
+                </div>
+              )) : (
+                <div style={{ color: '#888', gridColumn: '1 / -1' }}>No active certifications yet. Visit a Zone to start a Free Trial!</div>
+              )}
             </div>
           </div>
         </div>
