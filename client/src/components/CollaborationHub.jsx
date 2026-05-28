@@ -20,8 +20,14 @@ const CollaborationHub = ({ zone, themeColor }) => {
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
+  const [privateChats, setPrivateChats] = useState({}); // { username: [msg1, msg2] }
+  const [activeChatUser, setActiveChatUser] = useState(null); // username of currently active 1-on-1 chat
+  const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [privateChatInput, setPrivateChatInput] = useState('');
+  
   const socketRef = useRef(null);
   const chatScrollRef = useRef(null);
+  const privateChatScrollRef = useRef(null);
 
   // Initialize Socket.io on component mount
   useEffect(() => {
@@ -50,6 +56,18 @@ const CollaborationHub = ({ zone, themeColor }) => {
       }
     });
 
+    socketRef.current.on("receive_private_msg", (msg) => {
+      setPrivateChats(prev => {
+        const chatHistory = prev[msg.fromUser] || [];
+        return {
+          ...prev,
+          [msg.fromUser]: [...chatHistory, msg]
+        };
+      });
+      // Optionally show a toast if the chat isn't currently open
+      toast.info(`Private message from ${msg.fromUser}: ${msg.text.substring(0,20)}...`);
+    });
+
     return () => {
       socketRef.current.disconnect();
     };
@@ -61,6 +79,12 @@ const CollaborationHub = ({ zone, themeColor }) => {
       chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
     }
   }, [chatMessages, view]);
+
+  useEffect(() => {
+    if (privateChatScrollRef.current) {
+      privateChatScrollRef.current.scrollTop = privateChatScrollRef.current.scrollHeight;
+    }
+  }, [privateChats, activeChatUser]);
 
   // Generate a fresh code for hosts
   const generateRoomCode = () => {
@@ -133,6 +157,30 @@ const CollaborationHub = ({ zone, themeColor }) => {
 
     socketRef.current.emit("send_global_message", msgData);
     setChatInput('');
+  };
+
+  const handleSendPrivateMessage = (e) => {
+    e.preventDefault();
+    if (!privateChatInput.trim() || !activeChatUser) return;
+    
+    const msgData = {
+      toUser: activeChatUser,
+      fromUser: displayName || 'A MasteryZone Host',
+      text: privateChatInput,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+
+    // Store in our own state
+    setPrivateChats(prev => {
+      const chatHistory = prev[activeChatUser] || [];
+      return {
+        ...prev,
+        [activeChatUser]: [...chatHistory, { ...msgData, id: Date.now().toString() }]
+      };
+    });
+
+    socketRef.current.emit("send_private_msg", msgData);
+    setPrivateChatInput('');
   };
 
   // 1. MEETING VIEW (Jitsi Embedded)
@@ -267,34 +315,71 @@ const CollaborationHub = ({ zone, themeColor }) => {
 
                 {inviteTab === 'DM' && (
                   <div className="tab-pane dm-pane">
-                    <p>Select an online member to send a direct message invite.</p>
-                    <div className="online-users-list">
-                      {onlineUsers.length === 0 ? (
-                        <p style={{textAlign: 'center', marginTop: '20px'}}>No other users online right now.</p>
-                      ) : (
-                        onlineUsers.map(user => (
-                          <div key={user} className="online-user-item">
-                            <div className="user-info">
-                              <span className="online-dot"></span>
-                              <span className="user-name">{user}</span>
-                            </div>
-                            <button 
-                              className="dm-send-btn"
-                              onClick={() => {
-                                socketRef.current.emit("send_dm", {
-                                  toUser: user,
-                                  fromUser: displayName || 'A MasteryZone Host',
-                                  roomCode: roomCode
-                                });
-                                toast.success(`Direct Message sent to ${user}!`);
-                              }}
-                            >
-                              Message Invite
-                            </button>
-                          </div>
-                        ))
-                      )}
-                    </div>
+                    {!activeChatUser ? (
+                      <>
+                        <div className="dm-search-bar">
+                          <input 
+                            type="text" 
+                            placeholder="Search users to chat..." 
+                            value={userSearchQuery}
+                            onChange={e => setUserSearchQuery(e.target.value)}
+                          />
+                        </div>
+                        <div className="online-users-list">
+                          {onlineUsers.filter(u => u.toLowerCase().includes(userSearchQuery.toLowerCase())).length === 0 ? (
+                            <p style={{textAlign: 'center', marginTop: '20px'}}>No matching users online.</p>
+                          ) : (
+                            onlineUsers.filter(u => u.toLowerCase().includes(userSearchQuery.toLowerCase())).map(user => (
+                              <div key={user} className="online-user-item" onClick={() => setActiveChatUser(user)} style={{ cursor: 'pointer' }}>
+                                <div className="user-info">
+                                  <span className="online-dot"></span>
+                                  <span className="user-name">{user}</span>
+                                </div>
+                                <span className="dm-open-icon">💬</span>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="private-chat-container">
+                        <div className="private-chat-header">
+                          <button className="back-to-users-btn" onClick={() => setActiveChatUser(null)}>← Back</button>
+                          <h4>Chat with {activeChatUser}</h4>
+                        </div>
+                        
+                        <div className="private-chat-messages" ref={privateChatScrollRef}>
+                          {!(privateChats[activeChatUser] && privateChats[activeChatUser].length > 0) ? (
+                            <p className="empty-chat-msg">Say hi to {activeChatUser}!</p>
+                          ) : (
+                            privateChats[activeChatUser].map(msg => {
+                              const isMe = msg.fromUser === (displayName || 'A MasteryZone Host');
+                              return (
+                                <div key={msg.id} className={`chat-bubble-wrapper ${isMe ? 'mine' : 'theirs'}`}>
+                                  <div className="chat-bubble" style={{ background: isMe ? themeColor : '#e0e0e0', color: '#000' }}>
+                                    {msg.text}
+                                    <span className="chat-bubble-time" style={{ color: 'rgba(0,0,0,0.5)' }}>{msg.time}</span>
+                                  </div>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+
+                        <form className="private-chat-input-area" onSubmit={handleSendPrivateMessage}>
+                          <input 
+                            type="text" 
+                            placeholder="Type a message..."
+                            value={privateChatInput}
+                            onChange={(e) => setPrivateChatInput(e.target.value)}
+                            autoFocus
+                          />
+                          <button type="submit" className="send-chat-btn" disabled={!privateChatInput.trim()} style={{ background: themeColor, color: '#000' }}>
+                            ➤
+                          </button>
+                        </form>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
