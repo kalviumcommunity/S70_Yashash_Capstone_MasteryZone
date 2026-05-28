@@ -62,53 +62,84 @@ const ProctoredExam = ({ zone, onClose, title, onPurchase }) => {
   const [warnings, setWarnings] = useState(0);
   const [timeLeft, setTimeLeft] = useState(300); // 5 minutes
   
+  // Hardware Verification States
+  const [isCamMicEnabled, setIsCamMicEnabled] = useState(false);
+  const [isScreenShared, setIsScreenShared] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  
   const videoRef = useRef(null);
   const streamRef = useRef(null);
+  const screenStreamRef = useRef(null);
   const examContainerRef = useRef(null);
 
   const MAX_WARNINGS = 3;
 
-  // Initialize and Shuffle Questions
+  // 1. Initialize and Shuffle Questions specific to zone
   useEffect(() => {
-    const allQuestions = MOCK_QUESTIONS[zone] || MOCK_QUESTIONS.Coding;
+    // Case-insensitive mapping to guarantee correct question zone
+    const matchedZone = Object.keys(MOCK_QUESTIONS).find(k => k.toLowerCase() === zone.toLowerCase());
+    const allQuestions = MOCK_QUESTIONS[matchedZone] || MOCK_QUESTIONS.Coding;
+    
     // Shuffle the array and pick the first 5 questions
     const shuffled = [...allQuestions].sort(() => 0.5 - Math.random());
     setQuestions(shuffled.slice(0, 5));
   }, [zone]);
 
-  // Initialize Camera
-  const startCamera = async () => {
+  // 2. Hardware Checks
+  const enableCamMic = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
-      return true;
+      setIsCamMicEnabled(true);
+      toast.success("Camera and Microphone enabled successfully.");
     } catch (err) {
-      toast.error("Camera access is required for the proctored exam.");
-      return false;
+      toast.error("You must allow Camera & Microphone access to proceed.");
     }
   };
 
-  const stopCamera = () => {
+  const enableScreenShare = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+      screenStreamRef.current = stream;
+      setIsScreenShared(true);
+      toast.success("Screen sharing active.");
+
+      // If user stops sharing manually via browser UI
+      stream.getVideoTracks()[0].onended = () => {
+        setIsScreenShared(false);
+        if (examState === 'IN_PROGRESS') {
+          handleViolation("Screen share was stopped.");
+        }
+      };
+    } catch (err) {
+      toast.error("You must share your entire screen to proceed.");
+    }
+  };
+
+  const enableFullscreen = async () => {
+    try {
+      if (examContainerRef.current) {
+        if (examContainerRef.current.requestFullscreen) {
+          await examContainerRef.current.requestFullscreen();
+        } else if (examContainerRef.current.webkitRequestFullscreen) {
+          await examContainerRef.current.webkitRequestFullscreen();
+        }
+        setIsFullscreen(true);
+      }
+    } catch (err) {
+      toast.error("Fullscreen mode is required.");
+    }
+  };
+
+  const stopAllStreams = () => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
     }
-  };
-
-  // Enter Fullscreen
-  const enterFullscreen = async () => {
-    try {
-      if (examContainerRef.current && examContainerRef.current.requestFullscreen) {
-        await examContainerRef.current.requestFullscreen();
-      } else if (examContainerRef.current && examContainerRef.current.webkitRequestFullscreen) {
-        await examContainerRef.current.webkitRequestFullscreen();
-      }
-      return true;
-    } catch (err) {
-      toast.error("Fullscreen mode is required.");
-      return false;
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach(track => track.stop());
     }
   };
 
@@ -122,31 +153,32 @@ const ProctoredExam = ({ zone, onClose, title, onPurchase }) => {
     }
   };
 
-  // Handle Visibility Change (Anti-Cheat)
+  // 3. Violation Handler
+  const handleViolation = (reason) => {
+    const newWarnings = warnings + 1;
+    setWarnings(newWarnings);
+    if (newWarnings >= MAX_WARNINGS) {
+      setExamState('TERMINATED');
+      toast.error("Exam Terminated due to multiple violations.");
+    } else {
+      toast.warning(`PROCTOR WARNING (${newWarnings}/${MAX_WARNINGS}): ${reason}`, { autoClose: false });
+    }
+  };
+
+  // Listen for Visibility and Fullscreen changes globally
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (examState === 'IN_PROGRESS' && document.hidden) {
-        const newWarnings = warnings + 1;
-        setWarnings(newWarnings);
-        if (newWarnings >= MAX_WARNINGS) {
-          setExamState('TERMINATED');
-          toast.error("Exam Terminated due to multiple violations.");
-        } else {
-          toast.warning(`PROCTOR WARNING (${newWarnings}/${MAX_WARNINGS}): You left the exam window. Do not switch tabs!`, { autoClose: false });
-        }
+        handleViolation("You left the exam window. Do not switch tabs!");
       }
     };
 
     const handleFullscreenChange = () => {
-      if (examState === 'IN_PROGRESS' && !document.fullscreenElement && !document.webkitFullscreenElement) {
-        const newWarnings = warnings + 1;
-        setWarnings(newWarnings);
-        if (newWarnings >= MAX_WARNINGS) {
-          setExamState('TERMINATED');
-        } else {
-          toast.warning(`PROCTOR WARNING (${newWarnings}/${MAX_WARNINGS}): You exited fullscreen. Please return immediately.`, { autoClose: false });
-          enterFullscreen(); // Attempt to force back
-        }
+      const isCurrentlyFullscreen = document.fullscreenElement || document.webkitFullscreenElement;
+      setIsFullscreen(!!isCurrentlyFullscreen);
+      
+      if (examState === 'IN_PROGRESS' && !isCurrentlyFullscreen) {
+        handleViolation("You exited fullscreen. Please return immediately.");
       }
     };
 
@@ -177,18 +209,16 @@ const ProctoredExam = ({ zone, onClose, title, onPurchase }) => {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      stopCamera();
+      stopAllStreams();
       exitFullscreen();
     };
   }, []);
 
-  const handleStartExam = async () => {
-    const camSuccess = await startCamera();
-    if (camSuccess) {
-      const fsSuccess = await enterFullscreen();
-      if (fsSuccess) {
-        setExamState('IN_PROGRESS');
-      }
+  const handleStartExam = () => {
+    if (isCamMicEnabled && isScreenShared && isFullscreen) {
+      setExamState('IN_PROGRESS');
+    } else {
+      toast.error("Please complete all verification steps first.");
     }
   };
 
@@ -212,13 +242,13 @@ const ProctoredExam = ({ zone, onClose, title, onPurchase }) => {
   };
 
   const handleClose = () => {
-    stopCamera();
+    stopAllStreams();
     exitFullscreen();
     onClose();
   };
 
   const handlePurchase = () => {
-    stopCamera();
+    stopAllStreams();
     exitFullscreen();
     onClose();
     if (onPurchase) {
@@ -229,8 +259,8 @@ const ProctoredExam = ({ zone, onClose, title, onPurchase }) => {
   return (
     <div className="proctored-exam-overlay" ref={examContainerRef}>
       
-      {/* Video Feed (Always visible during exam to simulate proctoring) */}
-      {(examState === 'IN_PROGRESS' || examState === 'PRE_FLIGHT') && (
+      {/* Video Feed (Always visible to simulate proctoring if cam enabled) */}
+      {isCamMicEnabled && (examState === 'IN_PROGRESS' || examState === 'PRE_FLIGHT') && (
         <div className="proctor-cam-container">
           <video ref={videoRef} autoPlay playsInline muted className="proctor-video"></video>
           <div className="proctor-label">REC | LIVE PROCTOR</div>
@@ -240,23 +270,69 @@ const ProctoredExam = ({ zone, onClose, title, onPurchase }) => {
       {/* 1. Pre-Flight Check */}
       {examState === 'PRE_FLIGHT' && questions.length > 0 && (
         <div className="exam-panel pre-flight-panel">
-          <h2 className="exam-title">{title} - Free Trial Test</h2>
+          <h2 className="exam-title">{title} - Security Verification</h2>
           <div className="security-notice">
-            <h3>🔒 MasteryZone Secure Proctoring Enabled</h3>
-            <ul>
-              <li>This test contains {questions.length} randomly selected questions.</li>
-              <li>You must grant camera access to verify your identity.</li>
-              <li>The exam will run in strictly enforced Full-Screen Mode.</li>
+            <h3>🔒 MasteryZone Secure Proctoring</h3>
+            <p style={{marginBottom: '20px', color: '#ccc'}}>You must complete all hardware checks manually before the exam can begin.</p>
+            
+            <div className="hardware-checklist">
+              <div className={`checklist-item ${isCamMicEnabled ? 'success' : ''}`}>
+                <div className="check-info">
+                  <span className="icon">📷</span> 
+                  Enable Camera & Microphone
+                </div>
+                {!isCamMicEnabled ? (
+                  <button className="check-btn" onClick={enableCamMic}>Allow</button>
+                ) : (
+                  <span className="check-done">✅ Ready</span>
+                )}
+              </div>
+
+              <div className={`checklist-item ${isScreenShared ? 'success' : ''}`}>
+                <div className="check-info">
+                  <span className="icon">🖥️</span> 
+                  Share Entire Screen
+                </div>
+                {!isScreenShared ? (
+                  <button className="check-btn" onClick={enableScreenShare}>Share</button>
+                ) : (
+                  <span className="check-done">✅ Ready</span>
+                )}
+              </div>
+
+              <div className={`checklist-item ${isFullscreen ? 'success' : ''}`}>
+                <div className="check-info">
+                  <span className="icon">⛶</span> 
+                  Enter Full Screen Mode
+                </div>
+                {!isFullscreen ? (
+                  <button className="check-btn" onClick={enableFullscreen}>Enter</button>
+                ) : (
+                  <span className="check-done">✅ Ready</span>
+                )}
+              </div>
+            </div>
+            
+            <ul style={{marginTop: '20px', fontSize: '12px', color: '#888'}}>
+              <li>This test contains {questions.length} randomly selected zone-specific questions.</li>
               <li>Switching tabs or exiting fullscreen will result in a warning.</li>
-              <li>3 warnings will instantly terminate your exam and forfeit your attempt.</li>
+              <li>3 warnings will instantly terminate your exam.</li>
             </ul>
           </div>
-          <button className="exam-primary-btn start-exam-btn" onClick={handleStartExam}>
-            I Agree & Start Exam
-          </button>
-          <button className="exam-secondary-btn" onClick={handleClose}>
-            Cancel
-          </button>
+
+          <div className="pre-flight-actions">
+            <button 
+              className="exam-primary-btn start-exam-btn" 
+              onClick={handleStartExam}
+              disabled={!(isCamMicEnabled && isScreenShared && isFullscreen)}
+              style={{ opacity: (isCamMicEnabled && isScreenShared && isFullscreen) ? 1 : 0.5 }}
+            >
+              Start Exam
+            </button>
+            <button className="exam-secondary-btn" onClick={handleClose}>
+              Cancel
+            </button>
+          </div>
         </div>
       )}
 
@@ -324,7 +400,7 @@ const ProctoredExam = ({ zone, onClose, title, onPurchase }) => {
         <div className="exam-panel result-panel terminated">
           <h2>🚫 EXAM TERMINATED</h2>
           <p>Your session was closed due to a violation of the academic integrity policy.</p>
-          <p className="violation-reason">Reason: Navigated away from the exam window multiple times.</p>
+          <p className="violation-reason">Reason: Strict proctoring rules were violated multiple times.</p>
           <button className="exam-secondary-btn" onClick={handleClose}>Exit</button>
         </div>
       )}

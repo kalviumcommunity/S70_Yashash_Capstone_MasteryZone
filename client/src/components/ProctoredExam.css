@@ -98,9 +98,76 @@
 }
 
 .security-notice ul {
-  line-height: 1.8;
-  color: rgba(255,255,255,0.8);
-  margin-bottom: 0;
+  margin-top: 15px;
+  padding-left: 20px;
+}
+
+.security-notice li {
+  margin-bottom: 10px;
+  color: #ddd;
+}
+
+/* Hardware Checklist Styles */
+.hardware-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 15px;
+}
+
+.checklist-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  padding: 15px;
+  border-radius: 8px;
+  transition: all 0.3s;
+}
+
+.checklist-item.success {
+  background: rgba(0, 168, 89, 0.1);
+  border-color: #00A859;
+}
+
+.check-info {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.check-info .icon {
+  font-size: 20px;
+}
+
+.check-btn {
+  background: #1a73e8;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+
+.check-btn:hover {
+  background: #1557b0;
+}
+
+.check-done {
+  color: #00A859;
+  font-weight: 700;
+}
+
+.pre-flight-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 25px;
 }
 
 /* In Progress */
