@@ -19,6 +19,7 @@ const userSchema = new mongoose.Schema({
   },
   authProvider: { type: String, enum: ["email", "google"], default: "email" },
   avatarUrl: String,
+  bannerUrl: String,
   bio: String,
   interests: [String],
   groups: [{ type: mongoose.Schema.Types.ObjectId, ref: "Group" }],
