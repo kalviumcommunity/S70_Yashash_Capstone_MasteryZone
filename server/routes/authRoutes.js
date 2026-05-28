@@ -253,7 +253,7 @@ router.get('/me', verifyToken, async (req, res) => {
 // Update Avatar
 router.put('/avatar', verifyToken, async (req, res) => {
   const { avatarUrl } = req.body;
-  if (!avatarUrl) return res.status(400).json({ message: 'Avatar string is required' });
+  if (avatarUrl === undefined) return res.status(400).json({ message: 'Avatar string is required' });
 
   try {
     const user = await User.findById(req.user.userId);
@@ -263,6 +263,46 @@ router.put('/avatar', verifyToken, async (req, res) => {
     await user.save();
 
     res.status(200).json({ message: 'Avatar updated successfully', avatarUrl: user.avatarUrl });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// Delete Avatar
+router.delete('/avatar', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    
+    user.avatarUrl = null;
+    await user.save();
+
+    res.status(200).json({ message: 'Avatar deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// Update Profile (Bio, Username)
+router.put('/profile', verifyToken, async (req, res) => {
+  const { username, bio } = req.body;
+  
+  try {
+    const user = await User.findById(req.user.userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    
+    if (username) {
+      // Check for uniqueness if username changed
+      if (username !== user.username) {
+        const existing = await User.findOne({ username });
+        if (existing) return res.status(400).json({ message: 'Username is already taken' });
+      }
+      user.username = username;
+    }
+    if (bio !== undefined) user.bio = bio;
+    
+    await user.save();
+    res.status(200).json({ message: 'Profile updated successfully', user: { username: user.username, bio: user.bio, avatarUrl: user.avatarUrl, email: user.email, role: user.role } });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
