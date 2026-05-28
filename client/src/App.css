@@ -323,3 +323,39 @@ input:-webkit-autofill:active {
     filter: blur(8px);
   }
 }
+
+/* --- MOBILE RESPONSIVENESS (Non-Destructive) --- */
+@media screen and (max-width: 600px) {
+  .login-box, .signup-box {
+    width: 90% !important;
+    padding: 30px 20px !important;
+    margin: 0 auto;
+    box-sizing: border-box;
+  }
+  
+  .title, .signup-heading {
+    font-size: 24px !important;
+  }
+  
+  .input-field1 {
+    width: 100% !important;
+    padding: 10px 15px !important;
+    box-sizing: border-box;
+  }
+  
+  .login-button, .signup-button {
+    width: 100% !important;
+    padding: 12px !important;
+  }
+  
+  .options {
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+  }
+  
+  .google-button {
+    width: 100% !important;
+    padding: 12px !important;
+  }
+}

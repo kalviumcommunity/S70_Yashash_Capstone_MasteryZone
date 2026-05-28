@@ -701,3 +701,22 @@ input:checked + .slider:before {
 .dark-mode .modal-title {
   color: #ffffff;
 }
+
+/* --- MOBILE RESPONSIVENESS (Non-Destructive) --- */
+@media screen and (max-width: 768px) {
+  .glass-modal {
+    width: 90% !important;
+    padding: 20px !important;
+    box-sizing: border-box;
+    margin: 0 auto;
+  }
+  
+  .profile-section {
+    right: 20px !important;
+  }
+
+  .profile-dropdown {
+    width: 200px !important;
+    right: -10px !important;
+  }
+}
