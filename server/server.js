@@ -5,7 +5,8 @@ const dotenv = require("dotenv")
 const cors = require("cors")
 const router = require("./route")
 const cookieParser = require('cookie-parser');
-const authRoutes = require('./routes/authRoutes');
+const authRoutes = require("./routes/authRoutes");
+const certificationRoutes = require("./routes/certificationRoutes");
 dotenv.config(); // Load environment variables from .env file
 const app = express();
 const PORT = process.env.PORT || 5012; // Use environment variable or fallback to 5012
@@ -21,6 +22,7 @@ app.use(express.urlencoded({ limit: '50mb', extended: true })); // Middleware to
 app.use(cookieParser()); // Use cookie parser
 app.use("/api", router)
 app.use('/auth', authRoutes);
+app.use('/api/certifications', certificationRoutes);
 
 const MONGO_URI = process.env.db_url || "mongodb+srv://yashashyashash1_db_user:yashash87920@masteryzone1111.gyw8std.mongodb.net/masteryzone?retryWrites=true&w=majority&appName=masteryzone1111";
 mongoose.connect(MONGO_URI)

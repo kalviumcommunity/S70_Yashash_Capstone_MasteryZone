@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
+import CertificationCard from "./CertificationCard";
 import "./coding.css";
 import codingIllustration from "../assets/coding_illustration.png";
 import keyboardProd from "../assets/keyboard_prod.png";
@@ -317,9 +318,37 @@ const Coding = () => {
   const [orderId, setOrderId] = useState("");
 
   // Certifications Progress State
-  const [enrolledCerts, setEnrolledCerts] = useState({}); // { certId: progress }
+  const [enrolledCerts, setEnrolledCerts] = useState({}); // Stores backend cert data
+  const [fetchingCerts, setFetchingCerts] = useState(false);
 
-  // Advisor Scheduling State
+  const fetchCertifications = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    
+    try {
+      const response = await fetch(`${API_BASE}/api/certifications`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const certMap = {};
+        data.forEach(c => {
+          if (c.zone === 'CODING') {
+            certMap[c.certId] = c;
+          }
+        });
+        setEnrolledCerts(certMap);
+      }
+    } catch (err) {
+      console.error("Failed to fetch certifications", err);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "certification") {
+      fetchCertifications();
+    }
+  }, [activeTab]);
   const [bookings, setBookings] = useState([]);
   const [bookingAdvisor, setBookingAdvisor] = useState(null);
   const [bookingDate, setBookingDate] = useState("");
@@ -1517,54 +1546,22 @@ const Coding = () => {
             {activeTab === "certification" && (
               <div className="fitness-section-container">
                 <div className="fitness-section-header">
-                  <h1 className="fitness-section-heading">DEVELOPER CERTIFICATIONS</h1>
-                  <p className="fitness-section-subheading">Launch your engineering career with industry academy-recognized credentials</p>
+                  <h1 className="fitness-section-heading" style={{ color: "#00A859" }}>PROFESSIONAL CERTIFICATIONS</h1>
+                  <p className="fitness-section-subheading">Accelerate your career with elite academy-recognized training degrees</p>
                 </div>
 
                 <div className="cert-grid">
                   {certifications.map((cert) => {
-                    const progress = enrolledCerts[cert.id];
-                    const isEnrolled = progress !== undefined;
+                    const backendData = enrolledCerts[cert.id] || {};
+                    const mergedData = { ...cert, ...backendData, id: cert.id };
+                    
                     return (
-                      <div key={cert.id} id={cert.id} className={`cert-card ${isEnrolled ? "enrolled" : ""}`}>
-                        <div className="cert-image-wrapper" style={{ width: '100%', height: '140px', overflow: 'hidden', borderRadius: '8px', marginBottom: '15px' }}>
-                          <img src={cert.image} alt={cert.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          <span className="cert-difficulty" style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(0,0,0,0.7)' }}>{cert.difficulty}</span>
-                        </div>
-                        <h3 className="cert-name">{cert.name}</h3>
-                        <span className="cert-body">{cert.body}</span>
-                        <p className="cert-desc">{cert.desc}</p>
-                        
-                        <div className="cert-meta">
-                          <span>⏱️ {cert.modules} Study Modules</span>
-                          <span className="cert-price">${cert.price}</span>
-                        </div>
-
-                        {!isEnrolled ? (
-                          <button className="cert-enroll-btn" onClick={() => handleEnrollCert(cert.id)}>
-                            Enroll Course
-                          </button>
-                        ) : (
-                          <div className="cert-progress-area">
-                            <div className="cert-progress-text">
-                              <span>Module Progress</span>
-                              <span className="progress-pct">{progress}%</span>
-                            </div>
-                            <div className="cert-progress-bar-bg">
-                              <div className="cert-progress-bar-fill" style={{ width: `${progress}%` }}></div>
-                            </div>
-                            {progress < 100 ? (
-                              <button className="cert-study-btn" onClick={() => handleStudyModule(cert.id)}>
-                                Complete Next Module 📖
-                              </button>
-                            ) : (
-                              <div className="cert-completed-badge">
-                                👑 CERTIFIED DEVELOPER
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
+                      <CertificationCard 
+                        key={cert.id} 
+                        certData={mergedData} 
+                        zone="CODING" 
+                        onUpdate={fetchCertifications} 
+                      />
                     );
                   })}
                 </div>
