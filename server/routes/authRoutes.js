@@ -83,6 +83,33 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// Guest Login Route
+router.post('/guest-login', async (req, res) => {
+  try {
+    const guestEmail = 'guest@masteryzone.com';
+    let user = await User.findOne({ email: guestEmail });
+
+    if (!user) {
+      const hashedPassword = await bcrypt.hash('GuestPassword123!', 10);
+      user = await User.create({ username: 'guest_user', email: guestEmail, password: hashedPassword });
+    }
+
+    const token = jwt.sign({ userId: user._id, email: user.email }, JWT_SECRET, { expiresIn: '1d' });
+
+    res.status(200).json({
+      message: 'Guest login successful',
+      token,
+      user: {
+        username: user.username,
+        email: user.email
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+
 // Forgot Password Route (Generates Token & Sends Email)
 router.post('/forgot-password', async (req, res) => {
   const { usernameOrEmail } = req.body;
