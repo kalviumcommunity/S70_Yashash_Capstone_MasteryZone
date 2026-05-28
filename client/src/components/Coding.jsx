@@ -4,6 +4,8 @@ import { toast } from "react-toastify";
 import CertificationCard from "./CertificationCard";
 import "./coding.css";
 import codingIllustration from "../assets/coding_illustration.png";
+
+const API_BASE = import.meta.env.VITE_API_URL || "https://s70-yashash-capstone-masteryzone-2.onrender.com";
 import keyboardProd from "../assets/keyboard_prod.png";
 import mouseProd from "../assets/mouse_prod.png";
 import monitorProd from "../assets/monitor_prod.png";

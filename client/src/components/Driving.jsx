@@ -5,6 +5,8 @@ import CertificationCard from "./CertificationCard";
 import "./driving.css";
 import fitnessIllustration from "../assets/fitness_illustration.png";
 
+const API_BASE = import.meta.env.VITE_API_URL || "https://s70-yashash-capstone-masteryzone-2.onrender.com";
+
 // Import real-life equipment photos generated for premium e-commerce look
 import dumbbellEquip from "../assets/dumbbell_equip.png";
 import proteinEquip from "../assets/protein_equip.png";
