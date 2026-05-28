@@ -4,8 +4,6 @@ import { toast } from "react-toastify";
 import CertificationCard from "./CertificationCard";
 import MembershipPortal from "./MembershipPortal";
 import "./coding.css";
-import "./fitness.css";
-import "./language.css";
 import codingIllustration from "../assets/coding_illustration.png";
 
 const API_BASE = import.meta.env.VITE_API_URL || "https://s70-yashash-capstone-masteryzone-2.onrender.com";
