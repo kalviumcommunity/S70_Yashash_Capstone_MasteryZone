@@ -6,7 +6,7 @@ import CollaborationHub from "./CollaborationHub";
 import "./language.css";
 import fitnessIllustration from "../assets/fitness_illustration.png";
 
-const API_BASE = import.meta.env.VITE_API_URL || "https://s70-yashash-capstone-masteryzone-2.onrender.com";
+const API_BASE = import.meta.env.VITE_API_URL || "";
 
 // Import real-life equipment photos generated for premium e-commerce look
 import dumbbellEquip from "../assets/dumbbell_equip.png";

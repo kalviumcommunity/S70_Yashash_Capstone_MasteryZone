@@ -4,7 +4,7 @@ import { toast } from "react-toastify";
 import { FaArrowLeft, FaCamera, FaMedal, FaImage, FaCrosshairs, FaRegClock, FaPalette, FaTrophy } from "react-icons/fa";
 import "./profile.css";
 
-const API_BASE = import.meta.env.VITE_API_URL || "https://s70-yashash-capstone-masteryzone-2.onrender.com";
+const API_BASE = import.meta.env.VITE_API_URL || "";
 
 const THEME_COLORS = [
   { id: 'green', hex: '#00A859' },

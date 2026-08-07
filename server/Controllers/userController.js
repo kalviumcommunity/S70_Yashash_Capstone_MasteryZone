@@ -1,4 +1,4 @@
-const User = require("../models/UserSchema");
+const User = require("../models/User");
 
 // Red component
 // GET all users

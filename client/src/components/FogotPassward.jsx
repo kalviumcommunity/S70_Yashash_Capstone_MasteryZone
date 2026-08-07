@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import { FaUser } from "react-icons/fa";
 import "./forgot.css";
 
-const API_BASE = import.meta.env.VITE_API_URL || "https://s70-yashash-capstone-masteryzone-2.onrender.com";
+const API_BASE = import.meta.env.VITE_API_URL || "";
+const AUTH_BASE = API_BASE ? `${API_BASE}/auth` : "/auth";
 
 const ForgotPassword = () => {
   const [usernameOrEmail, setUsernameOrEmail] = useState("");
@@ -30,7 +31,7 @@ const ForgotPassword = () => {
     }
 
     try {
-      const response = await fetch(`${API_BASE}/auth/forgot-password`, {
+      const response = await fetch(`${AUTH_BASE}/forgot-password`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

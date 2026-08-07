@@ -5,22 +5,56 @@ const crypto = require('crypto');
 const User = require('../models/User');
 const verifyFirebaseToken = require('../middleware/firebaseAuth');
 const verifyToken = require('../middleware/auth');
-const { sendLoginNotification, sendPasswordResetEmail } = require('../utils/mailer');
+const { sendLoginNotification, sendPasswordResetEmail, sendOtpEmail } = require('../utils/mailer');
+const { sendSmsOtp, twilioConfigured } = require('../utils/smsSender');
 const router = express.Router();
 
 const JWT_SECRET = process.env.JWT_SECRET || "supersecretkey";
 
+const normalizeIndianPhone = (phone) => {
+  if (!phone) return null;
+  const digits = phone.toString().replace(/\D/g, '');
+
+  if (/^[6-9]\d{9}$/.test(digits)) {
+    return `+91${digits}`;
+  }
+
+  if (/^0[6-9]\d{9}$/.test(digits)) {
+    return `+91${digits.slice(1)}`;
+  }
+
+  if (/^91[6-9]\d{9}$/.test(digits)) {
+    return `+${digits}`;
+  }
+
+  if (/^0091[6-9]\d{9}$/.test(digits)) {
+    return `+91${digits.slice(3)}`;
+  }
+
+  return null;
+};
+
 // Signup Route
 router.post('/signup', async (req, res) => {
-  const { firstName, lastName, email, password } = req.body;
+  const { firstName, lastName, email, phoneNumber, password } = req.body;
 
   if (!firstName || !lastName || !email || !password) {
-    return res.status(400).json({ message: 'All fields are required' });
+    return res.status(400).json({ message: 'All fields except phone number are required' });
+  }
+
+  const normalizedPhone = phoneNumber ? normalizeIndianPhone(phoneNumber) : undefined;
+  if (phoneNumber && !normalizedPhone) {
+    return res.status(400).json({ message: 'Invalid Indian mobile number format' });
   }
 
   try {
     const existingUser = await User.findOne({ email });
     if (existingUser) return res.status(400).json({ message: 'User already exists' });
+
+    if (normalizedPhone) {
+      const existingPhone = await User.findOne({ phoneNumber: normalizedPhone });
+      if (existingPhone) return res.status(400).json({ message: 'Phone number already in use' });
+    }
 
     // Generate unique username
     const baseUsername = `${firstName}_${lastName}`.toLowerCase().replace(/[^a-z0-9_]/g, "");
@@ -34,10 +68,27 @@ router.post('/signup', async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
+    const userData = { username, email, password: hashedPassword };
+    if (normalizedPhone) {
+      userData.phoneNumber = normalizedPhone;
+    }
 
-    const newUser = await User.create({ username, email, password: hashedPassword });
+    const newUser = await User.create(userData);
+    const safeUser = {
+      username: newUser.username,
+      email: newUser.email,
+      phoneNumber: newUser.phoneNumber,
+      authProvider: newUser.authProvider,
+      interests: newUser.interests,
+      groups: newUser.groups,
+      progress: newUser.progress,
+      role: newUser.role,
+      _id: newUser._id,
+      createdAt: newUser.createdAt,
+      updatedAt: newUser.updatedAt,
+    };
 
-    res.status(201).json({ message: "User registered successfully!", newUser });
+    res.status(201).json({ message: "User registered successfully!", newUser: safeUser });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -72,6 +123,103 @@ router.post('/login', async (req, res) => {
 
     res.status(200).json({
       message: 'Login successful',
+      token,
+      user: {
+        username: user.username,
+        email: user.email
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// Mobile OTP Request Route
+router.post('/mobile-otp-request', async (req, res) => {
+  const { phoneNumber } = req.body;
+  if (!phoneNumber) {
+    return res.status(400).json({ message: 'Phone number is required' });
+  }
+
+  const normalizedPhone = normalizeIndianPhone(phoneNumber);
+  if (!normalizedPhone) {
+    return res.status(400).json({ message: 'Invalid Indian mobile number format' });
+  }
+
+  try {
+    const user = await User.findOne({ phoneNumber: normalizedPhone });
+    if (!user) {
+      return res.status(200).json({ message: 'If this phone number is registered, an OTP has been sent.' });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpHash = crypto.createHash('sha256').update(otp).digest('hex');
+
+    user.otpCodeHash = otpHash;
+    user.otpExpires = Date.now() + 10 * 60 * 1000;
+    await user.save();
+
+    const smsResult = await sendSmsOtp(normalizedPhone, otp);
+    let responseMessage = 'OTP sent to your mobile number.';
+    const responsePayload = { message: responseMessage };
+
+    if (process.env.NODE_ENV !== 'production') {
+      responsePayload.devOtp = otp;
+    }
+
+    if (!smsResult.success) {
+      if (user.email) {
+        await sendOtpEmail(user.email, otp);
+        responsePayload.message = 'OTP was sent to your registered email because SMS is not configured.';
+        responsePayload.fallback = 'email';
+      }
+    }
+
+    if (smsResult.success && smsResult.channel === 'sms') {
+      responsePayload.sentBy = 'sms';
+    } else if (!responsePayload.sentBy) {
+      responsePayload.sentBy = smsResult.success ? smsResult.channel : 'fallback';
+    }
+
+    res.status(200).json(responsePayload);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// Mobile OTP Verify Route
+router.post('/mobile-otp-verify', async (req, res) => {
+  const { phoneNumber, otp } = req.body;
+  if (!phoneNumber || !otp) {
+    return res.status(400).json({ message: 'Phone number and OTP are required' });
+  }
+
+  const normalizedPhone = normalizeIndianPhone(phoneNumber);
+  if (!normalizedPhone) {
+    return res.status(400).json({ message: 'Invalid Indian mobile number format' });
+  }
+
+  try {
+    const user = await User.findOne({ phoneNumber: normalizedPhone });
+    if (!user || !user.otpCodeHash || !user.otpExpires || Date.now() > user.otpExpires) {
+      return res.status(400).json({ message: 'Invalid or expired OTP' });
+    }
+
+    const otpHash = crypto.createHash('sha256').update(otp).digest('hex');
+    if (otpHash !== user.otpCodeHash) {
+      return res.status(400).json({ message: 'Invalid or expired OTP' });
+    }
+
+    user.otpCodeHash = undefined;
+    user.otpExpires = undefined;
+    await user.save();
+
+    sendLoginNotification(user.email, user.username);
+
+    const token = jwt.sign({ userId: user._id, email: user.email }, JWT_SECRET, { expiresIn: '1d' });
+
+    res.status(200).json({
+      message: 'OTP login successful',
       token,
       user: {
         username: user.username,

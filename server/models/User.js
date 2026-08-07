@@ -13,6 +13,12 @@ const userSchema = new mongoose.Schema({
     unique: true,
     lowercase: true
   },
+  phoneNumber: {
+    type: String,
+    unique: true,
+    sparse: true,
+    trim: true
+  },
   password: {
     type: String,
     required: true
@@ -30,7 +36,9 @@ const userSchema = new mongoose.Schema({
     darkMode: { type: Boolean, default: false }
   },
   resetPasswordToken: String,
-  resetPasswordExpires: Date
+  resetPasswordExpires: Date,
+  otpCodeHash: String,
+  otpExpires: Date
 }, { timestamps: true });
 
 const User = mongoose.models.User || mongoose.model('User', userSchema);

@@ -92,7 +92,42 @@ const sendPasswordResetEmail = async (userEmail, resetLink) => {
   }
 };
 
+const sendOtpEmail = async (userEmail, otp) => {
+  if (!transporter) {
+    console.log(`[Mock Mailer] Sent OTP ${otp} to ${userEmail}`);
+    return;
+  }
+
+  const mailOptions = {
+    from: `"MasteryZone Security" <security@masteryzone.com>`,
+    to: userEmail,
+    subject: 'Your MasteryZone Login OTP',
+    html: `
+      <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+        <h2 style="color: #6a0572;">Your MasteryZone OTP</h2>
+        <p>Use the one-time code below to sign in. This code is valid for 10 minutes.</p>
+        <p style="font-size: 24px; font-weight: bold; letter-spacing: 5px;">${otp}</p>
+        <p>If you did not request this code, please ignore this message.</p>
+        <br />
+        <p>Stay sharp,</p>
+        <p><strong>The MasteryZone Team</strong></p>
+      </div>
+    `
+  };
+
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`\n==========================================`);
+    console.log(`✅ OTP email sent to: ${userEmail}`);
+    console.log(`🔗 VIEW THE SENT EMAIL HERE: ${nodemailer.getTestMessageUrl(info)}`);
+    console.log(`==========================================\n`);
+  } catch (error) {
+    console.error('Error sending OTP email:', error);
+  }
+};
+
 module.exports = {
   sendLoginNotification,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  sendOtpEmail
 };

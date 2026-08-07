@@ -138,7 +138,8 @@ a{
   background: white;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
   width: 450px;
-  height: 600px;
+  min-height: 600px;
+  height: auto;
   text-align: center;
 }
 
@@ -254,6 +255,44 @@ input:-webkit-autofill:active {
   text-decoration: none;
 }
 
+/* Mobile OTP panel */
+.mobile-otp-panel {
+  width: 100%;
+  max-width: 420px;
+  margin: 24px auto 0;
+  padding: 20px 18px;
+  background: #fff1fb;
+  border-radius: 24px;
+  box-shadow: 0 15px 35px rgba(106, 5, 114, 0.12);
+}
+
+.mobile-otp-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  color: #4b0355;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.mobile-otp-toggle {
+  background: transparent;
+  border: none;
+  color: #6a0572;
+  cursor: pointer;
+  text-decoration: underline;
+  font-weight: 600;
+}
+
+.mobile-otp-note {
+  font-size: 13px;
+  color: #4b0355;
+  margin: 0;
+  text-align: left;
+  padding-left: 10px;
+}
+
 .signup-text a:hover {
   text-decoration: underline;
 }
@@ -283,6 +322,27 @@ input:-webkit-autofill:active {
   border-radius: 50%;
   padding: 2px;
   box-sizing: border-box;
+}
+
+.otp-button {
+  width: 100%;
+  background-color: #4285F4;
+  color: white;
+  padding: 12px;
+  border: none;
+  border-radius: 5px;
+  font-weight: bold;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 16px;
+  transition: background-color 0.3s;
+}
+
+.otp-button:hover {
+  background-color: #357ae8;
 }
 
 
