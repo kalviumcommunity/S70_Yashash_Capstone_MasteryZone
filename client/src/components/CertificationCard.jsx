@@ -3,7 +3,7 @@ import { toast } from 'react-toastify';
 import { FaCheckCircle, FaLock, FaMedal, FaShieldAlt, FaCreditCard } from 'react-icons/fa';
 import ProctoredExam from './ProctoredExam';
 
-const API_BASE = import.meta.env.VITE_API_URL || "https://s70-yashash-capstone-masteryzone-2.onrender.com";
+const API_BASE = import.meta.env.VITE_API_URL || "";
 
 const CertificationCard = ({ certData, zone, onUpdate }) => {
   const [loading, setLoading] = useState(false);

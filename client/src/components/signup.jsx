@@ -4,13 +4,15 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import "../App.css"; // Import the CSS file
 
-const API_BASE = import.meta.env.VITE_API_URL || "https://s70-yashash-capstone-masteryzone-2.onrender.com";
+const API_BASE = import.meta.env.VITE_API_URL || "";
+const AUTH_BASE = API_BASE ? `${API_BASE}/auth` : "/auth";
 
 const Signup = () => {
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
     email: "",
+    phoneNumber: "",
     password: "",
     confirmPassword: "",
   });
@@ -55,6 +57,12 @@ const Signup = () => {
         errors.email = "Invalid email format";
       }
     }
+
+    if (touched.phoneNumber) {
+      if (formData.phoneNumber.trim() && !/^(?:\+91|91|0)?[6-9]\d{9}$/.test(formData.phoneNumber.trim())) {
+        errors.phoneNumber = "Invalid Indian mobile number";
+      }
+    }
     
     if (touched.password) {
       if (!formData.password) {
@@ -87,12 +95,13 @@ const Signup = () => {
       firstName: true,
       lastName: true,
       email: true,
+      phoneNumber: true,
       password: true,
       confirmPassword: true,
     };
     setTouched(allTouched);
 
-    const { firstName, lastName, email, password, confirmPassword } = formData;
+    const { firstName, lastName, email, phoneNumber, password, confirmPassword } = formData;
 
     const errors = {};
     if (!firstName.trim()) errors.firstName = "First name is required";
@@ -103,6 +112,10 @@ const Signup = () => {
 
     if (!email.trim()) errors.email = "Email is required";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = "Invalid email format";
+
+    if (phoneNumber.trim() && !/^(?:\+91|91|0)?[6-9]\d{9}$/.test(phoneNumber.trim())) {
+      errors.phoneNumber = "Invalid Indian mobile number";
+    }
 
     if (!password) errors.password = "Password is required";
     else if (password.length < 6) errors.password = "Must be at least 6 characters";
@@ -117,7 +130,7 @@ const Signup = () => {
     }
 
     try {
-      const response = await fetch(`${API_BASE}/auth/signup`, {
+      const response = await fetch(`${AUTH_BASE}/signup`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -126,6 +139,7 @@ const Signup = () => {
           firstName,
           lastName,
           email,
+          phoneNumber,
           password,
         }),
       });
@@ -205,6 +219,24 @@ const Signup = () => {
             {validationErrors.email && (
               <span style={{ position: "absolute", bottom: "-20px", left: "10%", color: "#ff4d4d", fontSize: "11px", fontWeight: "bold" }}>
                 {validationErrors.email}
+              </span>
+            )}
+          </div>
+
+          {/* Phone */}
+          <div className="input-group" style={{ position: "relative" }}>
+            <input
+              type="tel"
+              className="inputs"
+              name="phoneNumber"
+              placeholder="Mobile number (optional)"
+              autoComplete="off"
+              value={formData.phoneNumber}
+              onChange={handleChange}
+            />
+            {validationErrors.phoneNumber && (
+              <span style={{ position: "absolute", bottom: "-20px", left: "10%", color: "#ff4d4d", fontSize: "11px", fontWeight: "bold" }}>
+                {validationErrors.phoneNumber}
               </span>
             )}
           </div>

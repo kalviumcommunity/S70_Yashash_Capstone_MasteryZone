@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 import { io } from 'socket.io-client';
 import './CollaborationHub.css';
 
-const SOCKET_SERVER_URL = import.meta.env.VITE_API_URL || "http://localhost:5012";
+const SOCKET_SERVER_URL = import.meta.env.VITE_API_URL || "";
 
 const CollaborationHub = ({ zone, themeColor }) => {
   const [view, setView] = useState('LANDING'); // 'LANDING', 'PREJOIN', 'MEETING'

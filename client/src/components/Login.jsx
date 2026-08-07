@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { FaUser, FaLock, FaEye, FaEyeSlash } from "react-icons/fa";
+import { FaUser, FaLock, FaEye, FaEyeSlash, FaPhone } from "react-icons/fa";
 import { FcGoogle } from "react-icons/fc";
 import { signInWithPopup } from "firebase/auth";
 import { auth, provider } from "../firebase/firebaseConfig";
@@ -8,7 +8,8 @@ import { toast } from "react-toastify";
 
 import "../App.css";
 
-const API_BASE = import.meta.env.VITE_API_URL || "https://s70-yashash-capstone-masteryzone-2.onrender.com";
+const API_BASE = import.meta.env.VITE_API_URL || "";
+const AUTH_BASE = API_BASE ? `${API_BASE}/auth` : "/auth";
 
 const Login = () => {
   const [identifier, setIdentifier] = useState("");
@@ -16,6 +17,12 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [touched, setTouched] = useState({});
   const [validationErrors, setValidationErrors] = useState({});
+  const [otpMode, setOtpMode] = useState(false);
+  const [otpPhone, setOtpPhone] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpMessage, setOtpMessage] = useState("");
+  const [otpErrors, setOtpErrors] = useState({});
   const navigate = useNavigate();
 
   const handleGoogleLogin = async () => {
@@ -25,7 +32,7 @@ const Login = () => {
       
       const token = await user.getIdToken();
 
-      const response = await fetch(`${API_BASE}/auth/firebase-login`, {
+      const response = await fetch(`${AUTH_BASE}/firebase-login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -78,7 +85,7 @@ const Login = () => {
     }
 
     try {
-      const response = await fetch(`${API_BASE}/auth/login`, {
+      const response = await fetch(`${AUTH_BASE}/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -104,9 +111,101 @@ const Login = () => {
     }
   };
 
+  const handleOtpRequest = async (e) => {
+    e.preventDefault();
+
+    if (!otpPhone.trim()) {
+      setOtpErrors({ otpPhone: 'Phone number is required' });
+      return;
+    }
+
+    if (!/^(?:\+91|91|0)?[6-9]\d{9}$/.test(otpPhone.trim())) {
+      setOtpErrors({ otpPhone: 'Invalid Indian mobile number' });
+      return;
+    }
+
+    setOtpErrors({});
+
+    try {
+      const response = await fetch(`${AUTH_BASE}/mobile-otp-request`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ phoneNumber: otpPhone })
+      });
+
+      let data;
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        data = { message: await response.text() };
+      }
+
+      if (!response.ok) {
+        alert(data.message || `Server returned ${response.status}`);
+        return;
+      }
+
+      setOtpSent(true);
+      let message = data.message || 'OTP sent successfully.';
+      if (data.devOtp) {
+        message += ` Your test OTP is ${data.devOtp}.`;
+      }
+      setOtpMessage(message);
+      toast.success('OTP sent to your phone');
+    } catch (err) {
+      console.error('OTP request error', err);
+      alert(err.message || 'Failed to connect to server');
+    }
+  };
+
+  const handleOtpVerify = async (e) => {
+    e.preventDefault();
+
+    if (!otpPhone.trim() || !otpCode.trim()) {
+      setOtpErrors({
+        otpPhone: !otpPhone.trim() ? 'Phone number is required' : '',
+        otpCode: !otpCode.trim() ? 'OTP is required' : ''
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(`${AUTH_BASE}/mobile-otp-verify`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ phoneNumber: otpPhone, otp: otpCode })
+      });
+
+      let data;
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        data = { message: await response.text() };
+      }
+
+      if (!response.ok) {
+        alert(data.message || `Server returned ${response.status}`);
+        return;
+      }
+
+      localStorage.setItem('token', data.token);
+      toast.success('OTP login successful!');
+      navigate('/home');
+    } catch (err) {
+      console.error('OTP verification error', err);
+      alert(err.message || 'Failed to connect to server');
+    }
+  };
+
   const handleGuestLogin = async () => {
     try {
-      const response = await fetch(`${API_BASE}/auth/guest-login`, {
+      const response = await fetch(`${AUTH_BASE}/guest-login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -202,6 +301,78 @@ const Login = () => {
             Don't have account ? <a href="/signup">Sign in</a>
           </p>
         </form>
+
+        <div className="mobile-otp-panel">
+          <div className="mobile-otp-heading">
+            <span>Login with Mobile OTP</span>
+            <button
+              type="button"
+              className="mobile-otp-toggle"
+              onClick={() => {
+                setOtpMode(!otpMode);
+                setOtpSent(false);
+                setOtpMessage('');
+                setOtpErrors({});
+              }}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: '#6a0572',
+                cursor: 'pointer',
+                textDecoration: 'underline'
+              }}
+            >
+              {otpMode ? 'Hide OTP' : 'Use OTP'}
+            </button>
+          </div>
+
+          {otpMode && (
+            <form onSubmit={otpSent ? handleOtpVerify : handleOtpRequest} style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '12px' }}>
+              <div className="input-field1" style={{ position: 'relative' }}>
+                <FaPhone className="icon" />
+                <input
+                  type="tel"
+                  placeholder="Mobile number"
+                  autoComplete="tel"
+                  value={otpPhone}
+                  onChange={(e) => setOtpPhone(e.target.value)}
+                  inputMode="tel"
+                />
+                {otpErrors.otpPhone && (
+                  <span style={{ position: 'absolute', bottom: '-13px', left: '20px', color: '#d90429', fontSize: '11px', fontWeight: 'bold' }}>
+                    {otpErrors.otpPhone}
+                  </span>
+                )}
+              </div>
+
+              {otpSent && (
+                <div className="input-field1" style={{ position: 'relative' }}>
+                  <FaLock className="icon" />
+                  <input
+                    type="text"
+                    placeholder="Enter OTP"
+                    autoComplete="one-time-code"
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value)}
+                    inputMode="numeric"
+                    maxLength={6}
+                  />
+                  {otpErrors.otpCode && (
+                    <span style={{ position: 'absolute', bottom: '-13px', left: '20px', color: '#d90429', fontSize: '11px', fontWeight: 'bold' }}>
+                      {otpErrors.otpCode}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {otpMessage && <p style={{ color: '#2d6a4f', margin: 0 }}>{otpMessage}</p>}
+
+              <button type="submit" className="otp-button">
+                {otpSent ? 'Verify OTP' : 'Send OTP'}
+              </button>
+            </form>
+          )}
+        </div>
 
         <button onClick={handleGoogleLogin} className="google-button">
           <FcGoogle size={20} /> Sign in with Google
