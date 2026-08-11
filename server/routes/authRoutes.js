@@ -5,8 +5,7 @@ const crypto = require('crypto');
 const User = require('../models/User');
 const verifyFirebaseToken = require('../middleware/firebaseAuth');
 const verifyToken = require('../middleware/auth');
-const { sendLoginNotification, sendPasswordResetEmail, sendOtpEmail } = require('../utils/mailer');
-const { sendSmsOtp, twilioConfigured } = require('../utils/smsSender');
+const { sendLoginNotification, sendPasswordResetEmail } = require('../utils/mailer');
 const router = express.Router();
 
 const JWT_SECRET = process.env.JWT_SECRET || "supersecretkey";
@@ -134,102 +133,7 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Mobile OTP Request Route
-router.post('/mobile-otp-request', async (req, res) => {
-  const { phoneNumber } = req.body;
-  if (!phoneNumber) {
-    return res.status(400).json({ message: 'Phone number is required' });
-  }
 
-  const normalizedPhone = normalizeIndianPhone(phoneNumber);
-  if (!normalizedPhone) {
-    return res.status(400).json({ message: 'Invalid Indian mobile number format' });
-  }
-
-  try {
-    const user = await User.findOne({ phoneNumber: normalizedPhone });
-    if (!user) {
-      return res.status(200).json({ message: 'If this phone number is registered, an OTP has been sent.' });
-    }
-
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const otpHash = crypto.createHash('sha256').update(otp).digest('hex');
-
-    user.otpCodeHash = otpHash;
-    user.otpExpires = Date.now() + 10 * 60 * 1000;
-    await user.save();
-
-    const smsResult = await sendSmsOtp(normalizedPhone, otp);
-    let responseMessage = 'OTP sent to your mobile number.';
-    const responsePayload = { message: responseMessage };
-
-    if (process.env.NODE_ENV !== 'production') {
-      responsePayload.devOtp = otp;
-    }
-
-    if (!smsResult.success) {
-      if (user.email) {
-        await sendOtpEmail(user.email, otp);
-        responsePayload.message = 'OTP was sent to your registered email because SMS is not configured.';
-        responsePayload.fallback = 'email';
-      }
-    }
-
-    if (smsResult.success && smsResult.channel === 'sms') {
-      responsePayload.sentBy = 'sms';
-    } else if (!responsePayload.sentBy) {
-      responsePayload.sentBy = smsResult.success ? smsResult.channel : 'fallback';
-    }
-
-    res.status(200).json(responsePayload);
-  } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message });
-  }
-});
-
-// Mobile OTP Verify Route
-router.post('/mobile-otp-verify', async (req, res) => {
-  const { phoneNumber, otp } = req.body;
-  if (!phoneNumber || !otp) {
-    return res.status(400).json({ message: 'Phone number and OTP are required' });
-  }
-
-  const normalizedPhone = normalizeIndianPhone(phoneNumber);
-  if (!normalizedPhone) {
-    return res.status(400).json({ message: 'Invalid Indian mobile number format' });
-  }
-
-  try {
-    const user = await User.findOne({ phoneNumber: normalizedPhone });
-    if (!user || !user.otpCodeHash || !user.otpExpires || Date.now() > user.otpExpires) {
-      return res.status(400).json({ message: 'Invalid or expired OTP' });
-    }
-
-    const otpHash = crypto.createHash('sha256').update(otp).digest('hex');
-    if (otpHash !== user.otpCodeHash) {
-      return res.status(400).json({ message: 'Invalid or expired OTP' });
-    }
-
-    user.otpCodeHash = undefined;
-    user.otpExpires = undefined;
-    await user.save();
-
-    sendLoginNotification(user.email, user.username);
-
-    const token = jwt.sign({ userId: user._id, email: user.email }, JWT_SECRET, { expiresIn: '1d' });
-
-    res.status(200).json({
-      message: 'OTP login successful',
-      token,
-      user: {
-        username: user.username,
-        email: user.email
-      }
-    });
-  } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message });
-  }
-});
 
 // Guest Login Route
 router.post('/guest-login', async (req, res) => {
