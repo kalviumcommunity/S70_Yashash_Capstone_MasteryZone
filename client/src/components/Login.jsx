@@ -101,6 +101,7 @@ const Login = () => {
       toast.success("Login successful!");
       navigate("/home");
     } catch (err) {
+      console.error("Login submit error:", err);
       alert("Failed to connect to server");
     }
   };
@@ -125,6 +126,7 @@ const Login = () => {
       toast.success("Guest login successful!");
       navigate("/home");
     } catch (err) {
+      console.error("Guest login error:", err);
       alert("Failed to connect to server");
     }
   };
