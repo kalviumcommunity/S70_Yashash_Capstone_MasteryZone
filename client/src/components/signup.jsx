@@ -1,8 +1,24 @@
 import React, { useState, useEffect } from "react";
-import { FaEye, FaEyeSlash } from "react-icons/fa";
-import { useNavigate } from "react-router-dom";
+import {
+  LuUser,
+  LuMail,
+  LuSmartphone,
+  LuLock,
+  LuEye,
+  LuEyeOff,
+  LuArrowRight,
+  LuBookOpen,
+  LuStar,
+} from "react-icons/lu";
+import { FcGoogle } from "react-icons/fc";
+import { signInWithPopup } from "firebase/auth";
+import { auth, provider } from "../firebase/firebaseConfig";
+import { useNavigate, Link } from "react-router-dom";
 import { toast } from "react-toastify";
-import "../App.css"; // Import the CSS file
+
+import logoIcon from "../assets/logo_icon_transparent.png";
+import stickerImg from "../assets/signup_sticker.png";
+import "./Signup.css";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 const AUTH_BASE = API_BASE ? `${API_BASE}/auth` : "/auth";
@@ -17,13 +33,14 @@ const Signup = () => {
     confirmPassword: "",
   });
 
-  const navigate = useNavigate();
-
-  const [error, setError] = useState("");
+  const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [touched, setTouched] = useState({});
   const [validationErrors, setValidationErrors] = useState({});
+  const [serverError, setServerError] = useState("");
+
+  const navigate = useNavigate();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -33,7 +50,7 @@ const Signup = () => {
 
   useEffect(() => {
     const errors = {};
-    
+
     if (touched.firstName) {
       if (!formData.firstName.trim()) {
         errors.firstName = "First name is required";
@@ -41,7 +58,7 @@ const Signup = () => {
         errors.firstName = "Must be at least 2 characters";
       }
     }
-    
+
     if (touched.lastName) {
       if (!formData.lastName.trim()) {
         errors.lastName = "Last name is required";
@@ -49,7 +66,7 @@ const Signup = () => {
         errors.lastName = "Must be at least 2 characters";
       }
     }
-    
+
     if (touched.email) {
       if (!formData.email.trim()) {
         errors.email = "Email is required";
@@ -58,20 +75,14 @@ const Signup = () => {
       }
     }
 
-    if (touched.phoneNumber) {
-      if (formData.phoneNumber.trim() && !/^(?:\+91|91|0)?[6-9]\d{9}$/.test(formData.phoneNumber.trim())) {
-        errors.phoneNumber = "Invalid Indian mobile number";
-      }
-    }
-    
     if (touched.password) {
       if (!formData.password) {
         errors.password = "Password is required";
       } else if (formData.password.length < 6) {
-        errors.password = "Must be at least 6 characters";
+        errors.password = "Password must be at least 6 characters";
       }
     }
-    
+
     if (touched.confirmPassword) {
       if (!formData.confirmPassword) {
         errors.confirmPassword = "Confirm password is required";
@@ -79,253 +90,440 @@ const Signup = () => {
         errors.confirmPassword = "Passwords do not match";
       }
     }
-    
-    setValidationErrors(errors);
 
-    // Clear sticky general submit error once all validation errors are solved
-    if (Object.keys(errors).length === 0) {
-      setError("");
-    }
+    setValidationErrors(errors);
   }, [formData, touched]);
 
   const handleSubmit = async (e) => {
-    e.preventDefault();  
+    e.preventDefault();
 
-    const allTouched = {
+    setTouched({
       firstName: true,
       lastName: true,
       email: true,
-      phoneNumber: true,
       password: true,
       confirmPassword: true,
-    };
-    setTouched(allTouched);
+    });
 
-    const { firstName, lastName, email, phoneNumber, password, confirmPassword } = formData;
-
-    const errors = {};
-    if (!firstName.trim()) errors.firstName = "First name is required";
-    else if (firstName.length < 2) errors.firstName = "Must be at least 2 characters";
-
-    if (!lastName.trim()) errors.lastName = "Last name is required";
-    else if (lastName.length < 2) errors.lastName = "Must be at least 2 characters";
-
-    if (!email.trim()) errors.email = "Email is required";
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = "Invalid email format";
-
-    if (phoneNumber.trim() && !/^(?:\+91|91|0)?[6-9]\d{9}$/.test(phoneNumber.trim())) {
-      errors.phoneNumber = "Invalid Indian mobile number";
-    }
-
-    if (!password) errors.password = "Password is required";
-    else if (password.length < 6) errors.password = "Must be at least 6 characters";
-
-    if (!confirmPassword) errors.confirmPassword = "Confirm password is required";
-    else if (confirmPassword !== password) errors.confirmPassword = "Passwords do not match";
-
-    if (Object.keys(errors).length > 0) {
-      setValidationErrors(errors);
-      setError("Please fix the validation errors before submitting.");
+    if (
+      !formData.firstName.trim() ||
+      !formData.lastName.trim() ||
+      !formData.email.trim() ||
+      !formData.password ||
+      !formData.confirmPassword ||
+      formData.confirmPassword !== formData.password
+    ) {
+      setServerError("Please fix the validation errors before submitting.");
       return;
     }
 
     try {
-      const response = await fetch(`${AUTH_BASE}/signup`, {
+      const response = await fetch(`${AUTH_BASE}/register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          firstName,
-          lastName,
-          email,
-          phoneNumber,
-          password,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          phoneNumber: formData.phoneNumber,
+          password: formData.password,
         }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.message || "Registration failed");
+        setServerError(data.message || "Registration failed");
         return;
       }
 
-      setError("");
+      setServerError("");
       toast.success("Registration successful! Please log in.");
       navigate("/login");
     } catch (err) {
-      setError("Failed to connect to server");
+      console.error("Signup error:", err);
+      setServerError("Failed to connect to server");
+    }
+  };
+
+  const handleGoogleSignUp = async () => {
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+      const token = await user.getIdToken();
+
+      const response = await fetch(`${AUTH_BASE}/firebase-login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const text = await response.text();
+      let data = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch (parseErr) {
+        data = { message: text || `Server error (${response.status})` };
+      }
+
+      if (!response.ok) {
+        alert(data.message || `Google registration failed on server (Status ${response.status})`);
+        return;
+      }
+
+      localStorage.setItem("token", data.token);
+      toast.success("Account created successfully with Google!");
+      navigate("/home");
+    } catch (error) {
+      console.error("Google Signup Error:", error);
+      alert("Failed to sign up with Google: " + (error.message || "Unknown error"));
     }
   };
 
   return (
-    <div className="signup-container">
-      <div className="signup-box">
-        <div className="Creat-a-new-account"> <h2 className="signup-heading">Create a new account</h2>  </div>
+    <div className="mz-signup-page">
+      {/* Background Curved Accents */}
+      <svg
+        className="mz-signup-wave-bl"
+        viewBox="0 0 500 500"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        aria-hidden="true"
+      >
+        <defs>
+          <linearGradient id="blGrad1" x1="0%" y1="50%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#1e3a8a" stopOpacity="0.8" />
+            <stop offset="100%" stopColor="#172554" stopOpacity="0.85" />
+          </linearGradient>
+          <linearGradient id="blGrad2" x1="0%" y1="50%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#6b21a8" stopOpacity="0.85" />
+            <stop offset="100%" stopColor="#9333ea" stopOpacity="0.8" />
+          </linearGradient>
+        </defs>
+        <path
+          d="M 0 250 C 130 330 260 410 500 500 L 0 500 Z"
+          fill="url(#blGrad1)"
+        />
+        <path
+          d="M 0 370 C 120 380 230 425 410 500 L 0 500 Z"
+          fill="url(#blGrad2)"
+        />
+      </svg>
 
-        <div className="error-div">
-        {error && <p className="error-text">{error}</p>}
+      {/* Top Navigation Bar */}
+      <nav className="mz-signup-nav">
+        <Link to="/" className="mz-nav-logo-link">
+          <img
+            src={logoIcon}
+            alt="Mastery Zone"
+            className="mz-nav-logo-icon"
+          />
+          <div className="mz-nav-logo-text-group">
+            <span className="mz-nav-brand-title">
+              Mastery <span className="mz-brand-accent">Zone</span>
+            </span>
+            <span className="mz-nav-brand-tagline">Learn · Grow · Achieve</span>
+          </div>
+        </Link>
+
+        <div className="mz-nav-right">
+          <span className="mz-nav-text">Already have an account?</span>
+          <Link to="/login" className="mz-nav-login-btn">
+            Login <LuArrowRight size={15} />
+          </Link>
+        </div>
+      </nav>
+
+      {/* Main Two-Column Container */}
+      <div className="mz-signup-container">
+        {/* Left Column: Brand Hero & Features */}
+        <div className="mz-signup-left">
+          <h1 className="mz-signup-hero-title">
+            <span className="mz-hero-white">Start Your</span>
+            <span className="mz-hero-gradient">Learning Journey</span>
+            <span className="mz-hero-white">Today</span>
+          </h1>
+
+          <p className="mz-signup-hero-sub">
+            Create your account and unlock personalized learning, track your
+            progress, and build a brighter future.
+          </p>
+
+          <div className="mz-feature-list">
+            <div className="mz-feature-row">
+              <div className="mz-feature-badge">
+                <LuBookOpen />
+              </div>
+              <div className="mz-feature-text">
+                <span className="mz-feat-title">Learn</span>
+                <span className="mz-feat-desc">
+                  Access quality courses anytime
+                </span>
+              </div>
+            </div>
+
+            <div className="mz-feature-row">
+              <div className="mz-feature-badge">
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M18 20V10" />
+                  <path d="M12 20V4" />
+                  <path d="M6 20v-6" />
+                  <path d="M17 4h4v4" />
+                  <path d="M21 4L13 12" />
+                </svg>
+              </div>
+              <div className="mz-feature-text">
+                <span className="mz-feat-title">Track</span>
+                <span className="mz-feat-desc">Monitor your progress</span>
+              </div>
+            </div>
+
+            <div className="mz-feature-row">
+              <div className="mz-feature-badge">
+                <LuStar fill="currentColor" />
+              </div>
+              <div className="mz-feature-text">
+                <span className="mz-feat-title">Achieve</span>
+                <span className="mz-feat-desc">
+                  Build the skills for tomorrow
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="mz-signup-sticker-container">
+            <img
+              src={stickerImg}
+              alt="Better Skills Brighter Future"
+              className="mz-signup-sticker"
+            />
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          {/* First Name */}
-          <div className="input-group" style={{ position: "relative" }}>
-            <input
-              type="text"
-              className="inputs"
-              name="firstName"
-              placeholder="First Name"
-              autoComplete="off"
-              value={formData.firstName}
-              onChange={handleChange}
-            />
+        {/* Right Column: Registration Card */}
+        <div className="mz-signup-card">
+          <h2 className="mz-signup-card-title">
+            Create a new <span className="mz-title-purple">account</span>
+          </h2>
+          <p className="mz-signup-card-sub">
+            Join Mastery Zone and start building your dream career.
+          </p>
+
+          {serverError && (
+            <div
+              style={{
+                color: "#ef4444",
+                backgroundColor: "rgba(239, 68, 68, 0.1)",
+                border: "1px solid rgba(239, 68, 68, 0.3)",
+                borderRadius: "8px",
+                padding: "8px 12px",
+                fontSize: "12.5px",
+                marginBottom: "14px",
+                textAlign: "center",
+              }}
+            >
+              {serverError}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="mz-signup-form">
+            {/* First Name */}
+            <div
+              className={`mz-signup-input-field ${
+                validationErrors.firstName ? "error" : ""
+              }`}
+            >
+              <LuUser className="mz-signup-input-icon" />
+              <input
+                type="text"
+                name="firstName"
+                placeholder="First Name"
+                autoComplete="off"
+                value={formData.firstName}
+                onChange={handleChange}
+              />
+            </div>
             {validationErrors.firstName && (
-              <span style={{ position: "absolute", bottom: "-20px", left: "10%", color: "#ff4d4d", fontSize: "11px", fontWeight: "bold" }}>
+              <div className="mz-signup-error-text">
                 {validationErrors.firstName}
-              </span>
+              </div>
             )}
-          </div>
 
-          {/* Last Name */}
-          <div className="input-group" style={{ position: "relative" }}>
-            <input
-              type="text"
-              className="inputs"
-              name="lastName"
-              placeholder="Last Name"
-              autoComplete="off"
-              value={formData.lastName}
-              onChange={handleChange}
-            />
+            {/* Last Name */}
+            <div
+              className={`mz-signup-input-field ${
+                validationErrors.lastName ? "error" : ""
+              }`}
+            >
+              <LuUser className="mz-signup-input-icon" />
+              <input
+                type="text"
+                name="lastName"
+                placeholder="Last Name"
+                autoComplete="off"
+                value={formData.lastName}
+                onChange={handleChange}
+              />
+            </div>
             {validationErrors.lastName && (
-              <span style={{ position: "absolute", bottom: "-20px", left: "10%", color: "#ff4d4d", fontSize: "11px", fontWeight: "bold" }}>
+              <div className="mz-signup-error-text">
                 {validationErrors.lastName}
-              </span>
+              </div>
             )}
-          </div>
 
-          {/* Email */}
-          <div className="input-group" style={{ position: "relative" }}>
-            <input
-              type="email"
-              className="inputs"
-              name="email"
-              placeholder="E-Mail"
-              autoComplete="off"
-              value={formData.email}
-              onChange={handleChange}
-            />
+            {/* E-Mail */}
+            <div
+              className={`mz-signup-input-field ${
+                validationErrors.email ? "error" : ""
+              }`}
+            >
+              <LuMail className="mz-signup-input-icon" />
+              <input
+                type="email"
+                name="email"
+                placeholder="E-Mail"
+                autoComplete="off"
+                value={formData.email}
+                onChange={handleChange}
+              />
+            </div>
             {validationErrors.email && (
-              <span style={{ position: "absolute", bottom: "-20px", left: "10%", color: "#ff4d4d", fontSize: "11px", fontWeight: "bold" }}>
+              <div className="mz-signup-error-text">
                 {validationErrors.email}
-              </span>
+              </div>
             )}
-          </div>
 
-          {/* Phone */}
-          <div className="input-group" style={{ position: "relative" }}>
-            <input
-              type="tel"
-              className="inputs"
-              name="phoneNumber"
-              placeholder="Mobile number (optional)"
-              autoComplete="off"
-              value={formData.phoneNumber}
-              onChange={handleChange}
-            />
-            {validationErrors.phoneNumber && (
-              <span style={{ position: "absolute", bottom: "-20px", left: "10%", color: "#ff4d4d", fontSize: "11px", fontWeight: "bold" }}>
-                {validationErrors.phoneNumber}
-              </span>
-            )}
-          </div>
+            {/* Mobile number (optional) */}
+            <div className="mz-signup-input-field">
+              <LuSmartphone className="mz-signup-input-icon" />
+              <input
+                type="tel"
+                name="phoneNumber"
+                placeholder="Mobile number (optional)"
+                autoComplete="off"
+                value={formData.phoneNumber}
+                onChange={handleChange}
+              />
+            </div>
 
-          {/* Password */}
-          <div className="input-group" style={{ position: "relative" }}>
-            <div style={{ position: "relative", width: "80%", display: "flex", alignItems: "center" }}>
+            {/* Password */}
+            <div
+              className={`mz-signup-input-field ${
+                validationErrors.password ? "error" : ""
+              }`}
+            >
+              <LuLock className="mz-signup-input-icon" />
               <input
                 type={showPassword ? "text" : "password"}
-                className="inputs"
                 name="password"
                 placeholder="Password"
                 autoComplete="new-password"
                 value={formData.password}
                 onChange={handleChange}
-                style={{ width: "100%", paddingRight: "40px", boxSizing: "border-box" }}
               />
-              <span
+              <button
+                type="button"
+                className="mz-signup-eye-toggle"
                 onClick={() => setShowPassword(!showPassword)}
-                style={{
-                  position: "absolute",
-                  right: "15px",
-                  cursor: "pointer",
-                  color: "#555",
-                  display: "flex",
-                  alignItems: "center"
-                }}
+                aria-label={showPassword ? "Hide password" : "Show password"}
               >
-                {showPassword ? <FaEyeSlash /> : <FaEye />}
-              </span>
+                {showPassword ? <LuEyeOff /> : <LuEye />}
+              </button>
             </div>
             {validationErrors.password && (
-              <span style={{ position: "absolute", bottom: "-20px", left: "10%", color: "#ff4d4d", fontSize: "11px", fontWeight: "bold" }}>
+              <div className="mz-signup-error-text">
                 {validationErrors.password}
-              </span>
+              </div>
             )}
-          </div>
 
-          {/* Confirm Password */}
-          <div className="input-group" style={{ position: "relative" }}>
-            <div style={{ position: "relative", width: "80%", display: "flex", alignItems: "center" }}>
+            {/* Re-enter password */}
+            <div
+              className={`mz-signup-input-field ${
+                validationErrors.confirmPassword ? "error" : ""
+              }`}
+            >
+              <LuLock className="mz-signup-input-icon" />
               <input
                 type={showConfirmPassword ? "text" : "password"}
-                className="inputs"
                 name="confirmPassword"
-                placeholder="Re-enter passward"
+                placeholder="Re-enter password"
                 autoComplete="new-password"
                 value={formData.confirmPassword}
                 onChange={handleChange}
-                style={{ width: "100%", paddingRight: "40px", boxSizing: "border-box" }}
               />
-              <span
+              <button
+                type="button"
+                className="mz-signup-eye-toggle"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                style={{
-                  position: "absolute",
-                  right: "15px",
-                  cursor: "pointer",
-                  color: "#555",
-                  display: "flex",
-                  alignItems: "center"
-                }}
+                aria-label={
+                  showConfirmPassword
+                    ? "Hide confirm password"
+                    : "Show confirm password"
+                }
               >
-                {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
-              </span>
+                {showConfirmPassword ? <LuEyeOff /> : <LuEye />}
+              </button>
             </div>
             {validationErrors.confirmPassword && (
-              <span style={{ position: "absolute", bottom: "-20px", left: "10%", color: "#ff4d4d", fontSize: "11px", fontWeight: "bold" }}>
+              <div className="mz-signup-error-text">
                 {validationErrors.confirmPassword}
-              </span>
+              </div>
             )}
-          </div>
 
-          {/* Remember Me Checkbox */}
-          <div className="checkbox">
-            <label>
-              <input className="checkbox1" type="checkbox" /> Remember me
+            {/* Remember me */}
+            <label className="mz-signup-remember-row">
+              <input
+                type="checkbox"
+                className="mz-signup-checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+              />
+              Remember me
             </label>
+
+            {/* SIGN UP Button */}
+            <button className="mz-signup-btn" type="submit">
+              SIGN UP <LuArrowRight size={18} />
+            </button>
+          </form>
+
+          {/* OR Divider */}
+          <div className="mz-signup-divider">
+            <div className="mz-divider-line"></div>
+            <span className="mz-divider-text">OR</span>
+            <div className="mz-divider-line"></div>
           </div>
 
-          {/* Sign Up Button */}
-          <button className="signup-button" type="submit">
-            SIGN UP
+          {/* Google Sign up */}
+          <button
+            onClick={handleGoogleSignUp}
+            className="mz-signup-btn-google"
+            type="button"
+          >
+            <FcGoogle size={20} /> Sign up with Google
           </button>
 
-          {/* Back Button */}
-          <div className="back">
-            <a href="/login"><u>BACK</u></a>
+          {/* Footer Link */}
+          <div className="mz-signup-footer-link">
+            Already have an account?{" "}
+            <Link to="/login">
+              Login <LuArrowRight size={14} />
+            </Link>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );

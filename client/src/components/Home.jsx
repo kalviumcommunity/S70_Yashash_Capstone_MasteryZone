@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import "./home.css";
+import logoIcon from "../assets/logo_icon_transparent.png";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -209,6 +210,7 @@ const Home = () => {
       {/* White Header Bar */}
       <header className="home-header">
         <div className="home-logo">
+          <img src={logoIcon} alt="Mastery Zone Logo" className="home-brand-logo" />
           <span className="mastery">MASTERY</span>
           <span className="zone">ZONE</span>
           <span className="registered-wrapper">

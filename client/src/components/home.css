@@ -35,6 +35,14 @@
   font-weight: 900;
 }
 
+.home-brand-logo {
+  height: 48px;
+  width: auto;
+  margin-right: 14px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.2));
+}
+
 .home-logo .mastery {
   font-family: 'Cinzel', 'Georgia', serif;
   font-weight: 900;

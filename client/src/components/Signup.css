@@ -1,0 +1,522 @@
+/* Mastery Zone - Create Account (Signup) Page Exact Styling */
+
+.mz-signup-page {
+  min-height: 100vh;
+  width: 100%;
+  background: radial-gradient(circle at 18% 85%, rgba(126, 34, 206, 0.16) 0%, transparent 45%),
+              radial-gradient(circle at 85% 15%, rgba(59, 130, 246, 0.08) 0%, transparent 40%),
+              #060b24;
+  position: relative;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: #ffffff;
+  padding: 24px 48px 40px 48px;
+  box-sizing: border-box;
+}
+
+/* Background Corner Accents */
+.mz-signup-wave-bl {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 440px;
+  height: 440px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Top Navigation Bar */
+.mz-signup-nav {
+  width: 100%;
+  max-width: 1100px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 20;
+  margin-bottom: 20px;
+}
+
+.mz-nav-logo-link {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  gap: 12px;
+}
+
+.mz-nav-logo-icon {
+  height: 44px;
+  width: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 8px rgba(99, 102, 241, 0.4));
+}
+
+.mz-nav-logo-text-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.mz-nav-brand-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.3px;
+  line-height: 1.1;
+}
+
+.mz-brand-accent {
+  color: #c084fc;
+}
+
+.mz-nav-brand-tagline {
+  font-size: 10px;
+  font-weight: 500;
+  color: #94a3b8;
+  letter-spacing: 0.8px;
+  margin-top: 3px;
+}
+
+.mz-nav-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.mz-nav-text {
+  font-size: 13.5px;
+  color: #8292ab;
+  font-weight: 500;
+}
+
+.mz-nav-login-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 18px;
+  border-radius: 20px;
+  background: #101636;
+  border: 1px solid #6366f1;
+  color: #c084fc;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mz-nav-login-btn:hover {
+  background: #182046;
+  border-color: #818cf8;
+  color: #e9d5ff;
+  transform: translateY(-1px);
+}
+
+/* Main Layout Grid */
+.mz-signup-container {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 75px;
+  max-width: 1100px;
+  width: 100%;
+  z-index: 10;
+  margin: auto;
+  padding-bottom: 20px;
+}
+
+/* Left Hero Section */
+.mz-signup-left {
+  flex: 1;
+  max-width: 450px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  padding-top: 10px;
+}
+
+.mz-signup-hero-title {
+  font-size: 42px;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.5px;
+  margin: 0 0 16px 0;
+}
+
+.mz-hero-white {
+  color: #ffffff;
+  display: block;
+}
+
+.mz-hero-gradient {
+  display: block;
+  background: linear-gradient(90deg, #38bdf8 0%, #c084fc 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.mz-signup-hero-sub {
+  font-size: 14.5px;
+  color: #8292ab;
+  line-height: 1.6;
+  margin: 0 0 32px 0;
+  max-width: 410px;
+}
+
+/* Features List */
+.mz-feature-list {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  margin-bottom: 30px;
+}
+
+.mz-feature-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.mz-feature-badge {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: #131c3c;
+  border: 1px solid #23315e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #818cf8;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.mz-feature-badge svg {
+  width: 22px;
+  height: 22px;
+}
+
+.mz-feature-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.mz-feat-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 3px;
+}
+
+.mz-feat-desc {
+  font-size: 13px;
+  color: #8292ab;
+}
+
+/* Handwritten Sticker */
+.mz-signup-sticker-container {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+}
+
+.mz-signup-sticker {
+  width: 210px;
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 10px rgba(168, 85, 247, 0.35));
+}
+
+/* Right Card */
+.mz-signup-card {
+  width: 100%;
+  max-width: 440px;
+  background: linear-gradient(180deg, #101636 0%, #0c122b 100%);
+  border: 1px solid #1c2648;
+  border-radius: 26px;
+  padding: 32px 32px 26px 32px;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.8), 0 0 50px rgba(99, 102, 241, 0.08);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.mz-signup-card-title {
+  font-size: 26px;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0 0 6px 0;
+  letter-spacing: -0.3px;
+}
+
+.mz-title-purple {
+  color: #c084fc;
+}
+
+.mz-signup-card-sub {
+  font-size: 13.5px;
+  color: #8292ab;
+  line-height: 1.5;
+  margin: 0 0 20px 0;
+}
+
+/* Form & Inputs */
+.mz-signup-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.mz-signup-input-field {
+  display: flex;
+  align-items: center;
+  background: #131932;
+  border: 1px solid #20294b;
+  border-radius: 12px;
+  padding: 0 16px;
+  height: 46px;
+  transition: all 0.2s ease;
+  margin-bottom: 11px;
+  box-sizing: border-box;
+}
+
+.mz-signup-input-field:focus-within {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+}
+
+.mz-signup-input-field.error {
+  border-color: #ef4444;
+}
+
+.mz-signup-input-icon {
+  color: #64748b;
+  font-size: 18px;
+  margin-right: 12px;
+  flex-shrink: 0;
+}
+
+.mz-signup-input-field input {
+  flex: 1;
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  color: #ffffff !important;
+  font-size: 14px;
+  padding: 0;
+  font-family: inherit;
+}
+
+.mz-signup-input-field input::placeholder {
+  color: #556784;
+}
+
+.mz-signup-input-field input:-webkit-autofill,
+.mz-signup-input-field input:-webkit-autofill:hover,
+.mz-signup-input-field input:-webkit-autofill:focus,
+.mz-signup-input-field input:-webkit-autofill:active {
+  transition: background-color 5000s ease-in-out 0s !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+
+.mz-signup-eye-toggle {
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: #64748b;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  font-size: 18px;
+  transition: color 0.2s;
+  outline: none;
+}
+
+.mz-signup-eye-toggle:hover {
+  color: #cbd5e1;
+}
+
+.mz-signup-error-text {
+  color: #ef4444;
+  font-size: 11px;
+  margin-top: -8px;
+  margin-bottom: 8px;
+  padding-left: 4px;
+  font-weight: 500;
+}
+
+/* Remember Me Checkbox */
+.mz-signup-remember-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+  margin-bottom: 16px;
+  font-size: 13.5px;
+  color: #cbd5e1;
+  cursor: pointer;
+  user-select: none;
+}
+
+.mz-signup-checkbox {
+  accent-color: #38bdf8;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  margin: 0;
+}
+
+/* Action Buttons */
+.mz-signup-btn {
+  width: 100%;
+  height: 48px;
+  background: linear-gradient(90deg, #a855f7 0%, #38bdf8 100%);
+  border: none;
+  border-radius: 12px;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 4px 18px rgba(168, 85, 247, 0.35);
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.mz-signup-btn:hover {
+  opacity: 0.95;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 22px rgba(168, 85, 247, 0.45);
+}
+
+.mz-signup-btn:active {
+  transform: translateY(0);
+}
+
+.mz-signup-divider {
+  display: flex;
+  align-items: center;
+  margin: 15px 0;
+  gap: 12px;
+}
+
+.mz-signup-divider .mz-divider-line {
+  flex: 1;
+  height: 1px;
+  background: #202a4a;
+}
+
+.mz-signup-divider .mz-divider-text {
+  color: #556784;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.mz-signup-btn-google {
+  width: 100%;
+  height: 46px;
+  background: #ffffff;
+  border: none;
+  border-radius: 12px;
+  color: #1e293b;
+  font-size: 14.5px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  font-family: inherit;
+}
+
+.mz-signup-btn-google:hover {
+  background: #f8fafc;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+
+.mz-signup-btn-google:active {
+  transform: translateY(0);
+}
+
+.mz-signup-footer-link {
+  text-align: center;
+  margin-top: 16px;
+  font-size: 13.5px;
+  color: #8292ab;
+}
+
+.mz-signup-footer-link a {
+  color: #c084fc;
+  text-decoration: none;
+  font-weight: 600;
+  margin-left: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: color 0.2s ease;
+}
+
+.mz-signup-footer-link a:hover {
+  text-decoration: underline;
+  color: #d8b4fe;
+}
+
+/* Responsive Breakpoints */
+@media screen and (max-width: 960px) {
+  .mz-signup-page {
+    padding: 24px 20px;
+  }
+
+  .mz-signup-container {
+    flex-direction: column;
+    gap: 40px;
+    align-items: center;
+  }
+
+  .mz-signup-left {
+    align-items: center;
+    text-align: center;
+  }
+
+  .mz-signup-hero-title {
+    font-size: 36px;
+  }
+
+  .mz-feature-list {
+    align-items: flex-start;
+  }
+
+  .mz-signup-sticker-container {
+    justify-content: center;
+  }
+}
+
+@media screen and (max-width: 520px) {
+  .mz-signup-page {
+    padding: 16px;
+  }
+
+  .mz-signup-nav {
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  .mz-signup-card {
+    padding: 24px 20px;
+  }
+
+  .mz-signup-hero-title {
+    font-size: 30px;
+  }
+}

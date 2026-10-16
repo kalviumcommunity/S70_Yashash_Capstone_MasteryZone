@@ -1,22 +1,27 @@
 import React from "react";
 
-// 1. Global / Auth Loader (Sleek Glassmorphism Pulsing)
+// 1. Global / Auth Loader (Sleek Glassmorphism Pulsing with Official Logo)
 export const GlobalLoader = () => (
-  <div style={{ height: "100vh", width: "100vw", display: "flex", justifyContent: "center", alignItems: "center", backgroundColor: "#0c020d", color: "#ffffff", fontFamily: "'Inter', sans-serif" }}>
+  <div style={{ height: "100vh", width: "100vw", display: "flex", justifyContent: "center", alignItems: "center", backgroundColor: "#060d24", color: "#ffffff", fontFamily: "'Inter', sans-serif" }}>
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-      <div style={{
-        width: "80px", height: "80px",
-        borderRadius: "50%",
-        border: "2px solid rgba(255, 255, 255, 0.1)",
-        borderTop: "2px solid #00A859",
-        animation: "spin 1.5s cubic-bezier(0.68, -0.55, 0.27, 1.55) infinite",
-        boxShadow: "0 0 20px rgba(0, 168, 89, 0.4)"
-      }}></div>
+      <img
+        src="/logo_icon.png"
+        alt="Mastery Zone Logo"
+        style={{
+          width: "90px",
+          height: "90px",
+          objectFit: "contain",
+          animation: "pulseLogo 2s infinite ease-in-out"
+        }}
+      />
       <style>{`
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        @keyframes pulseText { 0% { opacity: 0.6; text-shadow: 0 0 10px rgba(0, 168, 89, 0.2); } 50% { opacity: 1; text-shadow: 0 0 20px rgba(0, 168, 89, 0.8); } 100% { opacity: 0.6; text-shadow: 0 0 10px rgba(0, 168, 89, 0.2); } }
+        @keyframes pulseLogo {
+          0% { transform: scale(0.95); filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.4)); opacity: 0.85; }
+          50% { transform: scale(1.05); filter: drop-shadow(0 0 25px rgba(168, 85, 247, 0.8)); opacity: 1; }
+          100% { transform: scale(0.95); filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.4)); opacity: 0.85; }
+        }
       `}</style>
-      <h2 style={{ marginTop: "25px", letterSpacing: "4px", fontWeight: "900", fontSize: "18px", animation: "pulseText 2s infinite" }}>MASTERY ZONE</h2>
+      <h2 style={{ marginTop: "20px", letterSpacing: "3px", fontWeight: "800", fontSize: "16px", color: "#ffffff" }}>MASTERY ZONE</h2>
     </div>
   </div>
 );

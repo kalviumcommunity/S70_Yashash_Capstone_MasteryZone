@@ -33,8 +33,8 @@ const normalizeIndianPhone = (phone) => {
   return null;
 };
 
-// Signup Route
-router.post('/signup', async (req, res) => {
+// Signup & Register Route
+router.post(['/signup', '/register'], async (req, res) => {
   const { firstName, lastName, email, phoneNumber, password } = req.body;
 
   if (!firstName || !lastName || !email || !password) {
@@ -95,7 +95,8 @@ router.post('/signup', async (req, res) => {
 
 // Login Route
 router.post('/login', async (req, res) => {
-  const { usernameOrEmail, password } = req.body;
+  const usernameOrEmail = req.body.usernameOrEmail || req.body.identifier || req.body.email || req.body.username;
+  const { password } = req.body;
 
   if (!usernameOrEmail || !password) {
     return res.status(400).json({ message: 'Username/Email and password are required' });
@@ -248,18 +249,23 @@ router.post('/reset-password/:token', async (req, res) => {
 // Firebase Login Route
 router.post('/firebase-login', verifyFirebaseToken, async (req, res) => {
   try {
-    const { email, name, uid } = req.user;
+    if (!req.user || !req.user.email) {
+      return res.status(400).json({ message: 'No email found in Firebase token' });
+    }
+    const email = req.user.email.toLowerCase().trim();
+    const name = req.user.name || 'Firebase User';
+    const uid = req.user.uid || req.user.user_id || 'mock-uid';
     
     // Check if user exists in our DB
     let user = await User.findOne({ email });
 
     if (!user) {
       // Create a new user if they don't exist
-      const nameParts = (name || 'Firebase User').split(' ');
-      const firstName = nameParts[0];
+      const nameParts = name.trim().split(' ');
+      const firstName = nameParts[0] || 'user';
       const lastName = nameParts.length > 1 ? nameParts[1] : '';
       
-      const baseUsername = `${firstName}_${lastName}`.toLowerCase().replace(/[^a-z0-9_]/g, "");
+      const baseUsername = `${firstName}_${lastName}`.toLowerCase().replace(/[^a-z0-9_]/g, "") || "user";
       let username = `${baseUsername}_${Math.floor(100 + Math.random() * 900)}`;
       
       // Safety check for username
@@ -270,16 +276,25 @@ router.post('/firebase-login', verifyFirebaseToken, async (req, res) => {
 
       // We assign a random password because they log in via Firebase
       const randomPassword = await bcrypt.hash(uid + Math.random().toString(), 10);
-      user = await User.create({ username, email, password: randomPassword });
+      user = await User.create({
+        username,
+        email,
+        password: randomPassword,
+        authProvider: 'google'
+      });
     }
 
     // Send login notification asynchronously
-    sendLoginNotification(user.email, user.username);
+    try {
+      sendLoginNotification(user.email, user.username);
+    } catch (mailErr) {
+      console.warn("Mailer notification skipped:", mailErr.message);
+    }
 
     // Issue standard JWT
     const token = jwt.sign({ userId: user._id, email: user.email }, JWT_SECRET, { expiresIn: '1d' });
 
-    res.status(200).json({
+    return res.status(200).json({
       message: 'Firebase login successful',
       token,
       user: {
@@ -289,7 +304,8 @@ router.post('/firebase-login', verifyFirebaseToken, async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ message: 'Server error processing Firebase login', error: err.message });
+    console.error("Firebase login error:", err);
+    return res.status(500).json({ message: 'Server error processing Firebase login', error: err.message });
   }
 });
 

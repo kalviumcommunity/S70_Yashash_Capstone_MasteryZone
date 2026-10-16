@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { FaLock, FaEye, FaEyeSlash } from "react-icons/fa";
 import { useParams, useNavigate } from "react-router-dom";
 import "./forgot.css";
+import logoImg from "../assets/mastery_zone_logo_transparent.png";
 
 const ResetPassword = () => {
   const { token } = useParams();
@@ -78,6 +79,9 @@ const ResetPassword = () => {
   return (
     <div className="forgot-container">
       <div className="login-box">
+        <div style={{ display: "flex", justifyContent: "center", marginTop: "20px", marginBottom: "5px" }}>
+          <img src={logoImg} alt="Mastery Zone Logo" style={{ height: "60px", width: "auto", objectFit: "contain" }} />
+        </div>
         <div className="image">
           <div className="resetpassward">
             Reset Password
