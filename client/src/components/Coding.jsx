@@ -5,6 +5,7 @@ import CertificationCard from "./CertificationCard";
 import CollaborationHub from "./CollaborationHub";
 import "./coding.css";
 import codingIllustration from "../assets/coding_illustration.png";
+import logoIcon from "../assets/logo_icon_transparent.png";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 import keyboardProd from "../assets/keyboard_prod.png";
@@ -1300,7 +1301,8 @@ const Coding = () => {
       {/* Header Banner */}
       <header className="fitness-header">
         {/* Logo Container - click returns to Coding Page Landing View */}
-        <div className="fitness-logo-container" onClick={handleHomeClick} style={{ cursor: "pointer" }}>
+        <div className="fitness-logo-container" onClick={handleHomeClick} style={{ cursor: "pointer", display: "flex", alignItems: "center" }}>
+          <img src={logoIcon} alt="Mastery Zone" style={{ height: "38px", width: "auto", marginRight: "10px", objectFit: "contain" }} />
           <div className="fitness-logo-text">
             CODING<span>ZONE</span>
           </div>
