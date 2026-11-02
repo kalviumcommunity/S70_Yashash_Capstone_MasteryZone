@@ -1,30 +1,537 @@
-import React, { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { toast } from "react-toastify";
 import "./home.css";
+import NotificationBell from "./NotificationBell.jsx";
+import CertificationExamWorkspace from "./CertificationExamWorkspace.jsx";
 import logoIcon from "../assets/logo_icon_transparent.png";
+import heroIllustration from "../assets/interests_hero_illustration.png";
+import rocketIcon from "../assets/interests_card_rocket.png";
+
+// Ultra-sharp 1024x1024 300DPI 3D Apple-style illustrations (Zero Blur)
+import codingIllustration from "../assets/interests_card_coding_hd.png";
+import languageIllustration from "../assets/interests_card_language_hd.png";
+import vehiclesIllustration from "../assets/interests_card_vehicles_hd.png";
+import gymIllustration from "../assets/interests_card_gym_hd.png";
+
+import {
+  LuHouse,
+  LuTarget,
+  LuChartColumn,
+  LuUser,
+  LuLogOut,
+  LuSearch,
+  LuChevronDown,
+  LuCheck,
+  LuX,
+  LuArrowRight,
+  LuCircleCheck,
+  LuFileText,
+  LuAward,
+  LuClock,
+  LuCalendar,
+  LuExternalLink,
+  LuShieldCheck,
+  LuVideo,
+  LuPlay,
+  LuDownload,
+  LuPencil,
+  LuTrash2,
+  LuShare2,
+  LuHardDrive,
+  LuBookmark,
+  LuFilter,
+  LuRotateCcw,
+  LuPlus,
+  LuCodeXml,
+  LuLanguages,
+  LuCar,
+  LuDumbbell,
+} from "react-icons/lu";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
+// Vector Badge Component for 100% crisp, sharp logo rendering (0 blur on any screen)
+const InterestBadge = ({ type, className = "" }) => {
+  switch (type) {
+    case "CODING":
+      return (
+        <div className={`mz-badge-box mz-badge-coding ${className}`} title="Coding">
+          <LuCodeXml size={22} strokeWidth={2.4} />
+        </div>
+      );
+    case "LANGUAGE":
+      return (
+        <div className={`mz-badge-box mz-badge-language ${className}`} title="Language">
+          <span className="mz-badge-lang-glyph">文A</span>
+        </div>
+      );
+    case "VECHILES":
+      return (
+        <div className={`mz-badge-box mz-badge-vehicles ${className}`} title="Vehicles">
+          <LuCar size={22} strokeWidth={2.3} />
+        </div>
+      );
+    case "GYM":
+      return (
+        <div className={`mz-badge-box mz-badge-gym ${className}`} title="Gym">
+          <LuDumbbell size={22} strokeWidth={2.3} />
+        </div>
+      );
+    default:
+      return null;
+  }
+};
+
+// Extensible registry of interests
+const INTEREST_CARDS = [
+  {
+    key: "CODING",
+    title: "Coding",
+    description: "Learn programming, build real projects, and grow your problem-solving skills.",
+    tags: ["Python", "JavaScript", "Web Development"],
+    illustration: codingIllustration,
+    activeBorder: "#3b82f6",
+    activeGlow: "rgba(59, 130, 246, 0.22)",
+    checkBg: "#2563eb",
+    targetRoute: "/coding",
+  },
+  {
+    key: "LANGUAGE",
+    title: "Language",
+    description: "Learn new languages and connect with the world.",
+    tags: ["English", "Spanish", "French"],
+    illustration: languageIllustration,
+    activeBorder: "#10b981",
+    activeGlow: "rgba(16, 185, 129, 0.22)",
+    checkBg: "#10b981",
+    targetRoute: "/language",
+  },
+  {
+    key: "VECHILES",
+    title: "Vehicles",
+    description: "Explore vehicle systems, maintenance and more.",
+    tags: ["Cars", "Motorcycles", "Electric Vehicles"],
+    illustration: vehiclesIllustration,
+    activeBorder: "#0284c7",
+    activeGlow: "rgba(2, 132, 199, 0.22)",
+    checkBg: "#0284c7",
+    targetRoute: "/driving",
+  },
+  {
+    key: "GYM",
+    title: "Gym",
+    description: "Build a healthier body and a stronger mindset.",
+    tags: ["Fitness", "Nutrition", "Wellness"],
+    illustration: gymIllustration,
+    activeBorder: "#ec4899",
+    activeGlow: "rgba(236, 72, 153, 0.22)",
+    checkBg: "#ec4899",
+    targetRoute: "/fitness",
+  },
+];
+
 const Home = () => {
-  const [selectedInterests, setSelectedInterests] = useState({
-    CODING: false,
-    LANGUAGE: false,
-    GYM: false,
-    VECHILES: false,
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Navigation Tab: "interests" | "reports" | "recordings" | "certifications"
+  const getInitialNavTab = () => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const tabParam = searchParams.get("tab");
+    if (tabParam === "certifications" || location.state?.tab === "certifications") return "certifications";
+    if (tabParam === "recordings" || location.state?.tab === "recordings") return "recordings";
+    if (tabParam === "reports" || location.state?.tab === "reports") return "reports";
+    try {
+      const stored = sessionStorage.getItem("mz_home_nav_tab");
+      if (stored) return stored;
+    } catch {}
+    return "interests";
+  };
+  const [activeNavTab, setActiveNavTab] = useState(getInitialNavTab);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem("mz_home_nav_tab", activeNavTab);
+    } catch {}
+  }, [activeNavTab]);
+  const [certHistory, setCertHistory] = useState({ attempts: [], certificates: [] });
+  const [isLoadingCertHistory, setIsLoadingCertHistory] = useState(false);
+  const [activeCertExamModal, setActiveCertExamModal] = useState(() => {
+    try {
+      const saved = localStorage.getItem("mz_active_cert_session");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.attemptId && parsed.status === "IN_PROGRESS") {
+          return {
+            id: parsed.certId || "dsa_cert",
+            name: parsed.certTitle || "Data Structures & Algorithms (DSA)",
+            attemptId: parsed.attemptId,
+          };
+        }
+      }
+    } catch {}
+    return null;
   });
 
+  const fetchCertHistory = async () => {
+    setIsLoadingCertHistory(true);
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+      const res = await fetch(`${API_BASE}/api/certifications/my-history`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCertHistory({
+          attempts: data.attempts || [],
+          certificates: data.certificates || [],
+        });
+      }
+    } catch (err) {
+      console.warn("Cert history fetch note:", err);
+    } finally {
+      setIsLoadingCertHistory(false);
+    }
+  };
+  const [reportsList, setReportsList] = useState([]);
+  const [isLoadingReports, setIsLoadingReports] = useState(false);
+  const [reportFilter, setReportFilter] = useState("ALL"); // "ALL" | "PASSED" | "FAILED"
+  const [reportSubjectFilter, setReportSubjectFilter] = useState("ALL"); // "ALL" | "coding" | "language" | "driving" | "fitness"
+  const [reportTypeFilter, setReportTypeFilter] = useState("ALL"); // "ALL" | "mcq_exam" | "coding_assessment"
+
+  // Fetch assessment reports from database & localStorage
+  const fetchReports = async () => {
+    setIsLoadingReports(true);
+    try {
+      const token = localStorage.getItem("token");
+      let localReports = [];
+      try {
+        localReports = JSON.parse(localStorage.getItem("mz_assessment_reports") || "[]");
+      } catch {}
+
+      let apiReports = [];
+      if (token) {
+        // 1. Fetch curriculum reports (MCQ Exams & multi-subject assessment attempts)
+        try {
+          const res = await fetch(`${API_BASE}/api/curriculum/reports`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data.reports)) {
+              apiReports.push(...data.reports);
+            }
+          }
+        } catch (curErr) {
+          console.warn("Curriculum reports fetch note:", curErr);
+        }
+
+        // 2. Fetch proctored coding sessions (MZ-ASM practical exams)
+        try {
+          const res = await fetch(`${API_BASE}/api/coding/proctored-session/user-reports`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data.reports)) {
+              apiReports.push(...data.reports);
+            }
+          }
+        } catch (apiErr) {
+          console.warn("API reports fetch note:", apiErr);
+        }
+      }
+
+      const map = new Map();
+      apiReports.forEach((r) => {
+        const key = r.sessionId || r._id || r.id;
+        if (key) map.set(key, r);
+      });
+      localReports.forEach((r) => {
+        const key = r.sessionId || r._id || r.id;
+        if (key && !map.has(key)) map.set(key, r);
+      });
+
+      const combined = Array.from(map.values()).sort(
+        (a, b) => new Date(b.submittedAt || b.createdAt || 0) - new Date(a.submittedAt || a.createdAt || 0)
+      );
+      setReportsList(combined);
+    } catch (err) {
+      console.warn("Reports load error:", err);
+    } finally {
+      setIsLoadingReports(false);
+    }
+  };
+
+  const [recordingsList, setRecordingsList] = useState([]);
+  const [recordingsAnalytics, setRecordingsAnalytics] = useState({
+    totalRecordings: 0,
+    totalSizeBytes: 0,
+    storageQuotaBytes: 5 * 1024 * 1024 * 1024,
+  });
+  const [isLoadingRecordings, setIsLoadingRecordings] = useState(false);
+  const [recSearchQuery, setRecSearchQuery] = useState("");
+  const [recDateFilter, setRecDateFilter] = useState("all"); // "all" | "today" | "week" | "month"
+  const [recSortOrder, setRecSortOrder] = useState("newest"); // "newest" | "oldest" | "duration_desc" | "duration_asc"
+  const [recScope, setRecScope] = useState("all"); // "all" | "personal" | "shared"
+  const [activePlayingRecording, setActivePlayingRecording] = useState(null);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [renameModalRecording, setRenameModalRecording] = useState(null);
+  const [renameInput, setRenameInput] = useState("");
+  const [shareToast, setShareToast] = useState(null);
+  const [newBookmarkNote, setNewBookmarkNote] = useState("");
+  const videoPlayerRef = useRef(null);
+
+  const fetchRecordings = async () => {
+    setIsLoadingRecordings(true);
+    try {
+      const token = localStorage.getItem("token");
+      const queryParams = new URLSearchParams();
+      if (recSearchQuery.trim()) queryParams.set("q", recSearchQuery.trim());
+      if (recDateFilter !== "all") queryParams.set("dateFilter", recDateFilter);
+      if (recSortOrder) queryParams.set("sort", recSortOrder);
+      if (recScope !== "all") queryParams.set("scope", recScope);
+
+      const res = await fetch(`${API_BASE}/api/recordings?${queryParams.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.recordings)) {
+          setRecordingsList(data.recordings);
+        }
+        if (data.analytics) {
+          setRecordingsAnalytics(data.analytics);
+        }
+      }
+    } catch (err) {
+      console.warn("Recordings fetch note:", err);
+    } finally {
+      setIsLoadingRecordings(false);
+    }
+  };
+
+  const handleRenameRecordingSubmit = async (e) => {
+    e?.preventDefault();
+    if (!renameModalRecording || !renameInput.trim()) return;
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_BASE}/api/recordings/${renameModalRecording.recordingId}/rename`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ title: renameInput.trim() }),
+      });
+      if (res.ok) {
+        setRecordingsList((prev) =>
+          prev.map((r) =>
+            r.recordingId === renameModalRecording.recordingId
+              ? { ...r, title: renameInput.trim() }
+              : r
+          )
+        );
+        if (activePlayingRecording?.recordingId === renameModalRecording.recordingId) {
+          setActivePlayingRecording((prev) => ({ ...prev, title: renameInput.trim() }));
+        }
+        setRenameModalRecording(null);
+      }
+    } catch (err) {
+      console.error("Rename failed:", err);
+    }
+  };
+
+  const handleDeleteRecording = async (recordingId) => {
+    if (!window.confirm("Are you sure you want to delete this recorded session? This action cannot be undone.")) {
+      return;
+    }
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_BASE}/api/recordings/${recordingId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        setRecordingsList((prev) => prev.filter((r) => r.recordingId !== recordingId));
+        if (activePlayingRecording?.recordingId === recordingId) {
+          setActivePlayingRecording(null);
+        }
+      }
+    } catch (err) {
+      console.error("Delete failed:", err);
+    }
+  };
+
+  const handleShareRecording = (rec) => {
+    const fullUrl = `${window.location.origin}/recordings?id=${rec.recordingId}`;
+    navigator.clipboard?.writeText(fullUrl);
+    setShareToast(`Meeting link copied to clipboard: ${rec.title}`);
+    setTimeout(() => setShareToast(null), 3000);
+  };
+
+  const handleAddBookmark = async (e) => {
+    e?.preventDefault();
+    if (!activePlayingRecording || !videoPlayerRef.current) return;
+    const currentSeconds = Math.floor(videoPlayerRef.current.currentTime || 0);
+    const note = newBookmarkNote.trim() || `Bookmark at ${Math.floor(currentSeconds / 60)}:${String(currentSeconds % 60).padStart(2, "0")}`;
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_BASE}/api/recordings/${activePlayingRecording.recordingId}/bookmarks`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ timestampSeconds: currentSeconds, note }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setActivePlayingRecording((prev) => ({
+          ...prev,
+          bookmarks: data.bookmarks,
+        }));
+        setNewBookmarkNote("");
+      }
+    } catch (err) {
+      console.error("Add bookmark error:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchReports();
+    fetchRecordings();
+    fetchCertHistory();
+  }, []);
+
+  useEffect(() => {
+    if (activeNavTab === "recordings") {
+      fetchRecordings();
+    } else if (activeNavTab === "certifications") {
+      fetchCertHistory();
+    }
+  }, [recDateFilter, recSortOrder, recScope, activeNavTab]);
+
+  useEffect(() => {
+    if (activePlayingRecording && videoPlayerRef.current) {
+      videoPlayerRef.current.playbackRate = playbackSpeed;
+      const savedTime = localStorage.getItem(`mz_rec_seek_${activePlayingRecording.recordingId}`);
+      if (savedTime && Number(savedTime) > 0) {
+        videoPlayerRef.current.currentTime = Number(savedTime);
+      }
+    }
+  }, [activePlayingRecording]);
+
+  // Single selection: exactly one particular interest can be selected at a time
+  const [selectedInterest, setSelectedInterest] = useState("CODING");
+
   const [user, setUser] = useState(null);
+  const [isLoadingUser, setIsLoadingUser] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pulseBadge, setPulseBadge] = useState(false);
+
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
-  const [preferences, setPreferences] = useState({ notifications: true, darkMode: false });
+
+  // Settings preferences
+  const [preferences, setPreferences] = useState({
+    notifications: true,
+  });
+
+  // Log Activity Modal & Confirmation State
+  const [isLogActivityModalOpen, setIsLogActivityModalOpen] = useState(false);
+  const [isLogConfirmed, setIsLogConfirmed] = useState(false);
+  const [confirmedActivityData, setConfirmedActivityData] = useState(null);
+  const [isLoggingActivity, setIsLoggingActivity] = useState(false);
+  const [logActivityForm, setLogActivityForm] = useState({
+    track: "CODING",
+    task: "Completed a lesson",
+    moduleName: "",
+    hoursSpent: "1.0",
+    xpEarned: "30",
+  });
+
+  const handleLogActivitySubmit = async (e) => {
+    e.preventDefault();
+    if (!logActivityForm.moduleName.trim()) {
+      toast.error("Please enter a lesson or module name");
+      return;
+    }
+
+    setIsLoggingActivity(true);
+    const token = localStorage.getItem("token");
+
+    try {
+      const res = await fetch(`${API_BASE}/api/progress/log`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(logActivityForm),
+      });
+
+      if (res.ok) {
+        setConfirmedActivityData({
+          track: logActivityForm.track,
+          task: logActivityForm.task,
+          moduleName: logActivityForm.moduleName,
+          hoursSpent: logActivityForm.hoursSpent,
+          xpEarned: logActivityForm.xpEarned,
+          date: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        });
+        setIsLogConfirmed(true);
+        toast.success("Learning activity recorded successfully!");
+      } else {
+        const errData = await res.json();
+        toast.error(errData.message || "Could not log activity");
+      }
+    } catch (err) {
+      toast.error("Network error saving activity");
+    } finally {
+      setIsLoggingActivity(false);
+    }
+  };
+
+  const handleCloseLogActivityModal = () => {
+    setIsLogActivityModalOpen(false);
+    setIsLogConfirmed(false);
+    setConfirmedActivityData(null);
+    setLogActivityForm({
+      track: "CODING",
+      task: "Completed a lesson",
+      moduleName: "",
+      hoursSpent: "1.0",
+      xpEarned: "30",
+    });
+  };
+
   const [isExiting, setIsExiting] = useState(false);
 
+  // Real-time search query
+  const [searchQuery, setSearchQuery] = useState("");
+
   const fileInputRef = useRef(null);
-  const navigate = useNavigate();
+  const dropdownRef = useRef(null);
+  const searchInputRef = useRef(null);
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // Fetch current user details on mount
   useEffect(() => {
+    let isMounted = true;
     const fetchUser = async () => {
       const token = localStorage.getItem("token");
       if (!token) {
@@ -34,14 +541,26 @@ const Home = () => {
       try {
         const response = await fetch(`${API_BASE}/auth/me`, {
           headers: {
-            Authorization: `Bearer ${token}`
-          }
+            Authorization: `Bearer ${token}`,
+          },
         });
         if (response.ok) {
           const data = await response.json();
+          if (!isMounted) return;
           setUser(data.user);
           if (data.user.preferences) {
-            setPreferences(data.user.preferences);
+            setPreferences((prev) => ({
+              ...prev,
+              notifications: data.user.preferences.notifications ?? true,
+            }));
+          }
+          // Load existing saved interest if present
+          if (Array.isArray(data.user.interests) && data.user.interests.length > 0) {
+            const first = data.user.interests[0];
+            const normalized = first === "VEHICLES" ? "VECHILES" : first;
+            if (INTEREST_CARDS.some((c) => c.key === normalized)) {
+              setSelectedInterest(normalized);
+            }
           }
         } else {
           localStorage.removeItem("token");
@@ -49,59 +568,88 @@ const Home = () => {
         }
       } catch (error) {
         console.error("Failed to fetch user", error);
+      } finally {
+        if (isMounted) setIsLoadingUser(false);
       }
     };
     fetchUser();
+    return () => {
+      isMounted = false;
+    };
   }, [navigate]);
 
-  // Apply dark mode immediately when preferences change
-  useEffect(() => {
-    if (preferences.darkMode) {
-      document.body.classList.add('dark-mode');
-    } else {
-      document.body.classList.remove('dark-mode');
-    }
-  }, [preferences.darkMode]);
-
-  const toggleInterest = (interest) => {
-    setSelectedInterests((prev) => {
-      // If it's already selected, clicking it unselects it.
-      // Otherwise, turn everything off except the newly clicked one.
-      return {
-        CODING: false,
-        LANGUAGE: false,
-        GYM: false,
-        VECHILES: false,
-        [interest]: !prev[interest]
-      };
-    });
+  // Single Selection toggle with micro-spring pulse trigger
+  const handleSelectInterest = (key) => {
+    setSelectedInterest((prev) => (prev === key ? null : key));
+    setPulseBadge(true);
+    setTimeout(() => setPulseBadge(false), 350);
   };
 
-  const handleStartTrial = () => {
-    const selected = Object.keys(selectedInterests).filter((key) => selectedInterests[key]);
-    if (selected.length === 0) {
-      alert("Please select at least one interest to start your trial!");
-    } else {
-      // Trigger the exit animation
-      setIsExiting(true);
-      
-      // Wait for the animation to finish before actually navigating
-      setTimeout(() => {
-        if (selectedInterests.GYM) navigate("/fitness");
-        else if (selectedInterests.CODING) navigate("/coding");
-        else if (selectedInterests.VECHILES) navigate("/driving");
-        else if (selectedInterests.LANGUAGE) navigate("/language");
-      }, 600); // 600ms matches the CSS transition duration
+  const handleDeselect = (e) => {
+    if (e) e.stopPropagation();
+    setSelectedInterest(null);
+    setPulseBadge(true);
+    setTimeout(() => setPulseBadge(false), 350);
+  };
+
+  // Real-time search filter for interests
+  const filteredCards = useMemo(() => {
+    if (!searchQuery.trim()) return INTEREST_CARDS;
+    const q = searchQuery.toLowerCase().trim();
+    return INTEREST_CARDS.filter(
+      (card) =>
+        card.title.toLowerCase().includes(q) ||
+        card.description.toLowerCase().includes(q) ||
+        card.tags.some((tag) => tag.toLowerCase().includes(q))
+    );
+  }, [searchQuery]);
+
+  // Continue to selected training track with animated loading state and transition
+  const handleContinue = async () => {
+    if (!selectedInterest) {
+      toast.warn("Please select an interest to continue your learning journey!");
+      return;
     }
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
+    try {
+      const token = localStorage.getItem("token");
+      if (token) {
+        await fetch(`${API_BASE}/auth/interests`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ interests: [selectedInterest] }),
+        });
+      }
+    } catch (err) {
+      console.error("Failed to persist interest:", err);
+    }
+    localStorage.setItem("userInterests", JSON.stringify([selectedInterest]));
+
+    setIsExiting(true);
+    setTimeout(() => {
+      const item = INTEREST_CARDS.find((i) => i.key === selectedInterest);
+      if (item) {
+        navigate(item.targetRoute);
+      } else {
+        navigate("/coding");
+      }
+    }, 350);
   };
 
   const handleLogoutConfirm = () => {
     localStorage.removeItem("token");
-    navigate("/login");
+    navigate("/");
   };
 
   const handleDeleteAccount = async () => {
-    const confirmDelete = window.confirm("Are you sure you want to permanently delete your account? This action cannot be undone.");
+    const confirmDelete = window.confirm(
+      "Are you sure you want to permanently delete your account? This action cannot be undone."
+    );
     if (!confirmDelete) return;
 
     try {
@@ -109,11 +657,11 @@ const Home = () => {
       const response = await fetch(`${API_BASE}/auth/me`, {
         method: "DELETE",
         headers: {
-          Authorization: `Bearer ${token}`
-        }
+          Authorization: `Bearer ${token}`,
+        },
       });
       if (response.ok) {
-        alert("Account deleted successfully.");
+        toast.success("Account deleted successfully.");
         localStorage.removeItem("token");
         navigate("/signup");
       }
@@ -134,55 +682,52 @@ const Home = () => {
     reader.readAsDataURL(file);
     reader.onload = async () => {
       const base64Image = reader.result;
-      
-      // Optimistic UI Update
-      const previousAvatar = user.avatarUrl;
-      setUser({ ...user, avatarUrl: base64Image });
+      const previousAvatar = user?.avatarUrl;
+      setUser((prev) => ({ ...prev, avatarUrl: base64Image }));
       setIsDropdownOpen(false);
-      
+
       try {
         const token = localStorage.getItem("token");
         const response = await fetch(`${API_BASE}/auth/avatar`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`
+            Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ avatarUrl: base64Image })
+          body: JSON.stringify({ avatarUrl: base64Image }),
         });
-        
+
         if (!response.ok) {
-          setUser({ ...user, avatarUrl: previousAvatar });
-          alert("Failed to update profile photo. Image might be too large.");
+          setUser((prev) => ({ ...prev, avatarUrl: previousAvatar }));
+          toast.error("Failed to update profile photo. Image might be too large.");
         }
       } catch (error) {
         console.error("Error updating photo", error);
-        setUser({ ...user, avatarUrl: previousAvatar });
+        setUser((prev) => ({ ...prev, avatarUrl: previousAvatar }));
       }
     };
   };
 
   const handleRemovePhoto = async () => {
-    // Optimistic UI Update
-    const previousAvatar = user.avatarUrl;
-    setUser({ ...user, avatarUrl: null });
+    const previousAvatar = user?.avatarUrl;
+    setUser((prev) => ({ ...prev, avatarUrl: null }));
     setIsDropdownOpen(false);
-    
+
     try {
       const token = localStorage.getItem("token");
       const response = await fetch(`${API_BASE}/auth/avatar`, {
         method: "DELETE",
         headers: {
-          Authorization: `Bearer ${token}`
-        }
+          Authorization: `Bearer ${token}`,
+        },
       });
       if (!response.ok) {
-        setUser({ ...user, avatarUrl: previousAvatar });
-        alert("Failed to remove profile photo.");
+        setUser((prev) => ({ ...prev, avatarUrl: previousAvatar }));
+        toast.error("Failed to remove profile photo.");
       }
     } catch (error) {
       console.error("Error removing photo", error);
-      setUser({ ...user, avatarUrl: previousAvatar });
+      setUser((prev) => ({ ...prev, avatarUrl: previousAvatar }));
     }
   };
 
@@ -196,175 +741,2469 @@ const Home = () => {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ [key]: value })
+        body: JSON.stringify({ [key]: value }),
       });
     } catch (err) {
       console.error("Failed to update preferences", err);
     }
   };
 
+  const selectedItem = INTEREST_CARDS.find((i) => i.key === selectedInterest);
+  const displayName = user?.firstName || user?.username || "Alex";
+
   return (
-    <div className={`home-container ${preferences.darkMode ? 'dark-mode' : ''} ${isExiting ? 'page-exit' : 'page-enter'}`}>
-      {/* White Header Bar */}
-      <header className="home-header">
-        <div className="home-logo">
-          <img src={logoIcon} alt="Mastery Zone Logo" className="home-brand-logo" />
-          <span className="mastery">MASTERY</span>
-          <span className="zone">ZONE</span>
-          <span className="registered-wrapper">
-            <svg className="registered-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="12" cy="12" r="10" stroke="#000000" strokeWidth="2" fill="none" />
-              <polygon points="12,7 13.5,10.5 17,11 14.5,13.5 15,17 12,15 9,17 9.5,13.5 7,11 10.5,10.5" fill="#000000" />
-            </svg>
-          </span>
+    <div
+      key={location.key}
+      className={`mz-home-layout ${isExiting ? "mz-page-exit" : "mz-page-enter"}`}
+    >
+      {/* ================= LEFT SIDEBAR (STICKY, LOGOUT ALWAYS ON SCREEN) ================= */}
+      <aside className="mz-sidebar">
+        {/* Brand Logo Header */}
+        <div className="mz-sidebar-brand" onClick={() => navigate("/")} title="Mastery Zone Home">
+          <img src={logoIcon} alt="Mastery Zone Logo" className="mz-sidebar-brand-icon" />
+          <span className="mz-sidebar-brand-text">Mastery Zone</span>
         </div>
 
-        {/* Premium Profile Section */}
-        {user && (
-          <div className="profile-section">
-            <div className="profile-avatar-wrapper" onClick={() => setIsDropdownOpen(!isDropdownOpen)}>
-              {user.avatarUrl ? (
-                <img src={user.avatarUrl} alt="Avatar" className="profile-avatar-img" />
+        {/* Sidebar Nav Items */}
+        <nav className="mz-sidebar-nav">
+          <button
+            type="button"
+            className="mz-sidebar-item"
+            onClick={() => {
+              setActiveNavTab("interests");
+              navigate("/");
+            }}
+            title="Home"
+          >
+            <LuHouse className="mz-sidebar-item-icon" />
+            <span className="mz-sidebar-item-label">Home</span>
+          </button>
+
+          <button
+            type="button"
+            className={`mz-sidebar-item ${activeNavTab === "interests" ? "active" : ""}`}
+            onClick={() => setActiveNavTab("interests")}
+            title="Select Interests"
+          >
+            <LuTarget className="mz-sidebar-item-icon" />
+            <span className="mz-sidebar-item-label">Select Interests</span>
+          </button>
+
+          {/* Dedicated Assessment Reports Tab in Left Sidebar */}
+          <button
+            type="button"
+            className={`mz-sidebar-item ${activeNavTab === "reports" ? "active" : ""}`}
+            onClick={() => {
+              setActiveNavTab("reports");
+              fetchReports();
+            }}
+            title="View Saved Assessment Reports"
+          >
+            <LuFileText className="mz-sidebar-item-icon" />
+            <span className="mz-sidebar-item-label">Reports</span>
+            {reportsList.length > 0 && (
+              <span className="mz-sidebar-badge-count">{reportsList.length}</span>
+            )}
+          </button>
+
+          {/* Dedicated Meeting Recordings Tab in Left Sidebar */}
+          <button
+            type="button"
+            className={`mz-sidebar-item ${activeNavTab === "recordings" ? "active" : ""}`}
+            onClick={() => {
+              setActiveNavTab("recordings");
+              fetchRecordings();
+            }}
+            title="View Meeting Recordings & Collaborative Sessions"
+            data-testid="sidebar-nav-recordings"
+          >
+            <LuVideo className="mz-sidebar-item-icon" />
+            <span className="mz-sidebar-item-label">Recordings</span>
+            {recordingsList.length > 0 && (
+              <span className="mz-sidebar-badge-count" style={{ background: "#2563eb" }}>
+                {recordingsList.length}
+              </span>
+            )}
+          </button>
+
+          {/* Dedicated Certifications Tab in Left Sidebar */}
+          <button
+            type="button"
+            className={`mz-sidebar-item ${activeNavTab === "certifications" ? "active" : ""}`}
+            onClick={() => {
+              setActiveNavTab("certifications");
+              fetchCertHistory();
+            }}
+            title="View Earned Certifications & Exam History"
+            data-testid="sidebar-nav-certifications"
+          >
+            <LuAward className="mz-sidebar-item-icon" />
+            <span className="mz-sidebar-item-label">Certifications</span>
+            {certHistory.certificates?.length > 0 && (
+              <span className="mz-sidebar-badge-count" style={{ background: "#7c3aed" }}>
+                {certHistory.certificates.length}
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            className="mz-sidebar-item"
+            onClick={() => navigate("/progress")}
+            title="Progress"
+          >
+            <LuChartColumn className="mz-sidebar-item-icon" />
+            <span className="mz-sidebar-item-label">Progress</span>
+          </button>
+
+          <button
+            type="button"
+            className="mz-sidebar-item"
+            onClick={() => navigate("/profile")}
+            title="Profile"
+          >
+            <LuUser className="mz-sidebar-item-icon" />
+            <span className="mz-sidebar-item-label">Profile</span>
+          </button>
+        </nav>
+
+        {/* Sidebar Bottom: Log Out (Permanently visible on screen) */}
+        <div className="mz-sidebar-footer">
+          <button
+            type="button"
+            className="mz-sidebar-item mz-sidebar-logout"
+            onClick={() => setIsLogoutModalOpen(true)}
+            title="Log Out"
+          >
+            <LuLogOut className="mz-sidebar-item-icon" />
+            <span className="mz-sidebar-item-label">Log Out</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* ================= MAIN CONTAINER ================= */}
+      <div className="mz-main-wrapper">
+        {/* Top Navbar */}
+        <header className="mz-topbar">
+          {/* Real-time search bar */}
+          <div className="mz-search-bar-wrap">
+            <LuSearch className="mz-search-bar-icon" size={17} />
+            <input
+              ref={searchInputRef}
+              type="text"
+              className="mz-search-bar-input"
+              placeholder="Search interests or skills (e.g. Python, Web, Spanish, Gym, Driving)..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              aria-label="Real-time search"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                className="mz-search-clear-btn"
+                onClick={() => {
+                  setSearchQuery("");
+                  searchInputRef.current?.focus();
+                }}
+                title="Clear search"
+              >
+                <LuX size={14} />
+              </button>
+            )}
+            {searchQuery && (
+              <span className="mz-search-count-pill">
+                {filteredCards.length} {filteredCards.length === 1 ? "result" : "results"}
+              </span>
+            )}
+          </div>
+
+          <div className="mz-topbar-right">
+            {/* Quick Log Activity Button */}
+            <button
+              type="button"
+              className="mz-btn-quick-log"
+              onClick={() => {
+                setIsLogConfirmed(false);
+                setIsLogActivityModalOpen(true);
+              }}
+              title="Log completed study hours or lesson"
+              data-testid="home-btn-log-activity"
+            >
+              <LuPlus size={15} />
+              <span>Log Activity</span>
+            </button>
+
+            {/* Real-Time Notification Bell */}
+            <NotificationBell />
+
+            {/* Profile Dropdown Widget with Shimmer Loader */}
+            <div className="mz-profile-widget" ref={dropdownRef}>
+              {isLoadingUser ? (
+                <div className="mz-profile-btn mz-profile-loading" aria-label="Loading profile...">
+                  <div className="mz-profile-avatar-circle mz-skeleton-shimmer" />
+                  <div className="mz-skeleton-text-pill mz-skeleton-shimmer" />
+                </div>
               ) : (
-                <div className="profile-avatar-placeholder">
-                  {user.username ? user.username.charAt(0).toUpperCase() : "U"}
+                <button
+                  type="button"
+                  className="mz-profile-btn"
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  aria-label="User profile menu"
+                >
+                  <div className="mz-profile-avatar-circle">
+                    {user?.avatarUrl ? (
+                      <img src={user.avatarUrl} alt="Avatar" className="mz-profile-avatar-img" />
+                    ) : (
+                      <span className="mz-profile-avatar-fallback">
+                        <LuUser size={16} />
+                      </span>
+                    )}
+                  </div>
+                  <span className="mz-profile-name">{displayName}</span>
+                  <LuChevronDown
+                    size={14}
+                    className={`mz-chevron ${isDropdownOpen ? "open" : ""}`}
+                  />
+                </button>
+              )}
+
+              {isDropdownOpen && (
+                <div className="mz-profile-menu">
+                  <div className="mz-menu-header">
+                    <strong>{user?.username || displayName}</strong>
+                    <span>{user?.email || "user@masteryzone.com"}</span>
+                  </div>
+                  <div className="mz-menu-divider" />
+                  <button
+                    type="button"
+                    className="mz-menu-item"
+                    onClick={() => {
+                      setIsDropdownOpen(false);
+                      navigate("/profile");
+                    }}
+                  >
+                    View Profile
+                  </button>
+                  <button
+                    type="button"
+                    className="mz-menu-item"
+                    onClick={handlePhotoUploadClick}
+                  >
+                    Update Photo
+                  </button>
+                  {user?.avatarUrl && (
+                    <button
+                      type="button"
+                      className="mz-menu-item mz-text-danger"
+                      onClick={handleRemovePhoto}
+                    >
+                      Remove Photo
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="mz-menu-item"
+                    onClick={() => {
+                      setIsSettingsModalOpen(true);
+                      setIsDropdownOpen(false);
+                    }}
+                  >
+                    App Settings
+                  </button>
+                  <button
+                    type="button"
+                    className="mz-menu-item mz-text-danger"
+                    onClick={() => {
+                      setIsDropdownOpen(false);
+                      handleDeleteAccount();
+                    }}
+                  >
+                    Delete Account
+                  </button>
+                  <div className="mz-menu-divider" />
+                  <button
+                    type="button"
+                    className="mz-menu-item"
+                    onClick={() => {
+                      setIsLogoutModalOpen(true);
+                      setIsDropdownOpen(false);
+                    }}
+                  >
+                    Log Out
+                  </button>
                 </div>
               )}
             </div>
+            <input
+              type="file"
+              accept="image/*"
+              ref={fileInputRef}
+              style={{ display: "none" }}
+              onChange={handleFileChange}
+            />
+          </div>
+        </header>
 
-            {isDropdownOpen && (
-              <div className="profile-dropdown">
-                <div className="dropdown-header">
-                  <strong>{user.username}</strong>
-                  <span>{user.email}</span>
+        {/* Scrollable Main Area */}
+        <main className="mz-content-area">
+          {activeNavTab === "reports" ? (
+            <div className="mz-reports-page-wrapper">
+              <div className="mz-reports-top-banner">
+                <div className="mz-reports-top-info">
+                  <div className="mz-reports-badge-pill">
+                    <LuShieldCheck size={14} /> Official Verified Records
+                  </div>
+                  <h1 className="mz-reports-main-heading">
+                    Assessment <span className="mz-hero-gradient-text">Reports</span>
+                  </h1>
+                  <p className="mz-reports-sub-heading">
+                    Every submitted assessment is permanently recorded here with compiler results, accuracy, test outcomes, and proctoring logs.
+                  </p>
                 </div>
-                <div className="dropdown-divider"></div>
-                <button className="dropdown-item" onClick={() => navigate("/profile")}>
-                  View Profile
-                </button>
-                <button className="dropdown-item" onClick={handlePhotoUploadClick}>
-                  Update Photo
-                </button>
-                {user.avatarUrl && (
-                  <button className="dropdown-item text-danger" onClick={handleRemovePhoto}>
-                    Remove Photo
+
+                <div className="mz-reports-header-stats">
+                  <div className="mz-rep-stat-box">
+                    <span className="mz-rep-stat-val">{reportsList.length}</span>
+                    <span className="mz-rep-stat-lbl">Total Attempts</span>
+                  </div>
+                  <div className="mz-rep-stat-box mz-stat-passed passed">
+                    <span className="mz-rep-stat-val">
+                      {reportsList.filter((r) => (r.passed !== undefined ? Boolean(r.passed) : r.score >= 80)).length}
+                    </span>
+                    <span className="mz-rep-stat-lbl">Passed (≥80%)</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Filter Tabs & Discipline Selectors */}
+              <div className="mz-reports-toolbar">
+                <div style={{ display: "flex", flexDirection: "column", gap: "12px", width: "100%" }}>
+                  {/* Row 1: Subject Filter Pills */}
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                    <span style={{ fontSize: "12px", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px", marginRight: "4px" }}>
+                      Discipline:
+                    </span>
+                    {[
+                      { id: "ALL", label: "All Subjects" },
+                      { id: "coding", label: "Coding" },
+                      { id: "language", label: "Language" },
+                      { id: "driving", label: "Driving" },
+                      { id: "fitness", label: "Fitness" },
+                    ].map((s) => {
+                      const count = s.id === "ALL" ? reportsList.length : reportsList.filter((r) => (r.subjectKey || "coding").toLowerCase() === s.id).length;
+                      return (
+                        <button
+                          key={s.id}
+                          type="button"
+                          className={`mz-filter-pill ${reportSubjectFilter === s.id ? "active" : ""}`}
+                          onClick={() => setReportSubjectFilter(s.id)}
+                        >
+                          {s.label} ({count})
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Row 2: Status & Type Filters */}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "10px" }}>
+                    <div className="mz-reports-filter-pills">
+                      <button
+                        type="button"
+                        className={`mz-filter-pill ${reportFilter === "ALL" ? "active" : ""}`}
+                        onClick={() => setReportFilter("ALL")}
+                      >
+                        All Results ({reportsList.length})
+                      </button>
+                      <button
+                        type="button"
+                        className={`mz-filter-pill ${reportFilter === "PASSED" ? "active" : ""}`}
+                        onClick={() => setReportFilter("PASSED")}
+                      >
+                        Passed ({reportsList.filter((r) => (r.passed !== undefined ? Boolean(r.passed) : r.score >= 80)).length})
+                      </button>
+                      <button
+                        type="button"
+                        className={`mz-filter-pill ${reportFilter === "FAILED" ? "active" : ""}`}
+                        onClick={() => setReportFilter("FAILED")}
+                      >
+                        Needs Improvement ({reportsList.filter((r) => !(r.passed !== undefined ? Boolean(r.passed) : r.score >= 80)).length})
+                      </button>
+                    </div>
+
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <button
+                        type="button"
+                        className={`mz-filter-pill ${reportTypeFilter === "ALL" ? "active" : ""}`}
+                        onClick={() => setReportTypeFilter("ALL")}
+                      >
+                        All Types
+                      </button>
+                      <button
+                        type="button"
+                        className={`mz-filter-pill ${reportTypeFilter === "mcq_exam" ? "active" : ""}`}
+                        onClick={() => setReportTypeFilter("mcq_exam")}
+                      >
+                        10-MCQ Exam
+                      </button>
+                      <button
+                        type="button"
+                        className={`mz-filter-pill ${reportTypeFilter === "coding_assessment" ? "active" : ""}`}
+                        onClick={() => setReportTypeFilter("coding_assessment")}
+                      >
+                        Practical Code
+                      </button>
+                      <button
+                        type="button"
+                        className={`mz-filter-pill ${reportTypeFilter === "project_assessment" ? "active" : ""}`}
+                        onClick={() => setReportTypeFilter("project_assessment")}
+                      >
+                        Projects
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Reports Grid */}
+              {isLoadingReports ? (
+                <div className="mz-reports-loading-box">
+                  <div className="mz-reports-spinner" />
+                  <p>Loading candidate reports...</p>
+                </div>
+              ) : reportsList.length === 0 ? (
+                <div className="mz-reports-empty-box">
+                  <div className="mz-rep-empty-icon-wrap">
+                    <LuFileText size={44} />
+                  </div>
+                  <h3>No Assessment Reports Saved Yet</h3>
+                  <p>
+                    Once you take an assessment or complete an examination across any discipline,
+                    your verified score, test outcomes, candidate answers, and tamper-proof proctoring history will be permanently saved here.
+                  </p>
+                  <button
+                    type="button"
+                    className="mz-rep-explore-btn"
+                    onClick={() => navigate("/coding")}
+                  >
+                    <span>Go to Courses & Assessments</span>
+                    <LuArrowRight size={16} />
                   </button>
+                </div>
+              ) : (
+                <div className="mz-reports-card-grid">
+                  {reportsList
+                    .filter((rep) => {
+                      const isPassScore = rep.passed !== undefined ? Boolean(rep.passed) : (rep.score !== undefined && rep.score >= 80);
+                      if (reportFilter === "PASSED" && !isPassScore) return false;
+                      if (reportFilter === "FAILED" && isPassScore) return false;
+                      if (reportSubjectFilter !== "ALL" && (rep.subjectKey || "coding").toLowerCase() !== reportSubjectFilter.toLowerCase()) return false;
+                      if (reportTypeFilter !== "ALL") {
+                        const rType = (rep.type || "").toLowerCase();
+                        const isMcqAttempt = rType.includes("mcq") || rType.includes("exam") || String(rep.sessionId || "").startsWith("attempt_");
+                        const isProjectAttempt = rType.includes("project") || String(rep.sessionId || "").startsWith("proj_sub_");
+                        if (reportTypeFilter === "mcq_exam" && !isMcqAttempt) return false;
+                        if (reportTypeFilter === "project_assessment" && !isProjectAttempt) return false;
+                        if (reportTypeFilter === "coding_assessment" && (isMcqAttempt || isProjectAttempt)) return false;
+                      }
+                      return true;
+                    })
+                    .map((rep, idx) => {
+                      const isPass = rep.passed !== undefined ? Boolean(rep.passed) : rep.score >= 80;
+                      const subj = (rep.subjectKey || "coding").toLowerCase();
+                      const isMcq = rep.type === "mcq_exam" || String(rep.sessionId || "").startsWith("attempt_");
+                      const isProject = rep.type === "project_assessment" || String(rep.sessionId || "").startsWith("proj_sub_");
+
+                      return (
+                        <div key={rep.sessionId || idx} className="mz-saved-report-card">
+                          <div className="mz-rep-card-header">
+                            <div className="mz-rep-card-tags">
+                              <span
+                                style={{
+                                  fontSize: "11px",
+                                  fontWeight: 700,
+                                  textTransform: "uppercase",
+                                  padding: "3px 8px",
+                                  borderRadius: "6px",
+                                  background:
+                                    subj === "language"
+                                      ? "rgba(16, 185, 129, 0.15)"
+                                      : subj === "driving"
+                                      ? "rgba(245, 158, 11, 0.15)"
+                                      : subj === "fitness"
+                                      ? "rgba(168, 85, 247, 0.15)"
+                                      : "rgba(59, 130, 246, 0.15)",
+                                  color:
+                                    subj === "language"
+                                      ? "#34d399"
+                                      : subj === "driving"
+                                      ? "#fbbf24"
+                                      : subj === "fitness"
+                                      ? "#c084fc"
+                                      : "#60a5fa",
+                                  border: "1px solid currentColor",
+                                }}
+                              >
+                                {subj.toUpperCase()}
+                              </span>
+                              <span className="mz-rep-diff-tag mz-rep-diff-medium medium">
+                                {isMcq ? "10-MCQ Exam" : isProject ? "Project" : "Practical"}
+                              </span>
+                              <span className={`mz-rep-status-badge ${isPass ? "passed" : "failed"}`}>
+                                {isPass ? <LuCircleCheck size={12} /> : null}
+                                {isProject
+                                  ? isPass
+                                    ? "PROJECT COMPLETED"
+                                    : "Needs Improvement"
+                                  : isPass
+                                  ? "Passed"
+                                  : "Evaluated"}
+                              </span>
+                            </div>
+                            <div className={`mz-rep-grade-pill grade-${(rep.grade || "F").toLowerCase().replace("+", "-plus")}`}>
+                              {rep.grade || "F"}
+                            </div>
+                          </div>
+
+                          <h3 className="mz-rep-card-title">
+                            {rep.assessmentTitle || rep.questionTitle || "Proctored Assessment"}
+                          </h3>
+
+                          <div className="mz-rep-metrics-list">
+                            <div className="mz-rep-metric-row">
+                              <span className="mz-rep-metric-label"><LuUser size={13} /> Candidate</span>
+                              <span className="mz-rep-metric-value">{rep.candidateDetails?.fullName || user?.fullName || user?.username || "Candidate"}</span>
+                            </div>
+                            <div className="mz-rep-metric-row">
+                              <span className="mz-rep-metric-label"><LuAward size={13} /> Final Score</span>
+                              <span className="mz-rep-metric-value mz-bold-score bold-score">
+                                {isProject
+                                  ? `${rep.marksObtained ?? rep.score ?? 0}/${rep.totalMarks || 100} Marks (${rep.percentage ?? rep.score ?? 0}% • ${rep.passedTests ?? 0}/${rep.totalTests ?? 6} Tests)`
+                                  : `${rep.score || 0}% (${rep.passedTests ?? rep.score ?? 0}/{rep.totalTests ?? rep.totalQuestions ?? 10} ${isMcq ? "Correct" : "Tests Passed"})`}
+                              </span>
+                            </div>
+                            <div className="mz-rep-metric-row">
+                              <span className="mz-rep-metric-label"><LuClock size={13} /> Time Spent</span>
+                              <span className="mz-rep-metric-value">
+                                {rep.durationSeconds ? `${Math.floor(rep.durationSeconds / 60)}m ${rep.durationSeconds % 60}s` : "Timed"}
+                              </span>
+                            </div>
+                            <div className="mz-rep-metric-row">
+                              <span className="mz-rep-metric-label"><LuCalendar size={13} /> Submitted</span>
+                              <span className="mz-rep-metric-value">
+                                {rep.submittedAt ? new Date(rep.submittedAt).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "Recent"}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="mz-rep-card-footer">
+                            <span className="mz-rep-anomaly-pill">
+                              {rep.violationsCount === 0 ? "0 Proctoring Anomalies" : `${rep.violationsCount} Anomaly Logged`}
+                            </span>
+                            <button
+                              type="button"
+                              className="mz-rep-view-report-btn"
+                              onClick={() => navigate(rep.reportUrl || `/assessment-report/${rep.sessionId}`)}
+                            >
+                              <span>View Report</span>
+                              <LuExternalLink size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+            </div>
+          ) : activeNavTab === "recordings" ? (
+            <div className="mz-reports-page-wrapper" data-testid="recordings-full-page">
+              {/* Top Banner */}
+              <div className="mz-reports-top-banner">
+                <div className="mz-reports-top-info">
+                  <div className="mz-reports-badge-pill" style={{ background: "rgba(37, 99, 235, 0.1)", color: "#2563eb" }}>
+                    <LuVideo size={14} /> Cloud Recorded Video Meetings
+                  </div>
+                  <h1 className="mz-reports-main-heading">
+                    Meeting <span className="mz-hero-gradient-text">Recordings</span>
+                  </h1>
+                  <p className="mz-reports-sub-heading">
+                    Review video conferencing recordings, peer discussions, and presentations with searchable bookmarks, playback speeds, and instant sharing.
+                  </p>
+                </div>
+
+                <div className="mz-reports-header-stats">
+                  <div className="mz-rep-stat-box">
+                    <span className="mz-rep-stat-val">{recordingsList.length}</span>
+                    <span className="mz-rep-stat-lbl">Total Sessions</span>
+                  </div>
+                  <div className="mz-rep-stat-box" style={{ background: "#f8fafc" }}>
+                    <span className="mz-rep-stat-val">
+                      {Math.floor(recordingsList.reduce((acc, r) => acc + (r.durationSeconds || 0), 0) / 60)}m
+                    </span>
+                    <span className="mz-rep-stat-lbl">Recorded Time</span>
+                  </div>
+                  <div className="mz-rep-stat-box" style={{ minWidth: 160 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                      <LuHardDrive size={13} color="#2563eb" />
+                      <span style={{ fontSize: 13, fontWeight: 700, color: "#0f172a" }}>
+                        {(recordingsAnalytics.totalSizeBytes / (1024 * 1024)).toFixed(1)} MB / 5.0 GB
+                      </span>
+                    </div>
+                    <div style={{ width: "100%", height: 6, background: "#e2e8f0", borderRadius: 4, overflow: "hidden" }}>
+                      <div
+                        style={{
+                          width: `${Math.min(100, Math.max(3, Math.round((recordingsAnalytics.totalSizeBytes / (recordingsAnalytics.storageQuotaBytes || 5368709120)) * 100)))}%`,
+                          height: "100%",
+                          background: "#2563eb",
+                        }}
+                      />
+                    </div>
+                    <span className="mz-rep-stat-lbl" style={{ marginTop: 4 }}>Cloud Storage</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Filters Toolbar */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  flexWrap: "wrap",
+                  gap: 12,
+                  background: "#ffffff",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: 14,
+                  padding: "14px 18px",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.03)",
+                }}
+              >
+                {/* Search & Date */}
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", flex: 1 }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      background: "#f8fafc",
+                      border: "1px solid #cbd5e1",
+                      borderRadius: 8,
+                      padding: "6px 12px",
+                      minWidth: 240,
+                    }}
+                  >
+                    <LuSearch size={14} color="#64748b" />
+                    <input
+                      type="text"
+                      placeholder="Search title, host, or participant..."
+                      value={recSearchQuery}
+                      onChange={(e) => setRecSearchQuery(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && fetchRecordings()}
+                      style={{
+                        border: "none",
+                        background: "transparent",
+                        outline: "none",
+                        fontSize: 13,
+                        color: "#0f172a",
+                        width: "100%",
+                      }}
+                      data-testid="recordings-search-input"
+                    />
+                    {recSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRecSearchQuery("");
+                          setTimeout(fetchRecordings, 10);
+                        }}
+                        style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0 }}
+                      >
+                        <LuX size={14} color="#94a3b8" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Date Filter Tabs */}
+                  <div style={{ display: "flex", gap: 4, background: "#f1f5f9", padding: 3, borderRadius: 8 }}>
+                    {[
+                      { key: "all", label: "All Dates" },
+                      { key: "today", label: "Today" },
+                      { key: "week", label: "This Week" },
+                      { key: "month", label: "This Month" },
+                    ].map((df) => (
+                      <button
+                        key={df.key}
+                        type="button"
+                        onClick={() => setRecDateFilter(df.key)}
+                        style={{
+                          padding: "5px 10px",
+                          borderRadius: 6,
+                          border: "none",
+                          fontSize: 12,
+                          fontWeight: recDateFilter === df.key ? 700 : 500,
+                          background: recDateFilter === df.key ? "#ffffff" : "transparent",
+                          color: recDateFilter === df.key ? "#2563eb" : "#64748b",
+                          boxShadow: recDateFilter === df.key ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+                          cursor: "pointer",
+                        }}
+                      >
+                        {df.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Scope Tabs */}
+                  <div style={{ display: "flex", gap: 4, background: "#f1f5f9", padding: 3, borderRadius: 8 }}>
+                    {[
+                      { key: "all", label: "All Sessions" },
+                      { key: "personal", label: "My Meetings" },
+                      { key: "shared", label: "Shared With Me" },
+                    ].map((sc) => (
+                      <button
+                        key={sc.key}
+                        type="button"
+                        onClick={() => setRecScope(sc.key)}
+                        style={{
+                          padding: "5px 10px",
+                          borderRadius: 6,
+                          border: "none",
+                          fontSize: 12,
+                          fontWeight: recScope === sc.key ? 700 : 500,
+                          background: recScope === sc.key ? "#ffffff" : "transparent",
+                          color: recScope === sc.key ? "#2563eb" : "#64748b",
+                          boxShadow: recScope === sc.key ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+                          cursor: "pointer",
+                        }}
+                      >
+                        {sc.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Right Sort & Action */}
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <select
+                    value={recSortOrder}
+                    onChange={(e) => setRecSortOrder(e.target.value)}
+                    style={{
+                      padding: "6px 10px",
+                      borderRadius: 8,
+                      border: "1px solid #cbd5e1",
+                      background: "#ffffff",
+                      fontSize: 12.5,
+                      color: "#334155",
+                      fontWeight: 600,
+                      outline: "none",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <option value="newest">Sort: Newest First</option>
+                    <option value="oldest">Sort: Oldest First</option>
+                    <option value="duration_desc">Sort: Longest Duration</option>
+                    <option value="duration_asc">Sort: Shortest Duration</option>
+                  </select>
+
+                  <button
+                    type="button"
+                    onClick={() => navigate("/live")}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "7px 14px",
+                      background: "#2563eb",
+                      color: "#ffffff",
+                      border: "none",
+                      borderRadius: 8,
+                      fontSize: 12.5,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <LuPlus size={14} /> Start New Meeting
+                  </button>
+                </div>
+              </div>
+
+              {/* Cards Grid */}
+              {isLoadingRecordings ? (
+                <div style={{ padding: "40px", textAlign: "center", color: "#64748b" }}>
+                  <p style={{ marginTop: 8, fontSize: 13, fontWeight: 600 }}>Loading cloud recordings...</p>
+                </div>
+              ) : recordingsList.length === 0 ? (
+                <div
+                  style={{
+                    padding: "48px 24px",
+                    textAlign: "center",
+                    background: "#ffffff",
+                    border: "1px dashed #cbd5e1",
+                    borderRadius: 18,
+                  }}
+                >
+                  <LuVideo size={36} color="#94a3b8" style={{ marginBottom: 10 }} />
+                  <h3 style={{ margin: "0 0 6px", fontSize: 16, fontWeight: 700, color: "#0f172a" }}>
+                    No meeting recordings found
+                  </h3>
+                  <p style={{ margin: "0 0 16px", fontSize: 13, color: "#64748b" }}>
+                    {recSearchQuery || recDateFilter !== "all" || recScope !== "all"
+                      ? "Try adjusting your search terms or filters."
+                      : "Start a Mastery Zone Live session to record video discussions and peer reviews."}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => navigate("/live")}
+                    style={{
+                      padding: "8px 18px",
+                      background: "#2563eb",
+                      color: "#ffffff",
+                      border: "none",
+                      borderRadius: 8,
+                      fontSize: 13,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    + Start New Meeting
+                  </button>
+                </div>
+              ) : (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+                    gap: 16,
+                  }}
+                >
+                  {recordingsList.map((rec) => {
+                    const mins = Math.floor((rec.durationSeconds || 0) / 60);
+                    const secs = (rec.durationSeconds || 0) % 60;
+                    const durationStr = `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+                    const dateStr = new Date(rec.createdAt).toLocaleDateString([], {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    });
+                    const sizeMB = ((rec.fileSize || 0) / (1024 * 1024)).toFixed(1);
+
+                    return (
+                      <div
+                        key={rec.recordingId}
+                        style={{
+                          background: "#ffffff",
+                          border: "1px solid #e2e8f0",
+                          borderRadius: 14,
+                          overflow: "hidden",
+                          display: "flex",
+                          flexDirection: "column",
+                          justifyContent: "space-between",
+                          boxShadow: "0 2px 8px rgba(0,0,0,0.03)",
+                        }}
+                        data-testid={`recording-card-${rec.recordingId}`}
+                      >
+                        {/* Video Thumbnail Area */}
+                        <div
+                          style={{
+                            position: "relative",
+                            height: 140,
+                            background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            cursor: "pointer",
+                          }}
+                          onClick={() => setActivePlayingRecording(rec)}
+                        >
+                          <div
+                            style={{
+                              width: 46,
+                              height: 46,
+                              borderRadius: "50%",
+                              background: "rgba(37, 99, 235, 0.95)",
+                              color: "#ffffff",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+                            }}
+                          >
+                            <LuPlay size={22} style={{ marginLeft: 2 }} />
+                          </div>
+
+                          <span
+                            style={{
+                              position: "absolute",
+                              bottom: 8,
+                              right: 8,
+                              background: "rgba(0, 0, 0, 0.8)",
+                              color: "#ffffff",
+                              padding: "2px 7px",
+                              borderRadius: 4,
+                              fontSize: 11,
+                              fontWeight: 700,
+                            }}
+                          >
+                            {durationStr}
+                          </span>
+
+                          <span
+                            style={{
+                              position: "absolute",
+                              top: 8,
+                              left: 8,
+                              background: "rgba(34, 197, 94, 0.9)",
+                              color: "#ffffff",
+                              padding: "2px 7px",
+                              borderRadius: 4,
+                              fontSize: 10,
+                              fontWeight: 800,
+                              textTransform: "uppercase",
+                            }}
+                          >
+                            {rec.status || "Ready"}
+                          </span>
+                        </div>
+
+                        {/* Details */}
+                        <div style={{ padding: "14px 16px", flex: 1 }}>
+                          <h4
+                            style={{
+                              margin: "0 0 6px",
+                              fontSize: 15,
+                              fontWeight: 700,
+                              color: "#0f172a",
+                              lineHeight: 1.35,
+                              cursor: "pointer",
+                            }}
+                            onClick={() => setActivePlayingRecording(rec)}
+                          >
+                            {rec.title}
+                          </h4>
+                          <div
+                            style={{
+                              fontSize: 12,
+                              color: "#64748b",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 6,
+                              marginBottom: 6,
+                            }}
+                          >
+                            <span>Host: <strong>{rec.hostName}</strong></span>
+                            <span>•</span>
+                            <span>{rec.participantsCount || 1} participant(s)</span>
+                          </div>
+                          <div
+                            style={{
+                              fontSize: 11.5,
+                              color: "#94a3b8",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                            }}
+                          >
+                            <span>Recorded on {dateStr}</span>
+                            <span>{sizeMB} MB</span>
+                          </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div
+                          style={{
+                            padding: "10px 14px",
+                            borderTop: "1px solid #f1f5f9",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            background: "#fafafa",
+                          }}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => setActivePlayingRecording(rec)}
+                            style={{
+                              padding: "5px 12px",
+                              borderRadius: 6,
+                              border: "none",
+                              background: "#2563eb",
+                              color: "#ffffff",
+                              fontSize: 12,
+                              fontWeight: 700,
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 5,
+                            }}
+                            data-testid={`play-recording-${rec.recordingId}`}
+                          >
+                            <LuPlay size={13} /> Play
+                          </button>
+
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <button
+                              type="button"
+                              onClick={() => handleShareRecording(rec)}
+                              style={{
+                                border: "1px solid #e2e8f0",
+                                background: "#ffffff",
+                                color: "#475569",
+                                padding: "5px 8px",
+                                borderRadius: 6,
+                                fontSize: 12,
+                                cursor: "pointer",
+                              }}
+                              title="Share Link"
+                              data-testid={`share-recording-${rec.recordingId}`}
+                            >
+                              <LuShare2 size={13} />
+                            </button>
+                            <a
+                              href={rec.fileUrl}
+                              download={`${rec.title || "recording"}.webm`}
+                              style={{
+                                border: "1px solid #e2e8f0",
+                                background: "#ffffff",
+                                color: "#475569",
+                                padding: "5px 8px",
+                                borderRadius: 6,
+                                fontSize: 12,
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                textDecoration: "none",
+                              }}
+                              title="Download Video"
+                            >
+                              <LuDownload size={13} />
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setRenameModalRecording(rec);
+                                setRenameInput(rec.title);
+                              }}
+                              style={{
+                                border: "1px solid #e2e8f0",
+                                background: "#ffffff",
+                                color: "#475569",
+                                padding: "5px 8px",
+                                borderRadius: 6,
+                                fontSize: 12,
+                                cursor: "pointer",
+                              }}
+                              title="Rename Recording"
+                            >
+                              <LuPencil size={13} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteRecording(rec.recordingId)}
+                              style={{
+                                border: "1px solid #fecaca",
+                                background: "#fef2f2",
+                                color: "#dc2626",
+                                padding: "5px 8px",
+                                borderRadius: 6,
+                                fontSize: 12,
+                                cursor: "pointer",
+                              }}
+                              title="Delete Recording"
+                            >
+                              <LuTrash2 size={13} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ) : activeNavTab === "certifications" ? (
+            <div className="mz-reports-page-wrapper" data-testid="certifications-full-page">
+              {/* Top Banner */}
+              <div className="mz-reports-top-banner">
+                <div className="mz-reports-top-info">
+                  <div
+                    className="mz-reports-badge-pill"
+                    style={{ background: "rgba(124, 58, 237, 0.1)", color: "#7c3aed" }}
+                  >
+                    <LuAward size={14} /> Official Verified Credentials
+                  </div>
+                  <h1 className="mz-reports-title">Certifications & Assessment History</h1>
+                  <p className="mz-reports-subtitle">
+                    Review your proctored assessment attempts, examination transcripts, and officially verified credentials.
+                  </p>
+                </div>
+
+                <div className="mz-reports-top-stats" style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                  <div className="mz-stat-pill">
+                    <span className="mz-stat-label">Total Attempts</span>
+                    <strong className="mz-stat-value">{certHistory.attempts?.length || 0}</strong>
+                  </div>
+                  <div className="mz-stat-pill">
+                    <span className="mz-stat-label">Earned Credentials</span>
+                    <strong className="mz-stat-value" style={{ color: "#16a34a" }}>
+                      {certHistory.certificates?.length || 0}
+                    </strong>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setActiveCertExamModal({
+                        id: "dsa_cert",
+                        name: "Data Structures & Algorithms (DSA)",
+                      })
+                    }
+                    style={{
+                      padding: "8px 16px",
+                      background: "#2563eb",
+                      color: "#ffffff",
+                      border: "none",
+                      borderRadius: 8,
+                      fontSize: 13,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      boxShadow: "0 2px 8px rgba(37,99,235,0.3)",
+                    }}
+                  >
+                    <LuAward size={15} /> Take DSA Assessment 🚀
+                  </button>
+                </div>
+              </div>
+
+              {/* AREA A: EARNED CERTIFICATES */}
+              <div style={{ marginBottom: 32 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+                  <div>
+                    <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0, color: "#0f172a" }}>
+                      🏆 My Earned Certificates ({certHistory.certificates?.length || 0})
+                    </h2>
+                    <p style={{ margin: "2px 0 0", fontSize: 13, color: "#64748b" }}>
+                      High-resolution vector PDF certificates verified via unique credential IDs.
+                    </p>
+                  </div>
+                </div>
+
+                {certHistory.certificates?.length > 0 ? (
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))",
+                      gap: 18,
+                    }}
+                  >
+                    {certHistory.certificates.map((cert) => {
+                      const verifyUrl =
+                        cert.verificationUrl ||
+                        `${window.location.origin}/verify/${cert.certificateId}`;
+                      const shareLinkedInUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(
+                        verifyUrl
+                      )}`;
+                      const issueDateStr = cert.issueDate
+                        ? new Date(cert.issueDate).toLocaleDateString(undefined, {
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          })
+                        : "Issued";
+
+                      return (
+                        <div
+                          key={cert.certificateId}
+                          style={{
+                            background: "#ffffff",
+                            border: "1.5px solid #e2e8f0",
+                            borderRadius: 14,
+                            padding: 20,
+                            boxShadow: "0 4px 14px rgba(0,0,0,0.04)",
+                            display: "flex",
+                            flexDirection: "column",
+                            justifyContent: "space-between",
+                          }}
+                        >
+                          <div>
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                marginBottom: 12,
+                              }}
+                            >
+                              <span
+                                style={{
+                                  background: "#f0fdf4",
+                                  border: "1px solid #bbf7d0",
+                                  color: "#15803d",
+                                  padding: "3px 10px",
+                                  borderRadius: 20,
+                                  fontSize: 11,
+                                  fontWeight: 700,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 4,
+                                }}
+                              >
+                                <LuCircleCheck size={13} /> VERIFIED CREDENTIAL
+                              </span>
+                              <span
+                                style={{
+                                  fontSize: 11,
+                                  fontFamily: "monospace",
+                                  color: "#64748b",
+                                  fontWeight: 600,
+                                }}
+                              >
+                                {cert.certificateId}
+                              </span>
+                            </div>
+
+                            <h3
+                              style={{
+                                fontSize: 17,
+                                fontWeight: 800,
+                                color: "#0f172a",
+                                margin: "0 0 6px",
+                              }}
+                            >
+                              {cert.certificationTitle}
+                            </h3>
+                            <div style={{ fontSize: 13, color: "#475569", marginBottom: 4 }}>
+                              Issued to: <strong>{cert.recipientName}</strong>
+                            </div>
+                            <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 14 }}>
+                              Issued on: {issueDateStr}
+                            </div>
+                          </div>
+
+                          <div
+                            style={{
+                              borderTop: "1px solid #f1f5f9",
+                              paddingTop: 12,
+                              display: "flex",
+                              gap: 8,
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            <a
+                              href={`${API_BASE}/api/certifications/certificate/${cert.certificateId}/download`}
+                              download
+                              target="_blank"
+                              rel="noreferrer"
+                              style={{
+                                padding: "7px 12px",
+                                borderRadius: 6,
+                                background: "#2563eb",
+                                color: "#ffffff",
+                                fontSize: 12,
+                                fontWeight: 700,
+                                textDecoration: "none",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 4,
+                              }}
+                            >
+                              <LuDownload size={13} /> Download PDF
+                            </a>
+
+                            <a
+                              href={shareLinkedInUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{
+                                padding: "7px 12px",
+                                borderRadius: 6,
+                                background: "#0a66c2",
+                                color: "#ffffff",
+                                fontSize: 12,
+                                fontWeight: 700,
+                                textDecoration: "none",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 4,
+                              }}
+                            >
+                              <LuShare2 size={13} /> LinkedIn
+                            </a>
+
+                            <a
+                              href={`/verify/${cert.certificateId}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={{
+                                padding: "7px 12px",
+                                borderRadius: 6,
+                                background: "#f8fafc",
+                                border: "1px solid #cbd5e1",
+                                color: "#334155",
+                                fontSize: 12,
+                                fontWeight: 600,
+                                textDecoration: "none",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 4,
+                              }}
+                            >
+                              <LuExternalLink size={13} /> Verify
+                            </a>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      background: "#ffffff",
+                      border: "1px dashed #cbd5e1",
+                      borderRadius: 14,
+                      padding: "36px 20px",
+                      textAlign: "center",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 50,
+                        height: 50,
+                        borderRadius: "50%",
+                        background: "#faf5ff",
+                        color: "#7c3aed",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        margin: "0 auto 12px",
+                      }}
+                    >
+                      <LuAward size={24} />
+                    </div>
+                    <h3 style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", margin: "0 0 6px" }}>
+                      No Earned Credentials Yet
+                    </h3>
+                    <p
+                      style={{
+                        fontSize: 13,
+                        color: "#64748b",
+                        maxWidth: 480,
+                        margin: "0 auto 16px",
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      Pass the 20 randomized multiple-choice questions (≥80%) and solve both algorithmic coding challenges under live proctoring to earn your verified Mastery Zone Certificate.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setActiveCertExamModal({
+                          id: "dsa_cert",
+                          name: "Data Structures & Algorithms (DSA)",
+                        })
+                      }
+                      style={{
+                        padding: "9px 20px",
+                        background: "#7c3aed",
+                        color: "#ffffff",
+                        border: "none",
+                        borderRadius: 8,
+                        fontSize: 13,
+                        fontWeight: 700,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Start DSA Certification Assessment 🚀
+                    </button>
+                  </div>
                 )}
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  ref={fileInputRef} 
-                  style={{ display: "none" }} 
-                  onChange={handleFileChange}
-                />
-                <button className="dropdown-item" onClick={() => { setIsSettingsModalOpen(true); setIsDropdownOpen(false); }}>
-                  App Settings
-                </button>
-                <button className="dropdown-item text-danger" onClick={() => { handleDeleteAccount(); setIsDropdownOpen(false); }}>
-                  Delete Account
-                </button>
-                <div className="dropdown-divider"></div>
-                <button className="dropdown-item" onClick={() => { setIsLogoutModalOpen(true); setIsDropdownOpen(false); }}>
-                  Logout
+              </div>
+
+              {/* AREA B: MY CERTIFICATION ATTEMPTS */}
+              <div>
+                <h2 style={{ fontSize: 18, fontWeight: 800, margin: "0 0 4px", color: "#0f172a" }}>
+                  📋 Assessment Attempts & Proctoring Audit ({certHistory.attempts?.length || 0})
+                </h2>
+                <p style={{ margin: "0 0 16px", fontSize: 13, color: "#64748b" }}>
+                  Complete log of each session, MCQ scores, coding challenges status, and proctoring compliance.
+                </p>
+
+                {certHistory.attempts?.length > 0 ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    {certHistory.attempts.map((att) => {
+                      const isPassed = att.status === "PASSED";
+                      const isInProgress = att.status === "IN_PROGRESS";
+                      const isFailed = att.status === "FAILED";
+                      const score = att.score || {};
+                      const proctoring = att.proctoring || {};
+                      const dateStr = att.startTime
+                        ? new Date(att.startTime).toLocaleString(undefined, {
+                            dateStyle: "medium",
+                            timeStyle: "short",
+                          })
+                        : "Recent";
+
+                      return (
+                        <div
+                          key={att.attemptId}
+                          style={{
+                            background: "#ffffff",
+                            border: "1px solid #e2e8f0",
+                            borderRadius: 12,
+                            padding: "16px 20px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            flexWrap: "wrap",
+                            gap: 14,
+                          }}
+                        >
+                          <div style={{ minWidth: 220 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                              <strong style={{ fontSize: 14.5, color: "#0f172a" }}>
+                                {att.certTitle || "DSA Certification"} • Attempt #{att.attemptNumber || 1}
+                              </strong>
+                              <span
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: 700,
+                                  padding: "2px 8px",
+                                  borderRadius: 12,
+                                  background: isPassed
+                                    ? "#dcfce7"
+                                    : isInProgress
+                                    ? "#dbeafe"
+                                    : "#fee2e2",
+                                  color: isPassed
+                                    ? "#166534"
+                                    : isInProgress
+                                    ? "#1e40af"
+                                    : "#991b1b",
+                                }}
+                              >
+                                {att.status}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: 12, color: "#64748b" }}>
+                              Started on {dateStr}
+                            </div>
+                          </div>
+
+                          {/* Scores & Proctoring Telemetry */}
+                          <div style={{ display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap" }}>
+                            <div style={{ fontSize: 12.5 }}>
+                              <div style={{ color: "#64748b", fontSize: 11 }}>Part A: MCQs</div>
+                              <strong style={{ color: score.mcqPassed ? "#16a34a" : "#dc2626" }}>
+                                {score.mcqScore ?? 0} / {score.mcqTotal ?? 20} ({score.mcqPercentage ?? 0}%)
+                              </strong>
+                            </div>
+
+                            <div style={{ fontSize: 12.5 }}>
+                              <div style={{ color: "#64748b", fontSize: 11 }}>Part B: Coding</div>
+                              <strong style={{ color: score.codingPassed ? "#16a34a" : "#475569" }}>
+                                Q1: {score.codingQ1Solved ? "✓ Solved" : "✗"} • Q2:{" "}
+                                {score.codingQ2Solved ? "✓ Solved" : "✗"}
+                              </strong>
+                            </div>
+
+                            <div style={{ fontSize: 12.5 }}>
+                              <div style={{ color: "#64748b", fontSize: 11 }}>Proctoring</div>
+                              <span
+                                style={{
+                                  color: (proctoring.violationsCount || 0) === 0 ? "#16a34a" : "#d97706",
+                                  fontWeight: 600,
+                                }}
+                              >
+                                {(proctoring.violationsCount || 0) === 0
+                                  ? "Compliant ✓"
+                                  : `${proctoring.violationsCount} Flag(s)`}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Action */}
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            {!isInProgress && (
+                              <button
+                                type="button"
+                                onClick={() => navigate(`/assessment-report/${att.attemptId}`)}
+                                style={{
+                                  padding: "6px 12px",
+                                  borderRadius: 6,
+                                  background: "#f8fafc",
+                                  border: "1px solid #cbd5e1",
+                                  color: "#334155",
+                                  fontSize: 12,
+                                  fontWeight: 600,
+                                  cursor: "pointer",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 4,
+                                }}
+                              >
+                                <LuFileText size={13} /> View Report
+                              </button>
+                            )}
+
+                            {isInProgress ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setActiveCertExamModal({
+                                    id: att.certId,
+                                    name: att.certTitle,
+                                  })
+                                }
+                                style={{
+                                  padding: "6px 14px",
+                                  borderRadius: 6,
+                                  background: "#2563eb",
+                                  color: "#ffffff",
+                                  border: "none",
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  cursor: "pointer",
+                                }}
+                              >
+                                Resume Exam ➔
+                              </button>
+                            ) : isPassed ? (
+                              <a
+                                href={`/verify/${att.certificateId}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{
+                                  padding: "6px 12px",
+                                  borderRadius: 6,
+                                  background: "#dcfce7",
+                                  border: "1px solid #86efac",
+                                  color: "#166534",
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  textDecoration: "none",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 4,
+                                }}
+                              >
+                                <LuCircleCheck size={13} /> Certificate
+                              </a>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setActiveCertExamModal({
+                                    id: att.certId,
+                                    name: att.certTitle,
+                                  })
+                                }
+                                style={{
+                                  padding: "6px 14px",
+                                  borderRadius: 6,
+                                  background: "#f1f5f9",
+                                  border: "1px solid #cbd5e1",
+                                  color: "#334155",
+                                  fontSize: 12,
+                                  fontWeight: 600,
+                                  cursor: "pointer",
+                                }}
+                              >
+                                Retake Exam
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      background: "#f8fafc",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: 10,
+                      padding: 20,
+                      textAlign: "center",
+                      color: "#64748b",
+                      fontSize: 13,
+                    }}
+                  >
+                    No assessment attempts recorded yet.
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="mz-content-columns">
+            {/* Left Column: Interest Cards */}
+            <div className="mz-center-column">
+              {/* Section Header: Choose Your Interest Track */}
+              <div className="mz-section-header">
+                <h2 className="mz-section-title">Choose Your Interest Track</h2>
+                <p className="mz-section-subtitle">
+                  Select one interest that excites you. You can change this anytime.
+                </p>
+              </div>
+
+              {/* 2x2 Grid of Interest Cards */}
+              <div className="mz-cards-grid">
+                {filteredCards.length > 0 ? (
+                  filteredCards.map((card, idx) => {
+                    const isSelected = selectedInterest === card.key;
+
+                    return (
+                      <div
+                        key={card.key}
+                        className={`mz-interest-card mz-card-anim-${idx + 1} ${
+                          isSelected ? "selected" : ""
+                        }`}
+                        style={{
+                          "--card-active-border": card.activeBorder,
+                          "--card-active-glow": card.activeGlow,
+                          "--card-check-bg": card.checkBg,
+                        }}
+                        onClick={() => handleSelectInterest(card.key)}
+                        role="radio"
+                        aria-checked={isSelected}
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            handleSelectInterest(card.key);
+                          }
+                        }}
+                      >
+                        {/* Top Row: Crisp Vector Logo Badge & Checkmark Indicator */}
+                        <div className="mz-card-top-row">
+                          <InterestBadge type={card.key} />
+
+                          <div
+                            className={`mz-card-checkbox ${isSelected ? "checked" : ""}`}
+                            style={{
+                              backgroundColor: isSelected ? card.checkBg : "#ffffff",
+                              borderColor: isSelected ? card.checkBg : "#cbd5e1",
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSelectInterest(card.key);
+                            }}
+                          >
+                            {isSelected && <LuCheck size={14} className="mz-check-icon" />}
+                          </div>
+                        </div>
+
+                        {/* Card Content & Sharpened 3D Illustration */}
+                        <div className="mz-card-body-row">
+                          <div className="mz-card-text-col">
+                            <h3 className="mz-card-title">{card.title}</h3>
+                            <p className="mz-card-desc">{card.description}</p>
+
+                            {/* Skill Tags */}
+                            <div className="mz-card-tags">
+                              {card.tags.map((tag) => (
+                                <span key={tag} className="mz-card-tag-pill">
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="mz-card-illus-col">
+                            <img
+                              src={card.illustration}
+                              alt={`${card.title} 3D illustration`}
+                              className="mz-card-3d-img"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="mz-no-results-box">
+                    <p>No interests match "{searchQuery}"</p>
+                    <button
+                      type="button"
+                      className="mz-reset-search-btn"
+                      onClick={() => setSearchQuery("")}
+                    >
+                      Show All Interests
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Bottom Continue Action */}
+              <div className="mz-bottom-actions mz-bottom-single-action single-action">
+                <button
+                  type="button"
+                  className={`mz-btn-continue ${isSubmitting ? "is-loading" : ""}`}
+                  onClick={handleContinue}
+                  disabled={isSubmitting}
+                  title="Continue to training track"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <span className="mz-btn-spinner" aria-hidden="true" />
+                      <span>Saving Focus...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Continue</span>
+                      <LuArrowRight size={17} className="mz-continue-arrow" />
+                    </>
+                  )}
                 </button>
               </div>
-            )}
+
+            </div>
+
+            {/* Right Column: Selected Summary Panel */}
+            <aside className="mz-right-panel">
+              {/* Section 1: Selected Interest Box */}
+              <div className="mz-summary-card">
+                <div className="mz-summary-header">
+                  <div className="mz-summary-title-wrap">
+                    <span className="mz-summary-icon-box">
+                      <LuTarget size={18} />
+                    </span>
+                    <h4 className="mz-summary-title">Selected Interests</h4>
+                  </div>
+                  <span
+                    className={`mz-summary-count-badge ${pulseBadge ? "mz-badge-pulse" : ""}`}
+                  >
+                    {selectedInterest ? 1 : 0} of 1
+                  </span>
+                </div>
+
+                <div className="mz-selected-list">
+                  {selectedItem ? (
+                    <div className="mz-selected-row">
+                      <div className="mz-selected-row-left">
+                        <InterestBadge type={selectedItem.key} className="mini" />
+                        <span className="mz-selected-name">{selectedItem.title}</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="mz-remove-btn"
+                        onClick={handleDeselect}
+                        title={`Remove ${selectedItem.title}`}
+                        aria-label={`Remove ${selectedItem.title}`}
+                      >
+                        <LuX size={13} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="mz-selected-empty">
+                      <p>No interest selected</p>
+                      <span>Click an interest card to select</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Section 2: Why It Matters Box */}
+              <div className="mz-why-matters-card">
+                <h4 className="mz-why-title">Why it matters?</h4>
+                <ul className="mz-why-list">
+                  <li className="mz-why-item">
+                    <LuCircleCheck className="mz-why-check" size={17} />
+                    <span>Get personalized recommendations</span>
+                  </li>
+                  <li className="mz-why-item">
+                    <LuCircleCheck className="mz-why-check" size={17} />
+                    <span>See relevant learning paths</span>
+                  </li>
+                  <li className="mz-why-item">
+                    <LuCircleCheck className="mz-why-check" size={17} />
+                    <span>Track your progress in your favorite area</span>
+                  </li>
+                </ul>
+              </div>
+
+              {/* Section 3: Motivation Card with 3D Rocket */}
+              <div className="mz-promo-card">
+                <div className="mz-promo-rocket-wrap">
+                  <img src={rocketIcon} alt="Rocket icon" className="mz-promo-rocket-img" />
+                </div>
+                <div className="mz-promo-text-wrap">
+                  <h5 className="mz-promo-heading">Your goals. Our guidance.</h5>
+                  <p className="mz-promo-subheading">Let's build your future together.</p>
+                </div>
+              </div>
+            </aside>
           </div>
-        )}
-      </header>
+          )}
+        </main>
+      </div>
 
-      {/* Background Wet Glass Area */}
-      <main className="home-body">
-        <div className="home-content">
-          <section className="home-quotes">
-            <h1 className="home-quote-primary">
-              "Empower your journey–code smarter, learn faster, drive safer, and stay stronger!"
-            </h1>
-            <p className="home-quote-secondary">
-              "Master skills, break limits—code, learn, drive, and train with purpose!"
-            </p>
-          </section>
-
-          <div className="interests-selection-block">
-            <div className="interests-panel">
-              <h2 className="interests-panel-text">Please Select Your Intrests</h2>
-            </div>
-
-            <div className="interests-row">
-              <button className={`interest-pill ${selectedInterests.CODING ? "active" : ""}`} onClick={() => toggleInterest("CODING")}>CODING</button>
-              <button className={`interest-pill ${selectedInterests.LANGUAGE ? "active" : ""}`} onClick={() => toggleInterest("LANGUAGE")}>LANGUAGE</button>
-              <button className={`interest-pill ${selectedInterests.GYM ? "active" : ""}`} onClick={() => toggleInterest("GYM")}>GYM</button>
-              <button className={`interest-pill ${selectedInterests.VECHILES ? "active" : ""}`} onClick={() => toggleInterest("VECHILES")}>VECHILES</button>
-            </div>
-            
-            <div className="home-bottom-controls" style={{ justifyContent: "flex-end", marginTop: "40px", width: "100%" }}>
-              <button className="start-trial-btn" onClick={handleStartTrial}>
-                START FREE TRIAL
+      {/* ================= LOGOUT CONFIRMATION MODAL ================= */}
+      {isLogoutModalOpen && (
+        <div className="mz-modal-backdrop" onClick={() => setIsLogoutModalOpen(false)}>
+          <div className="mz-modal-box" onClick={(e) => e.stopPropagation()}>
+            <h2 className="mz-modal-title">Log Out</h2>
+            <p className="mz-modal-text">Are you sure you want to log out of Mastery Zone?</p>
+            <div className="mz-modal-actions">
+              <button
+                type="button"
+                className="mz-modal-btn-cancel"
+                onClick={() => setIsLogoutModalOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="mz-modal-btn-confirm"
+                onClick={handleLogoutConfirm}
+              >
+                Yes, Log Out
               </button>
             </div>
           </div>
         </div>
-      </main>
+      )}
 
-      {/* Logout Confirmation Modal */}
-      {isLogoutModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal-content glass-modal">
-            <h2 className="modal-title">Log Out</h2>
-            <p className="modal-text">Are you sure you want to log out of your account?</p>
-            <div className="modal-actions">
-              <button className="btn-cancel" onClick={() => setIsLogoutModalOpen(false)}>Cancel</button>
-              <button className="btn-confirm" onClick={handleLogoutConfirm}>Yes, Log Out</button>
-            </div>
+      {/* ================= LOG ACTIVITY MODAL WITH CONFIRMATION SCREEN ================= */}
+      {isLogActivityModalOpen && (
+        <div className="mz-modal-backdrop" onClick={handleCloseLogActivityModal}>
+          <div
+            className="mz-modal-box mz-log-activity-modal"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: isLogConfirmed ? "460px" : "540px" }}
+          >
+            {isLogConfirmed && confirmedActivityData ? (
+              /* Confirmation Success Screen */
+              <div className="mz-log-confirm-view" data-testid="log-activity-confirmation-screen">
+                <div className="mz-log-confirm-badge">
+                  <LuCircleCheck size={36} color="#10b981" />
+                </div>
+                <h3 className="mz-log-confirm-title">Activity Logged Successfully!</h3>
+                <p className="mz-log-confirm-sub">Your progress and experience points have been verified and saved to your profile.</p>
+
+                <div className="mz-log-confirm-summary-card">
+                  <div className="mz-log-confirm-row">
+                    <span className="mz-log-confirm-label">Learning Track</span>
+                    <span className="mz-log-confirm-val mz-track-pill">{confirmedActivityData.track}</span>
+                  </div>
+                  <div className="mz-log-confirm-row">
+                    <span className="mz-log-confirm-label">Activity Type</span>
+                    <span className="mz-log-confirm-val">{confirmedActivityData.task}</span>
+                  </div>
+                  <div className="mz-log-confirm-row">
+                    <span className="mz-log-confirm-label">Topic / Lesson</span>
+                    <span className="mz-log-confirm-val" style={{ fontWeight: 600 }}>{confirmedActivityData.moduleName}</span>
+                  </div>
+                  <div className="mz-log-confirm-row">
+                    <span className="mz-log-confirm-label">Duration</span>
+                    <span className="mz-log-confirm-val">{confirmedActivityData.hoursSpent} hrs</span>
+                  </div>
+                  <div className="mz-log-confirm-row">
+                    <span className="mz-log-confirm-label">Earned XP</span>
+                    <span className="mz-log-confirm-val mz-xp-tag">+{confirmedActivityData.xpEarned} XP</span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  className="mz-modal-btn-confirm"
+                  style={{ width: "100%", marginTop: "20px", padding: "12px", borderRadius: "12px" }}
+                  onClick={handleCloseLogActivityModal}
+                >
+                  Done
+                </button>
+              </div>
+            ) : (
+              /* Log Activity Input Form */
+              <>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <div style={{ width: "36px", height: "36px", borderRadius: "10px", background: "#eff6ff", color: "#2563eb", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <LuPlus size={20} />
+                    </div>
+                    <div>
+                      <h3 className="mz-modal-title" style={{ margin: 0, fontSize: "17px" }}>Log Learning Activity</h3>
+                      <p style={{ margin: "2px 0 0", fontSize: "12px", color: "#64748b" }}>Record verified lessons, study hours, or workouts</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="mz-search-clear-btn"
+                    onClick={handleCloseLogActivityModal}
+                    title="Close"
+                    style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b" }}
+                  >
+                    <LuX size={18} />
+                  </button>
+                </div>
+
+                <form onSubmit={handleLogActivitySubmit} className="mz-p-modal-form">
+                  <div style={{ marginBottom: "14px" }}>
+                    <label style={{ display: "block", fontSize: "12.5px", fontWeight: 600, color: "#334155", marginBottom: "6px" }}>
+                      Learning Track
+                    </label>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "8px" }}>
+                      {[
+                        { key: "CODING", name: "Coding" },
+                        { key: "LANGUAGE", name: "Language" },
+                        { key: "VEHICLES", name: "Vehicles" },
+                        { key: "FITNESS", name: "Gym & Fitness" },
+                      ].map((t) => (
+                        <button
+                          type="button"
+                          key={t.key}
+                          onClick={() => setLogActivityForm({ ...logActivityForm, track: t.key })}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "8px",
+                            padding: "8px 12px",
+                            borderRadius: "10px",
+                            border: logActivityForm.track === t.key ? "1.5px solid #2563eb" : "1px solid #e2e8f0",
+                            background: logActivityForm.track === t.key ? "#eff6ff" : "#ffffff",
+                            color: logActivityForm.track === t.key ? "#2563eb" : "#475569",
+                            fontWeight: logActivityForm.track === t.key ? 700 : 500,
+                            cursor: "pointer",
+                            fontSize: "13px",
+                            transition: "all 0.15s ease",
+                          }}
+                        >
+                          <InterestBadge type={t.key === "FITNESS" ? "GYM" : t.key === "VEHICLES" ? "VECHILES" : t.key} />
+                          <span>{t.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom: "14px" }}>
+                    <label style={{ display: "block", fontSize: "12.5px", fontWeight: 600, color: "#334155", marginBottom: "6px" }}>
+                      Activity Type
+                    </label>
+                    <select
+                      className="mz-search-bar-input"
+                      style={{ padding: "8px 12px", borderRadius: "10px", width: "100%", background: "#f8fafc", boxSizing: "border-box" }}
+                      value={logActivityForm.task}
+                      onChange={(e) => setLogActivityForm({ ...logActivityForm, task: e.target.value })}
+                    >
+                      <option value="Completed a lesson">Completed a lesson</option>
+                      <option value="Joined study group">Joined study group</option>
+                      <option value="Workout logged">Workout logged</option>
+                      <option value="Learned new vocabulary">Learned new vocabulary</option>
+                      <option value="Practice session completed">Practice session completed</option>
+                      <option value="Module exam passed">Module exam passed</option>
+                    </select>
+                  </div>
+
+                  <div style={{ marginBottom: "14px" }}>
+                    <label style={{ display: "block", fontSize: "12.5px", fontWeight: 600, color: "#334155", marginBottom: "6px" }}>
+                      Lesson / Topic Name
+                    </label>
+                    <input
+                      type="text"
+                      className="mz-search-bar-input"
+                      style={{ padding: "8px 12px", borderRadius: "10px", width: "100%", background: "#f8fafc", boxSizing: "border-box" }}
+                      placeholder="e.g. Python - Control Flow & Conditionals"
+                      value={logActivityForm.moduleName}
+                      onChange={(e) => setLogActivityForm({ ...logActivityForm, moduleName: e.target.value })}
+                      required
+                    />
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "18px" }}>
+                    <div>
+                      <label style={{ display: "block", fontSize: "12.5px", fontWeight: 600, color: "#334155", marginBottom: "6px" }}>
+                        Study Hours
+                      </label>
+                      <select
+                        className="mz-search-bar-input"
+                        style={{ padding: "8px 12px", borderRadius: "10px", width: "100%", background: "#f8fafc", boxSizing: "border-box" }}
+                        value={logActivityForm.hoursSpent}
+                        onChange={(e) => setLogActivityForm({ ...logActivityForm, hoursSpent: e.target.value })}
+                      >
+                        <option value="0.5">0.5 hrs (30m)</option>
+                        <option value="0.75">0.75 hrs (45m)</option>
+                        <option value="1.0">1.0 hr (60m)</option>
+                        <option value="1.5">1.5 hrs</option>
+                        <option value="2.0">2.0 hrs</option>
+                        <option value="3.0">3.0 hrs</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ display: "block", fontSize: "12.5px", fontWeight: 600, color: "#334155", marginBottom: "6px" }}>
+                        XP Earned
+                      </label>
+                      <select
+                        className="mz-search-bar-input"
+                        style={{ padding: "8px 12px", borderRadius: "10px", width: "100%", background: "#f8fafc", boxSizing: "border-box" }}
+                        value={logActivityForm.xpEarned}
+                        onChange={(e) => setLogActivityForm({ ...logActivityForm, xpEarned: e.target.value })}
+                      >
+                        <option value="15">+15 XP</option>
+                        <option value="20">+20 XP</option>
+                        <option value="30">+30 XP</option>
+                        <option value="50">+50 XP</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="mz-modal-actions" style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
+                    <button
+                      type="button"
+                      className="mz-modal-btn-cancel"
+                      onClick={handleCloseLogActivityModal}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="mz-modal-btn-confirm"
+                      disabled={isLoggingActivity}
+                    >
+                      {isLoggingActivity ? "Saving..." : "Log Activity"}
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
           </div>
         </div>
       )}
 
-      {/* App Settings Modal */}
+      {/* ================= APP SETTINGS MODAL ================= */}
       {isSettingsModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal-content glass-modal settings-modal">
-            <h2 className="modal-title">App Settings</h2>
-            
-            <div className="setting-row">
-              <div className="setting-info">
-                <span className="setting-name">Email Notifications</span>
-                <span className="setting-desc">Receive updates about your account</span>
+        <div className="mz-modal-backdrop" onClick={() => setIsSettingsModalOpen(false)}>
+          <div className="mz-modal-box mz-settings-modal" onClick={(e) => e.stopPropagation()}>
+            <h2 className="mz-modal-title">App Settings</h2>
+
+            <div className="mz-setting-row">
+              <div className="mz-setting-info">
+                <span className="mz-setting-name">Email Notifications</span>
+                <span className="mz-setting-desc">Receive updates about your learning tracks</span>
               </div>
-              <label className="toggle-switch">
-                <input 
-                  type="checkbox" 
-                  checked={preferences.notifications} 
-                  onChange={(e) => handlePreferenceChange('notifications', e.target.checked)} 
+              <label className="mz-switch">
+                <input
+                  type="checkbox"
+                  checked={preferences.notifications}
+                  onChange={(e) => handlePreferenceChange("notifications", e.target.checked)}
                 />
-                <span className="slider round"></span>
+                <span className="mz-slider" />
               </label>
             </div>
 
-            <div className="setting-row">
-              <div className="setting-info">
-                <span className="setting-name">Dark Mode</span>
-                <span className="setting-desc">Switch to a dark aesthetic</span>
+            <div className="mz-modal-actions" style={{ marginTop: "24px" }}>
+              <button
+                type="button"
+                className="mz-modal-btn-confirm"
+                style={{ width: "100%" }}
+                onClick={() => setIsSettingsModalOpen(false)}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ================= IN-BROWSER VIDEO PLAYBACK MODAL ================= */}
+      {activePlayingRecording && (
+        <div
+          className="mz-modal-backdrop"
+          style={{ zIndex: 99999, background: "rgba(15, 23, 42, 0.88)" }}
+          onClick={() => setActivePlayingRecording(null)}
+          data-testid="home-video-player-modal"
+        >
+          <div
+            className="mz-modal-box"
+            style={{
+              maxWidth: 880,
+              width: "94%",
+              maxHeight: "92vh",
+              overflowY: "auto",
+              padding: 22,
+              background: "#0f172a",
+              color: "#ffffff",
+              border: "1px solid #334155",
+              borderRadius: 16,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 14,
+              }}
+            >
+              <div>
+                <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#f8fafc" }}>
+                  {activePlayingRecording.title}
+                </h3>
+                <p style={{ margin: "2px 0 0", fontSize: 12, color: "#94a3b8" }}>
+                  Host: {activePlayingRecording.hostName} • {activePlayingRecording.participantsCount || 1} participant(s)
+                </p>
               </div>
-              <label className="toggle-switch">
-                <input 
-                  type="checkbox" 
-                  checked={preferences.darkMode} 
-                  onChange={(e) => handlePreferenceChange('darkMode', e.target.checked)} 
-                />
-                <span className="slider round"></span>
-              </label>
+              <button
+                type="button"
+                onClick={() => setActivePlayingRecording(null)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "#94a3b8",
+                  cursor: "pointer",
+                }}
+              >
+                <LuX size={22} />
+              </button>
             </div>
 
-            <div className="modal-actions" style={{ marginTop: '30px' }}>
-              <button className="btn-primary" style={{ width: '100%' }} onClick={() => setIsSettingsModalOpen(false)}>Done</button>
+            <div
+              style={{
+                borderRadius: 12,
+                overflow: "hidden",
+                background: "#000000",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                marginBottom: 12,
+              }}
+            >
+              <video
+                ref={videoPlayerRef}
+                src={activePlayingRecording.fileUrl}
+                controls
+                autoPlay
+                onTimeUpdate={() => {
+                  if (videoPlayerRef.current) {
+                    localStorage.setItem(
+                      `mz_rec_seek_${activePlayingRecording.recordingId}`,
+                      Math.floor(videoPlayerRef.current.currentTime)
+                    );
+                  }
+                }}
+                style={{ width: "100%", maxHeight: 420, outline: "none" }}
+                data-testid="home-video-player-element"
+              />
+            </div>
+
+            {/* Video Controls Toolbar: Speed, Duration, Sharing, Bookmarks */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: 10,
+                padding: "10px 0",
+                borderBottom: "1px solid #1e293b",
+                marginBottom: 14,
+              }}
+            >
+              {/* Playback Speed Switcher */}
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontSize: 12, color: "#94a3b8", fontWeight: 600 }}>Speed:</span>
+                {[0.5, 1, 1.25, 1.5, 2].map((spd) => (
+                  <button
+                    key={spd}
+                    type="button"
+                    onClick={() => {
+                      setPlaybackSpeed(spd);
+                      if (videoPlayerRef.current) {
+                        videoPlayerRef.current.playbackRate = spd;
+                      }
+                    }}
+                    style={{
+                      padding: "3px 8px",
+                      borderRadius: 4,
+                      border: "none",
+                      fontSize: 11,
+                      fontWeight: 700,
+                      background: playbackSpeed === spd ? "#2563eb" : "#1e293b",
+                      color: "#ffffff",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {spd}x
+                  </button>
+                ))}
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => handleShareRecording(activePlayingRecording)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 5,
+                    padding: "5px 10px",
+                    background: "#1e293b",
+                    color: "#f8fafc",
+                    border: "1px solid #334155",
+                    borderRadius: 6,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  <LuShare2 size={13} /> Share Link
+                </button>
+                <a
+                  href={activePlayingRecording.fileUrl}
+                  download={`${activePlayingRecording.title}.webm`}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 5,
+                    padding: "5px 10px",
+                    background: "#2563eb",
+                    color: "#ffffff",
+                    borderRadius: 6,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    textDecoration: "none",
+                  }}
+                  data-testid="home-modal-download-btn"
+                >
+                  <LuDownload size={13} /> Download
+                </a>
+              </div>
+            </div>
+
+            {/* Chapters & Bookmarks Row */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              {/* Chapters List */}
+              <div
+                style={{
+                  background: "#1e293b",
+                  borderRadius: 8,
+                  padding: "10px 12px",
+                  fontSize: 12,
+                }}
+              >
+                <div style={{ fontWeight: 700, color: "#93c5fd", marginBottom: 6, display: "flex", alignItems: "center", gap: 5 }}>
+                  <LuClock size={13} /> Chapters
+                </div>
+                {activePlayingRecording.chapters && activePlayingRecording.chapters.length > 0 ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    {activePlayingRecording.chapters.map((ch, idx) => {
+                      const m = Math.floor(ch.timestampSeconds / 60);
+                      const s = ch.timestampSeconds % 60;
+                      return (
+                        <div
+                          key={idx}
+                          onClick={() => {
+                            if (videoPlayerRef.current) {
+                              videoPlayerRef.current.currentTime = ch.timestampSeconds;
+                            }
+                          }}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
+                            padding: "4px 6px",
+                            borderRadius: 4,
+                            cursor: "pointer",
+                            background: "rgba(255,255,255,0.04)",
+                          }}
+                        >
+                          <span style={{ color: "#38bdf8", fontWeight: 700, fontFamily: "monospace" }}>
+                            {String(m).padStart(2, "0")}:{String(s).padStart(2, "0")}
+                          </span>
+                          <span style={{ color: "#cbd5e1" }}>{ch.title}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <span style={{ color: "#64748b" }}>No chapters set</span>
+                )}
+              </div>
+
+              {/* Bookmarks & Add Bookmark */}
+              <div
+                style={{
+                  background: "#1e293b",
+                  borderRadius: 8,
+                  padding: "10px 12px",
+                  fontSize: 12,
+                }}
+              >
+                <div style={{ fontWeight: 700, color: "#86efac", marginBottom: 6, display: "flex", alignItems: "center", gap: 5 }}>
+                  <LuBookmark size={13} /> Saved Bookmarks
+                </div>
+                <div style={{ maxHeight: 90, overflowY: "auto", display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 }}>
+                  {activePlayingRecording.bookmarks && activePlayingRecording.bookmarks.length > 0 ? (
+                    activePlayingRecording.bookmarks.map((bm, idx) => {
+                      const m = Math.floor(bm.timestampSeconds / 60);
+                      const s = bm.timestampSeconds % 60;
+                      return (
+                        <div
+                          key={idx}
+                          onClick={() => {
+                            if (videoPlayerRef.current) {
+                              videoPlayerRef.current.currentTime = bm.timestampSeconds;
+                            }
+                          }}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
+                            padding: "3px 6px",
+                            borderRadius: 4,
+                            cursor: "pointer",
+                            background: "rgba(255,255,255,0.04)",
+                          }}
+                        >
+                          <span style={{ color: "#4ade80", fontWeight: 700, fontFamily: "monospace" }}>
+                            {String(m).padStart(2, "0")}:{String(s).padStart(2, "0")}
+                          </span>
+                          <span style={{ color: "#cbd5e1" }}>{bm.note}</span>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <span style={{ color: "#64748b" }}>No custom bookmarks yet</span>
+                  )}
+                </div>
+
+                {/* Add Bookmark Form */}
+                <form onSubmit={handleAddBookmark} style={{ display: "flex", gap: 6 }}>
+                  <input
+                    type="text"
+                    placeholder="Bookmark note at current second..."
+                    value={newBookmarkNote}
+                    onChange={(e) => setNewBookmarkNote(e.target.value)}
+                    style={{
+                      flex: 1,
+                      padding: "4px 8px",
+                      borderRadius: 4,
+                      border: "1px solid #334155",
+                      background: "#0f172a",
+                      color: "#ffffff",
+                      fontSize: 11,
+                      outline: "none",
+                    }}
+                  />
+                  <button
+                    type="submit"
+                    style={{
+                      padding: "4px 8px",
+                      borderRadius: 4,
+                      border: "none",
+                      background: "#16a34a",
+                      color: "#ffffff",
+                      fontSize: 11,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    + Save
+                  </button>
+                </form>
+              </div>
             </div>
           </div>
         </div>
       )}
 
+      {/* Share Toast */}
+      {shareToast && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: 24,
+            right: 24,
+            background: "#0f172a",
+            color: "#ffffff",
+            padding: "10px 18px",
+            borderRadius: 10,
+            boxShadow: "0 10px 25px rgba(0,0,0,0.2)",
+            zIndex: 999999,
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            fontSize: 13,
+            fontWeight: 600,
+            animation: "mzFadeIn 0.2s ease-out",
+          }}
+        >
+          <LuCheck color="#22c55e" size={16} />
+          <span>{shareToast}</span>
+        </div>
+      )}
+
+      {/* ================= RENAME RECORDING MODAL ================= */}
+      {renameModalRecording && (
+        <div
+          className="mz-modal-backdrop"
+          style={{ zIndex: 99999 }}
+          onClick={() => setRenameModalRecording(null)}
+        >
+          <div
+            className="mz-modal-box"
+            style={{ maxWidth: 440 }}
+            onClick={(e) => e.stopPropagation()}
+            data-testid="home-rename-modal"
+          >
+            <h3 className="mz-modal-title">Rename Recording</h3>
+            <p className="mz-modal-subtitle">
+              Enter a new title for this recorded session:
+            </p>
+            <form onSubmit={handleRenameRecordingSubmit}>
+              <input
+                type="text"
+                className="mz-rename-input"
+                style={{
+                  width: "100%",
+                  padding: "9px 12px",
+                  borderRadius: 8,
+                  border: "1px solid #cbd5e1",
+                  fontSize: 14,
+                  marginTop: 10,
+                  marginBottom: 16,
+                  outline: "none",
+                }}
+                value={renameInput}
+                onChange={(e) => setRenameInput(e.target.value)}
+                autoFocus
+                required
+                data-testid="home-rename-input"
+              />
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+                <button
+                  type="button"
+                  className="mz-modal-btn-cancel"
+                  onClick={() => setRenameModalRecording(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="mz-modal-btn-confirm"
+                  data-testid="home-confirm-rename-btn"
+                >
+                  Save Title
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Proctored Certification Exam Workspace Modal */}
+      {activeCertExamModal && (
+        <CertificationExamWorkspace
+          certId={activeCertExamModal.id || "dsa_cert"}
+          certTitle={activeCertExamModal.name || "Data Structures & Algorithms (DSA)"}
+          onClose={() => setActiveCertExamModal(null)}
+          onCompleted={() => {
+            setActiveCertExamModal(null);
+            fetchCertHistory();
+          }}
+        />
+      )}
     </div>
   );
 };

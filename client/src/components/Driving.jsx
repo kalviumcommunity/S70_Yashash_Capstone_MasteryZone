@@ -3,8 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import CertificationCard from "./CertificationCard";
 import CollaborationHub from "./CollaborationHub";
+import SubjectCurriculumView from "./SubjectCurriculumView";
+import NotificationBell from "./NotificationBell.jsx";
 import "./driving.css";
 import fitnessIllustration from "../assets/fitness_illustration.png";
+import { markTrackExplored } from "../utils/trackExploration";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -83,6 +86,10 @@ const Driving = () => {
       console.error("Failed to fetch certifications", err);
     }
   };
+
+  useEffect(() => {
+    markTrackExplored("Vehicles");
+  }, []);
 
   useEffect(() => {
     if (activeTab === "certification") {
@@ -1138,6 +1145,7 @@ const Driving = () => {
 
           {/* Left links group */}
           <div className="driving-nav-links-left">
+            <span className={`driving-nav-link ${activeTab === "modules" ? "active-nav" : ""}`} onClick={() => { setActiveTab("modules"); setSearchQuery(""); }}>Curriculum & Exams</span>
             <span className={`driving-nav-link ${activeTab === "certification" ? "active-nav" : ""}`} onClick={() => { setActiveTab("certification"); setSearchQuery(""); }}>Certification</span>
             <span className={`driving-nav-link ${activeTab === "resources" ? "active-nav" : ""}`} onClick={() => { setActiveTab("resources"); setSearchQuery(""); }}>Resources</span>
             <span className={`driving-nav-link ${activeTab === "about" ? "active-nav" : ""}`} onClick={() => { setActiveTab("about"); setSearchQuery(""); }}>About</span>
@@ -1155,6 +1163,7 @@ const Driving = () => {
               YOUR CART ({getCartCount()})
             </span>
             <span className={`driving-nav-link add-members-link ${activeTab === "members" ? "active-nav" : ""}`} onClick={() => { setActiveTab("members"); setSearchQuery(""); }}>Add Members</span>
+            <NotificationBell variant="zone" />
           </div>
 
           {/* Red Learn More button */}
@@ -1312,6 +1321,19 @@ const Driving = () => {
                   </div>
                 )}
               </div>
+            )}
+
+            {/* TAB: Curriculum Modules & Proctored Exams */}
+            {activeTab === "modules" && (
+              <SubjectCurriculumView
+                subjectKey="driving"
+                subjectTitle="Automotive & Road Dynamics Curriculum"
+                tracks={[
+                  { id: "car", name: "Automobile & Road Craft" },
+                  { id: "bike", name: "Motorcycle Physics & Dynamics" },
+                ]}
+                defaultTrack="car"
+              />
             )}
 
             {/* TAB 1: Certifications */}

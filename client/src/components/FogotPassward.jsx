@@ -2,11 +2,12 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { LuMail, LuArrowLeft, LuArrowRight, LuHeadphones } from "react-icons/lu";
 import { toast } from "react-toastify";
+import { sendPasswordResetEmail } from "firebase/auth";
+import { auth } from "../firebase/firebaseConfig";
 
 import logoIcon from "../assets/logo_icon_transparent.png";
 import mailIcon from "../assets/forgot_password_mail_icon.png";
 import illustrationImg from "../assets/forgot_password_illustration.png";
-import stickerImg from "../assets/forgot_password_sticker.png";
 import "./ForgotPassword.css";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
@@ -33,9 +34,17 @@ const ForgotPassword = () => {
       return;
     }
 
+    if (!isEmailValid(email)) {
+      setStatus({ type: "error", message: "Please enter a valid email address." });
+      return;
+    }
+
     setLoading(true);
     setStatus({ type: "", message: "" });
 
+    let sent = false;
+
+    // 1. Attempt Backend API reset
     try {
       const response = await fetch(`${AUTH_BASE}/forgot-password`, {
         method: "POST",
@@ -49,188 +58,187 @@ const ForgotPassword = () => {
 
       const data = await response.json();
 
-      if (!response.ok) {
+      if (response.ok) {
+        sent = true;
         setStatus({
-          type: "error",
-          message: data.message || "Unable to send reset link. Please check your email.",
+          type: "success",
+          message: data.message || "Password reset link sent to your email!",
         });
-        toast.error(data.message || "Failed to send reset link");
-        return;
+        toast.success("Reset link sent! Check your inbox.");
+        setEmail("");
+        setTouched(false);
       }
-
-      setStatus({
-        type: "success",
-        message: data.message || "Password reset link sent to your email!",
-      });
-      toast.success("Reset link sent! Check your inbox.");
-      setEmail("");
-      setTouched(false);
     } catch (err) {
-      console.error("Forgot password error:", err);
-      setStatus({
-        type: "error",
-        message: "Failed to connect to the server. Please try again.",
-      });
-      toast.error("Failed to connect to server");
-    } finally {
-      setLoading(false);
+      console.log("Backend reset fetch skipped/errored, attempting Firebase fallback...");
     }
+
+    // 2. If backend didn't send or errored, attempt Firebase password reset
+    if (!sent) {
+      try {
+        await sendPasswordResetEmail(auth, email.trim());
+        sent = true;
+        setStatus({
+          type: "success",
+          message: "Password reset link sent to your email!",
+        });
+        toast.success("Reset link sent! Check your inbox.");
+        setEmail("");
+        setTouched(false);
+      } catch (fbErr) {
+        console.error("Firebase reset error:", fbErr);
+        if (!sent) {
+          const errMsg =
+            fbErr.code === "auth/user-not-found"
+              ? "No account found with this email."
+              : fbErr.code === "auth/invalid-email"
+              ? "Invalid email address."
+              : "Unable to send reset link. Please try again.";
+          setStatus({
+            type: "error",
+            message: errMsg,
+          });
+          toast.error(errMsg);
+        }
+      }
+    }
+
+    setLoading(false);
   };
 
   return (
     <div className="mz-forgot-page">
-      {/* Background Vector Wave */}
-      <svg
-        className="mz-forgot-wave-bl"
-        viewBox="0 0 500 500"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        aria-hidden="true"
-      >
-        <defs>
-          <linearGradient id="blGrad1" x1="0%" y1="50%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#1e3a8a" stopOpacity="0.8" />
-            <stop offset="100%" stopColor="#172554" stopOpacity="0.85" />
-          </linearGradient>
-          <linearGradient id="blGrad2" x1="0%" y1="50%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#6b21a8" stopOpacity="0.85" />
-            <stop offset="100%" stopColor="#9333ea" stopOpacity="0.8" />
-          </linearGradient>
-        </defs>
-        <path
-          d="M 0 250 C 130 330 260 410 500 500 L 0 500 Z"
-          fill="url(#blGrad1)"
-        />
-        <path
-          d="M 0 370 C 120 380 230 425 410 500 L 0 500 Z"
-          fill="url(#blGrad2)"
-        />
-      </svg>
-
-      {/* Background Dots Accent */}
-      <div className="mz-forgot-dots" aria-hidden="true"></div>
+      {/* Ambient Glow Orbs for Soft Page Background */}
+      <div className="mz-forgot-glow mz-forgot-glow-tl" aria-hidden="true" />
+      <div className="mz-forgot-glow mz-forgot-glow-br" aria-hidden="true" />
 
       {/* Top Navigation Bar */}
-      <nav className="mz-forgot-nav">
-        <Link to="/" className="mz-forgot-logo-link">
+      <header className="mz-forgot-nav">
+        <Link to="/" className="mz-forgot-logo-link" aria-label="Mastery Zone Home">
           <img
             src={logoIcon}
             alt="Mastery Zone"
             className="mz-forgot-logo-icon"
           />
           <div className="mz-forgot-logo-text-group">
-            <span className="mz-forgot-brand-title">
-              Mastery <span className="mz-brand-accent">Zone</span>
-            </span>
+            <span className="mz-forgot-brand-title">Mastery Zone</span>
             <span className="mz-forgot-brand-tagline">Learn · Grow · Achieve</span>
           </div>
         </Link>
 
-        <Link to="/login" className="mz-forgot-back-btn">
-          <LuArrowLeft size={16} />
-          <span className="mz-back-text-full">Back to Login</span>
-          <span className="mz-back-text-short">Login</span>
+        <Link to="/login" className="mz-forgot-nav-back-btn">
+          <LuArrowLeft size={16} className="mz-back-arrow" />
+          <span>Back to Login</span>
         </Link>
-      </nav>
+      </header>
 
-      {/* Main Two-Column Layout */}
-      <div className="mz-forgot-container">
+      {/* Main Two-Column Centered Layout */}
+      <main className="mz-forgot-container">
         {/* Left Column: Form Card */}
-        <div className="mz-forgot-card">
-          <div className="mz-forgot-icon-wrap">
-            <img
-              src={mailIcon}
-              alt="Reset Password Mail Icon"
-              className="mz-forgot-mail-img"
-            />
-          </div>
-
-          <h1 className="mz-forgot-title">
-            Forgot <span className="mz-title-purple">Password?</span>
-          </h1>
-
-          <p className="mz-forgot-sub">
-            No worries! Enter your email address and we'll send you a reset link.
-          </p>
-
-          {status.message && (
-            <div className={`mz-forgot-status-msg ${status.type}`}>
-              {status.message}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="mz-forgot-form" noValidate>
-            <div className={`mz-forgot-input-wrap ${hasError ? "mz-input-error" : ""}`}>
-              <LuMail className="mz-forgot-input-icon" />
-              <input
-                type="email"
-                placeholder="Enter your email address"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  if (touched) setTouched(true);
-                }}
-                onBlur={() => setTouched(true)}
-                className="mz-forgot-input"
-                autoComplete="email"
-                required
+        <section className="mz-forgot-card-section" aria-label="Password Reset Form">
+          <div className="mz-forgot-card">
+            {/* 3D Mail Badge */}
+            <div className="mz-forgot-badge-wrap fp-anim-1">
+              <img
+                src={mailIcon}
+                alt="Reset Password"
+                className="mz-forgot-mail-badge"
               />
             </div>
 
-            {hasError && (
-              <span className="mz-input-error-text">
-                Please enter a valid email address
-              </span>
+            {/* Title & Subtitle */}
+            <h1 className="mz-forgot-title fp-anim-2">
+              Forgot <span className="mz-title-blue">Password?</span>
+            </h1>
+
+            <p className="mz-forgot-sub fp-anim-3">
+              No worries! Enter your email address and we'll send you a reset link.
+            </p>
+
+            {/* Status Feedback Message */}
+            {status.message && (
+              <div className={`mz-forgot-status-msg ${status.type}`}>
+                {status.message}
+              </div>
             )}
 
-            <button
-              type="submit"
-              className="mz-forgot-submit-btn"
-              disabled={loading}
-            >
-              <span>{loading ? "SENDING LINK..." : "SEND RESET LINK"}</span>
-              <LuArrowRight size={17} />
-            </button>
+            {/* Form */}
+            <form onSubmit={handleSubmit} className="mz-forgot-form" noValidate>
+              <div
+                className={`mz-forgot-input-wrap fp-anim-4 ${
+                  hasError ? "mz-input-error" : ""
+                }`}
+              >
+                <LuMail className="mz-forgot-input-icon" aria-hidden="true" />
+                <input
+                  type="email"
+                  placeholder="Enter your email address"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (touched) setTouched(true);
+                  }}
+                  onBlur={() => setTouched(true)}
+                  className="mz-forgot-input"
+                  autoComplete="email"
+                  aria-label="Email address"
+                  required
+                />
+              </div>
 
-            <div className="mz-forgot-divider">
-              <span>OR</span>
-            </div>
+              {hasError && (
+                <span className="mz-input-error-text">
+                  Please enter a valid email address
+                </span>
+              )}
 
-            <Link to="/login" className="mz-forgot-login-btn">
-              Back to Login
-            </Link>
+              {/* Primary Reset Button */}
+              <button
+                type="submit"
+                className="mz-forgot-submit-btn fp-anim-5"
+                disabled={loading}
+              >
+                <span>{loading ? "Sending Reset Link..." : "Send Reset Link"}</span>
+                <LuArrowRight size={17} className="mz-submit-arrow" />
+              </button>
 
-            <div className="mz-forgot-support">
-              <LuHeadphones className="mz-forgot-support-icon" />
-              <span>
-                Need help?{" "}
-                <a href="mailto:support@masteryzone.com">
-                  Contact our support team
-                </a>
-              </span>
-            </div>
-          </form>
-        </div>
+              {/* OR Divider */}
+              <div className="mz-forgot-divider fp-anim-6">
+                <span>OR</span>
+              </div>
 
-        {/* Right Column: Illustration & Sticker */}
-        <div className="mz-forgot-right">
+              {/* Secondary Back to Login Button */}
+              <Link to="/login" className="mz-forgot-login-btn fp-anim-7">
+                Back to Login
+              </Link>
+
+              {/* Support Contact Footer */}
+              <div className="mz-forgot-support fp-anim-8">
+                <LuHeadphones className="mz-forgot-support-icon" aria-hidden="true" />
+                <span>
+                  Need help?{" "}
+                  <a href="mailto:support@masteryzone.com">
+                    Contact our support team
+                  </a>
+                </span>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        {/* Right Column: 3D Illustration */}
+        <section
+          className="mz-forgot-illustration-section fp-illus-anim"
+          aria-hidden="true"
+        >
           <div className="mz-forgot-illustration-wrap">
             <img
               src={illustrationImg}
-              alt="Password recovery security illustration"
+              alt="Mastery Zone Password Recovery Illustration"
               className="mz-forgot-illustration"
             />
           </div>
-
-          <div className="mz-forgot-sticker-wrap">
-            <img
-              src={stickerImg}
-              alt="Reset today, Keep learning tomorrow"
-              className="mz-forgot-sticker"
-            />
-          </div>
-        </div>
-      </div>
+        </section>
+      </main>
     </div>
   );
 };

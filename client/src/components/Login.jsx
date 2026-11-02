@@ -12,10 +12,9 @@ import {
 import { FcGoogle } from "react-icons/fc";
 import { signInWithPopup } from "firebase/auth";
 import { auth, provider } from "../firebase/firebaseConfig";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { toast } from "react-toastify";
-
-import logoImg from "../assets/mastery_zone_logo_transparent.png";
+import logoIcon from "../assets/logo_icon_transparent.png";
 import illustrationImg from "../assets/login_illustration.png";
 import "./Login.css";
 
@@ -26,66 +25,32 @@ const Login = () => {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [touched, setTouched] = useState({});
   const [validationErrors, setValidationErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
+  const [isGuestSubmitting, setIsGuestSubmitting] = useState(false);
   const navigate = useNavigate();
-
-  const handleGoogleLogin = async () => {
-    try {
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
-
-      const token = await user.getIdToken();
-
-      const response = await fetch(`${AUTH_BASE}/firebase-login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const text = await response.text();
-      let data = {};
-      try {
-        data = text ? JSON.parse(text) : {};
-      } catch (parseErr) {
-        data = { message: text || `Server error (${response.status})` };
-      }
-
-      if (!response.ok) {
-        alert(data.message || `Firebase Login failed on server (Status ${response.status})`);
-        return;
-      }
-
-      localStorage.setItem("token", data.token);
-      toast.success("Login successful!");
-      navigate("/home");
-    } catch (error) {
-      console.error("Google Login Error:", error);
-      alert("Failed to login with Google: " + (error.message || "Unknown error"));
-    }
-  };
+  const location = useLocation();
+  const redirectTarget = location.state?.from?.pathname || "/home";
 
   useEffect(() => {
     const errors = {};
-    if (touched.identifier) {
-      if (!identifier.trim()) {
-        errors.identifier = "Username or Email is required";
-      }
+
+    if (touched.identifier && !identifier.trim()) {
+      errors.identifier = "Username or Email is required";
     }
-    if (touched.password) {
-      if (!password) {
-        errors.password = "Password is required";
-      }
+
+    if (touched.password && !password) {
+      errors.password = "Password is required";
     }
+
     setValidationErrors(errors);
   }, [identifier, password, touched]);
 
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
-
     setTouched({ identifier: true, password: true });
 
     if (!identifier.trim() || !password) {
@@ -96,14 +61,14 @@ const Login = () => {
       return;
     }
 
+    setIsSubmitting(true);
+
     try {
       const response = await fetch(`${AUTH_BASE}/login`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          usernameOrEmail: identifier,
+          usernameOrEmail: identifier.trim(),
           password,
         }),
       });
@@ -111,279 +76,328 @@ const Login = () => {
       const data = await response.json();
 
       if (!response.ok) {
-        alert(data.message || "Login failed");
+        toast.error(data.message || "Login failed");
         return;
       }
 
       localStorage.setItem("token", data.token);
+      if (data.user) {
+        localStorage.setItem("user", JSON.stringify(data.user));
+        localStorage.setItem("mz_user", JSON.stringify(data.user));
+        localStorage.setItem("userName", data.user.fullName || data.user.username || data.user.email);
+        localStorage.setItem("userEmail", data.user.email);
+      }
       toast.success("Login successful!");
-      navigate("/home");
-    } catch (err) {
-      console.error("Login submit error:", err);
-      alert("Failed to connect to server");
+      navigate(redirectTarget, { replace: true });
+    } catch (error) {
+      console.error("Login submit error:", error);
+      toast.error("Failed to connect to server");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setIsGoogleSubmitting(true);
+
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+      const token = await user.getIdToken();
+
+      const response = await fetch(`${AUTH_BASE}/firebase-login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          email: user.email,
+          name: user.displayName,
+          uid: user.uid,
+          photoURL: user.photoURL,
+          token,
+        }),
+      });
+
+      const responseText = await response.text();
+      let data = {};
+
+      try {
+        data = responseText ? JSON.parse(responseText) : {};
+      } catch {
+        data = { message: responseText || `Server error (${response.status})` };
+      }
+
+      if (!response.ok) {
+        toast.error(
+          data.message || `Firebase login failed (${response.status})`
+        );
+        return;
+      }
+
+      localStorage.setItem("token", data.token);
+      if (data.user) {
+        localStorage.setItem("user", JSON.stringify(data.user));
+        localStorage.setItem("mz_user", JSON.stringify(data.user));
+        localStorage.setItem("userName", data.user.fullName || data.user.username || data.user.email);
+        localStorage.setItem("userEmail", data.user.email);
+      }
+      toast.success("Login successful!");
+      navigate(redirectTarget, { replace: true });
+    } catch (error) {
+      console.error("Google Login Error:", error);
+      if (error?.code === "auth/popup-closed-by-user") {
+        toast.info("Google sign-in popup was closed");
+      } else if (error?.code === "auth/popup-blocked") {
+        toast.error("Sign-in popup was blocked by browser. Please allow popups for this site.");
+      } else if (error?.code === "auth/cancelled-popup-request") {
+        // Popup request cancelled
+      } else if (error?.code === "auth/unauthorized-domain") {
+        toast.error("This domain is not authorized in Firebase Console.");
+      } else {
+        toast.error(
+          error?.message
+            ? `Google login failed: ${error.message}`
+            : "Google login failed"
+        );
+      }
+    } finally {
+      setIsGoogleSubmitting(false);
     }
   };
 
   const handleGuestLogin = async () => {
+    setIsGuestSubmitting(true);
+
     try {
       const response = await fetch(`${AUTH_BASE}/guest-login`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        alert(data.message || "Guest Login failed");
+        toast.error(data.message || "Guest login failed");
         return;
       }
 
       localStorage.setItem("token", data.token);
+      if (data.user) {
+        localStorage.setItem("user", JSON.stringify(data.user));
+        localStorage.setItem("mz_user", JSON.stringify(data.user));
+        localStorage.setItem("userName", data.user.fullName || data.user.username || data.user.email);
+        localStorage.setItem("userEmail", data.user.email);
+      }
       toast.success("Guest login successful!");
-      navigate("/home");
-    } catch (err) {
-      console.error("Guest login error:", err);
-      alert("Failed to connect to server");
+      navigate(redirectTarget, { replace: true });
+    } catch (error) {
+      console.error("Guest login error:", error);
+      toast.error("Failed to connect to server");
+    } finally {
+      setIsGuestSubmitting(false);
     }
   };
 
   return (
     <div className="mz-login-page">
-      {/* Background Curved Accents */}
-      <svg
-        className="mz-bg-wave-tl"
-        viewBox="0 0 500 500"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        aria-hidden="true"
-      >
-        <defs>
-          <linearGradient id="tlGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#7c3aed" stopOpacity="0.8" />
-            <stop offset="100%" stopColor="#4f46e5" stopOpacity="0.05" />
-          </linearGradient>
-          <linearGradient id="tlGrad2" x1="0%" y1="0%" x2="80%" y2="100%">
-            <stop offset="0%" stopColor="#9333ea" stopOpacity="0.75" />
-            <stop offset="100%" stopColor="#2563eb" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        <path
-          d="M -50 -50 L 320 -50 C 260 120 180 220 -50 320 Z"
-          fill="url(#tlGrad1)"
-          filter="blur(25px)"
-        />
-        <path
-          d="M -80 0 C 140 30 240 180 80 380 C 10 320 -60 220 -80 150 Z"
-          fill="url(#tlGrad2)"
-          filter="blur(20px)"
-          opacity="0.6"
-        />
-      </svg>
+      <div className="mz-background-glow mz-background-glow-one" aria-hidden="true" />
+      <div className="mz-background-glow mz-background-glow-two" aria-hidden="true" />
 
-      <svg
-        className="mz-bg-wave-br"
-        viewBox="0 0 500 500"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        aria-hidden="true"
-      >
-        <defs>
-          <linearGradient id="brGrad1" x1="0%" y1="100%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#2563eb" stopOpacity="0.7" />
-            <stop offset="50%" stopColor="#6366f1" stopOpacity="0.8" />
-            <stop offset="100%" stopColor="#a855f7" stopOpacity="0.3" />
-          </linearGradient>
-          <linearGradient id="brGrad2" x1="100%" y1="100%" x2="0%" y2="0%">
-            <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.6" />
-            <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        <path
-          d="M 520 520 L 150 520 C 200 360 280 240 520 150 Z"
-          fill="url(#brGrad1)"
-          filter="blur(25px)"
-        />
-        <path
-          d="M 520 420 C 350 400 240 280 360 80 C 440 160 480 280 520 340 Z"
-          fill="url(#brGrad2)"
-          filter="blur(20px)"
-          opacity="0.7"
-        />
-      </svg>
+      <header className="mz-top-navbar li-nav-anim">
+        <Link to="/" className="mz-nav-brand" aria-label="Mastery Zone home">
+          <img
+            src={logoIcon}
+            alt=""
+            className="mz-nav-brand-logo"
+          />
+          <span className="mz-nav-brand-text">
+            <span className="mz-nav-title">Mastery Zone</span>
+            <span className="mz-nav-tagline">Learn · Grow · Succeed</span>
+          </span>
+        </Link>
+      </header>
 
-      {/* Top Right Header Note */}
-      <div className="mz-top-header">
-        <span>Better Learning</span>
-        <span className="mz-divider">|</span>
-        <span>Brighter Future</span>
-      </div>
-
-      {/* Main Two-Column Container */}
-      <div className="mz-main-container">
-        {/* Left Column: Login Card */}
-        <div className="mz-card">
-          <div className="mz-logo-wrapper">
-            <img
-              src={logoImg}
-              alt="Mastery Zone - Learn Grow Achieve"
-              className="mz-logo-img"
-            />
-          </div>
-
-          <h2 className="mz-card-title">Welcome Back!</h2>
-          <p className="mz-card-subtitle">
-            Log in to continue your learning journey and reach your goals.
-          </p>
-
-          <form onSubmit={handleLoginSubmit} className="mz-form">
-            <div
-              className={`mz-input-field ${
-                validationErrors.identifier ? "error" : ""
-              }`}
-            >
-              <LuUser className="mz-input-icon" />
-              <input
-                type="text"
-                placeholder="Username or E-Mail"
-                autoComplete="off"
-                value={identifier}
-                onChange={(e) => {
-                  setIdentifier(e.target.value);
-                  setTouched({ ...touched, identifier: true });
-                }}
-              />
+      <main className="mz-main-container">
+        <section className="mz-left-column" aria-label="Login form">
+          <div className="mz-card">
+            <div className="mz-card-logo-wrap li-anim-1">
+              <img src={logoIcon} alt="Mastery Zone logo" className="mz-card-logo" />
             </div>
-            {validationErrors.identifier && (
-              <div className="mz-error-text">{validationErrors.identifier}</div>
-            )}
 
-            <div
-              className={`mz-input-field ${
-                validationErrors.password ? "error" : ""
-              }`}
-            >
-              <LuLock className="mz-input-icon" />
-              <input
-                type={showPassword ? "text" : "password"}
-                placeholder="Password"
-                autoComplete="new-password"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  setTouched({ ...touched, password: true });
-                }}
-              />
-              <button
-                type="button"
-                className="mz-eye-toggle"
-                onClick={() => setShowPassword(!showPassword)}
-                aria-label={showPassword ? "Hide password" : "Show password"}
+            <h1 className="mz-card-title li-anim-2">
+              Welcome <span className="mz-title-highlight">Back!</span>
+            </h1>
+            <p className="mz-card-subtitle li-anim-3">
+              Log in to continue your learning journey and reach your goals.
+            </p>
+
+            <form onSubmit={handleLoginSubmit} className="mz-form" noValidate>
+              <div
+                className={`mz-input-field li-anim-4 ${
+                  validationErrors.identifier ? "mz-field-error" : ""
+                }`}
               >
-                {showPassword ? <LuEyeOff /> : <LuEye />}
-              </button>
-            </div>
-            {validationErrors.password && (
-              <div className="mz-error-text">{validationErrors.password}</div>
-            )}
-
-            <div className="mz-options-row">
-              <label className="mz-remember-label">
+                <LuUser className="mz-input-icon" aria-hidden="true" />
                 <input
-                  type="checkbox"
-                  className="mz-checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
+                  type="text"
+                  placeholder="Username or E-Mail"
+                  autoComplete="username"
+                  aria-label="Username or email"
+                  aria-invalid={Boolean(validationErrors.identifier)}
+                  value={identifier}
+                  onChange={(e) => {
+                    setIdentifier(e.target.value);
+                    setTouched((previous) => ({ ...previous, identifier: true }));
+                  }}
                 />
-                Remember me
-              </label>
-              <a href="/forgot-password" className="mz-forgot-link">
-                Forgot password?
-              </a>
+              </div>
+              {validationErrors.identifier && (
+                <p className="mz-error-text">{validationErrors.identifier}</p>
+              )}
+
+              <div
+                className={`mz-input-field li-anim-5 ${
+                  validationErrors.password ? "mz-field-error" : ""
+                }`}
+              >
+                <LuLock className="mz-input-icon" aria-hidden="true" />
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Password"
+                  autoComplete="current-password"
+                  aria-label="Password"
+                  aria-invalid={Boolean(validationErrors.password)}
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setTouched((previous) => ({ ...previous, password: true }));
+                  }}
+                />
+                <button
+                  type="button"
+                  className="mz-eye-toggle"
+                  onClick={() => setShowPassword((previous) => !previous)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <LuEyeOff size={18} /> : <LuEye size={18} />}
+                </button>
+              </div>
+              {validationErrors.password && (
+                <p className="mz-error-text">{validationErrors.password}</p>
+              )}
+
+              <div className="mz-options-row li-anim-6">
+                <label className="mz-remember-label">
+                  <input
+                    type="checkbox"
+                    className="mz-checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                  />
+                  <span>Remember me</span>
+                </label>
+                <Link to="/forgot-password" className="mz-forgot-link">
+                  Forgot password?
+                </Link>
+              </div>
+
+              <button
+                className="mz-btn-login li-anim-7"
+                type="submit"
+                disabled={isSubmitting}
+              >
+                <span>{isSubmitting ? "Logging in..." : "Log In"}</span>
+                {!isSubmitting && <LuArrowRight size={18} className="mz-btn-arrow" />}
+              </button>
+            </form>
+
+            <div className="mz-divider-row li-anim-8" aria-hidden="true">
+              <span className="mz-divider-line" />
+              <span className="mz-divider-text">OR</span>
+              <span className="mz-divider-line" />
             </div>
 
-            <button className="mz-btn-login" type="submit">
-              Log In <LuArrowRight size={18} />
+            <button
+              onClick={handleGoogleLogin}
+              className="mz-btn-google li-anim-9"
+              type="button"
+              disabled={isGoogleSubmitting}
+            >
+              <FcGoogle size={20} className="mz-google-icon" />
+              <span>{isGoogleSubmitting ? "Connecting..." : "Sign in with Google"}</span>
             </button>
-          </form>
 
-          <div className="mz-divider-row">
-            <div className="mz-divider-line"></div>
-            <span className="mz-divider-text">OR</span>
-            <div className="mz-divider-line"></div>
+            <p className="mz-signup-prompt li-anim-10">
+              Don't have an account?{" "}
+              <Link to="/signup" className="mz-signup-link">
+                Sign up
+              </Link>
+            </p>
+
+            <button
+              onClick={handleGuestLogin}
+              className="mz-btn-guest li-anim-11"
+              type="button"
+              disabled={isGuestSubmitting}
+            >
+              <span className="mz-guest-left">
+                <LuUser size={18} className="mz-guest-user-icon" />
+                <span className="mz-guest-text">
+                  {isGuestSubmitting ? "Opening guest session..." : "Login as Guest "}
+                  {!isGuestSubmitting && (
+                    <span className="mz-guest-highlight">(Interviewee)</span>
+                  )}
+                </span>
+              </span>
+              {!isGuestSubmitting && <LuArrowRight size={16} className="mz-guest-arrow" />}
+            </button>
+          </div>
+        </section>
+
+        <section className="mz-right-hero" aria-label="About Mastery Zone">
+          <div className="mz-hero-text-wrap li-hero-anim">
+            <h2 className="mz-hero-heading">
+              <span className="mz-hero-goals">Your Goals.</span>
+              <span className="mz-hero-mission">Our Mission.</span>
+            </h2>
+            <p className="mz-hero-subtitle">
+              Master new skills, track your progress, and build the future you want — all in one place.
+            </p>
           </div>
 
-          <button
-            onClick={handleGoogleLogin}
-            className="mz-btn-google"
-            type="button"
-          >
-            <FcGoogle size={20} /> Sign in with Google
-          </button>
-
-          <p className="mz-signup-prompt">
-            Don't have an account?{" "}
-            <a href="/signup" className="mz-signup-link">
-              Sign up
-            </a>
-          </p>
-
-          <button
-            onClick={handleGuestLogin}
-            className="mz-btn-guest"
-            type="button"
-          >
-            <LuUser size={18} />
-            <span>
-              Login as Guest{" "}
-              <span className="mz-guest-highlight">(Interviewee)</span>
-            </span>
-          </button>
-        </div>
-
-        {/* Right Column: Hero Content & Illustration */}
-        <div className="mz-right-hero">
-          <h1 className="mz-hero-heading">
-            <span className="mz-hero-goals">Your Goals.</span>
-            <span className="mz-hero-mission">Our Mission.</span>
-          </h1>
-
-          <p className="mz-hero-subtitle">
-            Master new skills, track your progress,
-            {"\n"}
-            and build the future you want — all in one place.
-          </p>
-
-          <div className="mz-illustration-container">
+          <div className="mz-illustration-wrap li-illus-anim">
             <img
               src={illustrationImg}
-              alt="Mastery Zone Learning Illustration"
+              alt="A learner studying with a laptop"
               className="mz-illustration-img"
             />
           </div>
 
           <div className="mz-features-grid">
-            <div className="mz-feature-item">
+            <div className="mz-feature-card li-feat-1">
               <div className="mz-feature-icon-box purple">
-                <LuBookOpen size={22} />
+                <LuBookOpen size={21} />
               </div>
-              <span className="mz-feature-label">
-                Learn{"\n"}at your pace
-              </span>
+              <div className="mz-feature-text">
+                <span className="mz-feature-title">Learn</span>
+                <span className="mz-feature-desc">at your pace</span>
+              </div>
             </div>
 
-            <div className="mz-feature-item">
+            <div className="mz-feature-card li-feat-2">
               <div className="mz-feature-icon-box cyan">
                 <svg
-                  width="22"
-                  height="22"
+                  width="21"
+                  height="21"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
-                  strokeWidth="2.2"
+                  strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
+                  aria-hidden="true"
                 >
                   <path d="M18 20V10" />
                   <path d="M12 20V4" />
@@ -392,31 +406,34 @@ const Login = () => {
                   <path d="M21 4L13 12" />
                 </svg>
               </div>
-              <span className="mz-feature-label">
-                Track{"\n"}your progress
-              </span>
+              <div className="mz-feature-text">
+                <span className="mz-feature-title">Track</span>
+                <span className="mz-feature-desc">your progress</span>
+              </div>
             </div>
 
-            <div className="mz-feature-item">
+            <div className="mz-feature-card li-feat-3">
               <div className="mz-feature-icon-box blue">
-                <LuUsers size={22} />
+                <LuUsers size={21} />
               </div>
-              <span className="mz-feature-label">
-                Join a growing{"\n"}community
-              </span>
+              <div className="mz-feature-text">
+                <span className="mz-feature-title">Connect</span>
+                <span className="mz-feature-desc">with learners</span>
+              </div>
             </div>
 
-            <div className="mz-feature-item">
-              <div className="mz-feature-icon-box pink">
-                <LuStar size={22} />
+            <div className="mz-feature-card li-feat-4">
+              <div className="mz-feature-icon-box amber">
+                <LuStar size={21} />
               </div>
-              <span className="mz-feature-label">
-                Build a{"\n"}brighter future
-              </span>
+              <div className="mz-feature-text">
+                <span className="mz-feature-title">Grow</span>
+                <span className="mz-feature-desc">every day</span>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
+        </section>
+      </main>
     </div>
   );
 };

@@ -3,8 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import CertificationCard from "./CertificationCard";
 import CollaborationHub from "./CollaborationHub";
+import SubjectCurriculumView from "./SubjectCurriculumView";
+import NotificationBell from "./NotificationBell.jsx";
 import "./language.css";
 import fitnessIllustration from "../assets/fitness_illustration.png";
+import { markTrackExplored } from "../utils/trackExploration";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -83,6 +86,10 @@ const Language = () => {
       console.error("Failed to fetch certifications", err);
     }
   };
+
+  useEffect(() => {
+    markTrackExplored("Language");
+  }, []);
 
   useEffect(() => {
     if (activeTab === "certification") {
@@ -1141,6 +1148,7 @@ const Language = () => {
 
           {/* Left links group */}
           <div className="lang-fitness-nav-links-left">
+            <span className={`fitness-nav-link ${activeTab === "modules" ? "lang-active-nav" : ""}`} onClick={() => { setActiveTab("modules"); setSearchQuery(""); }}>Curriculum & Exams</span>
             <span className={`fitness-nav-link ${activeTab === "certification" ? "lang-active-nav" : ""}`} onClick={() => { setActiveTab("certification"); setSearchQuery(""); }}>Certification</span>
             <span className={`fitness-nav-link ${activeTab === "resources" ? "lang-active-nav" : ""}`} onClick={() => { setActiveTab("resources"); setSearchQuery(""); }}>Resources</span>
             <span className={`fitness-nav-link ${activeTab === "about" ? "lang-active-nav" : ""}`} onClick={() => { setActiveTab("about"); setSearchQuery(""); }}>About</span>
@@ -1158,6 +1166,7 @@ const Language = () => {
               YOUR CART ({getCartCount()})
             </span>
             <span className={`fitness-nav-link add-members-link ${activeTab === "members" ? "lang-active-nav" : ""}`} onClick={() => { setActiveTab("members"); setSearchQuery(""); }}>Add Members</span>
+            <NotificationBell variant="zone" />
           </div>
 
           {/* Red Learn More button */}
@@ -1360,6 +1369,21 @@ const Language = () => {
               </div>
             )}
 
+
+            {/* TAB: Curriculum Modules & Proctored Exams */}
+            {activeTab === "modules" && (
+              <SubjectCurriculumView
+                subjectKey="language"
+                subjectTitle="Language Fluency Curriculum"
+                tracks={[
+                  { id: "spanish", name: "Spanish Fluency" },
+                  { id: "english", name: "Professional English" },
+                  { id: "french", name: "French Foundations" },
+                  { id: "german", name: "German Grammar" },
+                ]}
+                defaultTrack="spanish"
+              />
+            )}
 
             {/* TAB 1: Certifications */}
             {activeTab === "certification" && (

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const Membership = require('../models/Membership');
+const { pushNotification } = require('../utils/notificationService');
 
 // Middleware to verify JWT token
 const verifyToken = (req, res, next) => {
@@ -9,7 +10,7 @@ const verifyToken = (req, res, next) => {
   if (!token) return res.status(401).json({ error: "Access denied. No token provided." });
 
   try {
-    const verified = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret');
+    const verified = jwt.verify(token, process.env.JWT_SECRET || 'supersecretkey');
     req.user = verified;
     next();
   } catch (err) {
@@ -21,7 +22,8 @@ const verifyToken = (req, res, next) => {
 router.get('/:zone', verifyToken, async (req, res) => {
   try {
     const { zone } = req.params;
-    const membership = await Membership.findOne({ userId: req.user.id, zone: zone.toUpperCase() });
+    const uid = req.user.userId || req.user.id;
+    const membership = await Membership.findOne({ userId: uid, zone: zone.toUpperCase() });
     
     if (!membership) {
       return res.status(404).json({ message: "No active membership found for this zone." });
@@ -38,11 +40,12 @@ router.get('/:zone', verifyToken, async (req, res) => {
 router.post('/:zone/purchase', verifyToken, async (req, res) => {
   try {
     const { zone } = req.params;
+    const uid = req.user.userId || req.user.id;
     const { tier, cycle, primaryName, email, accentColor } = req.body;
 
     const passId = "MZ-PASS-DEV-" + Math.floor(10000 + Math.random() * 90000);
 
-    let membership = await Membership.findOne({ userId: req.user.id, zone: zone.toUpperCase() });
+    let membership = await Membership.findOne({ userId: uid, zone: zone.toUpperCase() });
 
     if (membership) {
       // Update existing
@@ -56,7 +59,7 @@ router.post('/:zone/purchase', verifyToken, async (req, res) => {
     } else {
       // Create new
       membership = new Membership({
-        userId: req.user.id,
+        userId: uid,
         zone: zone.toUpperCase(),
         tier: tier || 'gold',
         cycle: cycle || 'monthly',
@@ -69,6 +72,18 @@ router.post('/:zone/purchase', verifyToken, async (req, res) => {
       await membership.save();
     }
 
+    const zonePath = zone.toLowerCase() === 'vehicles' ? '/driving' : `/${zone.toLowerCase()}`;
+    await pushNotification(req.app, {
+      userId: uid,
+      title: "Membership Pass Activated",
+      message: `Your ${(membership.tier || 'gold').toUpperCase()} ${zone.toUpperCase()} membership pass (${membership.passId}) is now active.`,
+      type: "membership",
+      severity: "success",
+      actionUrl: zonePath,
+      actionLabel: "View Pass",
+      meta: { zone: zone.toUpperCase(), tier: membership.tier, passId: membership.passId },
+    });
+
     res.status(200).json({ message: "Membership active!", membership });
   } catch (error) {
     console.error("Error purchasing membership:", error);
@@ -80,9 +95,10 @@ router.post('/:zone/purchase', verifyToken, async (req, res) => {
 router.post('/:zone/roster', verifyToken, async (req, res) => {
   try {
     const { zone } = req.params;
+    const uid = req.user.userId || req.user.id;
     const { name, age, relationship, goal } = req.body;
 
-    const membership = await Membership.findOne({ userId: req.user.id, zone: zone.toUpperCase() });
+    const membership = await Membership.findOne({ userId: uid, zone: zone.toUpperCase() });
     
     if (!membership) {
       return res.status(404).json({ error: "You must purchase a membership pass first." });
@@ -91,6 +107,18 @@ router.post('/:zone/roster', verifyToken, async (req, res) => {
     membership.roster.push({ name, age, relationship, goal });
     membership.updatedAt = Date.now();
     await membership.save();
+
+    const zonePath = zone.toLowerCase() === 'vehicles' ? '/driving' : `/${zone.toLowerCase()}`;
+    await pushNotification(req.app, {
+      userId: uid,
+      title: "Teammate Added to Roster",
+      message: `${name} was added to your ${zone.toUpperCase()} membership roster.`,
+      type: "membership",
+      severity: "info",
+      actionUrl: zonePath,
+      actionLabel: "Open Zone",
+      meta: { zone: zone.toUpperCase(), memberName: name },
+    });
 
     res.status(200).json({ message: "Teammate added!", roster: membership.roster });
   } catch (error) {

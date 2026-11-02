@@ -1,56 +1,96 @@
-/* Mastery Zone - Create Account (Signup) Page Exact Styling */
+/* ==========================================================================
+   Mastery Zone - Exact Light Theme Sign Up / Registration Page Styling
+   Matches typography, 3-section layout, colors, spacious card, and animations.
+   ========================================================================== */
 
 .mz-signup-page {
   min-height: 100vh;
   width: 100%;
-  background: radial-gradient(circle at 18% 85%, rgba(126, 34, 206, 0.16) 0%, transparent 45%),
-              radial-gradient(circle at 85% 15%, rgba(59, 130, 246, 0.08) 0%, transparent 40%),
-              #060b24;
+  background-color: #f8fafc;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(224, 231, 255, 0.5) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(238, 242, 255, 0.5) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(224, 242, 254, 0.4) 0px, transparent 50%);
   position: relative;
   overflow-x: hidden;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  color: #ffffff;
-  padding: 24px 48px 40px 48px;
+  font-family: "Plus Jakarta Sans", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: #0f172a;
   box-sizing: border-box;
+  animation: suPageFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-/* Background Corner Accents */
-.mz-signup-wave-bl {
+/* ==========================================================================
+   Background SVG Corner Waves
+   ========================================================================== */
+
+.mz-signup-wave-tl {
   position: fixed;
-  bottom: 0;
+  top: 0;
   left: 0;
-  width: 440px;
-  height: 440px;
+  width: 580px;
+  height: 580px;
   pointer-events: none;
   z-index: 1;
 }
 
-/* Top Navigation Bar */
+.mz-signup-wave-bl {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 480px;
+  height: 480px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.mz-signup-wave-br {
+  position: fixed;
+  bottom: 0;
+  right: 0;
+  width: 540px;
+  height: 540px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ==========================================================================
+   Top Navigation Bar
+   ========================================================================== */
+
 .mz-signup-nav {
   width: 100%;
-  max-width: 1100px;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 24px 36px 8px 36px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  position: relative;
   z-index: 20;
-  margin-bottom: 20px;
+  box-sizing: border-box;
+  animation: suElemFadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .mz-nav-logo-link {
   display: flex;
   align-items: center;
-  text-decoration: none;
   gap: 12px;
+  text-decoration: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.mz-nav-logo-link:hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
 }
 
 .mz-nav-logo-icon {
-  height: 44px;
+  height: 38px;
   width: auto;
   object-fit: contain;
-  filter: drop-shadow(0 2px 8px rgba(99, 102, 241, 0.4));
+  display: block;
 }
 
 .mz-nav-logo-text-group {
@@ -59,34 +99,30 @@
 }
 
 .mz-nav-brand-title {
-  font-size: 22px;
-  font-weight: 800;
-  color: #ffffff;
+  font-size: 19px;
+  font-weight: 700;
+  color: #1e293b;
   letter-spacing: -0.3px;
-  line-height: 1.1;
-}
-
-.mz-brand-accent {
-  color: #c084fc;
+  line-height: 1.2;
 }
 
 .mz-nav-brand-tagline {
-  font-size: 10px;
+  font-size: 11.5px;
   font-weight: 500;
-  color: #94a3b8;
-  letter-spacing: 0.8px;
-  margin-top: 3px;
+  color: #64748b;
+  letter-spacing: 0.3px;
+  margin-top: 1px;
 }
 
 .mz-nav-right {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
 }
 
 .mz-nav-text {
   font-size: 13.5px;
-  color: #8292ab;
+  color: #475569;
   font-weight: 500;
 }
 
@@ -94,107 +130,144 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 18px;
-  border-radius: 20px;
-  background: #101636;
-  border: 1px solid #6366f1;
-  color: #c084fc;
-  font-size: 13.5px;
+  padding: 7px 18px;
+  border-radius: 9999px;
+  background: #ffffff;
+  border: 1.5px solid #c084fc;
+  color: #7c3aed;
+  font-size: 13px;
   font-weight: 600;
   text-decoration: none;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 1px 4px rgba(124, 58, 237, 0.08);
 }
 
 .mz-nav-login-btn:hover {
-  background: #182046;
-  border-color: #818cf8;
-  color: #e9d5ff;
-  transform: translateY(-1px);
+  background: #faf5ff;
+  border-color: #a855f7;
+  transform: translateY(-1.5px);
+  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.18);
 }
 
-/* Main Layout Grid */
+.mz-nav-login-btn:active {
+  transform: translateY(0);
+}
+
+/* ==========================================================================
+   Main 3-Section Container: Left Hero, Center Card, Right Illustration
+   ========================================================================== */
+
 .mz-signup-container {
   display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 75px;
-  max-width: 1100px;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(20px, 2.5vw, 40px);
+  max-width: 1280px;
   width: 100%;
-  z-index: 10;
   margin: auto;
-  padding-bottom: 20px;
+  padding: 12px 36px 36px 36px;
+  position: relative;
+  z-index: 10;
+  box-sizing: border-box;
 }
 
-/* Left Hero Section */
+/* ==========================================================================
+   Left Section: Promotional Text & Features
+   ========================================================================== */
+
 .mz-signup-left {
-  flex: 1;
-  max-width: 450px;
+  flex: 0 0 320px;
+  max-width: 340px;
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   position: relative;
-  padding-top: 10px;
+  z-index: 2;
+}
+
+.su-hero-anim-1 {
+  animation: suHeroSlideIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both;
 }
 
 .mz-signup-hero-title {
-  font-size: 42px;
+  font-size: 38px;
   font-weight: 800;
   line-height: 1.15;
   letter-spacing: -0.5px;
-  margin: 0 0 16px 0;
+  margin: 0 0 14px 0;
 }
 
-.mz-hero-white {
-  color: #ffffff;
+.mz-hero-dark {
   display: block;
+  color: #0f172a;
 }
 
 .mz-hero-gradient {
   display: block;
-  background: linear-gradient(90deg, #38bdf8 0%, #c084fc 100%);
+  background: linear-gradient(90deg, #2563eb 0%, #9333ea 100%);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .mz-signup-hero-sub {
-  font-size: 14.5px;
-  color: #8292ab;
+  font-size: 13.5px;
+  color: #64748b;
   line-height: 1.6;
-  margin: 0 0 32px 0;
-  max-width: 410px;
+  margin: 0 0 24px 0;
+  font-weight: 400;
+  max-width: 330px;
 }
 
-/* Features List */
 .mz-feature-list {
   display: flex;
   flex-direction: column;
-  gap: 22px;
-  margin-bottom: 30px;
+  gap: 16px;
+  width: 100%;
 }
 
 .mz-feature-row {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
+  padding: 4px 6px;
+  border-radius: 12px;
+  transition: transform 0.2s ease;
+}
+
+.mz-feature-row:hover {
+  transform: translateX(4px);
 }
 
 .mz-feature-badge {
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
-  background: #131c3c;
-  border: 1px solid #23315e;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #818cf8;
   flex-shrink: 0;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
 
-.mz-feature-badge svg {
-  width: 22px;
-  height: 22px;
+.mz-feature-row:hover .mz-feature-badge {
+  transform: scale(1.08);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+}
+
+.mz-feature-badge.blue {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.mz-feature-badge.purple {
+  background: #f3e8ff;
+  color: #9333ea;
+}
+
+.mz-feature-badge.green {
+  background: #d1fae5;
+  color: #059669;
 }
 
 .mz-feature-text {
@@ -203,99 +276,153 @@
 }
 
 .mz-feat-title {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
-  color: #ffffff;
-  margin-bottom: 3px;
+  color: #0f172a;
+  line-height: 1.25;
 }
 
 .mz-feat-desc {
-  font-size: 13px;
-  color: #8292ab;
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 2px;
 }
 
-/* Handwritten Sticker */
-.mz-signup-sticker-container {
-  margin-top: 10px;
-  display: flex;
-  align-items: center;
+.su-feat-item-1 {
+  animation: suElemFadeUp 0.65s cubic-bezier(0.16, 1, 0.3, 1) 0.18s both;
 }
 
-.mz-signup-sticker {
-  width: 210px;
-  height: auto;
-  object-fit: contain;
-  filter: drop-shadow(0 2px 10px rgba(168, 85, 247, 0.35));
+.su-feat-item-2 {
+  animation: suElemFadeUp 0.65s cubic-bezier(0.16, 1, 0.3, 1) 0.26s both;
 }
 
-/* Right Card */
+.su-feat-item-3 {
+  animation: suElemFadeUp 0.65s cubic-bezier(0.16, 1, 0.3, 1) 0.34s both;
+}
+
+/* ==========================================================================
+   Center Section: Spacious & Balanced Registration Card
+   ========================================================================== */
+
+.mz-signup-card-section {
+  flex: 0 0 435px;
+  max-width: 440px;
+  width: 100%;
+  animation: suCardSlideUp 0.85s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
+}
+
 .mz-signup-card {
   width: 100%;
-  max-width: 440px;
-  background: linear-gradient(180deg, #101636 0%, #0c122b 100%);
-  border: 1px solid #1c2648;
+  background: rgba(255, 255, 255, 0.98);
   border-radius: 26px;
-  padding: 32px 32px 26px 32px;
-  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.8), 0 0 50px rgba(99, 102, 241, 0.08);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 
+    0 24px 50px -12px rgba(15, 23, 42, 0.08),
+    0 8px 24px -6px rgba(15, 23, 42, 0.03);
+  padding: 36px 34px 30px 34px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   position: relative;
+  z-index: 5;
+  backdrop-filter: blur(8px);
+  transition: box-shadow 0.3s ease;
+}
+
+.mz-signup-card:hover {
+  box-shadow: 
+    0 28px 58px -12px rgba(15, 23, 42, 0.11),
+    0 10px 28px -6px rgba(15, 23, 42, 0.04);
+}
+
+.su-card-anim-header {
+  animation: suElemFadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both;
 }
 
 .mz-signup-card-title {
   font-size: 26px;
-  font-weight: 700;
-  color: #ffffff;
-  margin: 0 0 6px 0;
-  letter-spacing: -0.3px;
+  font-weight: 750;
+  color: #0f172a;
+  margin: 0 0 7px 0;
+  letter-spacing: -0.4px;
+  line-height: 1.2;
 }
 
 .mz-title-purple {
-  color: #c084fc;
+  color: #7c3aed;
+  margin-left: 2px;
 }
 
 .mz-signup-card-sub {
   font-size: 13.5px;
-  color: #8292ab;
-  line-height: 1.5;
+  color: #64748b;
   margin: 0 0 20px 0;
+  font-weight: 400;
+  line-height: 1.45;
 }
 
-/* Form & Inputs */
+.mz-signup-server-error {
+  color: #ef4444;
+  background-color: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 12.5px;
+  margin-bottom: 14px;
+  text-align: center;
+  font-weight: 500;
+  animation: suElemFadeUp 0.3s ease both;
+}
+
 .mz-signup-form {
-  width: 100%;
   display: flex;
   flex-direction: column;
+  width: 100%;
 }
 
+/* Form Input Fields - Spacious & Comfortable */
 .mz-signup-input-field {
   display: flex;
   align-items: center;
-  background: #131932;
-  border: 1px solid #20294b;
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
   border-radius: 12px;
   padding: 0 16px;
   height: 46px;
-  transition: all 0.2s ease;
-  margin-bottom: 11px;
+  margin-bottom: 13px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
   box-sizing: border-box;
 }
 
+.mz-signup-input-field:hover {
+  border-color: #cbd5e1;
+}
+
 .mz-signup-input-field:focus-within {
-  border-color: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+  border-color: #3b82f6;
+  background: #ffffff;
+  box-shadow: 0 0 0 3.5px rgba(59, 130, 246, 0.12);
 }
 
 .mz-signup-input-field.error {
   border-color: #ef4444;
+  background: #fffcfc;
+}
+
+.mz-signup-input-field.error:focus-within {
+  box-shadow: 0 0 0 3.5px rgba(239, 68, 68, 0.12);
 }
 
 .mz-signup-input-icon {
-  color: #64748b;
+  color: #94a3b8;
   font-size: 18px;
   margin-right: 12px;
   flex-shrink: 0;
+  transition: color 0.2s ease;
+}
+
+.mz-signup-input-field:focus-within .mz-signup-input-icon {
+  color: #2563eb;
 }
 
 .mz-signup-input-field input {
@@ -304,80 +431,83 @@
   border: none !important;
   outline: none !important;
   box-shadow: none !important;
-  color: #ffffff !important;
+  color: #0f172a !important;
   font-size: 14px;
   padding: 0;
   font-family: inherit;
+  font-weight: 400;
+  line-height: normal;
 }
 
 .mz-signup-input-field input::placeholder {
-  color: #556784;
-}
-
-.mz-signup-input-field input:-webkit-autofill,
-.mz-signup-input-field input:-webkit-autofill:hover,
-.mz-signup-input-field input:-webkit-autofill:focus,
-.mz-signup-input-field input:-webkit-autofill:active {
-  transition: background-color 5000s ease-in-out 0s !important;
-  -webkit-text-fill-color: #ffffff !important;
+  color: #94a3b8;
+  font-weight: 400;
 }
 
 .mz-signup-eye-toggle {
   background: transparent;
   border: none;
   padding: 0;
-  color: #64748b;
+  color: #94a3b8;
   cursor: pointer;
   display: flex;
   align-items: center;
   font-size: 18px;
-  transition: color 0.2s;
+  transition: color 0.2s ease;
   outline: none;
+  margin-left: 8px;
 }
 
 .mz-signup-eye-toggle:hover {
-  color: #cbd5e1;
+  color: #475569;
 }
 
 .mz-signup-error-text {
   color: #ef4444;
-  font-size: 11px;
+  font-size: 11.5px;
   margin-top: -8px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   padding-left: 4px;
   font-weight: 500;
+  animation: suElemFadeUp 0.25s ease both;
 }
 
-/* Remember Me Checkbox */
+/* Remember Me Checkbox Row */
 .mz-signup-remember-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 2px;
-  margin-bottom: 16px;
-  font-size: 13.5px;
-  color: #cbd5e1;
+  gap: 9px;
+  color: #475569;
   cursor: pointer;
   user-select: none;
+  font-size: 13px;
+  font-weight: 500;
+  margin: 3px 0 18px 0;
+  transition: color 0.15s ease;
+}
+
+.mz-signup-remember-row:hover {
+  color: #1e293b;
 }
 
 .mz-signup-checkbox {
-  accent-color: #38bdf8;
+  accent-color: #2563eb;
   width: 16px;
   height: 16px;
   cursor: pointer;
   margin: 0;
+  border-radius: 4px;
 }
 
-/* Action Buttons */
+/* Primary SIGN UP Button */
 .mz-signup-btn {
   width: 100%;
   height: 48px;
-  background: linear-gradient(90deg, #a855f7 0%, #38bdf8 100%);
+  background: linear-gradient(90deg, #38bdf8 0%, #2563eb 35%, #8b5cf6 100%);
   border: none;
   border-radius: 12px;
   color: #ffffff;
-  font-size: 15px;
+  font-size: 14.5px;
   font-weight: 700;
   letter-spacing: 0.5px;
   cursor: pointer;
@@ -385,138 +515,357 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  box-shadow: 0 4px 18px rgba(168, 85, 247, 0.35);
-  transition: all 0.2s ease;
+  box-shadow: 0 6px 20px -2px rgba(37, 99, 235, 0.35);
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s ease, opacity 0.2s ease, filter 0.22s ease;
   font-family: inherit;
 }
 
 .mz-signup-btn:hover {
-  opacity: 0.95;
-  transform: translateY(-1px);
-  box-shadow: 0 6px 22px rgba(168, 85, 247, 0.45);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -2px rgba(37, 99, 235, 0.45);
+  filter: saturate(1.05);
 }
 
 .mz-signup-btn:active {
-  transform: translateY(0);
+  transform: translateY(0) scale(0.99);
 }
 
+.mz-signup-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.mz-signup-btn-arrow {
+  transition: transform 0.2s ease;
+}
+
+.mz-signup-btn:hover .mz-signup-btn-arrow {
+  transform: translateX(4px);
+}
+
+/* OR Divider */
 .mz-signup-divider {
   display: flex;
   align-items: center;
-  margin: 15px 0;
+  margin: 18px 0;
   gap: 12px;
 }
 
-.mz-signup-divider .mz-divider-line {
+.mz-divider-line {
   flex: 1;
   height: 1px;
-  background: #202a4a;
+  background: #e2e8f0;
 }
 
-.mz-signup-divider .mz-divider-text {
-  color: #556784;
+.mz-divider-text {
+  color: #94a3b8;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.5px;
 }
 
+/* Google Sign up Button */
 .mz-signup-btn-google {
   width: 100%;
   height: 46px;
   background: #ffffff;
-  border: none;
+  border: 1.5px solid #e2e8f0;
   border-radius: 12px;
   color: #1e293b;
-  font-size: 14.5px;
+  font-size: 13.5px;
   font-weight: 600;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
   font-family: inherit;
 }
 
 .mz-signup-btn-google:hover {
-  background: #f8fafc;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  background-color: #f8fafc;
+  border-color: #cbd5e1;
+  transform: translateY(-1.5px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
 }
 
 .mz-signup-btn-google:active {
-  transform: translateY(0);
+  transform: translateY(0) scale(0.99);
 }
 
+.mz-google-icon {
+  flex-shrink: 0;
+}
+
+/* Footer Link */
 .mz-signup-footer-link {
-  text-align: center;
-  margin-top: 16px;
-  font-size: 13.5px;
-  color: #8292ab;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 18px;
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 400;
 }
 
-.mz-signup-footer-link a {
-  color: #c084fc;
-  text-decoration: none;
+.mz-signup-login-link {
+  color: #7c3aed;
   font-weight: 600;
-  margin-left: 6px;
+  text-decoration: none;
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  transition: color 0.2s ease;
+  transition: color 0.2s ease, transform 0.2s ease;
 }
 
-.mz-signup-footer-link a:hover {
+.mz-signup-login-link:hover {
   text-decoration: underline;
-  color: #d8b4fe;
+  color: #6d28d9;
+  transform: translateX(1px);
 }
 
-/* Responsive Breakpoints */
-@media screen and (max-width: 960px) {
-  .mz-signup-page {
-    padding: 24px 20px;
-  }
+/* ==========================================================================
+   Staggered Form Elements Entrance Classes
+   ========================================================================== */
 
+.su-form-anim-1  { animation: suElemFadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.24s both; }
+.su-form-anim-2  { animation: suElemFadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.29s both; }
+.su-form-anim-3  { animation: suElemFadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.34s both; }
+.su-form-anim-4  { animation: suElemFadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.39s both; }
+.su-form-anim-5  { animation: suElemFadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.44s both; }
+.su-form-anim-6  { animation: suElemFadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.49s both; }
+.su-form-anim-7  { animation: suElemFadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.54s both; }
+.su-form-anim-8  { animation: suElemFadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.59s both; }
+.su-form-anim-9  { animation: suElemFadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.64s both; }
+.su-form-anim-10 { animation: suElemFadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.69s both; }
+.su-form-anim-11 { animation: suElemFadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.74s both; }
+
+/* ==========================================================================
+   Far Right Section: Learning Illustration
+   ========================================================================== */
+
+.mz-signup-illustration-section {
+  flex: 1;
+  max-width: 420px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 2;
+}
+
+.su-illus-anim {
+  animation: suIllusFadeIn 0.85s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both;
+}
+
+.mz-signup-illustration-wrap {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mz-signup-illustration-img {
+  width: 100%;
+  max-width: 400px;
+  height: auto;
+  aspect-ratio: 432 / 217;
+  object-fit: contain;
+  display: block;
+  border: none;
+  outline: none;
+  filter: none;
+  animation: suIllustrationFloat 6s ease-in-out infinite;
+  transform-origin: center;
+}
+
+/* ==========================================================================
+   Smooth Keyframe Animations
+   ========================================================================== */
+
+@keyframes suPageFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes suHeroSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes suCardSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes suElemFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes suIllusFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes suIllustrationFloat {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+/* ==========================================================================
+   Responsive Breakpoints
+   ========================================================================== */
+
+@media screen and (max-width: 1180px) {
   .mz-signup-container {
-    flex-direction: column;
-    gap: 40px;
-    align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 36px;
+    padding: 12px 24px 40px 24px;
   }
 
   .mz-signup-left {
+    flex: 0 0 300px;
+    max-width: 320px;
+  }
+
+  .mz-signup-card-section {
+    flex: 0 0 410px;
+    max-width: 420px;
+  }
+
+  .mz-signup-illustration-section {
+    flex: 0 0 100%;
+    max-width: 420px;
+    order: 3;
+    margin-top: 10px;
+  }
+}
+
+@media screen and (max-width: 820px) {
+  .mz-signup-container {
+    flex-direction: column;
+    align-items: center;
+    gap: 32px;
+  }
+
+  .mz-signup-left {
+    flex: 0 0 auto;
+    max-width: 420px;
+    width: 100%;
     align-items: center;
     text-align: center;
   }
 
   .mz-signup-hero-title {
-    font-size: 36px;
+    font-size: 34px;
+  }
+
+  .mz-signup-hero-sub {
+    max-width: 100%;
+    text-align: center;
   }
 
   .mz-feature-list {
-    align-items: flex-start;
+    align-items: center;
   }
 
-  .mz-signup-sticker-container {
-    justify-content: center;
+  .mz-feature-row {
+    text-align: left;
+    width: 280px;
+  }
+
+  .mz-signup-card-section {
+    flex: 0 0 auto;
+    max-width: 420px;
+    width: 100%;
+  }
+
+  .mz-signup-illustration-section {
+    display: none;
   }
 }
 
-@media screen and (max-width: 520px) {
-  .mz-signup-page {
-    padding: 16px;
+@media screen and (max-width: 480px) {
+  .mz-signup-nav {
+    padding: 16px 18px 8px 18px;
   }
 
-  .mz-signup-nav {
-    flex-direction: column;
-    gap: 15px;
+  .mz-nav-text {
+    display: none;
+  }
+
+  .mz-signup-container {
+    padding: 8px 16px 36px 16px;
   }
 
   .mz-signup-card {
-    padding: 24px 20px;
+    padding: 26px 20px 22px 20px;
+    border-radius: 22px;
+  }
+
+  .mz-signup-card-title {
+    font-size: 23px;
   }
 
   .mz-signup-hero-title {
-    font-size: 30px;
+    font-size: 28px;
+  }
+}
+
+/* ==========================================================================
+   Reduced Motion
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .mz-signup-illustration-img {
+    animation: none !important;
   }
 }

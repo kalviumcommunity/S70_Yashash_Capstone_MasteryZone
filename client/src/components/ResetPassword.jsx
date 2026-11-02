@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { FaLock, FaEye, FaEyeSlash } from "react-icons/fa";
 import { useParams, useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import "./forgot.css";
 import logoImg from "../assets/mastery_zone_logo_transparent.png";
 
@@ -65,14 +66,14 @@ const ResetPassword = () => {
       const data = await response.json();
 
       if (!response.ok) {
-        alert(data.message || "Failed to reset password");
+        toast.error(data.message || "Failed to reset password");
         return;
       }
 
-      alert("Password has been successfully reset! You can now log in.");
+      toast.success("Password has been successfully reset! You can now log in.");
       navigate("/login");
     } catch (err) {
-      alert("Failed to connect to server");
+      toast.error("Failed to connect to server");
     }
   };
 

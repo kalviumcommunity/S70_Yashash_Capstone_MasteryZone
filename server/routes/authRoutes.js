@@ -6,6 +6,7 @@ const User = require('../models/User');
 const verifyFirebaseToken = require('../middleware/firebaseAuth');
 const verifyToken = require('../middleware/auth');
 const { sendLoginNotification, sendPasswordResetEmail } = require('../utils/mailer');
+const { pushNotification } = require('../utils/notificationService');
 const router = express.Router();
 
 const JWT_SECRET = process.env.JWT_SECRET || "supersecretkey";
@@ -67,12 +68,22 @@ router.post(['/signup', '/register'], async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const userData = { username, email, password: hashedPassword };
+    const fullName = (firstName && lastName) ? `${firstName} ${lastName}`.trim() : (firstName || lastName || "");
+    const userData = { username, email, password: hashedPassword, fullName };
     if (normalizedPhone) {
       userData.phoneNumber = normalizedPhone;
     }
 
-    const newUser = await User.create(userData);
+    const newUser = await User.create({ ...userData, notificationsInitialized: true });
+    await pushNotification(req.app, {
+      userId: newUser._id,
+      title: "Welcome to Mastery Zone!",
+      message: `Hi ${newUser.fullName || newUser.username}, your account is ready. Explore tracks, proctored assessments, and live challenges.`,
+      type: "account",
+      severity: "success",
+      actionUrl: "/home",
+      actionLabel: "Explore Hub",
+    });
     const safeUser = {
       username: newUser.username,
       email: newUser.email,
@@ -117,7 +128,11 @@ router.post('/login', async (req, res) => {
     if (!match) return res.status(400).json({ message: 'Invalid credentials' });
 
     // Send login notification asynchronously
-    sendLoginNotification(user.email, user.username);
+    try {
+      sendLoginNotification(user.email, user.username);
+    } catch (mailErr) {
+      console.warn("Mailer notification skipped:", mailErr.message);
+    }
 
     const token = jwt.sign({ userId: user._id, email: user.email }, JWT_SECRET, { expiresIn: '1d' });
 
@@ -125,11 +140,14 @@ router.post('/login', async (req, res) => {
       message: 'Login successful',
       token,
       user: {
+        _id: user._id,
         username: user.username,
-        email: user.email
+        email: user.email,
+        fullName: user.fullName || user.username
       }
     });
   } catch (err) {
+    console.error("Login error:", err);
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
@@ -144,12 +162,23 @@ router.post('/guest-login', async (req, res) => {
 
     if (!user) {
       const hashedPassword = await bcrypt.hash('GuestPassword123!', 10);
-      user = await User.create({ username: 'guest_user', email: guestEmail, password: hashedPassword });
+      user = await User.create({
+        username: 'guest_user',
+        email: guestEmail,
+        fullName: 'Guest User',
+        password: hashedPassword
+      });
     }
 
-    // Reset certifications for guest user on each login
-    const Certification = require('../models/CertificationSchema');
-    await Certification.deleteMany({ userId: user._id });
+    // Reset certifications for guest user on each login (graceful)
+    try {
+      const Certification = require('../models/CertificationSchema');
+      if (Certification) {
+        await Certification.deleteMany({ userId: user._id });
+      }
+    } catch (certErr) {
+      console.warn("Could not reset guest certifications:", certErr.message);
+    }
 
     const token = jwt.sign({ userId: user._id, email: user.email }, JWT_SECRET, { expiresIn: '1d' });
 
@@ -157,12 +186,15 @@ router.post('/guest-login', async (req, res) => {
       message: 'Guest login successful',
       token,
       user: {
+        _id: user._id,
         username: user.username,
-        email: user.email
+        email: user.email,
+        fullName: user.fullName || 'Guest User'
       }
     });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message });
+    console.error("Guest login error:", err);
+    res.status(500).json({ message: 'Server error during guest login', error: err.message });
   }
 });
 
@@ -249,12 +281,13 @@ router.post('/reset-password/:token', async (req, res) => {
 // Firebase Login Route
 router.post('/firebase-login', verifyFirebaseToken, async (req, res) => {
   try {
-    if (!req.user || !req.user.email) {
-      return res.status(400).json({ message: 'No email found in Firebase token' });
+    const rawEmail = req.user?.email || req.body?.email;
+    if (!rawEmail) {
+      return res.status(400).json({ message: 'No email found in Firebase credentials or request' });
     }
-    const email = req.user.email.toLowerCase().trim();
-    const name = req.user.name || 'Firebase User';
-    const uid = req.user.uid || req.user.user_id || 'mock-uid';
+    const email = rawEmail.toLowerCase().trim();
+    const name = req.user?.name || req.body?.name || req.body?.displayName || email.split('@')[0];
+    const uid = req.user?.uid || req.user?.user_id || req.body?.uid || 'google-uid';
     
     // Check if user exists in our DB
     let user = await User.findOne({ email });
@@ -279,6 +312,7 @@ router.post('/firebase-login', verifyFirebaseToken, async (req, res) => {
       user = await User.create({
         username,
         email,
+        fullName: name,
         password: randomPassword,
         authProvider: 'google'
       });
@@ -298,8 +332,10 @@ router.post('/firebase-login', verifyFirebaseToken, async (req, res) => {
       message: 'Firebase login successful',
       token,
       user: {
+        _id: user._id,
         username: user.username,
-        email: user.email
+        email: user.email,
+        fullName: user.fullName || name
       }
     });
 
@@ -311,12 +347,101 @@ router.post('/firebase-login', verifyFirebaseToken, async (req, res) => {
 
 // Profile Routes
 
-// Get current user
+// Get current user and calculate real statistics
 router.get('/me', verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.userId).select('-password');
     if (!user) return res.status(404).json({ message: 'User not found' });
-    res.status(200).json({ user });
+
+    // Update real activity streak
+    const now = new Date();
+    if (!user.lastActiveDate) {
+      user.lastActiveDate = now;
+      user.streak = 1;
+      await user.save();
+    } else {
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+      const lastActive = new Date(user.lastActiveDate);
+      const lastDay = new Date(lastActive.getFullYear(), lastActive.getMonth(), lastActive.getDate()).getTime();
+      const diffDays = Math.round((today - lastDay) / (1000 * 60 * 60 * 24));
+
+      if (diffDays === 1) {
+        user.streak = (user.streak || 1) + 1;
+        user.lastActiveDate = now;
+        await user.save();
+      } else if (diffDays > 1) {
+        user.streak = 1;
+        user.lastActiveDate = now;
+        await user.save();
+      }
+    }
+
+    // Aggregate genuine learning records from Certification database
+    const Certification = require('../models/CertificationSchema');
+    const certs = await Certification.find({ userId: req.user.userId });
+    
+    // Accurately calculate completed modules across enrolled certs
+    let completedModules = 0;
+    let achievements = 0;
+    certs.forEach(c => {
+      if (c.status === 'completed') {
+        completedModules += (c.totalModules || c.currentModule || 1);
+        achievements += 1;
+      } else if (c.currentModule > 1) {
+        completedModules += (c.currentModule - 1);
+      }
+    });
+
+    // Real recorded learning time (or calculated 1.5h per module completed)
+    const learningTimeHours = Math.round(((user.learningHours || 0) + (completedModules * 1.5)) * 10) / 10;
+
+    // Fetch CodingProgress to accurately reflect completed challenges and coding XP
+    const CodingProgress = require('../models/CodingProgress');
+    const codingProg = await CodingProgress.findOne({ userId: req.user.userId });
+    const solvedChallenges = codingProg?.challengesSolved || [];
+    const solvedChallengesCount = solvedChallenges.length;
+
+    // Fetch coding progress records to calculate coding XP and time accurately
+    const Progress = require('../models/ProgressSchema');
+    const codingProgressRecords = await Progress.find({ userId: req.user.userId, track: 'CODING' });
+    const totalCodingXp = codingProgressRecords.reduce((sum, r) => sum + (r.xpEarned || 0), 0);
+    const codingHours = codingProgressRecords.reduce((sum, r) => sum + (r.hoursSpent || 0), 0);
+
+    const safeUser = user.toObject();
+    delete safeUser.resetPasswordToken;
+    delete safeUser.resetPasswordExpires;
+    delete safeUser.otpCodeHash;
+    delete safeUser.otpExpires;
+
+    // Aggregate explored tracks from user record + actual certifications + coding progress
+    const exploredSet = new Set(user.exploredTracks || []);
+    if (solvedChallengesCount > 0 || (codingProg && Object.keys(codingProg.trackLessons || {}).length > 0)) {
+      exploredSet.add('Coding');
+    }
+    certs.forEach(c => {
+      const z = (c.zone || "").toUpperCase();
+      if (z === 'CODING') exploredSet.add('Coding');
+      else if (z === 'LANGUAGE') exploredSet.add('Language');
+      else if (z === 'VEHICLES' || z === 'DRIVING') exploredSet.add('Vehicles');
+      else if (z === 'FITNESS' || z === 'GYM') exploredSet.add('Fitness');
+    });
+    safeUser.exploredTracks = Array.from(exploredSet);
+
+    res.status(200).json({ 
+      user: safeUser,
+      stats: {
+        streak: user.streak || 1,
+        learningHours: Math.round((learningTimeHours + codingHours) * 10) / 10,
+        achievements,
+        completedModules,
+        certificationsCount: certs.length,
+        certifications: certs,
+        exploredTracks: safeUser.exploredTracks,
+        solvedChallengesCount,
+        challengesSolved: solvedChallenges,
+        totalCodingXp,
+      }
+    });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -388,26 +513,103 @@ router.delete('/banner', verifyToken, async (req, res) => {
   }
 });
 
-// Update Profile (Bio, Username)
+// Update Profile (Full Name, Username, Location, Occupation, Bio)
 router.put('/profile', verifyToken, async (req, res) => {
-  const { username, bio } = req.body;
+  const { fullName, username, location, occupation, bio } = req.body;
   
   try {
     const user = await User.findById(req.user.userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
     
-    if (username) {
+    if (username !== undefined) {
+      const cleanUsername = String(username).trim();
+      if (!cleanUsername || cleanUsername.length < 3) {
+        return res.status(400).json({ message: 'Username must be at least 3 characters long' });
+      }
+      if (!/^[a-zA-Z0-9_]+$/.test(cleanUsername)) {
+        return res.status(400).json({ message: 'Username can only contain letters, numbers, and underscores' });
+      }
       // Check for uniqueness if username changed
-      if (username !== user.username) {
-        const existing = await User.findOne({ username });
+      if (cleanUsername !== user.username) {
+        const existing = await User.findOne({ username: cleanUsername });
         if (existing) return res.status(400).json({ message: 'Username is already taken' });
       }
-      user.username = username;
+      user.username = cleanUsername;
     }
-    if (bio !== undefined) user.bio = bio;
+
+    if (fullName !== undefined) {
+      user.fullName = String(fullName).trim();
+    }
+    if (location !== undefined) {
+      user.location = String(location).trim();
+    }
+    if (occupation !== undefined) {
+      user.occupation = String(occupation).trim();
+    }
+    if (bio !== undefined) {
+      user.bio = String(bio).trim();
+    }
     
     await user.save();
-    res.status(200).json({ message: 'Profile updated successfully', user: { username: user.username, bio: user.bio, avatarUrl: user.avatarUrl, email: user.email, role: user.role } });
+
+    await pushNotification(req.app, {
+      userId: user._id,
+      title: "Profile Updated",
+      message: "Your Mastery Zone profile details have been saved successfully.",
+      type: "account",
+      severity: "info",
+      actionUrl: "/profile",
+      actionLabel: "View Profile",
+    });
+
+    const safeUser = user.toObject();
+    delete safeUser.password;
+    delete safeUser.resetPasswordToken;
+    delete safeUser.resetPasswordExpires;
+    delete safeUser.otpCodeHash;
+    delete safeUser.otpExpires;
+
+    res.status(200).json({ 
+      message: 'Profile updated successfully', 
+      user: safeUser 
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// Record explored track route
+router.post('/explore', verifyToken, async (req, res) => {
+  const { track } = req.body;
+  if (!track || typeof track !== 'string') {
+    return res.status(400).json({ message: 'Track name is required' });
+  }
+
+  const normalized = track.trim().toLowerCase();
+  let canonicalName = "Coding";
+  if (normalized.includes("lang")) canonicalName = "Language";
+  else if (normalized.includes("veh") || normalized.includes("driv")) canonicalName = "Vehicles";
+  else if (normalized.includes("fit") || normalized.includes("gym")) canonicalName = "Fitness";
+  else if (normalized.includes("cod")) canonicalName = "Coding";
+  else canonicalName = track.trim().charAt(0).toUpperCase() + track.trim().slice(1).toLowerCase();
+
+  try {
+    const user = await User.findById(req.user.userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (!user.exploredTracks) {
+      user.exploredTracks = [];
+    }
+
+    if (!user.exploredTracks.includes(canonicalName)) {
+      user.exploredTracks.push(canonicalName);
+      await user.save();
+    }
+
+    res.status(200).json({
+      message: 'Exploration recorded successfully',
+      exploredTracks: user.exploredTracks
+    });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -442,6 +644,23 @@ router.put('/preferences', verifyToken, async (req, res) => {
     
     await user.save();
     res.status(200).json({ message: 'Preferences updated successfully', preferences: user.preferences });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// Update Interests
+router.put('/interests', verifyToken, async (req, res) => {
+  const { interests } = req.body;
+  try {
+    const user = await User.findById(req.user.userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    
+    if (Array.isArray(interests)) {
+      user.interests = interests;
+    }
+    await user.save();
+    res.status(200).json({ message: 'Interests updated successfully', interests: user.interests });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }

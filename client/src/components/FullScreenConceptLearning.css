@@ -1,0 +1,613 @@
+/* ==========================================================================
+   MASTERY ZONE - FULL-SCREEN CONCEPT LEARNING STYLESHEET (WHITE THEME)
+   Matches official Mastery Zone clean light design system:
+   - #f8fafc canvas background
+   - #ffffff crisp cards with subtle #e2e8f0 slate borders
+   - #0f172a high-contrast headings
+   - #334155 / #475569 readable body typography
+   - #2563eb Mastery Zone royal blue & #10b981 emerald accents
+   ========================================================================== */
+
+.mz-fs-concept-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: #f8fafc;
+  color: #0f172a;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: mzFsFadeIn 0.25s ease-out;
+}
+
+@keyframes mzFsFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* -------------------------------------------------------------
+   TOP NAVIGATION BAR
+   ------------------------------------------------------------- */
+.mz-fs-navbar {
+  height: 64px;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 28px;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 20;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.mz-fs-scroll-indicator {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #2563eb, #8b5cf6, #10b981);
+  transition: width 0.1s ease-out;
+  box-shadow: 0 0 8px rgba(37, 99, 235, 0.4);
+}
+
+.mz-fs-nav-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.mz-fs-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #1e293b;
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s ease;
+}
+
+.mz-fs-back-btn:hover {
+  background: #eff6ff;
+  border-color: #3b82f6;
+  color: #2563eb;
+  transform: translateX(-2px);
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.12);
+}
+
+.mz-fs-breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.mz-fs-badge-subject {
+  background: rgba(37, 99, 235, 0.08);
+  color: #2563eb;
+  border: 1px solid rgba(37, 99, 235, 0.25);
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.mz-fs-badge-module {
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.mz-fs-nav-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.mz-fs-time-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.mz-fs-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.mz-fs-status-pill.done {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #059669;
+}
+
+.mz-fs-status-pill.pending {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #d97706;
+}
+
+/* -------------------------------------------------------------
+   SCROLLABLE CONTENT BODY
+   ------------------------------------------------------------- */
+.mz-fs-body {
+  flex: 1;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+  padding: 40px 24px 110px;
+  background: #f8fafc;
+}
+
+.mz-fs-container {
+  max-width: 980px;
+  margin: 0 auto;
+}
+
+/* -------------------------------------------------------------
+   HERO BANNER
+   ------------------------------------------------------------- */
+.mz-fs-hero {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 36px 40px;
+  margin-bottom: 32px;
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.03);
+  position: relative;
+  overflow: hidden;
+}
+
+.mz-fs-hero::after {
+  content: "";
+  position: absolute;
+  top: -50%;
+  right: -20%;
+  width: 380px;
+  height: 380px;
+  background: radial-gradient(circle, rgba(37, 99, 235, 0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.mz-fs-hero-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.mz-fs-hero-category {
+  font-size: 12px;
+  font-weight: 700;
+  color: #2563eb;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.mz-fs-hero-title {
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1.25;
+  color: #0f172a;
+  margin: 0 0 12px 0;
+  letter-spacing: -0.02em;
+}
+
+.mz-fs-hero-sub {
+  font-size: 1.05rem;
+  color: #475569;
+  line-height: 1.6;
+  margin: 0 0 24px 0;
+}
+
+.mz-fs-overview-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-left: 4px solid #2563eb;
+  border-radius: 0 12px 12px 0;
+  padding: 18px 24px;
+  margin-bottom: 24px;
+}
+
+.mz-fs-overview-card h4 {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #1e40af;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 6px 0;
+}
+
+.mz-fs-overview-card p {
+  font-size: 14.5px;
+  color: #334155;
+  line-height: 1.65;
+  margin: 0;
+}
+
+.mz-fs-meta-pills {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.mz-fs-meta-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  color: #475569;
+  font-weight: 600;
+}
+
+/* -------------------------------------------------------------
+   CONCEPTUAL ARCHITECTURE DIAGRAM / VISUAL MODEL
+   ------------------------------------------------------------- */
+.mz-fs-diagram-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 28px;
+  margin-bottom: 32px;
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.06);
+}
+
+.mz-fs-diagram-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.mz-fs-diagram-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.mz-fs-diagram-title svg {
+  color: #7c3aed;
+}
+
+.mz-fs-diagram-badge {
+  background: #f5f3ff;
+  color: #7c3aed;
+  border: 1px solid #ddd6fe;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.mz-fs-diagram-canvas {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 24px;
+  overflow-x: auto;
+}
+
+/* -------------------------------------------------------------
+   STRUCTURED SECTIONS
+   ------------------------------------------------------------- */
+.mz-fs-sections-list {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  margin-bottom: 40px;
+}
+
+.mz-fs-section-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 30px 34px;
+  box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.04);
+  transition: all 0.2s ease;
+}
+
+.mz-fs-section-card:hover {
+  border-color: #93c5fd;
+  box-shadow: 0 8px 24px -4px rgba(37, 99, 235, 0.08);
+}
+
+.mz-fs-sec-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.mz-fs-sec-number {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.mz-fs-sec-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+  line-height: 1.35;
+}
+
+.mz-fs-sec-body {
+  font-size: 15px;
+  color: #334155;
+  line-height: 1.75;
+  white-space: pre-line;
+}
+
+.mz-fs-code-box {
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 12px;
+  margin-top: 18px;
+  overflow: hidden;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+}
+
+.mz-fs-code-header {
+  background: #1e293b;
+  padding: 9px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #334155;
+  font-size: 12px;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.mz-fs-btn-copy {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #e2e8f0;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.2s ease;
+}
+
+.mz-fs-btn-copy:hover {
+  background: rgba(37, 99, 235, 0.3);
+  color: #60a5fa;
+  border-color: #3b82f6;
+}
+
+.mz-fs-code-snippet {
+  margin: 0;
+  padding: 16px 20px;
+  font-family: "Fira Code", Monaco, Consolas, "Courier New", monospace;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: #38bdf8;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+/* Callout Boxes */
+.mz-fs-callout {
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-top: 20px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.mz-fs-callout.tip {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+}
+
+.mz-fs-callout.tip .mz-fs-callout-text h5 {
+  color: #15803d;
+}
+
+.mz-fs-callout.warn {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+}
+
+.mz-fs-callout.warn .mz-fs-callout-text h5 {
+  color: #b45309;
+}
+
+.mz-fs-callout.usecase {
+  background: #faf5ff;
+  border: 1px solid #e9d5ff;
+  color: #6b21a8;
+}
+
+.mz-fs-callout.usecase .mz-fs-callout-text h5 {
+  color: #7e22ce;
+}
+
+.mz-fs-callout-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.mz-fs-callout-text h5 {
+  margin: 0 0 4px 0;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.mz-fs-callout-text p {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: #334155;
+}
+
+/* -------------------------------------------------------------
+   PERSISTENT BOTTOM ACTION BAR
+   ------------------------------------------------------------- */
+.mz-fs-footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(255, 255, 255, 0.97);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid #e2e8f0;
+  padding: 16px 36px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  z-index: 30;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.06);
+}
+
+.mz-fs-footer-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mz-fs-footer-text h4 {
+  margin: 0 0 2px 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.mz-fs-footer-text p {
+  margin: 0;
+  font-size: 12.5px;
+  color: #64748b;
+}
+
+.mz-fs-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mz-fs-btn-cancel {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s ease;
+}
+
+.mz-fs-btn-cancel:hover {
+  color: #0f172a;
+  border-color: #94a3b8;
+  background: #f8fafc;
+}
+
+.mz-fs-btn-complete {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border: none;
+  color: #ffffff;
+  padding: 11px 24px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+  transition: all 0.2s ease;
+}
+
+.mz-fs-btn-complete:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5);
+}
+
+.mz-fs-btn-complete:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .mz-fs-navbar {
+    padding: 0 16px;
+  }
+  .mz-fs-hero {
+    padding: 24px 20px;
+  }
+  .mz-fs-hero-title {
+    font-size: 1.5rem;
+  }
+  .mz-fs-section-card {
+    padding: 20px 18px;
+  }
+  .mz-fs-footer {
+    padding: 12px 18px;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .mz-fs-footer-actions {
+    justify-content: space-between;
+  }
+}
