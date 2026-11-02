@@ -78,12 +78,23 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
   const token = localStorage.getItem("token");
   const projectId = initialProject?.id || initialProject?._id || routeProjectId;
 
+  const currentUserId = (() => {
+    try {
+      const rawUser = localStorage.getItem("user");
+      if (rawUser) {
+        const u = JSON.parse(rawUser);
+        return u._id || u.id || u.userId || "guest";
+      }
+    } catch {}
+    return "guest";
+  })();
+
   const [projectSpec, setProjectSpec] = useState(initialProject || null);
   const [files, setFiles] = useState(() => {
-    // Check localStorage backup first if available
+    // Check user-scoped localStorage backup first if available
     try {
-      const localKey = `mz_proj_draft_${initialProject?.id || routeProjectId}`;
-      const savedDraft = localStorage.getItem(localKey);
+      const localKey = `mz_${currentUserId}_proj_draft_${initialProject?.id || routeProjectId}`;
+      const savedDraft = localStorage.getItem(localKey) || localStorage.getItem(`mz_proj_draft_${initialProject?.id || routeProjectId}`);
       if (savedDraft) {
         const parsed = JSON.parse(savedDraft);
         if (Array.isArray(parsed?.files) && parsed.files.length > 0) {
@@ -179,7 +190,7 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
           setActiveFileIdx(0);
           try {
             localStorage.setItem(
-              `mz_proj_draft_${projectId}`,
+              `mz_${currentUserId}_proj_draft_${projectId}`,
               JSON.stringify({ files: loadedFiles, updatedAt: Date.now() })
             );
           } catch {}
@@ -226,7 +237,7 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
       if (!projectId) return;
       try {
         localStorage.setItem(
-          `mz_proj_draft_${projectId}`,
+          `mz_${currentUserId}_proj_draft_${projectId}`,
           JSON.stringify({ files: filesToSave, checkedTasks: tasksToSave, updatedAt: Date.now() })
         );
       } catch {}
@@ -326,7 +337,7 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
     // Save immediately to localStorage for instant crash recovery
     try {
       localStorage.setItem(
-        `mz_proj_draft_${projectId}`,
+        `mz_${currentUserId}_proj_draft_${projectId}`,
         JSON.stringify({ files: nextFiles, checkedTasks, updatedAt: Date.now() })
       );
     } catch {}
@@ -613,7 +624,8 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
 
       // Save report summary to localStorage for immediate Homepage availability
       try {
-        const existingReports = JSON.parse(localStorage.getItem("mz_assessment_reports") || "[]");
+        const reportsKey = currentUserId && currentUserId !== "guest" ? `mz_${currentUserId}_assessment_reports` : "mz_assessment_reports";
+        const existingReports = JSON.parse(localStorage.getItem(reportsKey) || "[]");
         const reportEntry = {
           id: sub.sessionId,
           sessionId: sub.sessionId,
@@ -642,7 +654,7 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
         };
         const filtered = existingReports.filter((r) => r.sessionId !== sub.sessionId);
         localStorage.setItem(
-          "mz_assessment_reports",
+          reportsKey,
           JSON.stringify([reportEntry, ...filtered].slice(0, 50))
         );
       } catch {}
@@ -653,7 +665,8 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
       if (sub.passed) {
         try {
           const pId = projectSpec?.id || projectId;
-          localStorage.setItem(`mz_proj_passed_${pId}`, "true");
+          const passedKey = currentUserId && currentUserId !== "guest" ? `mz_${currentUserId}_proj_passed_${pId}` : `mz_proj_passed_${pId}`;
+          localStorage.setItem(passedKey, "true");
           window.dispatchEvent(new CustomEvent("mz_project_passed", { detail: { projectId: pId } }));
         } catch {}
       }

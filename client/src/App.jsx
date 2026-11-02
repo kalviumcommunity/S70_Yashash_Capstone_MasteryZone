@@ -32,6 +32,7 @@ const ChallengeWorkspaceModal = lazy(() => import("./components/ChallengeWorkspa
 const FullScreenConceptLearning = lazy(() => import("./components/FullScreenConceptLearning.jsx"));
 const PracticalAssignmentModal = lazy(() => import("./components/PracticalAssignmentModal.jsx"));
 const ProctoredAssessmentWorkspace = lazy(() => import("./components/ProctoredAssessmentWorkspace.jsx"));
+const CertificationExamWorkspace = lazy(() => import("./components/CertificationExamWorkspace.jsx"));
 
 function App() {
   return (
@@ -70,6 +71,16 @@ function App() {
           <Route
             path="/certifications"
             element={<Navigate to="/home?tab=certifications" replace />}
+          />
+          <Route
+            path="/certification-exam/:certId"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<GlobalLoader />}>
+                  <CertificationExamWorkspace isStandalone={true} />
+                </Suspense>
+              </ProtectedRoute>
+            }
           />
           <Route
             path="/verify/:certificateId"
@@ -190,11 +201,9 @@ function App() {
           <Route
             path="/meeting/:meetingId"
             element={
-              <ProtectedRoute>
-                <Suspense fallback={<CodingLoader />}>
-                  <MasteryZoneLivePlatform />
-                </Suspense>
-              </ProtectedRoute>
+              <Suspense fallback={<CodingLoader />}>
+                <MasteryZoneLivePlatform />
+              </Suspense>
             }
           />
           <Route

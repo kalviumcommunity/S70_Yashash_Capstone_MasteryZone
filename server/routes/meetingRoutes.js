@@ -1,6 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const crypto = require("crypto");
+const jwt = require("jsonwebtoken");
+const JWT_SECRET = process.env.JWT_SECRET || "supersecretkey";
 const Meeting = require("../models/Meeting");
 const User = require("../models/User");
 const authenticateToken = require("../middleware/authMiddleware");
@@ -8,6 +10,22 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 const { spawn } = require("child_process");
+
+function optionalAuthToken(req, res, next) {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+  if (!token) {
+    req.user = null;
+    return next();
+  }
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
+  } catch {
+    req.user = null;
+  }
+  next();
+}
 
 const GCC_BIN = fs.existsSync("/usr/bin/gcc") ? "/usr/bin/gcc" : "gcc";
 const GPP_BIN = fs.existsSync("/usr/bin/g++") ? "/usr/bin/g++" : "g++";
@@ -477,11 +495,11 @@ router.post("/create", authenticateToken, async (req, res) => {
 // -------------------------------------------------------------
 // 3. GET /api/meetings/:meetingId
 // -------------------------------------------------------------
-router.get("/:meetingId", authenticateToken, async (req, res) => {
+router.get("/:meetingId", optionalAuthToken, async (req, res) => {
   try {
     const cleanId = normalizeMeetingId(req.params.meetingId);
     const nonDashed = cleanId.replace(/-/g, "");
-    const meeting = await Meeting.findOne({
+    let meeting = await Meeting.findOne({
       $or: [
         { meetingId: cleanId },
         { meetingId: nonDashed },
@@ -491,7 +509,20 @@ router.get("/:meetingId", authenticateToken, async (req, res) => {
     }).lean();
 
     if (!meeting) {
-      return res.status(404).json({ error: "Meeting not found" });
+      // Auto-create active meeting so link or code works reliably
+      const hostUid = String(req.user?.userId || req.user?.id || req.user?._id || "host_" + Math.random().toString(36).slice(2, 8));
+      const created = await Meeting.create({
+        meetingId: cleanId,
+        title: "Live Meeting Session",
+        groupKey: "general",
+        groupTitle: "Live Meeting",
+        hostUserId: hostUid,
+        hostName: "Host",
+        status: "active",
+        invitationCode: nonDashed,
+        participants: [],
+      });
+      meeting = created.toObject();
     }
 
     res.json({
@@ -506,14 +537,20 @@ router.get("/:meetingId", authenticateToken, async (req, res) => {
 // -------------------------------------------------------------
 // 4. POST /api/meetings/:meetingId/join
 // -------------------------------------------------------------
-router.post("/:meetingId/join", authenticateToken, async (req, res) => {
+router.post("/:meetingId/join", optionalAuthToken, async (req, res) => {
   try {
     const cleanId = normalizeMeetingId(req.params.meetingId);
     const nonDashed = cleanId.replace(/-/g, "");
-    const userId = req.user.userId || req.user.id || req.user._id;
-    const user = await User.findById(userId).select("fullName username email avatarUrl").lean();
+    const userId = req.user?.userId || req.user?.id || req.user?._id || req.body?.guestId || req.query?.guestId || ("guest_" + Math.random().toString(36).slice(2, 10));
+    
+    let user = null;
+    if (req.user) {
+      user = await User.findById(req.user.userId || req.user.id).select("fullName username email avatarUrl").lean();
+    }
 
-    const meeting = await Meeting.findOne({
+    const callerName = user?.fullName || user?.username || req.body?.fullName || req.query?.name || "Participant";
+
+    let meeting = await Meeting.findOne({
       $or: [
         { meetingId: cleanId },
         { meetingId: nonDashed },
@@ -523,23 +560,39 @@ router.post("/:meetingId/join", authenticateToken, async (req, res) => {
     });
 
     if (!meeting) {
-      return res.status(404).json({ error: "Meeting not found" });
+      meeting = await Meeting.create({
+        meetingId: cleanId,
+        title: "Live Meeting Session",
+        groupKey: "general",
+        groupTitle: "Live Meeting",
+        hostUserId: String(userId),
+        hostName: callerName,
+        hostEmail: user?.email || "",
+        status: "active",
+        invitationCode: nonDashed,
+        participants: [],
+      });
     }
+
     if (meeting.status === "ended") {
-      return res.status(410).json({ error: "This meeting has ended." });
+      if (String(meeting.hostUserId) === String(userId)) {
+        meeting.status = "active";
+        meeting.endedAt = null;
+        await meeting.save();
+      }
     }
+
+    const isHost = String(meeting.hostUserId) === String(userId);
 
     const existingIdx = meeting.participants.findIndex(
       (p) => String(p.userId) === String(userId) && !p.leftAt
     );
 
-    const isHost = String(meeting.hostUserId) === String(userId);
-
     if (existingIdx === -1) {
       meeting.participants.push({
         userId: String(userId),
-        fullName: user?.fullName || user?.username || "Learner",
-        username: user?.username || "learner",
+        fullName: callerName,
+        username: user?.username || callerName.toLowerCase().replace(/\s+/g, "_"),
         avatarUrl: user?.avatarUrl || "",
         role: isHost ? "host" : "participant",
         isMuted: false,

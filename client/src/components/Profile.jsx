@@ -129,7 +129,13 @@ const Profile = () => {
   const location = useLocation();
 
   // Real Database User & Stats State (Zero Fake Data)
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    try {
+      const stored = localStorage.getItem("user");
+      if (stored) return JSON.parse(stored);
+    } catch {}
+    return null;
+  });
   const [stats, setStats] = useState({
     streak: 1,
     learningHours: 0,
@@ -200,6 +206,13 @@ const Profile = () => {
       if (response.ok) {
         const data = await response.json();
         setUser(data.user);
+        try {
+          localStorage.setItem("user", JSON.stringify(data.user));
+          localStorage.setItem("mz_user", JSON.stringify(data.user));
+          const resolvedName = data.user.fullName || data.user.username || data.user.name || "";
+          if (resolvedName) localStorage.setItem("userName", resolvedName);
+          if (data.user.email) localStorage.setItem("userEmail", data.user.email);
+        } catch {}
         if (data.stats) {
           setStats(data.stats);
         }
@@ -390,7 +403,8 @@ const Profile = () => {
 
   // Logout confirm
   const handleLogoutConfirm = () => {
-    localStorage.removeItem("token");
+    localStorage.clear();
+    sessionStorage.clear();
     toast.info("Logged out successfully.");
     navigate("/login");
   };
@@ -398,13 +412,17 @@ const Profile = () => {
   // Real formatted display name
   const displayName = useMemo(() => {
     if (user?.fullName && user.fullName.trim()) return user.fullName.trim();
+    if (user?.name && user.name.trim()) return user.name.trim();
     if (user?.username) {
       return user.username
         .split("_")
         .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
         .join(" ");
     }
-    return "Alex Morgan";
+    const storedName = localStorage.getItem("userName");
+    if (storedName && storedName.trim()) return storedName.trim();
+    if (user?.email) return user.email.split("@")[0];
+    return "Learner";
   }, [user]);
 
   // Real formatted join date from database timestamp

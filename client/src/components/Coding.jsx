@@ -430,22 +430,74 @@ export default function Coding() {
 
   // User authentication info
   const token = localStorage.getItem("token");
-  const currentUser = useMemo(() => {
+  const [currentUser, setCurrentUser] = useState(() => {
     try {
       const stored = localStorage.getItem("user");
-      if (stored) return JSON.parse(stored);
+      if (stored) {
+        const u = JSON.parse(stored);
+        const name = u.fullName || u.username || u.name || localStorage.getItem("userName") || "Learner";
+        const email = u.email || localStorage.getItem("userEmail") || "user@masteryzone.com";
+        return { ...u, name, fullName: u.fullName || name, email };
+      }
     } catch {}
-    return { name: "Learner", email: "user@masteryzone.com" };
+    const name = localStorage.getItem("userName") || "Learner";
+    const email = localStorage.getItem("userEmail") || "user@masteryzone.com";
+    return { name, fullName: name, email };
+  });
+
+  const currentUserId = currentUser?._id || currentUser?.id || currentUser?.userId || "";
+
+  // Real-time user info sync from database
+  useEffect(() => {
+    const fetchFreshUser = async () => {
+      const storedToken = localStorage.getItem("token");
+      if (!storedToken) return;
+      try {
+        const res = await fetch(`${API_BASE}/auth/me`, {
+          headers: { Authorization: `Bearer ${storedToken}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.user) {
+            const u = data.user;
+            const name = u.fullName || u.username || u.name || "Learner";
+            const email = u.email || "user@masteryzone.com";
+            const updated = { ...u, name, fullName: u.fullName || name, email };
+            setCurrentUser(updated);
+            try {
+              localStorage.setItem("user", JSON.stringify(updated));
+              localStorage.setItem("mz_user", JSON.stringify(updated));
+              localStorage.setItem("userName", name);
+              localStorage.setItem("userEmail", email);
+            } catch {}
+          }
+        }
+      } catch (err) {
+        console.warn("Real-time profile refresh notice:", err);
+      }
+    };
+    fetchFreshUser();
   }, []);
 
-  // Resource Visited State
+  // Resource Visited State strictly scoped to logged-in user
   const [visitedResources, setVisitedResources] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem("mz_visited_resources") || "[]");
+      const rawUser = localStorage.getItem("user");
+      let uId = "";
+      if (rawUser) {
+        const p = JSON.parse(rawUser);
+        uId = p._id || p.id || p.userId || "";
+      }
+      const key = uId ? `mz_${uId}_visited_resources` : "mz_visited_resources";
+      return JSON.parse(localStorage.getItem(key) || "[]");
     } catch {
       return [];
     }
   });
+
+  // Certification interactive search & category filter state
+  const [certSearchQuery, setCertSearchQuery] = useState("");
+  const [certFilterCategory, setCertFilterCategory] = useState("all");
 
   // Study Groups state
   const [studyGroupCategory, setStudyGroupCategory] = useState("all");
@@ -457,16 +509,38 @@ export default function Coding() {
   useEffect(() => {
     const handleStorageOrCustom = () => {
       setCompletionTick((t) => t + 1);
+      try {
+        const stored = localStorage.getItem("user");
+        if (stored) {
+          const u = JSON.parse(stored);
+          const name = u.fullName || u.username || u.name || "Learner";
+          setCurrentUser({ ...u, name, fullName: u.fullName || name, email: u.email || "user@masteryzone.com" });
+        }
+      } catch {}
     };
+
+    const handleWindowMessage = (event) => {
+      if (
+        event.data?.type === "MZ_MODULE_STUDIED" ||
+        event.data?.type === "MZ_EXAM_COMPLETED" ||
+        event.data?.type === "MZ_ASSIGNMENT_PASSED"
+      ) {
+        fetchCurriculum(activeTrackId);
+        fetchDashboardData();
+      }
+    };
+
     window.addEventListener("mz_challenge_solved", handleStorageOrCustom);
     window.addEventListener("mz_project_passed", handleStorageOrCustom);
     window.addEventListener("storage", handleStorageOrCustom);
+    window.addEventListener("message", handleWindowMessage);
     return () => {
       window.removeEventListener("mz_challenge_solved", handleStorageOrCustom);
       window.removeEventListener("mz_project_passed", handleStorageOrCustom);
       window.removeEventListener("storage", handleStorageOrCustom);
+      window.removeEventListener("message", handleWindowMessage);
     };
-  }, []);
+  }, [activeTrackId]);
 
   /* ────────────────────────────────────────────────────────────
      1. Fetch Unified Dashboard Data
@@ -696,6 +770,20 @@ export default function Coding() {
     return displayModules.filter((m) => m.assessmentPassed || m.assignmentPassed).length;
   }, [displayModules]);
 
+  const hasStartedLearning = useMemo(() => {
+    return (
+      completedCount > 0 ||
+      displayModules.some(
+        (m) =>
+          Boolean(m.assessmentPassed) ||
+          Boolean(m.assignmentPassed) ||
+          Boolean(m.exercisePassed) ||
+          Boolean(m.isStudied) ||
+          Boolean(m.score)
+      )
+    );
+  }, [completedCount, displayModules]);
+
   const totalCount = displayModules.length || 8;
   const completionPercentage = Math.round((completedCount / (totalCount || 1)) * 100);
 
@@ -800,7 +888,8 @@ export default function Coding() {
   };
 
   const handleStartExam = (certId, certTitle, language = "python") => {
-    setSelectedExamWorkspace({ id: certId, name: certTitle, language });
+    // Open certification examination strictly in a dedicated separate tab
+    window.open(`/certification-exam/${certId}`, "_blank", "noopener,noreferrer");
   };
 
   const handleOpenPlayground = (langId, langName, starterCode) => {
@@ -835,8 +924,7 @@ export default function Coding() {
 
       if (meetingId) {
         sessionStorage.setItem(`mz_host_${meetingId}`, "true");
-        localStorage.setItem(`mz_host_${meetingId}`, "true");
-        window.open(`/meeting/${meetingId}?host=true&instant=true`, "_blank", "noopener,noreferrer");
+        window.open(`/meeting/${meetingId}`, "_blank", "noopener,noreferrer");
       }
     } catch (err) {
       console.warn("Instant meeting creation:", err);
@@ -845,8 +933,7 @@ export default function Coding() {
       const r3 = Math.random().toString(36).substring(2, 5);
       const fallbackId = `${r1}-${r2}-${r3}`;
       sessionStorage.setItem(`mz_host_${fallbackId}`, "true");
-      localStorage.setItem(`mz_host_${fallbackId}`, "true");
-      window.open(`/meeting/${fallbackId}?host=true&instant=true`, "_blank", "noopener,noreferrer");
+      window.open(`/meeting/${fallbackId}`, "_blank", "noopener,noreferrer");
     }
   };
 
@@ -857,19 +944,35 @@ export default function Coding() {
   const handleJoinWithCode = (e) => {
     e?.preventDefault();
     if (!studyRoomCodeInput.trim()) return;
-    const clean = studyRoomCodeInput.trim().replace(/^.*\/meeting\//, "");
+    const clean = studyRoomCodeInput.trim().replace(/^.*\/meeting\//, "").split("?")[0].split("/")[0];
     window.open(`/meeting/${clean}`, "_blank", "noopener,noreferrer");
     setStudyRoomCodeInput("");
   };
 
   const handleOpenResource = (resItem) => {
+    if (!resItem) return;
     const key = resItem.url || resItem.title;
     if (!visitedResources.includes(key)) {
       const updated = [...visitedResources, key];
       setVisitedResources(updated);
       try {
-        localStorage.setItem("mz_visited_resources", JSON.stringify(updated));
+        const uId = currentUser?._id || currentUser?.id || currentUser?.userId;
+        if (uId) {
+          localStorage.setItem(`mz_${uId}_visited_resources`, JSON.stringify(updated));
+        }
       } catch {}
+      // Sync permanently to user's database account
+      const token = localStorage.getItem("token");
+      if (token) {
+        fetch(`${API_BASE}/api/coding/resources/visit`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ url: resItem.url, title: resItem.title }),
+        }).catch(() => {});
+      }
     }
     try {
       window.open(resItem.url, "_blank", "noopener,noreferrer");
@@ -937,14 +1040,13 @@ export default function Coding() {
     const token = localStorage.getItem("token");
     if (token) {
       try {
-        await fetch(`${API_BASE}/api/curriculum/study`, {
+        await fetch(`${API_BASE}/api/coding/curriculum/study`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            subjectKey: "coding",
             trackId: activeTrackId,
             moduleIndex: mod.moduleIndex,
             studyTimeSeconds: Math.max(30, studyTimeElapsed),
@@ -1016,10 +1118,10 @@ export default function Coding() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+    localStorage.clear();
+    sessionStorage.clear();
     toast.info("Signed out successfully.");
-    navigate("/");
+    navigate("/login");
   };
 
   return (
@@ -1474,7 +1576,7 @@ export default function Coding() {
                         if (nextMod) handleStartPractice(nextMod);
                       }}
                     >
-                      Resume Learning <LuArrowRight size={15} />
+                      {hasStartedLearning ? "Resume Learning" : "Start Learning"} <LuArrowRight size={15} />
                     </button>
                   </div>
                 </div>
@@ -1985,7 +2087,8 @@ export default function Coding() {
                   const isDone =
                     ch.isCompleted ||
                     ch.solved ||
-                    (typeof window !== "undefined" && window.localStorage?.getItem(`mz_ch_solved_${ch.id}`) === "true");
+                    (currentUserId && typeof window !== "undefined" && window.localStorage?.getItem(`mz_${currentUserId}_ch_solved_${ch.id}`) === "true") ||
+                    (!currentUserId && typeof window !== "undefined" && window.localStorage?.getItem(`mz_ch_solved_${ch.id}`) === "true");
                   return (
                     <div
                       key={ch.id || idx}
@@ -2333,7 +2436,8 @@ export default function Coding() {
                 proj.userState?.passed ||
                 proj.userState?.status === "PASSED" ||
                 proj.userState?.status === "passed" ||
-                (typeof window !== "undefined" && window.localStorage?.getItem(`mz_proj_passed_${proj.id}`) === "true");
+                (currentUserId && typeof window !== "undefined" && window.localStorage?.getItem(`mz_${currentUserId}_proj_passed_${proj.id}`) === "true") ||
+                (!currentUserId && typeof window !== "undefined" && window.localStorage?.getItem(`mz_proj_passed_${proj.id}`) === "true");
               return (
                 <div
                   key={proj.id}
@@ -2483,7 +2587,7 @@ export default function Coding() {
                   cat: "dsa",
                   title: "Python Algorithm Sprints & Graph Traversals",
                   desc: "Solving LeetCode Hard dynamic programming problems and comparing asymptotic Big-O execution live.",
-                  host: "Yeshes (Founder)",
+                  host: "Yashash (Founder)",
                   hostRole: "Admin / Host",
                   peers: 8,
                   tag: "Live Code Review",
@@ -2620,15 +2724,30 @@ export default function Coding() {
                     transition: "transform 0.2s ease, box-shadow 0.2s ease",
                     cursor: "pointer",
                     position: "relative",
+                    border: isVisited ? "1.5px solid #10b981" : "1px solid #e2e8f0",
+                    background: isVisited ? "#f0fdf4" : "#ffffff",
+                    boxShadow: isVisited ? "0 4px 18px rgba(16, 185, 129, 0.14)" : "0 2px 8px rgba(0, 0, 0, 0.04)",
                   }}
                   onClick={() => handleOpenResource(resItem)}
                 >
-                  <div className="mz-c-card-top-accent" />
+                  <div
+                    className="mz-c-card-top-accent"
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      height: "4px",
+                      background: isVisited ? "#10b981" : "transparent",
+                      borderTopLeftRadius: "12px",
+                      borderTopRightRadius: "12px",
+                    }}
+                  />
                   <div>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                         <TechBrandIcon type={resItem.lang} size={22} />
-                        <span style={{ fontSize: "12px", fontWeight: 700, color: "#64748b" }}>{resItem.category}</span>
+                        <span style={{ fontSize: "12px", fontWeight: 700, color: isVisited ? "#047857" : "#64748b" }}>{resItem.category}</span>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                         {resItem.official && (
@@ -2637,26 +2756,41 @@ export default function Coding() {
                           </span>
                         )}
                         {isVisited && (
-                          <span className="mz-c-card-completed-badge mz-c-badge-visited" title="Viewed and recorded">
+                          <span
+                            className="mz-c-card-completed-badge mz-c-badge-visited"
+                            style={{
+                              background: "#ecfdf5",
+                              color: "#059669",
+                              border: "1px solid #a7f3d0",
+                              fontWeight: 800,
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "4px",
+                              padding: "3px 8px",
+                              borderRadius: "12px",
+                              fontSize: "11px",
+                            }}
+                            title="Viewed and recorded"
+                          >
                             <LuCheck size={12} /> Visited
                           </span>
                         )}
                       </div>
                     </div>
-                    <h3 style={{ margin: "0 0 8px", fontSize: "16px", fontWeight: 700, color: "#0f172a" }}>
+                    <h3 style={{ margin: "0 0 8px", fontSize: "16px", fontWeight: 700, color: isVisited ? "#064e3b" : "#0f172a" }}>
                       {resItem.title}
                     </h3>
-                    <p style={{ margin: 0, fontSize: "13px", color: "#64748b", lineHeight: 1.5 }}>
+                    <p style={{ margin: 0, fontSize: "13px", color: isVisited ? "#33534b" : "#64748b", lineHeight: 1.5 }}>
                       {resItem.description}
                     </p>
                   </div>
 
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "16px", paddingTop: "12px", borderTop: "1px solid #f1f5f9" }}>
-                    <span style={{ fontSize: "11.5px", color: isVisited ? "#10b981" : "#64748b", fontWeight: 600 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "16px", paddingTop: "12px", borderTop: isVisited ? "1px solid #d1fae5" : "1px solid #f1f5f9" }}>
+                    <span style={{ fontSize: "11.5px", color: isVisited ? "#059669" : "#64748b", fontWeight: 700, display: "flex", alignItems: "center", gap: "4px" }}>
                       {isVisited ? "✓ Viewed Documentation" : "Reference Manual"}
                     </span>
-                    <span style={{ color: "#2563eb", fontSize: "12.5px", fontWeight: 700, display: "flex", alignItems: "center", gap: "5px" }}>
-                      Open Documentation <LuExternalLink size={13} />
+                    <span style={{ color: isVisited ? "#059669" : "#2563eb", fontSize: "12.5px", fontWeight: 700, display: "flex", alignItems: "center", gap: "5px" }}>
+                      {isVisited ? "Explore Guide" : "Open Documentation"} <LuExternalLink size={13} />
                     </span>
                   </div>
                 </div>
@@ -2665,161 +2799,378 @@ export default function Coding() {
           </div>
         )}
 
-        {/* ── TAB 7: CERTIFICATION TAB ── */}
+        {/* ── TAB 7: CERTIFICATION TAB (Professional & Interactive Design) ── */}
         {activeTab === "certification" && (
           <div className="mz-c-certs-list mz-c-grid-anim">
+            {/* Top Academic & Professional Banner */}
+            <div
+              style={{
+                background: "linear-gradient(135deg, #0f172a 0%, #1e1b4b 55%, #1e3a8a 100%)",
+                borderRadius: "20px",
+                padding: "32px 36px",
+                color: "#ffffff",
+                marginBottom: "32px",
+                boxShadow: "0 12px 36px rgba(15, 23, 42, 0.25)",
+                position: "relative",
+                overflow: "hidden",
+                border: "1px solid rgba(212, 175, 55, 0.3)",
+              }}
+            >
+              <div
+                style={{
+                  position: "absolute",
+                  top: -60,
+                  right: -60,
+                  width: "240px",
+                  height: "240px",
+                  borderRadius: "50%",
+                  background: "radial-gradient(circle, rgba(212, 175, 55, 0.18) 0%, rgba(212, 175, 55, 0) 70%)",
+                  pointerEvents: "none",
+                }}
+              />
+              <div style={{ position: "relative", zIndex: 1 }}>
+                <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: "rgba(212, 175, 55, 0.18)", border: "1px solid #d4af37", padding: "4px 12px", borderRadius: "9999px", marginBottom: "14px" }}>
+                  <span style={{ color: "#fbbf24", fontSize: "13px" }}>★</span>
+                  <span style={{ fontSize: "11.5px", fontWeight: 800, color: "#fef08a", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                    Official Accredited Examination Suite
+                  </span>
+                </div>
+                <h1 style={{ fontSize: "28px", fontWeight: 900, margin: "0 0 10px", color: "#ffffff", letterSpacing: "-0.02em" }}>
+                  Mastery Zone Professional Certifications
+                </h1>
+                <p style={{ margin: "0 0 24px", fontSize: "14.5px", color: "#cbd5e1", maxWidth: "780px", lineHeight: 1.6 }}>
+                  Take rigorous, proctored examinations designed to evaluate true engineering competence. Pass 20 MCQs and 2 live algorithmic coding challenges to receive official cryptographic credentials signed by Founder Yashash.
+                </p>
+
+                {/* Key Metrics Row */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "14px", marginTop: "12px" }}>
+                  <div style={{ background: "rgba(255, 255, 255, 0.08)", backdropFilter: "blur(8px)", padding: "12px 16px", borderRadius: "12px", border: "1px solid rgba(255, 255, 255, 0.12)" }}>
+                    <div style={{ fontSize: "11px", color: "#94a3b8", textTransform: "uppercase", fontWeight: 700 }}>Pass Benchmark</div>
+                    <div style={{ fontSize: "18px", fontWeight: 800, color: "#4ade80", marginTop: "4px" }}>80% Required</div>
+                  </div>
+                  <div style={{ background: "rgba(255, 255, 255, 0.08)", backdropFilter: "blur(8px)", padding: "12px 16px", borderRadius: "12px", border: "1px solid rgba(255, 255, 255, 0.12)" }}>
+                    <div style={{ fontSize: "11px", color: "#94a3b8", textTransform: "uppercase", fontWeight: 700 }}>Proctoring Standard</div>
+                    <div style={{ fontSize: "18px", fontWeight: 800, color: "#60a5fa", marginTop: "4px" }}>Strict (5 Lives)</div>
+                  </div>
+                  <div style={{ background: "rgba(255, 255, 255, 0.08)", backdropFilter: "blur(8px)", padding: "12px 16px", borderRadius: "12px", border: "1px solid rgba(255, 255, 255, 0.12)" }}>
+                    <div style={{ fontSize: "11px", color: "#94a3b8", textTransform: "uppercase", fontWeight: 700 }}>Time Allowed</div>
+                    <div style={{ fontSize: "18px", fontWeight: 800, color: "#fef08a", marginTop: "4px" }}>90 Minutes</div>
+                  </div>
+                  <div style={{ background: "rgba(255, 255, 255, 0.08)", backdropFilter: "blur(8px)", padding: "12px 16px", borderRadius: "12px", border: "1px solid rgba(255, 255, 255, 0.12)" }}>
+                    <div style={{ fontSize: "11px", color: "#94a3b8", textTransform: "uppercase", fontWeight: 700 }}>Earned Credentials</div>
+                    <div style={{ fontSize: "18px", fontWeight: 800, color: "#c084fc", marginTop: "4px" }}>{earnedCertificates.length} Issued</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Dedicated My Earned Certificates Section */}
-            <div style={{ marginBottom: "36px" }} data-testid="coding-my-certificates-section">
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
-                <h2 style={{ fontSize: "20px", fontWeight: 800, color: "#0f172a", margin: 0, display: "flex", alignItems: "center", gap: "8px" }}>
-                  <span>🏆</span> My Earned Certificates ({earnedCertificates.length})
-                </h2>
-                <span style={{ fontSize: "12px", color: "#64748b" }}>
-                  Official verified Coursera-style credentials signed by Founder Yeshes
-                </span>
+            <div style={{ marginBottom: "40px" }} data-testid="coding-my-certificates-section">
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "18px" }}>
+                <div>
+                  <h2 style={{ fontSize: "20px", fontWeight: 800, color: "#0f172a", margin: 0, display: "flex", alignItems: "center", gap: "8px" }}>
+                    <span>🏆</span> My Earned Certificates ({earnedCertificates.length})
+                  </h2>
+                  <p style={{ margin: "3px 0 0", fontSize: "13px", color: "#64748b" }}>
+                    Official verified Coursera-style credentials signed by Founder Yashash
+                  </p>
+                </div>
               </div>
 
               {earnedCertificates.length > 0 ? (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "16px" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: "20px" }}>
                   {earnedCertificates.map((cert) => (
                     <div
                       key={cert.certificateId}
                       style={{
-                        background: "#ffffff",
-                        border: "1px solid #d4af37",
+                        background: "linear-gradient(180deg, #ffffff 0%, #fffdf8 100%)",
+                        border: "1.5px solid #d4af37",
                         borderRadius: "16px",
-                        padding: "20px",
-                        boxShadow: "0 8px 24px rgba(212, 175, 55, 0.12)",
+                        padding: "22px",
+                        boxShadow: "0 8px 24px rgba(212, 175, 55, 0.14)",
                         display: "flex",
                         flexDirection: "column",
                         justifyContent: "space-between",
+                        position: "relative",
                       }}
                     >
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          height: "4px",
+                          background: "linear-gradient(90deg, #d4af37, #fef08a, #d4af37)",
+                          borderTopLeftRadius: "14px",
+                          borderTopRightRadius: "14px",
+                        }}
+                      />
                       <div>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
-                          <span style={{ background: "rgba(16, 185, 129, 0.15)", color: "#10b981", border: "1px solid #10b981", fontSize: "11px", fontWeight: 800, padding: "2px 8px", borderRadius: "12px" }}>
-                            VERIFIED CREDENTIAL ✓
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                          <span style={{ background: "rgba(16, 185, 129, 0.12)", color: "#059669", border: "1px solid #10b981", fontSize: "11px", fontWeight: 800, padding: "3px 9px", borderRadius: "12px", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                            <LuShieldCheck size={13} /> VERIFIED CREDENTIAL
                           </span>
-                          <span style={{ fontSize: "11px", color: "#64748b", fontFamily: "monospace" }}>
+                          <span style={{ fontSize: "11px", color: "#64748b", fontFamily: "monospace", background: "#f1f5f9", padding: "2px 6px", borderRadius: "4px" }}>
                             {cert.certificateId}
                           </span>
                         </div>
-                        <h3 style={{ fontSize: "17px", fontWeight: 800, color: "#0f172a", margin: "4px 0" }}>
+                        <h3 style={{ fontSize: "17.5px", fontWeight: 800, color: "#0f172a", margin: "6px 0 4px" }}>
                           {cert.certTitle || "Professional Certification"}
                         </h3>
-                        <p style={{ fontSize: "13px", color: "#64748b", margin: "2px 0 12px" }}>
-                          Recipient: <strong>{cert.fullName || currentUser?.name}</strong> • Grade: <strong>{cert.grade || "A+"}</strong> ({cert.score || 95}%)
+                        <p style={{ fontSize: "13px", color: "#64748b", margin: "2px 0 14px", lineHeight: 1.5 }}>
+                          Recipient: <strong style={{ color: "#0f172a" }}>{cert.fullName || currentUser?.fullName || currentUser?.name || "Yashash"}</strong> • Grade: <strong style={{ color: "#059669" }}>{cert.grade || "A+"}</strong> ({cert.score || 95}%)
                         </p>
                       </div>
 
-                      <div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
+                      <div style={{ display: "flex", gap: "8px", marginTop: "14px", paddingTop: "12px", borderTop: "1px solid #f1f5f9" }}>
                         <button
+                          type="button"
                           className="mz-c-btn-solve"
-                          style={{ flex: 1, padding: "7px 12px", fontSize: "11.5px", justifyContent: "center" }}
+                          style={{ flex: 1, padding: "8px 12px", fontSize: "12px", justifyContent: "center", background: "#2563eb", color: "#ffffff", borderRadius: "8px" }}
                           onClick={() => window.open(`${API_BASE}/api/certifications/download/${cert.certificateId}`, "_blank")}
                         >
                           <LuDownload size={13} /> Download PDF
                         </button>
                         <button
+                          type="button"
                           className="mz-c-btn-solve"
-                          style={{ background: "#f1f5f9", color: "#0f172a", border: "1px solid #cbd5e1", padding: "7px 12px", fontSize: "11.5px" }}
-                          onClick={() => navigate(`/certification/verify/${cert.certificateId}`)}
+                          style={{ background: "#ffffff", color: "#0f172a", border: "1px solid #cbd5e1", padding: "8px 14px", fontSize: "12px", borderRadius: "8px", display: "flex", alignItems: "center", gap: "5px" }}
+                          onClick={() => window.open(`/certification/verify/${cert.certificateId}`, "_blank", "noopener,noreferrer")}
                         >
-                          <LuShieldCheck size={13} /> Verify
+                          <LuExternalLink size={13} /> Verify in Tab
                         </button>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div style={{ padding: "24px", background: "#f8fafc", borderRadius: "14px", border: "1px dashed #cbd5e1", textAlign: "center" }}>
-                  <p style={{ margin: "0 0 8px", fontSize: "14px", fontWeight: 600, color: "#475569" }}>
-                    No earned certificates yet. Complete an official certification assessment below to earn your verified credential!
+                <div style={{ padding: "32px 24px", background: "linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)", borderRadius: "16px", border: "1.5px dashed #cbd5e1", textAlign: "center" }}>
+                  <div style={{ fontSize: "36px", marginBottom: "8px" }}>📜</div>
+                  <h3 style={{ margin: "0 0 6px", fontSize: "16px", fontWeight: 700, color: "#1e293b" }}>
+                    No Earned Credentials Yet
+                  </h3>
+                  <p style={{ margin: "0 auto 12px", fontSize: "13.5px", color: "#64748b", maxWidth: "560px" }}>
+                    Choose an official track below and complete the proctored assessment. Score ≥80% to earn your cryptographic credential and showcase it on LinkedIn.
                   </p>
-                  <small style={{ color: "#94a3b8" }}>
-                    Requirements: Pass 20 proctored MCQs + 2 algorithmic coding problems with ≥80% combined score.
-                  </small>
+                  <div style={{ display: "inline-flex", gap: "16px", fontSize: "12px", color: "#475569", fontWeight: 600 }}>
+                    <span>1. Select Domain</span>
+                    <span>→</span>
+                    <span>2. Pass Integrity Checks</span>
+                    <span>→</span>
+                    <span>3. Score ≥80%</span>
+                    <span>→</span>
+                    <span>4. Verified Certificate</span>
+                  </div>
                 </div>
               )}
             </div>
 
-            {/* Available Official Certification Assessment Tracks */}
-            <h3 style={{ fontSize: "18px", fontWeight: 800, color: "#0f172a", marginBottom: "16px" }}>
-              Available Professional Certification Assessments
-            </h3>
+            {/* Interactive Filter & Search Controls */}
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "14px", marginBottom: "22px" }}>
+              <div>
+                <h3 style={{ fontSize: "19px", fontWeight: 800, color: "#0f172a", margin: 0 }}>
+                  Available Professional Certification Examinations
+                </h3>
+                <p style={{ margin: "2px 0 0", fontSize: "13px", color: "#64748b" }}>
+                  Each exam opens in its own secure, focused proctoring workspace in a separate tab.
+                </p>
+              </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: "20px" }}>
+              {/* Category Filter Pills */}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", alignItems: "center" }}>
+                {[
+                  { id: "all", label: "All Exams" },
+                  { id: "python", label: "Python" },
+                  { id: "javascript", label: "JavaScript" },
+                  { id: "java", label: "Java" },
+                  { id: "cpp", label: "C++" },
+                  { id: "dsa", label: "DSA" },
+                ].map((cat) => (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => setCertFilterCategory(cat.id)}
+                    style={{
+                      padding: "6px 14px",
+                      borderRadius: "9999px",
+                      fontSize: "12px",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      border: certFilterCategory === cat.id ? "1.5px solid #2563eb" : "1px solid #cbd5e1",
+                      background: certFilterCategory === cat.id ? "#eff6ff" : "#ffffff",
+                      color: certFilterCategory === cat.id ? "#1d4ed8" : "#475569",
+                      transition: "all 0.15s ease",
+                    }}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Assessment Cards Grid */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: "22px" }}>
               {[
                 {
                   id: "python_cert",
                   title: "Python Certified Professional",
                   language: "python",
+                  category: "python",
                   desc: "Comprehensive proctored assessment covering OOP, data structures, recursion, file operations, and algorithmic efficiency.",
-                  cutoff: "80% (20 MCQs + 2 Coding Problems)",
+                  cutoff: "80% Required (32 / 40 Marks)",
+                  format: "20 MCQs + 2 Algorithmic Coding Tests",
                   time: "90 Minutes",
+                  skills: ["OOP Design", "Recursion", "Data Structures", "Algorithms"],
+                  accentColor: "#3b82f6",
                 },
                 {
                   id: "js_cert",
                   title: "JavaScript Full-Stack Developer",
                   language: "javascript",
+                  category: "javascript",
                   desc: "Evaluates modern ES6+, async architecture, event loop mastery, functional programming, and practical DOM execution.",
-                  cutoff: "80% (20 MCQs + 2 Coding Problems)",
+                  cutoff: "80% Required (32 / 40 Marks)",
+                  format: "20 MCQs + 2 Algorithmic Coding Tests",
                   time: "90 Minutes",
+                  skills: ["Async / Await", "Event Loop", "Closures", "ES6+ Standards"],
+                  accentColor: "#eab308",
                 },
                 {
                   id: "java_cert",
                   title: "Enterprise Java Specialist",
                   language: "java",
+                  category: "java",
                   desc: "Strict proctored test on OOP architecture, Java Collections Framework, concurrency, and robust error management.",
-                  cutoff: "80% (20 MCQs + 2 Coding Problems)",
+                  cutoff: "80% Required (32 / 40 Marks)",
+                  format: "20 MCQs + 2 Algorithmic Coding Tests",
                   time: "90 Minutes",
+                  skills: ["Collections", "Concurrency", "Generics", "OOP Principles"],
+                  accentColor: "#ef4444",
                 },
                 {
                   id: "cpp_cert",
                   title: "Modern C++ Systems Engineer",
                   language: "cpp",
+                  category: "cpp",
                   desc: "Deep evaluation of pointer semantics, RAII, STL algorithms, move semantics, and low-latency system design.",
-                  cutoff: "80% (20 MCQs + 2 Coding Problems)",
+                  cutoff: "80% Required (32 / 40 Marks)",
+                  format: "20 MCQs + 2 Algorithmic Coding Tests",
                   time: "90 Minutes",
+                  skills: ["Pointers & RAII", "STL Algorithms", "Memory Management", "Templates"],
+                  accentColor: "#0284c7",
                 },
                 {
                   id: "dsa_cert",
                   title: "Data Structures & Algorithms (DSA)",
                   language: "python",
+                  category: "dsa",
                   desc: "Rigorous algorithmic assessment on Two Pointers, Sliding Window, Trees, Dynamic Programming, and Graph Traversals.",
-                  cutoff: "80% (20 MCQs + 2 Coding Problems)",
+                  cutoff: "80% Required (32 / 40 Marks)",
+                  format: "20 MCQs + 2 Algorithmic Coding Tests",
                   time: "90 Minutes",
+                  skills: ["Two Pointers", "Trees & Graphs", "Dynamic Programming", "Big-O Optimization"],
+                  accentColor: "#7c3aed",
                 },
-              ].map((certItem) => (
-                <div key={certItem.id} className="mz-c-card" style={{ display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-                  <div>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
-                      <TechBrandIcon type={certItem.language} size={28} />
-                      <span style={{ fontSize: "11px", fontWeight: 800, padding: "2px 8px", borderRadius: "10px", background: "#fef3c7", color: "#b45309" }}>
-                        OFFICIAL CERT
-                      </span>
-                    </div>
-                    <h3 style={{ margin: "0 0 8px", fontSize: "17px", fontWeight: 800, color: "#0f172a" }}>
-                      {certItem.title}
-                    </h3>
-                    <p style={{ margin: "0 0 14px", fontSize: "13px", color: "#64748b", lineHeight: 1.5 }}>
-                      {certItem.desc}
-                    </p>
-                    <div style={{ fontSize: "12px", color: "#475569", background: "#f8fafc", padding: "10px 12px", borderRadius: "8px", border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", gap: "4px" }}>
-                      <div><strong>Format:</strong> {certItem.cutoff}</div>
-                      <div><strong>Duration:</strong> {certItem.time} • <strong>Proctoring:</strong> Strict (5 Lives)</div>
-                    </div>
-                  </div>
-
-                  <button
-                    className="mz-c-btn-solve"
-                    style={{ marginTop: "16px", width: "100%", justifyContent: "center" }}
-                    onClick={() => handleStartExam(certItem.id, certItem.title, certItem.language)}
+              ]
+                .filter((item) => {
+                  if (certFilterCategory !== "all" && item.category !== certFilterCategory) return false;
+                  if (certSearchQuery.trim()) {
+                    const q = certSearchQuery.toLowerCase();
+                    return item.title.toLowerCase().includes(q) || item.desc.toLowerCase().includes(q);
+                  }
+                  return true;
+                })
+                .map((certItem) => (
+                  <div
+                    key={certItem.id}
+                    className="mz-c-card"
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "space-between",
+                      position: "relative",
+                      borderRadius: "16px",
+                      border: "1px solid #e2e8f0",
+                      background: "#ffffff",
+                      boxShadow: "0 4px 16px rgba(15, 23, 42, 0.05)",
+                      overflow: "hidden",
+                    }}
                   >
-                    Start Certification Exam <LuArrowRight size={14} />
-                  </button>
-                </div>
-              ))}
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height: "4px",
+                        background: certItem.accentColor,
+                      }}
+                    />
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px", marginTop: "4px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                          <TechBrandIcon type={certItem.language} size={28} />
+                          <span style={{ fontSize: "11px", fontWeight: 800, textTransform: "uppercase", padding: "2px 8px", borderRadius: "10px", background: "#f8fafc", border: "1px solid #e2e8f0", color: "#475569" }}>
+                            {certItem.language.toUpperCase()}
+                          </span>
+                        </div>
+                        <span style={{ fontSize: "11px", fontWeight: 800, padding: "3px 9px", borderRadius: "10px", background: "#fef3c7", color: "#b45309", border: "1px solid #fde68a" }}>
+                          OFFICIAL CERT
+                        </span>
+                      </div>
+
+                      <h3 style={{ margin: "0 0 8px", fontSize: "18px", fontWeight: 800, color: "#0f172a" }}>
+                        {certItem.title}
+                      </h3>
+                      <p style={{ margin: "0 0 16px", fontSize: "13px", color: "#64748b", lineHeight: 1.5 }}>
+                        {certItem.desc}
+                      </p>
+
+                      {/* Skills Chips */}
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "16px" }}>
+                        {certItem.skills.map((sk, sIdx) => (
+                          <span key={sIdx} style={{ fontSize: "11px", background: "#f1f5f9", color: "#334155", padding: "2px 8px", borderRadius: "6px", fontWeight: 600 }}>
+                            {sk}
+                          </span>
+                        ))}
+                      </div>
+
+                      {/* Exam Specs Box */}
+                      <div style={{ fontSize: "12px", color: "#334155", background: "#f8fafc", padding: "12px 14px", borderRadius: "10px", border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", gap: "6px" }}>
+                        <div><strong>Format:</strong> {certItem.format}</div>
+                        <div><strong>Passing:</strong> {certItem.cutoff}</div>
+                        <div><strong>Duration:</strong> {certItem.time} • <strong>Proctoring:</strong> Strict (5 Lives)</div>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="mz-c-btn-solve"
+                      style={{
+                        marginTop: "18px",
+                        width: "100%",
+                        justifyContent: "center",
+                        padding: "11px 16px",
+                        fontSize: "13px",
+                        fontWeight: 700,
+                        background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
+                        color: "#ffffff",
+                        border: "none",
+                        borderRadius: "10px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        cursor: "pointer",
+                        boxShadow: "0 2px 8px rgba(37, 99, 235, 0.25)",
+                      }}
+                      onClick={() => handleStartExam(certItem.id, certItem.title, certItem.language)}
+                    >
+                      <span>Start Certification Exam</span>
+                      <LuExternalLink size={14} />
+                    </button>
+                  </div>
+                ))}
             </div>
           </div>
         )}

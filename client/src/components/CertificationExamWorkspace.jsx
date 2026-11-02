@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import AssessmentSecurityGate from "./AssessmentSecurityGate";
 import MasteryZoneCompilerWorkspace from "./MasteryZoneCompilerWorkspace";
@@ -44,19 +44,47 @@ import {
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
+const CERT_INFO_MAP = {
+  python_cert: { title: "Python Certified Professional", lang: "python" },
+  js_cert: { title: "JavaScript Full-Stack Developer", lang: "javascript" },
+  java_cert: { title: "Enterprise Java Specialist", lang: "java" },
+  cpp_cert: { title: "Modern C++ Systems Engineer", lang: "cpp" },
+  dsa_cert: { title: "Data Structures & Algorithms (DSA)", lang: "python" },
+};
+
 export default function CertificationExamWorkspace({
-  certId = "dsa_cert",
-  certTitle = "Data Structures & Algorithms (DSA)",
+  certId: propCertId = "dsa_cert",
+  certTitle: propCertTitle,
+  language: propLanguage,
   onClose,
   onCompleted,
+  isStandalone = false,
 }) {
   const navigate = useNavigate();
+  const { certId: paramCertId } = useParams();
+  const certId = paramCertId || propCertId || "dsa_cert";
+  const certTitle = propCertTitle || CERT_INFO_MAP[certId]?.title || "Data Structures & Algorithms (DSA)";
+  const language = propLanguage || CERT_INFO_MAP[certId]?.lang || "python";
 
-  // 1. Session Persistence Recovery State
+  const currentUserId = (() => {
+    try {
+      const rawUser = localStorage.getItem("user");
+      if (rawUser) {
+        const u = JSON.parse(rawUser);
+        return u._id || u.id || u.userId || "guest";
+      }
+    } catch {}
+    return "guest";
+  })();
+
+  // 1. Session Persistence Recovery State strictly isolated to authenticated user
   const savedSession = (() => {
     try {
-      const item = localStorage.getItem("mz_active_cert_session");
-      return item ? JSON.parse(item) : null;
+      const item = (currentUserId && localStorage.getItem(`mz_${currentUserId}_active_cert_session`)) || localStorage.getItem("mz_active_cert_session");
+      if (!item) return null;
+      const parsed = JSON.parse(item);
+      if (parsed.userId && parsed.userId !== currentUserId && currentUserId !== "guest") return null;
+      return parsed;
     } catch {
       return null;
     }
@@ -303,9 +331,11 @@ export default function CertificationExamWorkspace({
       }
 
       // Save active session to localStorage so reload won't exit the test
+      const certSessionKey = currentUserId && currentUserId !== "guest" ? `mz_${currentUserId}_active_cert_session` : "mz_active_cert_session";
       localStorage.setItem(
-        "mz_active_cert_session",
+        certSessionKey,
         JSON.stringify({
+          userId: currentUserId,
           attemptId: data.attemptId,
           certId,
           certTitle,
@@ -648,6 +678,7 @@ export default function CertificationExamWorkspace({
 
       // Clear session from storage so next visit starts fresh
       localStorage.removeItem("mz_active_cert_session");
+      if (currentUserId) localStorage.removeItem(`mz_${currentUserId}_active_cert_session`);
       sessionStorage.removeItem("mz_cert_reload_interruption");
 
       // Stop proctoring tracks and exit fullscreen on final submission
@@ -717,7 +748,13 @@ export default function CertificationExamWorkspace({
         timeLimitMinutes={90}
         onCancel={() => {
           localStorage.removeItem("mz_active_cert_session");
-          if (onClose) onClose();
+          if (currentUserId) localStorage.removeItem(`mz_${currentUserId}_active_cert_session`);
+          if (onClose) {
+            onClose();
+          } else if (isStandalone || !onClose) {
+            if (window.opener) window.close();
+            else navigate("/coding");
+          }
         }}
         onStartAssessment={async (gateData) => {
           await startOrResumeAttempt(gateData);
@@ -1544,11 +1581,16 @@ export default function CertificationExamWorkspace({
                 className="mz-report-btn mz-report-btn-secondary"
                 style={{ justifyContent: "center", padding: "12px", border: "1px solid #cbd5e1", color: "#334155" }}
                 onClick={() => {
-                  navigate("/");
+                  if (window.opener) {
+                    try { window.opener.postMessage({ type: "MZ_EXAM_COMPLETED", certId }, "*"); } catch {}
+                    window.close();
+                  } else {
+                    navigate("/coding");
+                  }
                 }}
               >
                 <LuHouse size={16} />
-                <span>Back to Home</span>
+                <span>{typeof window !== "undefined" && window.opener ? "Close Tab & Return" : "Back to Coding"}</span>
               </button>
             </div>
           </div>

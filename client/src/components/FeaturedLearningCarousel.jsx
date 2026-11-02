@@ -34,14 +34,25 @@ export default function FeaturedLearningCarousel({
   const autoplayTimerRef = useRef(null);
   const carouselRef = useRef(null);
 
-  // Compute live solved challenges count
+  // Compute live solved challenges count strictly scoped to current user
   const computedSolvedChallenges = useMemo(() => {
+    let uId = "";
+    try {
+      const rawUser = typeof window !== "undefined" ? window.localStorage?.getItem("user") : null;
+      if (rawUser) {
+        const u = JSON.parse(rawUser);
+        uId = u._id || u.id || u.userId || "";
+      }
+    } catch {}
+
     let count = 0;
     (challenges || []).forEach((ch) => {
+      const userSolved = uId && typeof window !== "undefined" && window.localStorage?.getItem(`mz_${uId}_ch_solved_${ch.id}`) === "true";
       if (
         ch.isCompleted ||
         ch.solved ||
-        (typeof window !== "undefined" && window.localStorage?.getItem(`mz_ch_solved_${ch.id}`) === "true")
+        userSolved ||
+        (!uId && typeof window !== "undefined" && window.localStorage?.getItem(`mz_ch_solved_${ch.id}`) === "true")
       ) {
         count++;
       }
@@ -49,15 +60,26 @@ export default function FeaturedLearningCarousel({
     return Math.max(count, solvedCount);
   }, [challenges, solvedCount]);
 
-  // Compute live passed projects count
+  // Compute live passed projects count strictly scoped to current user
   const computedPassedProjects = useMemo(() => {
+    let uId = "";
+    try {
+      const rawUser = typeof window !== "undefined" ? window.localStorage?.getItem("user") : null;
+      if (rawUser) {
+        const u = JSON.parse(rawUser);
+        uId = u._id || u.id || u.userId || "";
+      }
+    } catch {}
+
     let count = 0;
     (projects || []).forEach((p) => {
+      const userPassed = uId && typeof window !== "undefined" && window.localStorage?.getItem(`mz_${uId}_proj_passed_${p.id}`) === "true";
       if (
         p.userState?.passed ||
         p.userState?.status === "PASSED" ||
         p.userState?.status === "passed" ||
-        (typeof window !== "undefined" && window.localStorage?.getItem(`mz_proj_passed_${p.id}`) === "true")
+        userPassed ||
+        (!uId && typeof window !== "undefined" && window.localStorage?.getItem(`mz_proj_passed_${p.id}`) === "true")
       ) {
         count++;
       }

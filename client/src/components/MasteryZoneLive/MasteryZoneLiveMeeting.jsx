@@ -159,18 +159,60 @@ export default function MasteryZoneLiveMeeting({
   const audioContextRef = useRef(null);
   const analyserRef = useRef(null);
 
-  const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
-  const isHostParam = searchParams?.get("host") === "true";
-  const isHostSession =
-    (typeof window !== "undefined" && window.sessionStorage?.getItem(`mz_host_${meetingData.meetingId || meetingId}`) === "true") ||
-    (typeof window !== "undefined" && window.localStorage?.getItem(`mz_host_${meetingData.meetingId || meetingId}`) === "true");
+  const inviteLink = `${typeof window !== "undefined" ? window.location.origin : ""}/meeting/${meetingData.meetingId || meetingId}`;
 
-  const isHost =
-    isHostParam ||
-    isHostSession ||
-    Boolean(meetingData.isHost) ||
-    String(meetingData.hostUserId) === String(currentUser?._id || currentUser?.id) ||
-    meetingData.hostName === (currentUser?.fullName || currentUser?.username);
+  const currentUid = String(currentUser?._id || currentUser?.id || currentUser?.userId || "");
+  const hostUid = String(meetingData.hostUserId || "");
+  const isCreatorSession =
+    typeof window !== "undefined" &&
+    window.sessionStorage?.getItem(`mz_host_${meetingData.meetingId || meetingId}`) === "true";
+
+  const isHost = Boolean(
+    (currentUid && hostUid && currentUid === hostUid) ||
+    isCreatorSession ||
+    meetingData.isHost
+  );
+
+  // 1. Fetch live meeting record from server to ensure fresh host and title sync
+  useEffect(() => {
+    let cancelled = false;
+    const fetchMeeting = async () => {
+      try {
+        const token = localStorage.getItem("token") || "";
+        const res = await fetch(`/api/meetings/${meetingId}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (!cancelled && data.meeting) {
+            setMeetingData((prev) => ({
+              ...prev,
+              ...data.meeting,
+              meetingId: data.meeting.meetingId || meetingId,
+              title: data.meeting.title || prev.title,
+              hostUserId: String(data.meeting.hostUserId || prev.hostUserId),
+              hostName: data.meeting.hostName || prev.hostName,
+            }));
+            if (Array.isArray(data.meeting.messages) && data.meeting.messages.length > 0) {
+              setChatMessages(data.meeting.messages);
+            }
+            if (data.meeting.whiteboardData) {
+              setWhiteboardData(data.meeting.whiteboardData);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Could not fetch meeting details:", err);
+      }
+    };
+
+    if (meetingId) {
+      fetchMeeting();
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [meetingId]);
 
   // -------------------------------------------------------------
   // Global Navbar Suppression while actively inside meeting
@@ -283,7 +325,13 @@ export default function MasteryZoneLiveMeeting({
           video: true,
           audio: true,
         });
-        if (!active) return;
+        if (!active) {
+          // If unmounted while userMedia was opening, stop tracks immediately
+          stream.getTracks().forEach((t) => {
+            try { t.stop(); t.enabled = false; } catch {}
+          });
+          return;
+        }
         localStreamRef.current = stream;
         setLocalStreamState(stream);
       } catch (err) {
@@ -340,9 +388,10 @@ export default function MasteryZoneLiveMeeting({
       ],
     });
 
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach((track) => {
-        pc.addTrack(track, localStreamRef.current);
+    const streamToSend = (isScreenSharing && screenStreamRef.current) ? screenStreamRef.current : localStreamRef.current;
+    if (streamToSend) {
+      streamToSend.getTracks().forEach((track) => {
+        pc.addTrack(track, streamToSend);
       });
     }
 
@@ -376,14 +425,18 @@ export default function MasteryZoneLiveMeeting({
     if (!socket) return;
 
     socket.on("meeting_joined_success", (data) => {
-      if (data.meeting) {
-        setMeetingData({
-          title: data.meeting.title || "Meeting Session",
-          hostUserId: data.meeting.hostUserId,
-          hostName: data.meeting.hostName || "Host",
-        });
-        if (data.meeting.messages) setChatMessages(data.meeting.messages);
-        if (data.meeting.whiteboardData) setWhiteboardData(data.meeting.whiteboardData);
+      const m = data.meeting || data;
+      if (m) {
+        setMeetingData((prev) => ({
+          ...prev,
+          meetingId: m.meetingId || meetingId,
+          title: m.title || prev.title || "Meeting Session",
+          hostUserId: String(m.hostUserId || prev.hostUserId || ""),
+          hostName: m.hostName || prev.hostName || "Host",
+          isHost: data.isHost !== undefined ? data.isHost : prev.isHost,
+        }));
+        if (m.messages) setChatMessages(m.messages);
+        if (m.whiteboardData) setWhiteboardData(m.whiteboardData);
       }
       if (Array.isArray(data.participants)) {
         setParticipants(data.participants);
@@ -503,6 +556,7 @@ export default function MasteryZoneLiveMeeting({
 
     socket.on("meeting_ended_by_host", () => {
       toast.info("The host has ended this meeting");
+      stopAllMediaHardware();
       onLeaveMeeting?.();
     });
 
@@ -513,6 +567,7 @@ export default function MasteryZoneLiveMeeting({
 
     socket.on("meeting_host_kicked_you", () => {
       toast.error("You have been removed from the meeting by the host");
+      stopAllMediaHardware();
       onLeaveMeeting?.();
     });
 
@@ -648,6 +703,16 @@ export default function MasteryZoneLiveMeeting({
   };
 
   const handleSendReaction = (emoji) => {
+    // Show reaction locally immediately for snappy real-time feedback
+    const localId = Date.now() + Math.random();
+    setStageReactions((prev) => [
+      ...prev,
+      { id: localId, emoji, senderName: currentUser?.fullName || currentUser?.username || "You" },
+    ]);
+    setTimeout(() => {
+      setStageReactions((prev) => prev.filter((r) => r.id !== localId));
+    }, 3500);
+
     if (socket) {
       socket.emit("meeting_reaction", {
         meetingId,
@@ -818,9 +883,13 @@ export default function MasteryZoneLiveMeeting({
           toast.warn("Recording processed locally");
         }
 
-        // Also save recording entry to localStorage for instant client persistence
+        // Also save recording entry to user-specific localStorage for instant client persistence
         try {
-          const localRecs = JSON.parse(localStorage.getItem("mz_local_recordings") || "[]");
+          const rawU = localStorage.getItem("user");
+          const uObj = rawU ? JSON.parse(rawU) : null;
+          const uId = uObj?._id || uObj?.id || uObj?.userId || "guest";
+          const recKey = `mz_${uId}_local_recordings`;
+          const localRecs = JSON.parse(localStorage.getItem(recKey) || "[]");
           localRecs.unshift({
             id: `rec_${Date.now()}`,
             meetingId,
@@ -829,7 +898,7 @@ export default function MasteryZoneLiveMeeting({
             participantNames: allNames,
             createdAt: new Date().toISOString(),
           });
-          localStorage.setItem("mz_local_recordings", JSON.stringify(localRecs.slice(0, 25)));
+          localStorage.setItem(recKey, JSON.stringify(localRecs.slice(0, 25)));
         } catch {}
 
         setRecordingStatus("idle");
@@ -905,6 +974,68 @@ export default function MasteryZoneLiveMeeting({
     }
   };
 
+  // Explicitly turn off camera and microphone hardware tracks
+  const stopAllMediaHardware = useCallback(() => {
+    try {
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach((t) => {
+          try {
+            t.stop();
+            t.enabled = false;
+          } catch {}
+        });
+        localStreamRef.current = null;
+      }
+      if (localStreamState) {
+        localStreamState.getTracks().forEach((t) => {
+          try {
+            t.stop();
+            t.enabled = false;
+          } catch {}
+        });
+        setLocalStreamState(null);
+      }
+      if (screenStreamRef.current) {
+        screenStreamRef.current.getTracks().forEach((t) => {
+          try {
+            t.stop();
+            t.enabled = false;
+          } catch {}
+        });
+        screenStreamRef.current = null;
+      }
+      if (audioContextRef.current && audioContextRef.current.state !== "closed") {
+        audioContextRef.current.close().catch(() => {});
+      }
+      // Detach and stop any leftover tracks on all media elements
+      document.querySelectorAll("video, audio").forEach((mediaEl) => {
+        if (mediaEl.srcObject && typeof mediaEl.srcObject.getTracks === "function") {
+          mediaEl.srcObject.getTracks().forEach((t) => {
+            try {
+              t.stop();
+              t.enabled = false;
+            } catch {}
+          });
+          mediaEl.srcObject = null;
+        }
+      });
+    } catch (err) {
+      console.warn("Hardware media shutdown warning:", err);
+    }
+  }, [localStreamState]);
+
+  // Window unload / refresh guard to instantly release hardware camera & mic
+  useEffect(() => {
+    const handleUnload = () => {
+      stopAllMediaHardware();
+    };
+    window.addEventListener("beforeunload", handleUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleUnload);
+      stopAllMediaHardware();
+    };
+  }, [stopAllMediaHardware]);
+
   const handleEndMeeting = (forAll = false) => {
     if (recordingStatus === "recording") {
       handleStopRecording();
@@ -919,14 +1050,7 @@ export default function MasteryZoneLiveMeeting({
       socket.emit("leave_meeting", { meetingId });
     }
 
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach((t) => t.stop());
-      localStreamRef.current = null;
-    }
-    if (screenStreamRef.current) {
-      screenStreamRef.current.getTracks().forEach((t) => t.stop());
-      screenStreamRef.current = null;
-    }
+    stopAllMediaHardware();
     peerConnectionsRef.current.forEach((pc) => pc.close());
     peerConnectionsRef.current.clear();
 
@@ -1069,7 +1193,7 @@ export default function MasteryZoneLiveMeeting({
             <span
               className="mzl-header-id-pill"
               onClick={() => {
-                navigator.clipboard?.writeText(window.location.href);
+                navigator.clipboard?.writeText(inviteLink);
                 toast.info(`Meeting link copied! Code: ${meetingId}`);
               }}
               title="Click to copy unique meeting link"
@@ -2103,13 +2227,13 @@ export default function MasteryZoneLiveMeeting({
                     wordBreak: "break-all",
                   }}
                 >
-                  {window.location.href}
+                  {inviteLink}
                 </div>
 
                 <button
                   type="button"
                   onClick={() => {
-                    navigator.clipboard?.writeText(window.location.href);
+                    navigator.clipboard?.writeText(inviteLink);
                     toast.success("Meeting link copied to clipboard!");
                   }}
                   style={{
@@ -2706,7 +2830,7 @@ export default function MasteryZoneLiveMeeting({
                 <button
                   type="button"
                   onClick={() => {
-                    navigator.clipboard?.writeText(window.location.href);
+                    navigator.clipboard?.writeText(inviteLink);
                     toast.success("Meeting link copied!");
                   }}
                   style={{

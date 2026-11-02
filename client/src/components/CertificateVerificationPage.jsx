@@ -427,11 +427,11 @@ export default function CertificateVerificationPage() {
                       paddingBottom: 2,
                     }}
                   >
-                    Dr. A. Vance
+                    Yashash
                   </div>
                   <div style={{ width: "100%", height: 1, background: "#cbd5e1", marginBottom: 3 }} />
                   <div style={{ fontSize: 9, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700 }}>
-                    Director of Certification
+                    Founder & Director
                   </div>
                 </div>
               </div>

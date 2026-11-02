@@ -47,19 +47,6 @@ export const markTrackExplored = async (rawTrackName) => {
       localStorage.setItem(storageKey, JSON.stringify(current));
     }
 
-    // Also keep global cache for fallback
-    let globalTracks = [];
-    try {
-      globalTracks = JSON.parse(localStorage.getItem("mz_explored_tracks_global") || "[]");
-      if (!Array.isArray(globalTracks)) globalTracks = [];
-    } catch {
-      globalTracks = [];
-    }
-    if (!globalTracks.includes(track)) {
-      globalTracks.push(track);
-      localStorage.setItem("mz_explored_tracks_global", JSON.stringify(globalTracks));
-    }
-
     // Dispatch event for real-time reactivity
     window.dispatchEvent(
       new CustomEvent("mz_track_explored", {
@@ -127,19 +114,6 @@ export const getExploredTracks = (user, stats) => {
       });
     }
   } catch {}
-
-  // 5. Check global localStorage fallback if logged in
-  if (userId !== "guest") {
-    try {
-      const globalStored = JSON.parse(localStorage.getItem("mz_explored_tracks_global") || "[]");
-      if (Array.isArray(globalStored)) {
-        globalStored.forEach((t) => {
-          const n = normalizeTrackName(t);
-          if (n) exploredSet.add(n);
-        });
-      }
-    } catch {}
-  }
 
   return Array.from(exploredSet);
 };

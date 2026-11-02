@@ -159,10 +159,18 @@ const Home = () => {
   const [isLoadingCertHistory, setIsLoadingCertHistory] = useState(false);
   const [activeCertExamModal, setActiveCertExamModal] = useState(() => {
     try {
-      const saved = localStorage.getItem("mz_active_cert_session");
+      const rawUser = localStorage.getItem("user");
+      let uId = "";
+      if (rawUser) {
+        const u = JSON.parse(rawUser);
+        uId = u._id || u.id || u.userId || "";
+      }
+      const certKey = uId ? `mz_${uId}_active_cert_session` : "mz_active_cert_session";
+      const saved = localStorage.getItem(certKey) || localStorage.getItem("mz_active_cert_session");
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && parsed.attemptId && parsed.status === "IN_PROGRESS") {
+          if (parsed.userId && uId && parsed.userId !== uId) return null;
           return {
             id: parsed.certId || "dsa_cert",
             name: parsed.certTitle || "Data Structures & Algorithms (DSA)",
@@ -208,7 +216,14 @@ const Home = () => {
       const token = localStorage.getItem("token");
       let localReports = [];
       try {
-        localReports = JSON.parse(localStorage.getItem("mz_assessment_reports") || "[]");
+        const rawUser = localStorage.getItem("user");
+        let uId = "";
+        if (rawUser) {
+          const parsed = JSON.parse(rawUser);
+          uId = parsed._id || parsed.id || parsed.userId || "";
+        }
+        const reportsKey = uId ? `mz_${uId}_assessment_reports` : "mz_assessment_reports";
+        localReports = JSON.parse(localStorage.getItem(reportsKey) || "[]");
       } catch {}
 
       let apiReports = [];
@@ -417,7 +432,17 @@ const Home = () => {
   useEffect(() => {
     if (activePlayingRecording && videoPlayerRef.current) {
       videoPlayerRef.current.playbackRate = playbackSpeed;
-      const savedTime = localStorage.getItem(`mz_rec_seek_${activePlayingRecording.recordingId}`);
+      const rawUser = localStorage.getItem("user");
+      let uId = "guest";
+      try {
+        if (rawUser) {
+          const u = JSON.parse(rawUser);
+          uId = u._id || u.id || u.userId || "guest";
+        }
+      } catch {}
+      const savedTime =
+        localStorage.getItem(`mz_${uId}_rec_seek_${activePlayingRecording.recordingId}`) ||
+        localStorage.getItem(`mz_rec_seek_${activePlayingRecording.recordingId}`);
       if (savedTime && Number(savedTime) > 0) {
         videoPlayerRef.current.currentTime = Number(savedTime);
       }
@@ -642,8 +667,9 @@ const Home = () => {
   };
 
   const handleLogoutConfirm = () => {
-    localStorage.removeItem("token");
-    navigate("/");
+    localStorage.clear();
+    sessionStorage.clear();
+    navigate("/login");
   };
 
   const handleDeleteAccount = async () => {
@@ -751,7 +777,13 @@ const Home = () => {
   };
 
   const selectedItem = INTEREST_CARDS.find((i) => i.key === selectedInterest);
-  const displayName = user?.firstName || user?.username || "Alex";
+  const displayName =
+    user?.fullName ||
+    user?.firstName ||
+    user?.name ||
+    user?.username ||
+    localStorage.getItem("userName") ||
+    (user?.email ? user.email.split("@")[0] : "Learner");
 
   return (
     <div
@@ -972,8 +1004,8 @@ const Home = () => {
               {isDropdownOpen && (
                 <div className="mz-profile-menu">
                   <div className="mz-menu-header">
-                    <strong>{user?.username || displayName}</strong>
-                    <span>{user?.email || "user@masteryzone.com"}</span>
+                    <strong>{user?.fullName || displayName}</strong>
+                    <span>{user?.email || localStorage.getItem("userEmail") || "user@masteryzone.com"}</span>
                   </div>
                   <div className="mz-menu-divider" />
                   <button
@@ -2875,8 +2907,9 @@ const Home = () => {
                 autoPlay
                 onTimeUpdate={() => {
                   if (videoPlayerRef.current) {
+                    const uId = user?._id || user?.id || user?.userId || "guest";
                     localStorage.setItem(
-                      `mz_rec_seek_${activePlayingRecording.recordingId}`,
+                      `mz_${uId}_rec_seek_${activePlayingRecording.recordingId}`,
                       Math.floor(videoPlayerRef.current.currentTime)
                     );
                   }

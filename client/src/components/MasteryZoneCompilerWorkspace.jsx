@@ -44,11 +44,197 @@ import {
   LuAward,
   LuExternalLink,
   LuHouse,
+  LuLayers,
+  LuWrapText,
+  LuMaximize2,
+  LuMinimize2,
+  LuTrash2,
+  LuPlus,
 } from "react-icons/lu";
+import {
+  VscFiles,
+  VscSearch,
+  VscSourceControl,
+  VscSettingsGear,
+  VscTerminal,
+  VscSparkle,
+  VscWand,
+  VscCopy,
+  VscCloudDownload,
+  VscLightbulb,
+  VscKey,
+  VscChecklist,
+  VscChevronUp,
+  VscChevronDown,
+} from "react-icons/vsc";
 import AssessmentSecurityGate from "./AssessmentSecurityGate";
 import "./MasteryZoneCompiler.css";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
+
+// VS Code Playground Theme Specifications
+const VSCODE_THEMES = [
+  { id: "vs-dark", label: "VS Code Dark+" },
+  { id: "vs", label: "VS Code Light+" },
+  { id: "one-dark-pro", label: "One Dark Pro" },
+  { id: "dracula", label: "Dracula" },
+  { id: "monokai", label: "Monokai" },
+  { id: "github-dark", label: "GitHub Dark" },
+];
+
+// Rich Algorithmic Templates & Snippets Library for Sandboxed Compilers
+const ALGORITHM_SNIPPETS = {
+  python: [
+    {
+      title: "Fast I/O & Boilerplate",
+      desc: "Optimized sys.stdin reader for large input processing",
+      code: `import sys\n\ndef main():\n    input = sys.stdin.read\n    data = input().split()\n    if not data:\n        return\n    # Process data here\n    print("Ready")\n\nif __name__ == "__main__":\n    main()\n`,
+    },
+    {
+      title: "Binary Search Template",
+      desc: "Standard O(log n) lower bound binary search",
+      code: `def binary_search(arr, target):\n    left, right = 0, len(arr) - 1\n    while left <= right:\n        mid = left + (right - left) // 2\n        if arr[mid] == target:\n            return mid\n        elif arr[mid] < target:\n            left = mid + 1\n        else:\n            right = mid - 1\n    return -1\n`,
+    },
+    {
+      title: "Graph BFS / DFS Traversal",
+      desc: "Adjacency list BFS with queue and visited set",
+      code: `from collections import deque, defaultdict\n\ndef bfs(graph, start_node):\n    visited = set([start_node])\n    queue = deque([start_node])\n    traversal = []\n    while queue:\n        curr = queue.popleft()\n        traversal.append(curr)\n        for neighbor in graph[curr]:\n            if neighbor not in visited:\n                visited.add(neighbor)\n                queue.append(neighbor)\n    return traversal\n`,
+    },
+    {
+      title: "Sliding Window / Two Pointers",
+      desc: "Dynamic window expand and contract template",
+      code: `def max_sliding_window(nums, k):\n    left = 0\n    current_sum = 0\n    max_sum = float('-inf')\n    for right in range(len(nums)):\n        current_sum += nums[right]\n        if right - left + 1 == k:\n            max_sum = max(max_sum, current_sum)\n            current_sum -= nums[left]\n            left += 1\n    return max_sum\n`,
+    },
+    {
+      title: "LRU Cache / Dynamic Memoization",
+      desc: "Built-in functools lru_cache for fast DP",
+      code: `from functools import lru_cache\n\n@lru_cache(maxsize=None)\ndef solve_dp(n):\n    if n <= 1:\n        return n\n    return solve_dp(n - 1) + solve_dp(n - 2)\n`,
+    },
+  ],
+  javascript: [
+    {
+      title: "Fast I/O & Template",
+      desc: "Standard input parsing via readline / fs",
+      code: `const fs = require('fs');\n\nfunction main() {\n    const input = fs.readFileSync(0, 'utf-8').trim().split(/\\s+/);\n    console.log("MasteryZone JS Engine Ready");\n}\nmain();\n`,
+    },
+    {
+      title: "Binary Search Template",
+      desc: "Classic iterative binary search",
+      code: `function binarySearch(arr, target) {\n    let left = 0, right = arr.length - 1;\n    while (left <= right) {\n        const mid = Math.floor(left + (right - left) / 2);\n        if (arr[mid] === target) return mid;\n        if (arr[mid] < target) left = mid + 1;\n        else right = mid - 1;\n    }\n    return -1;\n}\n`,
+    },
+    {
+      title: "Frequency Map Counter",
+      desc: "O(n) Map-based character / element counting",
+      code: `function getFrequencies(items) {\n    const freq = new Map();\n    for (const item of items) {\n        freq.set(item, (freq.get(item) || 0) + 1);\n    }\n    return freq;\n}\n`,
+    },
+    {
+      title: "Breadth-First Search (BFS)",
+      desc: "Queue-based level order graph traversal",
+      code: `function bfs(graph, start) {\n    const visited = new Set([start]);\n    const queue = [start];\n    const result = [];\n    while (queue.length > 0) {\n        const node = queue.shift();\n        result.push(node);\n        for (const neighbor of (graph[node] || [])) {\n            if (!visited.has(neighbor)) {\n                visited.add(neighbor);\n                queue.push(neighbor);\n            }\n        }\n    }\n    return result;\n}\n`,
+    },
+  ],
+  java: [
+    {
+      title: "Fast Scanner & Main Template",
+      desc: "BufferedReader + StringTokenizer for fast competitive I/O",
+      code: `import java.io.*;\nimport java.util.*;\n\npublic class Solution {\n    static class FastReader {\n        BufferedReader br = new BufferedReader(new InputStreamReader(System.in));\n        StringTokenizer st;\n        String next() {\n            while (st == null || !st.hasMoreElements()) {\n                try { st = new StringTokenizer(br.readLine()); } catch (IOException e) {}\n            }\n            return st.nextToken();\n        }\n        int nextInt() { return Integer.parseInt(next()); }\n    }\n    public static void main(String[] args) {\n        FastReader in = new FastReader();\n        System.out.println("Java Ready");\n    }\n}\n`,
+    },
+    {
+      title: "Binary Search Template",
+      desc: "Standard O(log n) search in sorted array",
+      code: `public static int binarySearch(int[] arr, int target) {\n    int l = 0, r = arr.length - 1;\n    while (l <= r) {\n        int mid = l + (r - l) / 2;\n        if (arr[mid] == target) return mid;\n        if (arr[mid] < target) l = mid + 1;\n        else r = mid - 1;\n    }\n    return -1;\n}\n`,
+    },
+    {
+      title: "Min-Heap / PriorityQueue",
+      desc: "Top-K elements using Java PriorityQueue",
+      code: `PriorityQueue<Integer> minHeap = new PriorityQueue<>();\nfor (int num : nums) {\n    minHeap.offer(num);\n    if (minHeap.size() > k) minHeap.poll();\n}\n`,
+    },
+  ],
+  cpp: [
+    {
+      title: "Fast I/O & Template",
+      desc: "Competitive programming fast I/O setup",
+      code: `#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios_base::sync_with_stdio(false);\n    cin.tie(NULL);\n    cout << "C++ Engine Ready\\n";\n    return 0;\n}\n`,
+    },
+    {
+      title: "Binary Search (Lower Bound)",
+      desc: "O(log n) lower bound search in sorted vector",
+      code: `int binary_search_idx(const vector<int>& arr, int target) {\n    int l = 0, r = arr.size() - 1;\n    while (l <= r) {\n        int mid = l + (r - l) / 2;\n        if (arr[mid] == target) return mid;\n        if (arr[mid] < target) l = mid + 1;\n        else r = mid - 1;\n    }\n    return -1;\n}\n`,
+    },
+    {
+      title: "Breadth-First Search (BFS)",
+      desc: "Queue-based graph traversal template",
+      code: `void bfs(int start, const vector<vector<int>>& adj, int n) {\n    vector<bool> visited(n, false);\n    queue<int> q;\n    visited[start] = true;\n    q.push(start);\n    while (!q.empty()) {\n        int u = q.front(); q.pop();\n        for (int v : adj[u]) {\n            if (!visited[v]) {\n                visited[v] = true;\n                q.push(v);\n            }\n        }\n    }\n}\n`,
+    },
+  ],
+};
+
+// Built-in AI Complexity & Code Diagnostics Generator
+const analyzeCodeWithAi = (codeString, lang) => {
+  if (!codeString || codeString.trim().length === 0) {
+    return {
+      explanation: "No code provided to analyze.",
+      timeComplexity: "O(1)",
+      spaceComplexity: "O(1)",
+      optimizations: ["Write starter logic to begin algorithmic evaluation."],
+      edgeCases: ["Empty input array", "Null / None pointer checks"],
+    };
+  }
+
+  const forLoops = (codeString.match(/\bfor\b/g) || []).length;
+  const whileLoops = (codeString.match(/\bwhile\b/g) || []).length;
+  const totalLoops = forLoops + whileLoops;
+  const hasRecursion = Boolean(codeString.includes("return") && (codeString.match(/def\s+(\w+)[\s\S]*?\1\s*\(/) || codeString.match(/function\s+(\w+)[\s\S]*?\1\s*\(/)));
+  const hasNestedLoops = /for[\s\S]*?for|while[\s\S]*?while|for[\s\S]*?while|while[\s\S]*?for/.test(codeString);
+
+  let timeComp = "O(1)";
+  if (hasNestedLoops) {
+    timeComp = "O(n²)";
+  } else if (totalLoops > 0) {
+    timeComp = "O(n)";
+  } else if (hasRecursion) {
+    timeComp = "O(2ⁿ) or O(n) with memoization";
+  }
+
+  const hasHash = /set\(|dict\(|\{|\bMap\b|\bSet\b|HashMap|HashSet|unordered_map/.test(codeString);
+  const hasArrayAlloc = /\[.*?\]|new\s+int|vector<|new\s+Array/.test(codeString);
+  let spaceComp = "O(1)";
+  if (hasHash || hasArrayAlloc) {
+    spaceComp = "O(n) auxiliary memory";
+  }
+
+  const optimizations = [];
+  if (hasNestedLoops) {
+    optimizations.push("Consider replacing nested iteration with a Hash Map or Two-Pointer technique to reduce runtime from O(n²) to O(n).");
+  }
+  if (!hasHash && totalLoops > 1) {
+    optimizations.push("Use a Set or Map for O(1) membership lookups instead of repeated linear scans.");
+  }
+  if (hasRecursion) {
+    optimizations.push("Add memoization (@lru_cache or memo array) to prevent redundant subproblem recalculations.");
+  }
+  if (optimizations.length === 0) {
+    optimizations.push("Algorithm appears streamlined with linear single-pass structure.");
+    optimizations.push("Ensure boundary conditions prevent overflow for large constraints.");
+  }
+
+  const edgeCases = [
+    "Zero or empty input array / string",
+    "Single element collection (len == 1)",
+    "Duplicate or negative numeric values",
+    "Extreme boundary scale (e.g. n >= 10⁵)",
+  ];
+
+  return {
+    explanation: `This ${lang.toUpperCase()} solution implements an algorithmic routine utilizing ${totalLoops} iteration construct(s). ${
+      hasNestedLoops ? "Nested loops detect quadratic complexity operations." : "Single-pass or direct branching preserves optimal runtime."
+    }`,
+    timeComplexity: timeComp,
+    spaceComplexity: spaceComp,
+    optimizations,
+    edgeCases,
+  };
+};
 
 export default function MasteryZoneCompilerWorkspace({
   title = "Assignment | Coding Challenge",
@@ -167,6 +353,18 @@ export default function MasteryZoneCompilerWorkspace({
   const [attemptsCount, setAttemptsCount] = useState(initialHistory?.attemptsCount || 0);
   const [bestScore, setBestScore] = useState(initialHistory?.bestScore || 0);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+
+  // Authenticated user ID resolution for strict workspace state isolation
+  const currentUserId = useMemo(() => {
+    try {
+      const rawUser = localStorage.getItem("user");
+      if (rawUser) {
+        const u = JSON.parse(rawUser);
+        return u._id || u.id || u.userId || "guest";
+      }
+    } catch {}
+    return "guest";
+  }, []);
 
   // Load history if historyUrl provided
   useEffect(() => {
@@ -322,22 +520,37 @@ export default function MasteryZoneCompilerWorkspace({
 
   // Reset evaluation state cleanly when user edits code
   const handleCodeChange = (newVal) => {
-    setCode(newVal || "");
-    codeRef.current = newVal || "";
-    if (hasEvaluated) {
-      setIsCodeModifiedAfterEval(true);
-    }
-    const sid = proctoredSessionId || routeSessionId;
-    if (newVal) {
-      try {
-        localStorage.setItem("mz_recent_submitted_code", newVal);
-        if (sid) {
-          localStorage.setItem(`mz_draft_${sid}`, newVal);
-        }
-        if (questionId) {
-          localStorage.setItem(`mz_draft_${questionId}`, newVal);
-        }
-      } catch {}
+    if (activeEditorFile === "solution") {
+      setCode(newVal || "");
+      codeRef.current = newVal || "";
+      if (hasEvaluated) {
+        setIsCodeModifiedAfterEval(true);
+      }
+      const sid = proctoredSessionId || routeSessionId;
+      if (newVal) {
+        try {
+          if (currentUserId && currentUserId !== "guest") {
+            localStorage.setItem(`mz_${currentUserId}_recent_submitted_code`, newVal);
+            if (sid) {
+              localStorage.setItem(`mz_${currentUserId}_draft_${sid}`, newVal);
+            }
+            if (questionId) {
+              localStorage.setItem(`mz_${currentUserId}_draft_${questionId}`, newVal);
+            }
+          }
+          localStorage.setItem("mz_recent_submitted_code", newVal);
+          if (sid) {
+            localStorage.setItem(`mz_draft_${sid}`, newVal);
+          }
+          if (questionId) {
+            localStorage.setItem(`mz_draft_${questionId}`, newVal);
+          }
+        } catch {}
+      }
+    } else if (activeEditorFile === "input") {
+      setCustomStdin(newVal || "");
+    } else if (activeEditorFile === "scratchpad") {
+      setScratchpadContent(newVal || "");
     }
   };
 
@@ -346,6 +559,305 @@ export default function MasteryZoneCompilerWorkspace({
   const [customOutput, setCustomOutput] = useState("");
   const [customError, setCustomError] = useState("");
   const [customDuration, setCustomDuration] = useState(null);
+
+  // VS Code Real IDE States
+  const [editorTheme, setEditorTheme] = useState(() => {
+    return localStorage.getItem("mz_editor_theme") || "vs-dark";
+  });
+  const [isThemeDropdownOpen, setIsThemeDropdownOpen] = useState(false);
+  const [activeVsCodeSidebar, setActiveVsCodeSidebar] = useState("explorer"); // "explorer" | "search" | "snippets" | "ai" | "settings" | "shortcuts" | null
+  const [activeEditorFile, setActiveEditorFile] = useState("solution"); // "solution" | "input" | "scratchpad"
+  const [scratchpadContent, setScratchpadContent] = useState(
+    "# Candidate Notes & Algorithmic Blueprint\n\n- Primary Objective: Build high-performance solution\n- Target Time Complexity: O(n)\n- Edge cases considered:\n  * Null or empty parameters\n  * Extreme range constraints\n"
+  );
+  const [isMinimapOpen, setIsMinimapOpen] = useState(true);
+  const [isWordWrap, setIsWordWrap] = useState(true);
+  const [tabSize, setTabSize] = useState(4);
+  const [lineNumbersMode, setLineNumbersMode] = useState("on");
+  const [bracketPairColorization, setBracketPairColorization] = useState(true);
+  const [cursorPos, setCursorPos] = useState({ line: 1, col: 1 });
+  const [selectionLength, setSelectionLength] = useState(0);
+  const [isEditorFullscreen, setIsEditorFullscreen] = useState(false);
+  const [bottomPanelTab, setBottomPanelTab] = useState("testcases"); // "terminal" | "output" | "testcases" | "problems" | "hints" | "ai"
+  const [isBottomPanelMaximized, setIsBottomPanelMaximized] = useState(false);
+
+  // Search & Replace states
+  const [searchQuery, setSearchQuery] = useState("");
+  const [replaceQuery, setReplaceQuery] = useState("");
+  const [matchCase, setMatchCase] = useState(false);
+  const [matchWholeWord, setMatchWholeWord] = useState(false);
+  const [matchRegex, setMatchRegex] = useState(false);
+  const [searchResultsCount, setSearchResultsCount] = useState(0);
+
+  // AI Copilot state
+  const [aiAnalysis, setAiAnalysis] = useState(null);
+  const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
+
+  // References for Monaco editor
+  const editorInstanceRef = useRef(null);
+  const monacoInstanceRef = useRef(null);
+
+  const getActiveFileName = (fileType, lang) => {
+    if (fileType === "input") return "input.txt";
+    if (fileType === "scratchpad") return "scratchpad.md";
+    const l = (lang || "").toLowerCase();
+    if (l === "python" || l === "py") return "solution.py";
+    if (l === "javascript" || l === "js" || l === "node") return "solution.js";
+    if (l === "java") return "Solution.java";
+    if (l === "cpp" || l === "c++") return "main.cpp";
+    return "solution.py";
+  };
+
+  const handleSelectTheme = (themeId) => {
+    setEditorTheme(themeId);
+    localStorage.setItem("mz_editor_theme", themeId);
+    setIsThemeDropdownOpen(false);
+    toast.success(`Theme switched to ${VSCODE_THEMES.find((t) => t.id === themeId)?.label || themeId}`);
+  };
+
+  const handleEditorBeforeMount = (monaco) => {
+    monaco.editor.defineTheme("one-dark-pro", {
+      base: "vs-dark",
+      inherit: true,
+      rules: [
+        { token: "comment", foreground: "5c6370", fontStyle: "italic" },
+        { token: "keyword", foreground: "c678dd" },
+        { token: "string", foreground: "98c379" },
+        { token: "number", foreground: "d19a66" },
+        { token: "type", foreground: "e5c07b" },
+        { token: "function", foreground: "61afef" },
+      ],
+      colors: {
+        "editor.background": "#282c34",
+        "editor.foreground": "#abb2bf",
+        "editorCursor.foreground": "#528bff",
+        "editor.lineHighlightBackground": "#2c313a",
+        "editorLineNumber.foreground": "#4b5263",
+        "editor.selectionBackground": "#3e4451",
+      },
+    });
+
+    monaco.editor.defineTheme("dracula", {
+      base: "vs-dark",
+      inherit: true,
+      rules: [
+        { token: "comment", foreground: "6272a4", fontStyle: "italic" },
+        { token: "keyword", foreground: "ff79c6" },
+        { token: "string", foreground: "f1fa8c" },
+        { token: "number", foreground: "bd93f9" },
+        { token: "type", foreground: "8be9fd" },
+        { token: "function", foreground: "50fa7b" },
+      ],
+      colors: {
+        "editor.background": "#282a36",
+        "editor.foreground": "#f8f8f2",
+        "editorCursor.foreground": "#f8f8f0",
+        "editor.lineHighlightBackground": "#44475a",
+        "editorLineNumber.foreground": "#6272a4",
+        "editor.selectionBackground": "#44475a",
+      },
+    });
+
+    monaco.editor.defineTheme("monokai", {
+      base: "vs-dark",
+      inherit: true,
+      rules: [
+        { token: "comment", foreground: "75715e" },
+        { token: "keyword", foreground: "f92672" },
+        { token: "string", foreground: "e6db74" },
+        { token: "number", foreground: "ae81ff" },
+        { token: "type", foreground: "66d9ef" },
+        { token: "function", foreground: "a6e22e" },
+      ],
+      colors: {
+        "editor.background": "#272822",
+        "editor.foreground": "#f8f8f2",
+        "editorCursor.foreground": "#f8f8f0",
+        "editor.lineHighlightBackground": "#3e3d32",
+        "editorLineNumber.foreground": "#90908a",
+        "editor.selectionBackground": "#49483e",
+      },
+    });
+
+    monaco.editor.defineTheme("github-dark", {
+      base: "vs-dark",
+      inherit: true,
+      rules: [
+        { token: "comment", foreground: "8b949e" },
+        { token: "keyword", foreground: "ff7b72" },
+        { token: "string", foreground: "a5d6ff" },
+        { token: "number", foreground: "79c0ff" },
+        { token: "type", foreground: "ffa657" },
+        { token: "function", foreground: "d2a8ff" },
+      ],
+      colors: {
+        "editor.background": "#0d1117",
+        "editor.foreground": "#c9d1d9",
+        "editorCursor.foreground": "#58a6ff",
+        "editor.lineHighlightBackground": "#161b22",
+        "editorLineNumber.foreground": "#6e7681",
+        "editor.selectionBackground": "#264f78",
+      },
+    });
+  };
+
+  const handleEditorMount = (editor, monaco) => {
+    editorInstanceRef.current = editor;
+    monacoInstanceRef.current = monaco;
+
+    editor.onDidChangeCursorPosition((e) => {
+      setCursorPos({ line: e.position.lineNumber, col: e.position.column });
+    });
+
+    editor.onDidChangeCursorSelection((e) => {
+      const model = editor.getModel();
+      if (model) {
+        const text = model.getValueInRange(e.selection);
+        setSelectionLength(text.length);
+      }
+    });
+
+    // Hotkey: Ctrl+Enter or Cmd+Enter to Run Code
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
+      handleRun();
+    });
+
+    // Hotkey: Shift+Alt+F to format document
+    editor.addCommand(monaco.KeyMod.Shift | monaco.KeyMod.Alt | monaco.KeyCode.KeyF, () => {
+      handleFormatDocument();
+    });
+
+    // Hotkey: Ctrl+S or Cmd+S to Save Draft
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+      handleSave();
+    });
+  };
+
+  const handleFormatDocument = () => {
+    if (!editorInstanceRef.current) return;
+    const editor = editorInstanceRef.current;
+    const formatAction = editor.getAction("editor.action.formatDocument");
+    if (formatAction && typeof formatAction.run === "function") {
+      formatAction.run();
+    }
+    try {
+      const val = editor.getValue();
+      if (selectedLang === "python") {
+        const lines = val.split("\n").map((l) => l.replace(/\s+$/, ""));
+        editor.setValue(lines.join("\n"));
+      }
+      toast.success("Document formatted (Prettier / Beautifier)");
+    } catch {
+      toast.info("Document formatted");
+    }
+  };
+
+  const handleCopyCode = () => {
+    const activeText =
+      activeEditorFile === "solution"
+        ? code
+        : activeEditorFile === "input"
+        ? customStdin
+        : scratchpadContent;
+    navigator.clipboard.writeText(activeText);
+    toast.success(`Copied ${getActiveFileName(activeEditorFile, selectedLang)} to clipboard!`);
+  };
+
+  const handleDownloadFile = () => {
+    const fileName = getActiveFileName(activeEditorFile, selectedLang);
+    const content =
+      activeEditorFile === "solution"
+        ? code
+        : activeEditorFile === "input"
+        ? customStdin
+        : scratchpadContent;
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    a.click();
+    URL.revokeObjectURL(a);
+    toast.success(`Downloaded ${fileName}`);
+  };
+
+  const handleInsertSnippet = (snippetCode) => {
+    if (!editorInstanceRef.current) return;
+    const editor = editorInstanceRef.current;
+    const position = editor.getPosition();
+    if (position && monacoInstanceRef.current) {
+      editor.executeEdits("snippet-insert", [
+        {
+          range: new monacoInstanceRef.current.Range(
+            position.lineNumber,
+            position.column,
+            position.lineNumber,
+            position.column
+          ),
+          text: snippetCode + "\n",
+          forceMoveMarkers: true,
+        },
+      ]);
+      editor.focus();
+    } else {
+      setCode((prev) => prev + "\n" + snippetCode);
+    }
+    toast.success("Snippet inserted into code");
+  };
+
+  const handleSearchCode = (query) => {
+    setSearchQuery(query);
+    if (!editorInstanceRef.current || !monacoInstanceRef.current || !query) {
+      setSearchResultsCount(0);
+      return;
+    }
+    const model = editorInstanceRef.current.getModel();
+    if (model) {
+      const matches = model.findMatches(query, false, matchRegex, matchCase, matchWholeWord ? " " : null, false);
+      setSearchResultsCount(matches.length);
+    }
+  };
+
+  const handleReplaceCode = (isAll = false) => {
+    if (!editorInstanceRef.current || !searchQuery) return;
+    const editor = editorInstanceRef.current;
+    const model = editor.getModel();
+    if (!model) return;
+    const matches = model.findMatches(searchQuery, false, matchRegex, matchCase, matchWholeWord ? " " : null, false);
+    if (matches.length === 0) {
+      toast.info("No matches found to replace");
+      return;
+    }
+    if (isAll) {
+      const edits = matches.map((m) => ({
+        range: m.range,
+        text: replaceQuery,
+        forceMoveMarkers: true,
+      }));
+      editor.executeEdits("replace-all", edits);
+      toast.success(`Replaced ${matches.length} occurrence(s)`);
+      setSearchResultsCount(0);
+    } else {
+      const first = matches[0];
+      editor.executeEdits("replace-one", [
+        { range: first.range, text: replaceQuery, forceMoveMarkers: true },
+      ]);
+      toast.success("Replaced 1 occurrence");
+      handleSearchCode(searchQuery);
+    }
+  };
+
+  const handleRunAiAnalysis = () => {
+    setIsAiAnalyzing(true);
+    setTimeout(() => {
+      const analysis = analyzeCodeWithAi(code, selectedLang);
+      setAiAnalysis(analysis);
+      setIsAiAnalyzing(false);
+      setBottomPanelTab("ai");
+      setIsDrawerOpen(true);
+      toast.success("AI Code Diagnostics & Complexity Report Generated!");
+    }, 350);
+  };
 
   // Actions loading state
   const [isRunning, setIsRunning] = useState(false);
@@ -371,9 +883,10 @@ export default function MasteryZoneCompilerWorkspace({
   const { sessionId: routeSessionId } = useParams() || {};
   const navigate = useNavigate();
 
+  const isPlayground = Boolean(questionId?.startsWith("playground-") || problemData?.id?.startsWith("playground-"));
   const effectiveSessionId = sessionId || routeSessionId || null;
   const [proctoringStage, setProctoringStage] = useState(
-    initialProctoringStage || (effectiveSessionId ? "active" : (isProctored ? "gate" : "active"))
+    initialProctoringStage || (effectiveSessionId ? "active" : (isProctored && !isPlayground ? "gate" : "active"))
   );
   const [proctoredSessionId, setProctoredSessionId] = useState(effectiveSessionId);
   const [candidateDetails, setCandidateDetails] = useState({
@@ -490,12 +1003,18 @@ export default function MasteryZoneCompilerWorkspace({
     try {
       const targetSid = proctoredSessionId || routeSessionId;
       if (targetSid) {
-        // Restore saved draft code and compiler state seamlessly
-        const savedDraft = localStorage.getItem(`mz_draft_${targetSid}`);
+        // Restore saved draft code and compiler state seamlessly strictly scoped to user
+        const savedDraft =
+          (currentUserId && currentUserId !== "guest" && localStorage.getItem(`mz_${currentUserId}_draft_${targetSid}`)) ||
+          localStorage.getItem(`mz_draft_${targetSid}`);
         if (savedDraft) setCode(savedDraft);
-        const savedLang = localStorage.getItem(`mz_lang_${targetSid}`);
+        const savedLang =
+          (currentUserId && currentUserId !== "guest" && localStorage.getItem(`mz_${currentUserId}_lang_${targetSid}`)) ||
+          localStorage.getItem(`mz_lang_${targetSid}`);
         if (savedLang) setSelectedLang(savedLang);
-        const savedTime = localStorage.getItem(`mz_time_${targetSid}`);
+        const savedTime =
+          (currentUserId && currentUserId !== "guest" && localStorage.getItem(`mz_${currentUserId}_time_${targetSid}`)) ||
+          localStorage.getItem(`mz_time_${targetSid}`);
         if (savedTime && !isNaN(Number(savedTime))) setSecondsRemaining(Number(savedTime));
       }
       sessionStorage.removeItem("mz_pending_refresh_violation");
@@ -536,6 +1055,11 @@ export default function MasteryZoneCompilerWorkspace({
       const sid = proctoredSessionId || routeSessionId;
       if (sid) {
         try {
+          if (currentUserId && currentUserId !== "guest") {
+            localStorage.setItem(`mz_${currentUserId}_draft_${sid}`, code);
+            localStorage.setItem(`mz_${currentUserId}_lang_${sid}`, selectedLang);
+            localStorage.setItem(`mz_${currentUserId}_time_${sid}`, String(secondsRemaining));
+          }
           localStorage.setItem(`mz_draft_${sid}`, code);
           localStorage.setItem(`mz_lang_${sid}`, selectedLang);
           localStorage.setItem(`mz_time_${sid}`, String(secondsRemaining));
@@ -1606,8 +2130,14 @@ export default function MasteryZoneCompilerWorkspace({
   const confirmResetCode = () => {
     setCode(getStarterPlaceholder(selectedLang));
     try {
+      if (currentUserId && currentUserId !== "guest") {
+        localStorage.removeItem(`mz_${currentUserId}_draft_${questionId}_${selectedLang}`);
+        localStorage.removeItem(`mz_${currentUserId}_ch_draft_${questionId}_${selectedLang}`);
+        localStorage.removeItem(`mz_${currentUserId}_draft_${questionId}`);
+      }
       localStorage.removeItem(`mz_draft_${questionId}_${selectedLang}`);
       localStorage.removeItem(`mz_ch_draft_${questionId}_${selectedLang}`);
+      localStorage.removeItem(`mz_draft_${questionId}`);
     } catch {}
     setHasEvaluated(false);
     setPassedCount(0);
@@ -1648,6 +2178,7 @@ export default function MasteryZoneCompilerWorkspace({
     setIsRunning(true);
     setIsDrawerOpen(true);
     setActiveTab("run");
+    setBottomPanelTab("terminal");
 
     try {
       let res;
@@ -1713,6 +2244,7 @@ export default function MasteryZoneCompilerWorkspace({
     setIsRunningTests(true);
     setIsDrawerOpen(true);
     setActiveTab("run_tests");
+    setBottomPanelTab("testcases");
     setBannerVisible(true);
 
     try {
@@ -2033,9 +2565,16 @@ export default function MasteryZoneCompilerWorkspace({
         reportUrl: `/assessment-report/${sid || "recent"}`,
       };
       try {
-        const stored = JSON.parse(localStorage.getItem("mz_assessment_reports") || "[]");
+        const rawUser = localStorage.getItem("user");
+        let uId = "";
+        if (rawUser) {
+          const parsed = JSON.parse(rawUser);
+          uId = parsed._id || parsed.id || parsed.userId || "";
+        }
+        const reportsKey = uId ? `mz_${uId}_assessment_reports` : "mz_assessment_reports";
+        const stored = JSON.parse(localStorage.getItem(reportsKey) || "[]");
         const filtered = stored.filter((r) => r.sessionId !== reportItem.sessionId);
-        localStorage.setItem("mz_assessment_reports", JSON.stringify([reportItem, ...filtered]));
+        localStorage.setItem(reportsKey, JSON.stringify([reportItem, ...filtered]));
       } catch (e) {
         console.warn("Could not save report to localStorage:", e);
       }
@@ -2215,7 +2754,7 @@ export default function MasteryZoneCompilerWorkspace({
   // =========================================================================
   // PRE-ASSESSMENT SECURITY GATE ENFORCEMENT
   // =========================================================================
-  if (isProctored && proctoringStage === "gate" && !routeSessionId) {
+  if (isProctored && !isPlayground && proctoringStage === "gate" && !routeSessionId) {
     return (
       <AssessmentSecurityGate
         assessmentTitle={title || questionDetails.title}
@@ -2937,9 +3476,11 @@ export default function MasteryZoneCompilerWorkspace({
             )}
           </section>
 
-          {/* SECTION B: COMPILER WORKSPACE CARD (Monaco Editor & Drawer) */}
+          {/* SECTION B: COMPILER WORKSPACE CARD (VS CODE PLAYGROUND SUITE) */}
           <section
-            className={`mz-compiler-editor-card ${
+            className={`mz-compiler-editor-card mz-vscode-card ${
+              editorTheme === "vs" ? "is-light" : "is-dark"
+            } ${isEditorFullscreen ? "is-fullscreen" : ""} ${
               isAllPassed
                 ? "card-all-passed"
                 : hasEvaluated && !isCodeModifiedAfterEval && passedCount < 8
@@ -2950,410 +3491,1126 @@ export default function MasteryZoneCompilerWorkspace({
             }`}
             ref={editorCardRef}
           >
-            {/* Editor Header Toolbar (Language Selector, Font Size, Reset) */}
-            <div className="mz-compiler-card-toolbar">
-              <div className="mz-toolbar-left" style={{ position: "relative" }}>
-                <button
-                  type="button"
-                  className="mz-compiler-lang-dropdown-btn"
-                  onClick={() => setIsLangMenuOpen(!isLangMenuOpen)}
+            {/* 1. VS CODE TABS BAR */}
+            <div className="mz-vscode-tabs-bar">
+              <div className="mz-vscode-tab-list">
+                {/* File Tab: Solution */}
+                <div
+                  className={`mz-vscode-tab ${activeEditorFile === "solution" ? "active" : ""}`}
+                  onClick={() => setActiveEditorFile("solution")}
+                  title={`Active Code (${selectedLang})`}
                 >
-                  <span>{langLabels[selectedLang] || "Language"}</span>
-                  <LuChevronDown size={14} color="#6b7280" />
-                </button>
-
-                {isLangMenuOpen && (
-                  <div className="mz-compiler-dropdown-menu">
-                    {Object.entries(langLabels).map(([key, label]) => (
-                      <button
-                        key={key}
-                        type="button"
-                        className={`mz-compiler-dropdown-item ${selectedLang === key ? "active" : ""}`}
-                        onClick={() => handleSelectLanguage(key)}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {/* Font Size Selector */}
-                <div className="mz-font-size-group">
-                  <span style={{ fontSize: "12px", color: "#64748b" }}>Font:</span>
-                  {[12, 13, 14, 16].map((sz) => (
-                    <button
-                      key={sz}
-                      type="button"
-                      className={`mz-font-size-btn ${editorFontSize === sz ? "active" : ""}`}
-                      onClick={() => setEditorFontSize(sz)}
-                    >
-                      {sz}
-                    </button>
-                  ))}
+                  <span style={{ fontSize: "12px" }}>
+                    {selectedLang === "python" ? "🐍" : selectedLang === "javascript" ? "🟨" : selectedLang === "java" ? "☕" : "🔷"}
+                  </span>
+                  <span>{getActiveFileName("solution", selectedLang)}</span>
+                  {isCodeModifiedAfterEval && <span className="mz-vscode-tab-dot" title="Unsaved / Modified" />}
                 </div>
 
-                {/* Evaluation State Indicator */}
-                {isCodeModifiedAfterEval && (
-                  <span className="mz-code-modified-badge">Edited (Unsaved / Not Evaluated)</span>
-                )}
-              </div>
+                {/* File Tab: Custom STDIN Input */}
+                <div
+                  className={`mz-vscode-tab ${activeEditorFile === "input" ? "active" : ""}`}
+                  onClick={() => setActiveEditorFile("input")}
+                  title="Custom Input STDIN buffer"
+                >
+                  <span style={{ fontSize: "12px" }}>📥</span>
+                  <span>input.txt</span>
+                </div>
 
-              <div className="mz-toolbar-right">
+                {/* File Tab: Scratchpad */}
+                <div
+                  className={`mz-vscode-tab ${activeEditorFile === "scratchpad" ? "active" : ""}`}
+                  onClick={() => setActiveEditorFile("scratchpad")}
+                  title="Candidate Scratchpad Notes"
+                >
+                  <span style={{ fontSize: "12px" }}>📝</span>
+                  <span>scratchpad.md</span>
+                </div>
+
                 <button
                   type="button"
-                  className="mz-compiler-reset-btn"
+                  className="mz-vscode-tab-add"
+                  onClick={() => setActiveEditorFile("scratchpad")}
+                  title="Open Notes / Scratchpad"
+                >
+                  <LuPlus size={14} />
+                </button>
+              </div>
+
+              {/* Top Right Actions Toolbar */}
+              <div className="mz-vscode-tabs-actions">
+                {/* Run Solution Button */}
+                <button
+                  type="button"
+                  className="mz-vscode-action-btn mz-vscode-btn-run"
+                  onClick={handleRun}
+                  disabled={isRunning || isSubmitting}
+                  title="Run Program (Ctrl+Enter / Cmd+Enter)"
+                >
+                  <LuPlay size={13} fill="currentColor" />
+                  <span>{isRunning ? "Running..." : "Run"}</span>
+                </button>
+
+                {/* Format Document (Prettier / Beautifier) */}
+                <button
+                  type="button"
+                  className="mz-vscode-action-btn"
+                  onClick={handleFormatDocument}
+                  title="Format Document (Shift+Alt+F)"
+                >
+                  <VscWand size={14} />
+                  <span>Format</span>
+                </button>
+
+                {/* Copy Code */}
+                <button
+                  type="button"
+                  className="mz-vscode-action-btn"
+                  onClick={handleCopyCode}
+                  title="Copy current file code"
+                >
+                  <VscCopy size={13} />
+                  <span>Copy</span>
+                </button>
+
+                {/* Download File */}
+                <button
+                  type="button"
+                  className="mz-vscode-action-btn"
+                  onClick={handleDownloadFile}
+                  title="Download file to computer"
+                >
+                  <VscCloudDownload size={14} />
+                  <span>Export</span>
+                </button>
+
+                {/* Theme Selector Popover */}
+                <div style={{ position: "relative" }}>
+                  <button
+                    type="button"
+                    className="mz-vscode-action-btn"
+                    onClick={() => setIsThemeDropdownOpen(!isThemeDropdownOpen)}
+                    title="Change VS Code Editor Theme"
+                  >
+                    <span>{VSCODE_THEMES.find((t) => t.id === editorTheme)?.label || "Theme"}</span>
+                    <LuChevronDown size={12} />
+                  </button>
+
+                  {isThemeDropdownOpen && (
+                    <div className="mz-vscode-theme-dropdown">
+                      {VSCODE_THEMES.map((th) => (
+                        <button
+                          key={th.id}
+                          type="button"
+                          className={`mz-vscode-theme-item ${editorTheme === th.id ? "active" : ""}`}
+                          onClick={() => handleSelectTheme(th.id)}
+                        >
+                          <span>{th.label}</span>
+                          {editorTheme === th.id && <LuCheck size={12} />}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Reset Template */}
+                <button
+                  type="button"
+                  className="mz-vscode-action-btn"
                   onClick={handleResetCode}
                   title="Reset starter template"
                   disabled={isTimeExpired}
                 >
-                  <LuRotateCcw size={15} />
+                  <LuRotateCcw size={13} />
                   <span>Reset</span>
+                </button>
+
+                {/* Fullscreen IDE Toggle */}
+                <button
+                  type="button"
+                  className="mz-vscode-action-btn"
+                  onClick={() => setIsEditorFullscreen(!isEditorFullscreen)}
+                  title={isEditorFullscreen ? "Exit Fullscreen" : "Fullscreen Playground"}
+                >
+                  {isEditorFullscreen ? <LuMinimize2 size={13} /> : <LuMaximize2 size={13} />}
                 </button>
               </div>
             </div>
 
-            {/* Monaco Code Editor */}
-            <div className="mz-compiler-editor-wrap">
-              <Editor
-                height="390px"
-                language={selectedLang}
-                theme="vs"
-                value={code}
-                onChange={handleCodeChange}
-                options={{
-                  fontFamily: "Consolas, Menlo, Monaco, 'Courier New', monospace",
-                  fontSize: editorFontSize,
-                  lineNumbers: "on",
-                  lineNumbersMinChars: 3,
-                  minimap: { enabled: false },
-                  scrollBeyondLastLine: false,
-                  automaticLayout: true,
-                  tabSize: 4,
-                  wordWrap: "on",
-                  readOnly: isTimeExpired || isTerminated || isSubmittedReadOnly,
-                  domReadOnly: isTimeExpired || isTerminated || isSubmittedReadOnly,
-                  renderLineHighlight: "all",
-                  cursorBlinking: "smooth",
-                  folding: true,
-                  padding: { top: 8, bottom: 8 },
-                }}
-              />
+            {/* 2. VS CODE BREADCRUMBS BAR */}
+            <div className="mz-vscode-breadcrumbs">
+              <div className="mz-vscode-breadcrumbs-path">
+                <span>masteryzone</span>
+                <span>&gt;</span>
+                <span>workspace</span>
+                <span>&gt;</span>
+                <span>src</span>
+                <span>&gt;</span>
+                <strong style={{ color: editorTheme === "vs" ? "#0f172a" : "#ffffff" }}>
+                  {getActiveFileName(activeEditorFile, selectedLang)}
+                </strong>
+              </div>
 
-              {(isTimeExpired || isTerminated || isSubmittedReadOnly) && (
-                <div className="mz-editor-locked-overlay">
-                  <LuLock size={24} color="#3b82f6" />
-                  <strong>Assessment Solution Locked (Read-Only)</strong>
-                  <span>This attempt is permanently locked and cryptographically logged.</span>
+              <div className="mz-vscode-breadcrumbs-right">
+                {/* Language Mode Selector */}
+                <div style={{ position: "relative" }}>
+                  <button
+                    type="button"
+                    className="mz-vscode-pill-toggle active"
+                    onClick={() => setIsLangMenuOpen(!isLangMenuOpen)}
+                    style={{ background: "transparent", border: "none" }}
+                  >
+                    <span>{langLabels[selectedLang] || "Language"}</span>
+                    <LuChevronDown size={11} />
+                  </button>
+
+                  {isLangMenuOpen && (
+                    <div className="mz-compiler-dropdown-menu" style={{ right: 0, left: "auto" }}>
+                      {Object.entries(langLabels).map(([key, label]) => (
+                        <button
+                          key={key}
+                          type="button"
+                          className={`mz-compiler-dropdown-item ${selectedLang === key ? "active" : ""}`}
+                          onClick={() => handleSelectLanguage(key)}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Minimap Toggle */}
+                <button
+                  type="button"
+                  className={`mz-vscode-pill-toggle ${isMinimapOpen ? "active" : ""}`}
+                  onClick={() => setIsMinimapOpen(!isMinimapOpen)}
+                  style={{ background: "transparent", border: "none" }}
+                  title="Toggle Minimap"
+                >
+                  <LuLayers size={13} />
+                  <span>Minimap: {isMinimapOpen ? "On" : "Off"}</span>
+                </button>
+
+                {/* Word Wrap Toggle */}
+                <button
+                  type="button"
+                  className={`mz-vscode-pill-toggle ${isWordWrap ? "active" : ""}`}
+                  onClick={() => setIsWordWrap(!isWordWrap)}
+                  style={{ background: "transparent", border: "none" }}
+                  title="Toggle Word Wrap (Alt+Z)"
+                >
+                  <LuWrapText size={13} />
+                  <span>Wrap: {isWordWrap ? "On" : "Off"}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* 3. MAIN VS CODE WORKSPACE (ACTIVITY BAR + SIDEBAR + MONACO) */}
+            <div className="mz-vscode-workspace">
+              {/* Activity Bar (48px left vertical icon strip) */}
+              <div className="mz-vscode-activity-bar">
+                <button
+                  type="button"
+                  className={`mz-vscode-activity-item ${activeVsCodeSidebar === "explorer" ? "active" : ""}`}
+                  onClick={() => setActiveVsCodeSidebar(activeVsCodeSidebar === "explorer" ? null : "explorer")}
+                  title="Explorer (Files & Tree)"
+                >
+                  <VscFiles size={20} />
+                </button>
+
+                <button
+                  type="button"
+                  className={`mz-vscode-activity-item ${activeVsCodeSidebar === "search" ? "active" : ""}`}
+                  onClick={() => setActiveVsCodeSidebar(activeVsCodeSidebar === "search" ? null : "search")}
+                  title="Search & Replace"
+                >
+                  <VscSearch size={20} />
+                </button>
+
+                <button
+                  type="button"
+                  className={`mz-vscode-activity-item ${activeVsCodeSidebar === "snippets" ? "active" : ""}`}
+                  onClick={() => setActiveVsCodeSidebar(activeVsCodeSidebar === "snippets" ? null : "snippets")}
+                  title="Algorithm Snippets & Boilerplates"
+                >
+                  <LuSparkles size={20} />
+                </button>
+
+                <button
+                  type="button"
+                  className={`mz-vscode-activity-item ${activeVsCodeSidebar === "ai" ? "active" : ""}`}
+                  onClick={() => setActiveVsCodeSidebar(activeVsCodeSidebar === "ai" ? null : "ai")}
+                  title="AI Code Copilot & Diagnostics"
+                >
+                  <VscSparkle size={20} />
+                </button>
+
+                <button
+                  type="button"
+                  className={`mz-vscode-activity-item ${activeVsCodeSidebar === "settings" ? "active" : ""}`}
+                  onClick={() => setActiveVsCodeSidebar(activeVsCodeSidebar === "settings" ? null : "settings")}
+                  title="Editor Settings & Font Size"
+                >
+                  <VscSettingsGear size={20} />
+                </button>
+
+                <button
+                  type="button"
+                  className={`mz-vscode-activity-item ${activeVsCodeSidebar === "shortcuts" ? "active" : ""}`}
+                  onClick={() => setActiveVsCodeSidebar(activeVsCodeSidebar === "shortcuts" ? null : "shortcuts")}
+                  title="Keyboard Shortcuts Cheat Sheet"
+                >
+                  <VscKey size={20} />
+                </button>
+              </div>
+
+              {/* Collapsible Sidebar (250px) */}
+              {activeVsCodeSidebar && (
+                <div className="mz-vscode-sidebar">
+                  {/* VIEW 1: EXPLORER */}
+                  {activeVsCodeSidebar === "explorer" && (
+                    <>
+                      <div className="mz-vscode-sidebar-header">
+                        <span>Explorer</span>
+                        <span style={{ fontSize: "10px", color: "#858585" }}>WORKSPACE</span>
+                      </div>
+                      <div className="mz-vscode-sidebar-body">
+                        <div style={{ fontSize: "11px", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase" }}>
+                          Open Editors
+                        </div>
+                        <div
+                          className={`mz-vscode-file-item ${activeEditorFile === "solution" ? "active" : ""}`}
+                          onClick={() => setActiveEditorFile("solution")}
+                        >
+                          <span>{selectedLang === "python" ? "🐍" : selectedLang === "javascript" ? "🟨" : selectedLang === "java" ? "☕" : "🔷"}</span>
+                          <span>{getActiveFileName("solution", selectedLang)}</span>
+                        </div>
+                        <div
+                          className={`mz-vscode-file-item ${activeEditorFile === "input" ? "active" : ""}`}
+                          onClick={() => setActiveEditorFile("input")}
+                        >
+                          <span>📥</span>
+                          <span>input.txt (Stdin)</span>
+                        </div>
+                        <div
+                          className={`mz-vscode-file-item ${activeEditorFile === "scratchpad" ? "active" : ""}`}
+                          onClick={() => setActiveEditorFile("scratchpad")}
+                        >
+                          <span>📝</span>
+                          <span>scratchpad.md</span>
+                        </div>
+
+                        <div style={{ marginTop: "16px", fontSize: "11px", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase" }}>
+                          Problem Info
+                        </div>
+                        <div style={{ padding: "8px 10px", background: "rgba(255,255,255,0.03)", borderRadius: "4px", fontSize: "11.5px" }}>
+                          <div style={{ fontWeight: 700, color: "#38bdf8", marginBottom: "4px" }}>{questionDetails.title}</div>
+                          <div style={{ color: "#94a3b8" }}>Level: {questionDetails.difficulty}</div>
+                          <div style={{ color: "#94a3b8" }}>Target: 80% passing</div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* VIEW 2: SEARCH & REPLACE */}
+                  {activeVsCodeSidebar === "search" && (
+                    <>
+                      <div className="mz-vscode-sidebar-header">
+                        <span>Search & Replace</span>
+                        {searchResultsCount > 0 && <span style={{ color: "#38bdf8" }}>{searchResultsCount} found</span>}
+                      </div>
+                      <div className="mz-vscode-sidebar-body">
+                        <div className="mz-vscode-search-box">
+                          <input
+                            type="text"
+                            className="mz-vscode-search-input"
+                            placeholder="Find in current buffer..."
+                            value={searchQuery}
+                            onChange={(e) => handleSearchCode(e.target.value)}
+                          />
+                          <input
+                            type="text"
+                            className="mz-vscode-search-input"
+                            placeholder="Replace with..."
+                            value={replaceQuery}
+                            onChange={(e) => setReplaceQuery(e.target.value)}
+                          />
+                          <div style={{ display: "flex", gap: "6px", marginTop: "4px" }}>
+                            <button
+                              type="button"
+                              className="mz-vscode-snippet-btn"
+                              onClick={() => handleReplaceCode(false)}
+                              disabled={!searchQuery}
+                            >
+                              Replace Next
+                            </button>
+                            <button
+                              type="button"
+                              className="mz-vscode-snippet-btn"
+                              onClick={() => handleReplaceCode(true)}
+                              disabled={!searchQuery}
+                              style={{ background: "#475569" }}
+                            >
+                              Replace All
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* VIEW 3: ALGORITHM SNIPPETS */}
+                  {activeVsCodeSidebar === "snippets" && (
+                    <>
+                      <div className="mz-vscode-sidebar-header">
+                        <span>Algorithms & Snippets</span>
+                        <span style={{ fontSize: "10px", color: "#38bdf8" }}>{selectedLang.toUpperCase()}</span>
+                      </div>
+                      <div className="mz-vscode-sidebar-body">
+                        {(ALGORITHM_SNIPPETS[selectedLang] || ALGORITHM_SNIPPETS.python).map((snip, idx) => (
+                          <div key={idx} className="mz-vscode-snippet-card">
+                            <span className="mz-vscode-snippet-title">{snip.title}</span>
+                            <span className="mz-vscode-snippet-desc">{snip.desc}</span>
+                            <button
+                              type="button"
+                              className="mz-vscode-snippet-btn"
+                              onClick={() => handleInsertSnippet(snip.code)}
+                            >
+                              + Insert Code
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+
+                  {/* VIEW 4: AI COPILOT */}
+                  {activeVsCodeSidebar === "ai" && (
+                    <>
+                      <div className="mz-vscode-sidebar-header">
+                        <span>AI Code Copilot</span>
+                        <span style={{ fontSize: "10px", color: "#10b981" }}>DIAGNOSTICS</span>
+                      </div>
+                      <div className="mz-vscode-sidebar-body">
+                        <button
+                          type="button"
+                          className="mz-vscode-snippet-btn"
+                          onClick={handleRunAiAnalysis}
+                          disabled={isAiAnalyzing}
+                          style={{ width: "100%", padding: "7px 10px", background: "#8b5cf6" }}
+                        >
+                          {isAiAnalyzing ? "Evaluating AST & Loops..." : "⚡ Analyze Code & Complexity"}
+                        </button>
+
+                        {aiAnalysis && (
+                          <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "8px" }}>
+                            <div style={{ padding: "8px", background: "rgba(255,255,255,0.05)", borderRadius: "4px" }}>
+                              <div style={{ color: "#38bdf8", fontWeight: 700, fontSize: "11px" }}>TIME COMPLEXITY</div>
+                              <div style={{ fontSize: "14px", fontWeight: 800, color: "#ffffff", fontFamily: "monospace" }}>
+                                {aiAnalysis.timeComplexity}
+                              </div>
+                            </div>
+
+                            <div style={{ padding: "8px", background: "rgba(255,255,255,0.05)", borderRadius: "4px" }}>
+                              <div style={{ color: "#38bdf8", fontWeight: 700, fontSize: "11px" }}>SPACE COMPLEXITY</div>
+                              <div style={{ fontSize: "13px", fontWeight: 700, color: "#ffffff", fontFamily: "monospace" }}>
+                                {aiAnalysis.spaceComplexity}
+                              </div>
+                            </div>
+
+                            <div style={{ fontSize: "11.5px", color: "#cbd5e1", lineHeight: "1.4" }}>
+                              {aiAnalysis.explanation}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+
+                  {/* VIEW 5: SETTINGS */}
+                  {activeVsCodeSidebar === "settings" && (
+                    <>
+                      <div className="mz-vscode-sidebar-header">
+                        <span>Editor Settings</span>
+                        <span style={{ fontSize: "10px", color: "#94a3b8" }}>PREFERENCES</span>
+                      </div>
+                      <div className="mz-vscode-sidebar-body">
+                        <div>
+                          <div style={{ fontWeight: 700, marginBottom: "6px" }}>Font Size</div>
+                          <div style={{ display: "flex", gap: "4px" }}>
+                            {[12, 13, 14, 16, 18].map((sz) => (
+                              <button
+                                key={sz}
+                                type="button"
+                                className={`mz-font-size-btn ${editorFontSize === sz ? "active" : ""}`}
+                                onClick={() => setEditorFontSize(sz)}
+                              >
+                                {sz}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div style={{ marginTop: "12px" }}>
+                          <div style={{ fontWeight: 700, marginBottom: "6px" }}>Tab Size (Spaces)</div>
+                          <div style={{ display: "flex", gap: "4px" }}>
+                            {[2, 4].map((ts) => (
+                              <button
+                                key={ts}
+                                type="button"
+                                className={`mz-font-size-btn ${tabSize === ts ? "active" : ""}`}
+                                onClick={() => setTabSize(ts)}
+                              >
+                                {ts} Spaces
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div style={{ marginTop: "12px" }}>
+                          <div style={{ fontWeight: 700, marginBottom: "6px" }}>Line Numbers</div>
+                          <div style={{ display: "flex", gap: "4px" }}>
+                            {["on", "relative", "off"].map((mode) => (
+                              <button
+                                key={mode}
+                                type="button"
+                                className={`mz-font-size-btn ${lineNumbersMode === mode ? "active" : ""}`}
+                                onClick={() => setLineNumbersMode(mode)}
+                              >
+                                {mode}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div style={{ marginTop: "12px" }}>
+                          <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+                            <input
+                              type="checkbox"
+                              checked={bracketPairColorization}
+                              onChange={(e) => setBracketPairColorization(e.target.checked)}
+                            />
+                            <span>Bracket Pair Colorization</span>
+                          </label>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* VIEW 6: KEYBOARD SHORTCUTS */}
+                  {activeVsCodeSidebar === "shortcuts" && (
+                    <>
+                      <div className="mz-vscode-sidebar-header">
+                        <span>Shortcuts</span>
+                        <span style={{ fontSize: "10px", color: "#94a3b8" }}>CHEATSHEET</span>
+                      </div>
+                      <div className="mz-vscode-sidebar-body">
+                        <div style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "11.5px" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between" }}>
+                            <span>Run Program</span>
+                            <kbd style={{ background: "#3c3c3c", padding: "2px 5px", borderRadius: "3px" }}>Ctrl + Enter</kbd>
+                          </div>
+                          <div style={{ display: "flex", justifyContent: "space-between" }}>
+                            <span>Format Document</span>
+                            <kbd style={{ background: "#3c3c3c", padding: "2px 5px", borderRadius: "3px" }}>Shift + Alt + F</kbd>
+                          </div>
+                          <div style={{ display: "flex", justifyContent: "space-between" }}>
+                            <span>Save Draft</span>
+                            <kbd style={{ background: "#3c3c3c", padding: "2px 5px", borderRadius: "3px" }}>Ctrl + S</kbd>
+                          </div>
+                          <div style={{ display: "flex", justifyContent: "space-between" }}>
+                            <span>Find in File</span>
+                            <kbd style={{ background: "#3c3c3c", padding: "2px 5px", borderRadius: "3px" }}>Ctrl + F</kbd>
+                          </div>
+                          <div style={{ display: "flex", justifyContent: "space-between" }}>
+                            <span>Toggle Word Wrap</span>
+                            <kbd style={{ background: "#3c3c3c", padding: "2px 5px", borderRadius: "3px" }}>Alt + Z</kbd>
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Monaco Code Editor Pane */}
+              <div className="mz-vscode-editor-pane">
+                <div className="mz-vscode-editor-inner">
+                  <Editor
+                    height={isEditorFullscreen ? "calc(100vh - 290px)" : "420px"}
+                    language={activeEditorFile === "solution" ? selectedLang : activeEditorFile === "input" ? "plaintext" : "markdown"}
+                    theme={editorTheme}
+                    value={activeEditorFile === "solution" ? code : activeEditorFile === "input" ? customStdin : scratchpadContent}
+                    onChange={handleCodeChange}
+                    beforeMount={handleEditorBeforeMount}
+                    onMount={handleEditorMount}
+                    options={{
+                      fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, Menlo, Monaco, monospace",
+                      fontSize: editorFontSize,
+                      lineNumbers: lineNumbersMode,
+                      lineNumbersMinChars: 3,
+                      minimap: { enabled: isMinimapOpen },
+                      scrollBeyondLastLine: false,
+                      automaticLayout: true,
+                      tabSize,
+                      wordWrap: isWordWrap ? "on" : "off",
+                      readOnly: isTimeExpired || isTerminated || isSubmittedReadOnly,
+                      domReadOnly: isTimeExpired || isTerminated || isSubmittedReadOnly,
+                      renderLineHighlight: "all",
+                      cursorBlinking: "smooth",
+                      cursorSmoothCaretAnimation: "on",
+                      bracketPairColorization: { enabled: bracketPairColorization },
+                      formatOnPaste: true,
+                      folding: true,
+                      padding: { top: 10, bottom: 10 },
+                      smoothScrolling: true,
+                    }}
+                  />
+
+                  {(isTimeExpired || isTerminated || isSubmittedReadOnly) && (
+                    <div className="mz-editor-locked-overlay">
+                      <LuLock size={24} color="#3b82f6" />
+                      <strong>Assessment Solution Locked (Read-Only)</strong>
+                      <span>This attempt is permanently locked and cryptographically logged.</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* 4. INTEGRATED TERMINAL & OUTPUT DRAWER PANEL */}
+            <div className="mz-vscode-bottom-panel">
+              {/* Bottom Tabs Header */}
+              <div className="mz-vscode-bottom-header">
+                <div className="mz-vscode-bottom-tabs">
+                  <button
+                    type="button"
+                    className={`mz-vscode-bottom-tab ${bottomPanelTab === "terminal" ? "active" : ""}`}
+                    onClick={() => {
+                      setBottomPanelTab("terminal");
+                      setIsDrawerOpen(true);
+                    }}
+                  >
+                    <VscTerminal size={14} />
+                    <span>Terminal / STDIN</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className={`mz-vscode-bottom-tab ${bottomPanelTab === "output" ? "active" : ""}`}
+                    onClick={() => {
+                      setBottomPanelTab("output");
+                      setIsDrawerOpen(true);
+                    }}
+                  >
+                    <LuFileCode size={14} />
+                    <span>Output</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className={`mz-vscode-bottom-tab ${bottomPanelTab === "testcases" ? "active" : ""}`}
+                    onClick={() => {
+                      setBottomPanelTab("testcases");
+                      setIsDrawerOpen(true);
+                    }}
+                  >
+                    <LuPlay size={13} fill="currentColor" />
+                    <span>Test Cases ({passedCount}/{allTestCases.length})</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className={`mz-vscode-bottom-tab ${bottomPanelTab === "problems" ? "active" : ""}`}
+                    onClick={() => {
+                      setBottomPanelTab("problems");
+                      setIsDrawerOpen(true);
+                    }}
+                  >
+                    <LuTriangleAlert size={14} color={customError ? "#ef4444" : "#94a3b8"} />
+                    <span>Problems {customError ? "(1)" : "(0)"}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className={`mz-vscode-bottom-tab ${bottomPanelTab === "hints" ? "active" : ""}`}
+                    onClick={() => {
+                      setBottomPanelTab("hints");
+                      setIsDrawerOpen(true);
+                    }}
+                  >
+                    <LuLightbulb size={14} />
+                    <span>Hints</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className={`mz-vscode-bottom-tab ${bottomPanelTab === "ai" ? "active" : ""}`}
+                    onClick={() => {
+                      setBottomPanelTab("ai");
+                      setIsDrawerOpen(true);
+                    }}
+                  >
+                    <VscSparkle size={14} />
+                    <span>AI Copilot</span>
+                  </button>
+                </div>
+
+                {/* Panel Controls */}
+                <div className="mz-vscode-bottom-controls">
+                  <button
+                    type="button"
+                    className="mz-vscode-bottom-ctrl-btn"
+                    onClick={() => {
+                      setCustomOutput("");
+                      setCustomError("");
+                    }}
+                    title="Clear Terminal Output"
+                  >
+                    <LuTrash2 size={13} />
+                  </button>
+
+                  <button
+                    type="button"
+                    className="mz-vscode-bottom-ctrl-btn"
+                    onClick={() => {
+                      navigator.clipboard.writeText(customOutput || customError || "");
+                      toast.success("Output copied to clipboard");
+                    }}
+                    title="Copy Output"
+                  >
+                    <VscCopy size={13} />
+                  </button>
+
+                  <button
+                    type="button"
+                    className="mz-vscode-bottom-ctrl-btn"
+                    onClick={() => setIsBottomPanelMaximized(!isBottomPanelMaximized)}
+                    title={isBottomPanelMaximized ? "Restore Panel Height" : "Maximize Panel"}
+                  >
+                    {isBottomPanelMaximized ? <LuMinimize2 size={13} /> : <LuMaximize2 size={13} />}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="mz-vscode-bottom-ctrl-btn"
+                    onClick={() => setIsDrawerOpen(!isDrawerOpen)}
+                    title={isDrawerOpen ? "Collapse Panel" : "Expand Panel"}
+                  >
+                    {isDrawerOpen ? <VscChevronDown size={14} /> : <VscChevronUp size={14} />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Panel Body */}
+              {isDrawerOpen && (
+                <div className={`mz-vscode-bottom-body ${isBottomPanelMaximized ? "is-maximized" : ""}`}>
+                  {/* TAB 1: TERMINAL / STDIN */}
+                  {bottomPanelTab === "terminal" && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontSize: "11.5px", color: "#94a3b8" }}>Standard Input (STDIN) Stream:</span>
+                        <button
+                          type="button"
+                          className="mz-vscode-snippet-btn"
+                          onClick={handleRun}
+                          disabled={isRunning || isSubmitting}
+                          style={{ background: "#10b981" }}
+                        >
+                          <LuPlay size={11} fill="currentColor" style={{ marginRight: "4px" }} />
+                          {isRunning ? "Executing..." : "Execute with STDIN"}
+                        </button>
+                      </div>
+
+                      <textarea
+                        className="mz-compiler-custom-stdin-textarea"
+                        placeholder="Enter custom input (passed via standard input to solution)..."
+                        value={customStdin}
+                        onChange={(e) => setCustomStdin(e.target.value)}
+                        style={{ height: "60px", background: editorTheme === "vs" ? "#ffffff" : "#222222", color: editorTheme === "vs" ? "#0f172a" : "#e2e8f0" }}
+                      />
+
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "4px" }}>
+                        <span style={{ fontSize: "11.5px", color: "#94a3b8" }}>Terminal Execution Result:</span>
+                        {customDuration !== null && (
+                          <span style={{ fontSize: "11px", color: "#38bdf8", fontFamily: "monospace" }}>
+                            ⏱ Execution time: {customDuration}ms
+                          </span>
+                        )}
+                      </div>
+
+                      <div
+                        className={`mz-compiler-io-box ${customError ? "error-box" : ""}`}
+                        style={{ background: editorTheme === "vs" ? "#ffffff" : "#1a1a1a", border: "1px solid #333333" }}
+                      >
+                        {customOutput || (customError ? customError : "[No output produced yet. Click 'Execute with STDIN' or 'Run Solution' to execute.]")}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* TAB 2: OUTPUT */}
+                  {bottomPanelTab === "output" && (
+                    <div style={{ fontFamily: "monospace", fontSize: "12px", whiteSpace: "pre-wrap", color: editorTheme === "vs" ? "#0f172a" : "#e2e8f0" }}>
+                      {customOutput || customError ? (
+                        <>
+                          <div style={{ color: "#94a3b8", marginBottom: "8px" }}>
+                            [MasteryZone Sandboxed Runner — {selectedLang.toUpperCase()} 64-bit runtime]
+                          </div>
+                          {customOutput && <div>{customOutput}</div>}
+                          {customError && <div style={{ color: "#ef4444", marginTop: "6px" }}>{customError}</div>}
+                        </>
+                      ) : (
+                        <div style={{ color: "#64748b" }}>
+                          [Execution output console is empty. Click Run or Run Tests to view standard output.]
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* TAB 3: TEST CASES */}
+                  {bottomPanelTab === "testcases" && (
+                    <div>
+                      {/* Pass/Fail Banner */}
+                      {bannerVisible && (
+                        <div
+                          className={`mz-compiler-pass-banner ${
+                            isAllPassed
+                              ? "all-passed"
+                              : hasEvaluated && !isCodeModifiedAfterEval && passedCount >= 8
+                              ? "passed"
+                              : hasEvaluated && !isCodeModifiedAfterEval && passedCount < 8
+                              ? "failed"
+                              : "idle"
+                          }`}
+                          style={{ marginBottom: "12px" }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            {isAllPassed ? (
+                              <LuSparkles size={16} />
+                            ) : hasEvaluated && !isCodeModifiedAfterEval && passedCount >= 8 ? (
+                              <LuCircleCheck size={16} />
+                            ) : hasEvaluated && !isCodeModifiedAfterEval && passedCount < 8 ? (
+                              <LuCircleX size={16} />
+                            ) : (
+                              <LuFileCode size={16} />
+                            )}
+                            <span>
+                              {isAllPassed
+                                ? "🎉 Perfect Score! All test cases passed (100%). Solution Verified & Graded!"
+                                : hasEvaluated && !isCodeModifiedAfterEval
+                                ? `You have passed ${passedCount}/${allTestCases.length} tests${
+                                    passedCount >= 8
+                                      ? " — Solution meets passing criteria (≥80%)!"
+                                      : " — Keep revising to reach 80% passing threshold!"
+                                  }`
+                                : "Run tests to evaluate your solution against the comprehensive test suite."}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            className="mz-compiler-banner-dismiss"
+                            onClick={() => setBannerVisible(false)}
+                          >
+                            Dismiss
+                          </button>
+                        </div>
+                      )}
+
+                      <div className="mz-compiler-drawer-content">
+                        {/* Left Column: Test Cases List */}
+                        <div className="mz-compiler-drawer-sidebar">
+                          <button
+                            type="button"
+                            className="mz-compiler-btn-run-tests"
+                            disabled={isRunningTests || isSubmitting}
+                            onClick={handleRunTests}
+                          >
+                            <LuPlay size={13} fill="currentColor" />
+                            <span>{isRunningTests ? "Running Tests..." : "Run Tests"}</span>
+                          </button>
+
+                          <div className="mz-compiler-test-cases-list">
+                            {allTestCases.map((tc, idx) => (
+                              <button
+                                key={tc.index}
+                                type="button"
+                                className={`mz-compiler-tc-item ${selectedCaseIndex === idx ? "active" : ""}`}
+                                onClick={() => setSelectedCaseIndex(idx)}
+                              >
+                                <span>Test Case {tc.index}</span>
+                                <span
+                                  className={`mz-compiler-status-icon ${
+                                    tc.passed === true || (isAllPassed && hasEvaluated)
+                                      ? "pass"
+                                      : tc.passed === false
+                                      ? "fail"
+                                      : "neutral"
+                                  }`}
+                                >
+                                  {tc.passed === true || (isAllPassed && hasEvaluated) ? (
+                                    <LuCircleCheck size={16} />
+                                  ) : tc.passed === false ? (
+                                    <LuCircleX size={16} />
+                                  ) : (
+                                    <LuCircle size={15} color="#94a3b8" />
+                                  )}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Right Column: Input, Expected Output, & Actual Output */}
+                        <div className="mz-compiler-drawer-detail">
+                          <div>
+                            <div className="mz-detail-header-row">
+                              <div className="mz-compiler-detail-section-title">
+                                Input {selectedCase?.isHidden ? `(Hidden Test Case ${selectedCase?.index} of 10)` : `(Public Sample ${selectedCase?.index} of 3)`}
+                              </div>
+                            </div>
+                            <div className={`mz-compiler-io-box ${selectedCase?.isHidden ? "hidden-case" : ""}`}>
+                              {selectedCase?.isHidden
+                                ? "[Hidden Test Case — Stored exclusively on backend to evaluate boundary conditions]"
+                                : selectedCase?.input}
+                            </div>
+                          </div>
+
+                          <div>
+                            <div className="mz-detail-header-row">
+                              <div className="mz-compiler-detail-section-title">
+                                Expected Output {selectedCase?.isHidden ? "(Hidden)" : ""}
+                              </div>
+                            </div>
+                            <div className={`mz-compiler-io-box ${selectedCase?.isHidden ? "hidden-case" : ""}`}>
+                              {selectedCase?.isHidden
+                                ? "[Hidden Output — Protected test case to prevent hardcoding]"
+                                : selectedCase?.expectedOutput}
+                            </div>
+                          </div>
+
+                          {/* Actual Output */}
+                          {hasEvaluated && (
+                            <div>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <div className="mz-compiler-detail-section-title">Actual Output</div>
+                                <span style={{ fontSize: "11px", color: "#64748b", fontFamily: "monospace" }}>
+                                  ⏱ {selectedCase?.duration || 0}ms
+                                </span>
+                              </div>
+                              <div
+                                className={`mz-compiler-io-box ${
+                                  selectedCase?.passed === false && !isAllPassed
+                                    ? "error-box"
+                                    : selectedCase?.passed === true || isAllPassed
+                                    ? "success-box"
+                                    : ""
+                                }`}
+                              >
+                                {selectedCase?.isHidden
+                                  ? selectedCase?.passed === true || isAllPassed
+                                    ? "[Passed — Output matched hidden test case expectations]"
+                                    : selectedCase?.error || "[Hidden Test Case Failed — Output did not match expected]"
+                                  : selectedCase?.actualOutput ||
+                                    (selectedCase?.passed === true || isAllPassed
+                                      ? selectedCase?.expectedOutput || "[Passed]"
+                                      : "[No output produced]")}
+                                {selectedCase?.error && (
+                                  <div style={{ color: "#ef4444", marginTop: "6px", fontFamily: "monospace" }}>
+                                    {selectedCase.error}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* TAB 4: PROBLEMS */}
+                  {bottomPanelTab === "problems" && (
+                    <div style={{ fontSize: "12px" }}>
+                      {customError ? (
+                        <div style={{ padding: "10px 14px", background: "rgba(239, 68, 68, 0.12)", border: "1px solid #ef4444", borderRadius: "6px", color: "#fca5a5" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: 700, color: "#ef4444", marginBottom: "4px" }}>
+                            <LuTriangleAlert size={16} />
+                            <span>Compilation or Runtime Diagnostic:</span>
+                          </div>
+                          <pre style={{ margin: 0, whiteSpace: "pre-wrap", fontFamily: "monospace", fontSize: "11.5px" }}>
+                            {customError}
+                          </pre>
+                        </div>
+                      ) : (
+                        <div style={{ color: "#10b981", display: "flex", alignItems: "center", gap: "8px", padding: "12px 0" }}>
+                          <LuCircleCheck size={16} />
+                          <span>No compilation problems or syntax errors detected in workspace buffer.</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* TAB 5: HINTS */}
+                  {bottomPanelTab === "hints" && (
+                    <div className="mz-compiler-hints-panel">
+                      <div className="mz-hints-top-bar">
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <LuLightbulb size={18} color="#f59e0b" />
+                          <strong>Algorithmic Hints & Intuition Guide</strong>
+                        </div>
+                        <button type="button" className="mz-reveal-all-btn" onClick={revealAllHints}>
+                          Reveal All Hints
+                        </button>
+                      </div>
+
+                      <div className="mz-hints-list">
+                        {questionDetails.hints.map((hintText, idx) => (
+                          <div key={idx} className="mz-hint-card">
+                            <button
+                              type="button"
+                              className="mz-hint-card-header"
+                              onClick={() => toggleHint(idx)}
+                            >
+                              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                <span className="mz-hint-number">Hint {idx + 1}</span>
+                                <span className="mz-hint-title-tag">
+                                  {idx === 0
+                                    ? "Core Insight & Input Parsing"
+                                    : idx === 1
+                                    ? "Algorithmic Formulation & Approach"
+                                    : idx === 2
+                                    ? "Boundary Conditions & Edge Cases"
+                                    : "Implementation Strategy & Complexity"}
+                                </span>
+                              </div>
+                              {revealedHints[idx] ? <LuChevronUp size={16} /> : <LuChevronDown size={16} />}
+                            </button>
+
+                            {revealedHints[idx] ? (
+                              <div className="mz-hint-content">
+                                <p>{hintText}</p>
+                              </div>
+                            ) : (
+                              <div className="mz-hint-collapsed-notice" onClick={() => toggleHint(idx)}>
+                                <span>Click to reveal Hint #{idx + 1}</span>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* TAB 6: AI COPILOT */}
+                  {bottomPanelTab === "ai" && (
+                    <div style={{ fontSize: "12.5px", color: editorTheme === "vs" ? "#0f172a" : "#e2e8f0" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <VscSparkle size={18} color="#a855f7" />
+                          <strong>AI Algorithmic Diagnostics & Complexity Estimator</strong>
+                        </div>
+                        <button
+                          type="button"
+                          className="mz-vscode-snippet-btn"
+                          onClick={handleRunAiAnalysis}
+                          disabled={isAiAnalyzing}
+                          style={{ background: "#8b5cf6" }}
+                        >
+                          {isAiAnalyzing ? "Analyzing..." : "Re-Analyze Code"}
+                        </button>
+                      </div>
+
+                      {aiAnalysis ? (
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                          <div style={{ padding: "10px", background: "rgba(255,255,255,0.04)", borderRadius: "6px", border: "1px solid rgba(255,255,255,0.08)" }}>
+                            <div style={{ color: "#38bdf8", fontWeight: 700, marginBottom: "4px" }}>TIME & SPACE COMPLEXITY</div>
+                            <div style={{ fontSize: "13px", fontFamily: "monospace" }}>Time: <strong>{aiAnalysis.timeComplexity}</strong></div>
+                            <div style={{ fontSize: "13px", fontFamily: "monospace", marginTop: "2px" }}>Space: <strong>{aiAnalysis.spaceComplexity}</strong></div>
+                            <p style={{ margin: "8px 0 0 0", fontSize: "12px", color: "#94a3b8" }}>{aiAnalysis.explanation}</p>
+                          </div>
+
+                          <div style={{ padding: "10px", background: "rgba(255,255,255,0.04)", borderRadius: "6px", border: "1px solid rgba(255,255,255,0.08)" }}>
+                            <div style={{ color: "#10b981", fontWeight: 700, marginBottom: "4px" }}>OPTIMIZATION HINTS & EDGE CASES</div>
+                            <ul style={{ margin: 0, paddingLeft: "16px", fontSize: "12px", color: "#cbd5e1" }}>
+                              {aiAnalysis.optimizations.map((opt, i) => (
+                                <li key={i} style={{ marginBottom: "4px" }}>{opt}</li>
+                              ))}
+                              {aiAnalysis.edgeCases.slice(0, 2).map((ec, i) => (
+                                <li key={`ec-${i}`} style={{ color: "#f59e0b" }}>Watch: {ec}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ color: "#94a3b8", textAlign: "center", padding: "20px" }}>
+                          Click &quot;Re-Analyze Code&quot; to inspect your solution with the built-in AI code evaluator.
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
 
-            {/* Drawer Tab Header (Run | Run Tests | Hint | Chevron) */}
-            <div className="mz-compiler-drawer-tabs">
-              <div className="mz-compiler-tabs-group">
-                <button
-                  type="button"
-                  className={`mz-compiler-tab ${activeTab === "run" ? "active" : ""}`}
+            {/* 5. AUTHENTIC VS CODE BOTTOM STATUS BAR */}
+            <div className="mz-vscode-status-bar">
+              <div className="mz-vscode-status-left">
+                <div className="mz-vscode-status-item" title="Git Branch: main">
+                  <VscSourceControl size={13} />
+                  <span>main</span>
+                </div>
+
+                <div
+                  className="mz-vscode-status-item"
                   onClick={() => {
-                    setActiveTab("run");
+                    setBottomPanelTab("problems");
                     setIsDrawerOpen(true);
                   }}
+                  title="Diagnostics & Problems"
                 >
-                  <LuTerminal size={14} style={{ marginRight: "6px" }} />
-                  Run
-                </button>
-                <button
-                  type="button"
-                  className={`mz-compiler-tab ${activeTab === "run_tests" ? "active" : ""}`}
-                  onClick={() => {
-                    setActiveTab("run_tests");
-                    setIsDrawerOpen(true);
-                  }}
-                >
-                  <LuPlay size={14} style={{ marginRight: "6px" }} />
-                  Run Tests
-                </button>
-                <button
-                  type="button"
-                  className={`mz-compiler-tab ${activeTab === "hint" ? "active" : ""}`}
-                  onClick={() => {
-                    setActiveTab("hint");
-                    setIsDrawerOpen(true);
-                  }}
-                >
-                  <LuLightbulb size={14} style={{ marginRight: "6px" }} />
-                  Hint
-                </button>
+                  <span>{customError ? "⨂ 1" : "⨂ 0"}</span>
+                  <span>⚠ 0</span>
+                </div>
+
+                <div className="mz-vscode-status-item">
+                  <span>{isRunning ? "⏳ Executing..." : customDuration !== null ? `⏱ ${customDuration}ms` : "✓ Ready"}</span>
+                </div>
               </div>
 
-              <button
-                type="button"
-                className="mz-compiler-drawer-toggle-btn"
-                onClick={() => setIsDrawerOpen(!isDrawerOpen)}
-                title={isDrawerOpen ? "Collapse drawer" : "Expand drawer"}
-              >
-                {isDrawerOpen ? <LuChevronUp size={18} /> : <LuChevronDown size={18} />}
-              </button>
+              <div className="mz-vscode-status-right">
+                <div className="mz-vscode-status-item">
+                  <span>
+                    Ln {cursorPos.line}, Col {cursorPos.col}
+                    {selectionLength > 0 ? ` (${selectionLength} selected)` : ""}
+                  </span>
+                </div>
+
+                <div className="mz-vscode-status-item">
+                  <span>Spaces: {tabSize}</span>
+                </div>
+
+                <div className="mz-vscode-status-item">
+                  <span>UTF-8</span>
+                </div>
+
+                <div className="mz-vscode-status-item" style={{ fontWeight: 700 }}>
+                  <span>{selectedLang.toUpperCase()}</span>
+                </div>
+
+                <div className="mz-vscode-status-item" title="Prettier Formatter Active">
+                  <span>Prettier: ✓</span>
+                </div>
+
+                <div
+                  className="mz-vscode-status-item"
+                  onClick={() => setIsThemeDropdownOpen(!isThemeDropdownOpen)}
+                  style={{ textDecoration: "underline", cursor: "pointer" }}
+                  title="Click to Switch VS Code Theme"
+                >
+                  <span>{VSCODE_THEMES.find((t) => t.id === editorTheme)?.label || editorTheme}</span>
+                </div>
+              </div>
             </div>
-
-            {/* Expanded Drawer Area */}
-            {isDrawerOpen && (
-              <div className="mz-compiler-drawer-body">
-                {/* Pass/Fail Banner */}
-                {activeTab === "run_tests" && bannerVisible && (
-                  <div
-                    className={`mz-compiler-pass-banner ${
-                      isAllPassed
-                        ? "all-passed"
-                        : hasEvaluated && !isCodeModifiedAfterEval && passedCount >= 8
-                        ? "passed"
-                        : hasEvaluated && !isCodeModifiedAfterEval && passedCount < 8
-                        ? "failed"
-                        : "idle"
-                    }`}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      {isAllPassed ? (
-                        <LuSparkles size={16} />
-                      ) : hasEvaluated && !isCodeModifiedAfterEval && passedCount >= 8 ? (
-                        <LuCircleCheck size={16} />
-                      ) : hasEvaluated && !isCodeModifiedAfterEval && passedCount < 8 ? (
-                        <LuCircleX size={16} />
-                      ) : (
-                        <LuFileCode size={16} />
-                      )}
-                      <span>
-                        {isAllPassed
-                          ? "🎉 Perfect Score! All test cases passed (100%). Solution Verified & Graded!"
-                          : hasEvaluated && !isCodeModifiedAfterEval
-                          ? `You have passed ${passedCount}/${allTestCases.length} tests${
-                              passedCount >= 8
-                                ? " — Solution meets passing criteria (≥80%)!"
-                                : " — Keep revising to reach 80% passing threshold!"
-                            }`
-                          : "Run tests to evaluate your solution against the test suite."}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      className="mz-compiler-banner-dismiss"
-                      onClick={() => setBannerVisible(false)}
-                    >
-                      Dismiss
-                    </button>
-                  </div>
-                )}
-
-                {/* TAB 1: RUN TESTS */}
-                {activeTab === "run_tests" && (
-                  <div className="mz-compiler-drawer-content">
-                    {/* Left Column: Test Cases List */}
-                    <div className="mz-compiler-drawer-sidebar">
-                      <button
-                        type="button"
-                        className="mz-compiler-btn-run-tests"
-                        disabled={isRunningTests || isSubmitting}
-                        onClick={handleRunTests}
-                      >
-                        <LuPlay size={13} fill="currentColor" />
-                        <span>{isRunningTests ? "Running Tests..." : "Run Tests"}</span>
-                      </button>
-
-                      <div className="mz-compiler-test-cases-list">
-                        {allTestCases.map((tc, idx) => (
-                          <button
-                            key={tc.index}
-                            type="button"
-                            className={`mz-compiler-tc-item ${selectedCaseIndex === idx ? "active" : ""}`}
-                            onClick={() => setSelectedCaseIndex(idx)}
-                          >
-                            <span>Test Case {tc.index}</span>
-                            <span
-                              className={`mz-compiler-status-icon ${
-                                tc.passed === true || (isAllPassed && hasEvaluated)
-                                  ? "pass"
-                                  : tc.passed === false
-                                  ? "fail"
-                                  : "neutral"
-                              }`}
-                            >
-                              {tc.passed === true || (isAllPassed && hasEvaluated) ? (
-                                <LuCircleCheck size={16} />
-                              ) : tc.passed === false ? (
-                                <LuCircleX size={16} />
-                              ) : (
-                                <LuCircle size={15} color="#94a3b8" />
-                              )}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Right Column: Input, Expected Output, & Actual Output */}
-                    <div className="mz-compiler-drawer-detail">
-                      <div>
-                        <div className="mz-detail-header-row">
-                          <div className="mz-compiler-detail-section-title">
-                            Input {selectedCase?.isHidden ? `(Hidden Test Case ${selectedCase?.index} of 10)` : `(Public Sample ${selectedCase?.index} of 3)`}
-                          </div>
-                        </div>
-                        <div className={`mz-compiler-io-box ${selectedCase?.isHidden ? "hidden-case" : ""}`}>
-                          {selectedCase?.isHidden
-                            ? "[Hidden Test Case — Stored exclusively on backend to evaluate boundary conditions]"
-                            : selectedCase?.input}
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="mz-detail-header-row">
-                          <div className="mz-compiler-detail-section-title">
-                            Expected Output {selectedCase?.isHidden ? "(Hidden)" : ""}
-                          </div>
-                        </div>
-                        <div className={`mz-compiler-io-box ${selectedCase?.isHidden ? "hidden-case" : ""}`}>
-                          {selectedCase?.isHidden
-                            ? "[Hidden Output — Protected test case to prevent hardcoding]"
-                            : selectedCase?.expectedOutput}
-                        </div>
-                      </div>
-
-                      {/* Actual Output */}
-                      {hasEvaluated && (
-                        <div>
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <div className="mz-compiler-detail-section-title">Actual Output</div>
-                            <span style={{ fontSize: "11px", color: "#64748b", fontFamily: "monospace" }}>
-                              ⏱ {selectedCase?.duration || 0}ms
-                            </span>
-                          </div>
-                          <div
-                            className={`mz-compiler-io-box ${
-                              selectedCase?.passed === false && !isAllPassed
-                                ? "error-box"
-                                : selectedCase?.passed === true || isAllPassed
-                                ? "success-box"
-                                : ""
-                            }`}
-                          >
-                            {selectedCase?.isHidden
-                              ? selectedCase?.passed === true || isAllPassed
-                                ? "[Passed — Output matched hidden test case expectations]"
-                                : selectedCase?.error || "[Hidden Test Case Failed — Output did not match expected]"
-                              : selectedCase?.actualOutput ||
-                                (selectedCase?.passed === true || isAllPassed
-                                  ? selectedCase?.expectedOutput || "[Passed]"
-                                  : "[No output produced]")}
-                            {selectedCase?.error && (
-                              <div style={{ color: "#ef4444", marginTop: "6px", fontFamily: "monospace" }}>
-                                {selectedCase.error}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* TAB 2: RUN (Custom STDIN) */}
-                {activeTab === "run" && (
-                  <div className="mz-compiler-drawer-content">
-                    <div className="mz-compiler-drawer-sidebar">
-                      <button
-                        type="button"
-                        className="mz-compiler-btn-run-tests"
-                        disabled={isRunning || isSubmitting}
-                        onClick={handleRun}
-                      >
-                        <LuPlay size={13} fill="currentColor" />
-                        <span>{isRunning ? "Executing..." : "Run"}</span>
-                      </button>
-                      <div style={{ fontSize: "12px", color: "#64748b", lineHeight: "1.4" }}>
-                        Execute your solution against custom parameters or test unique boundary conditions in real-time.
-                      </div>
-                    </div>
-
-                    <div className="mz-compiler-drawer-detail">
-                      <div>
-                        <div className="mz-compiler-detail-section-title">Custom Input (STDIN)</div>
-                        <textarea
-                          className="mz-compiler-custom-stdin-textarea"
-                          placeholder="Provide optional custom input to feed to standard input..."
-                          value={customStdin}
-                          onChange={(e) => setCustomStdin(e.target.value)}
-                        />
-                      </div>
-
-                      <div>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                          <div className="mz-compiler-detail-section-title">Your Output</div>
-                          {customDuration !== null && (
-                            <span style={{ fontSize: "11px", color: "#64748b", fontFamily: "monospace" }}>
-                              ⏱ {customDuration}ms
-                            </span>
-                          )}
-                        </div>
-                        <div className={`mz-compiler-io-box ${customError ? "error-box" : ""}`}>
-                          {customOutput || (customError ? customError : "[No output produced yet. Click 'Run' to execute.]")}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* TAB 3: HINT */}
-                {activeTab === "hint" && (
-                  <div className="mz-compiler-hints-panel">
-                    <div className="mz-hints-top-bar">
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        <LuLightbulb size={18} color="#f59e0b" />
-                        <strong>Algorithmic Hints & Intuition Guide</strong>
-                      </div>
-                      <button type="button" className="mz-reveal-all-btn" onClick={revealAllHints}>
-                        Reveal All Hints
-                      </button>
-                    </div>
-
-                    <div className="mz-hints-list">
-                      {questionDetails.hints.map((hintText, idx) => (
-                        <div key={idx} className="mz-hint-card">
-                          <button
-                            type="button"
-                            className="mz-hint-card-header"
-                            onClick={() => toggleHint(idx)}
-                          >
-                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                              <span className="mz-hint-number">Hint {idx + 1}</span>
-                              <span className="mz-hint-title-tag">
-                                {idx === 0
-                                  ? "Core Insight & Input Parsing"
-                                  : idx === 1
-                                  ? "Algorithmic Formulation & Approach"
-                                  : idx === 2
-                                  ? "Boundary Conditions & Edge Cases"
-                                  : "Implementation Strategy & Complexity"}
-                              </span>
-                            </div>
-                            {revealedHints[idx] ? <LuChevronUp size={16} /> : <LuChevronDown size={16} />}
-                          </button>
-
-                          {revealedHints[idx] ? (
-                            <div className="mz-hint-content">
-                              <p>{hintText}</p>
-                            </div>
-                          ) : (
-                            <div className="mz-hint-collapsed-notice" onClick={() => toggleHint(idx)}>
-                              <span>Click to reveal Hint #{idx + 1}</span>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
           </section>
         </main>
       </div>
@@ -3603,6 +4860,11 @@ export default function MasteryZoneCompilerWorkspace({
                           timestamp: Date.now(),
                         })
                       );
+                      if (currentUserId && currentUserId !== "guest") {
+                        localStorage.setItem(`mz_${currentUserId}_draft_${sid}`, code);
+                        localStorage.setItem(`mz_${currentUserId}_lang_${sid}`, selectedLang);
+                        localStorage.setItem(`mz_${currentUserId}_time_${sid}`, String(secondsRemaining));
+                      }
                       localStorage.setItem(`mz_draft_${sid}`, code);
                       localStorage.setItem(`mz_lang_${sid}`, selectedLang);
                       localStorage.setItem(`mz_time_${sid}`, String(secondsRemaining));

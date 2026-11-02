@@ -325,118 +325,187 @@ io.on("connection", (socket) => {
     const nonDashed = cleanId.replace(/-/g, "");
 
     try {
-      const meeting = await Meeting.findOne({
+      let meeting = await Meeting.findOne({
         $or: [{ meetingId: cleanId }, { meetingId: nonDashed }, { invitationCode: cleanId }],
       });
+
+      const targetUid = String(user?._id || user?.id || user?.userId || "");
+      const targetName = user?.fullName || user?.username || "Learner";
+
+      // If meeting doesn't exist yet, auto-create it so link/code joining never fails
+      if (!meeting) {
+        meeting = await Meeting.create({
+          meetingId: cleanId,
+          title: "Live Meeting Session",
+          groupKey: "general",
+          groupTitle: "Live Meeting",
+          hostUserId: targetUid || String(socket.id),
+          hostName: targetName !== "Learner" ? targetName : "Host",
+          hostEmail: user?.email || "",
+          status: "active",
+          invitationCode: nonDashed,
+          participants: [],
+        });
+      }
+
+      // If meeting was ended and creator re-joins, reactivate it
+      if (meeting.status === "ended") {
+        if (targetUid && String(meeting.hostUserId) === targetUid) {
+          meeting.status = "active";
+          meeting.endedAt = null;
+          await meeting.save();
+        }
+      }
 
       const canonicalId = meeting ? meeting.meetingId : cleanId;
       const roomName = `meeting_${canonicalId}`;
       socket.join(roomName);
+      if (cleanId !== canonicalId) socket.join(`meeting_${cleanId}`);
+      if (nonDashed !== canonicalId) socket.join(`meeting_${nonDashed}`);
+
       socket.data.meetingId = canonicalId;
       socket.data.meetingUser = user;
 
-      if (meeting) {
-        const roomSockets = io.sockets.adapter.rooms.get(roomName) || new Set();
+      const roomSockets = io.sockets.adapter.rooms.get(roomName) || new Set();
 
-        // 1. Clean up stale or disconnected participants from this meeting record
-        meeting.participants.forEach((p) => {
-          if (!p.leftAt && p.socketId && p.socketId !== socket.id && !roomSockets.has(p.socketId)) {
-            p.leftAt = new Date();
-          }
-        });
-
-        const targetUid = String(user?._id || user?.id || "");
-        const targetName = user?.fullName || user?.username || "Learner";
-
-        // Find existing record by socketId, userId, or matching name if socket disconnected
-        const existingIdx = meeting.participants.findIndex(
-          (p) =>
-            p.socketId === socket.id ||
-            (targetUid && String(p.userId) === targetUid) ||
-            (!p.socketId && String(p.userId) === targetUid) ||
-            (!p.leftAt && targetName !== "Learner" && p.fullName === targetName)
-        );
-
-        const isHost =
-          meeting.hostUserId &&
-          ((user?._id && String(meeting.hostUserId) === String(user._id)) ||
-            (user?.id && String(meeting.hostUserId) === String(user.id)) ||
-            meeting.hostName === (user?.fullName || user?.username));
-
-        const pData = {
-          userId: targetUid || String(socket.id),
-          socketId: socket.id,
-          fullName: targetName,
-          username: user?.username || "learner",
-          avatarUrl: user?.avatarUrl || "",
-          role: isHost ? "host" : "participant",
-          isMuted: mediaState?.isMuted ?? false,
-          isVideoOff: mediaState?.isVideoOff ?? false,
-          isScreenSharing: mediaState?.isScreenSharing ?? false,
-          isHandRaised: mediaState?.isHandRaised ?? false,
-          joinedAt: new Date(),
-          leftAt: null,
-        };
-
-        if (existingIdx >= 0) {
-          meeting.participants[existingIdx] = {
-            ...meeting.participants[existingIdx].toObject(),
-            ...pData,
-          };
-        } else {
-          meeting.participants.push(pData);
+      // Clean up stale or disconnected participants from this meeting record
+      meeting.participants.forEach((p) => {
+        if (!p.leftAt && p.socketId && p.socketId !== socket.id && !roomSockets.has(p.socketId)) {
+          p.leftAt = new Date();
         }
-        await meeting.save();
+      });
 
-        const liveSockets = io.sockets.adapter.rooms.get(roomName) || new Set();
-        liveSockets.add(socket.id);
+      // Find existing record by socketId, userId, or matching name if socket disconnected
+      const existingIdx = meeting.participants.findIndex(
+        (p) =>
+          p.socketId === socket.id ||
+          (targetUid && String(p.userId) === targetUid) ||
+          (!p.socketId && String(p.userId) === targetUid) ||
+          (!p.leftAt && targetName !== "Learner" && p.fullName === targetName)
+      );
 
-        // Strictly return only participants with active live sockets in this room
-        const activeParticipants = meeting.participants.filter(
-          (p) => !p.leftAt && p.socketId && liveSockets.has(p.socketId)
-        );
+      const isHost =
+        meeting.hostUserId &&
+        ((targetUid && String(meeting.hostUserId) === targetUid) ||
+          (user?.id && String(meeting.hostUserId) === String(user.id)) ||
+          meeting.hostName === (user?.fullName || user?.username));
 
-        socket.emit("meeting_joined_success", {
-          meetingId,
+      const pData = {
+        userId: targetUid || String(socket.id),
+        socketId: socket.id,
+        fullName: targetName,
+        username: user?.username || "learner",
+        avatarUrl: user?.avatarUrl || "",
+        role: isHost ? "host" : "participant",
+        isMuted: mediaState?.isMuted ?? false,
+        isVideoOff: mediaState?.isVideoOff ?? false,
+        isScreenSharing: mediaState?.isScreenSharing ?? false,
+        isHandRaised: mediaState?.isHandRaised ?? false,
+        joinedAt: new Date(),
+        leftAt: null,
+      };
+
+      if (existingIdx >= 0) {
+        meeting.participants[existingIdx] = {
+          ...meeting.participants[existingIdx].toObject(),
+          ...pData,
+        };
+      } else {
+        meeting.participants.push(pData);
+      }
+      await meeting.save();
+
+      const liveSockets = io.sockets.adapter.rooms.get(roomName) || new Set();
+      liveSockets.add(socket.id);
+
+      // Return only participants with active live sockets in this room
+      const activeParticipants = meeting.participants.filter(
+        (p) => !p.leftAt && p.socketId && liveSockets.has(p.socketId)
+      );
+
+      socket.emit("meeting_joined_success", {
+        meetingId: canonicalId,
+        title: meeting.title,
+        groupTitle: meeting.groupTitle,
+        hostUserId: meeting.hostUserId,
+        hostName: meeting.hostName,
+        isHost,
+        meeting: {
+          meetingId: canonicalId,
           title: meeting.title,
           groupTitle: meeting.groupTitle,
           hostUserId: meeting.hostUserId,
           hostName: meeting.hostName,
-          sharedCode: meeting.sharedCode,
-          codingPermission: meeting.codingPermission || "collaborative",
-          workspaceFiles: meeting.workspaceFiles || [],
-          activeFileId: meeting.activeFileId || "file_0",
-          testCases: meeting.testCases || [],
-          codeReviews: meeting.codeReviews || [],
-          whiteboardData: meeting.whiteboardData || "[]",
-          sharedTasks: meeting.sharedTasks || [],
-          notes: meeting.notes,
+          status: meeting.status,
           messages: meeting.messages || [],
-          participants: activeParticipants,
-          socketId: socket.id,
-        });
+          whiteboardData: meeting.whiteboardData || "[]",
+          isHost,
+        },
+        sharedCode: meeting.sharedCode,
+        codingPermission: meeting.codingPermission || "collaborative",
+        workspaceFiles: meeting.workspaceFiles || [],
+        activeFileId: meeting.activeFileId || "file_0",
+        testCases: meeting.testCases || [],
+        codeReviews: meeting.codeReviews || [],
+        whiteboardData: meeting.whiteboardData || "[]",
+        sharedTasks: meeting.sharedTasks || [],
+        notes: meeting.notes,
+        messages: meeting.messages || [],
+        participants: activeParticipants,
+        socketId: socket.id,
+      });
 
-        // Notify other peers in this room that a peer joined
-        socket.to(roomName).emit("meeting_peer_joined", {
-          socketId: socket.id,
-          user: pData,
-        });
+      // Notify other peers in this room that a peer joined
+      socket.to(roomName).emit("meeting_peer_joined", {
+        socketId: socket.id,
+        user: pData,
+      });
 
-        // Broadcast updated participant roster
-        io.to(roomName).emit("meeting_participants_updated", activeParticipants);
-      } else {
-        socket.emit("meeting_error", { message: "Meeting room not found or expired." });
-      }
+      // Broadcast updated participant roster
+      io.to(roomName).emit("meeting_participants_updated", activeParticipants);
     } catch (err) {
       console.error("join_meeting error:", err);
       socket.emit("meeting_error", { message: err.message });
     }
   });
 
-  // WebRTC mesh signaling exchange (offer / answer / ice-candidate)
-  socket.on("webrtc_signal", ({ toSocketId, signal, type }) => {
-    if (!toSocketId) return;
-    io.to(toSocketId).emit("webrtc_signal", {
+  // WebRTC mesh signaling relays (Offer, Answer, ICE Candidate)
+  socket.on("webrtc_offer", ({ targetSocketId, toSocketId, offer, meetingId }) => {
+    const target = targetSocketId || toSocketId;
+    if (!target || !offer) return;
+    io.to(target).emit("webrtc_offer_received", {
+      fromSocketId: socket.id,
+      user: socket.data.meetingUser,
+      offer,
+      meetingId: meetingId || socket.data.meetingId,
+    });
+  });
+
+  socket.on("webrtc_answer", ({ targetSocketId, toSocketId, answer, meetingId }) => {
+    const target = targetSocketId || toSocketId;
+    if (!target || !answer) return;
+    io.to(target).emit("webrtc_answer_received", {
+      fromSocketId: socket.id,
+      user: socket.data.meetingUser,
+      answer,
+      meetingId: meetingId || socket.data.meetingId,
+    });
+  });
+
+  socket.on("webrtc_ice_candidate", ({ targetSocketId, toSocketId, candidate, meetingId }) => {
+    const target = targetSocketId || toSocketId;
+    if (!target || !candidate) return;
+    io.to(target).emit("webrtc_ice_candidate_received", {
+      fromSocketId: socket.id,
+      candidate,
+      meetingId: meetingId || socket.data.meetingId,
+    });
+  });
+
+  socket.on("webrtc_signal", ({ toSocketId, targetSocketId, signal, type }) => {
+    const target = toSocketId || targetSocketId;
+    if (!target) return;
+    io.to(target).emit("webrtc_signal", {
       fromSocketId: socket.id,
       user: socket.data.meetingUser,
       signal,
@@ -446,8 +515,9 @@ io.on("connection", (socket) => {
 
   // Media toggle (mic, camera, screenshare, raise-hand)
   socket.on("meeting_media_toggle", async ({ meetingId, mediaState }) => {
-    if (!meetingId) return;
-    const roomName = `meeting_${meetingId}`;
+    const mid = socket.data.meetingId || meetingId;
+    if (!mid) return;
+    const roomName = `meeting_${mid}`;
     socket.to(roomName).emit("meeting_peer_media_changed", {
       socketId: socket.id,
       mediaState,
@@ -462,7 +532,7 @@ io.on("connection", (socket) => {
 
       if (Object.keys(updateFields).length > 0) {
         await Meeting.updateOne(
-          { meetingId, "participants.socketId": socket.id },
+          { meetingId: mid, "participants.socketId": socket.id },
           { $set: updateFields }
         );
       }
@@ -471,13 +541,18 @@ io.on("connection", (socket) => {
 
   // Reactions (emojis floating on peer screens)
   socket.on("meeting_reaction", ({ meetingId, emoji, user }) => {
-    if (!meetingId) return;
-    io.to(`meeting_${meetingId}`).emit("meeting_reaction_received", {
+    const mid = socket.data.meetingId || meetingId;
+    if (!mid) return;
+    const reactionPayload = {
       id: Date.now() + "-" + Math.random().toString(36).substr(2, 4),
       emoji: emoji || "👏",
       user: user || socket.data.meetingUser || { fullName: "A learner" },
       timestamp: new Date().toISOString(),
-    });
+    };
+    io.to(`meeting_${mid}`).emit("meeting_reaction_received", reactionPayload);
+    if (meetingId && meetingId !== mid) {
+      io.to(`meeting_${meetingId}`).emit("meeting_reaction_received", reactionPayload);
+    }
   });
 
   // Live Chat messages
