@@ -3,9 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import CertificationCard from "./CertificationCard";
 import CollaborationHub from "./CollaborationHub";
+import SubjectCurriculumView from "./SubjectCurriculumView";
+import NotificationBell from "./NotificationBell.jsx";
 import "./fitness.css";
 import fitnessIllustration from "../assets/fitness_illustration.png";
 import logoIcon from "../assets/logo_icon_transparent.png";
+import { markTrackExplored } from "../utils/trackExploration";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -84,6 +87,10 @@ const Fitness = () => {
       console.error("Failed to fetch certifications", err);
     }
   };
+
+  useEffect(() => {
+    markTrackExplored("Fitness");
+  }, []);
 
   useEffect(() => {
     if (activeTab === "certification") {
@@ -1143,6 +1150,7 @@ const Fitness = () => {
 
           {/* Left links group */}
           <div className="fitness-nav-links-left">
+            <span className={`fitness-nav-link ${activeTab === "modules" ? "active-nav" : ""}`} onClick={() => { setActiveTab("modules"); setSearchQuery(""); }}>Curriculum & Exams</span>
             <span className={`fitness-nav-link ${activeTab === "certification" ? "active-nav" : ""}`} onClick={() => { setActiveTab("certification"); setSearchQuery(""); }}>Certification</span>
             <span className={`fitness-nav-link ${activeTab === "resources" ? "active-nav" : ""}`} onClick={() => { setActiveTab("resources"); setSearchQuery(""); }}>Resources</span>
             <span className={`fitness-nav-link ${activeTab === "about" ? "active-nav" : ""}`} onClick={() => { setActiveTab("about"); setSearchQuery(""); }}>About</span>
@@ -1160,6 +1168,7 @@ const Fitness = () => {
               YOUR CART ({getCartCount()})
             </span>
             <span className={`fitness-nav-link add-members-link ${activeTab === "members" ? "active-nav" : ""}`} onClick={() => { setActiveTab("members"); setSearchQuery(""); }}>Add Members</span>
+            <NotificationBell variant="zone" />
           </div>
 
           {/* Red Learn More button */}
@@ -1377,6 +1386,19 @@ const Fitness = () => {
               </div>
             )}
 
+
+            {/* TAB: Curriculum Modules & Proctored Exams */}
+            {activeTab === "modules" && (
+              <SubjectCurriculumView
+                subjectKey="fitness"
+                subjectTitle="Exercise Physiology & Biomechanics Curriculum"
+                tracks={[
+                  { id: "strength", name: "Strength & Biomechanics" },
+                  { id: "nutrition", name: "Nutrition & Metabolism" },
+                ]}
+                defaultTrack="strength"
+              />
+            )}
 
             {/* TAB 1: Certifications */}
             {activeTab === "certification" && (

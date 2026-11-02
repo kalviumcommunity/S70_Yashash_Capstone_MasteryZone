@@ -7,6 +7,33 @@ const userSchema = new mongoose.Schema({
     unique: true,
     trim: true
   },
+  fullName: {
+    type: String,
+    trim: true,
+    default: ""
+  },
+  location: {
+    type: String,
+    trim: true,
+    default: ""
+  },
+  occupation: {
+    type: String,
+    trim: true,
+    default: ""
+  },
+  streak: {
+    type: Number,
+    default: 1
+  },
+  lastActiveDate: {
+    type: Date,
+    default: Date.now
+  },
+  learningHours: {
+    type: Number,
+    default: 0
+  },
   email: {
     type: String,
     required: true,
@@ -28,6 +55,7 @@ const userSchema = new mongoose.Schema({
   bannerUrl: String,
   bio: String,
   interests: [String],
+  exploredTracks: { type: [String], default: [] },
   groups: [{ type: mongoose.Schema.Types.ObjectId, ref: "Group" }],
   progress: [{ type: mongoose.Schema.Types.ObjectId, ref: "Progress" }],
   role: { type: String, enum: ["user", "admin"], default: "user" },
@@ -35,6 +63,7 @@ const userSchema = new mongoose.Schema({
     notifications: { type: Boolean, default: true },
     darkMode: { type: Boolean, default: false }
   },
+  notificationsInitialized: { type: Boolean, default: false },
   resetPasswordToken: String,
   resetPasswordExpires: Date,
   otpCodeHash: String,

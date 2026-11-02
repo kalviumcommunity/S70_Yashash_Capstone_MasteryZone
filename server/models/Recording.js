@@ -1,0 +1,95 @@
+const mongoose = require("mongoose");
+
+const recordingSchema = new mongoose.Schema(
+  {
+    recordingId: {
+      type: String,
+      required: true,
+      unique: true,
+      index: true,
+    },
+    meetingId: {
+      type: String,
+      index: true,
+      default: "",
+    },
+    title: {
+      type: String,
+      required: true,
+      default: "Meeting Recording",
+    },
+    hostUserId: {
+      type: String,
+      required: true,
+      index: true,
+    },
+    hostName: {
+      type: String,
+      default: "Host",
+    },
+    durationSeconds: {
+      type: Number,
+      default: 0,
+    },
+    filePath: {
+      type: String,
+      required: true,
+    },
+    fileUrl: {
+      type: String,
+      required: true,
+    },
+    fileSize: {
+      type: Number,
+      default: 0,
+    },
+    mimeType: {
+      type: String,
+      default: "video/webm",
+    },
+    participantsCount: {
+      type: Number,
+      default: 1,
+    },
+    participantNames: {
+      type: [String],
+      default: [],
+    },
+    thumbnailUrl: {
+      type: String,
+      default: "",
+    },
+    status: {
+      type: String,
+      enum: ["ready", "processing", "error"],
+      default: "ready",
+    },
+    startTime: {
+      type: Date,
+      default: Date.now,
+    },
+    endTime: {
+      type: Date,
+      default: Date.now,
+    },
+    chapters: [
+      {
+        timestampSeconds: { type: Number, required: true },
+        title: { type: String, required: true },
+      },
+    ],
+    bookmarks: [
+      {
+        userId: String,
+        timestampSeconds: Number,
+        note: String,
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
+  },
+  {
+    timestamps: true,
+  }
+);
+
+module.exports = mongoose.model("Recording", recordingSchema);
