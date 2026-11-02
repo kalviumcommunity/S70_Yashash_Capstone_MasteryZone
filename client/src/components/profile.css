@@ -1109,6 +1109,11 @@
   border-color: #edf2f7;
 }
 
+.mz-inline-location-container {
+  width: 100%;
+  animation: mzLocFadeIn 0.2s ease-out;
+}
+
 .mz-field-left {
   display: flex;
   align-items: flex-start;
