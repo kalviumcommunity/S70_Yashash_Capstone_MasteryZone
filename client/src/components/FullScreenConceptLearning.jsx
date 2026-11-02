@@ -105,8 +105,8 @@ export default function FullScreenConceptLearning({
 
     const durationSec = Math.max(15, Math.round((Date.now() - startTimeRef.current) / 1000));
     const token = localStorage.getItem("token");
-    const mIdx = module?.moduleIndex ?? 0;
-    const tId = trackId || module?.trackId || "python";
+    const mIdx = typeof module?.moduleIndex === "number" ? module.moduleIndex : effectiveModuleIndex;
+    const tId = effectiveTrackId;
     const sKey = subjectKey || module?.subjectKey || "coding";
 
     try {
@@ -132,20 +132,33 @@ export default function FullScreenConceptLearning({
       }
 
       setIsCompleted(true);
-      toast.success("✓ Theory & Concept Notes marked as completed! Practical exercise unlocked.", {
-        autoClose: 2500,
+      toast.success("✓ Theory marked as completed! Unlocking exercises...", {
+        autoClose: 2000,
       });
 
-      if (onComplete) {
-        onComplete({ ...module, isStudied: true });
+      // Notify parent window in real-time if opened in a separate tab
+      if (typeof window !== "undefined" && window.opener) {
+        try {
+          window.opener.postMessage({ type: "MZ_MODULE_STUDIED", trackId: tId, moduleIndex: mIdx }, "*");
+        } catch {}
+      }
+
+      if (isStandalone || !propModule) {
+        setTimeout(() => {
+          navigate(`/coding-test/${tId}/${mIdx}`);
+        }, 600);
+      } else if (onComplete) {
+        onComplete({ ...module, isStudied: true, moduleIndex: mIdx, trackId: tId });
       }
     } catch (err) {
       console.warn("Failed to persist study progress:", err);
       // Still mark completed locally so candidate is never blocked
       setIsCompleted(true);
-      toast.success("Theory marked as completed!");
-      if (onComplete) {
-        onComplete({ ...module, isStudied: true });
+      toast.success("✓ Theory marked as completed! Proceeding to exercise...");
+      if (isStandalone || !propModule) {
+        navigate(`/coding-test/${tId}/${mIdx}`);
+      } else if (onComplete) {
+        onComplete({ ...module, isStudied: true, moduleIndex: mIdx, trackId: tId });
       }
     } finally {
       setIsMarkingComplete(false);
@@ -517,10 +530,12 @@ export default function FullScreenConceptLearning({
               className="mz-fs-btn-complete"
               style={{ background: "#059669" }}
               onClick={() => {
+                const targetTrack = effectiveTrackId;
+                const targetModIdx = typeof module?.moduleIndex === "number" ? module.moduleIndex : effectiveModuleIndex;
                 if (isStandalone || !propModule) {
-                  navigate(`/coding-test/${tId}/${mIdx}`);
+                  navigate(`/coding-test/${targetTrack}/${targetModIdx}`);
                 } else if (onComplete) {
-                  onComplete({ ...module, isStudied: true });
+                  onComplete({ ...module, isStudied: true, moduleIndex: targetModIdx, trackId: targetTrack });
                 }
               }}
             >

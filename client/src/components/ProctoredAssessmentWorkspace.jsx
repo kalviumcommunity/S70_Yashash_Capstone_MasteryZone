@@ -489,9 +489,16 @@ export default function ProctoredAssessmentWorkspace({
 
       const resolvedSessionId = data.sessionId || (data.attemptId ? `attempt_${data.attemptId}` : `mz_mcq_${Date.now()}`);
 
-      // Cache report locally for instant offline availability and resilience
+      // Cache report locally for instant offline availability and resilience strictly scoped to logged-in user
       try {
-        const existing = JSON.parse(localStorage.getItem("mz_assessment_reports") || "[]");
+        const rawUser = localStorage.getItem("user");
+        let uId = "";
+        if (rawUser) {
+          const u = JSON.parse(rawUser);
+          uId = u._id || u.id || u.userId || "";
+        }
+        const reportsKey = uId ? `mz_${uId}_assessment_reports` : "mz_assessment_reports";
+        const existing = JSON.parse(localStorage.getItem(reportsKey) || "[]");
         const newRecord = {
           id: data.attemptId || resolvedSessionId,
           sessionId: resolvedSessionId,
@@ -520,7 +527,7 @@ export default function ProctoredAssessmentWorkspace({
           reportUrl: `/assessment-report/${resolvedSessionId}`,
         };
         const updated = [newRecord, ...existing.filter((r) => r.sessionId !== resolvedSessionId && r.attemptId !== data.attemptId)];
-        localStorage.setItem("mz_assessment_reports", JSON.stringify(updated.slice(0, 30)));
+        localStorage.setItem(reportsKey, JSON.stringify(updated.slice(0, 30)));
       } catch (e) {
         console.warn("Could not cache report locally:", e);
       }

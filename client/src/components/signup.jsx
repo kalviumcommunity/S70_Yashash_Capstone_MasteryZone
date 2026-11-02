@@ -188,6 +188,10 @@ const Signup = () => {
         return;
       }
 
+      // Purge any prior session residual data completely to ensure strict individual isolation
+      localStorage.clear();
+      sessionStorage.clear();
+
       localStorage.setItem("token", data.token);
       if (data.user) {
         localStorage.setItem("user", JSON.stringify(data.user));

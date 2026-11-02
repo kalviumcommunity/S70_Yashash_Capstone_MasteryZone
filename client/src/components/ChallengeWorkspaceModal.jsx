@@ -20,6 +20,17 @@ export default function ChallengeWorkspaceModal({
   const token = localStorage.getItem("token");
   const [historyData, setHistoryData] = useState(null);
 
+  const currentUserId = (() => {
+    try {
+      const rawUser = localStorage.getItem("user");
+      if (rawUser) {
+        const u = JSON.parse(rawUser);
+        return u._id || u.id || u.userId || "guest";
+      }
+    } catch {}
+    return "guest";
+  })();
+
   const effectiveChallengeId = propChallenge?.id || challengeId;
 
   // Load challenge if standalone or not passed
@@ -116,12 +127,14 @@ export default function ChallengeWorkspaceModal({
     );
   }
 
+  const isPlayground = effectiveChallengeId?.startsWith("playground-");
+
   return (
     <MasteryZoneCompilerWorkspace
       key={challenge.id}
       title={`Assignment | ${challenge.title} Challenge`}
       questionId={challenge.id}
-      isProctored={true}
+      isProctored={!isPlayground}
       problemData={challenge}
       starterCodeMap={challenge.starterCode || {}}
       defaultLanguage={challenge.starterLanguage || "python"}
@@ -133,10 +146,12 @@ export default function ChallengeWorkspaceModal({
       initialHistory={historyData}
       onSaveDraft={async (savedCode, lang) => {
         try {
-          localStorage.setItem(`mz_ch_draft_${challenge.id}_${lang}`, savedCode);
+          const draftKey = currentUserId && currentUserId !== "guest" ? `mz_${currentUserId}_ch_draft_${challenge.id}_${lang}` : `mz_ch_draft_${challenge.id}_${lang}`;
+          localStorage.setItem(draftKey, savedCode);
         } catch {}
       }}
       initialDraft={
+        (currentUserId && localStorage.getItem(`mz_${currentUserId}_ch_draft_${challenge.id}_python`)) ||
         localStorage.getItem(`mz_ch_draft_${challenge.id}_python`) ||
         challenge.starterCode?.python ||
         ""
@@ -182,8 +197,9 @@ export default function ChallengeWorkspaceModal({
         }
         if (data.status === "ACCEPTED" || data.passed || (Array.isArray(data.testResults) && data.testResults.length > 0 && data.testResults.every((t) => t.passed))) {
           try {
-            localStorage.setItem(`mz_ch_solved_${challenge.id}`, "true");
-            window.dispatchEvent(new CustomEvent("mz_challenge_solved", { detail: { challengeId: challenge.id } }));
+            const solvedKey = currentUserId && currentUserId !== "guest" ? `mz_${currentUserId}_ch_solved_${challenge.id}` : `mz_ch_solved_${challenge.id}`;
+            localStorage.setItem(solvedKey, "true");
+            window.dispatchEvent(new CustomEvent("mz_challenge_solved", { detail: { challengeId: challenge.id, userId: currentUserId } }));
           } catch {}
           if (onChallengeSolved) {
             onChallengeSolved(challenge, data);
@@ -212,8 +228,9 @@ export default function ChallengeWorkspaceModal({
         }
         if (data.status === "ACCEPTED" || data.passed || (Array.isArray(data.testResults) && data.testResults.length > 0 && data.testResults.every((t) => t.passed))) {
           try {
-            localStorage.setItem(`mz_ch_solved_${challenge.id}`, "true");
-            window.dispatchEvent(new CustomEvent("mz_challenge_solved", { detail: { challengeId: challenge.id } }));
+            const solvedKey = currentUserId && currentUserId !== "guest" ? `mz_${currentUserId}_ch_solved_${challenge.id}` : `mz_ch_solved_${challenge.id}`;
+            localStorage.setItem(solvedKey, "true");
+            window.dispatchEvent(new CustomEvent("mz_challenge_solved", { detail: { challengeId: challenge.id, userId: currentUserId } }));
           } catch {}
           if (onChallengeSolved) {
             onChallengeSolved(challenge, data);

@@ -215,13 +215,13 @@ function generateCertificatePDF({
         .font("Times-BoldItalic")
         .fontSize(18)
         .fillColor("#0f172a")
-        .text("Dr. A. Vance", 562, 483, { width: 180, align: "center" });
+        .text("Yashash", 562, 483, { width: 180, align: "center" });
       doc.lineWidth(0.8).strokeColor("#cbd5e1").moveTo(562, 505).lineTo(742, 505).stroke();
       doc
         .font("Helvetica-Bold")
         .fontSize(8.5)
         .fillColor("#64748b")
-        .text("DIRECTOR OF CERTIFICATION", 562, 512, { width: 180, align: "center", characterSpacing: 1 });
+        .text("FOUNDER & DIRECTOR", 562, 512, { width: 180, align: "center", characterSpacing: 1 });
 
       // 10. Security & Credential Footer
       const vUrl = verificationUrl || `https://masteryzone.com/verify/${certificateId}`;

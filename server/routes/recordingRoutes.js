@@ -93,28 +93,32 @@ router.post("/upload", authenticateToken, async (req, res) => {
   }
 });
 
-// 2. Get list of recordings with Search, Filter & Sort
+// 2. Get list of recordings with Search, Filter & Sort (Strictly isolated to logged-in user)
 router.get("/", authenticateToken, async (req, res) => {
   try {
     const currentUserId = req.user?.userId || req.user?.id;
-    const { q, dateFilter, sort = "newest", scope = "all" } = req.query;
-
-    const filter = {};
-
-    // Scope filter (personal vs shared)
-    if (scope === "personal" && currentUserId) {
-      filter.$or = [{ hostUserId: currentUserId }, { hostUserId: String(currentUserId) }];
-    } else if (scope === "shared" && currentUserId) {
-      filter.hostUserId = { $ne: String(currentUserId) };
+    if (!currentUserId) {
+      return res.status(401).json({ error: "Unauthorized" });
     }
 
-    // Search query
+    const { q, dateFilter, sort = "newest" } = req.query;
+
+    // Strictly individual basis: only recordings created by this logged-in account
+    const filter = {
+      $or: [{ hostUserId: currentUserId }, { hostUserId: String(currentUserId) }],
+    };
+
+    // Search query within the user's personal recordings
     if (q && q.trim()) {
       const reg = new RegExp(q.trim(), "i");
-      filter.$or = [
-        { title: reg },
-        { hostName: reg },
-        { participantNames: reg },
+      filter.$and = [
+        {
+          $or: [
+            { title: reg },
+            { hostName: reg },
+            { participantNames: reg },
+          ],
+        },
       ];
     }
 
@@ -140,8 +144,10 @@ router.get("/", authenticateToken, async (req, res) => {
 
     const recordings = await Recording.find(filter).sort(sortObj).limit(200);
 
-    // Compute storage analytics
-    const allUserRecs = await Recording.find(currentUserId ? { $or: [{ hostUserId: currentUserId }, { hostUserId: String(currentUserId) }] } : {});
+    // Compute storage analytics strictly for this user's records
+    const allUserRecs = await Recording.find({
+      $or: [{ hostUserId: currentUserId }, { hostUserId: String(currentUserId) }],
+    });
     const totalSizeBytes = allUserRecs.reduce((acc, r) => acc + (r.fileSize || 0), 0);
 
     res.json({
@@ -204,12 +210,16 @@ router.post("/:recordingId/bookmarks", authenticateToken, async (req, res) => {
   }
 });
 
-// 3. Get single recording
-router.get("/:recordingId", async (req, res) => {
+// 3. Get single recording (strictly individual access)
+router.get("/:recordingId", authenticateToken, async (req, res) => {
   try {
-    const recording = await Recording.findOne({ recordingId: req.params.recordingId });
+    const currentUserId = req.user?.userId || req.user?.id;
+    const recording = await Recording.findOne({
+      recordingId: req.params.recordingId,
+      $or: [{ hostUserId: currentUserId }, { hostUserId: String(currentUserId) }],
+    });
     if (!recording) {
-      return res.status(404).json({ error: "Recording not found" });
+      return res.status(404).json({ error: "Recording not found or access restricted" });
     }
     res.json({ success: true, recording });
   } catch (err) {

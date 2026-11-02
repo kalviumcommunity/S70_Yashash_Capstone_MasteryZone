@@ -2837,3 +2837,687 @@
 }
 
 
+
+/* ==========================================================================
+   AUTHENTIC VS CODE PLAYGROUND SUITE (FULL IDE EMULATION)
+   ========================================================================== */
+
+.mz-vscode-card {
+  background: #1e1e1e;
+  color: #cccccc;
+  border: 1px solid #333333;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.28);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  transition: all 0.25s ease;
+  position: relative;
+}
+
+.mz-vscode-card.is-light {
+  background: #ffffff;
+  color: #333333;
+  border-color: #e5e7eb;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.mz-vscode-card.is-fullscreen {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 99999 !important;
+  border-radius: 0 !important;
+  border: none !important;
+}
+
+/* 1. VS Code Tabs Bar */
+.mz-vscode-tabs-bar {
+  display: flex;
+  align-items: center;
+  height: 38px;
+  background: #252526;
+  border-bottom: 1px solid #1e1e1e;
+  overflow-x: auto;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.mz-vscode-card.is-light .mz-vscode-tabs-bar {
+  background: #f3f3f3;
+  border-bottom-color: #e5e7eb;
+}
+
+.mz-vscode-tab-list {
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+.mz-vscode-tab {
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  background: #2d2d2d;
+  color: #969696;
+  border-right: 1px solid #1e1e1e;
+  border-top: 2px solid transparent;
+  cursor: pointer;
+  font-size: 12.5px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.mz-vscode-card.is-light .mz-vscode-tab {
+  background: #ececec;
+  color: #64748b;
+  border-right-color: #e5e7eb;
+}
+
+.mz-vscode-tab:hover {
+  color: #e2e8f0;
+  background: #323233;
+}
+
+.mz-vscode-card.is-light .mz-vscode-tab:hover {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.mz-vscode-tab.active {
+  background: #1e1e1e;
+  color: #ffffff;
+  border-top-color: #007acc;
+  font-weight: 600;
+}
+
+.mz-vscode-card.is-light .mz-vscode-tab.active {
+  background: #ffffff;
+  color: #0f172a;
+  border-top-color: #007acc;
+}
+
+.mz-vscode-tab-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  background: #94a3b8;
+  display: inline-block;
+}
+
+.mz-vscode-tab-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  padding: 2px;
+  opacity: 0.6;
+  transition: opacity 0.15s ease;
+}
+
+.mz-vscode-tab-close:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.mz-vscode-tab-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  color: #94a3b8;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  transition: color 0.15s ease;
+}
+
+.mz-vscode-tab-add:hover {
+  color: #ffffff;
+}
+
+.mz-vscode-tabs-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  padding-right: 10px;
+}
+
+.mz-vscode-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  color: #cccccc;
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mz-vscode-card.is-light .mz-vscode-action-btn {
+  border-color: #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+}
+
+.mz-vscode-action-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+}
+
+.mz-vscode-card.is-light .mz-vscode-action-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.mz-vscode-btn-run {
+  background: #10b981 !important;
+  color: #ffffff !important;
+  border-color: #059669 !important;
+  font-weight: 700 !important;
+  box-shadow: 0 1px 4px rgba(16, 185, 129, 0.35);
+}
+
+.mz-vscode-btn-run:hover {
+  background: #059669 !important;
+}
+
+/* 2. Breadcrumbs Bar */
+.mz-vscode-breadcrumbs {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 28px;
+  background: #1e1e1e;
+  border-bottom: 1px solid #2d2d2d;
+  padding: 0 12px;
+  font-size: 11.5px;
+  color: #858585;
+  user-select: none;
+}
+
+.mz-vscode-card.is-light .mz-vscode-breadcrumbs {
+  background: #ffffff;
+  border-bottom-color: #e5e7eb;
+  color: #64748b;
+}
+
+.mz-vscode-breadcrumbs-path {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mz-vscode-breadcrumbs-path span {
+  cursor: pointer;
+}
+
+.mz-vscode-breadcrumbs-path span:hover {
+  color: #e2e8f0;
+}
+
+.mz-vscode-breadcrumbs-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mz-vscode-pill-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  color: #858585;
+  font-size: 11px;
+  transition: color 0.15s ease;
+}
+
+.mz-vscode-pill-toggle:hover {
+  color: #cccccc;
+}
+
+.mz-vscode-pill-toggle.active {
+  color: #38bdf8;
+  font-weight: 600;
+}
+
+/* 3. Main Workspace Area (Activity Bar + Sidebar + Editor) */
+.mz-vscode-workspace {
+  display: flex;
+  flex: 1;
+  min-height: 480px;
+  position: relative;
+  background: #1e1e1e;
+}
+
+.mz-vscode-card.is-light .mz-vscode-workspace {
+  background: #ffffff;
+}
+
+/* Vertical Activity Bar */
+.mz-vscode-activity-bar {
+  width: 48px;
+  background: #333333;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 0;
+  gap: 4px;
+  border-right: 1px solid #252526;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.mz-vscode-card.is-light .mz-vscode-activity-bar {
+  background: #2c2c2c;
+  border-right-color: #e5e7eb;
+}
+
+.mz-vscode-activity-item {
+  width: 42px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #858585;
+  cursor: pointer;
+  border-radius: 4px;
+  position: relative;
+  transition: all 0.15s ease;
+  background: transparent;
+  border: none;
+}
+
+.mz-vscode-activity-item:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.mz-vscode-activity-item.active {
+  color: #ffffff;
+  border-left: 2px solid #007acc;
+  border-radius: 0 4px 4px 0;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* VS Code Sidebar */
+.mz-vscode-sidebar {
+  width: 250px;
+  background: #252526;
+  border-right: 1px solid #1e1e1e;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.mz-vscode-card.is-light .mz-vscode-sidebar {
+  background: #f8fafc;
+  border-right-color: #e2e8f0;
+}
+
+.mz-vscode-sidebar-header {
+  height: 35px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #999999;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.mz-vscode-sidebar-body {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 12px;
+}
+
+/* File tree in Explorer */
+.mz-vscode-file-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #cccccc;
+  font-size: 12.5px;
+  transition: background 0.15s ease;
+}
+
+.mz-vscode-card.is-light .mz-vscode-file-item {
+  color: #334155;
+}
+
+.mz-vscode-file-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.mz-vscode-card.is-light .mz-vscode-file-item:hover {
+  background: #f1f5f9;
+}
+
+.mz-vscode-file-item.active {
+  background: #37373d;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.mz-vscode-card.is-light .mz-vscode-file-item.active {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+/* Search view in sidebar */
+.mz-vscode-search-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mz-vscode-search-input {
+  width: 100%;
+  background: #3c3c3c;
+  color: #ffffff;
+  border: 1px solid #333333;
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-size: 12px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.mz-vscode-search-input:focus {
+  border-color: #007acc;
+}
+
+.mz-vscode-card.is-light .mz-vscode-search-input {
+  background: #ffffff;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+
+/* Snippets list in sidebar */
+.mz-vscode-snippet-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mz-vscode-card.is-light .mz-vscode-snippet-card {
+  background: #ffffff;
+  border-color: #e2e8f0;
+}
+
+.mz-vscode-snippet-title {
+  font-weight: 700;
+  font-size: 12px;
+  color: #38bdf8;
+}
+
+.mz-vscode-snippet-desc {
+  font-size: 11px;
+  color: #94a3b8;
+  line-height: 1.4;
+}
+
+.mz-vscode-snippet-btn {
+  align-self: flex-start;
+  margin-top: 4px;
+  padding: 3px 8px;
+  font-size: 10.5px;
+  font-weight: 600;
+  background: #0284c7;
+  color: #ffffff;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.mz-vscode-snippet-btn:hover {
+  background: #0369a1;
+}
+
+/* Monaco Editor Container */
+.mz-vscode-editor-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  position: relative;
+  background: #1e1e1e;
+}
+
+.mz-vscode-editor-inner {
+  flex: 1;
+  min-height: 380px;
+  position: relative;
+}
+
+/* 4. Integrated Terminal / Bottom Panel */
+.mz-vscode-bottom-panel {
+  background: #1e1e1e;
+  border-top: 1px solid #2d2d2d;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.mz-vscode-card.is-light .mz-vscode-bottom-panel {
+  background: #ffffff;
+  border-top-color: #e5e7eb;
+}
+
+.mz-vscode-bottom-header {
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #252526;
+  border-bottom: 1px solid #1e1e1e;
+  padding: 0 10px;
+  user-select: none;
+}
+
+.mz-vscode-card.is-light .mz-vscode-bottom-header {
+  background: #f1f5f9;
+  border-bottom-color: #e2e8f0;
+}
+
+.mz-vscode-bottom-tabs {
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+.mz-vscode-bottom-tab {
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #94a3b8;
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mz-vscode-bottom-tab:hover {
+  color: #ffffff;
+}
+
+.mz-vscode-card.is-light .mz-vscode-bottom-tab:hover {
+  color: #0f172a;
+}
+
+.mz-vscode-bottom-tab.active {
+  color: #ffffff;
+  border-bottom-color: #007acc;
+}
+
+.mz-vscode-card.is-light .mz-vscode-bottom-tab.active {
+  color: #0f172a;
+  border-bottom-color: #007acc;
+}
+
+.mz-vscode-bottom-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mz-vscode-bottom-ctrl-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 6px;
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all 0.15s ease;
+}
+
+.mz-vscode-bottom-ctrl-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.mz-vscode-bottom-body {
+  height: 200px;
+  overflow-y: auto;
+  padding: 12px 14px;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #e2e8f0;
+  background: #181818;
+}
+
+.mz-vscode-card.is-light .mz-vscode-bottom-body {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.mz-vscode-bottom-body.is-maximized {
+  height: 380px;
+}
+
+/* 5. VS Code Authentic Bottom Status Bar */
+.mz-vscode-status-bar {
+  height: 24px;
+  background: #007acc;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  font-size: 11.5px;
+  user-select: none;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+  flex-shrink: 0;
+}
+
+.mz-vscode-status-left,
+.mz-vscode-status-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mz-vscode-status-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  opacity: 0.92;
+  transition: opacity 0.15s ease;
+}
+
+.mz-vscode-status-item:hover {
+  opacity: 1;
+}
+
+/* Theme selector dropdown popover */
+.mz-vscode-theme-dropdown {
+  position: absolute;
+  top: 42px;
+  right: 12px;
+  background: #252526;
+  border: 1px solid #3c3c3c;
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  padding: 6px 0;
+  min-width: 170px;
+}
+
+.mz-vscode-card.is-light .mz-vscode-theme-dropdown {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.mz-vscode-theme-item {
+  padding: 6px 14px;
+  font-size: 12px;
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: #cccccc;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: background 0.15s ease;
+}
+
+.mz-vscode-card.is-light .mz-vscode-theme-item {
+  color: #334155;
+}
+
+.mz-vscode-theme-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.mz-vscode-card.is-light .mz-vscode-theme-item:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.mz-vscode-theme-item.active {
+  color: #38bdf8;
+  font-weight: 700;
+}

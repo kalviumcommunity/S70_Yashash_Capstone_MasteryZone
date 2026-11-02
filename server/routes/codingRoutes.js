@@ -839,6 +839,37 @@ router.post("/challenges/:id/test", authenticateToken, async (req, res) => {
   const { id } = req.params;
   const { language, code, customInput } = req.body;
 
+  // Handle virtual compiler playground execution
+  if (id && id.startsWith("playground-")) {
+    const defaultLang = id.replace("playground-", "");
+    const effectiveLang = language || defaultLang || "python";
+    try {
+      const outcome = await evaluateSingleTestCase(effectiveLang, code, customInput || "", "");
+      return res.json({
+        isCustom: true,
+        output: outcome.actual || (outcome.error ? "" : "Program executed with no output."),
+        error: outcome.error || "",
+        duration: outcome.duration || 0,
+        status: outcome.error ? "RUNTIME_ERROR" : "ACCEPTED",
+        results: [
+          {
+            testIndex: 1,
+            input: customInput || "(standard execution)",
+            expected: "",
+            actual: outcome.actual || "(no output)",
+            passed: !outcome.error,
+            error: outcome.error,
+            duration: outcome.duration,
+          },
+        ],
+        total: 1,
+        passedCount: outcome.error ? 0 : 1,
+      });
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
   const challenge = CHALLENGES_CATALOG.find((c) => c.id === id);
   if (!challenge) {
     return res.status(404).json({ error: "Challenge not found" });
@@ -895,6 +926,35 @@ router.post("/challenges/:id/submit", authenticateToken, async (req, res) => {
   const { id } = req.params;
   const { language, code } = req.body;
   const userId = req.user.userId;
+
+  // Handle virtual compiler playground submission
+  if (id && id.startsWith("playground-")) {
+    const defaultLang = id.replace("playground-", "");
+    const effectiveLang = language || defaultLang || "python";
+    try {
+      const outcome = await evaluateSingleTestCase(effectiveLang, code, "", "");
+      return res.json({
+        success: true,
+        score: outcome.error ? 0 : 100,
+        passedTests: outcome.error ? 0 : 1,
+        totalTests: 1,
+        results: [
+          {
+            testIndex: 1,
+            passed: !outcome.error,
+            actual: outcome.actual || "(no output)",
+            error: outcome.error,
+            duration: outcome.duration,
+          },
+        ],
+        message: outcome.error
+          ? `Playground execution terminated with error: ${outcome.error}`
+          : "Playground program compiled and executed successfully with 100% verified status!",
+      });
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
 
   const challenge = CHALLENGES_CATALOG.find((c) => c.id === id);
   if (!challenge) {

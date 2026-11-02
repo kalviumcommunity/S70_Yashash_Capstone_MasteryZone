@@ -27,13 +27,15 @@ export default function MasteryZoneLivePlatform({ initialMeetingId = null }) {
     async function fetchUser() {
       try {
         if (token) {
-          const res = await fetch("/auth/user-profile", {
+          const res = await fetch("/auth/me", {
             headers: { Authorization: `Bearer ${token}` },
           });
           if (res.ok) {
             const data = await res.json();
             if (active && data?.user) {
-              setCurrentUser(data.user);
+              const u = data.user;
+              const name = u.fullName || u.username || u.name || localStorage.getItem("userName") || "Learner";
+              setCurrentUser({ ...u, name, fullName: u.fullName || name });
               setIsLoadingUser(false);
               return;
             }
@@ -48,7 +50,9 @@ export default function MasteryZoneLivePlatform({ initialMeetingId = null }) {
         const storedUser = localStorage.getItem("user");
         if (storedUser) {
           try {
-            setCurrentUser(JSON.parse(storedUser));
+            const u = JSON.parse(storedUser);
+            const name = u.fullName || u.username || u.name || localStorage.getItem("userName") || "Learner";
+            setCurrentUser({ ...u, name, fullName: u.fullName || name });
             setIsLoadingUser(false);
             return;
           } catch {}
@@ -139,6 +143,7 @@ export default function MasteryZoneLivePlatform({ initialMeetingId = null }) {
 
       const data = await res.json();
       const newId = data.meetingId;
+      sessionStorage.setItem(`mz_host_${newId}`, "true");
       toast.success(`Meeting created: ${newId}`);
       setActiveMeetingId(newId);
       if (window.location.pathname.startsWith("/live") || window.location.pathname.startsWith("/meeting")) {
@@ -172,6 +177,10 @@ export default function MasteryZoneLivePlatform({ initialMeetingId = null }) {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
+        body: JSON.stringify({
+          fullName: currentUser?.fullName || currentUser?.username || "Learner",
+          guestId: currentUser?._id || currentUser?.id,
+        }),
       });
 
       if (!res.ok) {
@@ -181,6 +190,11 @@ export default function MasteryZoneLivePlatform({ initialMeetingId = null }) {
 
       const data = await res.json();
       const actualMeetingId = data.meeting?.meetingId || cleanCode;
+      if (data.isHost) {
+        sessionStorage.setItem(`mz_host_${actualMeetingId}`, "true");
+      } else {
+        sessionStorage.removeItem(`mz_host_${actualMeetingId}`);
+      }
       toast.success(`Joined meeting room: ${actualMeetingId}`);
       setActiveMeetingId(actualMeetingId);
       if (window.location.pathname.startsWith("/live") || window.location.pathname.startsWith("/meeting")) {
@@ -194,6 +208,18 @@ export default function MasteryZoneLivePlatform({ initialMeetingId = null }) {
   };
 
   const handleLeaveMeeting = () => {
+    try {
+      document.querySelectorAll("video, audio").forEach((el) => {
+        if (el.srcObject && typeof el.srcObject.getTracks === "function") {
+          el.srcObject.getTracks().forEach((t) => {
+            try { t.stop(); t.enabled = false; } catch {}
+          });
+          el.srcObject = null;
+        }
+      });
+    } catch (e) {
+      console.warn("Media shutdown warning:", e);
+    }
     setActiveMeetingId(null);
     if (window.location.pathname.startsWith("/meeting")) {
       navigate("/live");

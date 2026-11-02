@@ -80,6 +80,10 @@ const Login = () => {
         return;
       }
 
+      // Purge any prior session residual data completely to ensure strict individual isolation
+      localStorage.clear();
+      sessionStorage.clear();
+
       localStorage.setItem("token", data.token);
       if (data.user) {
         localStorage.setItem("user", JSON.stringify(data.user));
@@ -136,6 +140,10 @@ const Login = () => {
         return;
       }
 
+      // Purge any prior session residual data completely to ensure strict individual isolation
+      localStorage.clear();
+      sessionStorage.clear();
+
       localStorage.setItem("token", data.token);
       if (data.user) {
         localStorage.setItem("user", JSON.stringify(data.user));
@@ -182,6 +190,10 @@ const Login = () => {
         toast.error(data.message || "Guest login failed");
         return;
       }
+
+      // Purge any prior session residual data completely to ensure strict individual isolation
+      localStorage.clear();
+      sessionStorage.clear();
 
       localStorage.setItem("token", data.token);
       if (data.user) {
