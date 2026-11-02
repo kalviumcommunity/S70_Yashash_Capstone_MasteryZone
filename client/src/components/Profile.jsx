@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "react-toastify";
 import "./profile.css";
 import NotificationBell from "./NotificationBell.jsx";
+import IndiaLocationPicker from "./IndiaLocationPicker";
 import logoIcon from "../assets/logo_icon_transparent.png";
 import { getExploredTracks, isTrackExplored } from "../utils/trackExploration";
 
@@ -166,6 +167,7 @@ const Profile = () => {
   });
   const [formErrors, setFormErrors] = useState({});
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isEditingLocationInline, setIsEditingLocationInline] = useState(false);
 
   // Photo Management State
   const [photoPreview, setPhotoPreview] = useState(null);
@@ -384,6 +386,13 @@ const Profile = () => {
 
       if (response.ok) {
         setUser(data.user);
+        try {
+          localStorage.setItem("user", JSON.stringify(data.user));
+          localStorage.setItem("mz_user", JSON.stringify(data.user));
+          const resolvedName = data.user.fullName || data.user.username || data.user.name || "";
+          if (resolvedName) localStorage.setItem("userName", resolvedName);
+          if (data.user.email) localStorage.setItem("userEmail", data.user.email);
+        } catch {}
         setIsEditModalOpen(false);
         toast.success("Profile updated successfully!");
         window.dispatchEvent(new Event("user_profile_updated"));
@@ -398,6 +407,40 @@ const Profile = () => {
       toast.error("Network error while saving profile.");
     } finally {
       setIsSavingProfile(false);
+    }
+  };
+
+  // Direct Inline Location Update with India States & Cities Autocomplete
+  const handleInlineLocationUpdate = async (newLocation) => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(`${API_BASE}/auth/profile`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          location: newLocation,
+        }),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setUser(data.user);
+        try {
+          localStorage.setItem("user", JSON.stringify(data.user));
+          localStorage.setItem("mz_user", JSON.stringify(data.user));
+        } catch {}
+        setIsEditingLocationInline(false);
+        toast.success(`Location updated to ${newLocation}!`);
+        window.dispatchEvent(new Event("user_profile_updated"));
+      } else {
+        toast.error(data.message || "Failed to update location.");
+      }
+    } catch (err) {
+      console.error("Location update error:", err);
+      toast.error("Network error while updating location.");
     }
   };
 
@@ -916,27 +959,46 @@ const Profile = () => {
                     </div>
 
                     {/* Location */}
-                    <div className="mz-field-row" onClick={() => openEditModal("location")}>
-                      <div className="mz-field-left">
-                        <div className="mz-field-icon-box">
-                          <LuMapPin size={16} />
-                        </div>
-                        <div className="mz-field-texts">
-                          <span className="mz-field-label">Location</span>
-                          <span className={`mz-field-value ${!user?.location ? "text-muted" : ""}`}>
-                            {user?.location || "Location not set"}
-                          </span>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        className="mz-field-edit-btn"
-                        title="Edit Location"
-                        aria-label="Edit Location"
+                    {!isEditingLocationInline ? (
+                      <div
+                        className="mz-field-row"
+                        onClick={() => setIsEditingLocationInline(true)}
+                        title="Click to update location (India States & Cities)"
                       >
-                        <LuPencil size={14} />
-                      </button>
-                    </div>
+                        <div className="mz-field-left">
+                          <div className="mz-field-icon-box">
+                            <LuMapPin size={16} />
+                          </div>
+                          <div className="mz-field-texts">
+                            <span className="mz-field-label">Location</span>
+                            <span className={`mz-field-value ${!user?.location ? "text-muted" : ""}`}>
+                              {user?.location || "Location not set"}
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          className="mz-field-edit-btn"
+                          title="Edit Location"
+                          aria-label="Edit Location"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsEditingLocationInline(true);
+                          }}
+                        >
+                          <LuPencil size={14} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="mz-inline-location-container">
+                        <IndiaLocationPicker
+                          compact={true}
+                          currentValue={user?.location || ""}
+                          onSelectLocation={(loc) => handleInlineLocationUpdate(loc)}
+                          onCancel={() => setIsEditingLocationInline(false)}
+                        />
+                      </div>
+                    )}
 
                     {/* Occupation */}
                     <div className="mz-field-row" onClick={() => openEditModal("occupation")}>
@@ -1261,16 +1323,16 @@ const Profile = () => {
                 )}
               </div>
 
-              {/* Location Field */}
+              {/* Location Field with India States & Cities Suggestion */}
               <div className="mz-form-group">
-                <label className="mz-form-label">Location</label>
-                <input
-                  type="text"
-                  className="mz-form-input"
-                  placeholder="e.g. Bengaluru, India or New York, USA"
-                  value={editForm.location}
+                <label className="mz-form-label">Location (City, State)</label>
+                <IndiaLocationPicker
+                  compact={false}
+                  currentValue={editForm.location}
+                  onSelectLocation={(loc) => {
+                    setEditForm((prev) => ({ ...prev, location: loc }));
+                  }}
                   autoFocus={activeEditFocus === "location"}
-                  onChange={(e) => setEditForm({ ...editForm, location: e.target.value })}
                 />
               </div>
 

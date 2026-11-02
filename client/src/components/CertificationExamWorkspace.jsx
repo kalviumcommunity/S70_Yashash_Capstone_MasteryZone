@@ -21,6 +21,7 @@ import {
   LuChevronRight,
   LuBookmark,
   LuMaximize,
+  LuMaximize2,
   LuLayers,
   LuTerminal,
   LuCheckCheck,
@@ -30,6 +31,7 @@ import {
   LuLayoutGrid,
   LuMic,
   LuBatteryCharging,
+  LuBattery,
   LuFlag,
   LuFolderLock,
   LuHistory,
@@ -40,6 +42,9 @@ import {
   LuTriangleAlert,
   LuTrophy,
   LuHouse,
+  LuStar,
+  LuLock,
+  LuFolderTree,
 } from "react-icons/lu";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
@@ -63,7 +68,7 @@ export default function CertificationExamWorkspace({
   const navigate = useNavigate();
   const { certId: paramCertId } = useParams();
   const certId = paramCertId || propCertId || "dsa_cert";
-  const certTitle = propCertTitle || CERT_INFO_MAP[certId]?.title || "Data Structures & Algorithms (DSA)";
+  const certTitle = propCertTitle || CERT_INFO_MAP[certId]?.title || "Python Certified Professional";
   const language = propLanguage || CERT_INFO_MAP[certId]?.lang || "python";
 
   const currentUserId = (() => {
@@ -80,7 +85,9 @@ export default function CertificationExamWorkspace({
   // 1. Session Persistence Recovery State strictly isolated to authenticated user
   const savedSession = (() => {
     try {
-      const item = (currentUserId && localStorage.getItem(`mz_${currentUserId}_active_cert_session`)) || localStorage.getItem("mz_active_cert_session");
+      const item =
+        (currentUserId && localStorage.getItem(`mz_${currentUserId}_active_cert_session`)) ||
+        localStorage.getItem("mz_active_cert_session");
       if (!item) return null;
       const parsed = JSON.parse(item);
       if (parsed.userId && parsed.userId !== currentUserId && currentUserId !== "guest") return null;
@@ -100,9 +107,10 @@ export default function CertificationExamWorkspace({
   // Workflow Stage: "gate" | "active"
   const [stage, setStage] = useState(() => (isResumingActive ? "active" : "gate"));
   const [attemptId, setAttemptId] = useState(() => savedSession?.attemptId || null);
-  const [attemptNumber, setAttemptNumber] = useState(1);
+  const [attemptNumber, setAttemptNumber] = useState(2);
   const [candidateName, setCandidateName] = useState("Candidate");
-  const [secondsRemaining, setSecondsRemaining] = useState(() => savedSession?.secondsRemaining || 5400); // 90 mins
+  const [secondsRemaining, setSecondsRemaining] = useState(() => savedSession?.secondsRemaining || 5394); // ~89m 54s default
+  const [isTimerRunning, setIsTimerRunning] = useState(true);
 
   // Unified Question Index (0..21 for Questions 1..22)
   // Index 0..19: MCQs (Q1 to Q20)
@@ -122,21 +130,57 @@ export default function CertificationExamWorkspace({
 
   const [selectedCodingQuestions, setSelectedCodingQuestions] = useState([]);
   const [codingSubmissions, setCodingSubmissions] = useState([
-    { code: "# Enter your code below\n", language: "python", solved: false, passedTests: 0, totalTests: 10, testResults: [] },
-    { code: "# Enter your code below\n", language: "python", solved: false, passedTests: 0, totalTests: 10, testResults: [] },
+    {
+      code: "# Enter your code below\n",
+      language: "python",
+      solved: false,
+      passedTests: 0,
+      totalTests: 10,
+      testResults: [],
+    },
+    {
+      code: "# Enter your code below\n",
+      language: "python",
+      solved: false,
+      passedTests: 0,
+      totalTests: 10,
+      testResults: [],
+    },
   ]);
 
-  // Telemetry & Proctoring
-  const [recoveryChances, setRecoveryChances] = useState(5);
+  // -----------------------------------------------------------------
+  // 5 Life Chances & Interruption System
+  // -----------------------------------------------------------------
+  const [recoveryChancesRemaining, setRecoveryChancesRemaining] = useState(5);
   const [violationsCount, setViolationsCount] = useState(0);
+  const [isRecoveryModalOpen, setIsRecoveryModalOpen] = useState(false);
+  const [recoveryReason, setRecoveryReason] = useState("");
+  const [recoveryTimestamp, setRecoveryTimestamp] = useState(null);
+  const [isReverifying, setIsReverifying] = useState(false);
+  const [isTerminated, setIsTerminated] = useState(false);
+
+  // State synchronization refs for instant zero-latency isolation
+  const isRecoveryModalOpenRef = useRef(false);
+  const isReverifyingRef = useRef(false);
+  const isSubmittedRef = useRef(false);
+  const violationCooldownRef = useRef(false);
+  const immunityUntilRef = useRef(Date.now() + 15000);
+
+  useEffect(() => {
+    isRecoveryModalOpenRef.current = isRecoveryModalOpen;
+  }, [isRecoveryModalOpen]);
+
+  useEffect(() => {
+    isReverifyingRef.current = isReverifying;
+  }, [isReverifying]);
 
   // Live Proctoring Media Streams (Continuous across MCQs & Coding)
   const [cameraStream, setCameraStream] = useState(null);
   const [screenStream, setScreenStream] = useState(null);
   const [micStream, setMicStream] = useState(null);
-  const [batteryInfo, setBatteryInfo] = useState({ percentage: 100, charging: false });
+  const [batteryInfo, setBatteryInfo] = useState({ percentage: 82, charging: false });
   const [proctoringViewMode, setProctoringViewMode] = useState("dual"); // "dual" | "camera" | "screen"
-  const [procMicVolume, setProcMicVolume] = useState(0);
+  const [procMicVolume, setProcMicVolume] = useState(15);
 
   const procCameraVideoRef = useRef(null);
   const procScreenVideoRef = useRef(null);
@@ -147,10 +191,6 @@ export default function CertificationExamWorkspace({
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isInterruptedModalOpen, setIsInterruptedModalOpen] = useState(false);
-  const [interruptionReason, setInterruptionReason] = useState("");
-  const [interruptedTimestamp, setInterruptedTimestamp] = useState(null);
-  const violationCooldownRef = useRef(false);
   const [submissionSuccessData, setSubmissionSuccessData] = useState(null);
 
   const ensureMediaStreams = async () => {
@@ -219,17 +259,20 @@ export default function CertificationExamWorkspace({
   // Battery monitoring
   useEffect(() => {
     if (typeof navigator !== "undefined" && typeof navigator.getBattery === "function") {
-      navigator.getBattery().then((battery) => {
-        const updateBat = () => {
-          setBatteryInfo({
-            percentage: Math.round(battery.level * 100),
-            charging: battery.charging,
-          });
-        };
-        updateBat();
-        battery.addEventListener("levelchange", updateBat);
-        battery.addEventListener("chargingchange", updateBat);
-      }).catch(() => {});
+      navigator
+        .getBattery()
+        .then((battery) => {
+          const updateBat = () => {
+            setBatteryInfo({
+              percentage: Math.round(battery.level * 100),
+              charging: battery.charging,
+            });
+          };
+          updateBat();
+          battery.addEventListener("levelchange", updateBat);
+          battery.addEventListener("chargingchange", updateBat);
+        })
+        .catch(() => {});
     }
   }, []);
 
@@ -294,7 +337,7 @@ export default function CertificationExamWorkspace({
 
       const data = await res.json();
       setAttemptId(data.attemptId);
-      setAttemptNumber(data.attemptNumber || 1);
+      setAttemptNumber(data.attemptNumber || 2);
       setCandidateName(data.candidateName || "Candidate");
       setSelectedMcqs(data.selectedMcqs || []);
       setMcqAnswers(data.mcqAnswers || {});
@@ -327,11 +370,14 @@ export default function CertificationExamWorkspace({
       if (data.proctoring) {
         const viols = data.proctoring.violationsCount || 0;
         setViolationsCount(viols);
-        setRecoveryChances(Math.max(0, 5 - viols));
+        setRecoveryChancesRemaining(Math.max(0, 5 - viols));
       }
 
       // Save active session to localStorage so reload won't exit the test
-      const certSessionKey = currentUserId && currentUserId !== "guest" ? `mz_${currentUserId}_active_cert_session` : "mz_active_cert_session";
+      const certSessionKey =
+        currentUserId && currentUserId !== "guest"
+          ? `mz_${currentUserId}_active_cert_session`
+          : "mz_active_cert_session";
       localStorage.setItem(
         certSessionKey,
         JSON.stringify({
@@ -353,11 +399,20 @@ export default function CertificationExamWorkspace({
       } catch {}
 
       setStage("active");
+      immunityUntilRef.current = Date.now() + 15000;
 
       if (isResumeTrigger || data.resumed) {
-        toast.info("Resumed active certification examination.", { toastId: "cert_resume_toast", autoClose: 1800 });
+        toast.info("Resumed active certification examination.", {
+          toastId: "cert_resume_toast",
+          position: "bottom-right",
+          autoClose: 1500,
+        });
       } else {
-        toast.success("Security Gate passed. Proctored examination active!", { toastId: "cert_gate_toast", autoClose: 1800 });
+        toast.success("Security Gate passed. Proctored examination active!", {
+          toastId: "cert_gate_toast",
+          position: "bottom-right",
+          autoClose: 1500,
+        });
       }
     } catch (err) {
       toast.error(err.message);
@@ -374,16 +429,237 @@ export default function CertificationExamWorkspace({
   }, []);
 
   // -------------------------------------------------------------
-  // 2. Reload Handling: Preserve session state silently without penalties
+  // 2. Interruption Logger: Five Life Chances System (5/5)
+  // -------------------------------------------------------------
+  const logProctoringAnomaly = useCallback(
+    async (type, message) => {
+      if (
+        isSubmittedRef.current ||
+        isTerminated ||
+        isFinalizing ||
+        violationCooldownRef.current ||
+        isRecoveryModalOpenRef.current ||
+        isReverifyingRef.current ||
+        Date.now() < immunityUntilRef.current
+      ) {
+        return;
+      }
+
+      violationCooldownRef.current = true;
+      setTimeout(() => {
+        violationCooldownRef.current = false;
+      }, 6000);
+
+      isRecoveryModalOpenRef.current = true;
+      const now = new Date();
+      setRecoveryReason(message);
+      setRecoveryTimestamp(now);
+      setIsTimerRunning(false);
+
+      // Immediate deterministic deduction of 1 chance
+      let nextRem = 5;
+      setRecoveryChancesRemaining((prev) => {
+        nextRem = Math.max(0, prev - 1);
+        if (nextRem <= 0) {
+          setIsTerminated(true);
+        }
+        return nextRem;
+      });
+      setViolationsCount((p) => p + 1);
+      setIsRecoveryModalOpen(true);
+
+      // Post interruption telemetry event to backend
+      try {
+        const token = localStorage.getItem("token");
+        if (attemptId && token) {
+          const res = await fetch(`${API_BASE}/api/certifications/attempt/${attemptId}/proctoring-event`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ type, details: message }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.chancesRemaining !== undefined) {
+              setRecoveryChancesRemaining(data.chancesRemaining);
+              if (data.chancesRemaining <= 0) {
+                setIsTerminated(true);
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Proctoring interruption telemetry error:", err);
+      }
+    },
+    [attemptId, isFinalizing, isTerminated]
+  );
+
+  useEffect(() => {
+    window.__mz_trigger_interruption = (type, message) => {
+      immunityUntilRef.current = 0;
+      violationCooldownRef.current = false;
+      logProctoringAnomaly(
+        type || "TAB_SWITCH",
+        message || "Assessment window lost focus or switched tabs. Navigating away from the proctored examination is prohibited."
+      );
+    };
+    return () => {
+      delete window.__mz_trigger_interruption;
+    };
+  }, [logProctoringAnomaly]);
+
+  // Re-verify hardware & resume proctored assessment
+  const handleResumeAssessment = async () => {
+    setIsReverifying(true);
+    isReverifyingRef.current = true;
+    violationCooldownRef.current = true;
+    immunityUntilRef.current = Date.now() + 20000; // 20 seconds grace period
+
+    try {
+      // 1. Camera & Mic Check
+      let cStream = cameraStream;
+      const isCamLive = cStream && cStream.getVideoTracks && cStream.getVideoTracks().some((t) => t.readyState === "live");
+      if (!isCamLive) {
+        try {
+          cStream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" },
+            audio: true,
+          });
+          setCameraStream(cStream);
+          setMicStream(cStream);
+        } catch (e) {
+          console.warn("Camera re-acquisition note:", e);
+        }
+      }
+
+      // 2. Screen Share Check
+      let sStream = screenStream;
+      const isScreenLive = sStream && sStream.getVideoTracks && sStream.getVideoTracks().some((t) => t.readyState === "live");
+      if (!isScreenLive && navigator.mediaDevices?.getDisplayMedia) {
+        try {
+          sStream = await navigator.mediaDevices.getDisplayMedia({
+            video: { displaySurface: "monitor" },
+            audio: false,
+          });
+          setScreenStream(sStream);
+        } catch (e) {
+          console.warn("Screen re-acquisition note:", e);
+        }
+      }
+
+      // 3. Fullscreen Re-entry
+      try {
+        if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+          if (document.documentElement.requestFullscreen) {
+            await document.documentElement.requestFullscreen();
+          } else if (document.documentElement.webkitRequestFullscreen) {
+            await document.documentElement.webkitRequestFullscreen();
+          }
+        }
+      } catch (fsErr) {
+        console.warn("Fullscreen request error during resume:", fsErr);
+      }
+
+      setIsTimerRunning(true);
+      setIsRecoveryModalOpen(false);
+      isRecoveryModalOpenRef.current = false;
+      toast.success(`Assessment Resumed! Remaining chances: ${recoveryChancesRemaining}/5`, {
+        toastId: "cert_resumed_toast",
+        position: "bottom-right",
+        autoClose: 2000,
+      });
+    } catch (err) {
+      toast.error("Re-verification failed: " + err.message);
+    } finally {
+      setIsReverifying(false);
+      isReverifyingRef.current = false;
+    }
+  };
+
+  // -------------------------------------------------------------
+  // 3. Telemetry Listeners: Tab Switch, Fullscreen Exit, Reload
   // -------------------------------------------------------------
   useEffect(() => {
-    if (stage !== "active") return;
+    if (stage !== "active" || isTerminated || isFinalizing) return;
 
-    const handleBeforeUnload = () => {
-      if (attemptId) {
+    // 1. Tab switch / browser window blur / minimized window
+    const handleVisibilityChange = () => {
+      if (
+        isSubmittedRef.current ||
+        isTerminated ||
+        isRecoveryModalOpenRef.current ||
+        isReverifyingRef.current ||
+        Date.now() < immunityUntilRef.current
+      ) {
+        return;
+      }
+
+      if (document.hidden) {
+        logProctoringAnomaly(
+          "TAB_SWITCH",
+          "Assessment window lost focus or switched tabs. Navigating away from the proctored examination is prohibited."
+        );
+      }
+    };
+
+    // 2. Continuous Fullscreen Enforcement
+    const handleFsChange = () => {
+      if (
+        isSubmittedRef.current ||
+        isTerminated ||
+        isRecoveryModalOpenRef.current ||
+        isReverifyingRef.current ||
+        Date.now() < immunityUntilRef.current
+      ) {
+        return;
+      }
+
+      const inFs = !!(
+        document.fullscreenElement ||
+        document.webkitFullscreenElement ||
+        document.mozFullScreenElement ||
+        document.msFullscreenElement
+      );
+      if (!inFs) {
+        logProctoringAnomaly(
+          "FULLSCREEN_EXIT",
+          "Continuous fullscreen mode is strictly required. Exiting fullscreen is an integrity violation."
+        );
+      }
+    };
+
+    // 3. Intercept reload shortcut keys (F5, Ctrl+R, Cmd+R)
+    const handleKeyDown = (e) => {
+      if (isSubmittedRef.current || isTerminated) return;
+      if (
+        e.key === "F5" ||
+        ((e.ctrlKey || e.metaKey) && (e.key === "r" || e.key === "R"))
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
+        logProctoringAnomaly(
+          "PAGE_RELOAD_ATTEMPT",
+          "Page reload attempt detected. Reloading during an active proctored examination is prohibited."
+        );
+      }
+    };
+
+    // 4. Beforeunload listener to detect page reload and persist state
+    const handleBeforeUnload = (e) => {
+      if (isSubmittedRef.current || isTerminated) return;
+      try {
+        sessionStorage.setItem("mz_cert_pending_refresh_violation", "true");
+        const certSessionKey =
+          currentUserId && currentUserId !== "guest"
+            ? `mz_${currentUserId}_active_cert_session`
+            : "mz_active_cert_session";
         localStorage.setItem(
-          "mz_active_cert_session",
+          certSessionKey,
           JSON.stringify({
+            userId: currentUserId,
             attemptId,
             certId,
             certTitle,
@@ -392,93 +668,59 @@ export default function CertificationExamWorkspace({
             status: "IN_PROGRESS",
           })
         );
-      }
-    };
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-    };
-  }, [stage, attemptId, certId, certTitle, currentQuestionIndex, secondsRemaining]);
-
-  // -------------------------------------------------------------
-  // 3. Proctoring Telemetry Violations with Single Deduction & Deduplication
-  // -------------------------------------------------------------
-  const recordViolation = useCallback(
-    async (type, details) => {
-      if (!attemptId || stage !== "active" || violationCooldownRef.current || isFinalizing) return;
-      violationCooldownRef.current = true;
-      setTimeout(() => {
-        violationCooldownRef.current = false;
-      }, 4500);
-
-      const now = new Date();
-      setInterruptionReason(details || "Assessment environment interruption detected.");
-      setInterruptedTimestamp(now);
-
-      try {
-        const token = localStorage.getItem("token");
-        const res = await fetch(`${API_BASE}/api/certifications/attempt/${attemptId}/proctoring-event`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ type, details }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          const used = data.violationsCount || 0;
-          const rem = data.chancesRemaining !== undefined ? data.chancesRemaining : Math.max(0, 5 - used);
-          setViolationsCount(used);
-          setRecoveryChances(rem);
-          if (rem <= 0) {
-            toast.error("All 5 recovery chances exhausted. Auto-submitting examination.", { toastId: "term_alert" });
-            handleFinalSubmit();
-          } else {
-            toast.warn(`⚠️ Integrity Notice: ${details} (${rem}/5 chances remaining)`, { toastId: `viol_${type}` });
-          }
-        } else {
-          setRecoveryChances((prev) => Math.max(0, prev - 1));
-        }
-      } catch {
-        setRecoveryChances((prev) => Math.max(0, prev - 1));
-      }
-    },
-    [attemptId, stage, isFinalizing]
-  );
-
-  useEffect(() => {
-    // Only monitor directly in parent workspace during MCQ phase (Q1-Q20).
-    // During coding phase (Q21-Q22), embedded MasteryZoneCompilerWorkspace manages compiler proctoring feeds.
-    if (stage !== "active" || currentQuestionIndex >= 20) return;
-
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        recordViolation("TAB_SWITCH", "Candidate switched active browser tab or minimized window");
-      }
-    };
-
-    const handleFullscreenChange = () => {
-      if (!document.fullscreenElement) {
-        recordViolation("FULLSCREEN_EXIT", "Candidate exited required fullscreen proctoring view");
-      }
+      } catch {}
+      e.preventDefault();
+      e.returnValue = "Are you sure you want to reload? An integrity violation will be logged and 1 recovery chance deducted.";
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    document.addEventListener("fullscreenchange", handleFsChange);
+    document.addEventListener("webkitfullscreenchange", handleFsChange);
+    window.addEventListener("keydown", handleKeyDown, true);
+    window.addEventListener("beforeunload", handleBeforeUnload);
 
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      document.removeEventListener("fullscreenchange", handleFsChange);
+      document.removeEventListener("webkitfullscreenchange", handleFsChange);
+      window.removeEventListener("keydown", handleKeyDown, true);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
     };
-  }, [stage, currentQuestionIndex, recordViolation]);
+  }, [
+    stage,
+    isTerminated,
+    isFinalizing,
+    logProctoringAnomaly,
+    attemptId,
+    certId,
+    certTitle,
+    currentQuestionIndex,
+    secondsRemaining,
+    currentUserId,
+  ]);
+
+  // Check for reload violation on stage mount
+  useEffect(() => {
+    if (stage === "active") {
+      try {
+        if (sessionStorage.getItem("mz_cert_pending_refresh_violation") === "true") {
+          sessionStorage.removeItem("mz_cert_pending_refresh_violation");
+          setTimeout(() => {
+            logProctoringAnomaly(
+              "PAGE_RELOAD",
+              "Browser was reloaded during the active examination. 1 recovery chance deducted."
+            );
+          }, 800);
+        }
+      } catch {}
+    }
+  }, [stage, logProctoringAnomaly]);
 
   // -------------------------------------------------------------
-  // 4. Timer Countdown
+  // 4. Timer Countdown (Pauses when modal open or terminated)
   // -------------------------------------------------------------
   useEffect(() => {
-    if (stage !== "active") return;
+    if (stage !== "active" || !isTimerRunning || isTerminated) return;
     const timer = setInterval(() => {
       setSecondsRemaining((prev) => {
         if (prev <= 1) {
@@ -490,12 +732,12 @@ export default function CertificationExamWorkspace({
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [stage]);
+  }, [stage, isTimerRunning, isTerminated]);
 
-  const formatTimer = (totalSeconds) => {
+  const formatTimerMinsSecs = (totalSeconds) => {
     const mins = Math.floor(totalSeconds / 60);
     const secs = totalSeconds % 60;
-    return `${mins}m ${secs < 10 ? "0" : ""}${secs}s remaining`;
+    return `${mins}m ${secs < 10 ? "0" : ""}${secs}s`;
   };
 
   // -------------------------------------------------------------
@@ -611,7 +853,7 @@ export default function CertificationExamWorkspace({
       const data = await res.json();
       const resultsArray = data.results || data.testResults || [];
       const isSolved = Boolean(data.isSolved || data.solved);
-      const passedCount = data.passedCount !== undefined ? data.passedCount : (data.passedTests || 0);
+      const passedCount = data.passedCount !== undefined ? data.passedCount : data.passedTests || 0;
       const totalCount = data.total || data.totalTests || 10;
 
       setCodingSubmissions((prev) => {
@@ -658,6 +900,7 @@ export default function CertificationExamWorkspace({
   // -------------------------------------------------------------
   const handleFinalSubmit = async () => {
     setIsFinalizing(true);
+    isSubmittedRef.current = true;
     try {
       const token = localStorage.getItem("token");
       const res = await fetch(`${API_BASE}/api/certifications/attempt/${attemptId}/finalize`, {
@@ -675,11 +918,12 @@ export default function CertificationExamWorkspace({
 
       const data = await res.json();
       setShowConfirmModal(false);
+      setIsRecoveryModalOpen(false);
 
-      // Clear session from storage so next visit starts fresh
+      // Clear session from storage
       localStorage.removeItem("mz_active_cert_session");
       if (currentUserId) localStorage.removeItem(`mz_${currentUserId}_active_cert_session`);
-      sessionStorage.removeItem("mz_cert_reload_interruption");
+      sessionStorage.removeItem("mz_cert_pending_refresh_violation");
 
       // Stop proctoring tracks and exit fullscreen on final submission
       if (cameraStream) {
@@ -694,20 +938,24 @@ export default function CertificationExamWorkspace({
         } catch {}
       }
 
-      // Enforce strictly ONE single notification on top-right upon submission
       toast.dismiss();
       toast.success(
         data.finalVerdict === "PASSED"
           ? "🎉 Assessment Submitted! You cleared the 80% cutoff and earned your Official Certificate!"
           : "Assessment submitted and permanently recorded. View your official evaluation report below.",
         {
-          toastId: "mz-single-assessment-submit-toast",
+          toastId: "mz-cert-submit-toast",
           position: "top-right",
           autoClose: 2000,
         }
       );
 
-      const finalScore = data.totalScore !== undefined ? data.totalScore : (data.mcqScore !== undefined ? data.mcqScore + (data.codingScore || 0) : answeredMcqCount + totalPassedCodingTests);
+      const finalScore =
+        data.totalScore !== undefined
+          ? data.totalScore
+          : data.mcqScore !== undefined
+          ? data.mcqScore + (data.codingScore || 0)
+          : answeredMcqCount + totalPassedCodingTests;
       const finalPct = data.percentage !== undefined ? data.percentage : Math.round((finalScore / 40) * 100);
 
       setSubmissionSuccessData({
@@ -715,7 +963,7 @@ export default function CertificationExamWorkspace({
         score: finalScore,
         totalMarks: data.maxScore || 40,
         percentage: finalPct,
-        passed: data.finalVerdict === "PASSED" || (finalPct >= 80),
+        passed: data.finalVerdict === "PASSED" || finalPct >= 80,
         mcqScore: data.mcqScore !== undefined ? data.mcqScore : answeredMcqCount,
         codingScore: data.codingScore !== undefined ? data.codingScore : totalPassedCodingTests,
         reportUrl: `/assessment-report/${attemptId}`,
@@ -734,9 +982,7 @@ export default function CertificationExamWorkspace({
   // Combined score calculations (20 MCQs + 20 Coding Tests = 40 Total Marks)
   const answeredMcqCount = Object.keys(mcqAnswers).length;
   const totalPassedCodingTests = codingSubmissions.reduce((acc, s) => acc + (s.passedTests || 0), 0);
-  const totalCombinedMarks = 40; // 20 MCQs (1 mark each) + 20 Coding Tests (1 mark each)
-  const currentMarksObtained = answeredMcqCount + totalPassedCodingTests;
-  const currentPercentage = Math.round((currentMarksObtained / totalCombinedMarks) * 100);
+  const totalAttemptedCount = answeredMcqCount + (codingSubmissions.filter((s) => s.solved || s.passedTests > 0).length);
 
   // -------------------------------------------------------------
   // STAGE 1: ASSESSMENT SECURITY GATE
@@ -765,623 +1011,557 @@ export default function CertificationExamWorkspace({
 
   // -------------------------------------------------------------
   // STAGE 2: ACTIVE PROCTORED EXAMINATION WORKSPACE (22 QUESTIONS)
+  // EXACT MATCH TO REFERENCE IMAGE (NO TOP PLATFORM NAVBAR)
   // -------------------------------------------------------------
   const isMcqMode = currentQuestionIndex < 20;
   const currentMcq = isMcqMode ? selectedMcqs[currentQuestionIndex] : null;
 
   return (
     <div className="mz-cert-workspace-root">
-      {/* 1. STICKY TOP HEADER */}
+      {/* 1. TOP HEADER BANNER (DEEP PURPLE/NAVY GRADIENT) */}
       <header className="mz-cert-top-bar">
-        {/* Left: Branding & Status Badges */}
+        {/* Left: Star Icon in circle + Title • Attempt # + Proctoring Active pill */}
         <div className="mz-cert-top-left">
-          <div className="mz-cert-logo-circle" title="Mastery Zone Assessment Platform">
-            <LuAward size={18} />
+          <div className="mz-cert-star-circle">
+            <LuStar size={17} fill="#ffffff" color="#ffffff" />
           </div>
 
-          <h2 className="mz-cert-problem-title">
+          <h1 className="mz-cert-problem-title">
             {certTitle} • Attempt #{attemptNumber}
-          </h2>
+          </h1>
 
-          <div className="mz-cert-pill-green">
-            <span className="mz-dot-green">●</span> PROCTORING ACTIVE
-          </div>
-
-          <div className="mz-cert-pill-cyan">
-            <span className="mz-dot-cyan">●</span> Synced
-          </div>
-
-          <div className="mz-cert-pill-purple">
-            <LuFolderLock size={13} style={{ marginRight: 4 }} /> Assigned Assessment Task
+          <div className="mz-cert-proctoring-pill">
+            <span className="mz-dot-proctoring">●</span> Proctoring Active
           </div>
         </div>
 
-        {/* Center: Live Combined Progress Tracker */}
-        <div className="mz-cert-top-center">
-          <div className="mz-cert-score-tracker">
-            <span className="mz-tracker-chip">
-              <strong>Part A:</strong> {answeredMcqCount}/20 MCQs
-            </span>
-            <span className="mz-tracker-divider">•</span>
-            <span className="mz-tracker-chip">
-              <strong>Part B:</strong> {totalPassedCodingTests}/20 Tests Passed
-            </span>
-            <span className="mz-tracker-divider">•</span>
-            <span className="mz-tracker-chip highlight">
-              <strong>Combined Cutoff:</strong> ≥80% (32/40 Marks)
-            </span>
-          </div>
-        </div>
-
-        {/* Right: Clock & Submit */}
+        {/* Right: Time Remaining + Submit Assessment Button */}
         <div className="mz-cert-top-right">
-          <div className="mz-cert-timer-display">
-            <LuClock size={13} style={{ marginRight: 5 }} /> {formatTimer(secondsRemaining)}
+          <div className="mz-cert-timer-block">
+            <LuClock size={22} color="#ffffff" className="mz-timer-clock-icon" />
+            <div className="mz-timer-text-wrap">
+              <span className="mz-timer-label">Time Remaining</span>
+              <span className="mz-timer-val">{formatTimerMinsSecs(secondsRemaining)}</span>
+            </div>
           </div>
 
           <button
             type="button"
             className="mz-cert-btn-top-submit"
             onClick={() => setShowConfirmModal(true)}
-            title="Finalize assessment and view verified report"
+            title="Finalize assessment and submit for grading"
           >
-            <LuSend size={13} style={{ marginRight: 5 }} /> Submit Assessment
+            <LuSend size={15} style={{ marginRight: 6 }} />
+            <span>Submit Assessment</span>
           </button>
         </div>
       </header>
 
-      {/* 2. UNIFIED 22-QUESTION PALETTE STRIP (ALWAYS VISIBLE FOR BOTH MCQS & CODING) */}
+      {/* 2. UNIFIED QUESTION NAVIGATION STRIP */}
       <div className="mz-cert-palette-bar">
-        <div className="mz-palette-scroll">
-          {/* Questions 1 to 20: MCQs */}
-          <div className="mz-palette-group">
-            <span className="mz-palette-group-label">MCQs (1–20)</span>
-            <div className="mz-palette-btns">
-              {selectedMcqs.map((q, idx) => {
-                const isAnswered = mcqAnswers[q.id] !== undefined;
+        <div className="mz-palette-left-section">
+          <span className="mz-palette-section-label">MCQs (1-20)</span>
+          <div className="mz-palette-mcq-circles">
+            {Array.from({ length: 20 }).map((_, idx) => {
+              const q = selectedMcqs[idx];
+              const isAnswered = q && mcqAnswers[q.id] !== undefined;
+              const isFlagged = flaggedMcqs.has(idx);
+              const isCurrent = currentQuestionIndex === idx;
+
+              let cls = "mz-palette-circle-btn";
+              if (isCurrent) cls += " active";
+              else if (isAnswered) cls += " answered";
+              else if (isFlagged) cls += " flagged";
+
+              return (
+                <button
+                  key={idx}
+                  type="button"
+                  className={cls}
+                  onClick={() => setCurrentQuestionIndex(idx)}
+                  title={`Question ${idx + 1}`}
+                >
+                  {idx + 1}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mz-palette-strip-divider" />
+
+          <span className="mz-palette-section-label">CODING (21-22)</span>
+          <div className="mz-palette-coding-pills">
+            <button
+              type="button"
+              className={`mz-palette-coding-pill ${currentQuestionIndex === 20 ? "active" : ""}`}
+              onClick={() => setCurrentQuestionIndex(20)}
+              title="Coding Question 21"
+            >
+              <span className="mz-coding-pill-icon">&lt;/&gt;</span>
+              <span>Q21</span>
+            </button>
+
+            <button
+              type="button"
+              className={`mz-palette-coding-pill ${currentQuestionIndex === 21 ? "active" : ""}`}
+              onClick={() => setCurrentQuestionIndex(21)}
+              title="Coding Question 22"
+            >
+              <LuFileCode size={13} style={{ marginRight: 3 }} />
+              <span>Q22</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Right Stats: MCQs count, Coding count, Combined Cutoff Badge */}
+        <div className="mz-palette-right-section">
+          <div className="mz-stat-item">
+            <span className="mz-dot-indicator green">●</span>
+            <span className="mz-stat-label">
+              MCQs: <strong>{answeredMcqCount}/20</strong>
+            </span>
+          </div>
+
+          <div className="mz-stat-item">
+            <span className="mz-dot-indicator purple">●</span>
+            <span className="mz-stat-label">
+              Coding Tests: <strong>{totalPassedCodingTests}/20</strong>
+            </span>
+          </div>
+
+          <div className="mz-cutoff-pill-badge">
+            <LuAward size={14} color="#d97706" />
+            <span>Combined Cutoff: ≥80% (32/40)</span>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. MAIN WORKSPACE LAYOUT (2 COLUMNS) */}
+      <div className="mz-cert-main-layout">
+        {/* Left Column: Live Proctoring Card (Top) + Question Palette Card (Bottom) */}
+        <aside className="mz-cert-sidebar-col">
+          {/* CARD 1: LIVE PROCTORING */}
+          <div className="mz-cert-sidebar-card mz-cert-proc-card">
+            <div className="mz-proc-card-header">
+              <div className="mz-proc-title-wrap">
+                <LuShieldCheck size={17} color="#10b981" />
+                <span className="mz-proc-card-title">Live Proctoring</span>
+              </div>
+              <span className="mz-proc-badge-active">ACTIVE</span>
+            </div>
+
+            {/* Mode Switcher Pills (Camera / Screen / Dual) */}
+            <div className="mz-proc-mode-toggle-group">
+              <button
+                type="button"
+                className={`mz-proc-mode-btn ${proctoringViewMode === "camera" ? "active" : ""}`}
+                onClick={() => setProctoringViewMode("camera")}
+              >
+                <LuCamera size={13} />
+                <span>Camera</span>
+              </button>
+              <button
+                type="button"
+                className={`mz-proc-mode-btn ${proctoringViewMode === "screen" ? "active" : ""}`}
+                onClick={() => setProctoringViewMode("screen")}
+              >
+                <LuMonitor size={13} />
+                <span>Screen</span>
+              </button>
+              <button
+                type="button"
+                className={`mz-proc-mode-btn ${proctoringViewMode === "dual" ? "active" : ""}`}
+                onClick={() => setProctoringViewMode("dual")}
+              >
+                <LuLayers size={13} />
+                <span>Dual</span>
+              </button>
+            </div>
+
+            {/* Dual Video Feeds (Webcam on top, Screen below) */}
+            <div className="mz-proc-video-container">
+              {(proctoringViewMode === "dual" || proctoringViewMode === "camera") && (
+                <div className="mz-proc-feed-box webcam">
+                  <video
+                    ref={procCameraVideoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="mz-proc-video-el"
+                    style={{ transform: "scaleX(-1)" }}
+                  />
+                  <div className="mz-proc-feed-badge-top-left">
+                    <span className="mz-dot-feed live">●</span> Live
+                  </div>
+                  <div className="mz-proc-feed-badge-bottom-right">Webcam</div>
+                  {(!cameraStream || !cameraStream.active) && (
+                    <div className="mz-proc-feed-disconnected-overlay">
+                      <LuCamera size={20} color="#94a3b8" />
+                      <span>Webcam Feed Active</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {(proctoringViewMode === "dual" || proctoringViewMode === "screen") && (
+                <div className="mz-proc-feed-box screen">
+                  <video
+                    ref={procScreenVideoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="mz-proc-video-el screen"
+                  />
+                  <div className="mz-proc-feed-badge-top-left">
+                    <span className="mz-dot-feed screen">●</span> Screen
+                  </div>
+                  <div className="mz-proc-feed-badge-bottom-right">Entire Screen</div>
+                  {(!screenStream || !screenStream.active) && (
+                    <div className="mz-proc-feed-disconnected-overlay">
+                      <LuMonitor size={20} color="#94a3b8" />
+                      <span>Screen Shared</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Microphone Audio Equalizer Bar */}
+            <div className="mz-proc-mic-section">
+              <div className="mz-proc-mic-header">
+                <div className="mz-proc-mic-label">
+                  <LuMic size={14} color="#334155" />
+                  <span>Microphone</span>
+                </div>
+                <div className="mz-proc-mic-status">
+                  <span className="mz-mic-status-dot">●</span>
+                  <span>Audio Detected</span>
+                </div>
+              </div>
+              <div className="mz-proc-equalizer-bars">
+                {[
+                  4, 6, 10, 14, 8, 12, 16, 18, 14, 10, 8, 14, 16, 12, 18, 16, 12, 10, 14, 16,
+                  12, 8, 10, 14, 12, 8, 6, 4,
+                ].map((baseH, bIdx) => {
+                  const dynamicH = Math.min(
+                    18,
+                    Math.max(4, Math.round(baseH * (0.6 + (procMicVolume / 100) * 0.8)))
+                  );
+                  return (
+                    <span
+                      key={bIdx}
+                      className="mz-eq-bar"
+                      style={{ height: `${dynamicH}px` }}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Hardware & Security Telemetry Metrics */}
+            <div className="mz-proc-metrics-list">
+              <div className="mz-proc-metric-row">
+                <div className="mz-metric-label-left">
+                  <LuBatteryCharging size={14} color="#475569" />
+                  <span>Device Battery</span>
+                </div>
+                <div className="mz-metric-val-right">
+                  <span className="mz-metric-dot green">●</span> {batteryInfo.percentage}%
+                </div>
+              </div>
+
+              <div className="mz-proc-metric-row">
+                <div className="mz-metric-label-left">
+                  <LuMaximize2 size={14} color="#475569" />
+                  <span>Full Screen Enforcement</span>
+                </div>
+                <div className="mz-metric-val-right bold-green">Active</div>
+              </div>
+
+              <div className="mz-proc-metric-row">
+                <div className="mz-metric-label-left">
+                  <LuLock size={14} color="#475569" />
+                  <span>Assessment Security</span>
+                </div>
+                <div className="mz-metric-val-right bold-purple">STRICT</div>
+              </div>
+
+              <div className="mz-proc-metric-row">
+                <div className="mz-metric-label-left">
+                  <LuRotateCcw size={14} color="#475569" />
+                  <span>Recovery Chances</span>
+                </div>
+                <div
+                  className={`mz-metric-val-right ${
+                    recoveryChancesRemaining > 0 ? "bold-green" : "bold-red"
+                  }`}
+                >
+                  {recoveryChancesRemaining} / 5 Left
+                </div>
+              </div>
+
+              {/* 5 Segmented Horizontal Bars beneath Recovery Chances */}
+              <div className="mz-proc-segmented-chances-row">
+                {[1, 2, 3, 4, 5].map((idx) => (
+                  <div
+                    key={idx}
+                    className={`mz-chance-segment-pill ${
+                      idx <= recoveryChancesRemaining ? "active" : "consumed"
+                    }`}
+                    title={`Recovery Chance ${idx}: ${
+                      idx <= recoveryChancesRemaining ? "Available" : "Consumed"
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* CARD 2: QUESTION PALETTE (1-22) */}
+          <div className="mz-cert-sidebar-card mz-cert-palette-card">
+            <div className="mz-palette-card-header">
+              <span className="mz-palette-card-title">Question Palette (1-22)</span>
+              <span className="mz-palette-card-count">{totalAttemptedCount}/22 Attempted</span>
+            </div>
+
+            {/* 5-Column Grid */}
+            <div className="mz-sidebar-palette-grid">
+              {/* Questions 1 to 20: MCQs */}
+              {Array.from({ length: 20 }).map((_, idx) => {
+                const q = selectedMcqs[idx];
+                const isAnswered = q && mcqAnswers[q.id] !== undefined;
                 const isFlagged = flaggedMcqs.has(idx);
                 const isCurrent = currentQuestionIndex === idx;
 
-                let cls = "mz-palette-btn";
+                let cls = "mz-sidebar-grid-btn";
                 if (isCurrent) cls += " active";
                 else if (isAnswered) cls += " answered";
                 else if (isFlagged) cls += " flagged";
 
                 return (
                   <button
-                    key={q.id || idx}
+                    key={idx}
                     type="button"
                     className={cls}
                     onClick={() => setCurrentQuestionIndex(idx)}
-                    title={`Question ${idx + 1} (MCQ): ${isAnswered ? "Answered (1 Mark)" : "Unanswered"}`}
                   >
                     {idx + 1}
-                    {isFlagged && <span className="mz-palette-flag-dot" />}
                   </button>
                 );
               })}
-            </div>
-          </div>
 
-          <div className="mz-palette-divider" />
-
-          {/* Questions 21 and 22: Coding Challenges */}
-          <div className="mz-palette-group coding">
-            <span className="mz-palette-group-label">Coding (21–22)</span>
-            <div className="mz-palette-btns">
-              {selectedCodingQuestions.slice(0, 2).map((cq, cIdx) => {
-                const questionNumber = 21 + cIdx;
-                const paletteIndex = 20 + cIdx;
+              {/* Questions 21 and 22: Coding Challenges */}
+              {[21, 22].map((qNum, cIdx) => {
+                const paletteIdx = 20 + cIdx;
                 const sub = codingSubmissions[cIdx];
                 const isSolved = Boolean(sub?.solved || sub?.passedTests === 10);
-                const passedT = sub?.passedTests || 0;
-                const isAttempted = Boolean(passedT > 0 || (sub?.code && sub.code.length > 50));
-                const isCurrent = currentQuestionIndex === paletteIndex;
+                const isCurrent = currentQuestionIndex === paletteIdx;
 
-                let cls = "mz-palette-btn coding";
+                let cls = "mz-sidebar-grid-btn coding";
                 if (isCurrent) cls += " active";
-                else if (isSolved) cls += " solved";
-                else if (isAttempted) cls += " attempted";
+                else if (isSolved) cls += " answered";
 
                 return (
                   <button
-                    key={cq.questionId || cIdx}
+                    key={qNum}
                     type="button"
                     className={cls}
-                    onClick={() => setCurrentQuestionIndex(paletteIndex)}
-                    title={`Question ${questionNumber} (Coding): ${cq.title || "Algorithm Challenge"} • ${passedT}/10 Tests Passed (${passedT} Marks)`}
+                    onClick={() => setCurrentQuestionIndex(paletteIdx)}
                   >
-                    <LuFileCode size={12} style={{ marginRight: 3 }} />
-                    <span>Q{questionNumber}</span>
-                    {isSolved ? (
-                      <span className="mz-palette-check-dot">✓</span>
-                    ) : passedT > 0 ? (
-                      <span className="mz-palette-pass-count">{passedT}/10</span>
-                    ) : null}
+                    {qNum}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Question Challenges (Q21 & Q22) Action Cards */}
+            <div className="mz-sidebar-challenges-section">
+              <div className="mz-sidebar-challenges-title">Question Challenges (Q21 & Q22)</div>
+              {[0, 1].map((cIdx) => {
+                const qNum = 21 + cIdx;
+                const paletteIdx = 20 + cIdx;
+                const cq = selectedCodingQuestions[cIdx] || {};
+                const sub = codingSubmissions[cIdx];
+                const isCurrent = currentQuestionIndex === paletteIdx;
+                const isSolved = Boolean(sub?.solved || sub?.passedTests === 10);
+                const defaultTitle =
+                  cIdx === 0
+                    ? "Find Peak Element Index"
+                    : "Longest Substring Without Repeating Characters";
+
+                return (
+                  <button
+                    key={qNum}
+                    type="button"
+                    className={`mz-sidebar-challenge-card ${isCurrent ? "active" : ""}`}
+                    onClick={() => setCurrentQuestionIndex(paletteIdx)}
+                  >
+                    <div className="mz-sidebar-challenge-left">
+                      <span className="mz-sidebar-code-symbol">&lt;/&gt;</span>
+                      <span className="mz-sidebar-challenge-name">
+                        Q{qNum}: {cq.title || defaultTitle}
+                      </span>
+                    </div>
+                    <span className="mz-sidebar-challenge-badge">
+                      {isSolved ? "10/10 Tests" : "10 Marks"}
+                    </span>
                   </button>
                 );
               })}
             </div>
           </div>
-        </div>
+        </aside>
 
-        {/* Right Info: Combined Scoring Rule */}
-        <div className="mz-palette-stats">
-          <div className="mz-palette-stat-chip">
-            <span className="mz-dot-chip green">●</span>
-            <span>MCQs: <strong>{answeredMcqCount}/20</strong></span>
-          </div>
-          <div className="mz-palette-stat-chip">
-            <span className="mz-dot-chip purple">●</span>
-            <span>Coding Tests: <strong>{totalPassedCodingTests}/20</strong></span>
-          </div>
-          <div className="mz-palette-stat-chip gold">
-            <LuAward size={13} color="#d97706" />
-            <span>Combined Cutoff: <strong>≥80% (32/40)</strong></span>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. WORKSPACE BODY: MCQ VIEW (1..20) OR EMBEDDED MZ-ASM COMPILER WORKSPACE (21..22) */}
-      <div className="mz-cert-main-layout">
+        {/* Right Main Panel: MCQ View (1..20) OR Embedded Compiler Workspace (21..22) */}
         {isMcqMode ? (
-          /* ================= MCQs VIEW (QUESTIONS 1 TO 20) ================= */
-          <div className="mz-mcq-view-container">
-            {/* Left Palette Panel: ALL 22 Questions Grid */}
-            <aside className="mz-mcq-palette-panel">
-              {/* LIVE PROCTORING WIDGET (CONTINUOUS WEBCAM & SCREEN PROCTORING) */}
-              <div
-                className="mz-cert-mcq-proctoring-box"
-                style={{
-                  marginBottom: 16,
-                  padding: "10px",
-                  borderRadius: 10,
-                  background: "#f8fafc",
-                  border: "1px solid #e2e8f0",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 800, fontSize: 12.5, color: "#0f172a" }}>
-                    <LuShieldCheck size={15} color="#2563eb" />
-                    <span>Live Proctoring</span>
-                  </div>
-                  <span style={{ fontSize: 9.5, background: "#dcfce7", color: "#15803d", padding: "2px 6px", borderRadius: 10, fontWeight: 700 }}>
-                    ACTIVE
-                  </span>
-                </div>
-
-                {/* View Mode Toggle */}
-                <div style={{ display: "flex", background: "#e2e8f0", borderRadius: 6, padding: 2, marginBottom: 8 }}>
-                  <button
-                    type="button"
-                    onClick={() => setProctoringViewMode("camera")}
-                    style={{
-                      flex: 1,
-                      border: "none",
-                      background: proctoringViewMode === "camera" ? "#ffffff" : "transparent",
-                      color: proctoringViewMode === "camera" ? "#2563eb" : "#64748b",
-                      fontWeight: 700,
-                      fontSize: 10.5,
-                      padding: "3px 0",
-                      borderRadius: 4,
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 3,
-                    }}
-                  >
-                    <LuCamera size={11} /> Camera
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setProctoringViewMode("screen")}
-                    style={{
-                      flex: 1,
-                      border: "none",
-                      background: proctoringViewMode === "screen" ? "#ffffff" : "transparent",
-                      color: proctoringViewMode === "screen" ? "#2563eb" : "#64748b",
-                      fontWeight: 700,
-                      fontSize: 10.5,
-                      padding: "3px 0",
-                      borderRadius: 4,
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 3,
-                    }}
-                  >
-                    <LuMonitor size={11} /> Screen
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setProctoringViewMode("dual")}
-                    style={{
-                      flex: 1,
-                      border: "none",
-                      background: proctoringViewMode === "dual" ? "#ffffff" : "transparent",
-                      color: proctoringViewMode === "dual" ? "#2563eb" : "#64748b",
-                      fontWeight: 700,
-                      fontSize: 10.5,
-                      padding: "3px 0",
-                      borderRadius: 4,
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 3,
-                    }}
-                  >
-                    <LuLayoutGrid size={11} /> Dual
-                  </button>
-                </div>
-
-                {/* Video Streams Display */}
-                <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
-                  {(proctoringViewMode === "dual" || proctoringViewMode === "camera") && (
-                    <div style={{ position: "relative", width: "100%", height: 95, background: "#0f172a", borderRadius: 6, overflow: "hidden" }}>
-                      <video
-                        ref={procCameraVideoRef}
-                        autoPlay
-                        playsInline
-                        muted
-                        style={{ width: "100%", height: "100%", objectFit: "cover", transform: "scaleX(-1)" }}
-                      />
-                      <div style={{ position: "absolute", top: 4, left: 4, background: "rgba(0,0,0,0.65)", color: "#ffffff", padding: "1px 5px", borderRadius: 3, fontSize: 8.5, fontWeight: 700, display: "flex", alignItems: "center", gap: 3 }}>
-                        <span style={{ width: 5, height: 5, borderRadius: "50%", background: cameraStream?.active ? "#22c55e" : "#ef4444" }} />
-                        LIVE CAM
-                      </div>
-                      <span style={{ position: "absolute", bottom: 4, right: 4, background: "rgba(0,0,0,0.6)", color: "#cbd5e1", padding: "1px 4px", borderRadius: 3, fontSize: 8.5 }}>Webcam</span>
-                      {(!cameraStream || !cameraStream.active) && (
-                        <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "rgba(15, 23, 42, 0.9)", color: "#cbd5e1", gap: 3 }}>
-                          <LuCamera size={16} color="#94a3b8" />
-                          <span style={{ fontSize: 9.5 }}>Camera Disconnected</span>
-                          <button
-                            type="button"
-                            onClick={ensureMediaStreams}
-                            style={{ background: "#2563eb", color: "#ffffff", border: "none", borderRadius: 3, padding: "2px 6px", fontSize: 9.5, cursor: "pointer", fontWeight: 700 }}
-                          >
-                            Enable Camera
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {(proctoringViewMode === "dual" || proctoringViewMode === "screen") && (
-                    <div style={{ position: "relative", width: "100%", height: 95, background: "#0f172a", borderRadius: 6, overflow: "hidden" }}>
-                      <video
-                        ref={procScreenVideoRef}
-                        autoPlay
-                        playsInline
-                        muted
-                        style={{ width: "100%", height: "100%", objectFit: "contain" }}
-                      />
-                      <div style={{ position: "absolute", top: 4, left: 4, background: "rgba(0,0,0,0.65)", color: "#ffffff", padding: "1px 5px", borderRadius: 3, fontSize: 8.5, fontWeight: 700, display: "flex", alignItems: "center", gap: 3 }}>
-                        <span style={{ width: 5, height: 5, borderRadius: "50%", background: screenStream?.active ? "#22c55e" : "#ef4444" }} />
-                        SCREEN
-                      </div>
-                      <span style={{ position: "absolute", bottom: 4, right: 4, background: "rgba(0,0,0,0.6)", color: "#cbd5e1", padding: "1px 4px", borderRadius: 3, fontSize: 8.5 }}>Entire Screen</span>
-                      {(!screenStream || !screenStream.active) && (
-                        <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "rgba(15, 23, 42, 0.9)", color: "#cbd5e1", gap: 3 }}>
-                          <LuMonitor size={16} color="#94a3b8" />
-                          <span style={{ fontSize: 9.5 }}>Screen Not Shared</span>
-                          <button
-                            type="button"
-                            onClick={ensureMediaStreams}
-                            style={{ background: "#2563eb", color: "#ffffff", border: "none", borderRadius: 3, padding: "2px 6px", fontSize: 9.5, cursor: "pointer", fontWeight: 700 }}
-                          >
-                            Share Screen
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Microphone Level */}
-                <div style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 6, padding: "5px 6px", marginBottom: 6 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, marginBottom: 3 }}>
-                    <span style={{ color: "#475569", fontWeight: 700 }}>Microphone Signal</span>
-                    <span style={{ color: procMicVolume > 5 ? "#16a34a" : "#64748b", fontWeight: 700 }}>
-                      {procMicVolume > 5 ? "Audio Detected" : "Quiet"}
+          <main className="mz-mcq-card-main">
+            {currentMcq ? (
+              <>
+                {/* Header: Question 1 of 20, Trees topic, Marks & Cutoff, Flag button */}
+                <div className="mz-mcq-card-header">
+                  <div className="mz-mcq-header-left">
+                    <span className="mz-mcq-qnumber-pill">
+                      Question {currentQuestionIndex + 1} of 20
+                    </span>
+                    <span className="mz-mcq-topic-pill">
+                      <LuFolderTree size={14} color="#475569" style={{ marginRight: 6 }} />
+                      {currentMcq.topic || "Trees"}
                     </span>
                   </div>
-                  <div style={{ height: 3, background: "#e2e8f0", borderRadius: 2, overflow: "hidden" }}>
-                    <div style={{ height: "100%", width: `${Math.min(100, Math.max(4, procMicVolume))}%`, background: "linear-gradient(90deg, #22c55e 0%, #eab308 70%, #ef4444 100%)", transition: "width 0.1s ease" }} />
-                  </div>
-                </div>
 
-                {/* Battery & Fullscreen Enforcement */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 10.5, padding: "2px 0", color: "#475569" }}>
-                  <span>Device Battery</span>
-                  <span style={{ fontWeight: 700, color: "#0f172a" }}>{batteryInfo.percentage}% {batteryInfo.charging ? "⚡" : ""}</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 10.5, padding: "2px 0", color: "#475569" }}>
-                  <span>Fullscreen Enforcement</span>
-                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e" }} />
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 10.5, padding: "2px 0", color: "#475569", marginBottom: 6 }}>
-                  <span>Assessment Security</span>
-                  <span style={{ fontWeight: 800, color: "#2563eb", fontSize: 10 }}>STRICT</span>
-                </div>
-
-                {/* Recovery Chances */}
-                <div style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 6, padding: "5px 6px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10.5, fontWeight: 700, marginBottom: 3 }}>
-                    <span style={{ color: "#0f172a" }}>Recovery Chances</span>
-                    <span style={{ color: recoveryChances > 2 ? "#16a34a" : "#dc2626" }}>{recoveryChances} / 5 Left</span>
-                  </div>
-                  <div style={{ display: "flex", gap: 3 }}>
-                    {[0, 1, 2, 3, 4].map((idx) => (
-                      <div
-                        key={idx}
-                        style={{
-                          flex: 1,
-                          height: 3,
-                          borderRadius: 2,
-                          background: idx < recoveryChances ? "#22c55e" : "#ef4444",
-                        }}
+                  <div className="mz-mcq-header-right">
+                    <span className="mz-mcq-cutoff-text">
+                      1 Mark • Combined Cutoff: ≥80% (32/40)
+                    </span>
+                    <button
+                      type="button"
+                      className={`mz-mcq-flag-btn ${
+                        flaggedMcqs.has(currentQuestionIndex) ? "flagged" : ""
+                      }`}
+                      onClick={() => toggleFlagMcq(currentQuestionIndex)}
+                    >
+                      <LuFlag
+                        size={14}
+                        color={flaggedMcqs.has(currentQuestionIndex) ? "#eab308" : "#475569"}
                       />
-                    ))}
+                      <span>
+                        {flaggedMcqs.has(currentQuestionIndex) ? "Flagged ✓" : "Flag Question"}
+                      </span>
+                    </button>
                   </div>
                 </div>
-              </div>
 
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                <strong style={{ fontSize: 13, color: "#0f172a" }}>Question Palette (1–22)</strong>
-                <span style={{ fontSize: 11.5, color: "#64748b" }}>
-                  {answeredMcqCount + (codingSubmissions[0]?.solved ? 1 : 0) + (codingSubmissions[1]?.solved ? 1 : 0)}/22 Attempted
-                </span>
-              </div>
+                {/* Question Body */}
+                <div className="mz-mcq-body-content">
+                  <h2 className="mz-mcq-question-text">
+                    {currentMcq.question}
+                  </h2>
 
-              {/* Complete 22 Buttons Grid */}
-              <div className="mz-mcq-grid-buttons">
-                {/* 1..20 MCQs */}
-                {selectedMcqs.map((q, idx) => {
-                  const isAnswered = mcqAnswers[q.id] !== undefined;
-                  const isFlagged = flaggedMcqs.has(idx);
-                  const isCurrent = currentQuestionIndex === idx;
+                  {currentMcq.codeSnippet && (
+                    <pre className="mz-mcq-code-snippet">
+                      <code>{currentMcq.codeSnippet}</code>
+                    </pre>
+                  )}
 
-                  let cls = "mz-mcq-grid-btn";
-                  if (isCurrent) cls += " active";
-                  else if (isAnswered) cls += " answered";
-                  else if (isFlagged) cls += " flagged";
-
-                  return (
-                    <button
-                      key={q.id || idx}
-                      type="button"
-                      className={cls}
-                      onClick={() => setCurrentQuestionIndex(idx)}
-                      title={`MCQ ${idx + 1}`}
-                    >
-                      {idx + 1}
-                    </button>
-                  );
-                })}
-
-                {/* 21 & 22 Coding in Same Grid */}
-                {selectedCodingQuestions.slice(0, 2).map((cq, cIdx) => {
-                  const qNum = 21 + cIdx;
-                  const paletteIdx = 20 + cIdx;
-                  const sub = codingSubmissions[cIdx];
-                  const isSolved = Boolean(sub?.solved || sub?.passedTests === 10);
-                  const isAttempted = Boolean((sub?.passedTests || 0) > 0);
-                  const isCurrent = currentQuestionIndex === paletteIdx;
-
-                  let cls = "mz-mcq-grid-btn coding";
-                  if (isCurrent) cls += " active";
-                  else if (isSolved) cls += " answered";
-                  else if (isAttempted) cls += " flagged";
-
-                  return (
-                    <button
-                      key={cq.questionId || cIdx}
-                      type="button"
-                      className={cls}
-                      onClick={() => setCurrentQuestionIndex(paletteIdx)}
-                      title={`Coding Problem Q${qNum}: ${cq.title || "Challenge"}`}
-                    >
-                      {qNum}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Coding Questions Detailed Jump Links */}
-              <div className="mz-mcq-coding-links">
-                <div style={{ fontSize: 11.5, fontWeight: 700, color: "#475569", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.03em" }}>
-                  Coding Challenges (Q21 & Q22)
-                </div>
-                {selectedCodingQuestions.slice(0, 2).map((cq, cIdx) => {
-                  const qNum = 21 + cIdx;
-                  const sub = codingSubmissions[cIdx];
-                  const isSolved = Boolean(sub?.solved || sub?.passedTests === 10);
-                  const passedT = sub?.passedTests || 0;
-                  return (
-                    <button
-                      key={cq.questionId || cIdx}
-                      type="button"
-                      className={`mz-mcq-coding-link-btn ${isSolved ? "solved" : ""}`}
-                      onClick={() => setCurrentQuestionIndex(20 + cIdx)}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <LuFileCode size={13} />
-                        <span>Q{qNum}: {cq.title || `Challenge ${cIdx + 1}`}</span>
-                      </div>
-                      {isSolved ? (
-                        <span className="mz-badge-solved">10/10 Tests</span>
-                      ) : passedT > 0 ? (
-                        <span className="mz-badge-partial">{passedT}/10 Tests</span>
-                      ) : (
-                        <span className="mz-badge-open">10 Marks</span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Legend with 80% Rule */}
-              <div className="mz-mcq-legend">
-                <div className="mz-legend-item">
-                  <span className="mz-legend-dot answered"></span> Answered / Solved
-                </div>
-                <div className="mz-legend-item">
-                  <span className="mz-legend-dot active"></span> Current Question
-                </div>
-                <div className="mz-legend-item">
-                  <span className="mz-legend-dot flagged"></span> Flagged / Partial
-                </div>
-              </div>
-
-              <div className="mz-combined-rule-box">
-                <div style={{ fontWeight: 700, color: "#0f172a", marginBottom: 4 }}>
-                  Combined 80% Grading
-                </div>
-                <div style={{ fontSize: 11, color: "#475569", lineHeight: 1.45 }}>
-                  20 MCQs (20 pts) + 2 Coding Problems (20 pts) = <strong>40 Total Points</strong>.
-                  Clear $\ge$ 80% (32 pts) combined to earn the Official Certificate!
-                </div>
-              </div>
-            </aside>
-
-            {/* Right MCQ Card: Generously Sized, High Legibility, Space Optimized */}
-            <div className="mz-mcq-card-main">
-              {currentMcq ? (
-                <>
-                  <div className="mz-mcq-card-header">
-                    <div className="mz-mcq-header-left">
-                      <span className="mz-mcq-qnumber-pill">
-                        Question {currentQuestionIndex + 1} of 20
-                      </span>
-                      <span className="mz-mcq-topic-badge">
-                        {currentMcq.topic || "Algorithm & Complexity"}
-                      </span>
-                    </div>
-
-                    <div className="mz-mcq-header-right">
-                      <span className="mz-mcq-cutoff-pill">
-                        1 Mark • Combined Cutoff: ≥80% (32/40)
-                      </span>
-                      <button
-                        type="button"
-                        className={`mz-mcq-flag-toggle-btn ${flaggedMcqs.has(currentQuestionIndex) ? "flagged" : ""}`}
-                        onClick={() => toggleFlagMcq(currentQuestionIndex)}
-                        title="Flag this question to review later"
-                      >
-                        <LuBookmark size={15} />
-                        <span>{flaggedMcqs.has(currentQuestionIndex) ? "Flagged for Review ✓" : "Flag Question"}</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="mz-mcq-body-content">
-                    <h2 className="mz-mcq-question-text">
-                      {currentMcq.question}
-                    </h2>
-
-                    {currentMcq.codeSnippet && (
-                      <pre className="mz-mcq-code-snippet">
-                        <code>{currentMcq.codeSnippet}</code>
-                      </pre>
-                    )}
-
-                    <div className="mz-mcq-options-list">
-                      {currentMcq.options?.map((opt, optIdx) => {
-                        const isSelected = mcqAnswers[currentMcq.id] === optIdx;
-                        return (
-                          <div
-                            key={optIdx}
-                            className={`mz-mcq-option-label ${isSelected ? "selected" : ""}`}
-                            onClick={() => handleSelectMcqOption(currentMcq.id, optIdx)}
-                            role="button"
-                            tabIndex={0}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" || e.key === " ") {
-                                handleSelectMcqOption(currentMcq.id, optIdx);
-                              }
-                            }}
-                          >
-                            <span className="mz-mcq-opt-char">
+                  {/* 4 Option Cards (A, B, C, D) */}
+                  <div className="mz-mcq-options-list">
+                    {currentMcq.options?.map((opt, optIdx) => {
+                      const isSelected = mcqAnswers[currentMcq.id] === optIdx;
+                      return (
+                        <div
+                          key={optIdx}
+                          className={`mz-mcq-option-card ${isSelected ? "selected" : ""}`}
+                          onClick={() => handleSelectMcqOption(currentMcq.id, optIdx)}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              handleSelectMcqOption(currentMcq.id, optIdx);
+                            }
+                          }}
+                        >
+                          <div className="mz-mcq-opt-left">
+                            <span className="mz-mcq-opt-circle">
                               {String.fromCharCode(65 + optIdx)}
                             </span>
                             <span className="mz-mcq-opt-text">{opt}</span>
-                            <div className="mz-mcq-radio-indicator">
-                              <span className="mz-mcq-radio-dot" />
-                            </div>
                           </div>
-                        );
-                      })}
+                          <div className={`mz-mcq-radio-circle ${isSelected ? "selected" : ""}`}>
+                            {isSelected && <span className="mz-mcq-radio-dot-inner" />}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Bottom Navigation Bar */}
+                <div className="mz-mcq-nav-actions">
+                  <button
+                    type="button"
+                    className="mz-btn-prev-question"
+                    disabled={currentQuestionIndex === 0}
+                    onClick={() => setCurrentQuestionIndex((i) => Math.max(0, i - 1))}
+                  >
+                    <LuChevronLeft size={16} />
+                    <span>Previous Question</span>
+                  </button>
+
+                  <div className="mz-mcq-nav-center-progress">
+                    <div className="mz-nav-progress-line-track">
+                      <div
+                        className="mz-nav-progress-line-fill"
+                        style={{ width: `${((currentQuestionIndex + 1) / 20) * 100}%` }}
+                      />
                     </div>
+                    <span className="mz-nav-progress-title">
+                      Question {currentQuestionIndex + 1} of 20
+                    </span>
+                    <span className="mz-nav-progress-sub">
+                      {mcqAnswers[currentMcq.id] !== undefined
+                        ? "Option Selected"
+                        : "Pending Selection"}
+                    </span>
                   </div>
 
-                  {/* Prominent, Highly Visible & Easy to Use Navigation Controls */}
-                  <div className="mz-mcq-nav-actions">
+                  {currentQuestionIndex < 19 ? (
                     <button
                       type="button"
-                      className="mz-btn-prev-large"
-                      disabled={currentQuestionIndex === 0}
-                      onClick={() => setCurrentQuestionIndex((i) => Math.max(0, i - 1))}
+                      className="mz-btn-next-question"
+                      onClick={() => setCurrentQuestionIndex((i) => i + 1)}
                     >
-                      <LuChevronLeft size={18} />
-                      <span>Previous Question</span>
+                      <span>Next Question</span>
+                      <LuChevronRight size={16} />
                     </button>
-
-                    <div className="mz-mcq-nav-center-info">
-                      <span className="mz-nav-progress-text">
-                        Question <strong>{currentQuestionIndex + 1}</strong> of <strong>20</strong>
-                      </span>
-                      <span className="mz-nav-status-badge">
-                        {mcqAnswers[currentMcq.id] !== undefined ? (
-                          <span className="mz-status-answered">✓ Answer Selected</span>
-                        ) : (
-                          <span className="mz-status-unanswered">Pending Selection</span>
-                        )}
-                      </span>
-                    </div>
-
-                    {currentQuestionIndex < 19 ? (
-                      <button
-                        type="button"
-                        className="mz-btn-next-large"
-                        onClick={() => setCurrentQuestionIndex((i) => i + 1)}
-                      >
-                        <span>Next Question</span>
-                        <LuChevronRight size={18} />
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        className="mz-btn-next-large mz-btn-next-to-coding"
-                        onClick={() => setCurrentQuestionIndex(20)}
-                      >
-                        <LuFileCode size={18} />
-                        <span>Proceed to Coding (Question 21)</span>
-                        <LuChevronRight size={18} />
-                      </button>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <div style={{ padding: 40, textAlign: "center", color: "#64748b" }}>
-                  Loading examination questions...
+                  ) : (
+                    <button
+                      type="button"
+                      className="mz-btn-next-question mz-btn-next-to-coding"
+                      onClick={() => setCurrentQuestionIndex(20)}
+                    >
+                      <span>Proceed to Coding (Q21)</span>
+                      <LuChevronRight size={16} />
+                    </button>
+                  )}
                 </div>
-              )}
-            </div>
-          </div>
+              </>
+            ) : (
+              <div style={{ padding: 40, textAlign: "center", color: "#64748b" }}>
+                Loading examination question details...
+              </div>
+            )}
+          </main>
         ) : (
           /* ================= EMBEDDED CODING WORKSPACE (QUESTIONS 21 & 22) ================= */
           <div className="mz-embedded-coding-wrapper">
-            {/* Context Breadcrumb & Question Navigation Bar */}
+            {/* Subnav Header for Coding Problems */}
             <div className="mz-cert-coding-subnav">
               <div className="mz-cert-coding-subnav-left">
                 <span className="mz-cert-coding-q-tag">
                   Question {currentQuestionIndex + 1} of 22
                 </span>
                 <span className="mz-cert-coding-title-text">
-                  {currentCodingQ.title || "Algorithmic Challenge"}
+                  {currentCodingQ.title || (codingIndex === 0 ? "Find Peak Element Index" : "Longest Substring Without Repeating Characters")}
                 </span>
                 <span className={`mz-cert-diff-badge ${(currentCodingQ.difficulty || "medium").toLowerCase()}`}>
                   {currentCodingQ.difficulty || "Medium"}
@@ -1423,12 +1603,12 @@ export default function CertificationExamWorkspace({
               </div>
             </div>
 
-            {/* Embedded Mastery Zone Compiler (No overlapping fixed modals!) */}
+            {/* Embedded Mastery Zone Compiler Frame */}
             <div className="mz-embedded-compiler-frame">
               <MasteryZoneCompilerWorkspace
                 key={`${attemptId}_coding_${codingIndex}`}
-                title={`Question ${currentQuestionIndex + 1}: ${currentCodingQ.title || "Algorithm Challenge"}`}
-                questionId={currentCodingQ.questionId || currentCodingQ.id}
+                title={`Question ${currentQuestionIndex + 1}: ${currentCodingQ.title || (codingIndex === 0 ? "Find Peak Element Index" : "Longest Substring Without Repeating Characters")}`}
+                questionId={currentCodingQ.questionId || currentCodingQ.id || (codingIndex === 0 ? "find-peak-element" : "longest-substring")}
                 sessionId={attemptId}
                 initialProctoringStage="active"
                 isProctored={true}
@@ -1472,7 +1652,171 @@ export default function CertificationExamWorkspace({
         )}
       </div>
 
-      {/* 4. CONFIRMATION MODAL BEFORE FINAL SUBMISSION */}
+      {/* 4. FIVE-CHANCE ASSESSMENT RECOVERY OVERLAY MODAL */}
+      {isRecoveryModalOpen && (
+        <div className="mz-proc-violation-modal-overlay">
+          <div
+            className={`mz-proc-recovery-card ${isTerminated ? "terminated" : ""}`}
+            style={{ position: "relative" }}
+          >
+            <div className="mz-proc-recovery-icon-ring">
+              <LuTriangleAlert size={30} />
+            </div>
+            <h3
+              style={{
+                margin: 0,
+                fontSize: "1.25rem",
+                fontWeight: 800,
+                color: isTerminated ? "#b91c1c" : "#92400e",
+              }}
+            >
+              {isTerminated
+                ? "Assessment Terminated: Limits Exceeded"
+                : "Assessment Interrupted — Verification Required"}
+            </h3>
+            <p style={{ margin: 0, fontSize: "0.9rem", color: "#475569", lineHeight: "1.5" }}>
+              {isTerminated
+                ? "You have exhausted all 5 recovery chances. Your assessment workspace is locked and your answers have been permanently submitted for final grading."
+                : recoveryReason ||
+                  "An environment interruption was detected. You must re-verify your device permissions and fullscreen mode to resume."}
+            </p>
+
+            {recoveryTimestamp && (
+              <div style={{ fontSize: "11px", color: "#64748b" }}>
+                Timestamp: {new Date(recoveryTimestamp).toLocaleTimeString()}
+              </div>
+            )}
+
+            {/* Five Chances Meter */}
+            <div className="mz-proc-chances-meter">
+              <div className="mz-proc-chances-label-row">
+                <span>Recovery Chances Tracker</span>
+                <span
+                  style={{
+                    color: recoveryChancesRemaining > 0 ? "#10b981" : "#ef4444",
+                    fontWeight: 700,
+                  }}
+                >
+                  {recoveryChancesRemaining} / 5 Remaining
+                </span>
+              </div>
+              <div className="mz-proc-chances-pills">
+                {[1, 2, 3, 4, 5].map((idx) => (
+                  <div
+                    key={idx}
+                    className={`mz-proc-chance-pill ${
+                      idx > recoveryChancesRemaining ? "consumed" : ""
+                    }`}
+                    title={`Chance ${idx}: ${
+                      idx > recoveryChancesRemaining ? "Used" : "Available"
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {!isTerminated ? (
+              <>
+                {/* Verification Checklist */}
+                <div className="mz-proc-recheck-grid">
+                  <div
+                    className={`mz-proc-recheck-item ${
+                      cameraStream?.active ||
+                      (cameraStream && cameraStream.getVideoTracks().some((t) => t.readyState === "live"))
+                        ? "ok"
+                        : "missing"
+                    }`}
+                  >
+                    <LuCamera size={16} />
+                    <span>
+                      Camera{" "}
+                      {cameraStream?.active ||
+                      (cameraStream && cameraStream.getVideoTracks().some((t) => t.readyState === "live"))
+                        ? "Active"
+                        : "Required"}
+                    </span>
+                  </div>
+                  <div
+                    className={`mz-proc-recheck-item ${
+                      screenStream?.active ||
+                      (screenStream && screenStream.getVideoTracks().some((t) => t.readyState === "live"))
+                        ? "ok"
+                        : "missing"
+                    }`}
+                  >
+                    <LuMonitor size={16} />
+                    <span>
+                      Screen{" "}
+                      {screenStream?.active ||
+                      (screenStream && screenStream.getVideoTracks().some((t) => t.readyState === "live"))
+                        ? "Active"
+                        : "Required"}
+                    </span>
+                  </div>
+                  <div
+                    className={`mz-proc-recheck-item ${
+                      document.fullscreenElement || document.webkitFullscreenElement
+                        ? "ok"
+                        : "missing"
+                    }`}
+                  >
+                    <LuMaximize size={16} />
+                    <span>
+                      Fullscreen{" "}
+                      {document.fullscreenElement || document.webkitFullscreenElement
+                        ? "Active"
+                        : "Required"}
+                    </span>
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "10px",
+                    width: "100%",
+                    marginTop: "6px",
+                  }}
+                >
+                  <button
+                    type="button"
+                    className="mz-proc-btn-resolve"
+                    onClick={handleResumeAssessment}
+                    disabled={isReverifying}
+                  >
+                    {isReverifying
+                      ? "Verifying Telemetry..."
+                      : "Re-Verify Hardware & Resume Assessment"}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px",
+                  width: "100%",
+                  marginTop: "6px",
+                }}
+              >
+                <button
+                  type="button"
+                  className="mz-proc-btn-resolve"
+                  style={{ background: "#dc2626" }}
+                  onClick={handleFinalSubmit}
+                  disabled={isFinalizing}
+                >
+                  {isFinalizing ? "Submitting Assessment..." : "Finalize & Submit Assessment"}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 5. CONFIRMATION MODAL BEFORE FINAL SUBMISSION */}
       {showConfirmModal && (
         <div className="mz-cert-modal-backdrop" onClick={() => setShowConfirmModal(false)}>
           <div className="mz-cert-modal-card" onClick={(e) => e.stopPropagation()}>
@@ -1511,8 +1855,16 @@ export default function CertificationExamWorkspace({
                 }}
               >
                 <span>Current Combined Marks:</span>
-                <span style={{ color: currentPercentage >= 80 ? "#16a34a" : "#ea580c" }}>
-                  {currentMarksObtained} / 40 Marks ({currentPercentage}%)
+                <span
+                  style={{
+                    color:
+                      Math.round(((answeredMcqCount + totalPassedCodingTests) / 40) * 100) >= 80
+                        ? "#16a34a"
+                        : "#ea580c",
+                  }}
+                >
+                  {answeredMcqCount + totalPassedCodingTests} / 40 Marks (
+                  {Math.round(((answeredMcqCount + totalPassedCodingTests) / 40) * 100)}%)
                 </span>
               </div>
             </div>
@@ -1540,7 +1892,7 @@ export default function CertificationExamWorkspace({
         </div>
       )}
 
-      {/* 5. POST-SUBMISSION OFFICIAL REPORT & SUCCESS MODAL */}
+      {/* 6. POST-SUBMISSION OFFICIAL REPORT & SUCCESS MODAL */}
       {submissionSuccessData && (
         <div className="mz-submit-modal-overlay">
           <div className="mz-proc-submission-success-card">
@@ -1555,7 +1907,9 @@ export default function CertificationExamWorkspace({
             </p>
 
             <div className="mz-proc-score-badge-lg">
-              <span>Score: {submissionSuccessData.score}/{submissionSuccessData.totalMarks}</span>
+              <span>
+                Score: {submissionSuccessData.score}/{submissionSuccessData.totalMarks}
+              </span>
               <span className={`grade-tag ${submissionSuccessData.passed ? "pass" : "fail"}`}>
                 {submissionSuccessData.passed ? "PASSED (≥80%)" : "FAILED (<80%)"}
               </span>
@@ -1582,7 +1936,9 @@ export default function CertificationExamWorkspace({
                 style={{ justifyContent: "center", padding: "12px", border: "1px solid #cbd5e1", color: "#334155" }}
                 onClick={() => {
                   if (window.opener) {
-                    try { window.opener.postMessage({ type: "MZ_EXAM_COMPLETED", certId }, "*"); } catch {}
+                    try {
+                      window.opener.postMessage({ type: "MZ_EXAM_COMPLETED", certId }, "*");
+                    } catch {}
                     window.close();
                   } else {
                     navigate("/coding");
@@ -1590,7 +1946,9 @@ export default function CertificationExamWorkspace({
                 }}
               >
                 <LuHouse size={16} />
-                <span>{typeof window !== "undefined" && window.opener ? "Close Tab & Return" : "Back to Coding"}</span>
+                <span>
+                  {typeof window !== "undefined" && window.opener ? "Close Tab & Return" : "Back to Coding"}
+                </span>
               </button>
             </div>
           </div>

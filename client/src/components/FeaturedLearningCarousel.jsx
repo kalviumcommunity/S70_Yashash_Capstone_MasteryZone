@@ -131,19 +131,6 @@ export default function FeaturedLearningCarousel({
       passedMetric: `${computedPassedProjects} / ${projects?.length || 14} Completed`,
     },
     {
-      id: "slide_video_library",
-      tag: "📹 1080p Verified Masterclasses",
-      title: "Curated Video Course Library",
-      subtitle:
-        "Learn directly from world-class instructors with embedded interactive notes, chapter markers, and integrated code runners.",
-      category: "Video Masterclasses",
-      primaryCtaText: "Browse Video Courses",
-      primaryAction: () => onNavigateTab?.("videos"),
-      theme: "theme-blue-mastery",
-      coverImage: coverVideo,
-      isCompleted: false,
-    },
-    {
       id: "slide_certification_credential",
       tag: "🎓 Verified Academic Credentials",
       title: "Earn Official Mastery Certifications",

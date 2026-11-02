@@ -1477,17 +1477,6 @@ export default function Coding() {
         {/* ── TAB 1: LEARNING PATH ── */}
         {activeTab === "learning_path" && (
           <div className="mz-c-learning-path-wrapper">
-            {/* 1. Featured Video Courses Slider - ALWAYS VISIBLE ON STARTING DASHBOARD */}
-            <div className="mz-c-featured-videos-dashboard-section" style={{ marginBottom: "24px" }}>
-              <FeaturedVideosSlider
-                onViewAll={() => {
-                  setActiveTab("videos");
-                  window.scrollTo({ top: 350, behavior: "smooth" });
-                }}
-                onPracticeInLearningPath={handlePracticeInLearningPath}
-              />
-            </div>
-
             {/* 2. Track Selector Chips Bar */}
             <div className="mz-c-track-selector-bar" style={{ display: "flex", gap: "8px", overflowX: "auto", paddingBottom: "12px", marginBottom: "20px" }}>
               {tracks.map((tr) => (
@@ -2546,36 +2535,6 @@ export default function Coding() {
                     Join
                   </button>
                 </form>
-              </div>
-            </div>
-
-            {/* Filter Bar */}
-            <div className="mz-c-study-filters-bar">
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", overflowX: "auto" }}>
-                <span style={{ fontSize: "12px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>
-                  Focus Area:
-                </span>
-                {[
-                  { id: "all", label: "All Pods" },
-                  { id: "dsa", label: "Algorithms & LeetCode" },
-                  { id: "systems", label: "System Design & Arch" },
-                  { id: "fullstack", label: "Full-Stack & APIs" },
-                  { id: "ai", label: "AI & Machine Learning" },
-                ].map((cat) => (
-                  <button
-                    key={cat.id}
-                    className={`mz-c-chip ${studyGroupCategory === cat.id ? "mz-c-chip-active" : ""}`}
-                    onClick={() => setStudyGroupCategory(cat.id)}
-                    style={{
-                      cursor: "pointer",
-                      fontWeight: 700,
-                      border: studyGroupCategory === cat.id ? "1.5px solid #2563eb" : "1px solid #e2e8f0",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {cat.label}
-                  </button>
-                ))}
               </div>
             </div>
 
