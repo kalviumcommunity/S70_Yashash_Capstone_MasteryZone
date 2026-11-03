@@ -73,6 +73,35 @@ export default function ProctoredAssessmentWorkspace({
       .finally(() => setLoadingModule(false));
   }, [propModule, tId, mIdx]);
 
+  // Check if this assessment has already been submitted for current user account
+  useEffect(() => {
+    const rawUser = localStorage.getItem("user");
+    let uId = "";
+    if (rawUser) {
+      try {
+        const u = JSON.parse(rawUser);
+        uId = u._id || u.id || u.userId || "";
+      } catch {}
+    }
+    const userSubmittedKey = uId ? `mz_${uId}_exam_${subjectKey}_${tId}_${mIdx}_submitted` : `mz_exam_${mIdx}_submitted`;
+    if (localStorage.getItem(userSubmittedKey) === "true") {
+      const repUrl = localStorage.getItem(`${userSubmittedKey}_report_url`);
+      if (repUrl) {
+        toast.info("This accreditation assessment has already been completed and submitted.", { toastId: "assessment_already_submitted" });
+        navigate(repUrl, { replace: true });
+      }
+    }
+
+    const handlePopState = () => {
+      if (localStorage.getItem(userSubmittedKey) === "true") {
+        const repUrl = localStorage.getItem(`${userSubmittedKey}_report_url`) || "/home";
+        navigate(repUrl, { replace: true });
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [subjectKey, tId, mIdx, navigate]);
+
   // Assessment workflow stages: "gate", "active", "results"
   const [stage, setStage] = useState("gate");
 
@@ -528,6 +557,11 @@ export default function ProctoredAssessmentWorkspace({
         };
         const updated = [newRecord, ...existing.filter((r) => r.sessionId !== resolvedSessionId && r.attemptId !== data.attemptId)];
         localStorage.setItem(reportsKey, JSON.stringify(updated.slice(0, 30)));
+
+        // Record per-account assessment submission lock
+        const userSubmittedKey = uId ? `mz_${uId}_exam_${subjectKey}_${tId}_${mIdx}_submitted` : `mz_exam_${mIdx}_submitted`;
+        localStorage.setItem(userSubmittedKey, "true");
+        localStorage.setItem(`${userSubmittedKey}_report_url`, `/assessment-report/${resolvedSessionId}`);
       } catch (e) {
         console.warn("Could not cache report locally:", e);
       }

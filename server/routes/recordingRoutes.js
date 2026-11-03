@@ -28,7 +28,7 @@ router.post("/upload", authenticateToken, async (req, res) => {
       return res.status(400).json({ error: "Missing recording video data" });
     }
 
-    const hostUserId = req.user?.userId || req.user?.id || req.body.hostUserId;
+    const hostUserId = String(req.user?.userId || req.user?.id || req.user?._id || req.body.hostUserId || "guest");
     const hostName = req.user?.fullName || req.user?.name || req.body.hostName || "Host";
 
     const recordingId = `rec_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
@@ -96,7 +96,7 @@ router.post("/upload", authenticateToken, async (req, res) => {
 // 2. Get list of recordings with Search, Filter & Sort (Strictly isolated to logged-in user)
 router.get("/", authenticateToken, async (req, res) => {
   try {
-    const currentUserId = req.user?.userId || req.user?.id;
+    const currentUserId = String(req.user?.userId || req.user?.id || req.user?._id || "");
     if (!currentUserId) {
       return res.status(401).json({ error: "Unauthorized" });
     }

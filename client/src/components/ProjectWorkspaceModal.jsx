@@ -665,8 +665,19 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
       if (sub.passed) {
         try {
           const pId = projectSpec?.id || projectId;
-          const passedKey = currentUserId && currentUserId !== "guest" ? `mz_${currentUserId}_proj_passed_${pId}` : `mz_proj_passed_${pId}`;
-          localStorage.setItem(passedKey, "true");
+          const effectiveUserId = currentUserId || (() => {
+            try {
+              const rawUser = localStorage.getItem("user");
+              if (rawUser) {
+                const u = JSON.parse(rawUser);
+                return u._id || u.id || u.userId || "";
+              }
+            } catch {}
+            return "";
+          })();
+          if (effectiveUserId) {
+            localStorage.setItem(`mz_${effectiveUserId}_proj_passed_${pId}`, "true");
+          }
           window.dispatchEvent(new CustomEvent("mz_project_passed", { detail: { projectId: pId } }));
         } catch {}
       }

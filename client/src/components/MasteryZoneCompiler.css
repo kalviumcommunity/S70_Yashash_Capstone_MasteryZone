@@ -1360,16 +1360,19 @@
 .mz-compiler-status-icon.pass,
 .mz-compiler-status-icon.pass svg {
   color: #10b981 !important;
+  stroke: #10b981 !important;
 }
 
 .mz-compiler-status-icon.fail,
 .mz-compiler-status-icon.fail svg {
   color: #ef4444 !important;
+  stroke: #ef4444 !important;
 }
 
 .mz-compiler-status-icon.neutral,
 .mz-compiler-status-icon.neutral svg {
   color: #94a3b8 !important;
+  stroke: #94a3b8 !important;
 }
 
 /* Right Details Pane */

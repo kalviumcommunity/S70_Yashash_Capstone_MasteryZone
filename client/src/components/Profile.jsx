@@ -10,6 +10,9 @@ import { getExploredTracks, isTrackExplored } from "../utils/trackExploration";
 import {
   LuHouse,
   LuTarget,
+  LuFileText,
+  LuVideo,
+  LuAward,
   LuChartColumn,
   LuUser,
   LuLogOut,
@@ -28,7 +31,6 @@ import {
   LuMapPin,
   LuCalendar,
   LuBriefcase,
-  LuFileText,
   LuAtSign,
   LuMail,
   LuBadgeCheck,
@@ -538,6 +540,7 @@ const Profile = () => {
 
         {/* Sidebar Nav Items */}
         <nav className="mz-sidebar-nav">
+          {/* 1. Home */}
           <button
             type="button"
             className="mz-sidebar-item"
@@ -548,16 +551,51 @@ const Profile = () => {
             <span className="mz-sidebar-item-label">Home</span>
           </button>
 
+          {/* 2. Select Interests */}
           <button
             type="button"
             className="mz-sidebar-item"
-            onClick={() => navigate("/home")}
+            onClick={() => navigate("/select-interests")}
             title="Select Interests"
           >
             <LuTarget className="mz-sidebar-item-icon" />
             <span className="mz-sidebar-item-label">Select Interests</span>
           </button>
 
+          {/* 3. Reports */}
+          <button
+            type="button"
+            className="mz-sidebar-item"
+            onClick={() => navigate("/reports")}
+            title="Reports"
+          >
+            <LuFileText className="mz-sidebar-item-icon" />
+            <span className="mz-sidebar-item-label">Reports</span>
+          </button>
+
+          {/* 4. Recordings */}
+          <button
+            type="button"
+            className="mz-sidebar-item"
+            onClick={() => navigate("/recordings")}
+            title="Recordings"
+          >
+            <LuVideo className="mz-sidebar-item-icon" />
+            <span className="mz-sidebar-item-label">Recordings</span>
+          </button>
+
+          {/* 5. Certificates */}
+          <button
+            type="button"
+            className="mz-sidebar-item"
+            onClick={() => navigate("/certificates")}
+            title="Certificates"
+          >
+            <LuAward className="mz-sidebar-item-icon" />
+            <span className="mz-sidebar-item-label">Certificates</span>
+          </button>
+
+          {/* 6. Progress */}
           <button
             type="button"
             className="mz-sidebar-item"
@@ -568,6 +606,7 @@ const Profile = () => {
             <span className="mz-sidebar-item-label">Progress</span>
           </button>
 
+          {/* 7. Active Profile Tab */}
           <button
             type="button"
             className="mz-sidebar-item active"
@@ -577,16 +616,18 @@ const Profile = () => {
             <span className="mz-sidebar-item-label">Profile</span>
           </button>
 
+          {/* 8. Settings */}
           <button
             type="button"
             className="mz-sidebar-item"
-            onClick={() => setIsSettingsModalOpen(true)}
+            onClick={() => navigate("/settings")}
             title="Settings"
           >
             <LuSettings className="mz-sidebar-item-icon" />
             <span className="mz-sidebar-item-label">Settings</span>
           </button>
 
+          {/* 9. Log Out */}
           <button
             type="button"
             className="mz-sidebar-item mz-sidebar-logout"

@@ -57,6 +57,66 @@ const CERT_INFO_MAP = {
   dsa_cert: { title: "Data Structures & Algorithms (DSA)", lang: "python" },
 };
 
+// Default fallback questions for Question 21 and Question 22 to guarantee distinct compilers and challenges
+const DEFAULT_CERT_CODING_QUESTIONS = [
+  {
+    id: "ch_find_peak_element",
+    questionId: "ch_find_peak_element",
+    title: "Find Peak Element Index",
+    difficulty: "Medium",
+    category: "Algorithms & Binary Search",
+    description: "A peak element is an element that is strictly greater than its neighbors.\n\nGiven a 0-indexed integer array `nums`, find a peak element, and return its index. If the array contains multiple peaks, return the index to any of the peaks.\n\nYou may imagine that nums[-1] = nums[n] = -∞. You must write an algorithm that runs in O(log n) time.",
+    inputFormat: "nums: integer array",
+    outputFormat: "integer: 0-based index of a peak element",
+    starterCode: {
+      python: "def findPeakElement(nums):\n    # Enter your solution below\n    pass\n",
+      javascript: "function findPeakElement(nums) {\n    // Enter your solution below\n}\n",
+      java: "class Solution {\n    public int findPeakElement(int[] nums) {\n        // Enter your solution below\n        return 0;\n    }\n}\n",
+      cpp: "class Solution {\npublic:\n    int findPeakElement(vector<int>& nums) {\n        // Enter your solution below\n        return 0;\n    }\n};\n",
+    },
+    testCases: [
+      { input: "[1, 2, 3, 1]", expectedOutput: "2", isHidden: false },
+      { input: "[1, 2, 1, 3, 5, 6, 4]", expectedOutput: "5", isHidden: false },
+      { input: "[1]", expectedOutput: "0", isHidden: false },
+      { input: "[1, 2]", expectedOutput: "1", isHidden: true },
+      { input: "[2, 1]", expectedOutput: "0", isHidden: true },
+      { input: "[1, 3, 20, 4, 1, 0]", expectedOutput: "2", isHidden: true },
+      { input: "[1, 2, 3, 4, 5]", expectedOutput: "4", isHidden: true },
+      { input: "[5, 4, 3, 2, 1]", expectedOutput: "0", isHidden: true },
+      { input: "[1, 10, 9, 8, 7, 6]", expectedOutput: "1", isHidden: true },
+      { input: "[3, 4, 3, 2, 1]", expectedOutput: "1", isHidden: true },
+    ],
+  },
+  {
+    id: "ch_longest_substr_no_repeat",
+    questionId: "ch_longest_substr_no_repeat",
+    title: "Longest Substring Without Repeating Characters",
+    difficulty: "Medium",
+    category: "Sliding Window & Hash Map",
+    description: "Given a string `s`, find the length of the longest substring without duplicate characters.",
+    inputFormat: "s: string",
+    outputFormat: "integer: length of longest unique character substring",
+    starterCode: {
+      python: "def lengthOfLongestSubstring(s):\n    # Enter your solution below\n    pass\n",
+      javascript: "function lengthOfLongestSubstring(s) {\n    // Enter your solution below\n}\n",
+      java: "class Solution {\n    public int lengthOfLongestSubstring(String s) {\n        // Enter your solution below\n        return 0;\n    }\n}\n",
+      cpp: "class Solution {\npublic:\n    int lengthOfLongestSubstring(string s) {\n        // Enter your solution below\n        return 0;\n    }\n};\n",
+    },
+    testCases: [
+      { input: "\"abcabcbb\"", expectedOutput: "3", isHidden: false },
+      { input: "\"bbbbb\"", expectedOutput: "1", isHidden: false },
+      { input: "\"pwwkew\"", expectedOutput: "3", isHidden: false },
+      { input: "\"\"", expectedOutput: "0", isHidden: true },
+      { input: "\"au\"", expectedOutput: "2", isHidden: true },
+      { input: "\"dvdf\"", expectedOutput: "3", isHidden: true },
+      { input: "\"anviaj\"", expectedOutput: "5", isHidden: true },
+      { input: "\"tmmzuxt\"", expectedOutput: "5", isHidden: true },
+      { input: "\"abcdefghijklmnopqrstuvwxyz\"", expectedOutput: "26", isHidden: true },
+      { input: "\"abba\"", expectedOutput: "2", isHidden: true },
+    ],
+  },
+];
+
 export default function CertificationExamWorkspace({
   certId: propCertId = "dsa_cert",
   certTitle: propCertTitle,
@@ -354,6 +414,15 @@ export default function CertificationExamWorkspace({
       }
 
       const data = await res.json();
+      if (data.status === "COMPLETED" || data.status === "SUBMITTED" || data.isCompleted) {
+        const uKey = currentUserId && currentUserId !== "guest" ? currentUserId : "guest";
+        const repUrl = `/assessment-report/${data.attemptId || attemptId}`;
+        localStorage.setItem(`mz_${uKey}_cert_${certId}_submitted`, "true");
+        localStorage.setItem(`mz_${uKey}_cert_${certId}_report_url`, repUrl);
+        toast.info("This certification test has already been completed and submitted.", { toastId: "cert_already_done" });
+        navigate(repUrl, { replace: true });
+        return;
+      }
       setAttemptId(data.attemptId);
       setAttemptNumber(data.attemptNumber || 2);
       setCandidateName(data.candidateName || "Candidate");
@@ -439,11 +508,43 @@ export default function CertificationExamWorkspace({
     }
   };
 
-  // Auto-resume if active session is stored in localStorage
+  // Auto-resume if active session is stored in localStorage, or redirect if submitted
   useEffect(() => {
+    const uKey = currentUserId && currentUserId !== "guest" ? currentUserId : "guest";
+    const isCertSubmitted =
+      localStorage.getItem(`mz_${uKey}_cert_${certId}_submitted`) === "true" ||
+      (attemptId && localStorage.getItem(`mz_${uKey}_cert_${attemptId}_submitted`) === "true");
+
+    if (isCertSubmitted) {
+      const repUrl =
+        localStorage.getItem(`mz_${uKey}_cert_${certId}_report_url`) ||
+        (attemptId ? `/assessment-report/${attemptId}` : "/home");
+      toast.info("This certification test has already been completed and submitted. Displaying report.", {
+        toastId: "cert_already_submitted",
+      });
+      navigate(repUrl, { replace: true });
+      return;
+    }
+
+    const handlePopState = () => {
+      const checkSubmitted =
+        isSubmittedRef.current ||
+        localStorage.getItem(`mz_${uKey}_cert_${certId}_submitted`) === "true" ||
+        (attemptId && localStorage.getItem(`mz_${uKey}_cert_${attemptId}_submitted`) === "true");
+      if (checkSubmitted) {
+        const repUrl =
+          localStorage.getItem(`mz_${uKey}_cert_${certId}_report_url`) ||
+          (attemptId ? `/assessment-report/${attemptId}` : "/home");
+        navigate(repUrl, { replace: true });
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+
     if (isResumingActive) {
       startOrResumeAttempt(null, true);
     }
+
+    return () => window.removeEventListener("popstate", handlePopState);
   }, []);
 
   // -------------------------------------------------------------
@@ -792,9 +893,11 @@ export default function CertificationExamWorkspace({
   // 6. Coding Execution Handlers (10 Test Cases, 3 Public, 7 Hidden)
   // -------------------------------------------------------------
   const codingIndex = currentQuestionIndex >= 20 ? currentQuestionIndex - 20 : 0;
-  const currentCodingQ = selectedCodingQuestions[codingIndex] || {};
+  const currentCodingQ = (selectedCodingQuestions && selectedCodingQuestions[codingIndex]?.title)
+    ? selectedCodingQuestions[codingIndex]
+    : DEFAULT_CERT_CODING_QUESTIONS[codingIndex] || DEFAULT_CERT_CODING_QUESTIONS[0];
   const currentSubmission = codingSubmissions[codingIndex] || {
-    code: "# Enter your code below\n",
+    code: currentCodingQ.starterCode?.python || "# Enter your solution below\n",
     language: "python",
     solved: false,
     passedTests: 0,
@@ -812,6 +915,12 @@ export default function CertificationExamWorkspace({
       };
       return next;
     });
+    // Persist code per coding question index to prevent cross-question contamination
+    try {
+      const uKey = currentUserId && currentUserId !== "guest" ? currentUserId : "guest";
+      localStorage.setItem(`mz_${uKey}_draft_${attemptId}_q${21 + codingIndex}`, newCode);
+      localStorage.setItem(`mz_${uKey}_lang_${attemptId}_q${21 + codingIndex}`, lang || "python");
+    } catch {}
   };
 
   // Run Code (sample tests or custom input)
@@ -911,6 +1020,77 @@ export default function CertificationExamWorkspace({
     }
   };
 
+  // Stop all media tracks (camera, screen, microphone) and clean up contexts immediately
+  const stopAllProctoringMedia = useCallback(() => {
+    try {
+      [cameraStream, screenStream, micStream].forEach((st) => {
+        if (st) {
+          try {
+            st.getTracks().forEach((track) => {
+              try {
+                track.enabled = false;
+                track.stop();
+              } catch {}
+            });
+          } catch {}
+        }
+      });
+
+      if (procCameraVideoRef.current) {
+        if (procCameraVideoRef.current.srcObject) {
+          try {
+            procCameraVideoRef.current.srcObject.getTracks().forEach((t) => {
+              t.enabled = false;
+              t.stop();
+            });
+          } catch {}
+        }
+        procCameraVideoRef.current.srcObject = null;
+      }
+
+      if (procScreenVideoRef.current) {
+        if (procScreenVideoRef.current.srcObject) {
+          try {
+            procScreenVideoRef.current.srcObject.getTracks().forEach((t) => {
+              t.enabled = false;
+              t.stop();
+            });
+          } catch {}
+        }
+        procScreenVideoRef.current.srcObject = null;
+      }
+
+      if (audioContextRef.current && audioContextRef.current.state !== "closed") {
+        try {
+          audioContextRef.current.close().catch(() => {});
+        } catch {}
+      }
+
+      if (animFrameRef.current) {
+        cancelAnimationFrame(animFrameRef.current);
+      }
+
+      if (document.fullscreenElement || document.webkitFullscreenElement) {
+        try {
+          document.exitFullscreen().catch(() => {});
+        } catch {}
+      }
+
+      setCameraStream(null);
+      setScreenStream(null);
+      setMicStream(null);
+    } catch (e) {
+      console.warn("Error stopping proctoring media:", e);
+    }
+  }, [cameraStream, screenStream, micStream]);
+
+  // Ensure all streams are terminated on component unmount
+  useEffect(() => {
+    return () => {
+      stopAllProctoringMedia();
+    };
+  }, [stopAllProctoringMedia]);
+
   // -------------------------------------------------------------
   // 7. Final Combined Assessment Submission (MCQs + Coding >= 80%)
   // -------------------------------------------------------------
@@ -936,23 +1116,22 @@ export default function CertificationExamWorkspace({
       setShowConfirmModal(false);
       setIsRecoveryModalOpen(false);
 
+      // Record submitted status in localStorage strictly isolated to current authenticated user
+      const uKey = currentUserId && currentUserId !== "guest" ? currentUserId : "guest";
+      localStorage.setItem(`mz_${uKey}_cert_${certId}_submitted`, "true");
+      if (attemptId) {
+        localStorage.setItem(`mz_${uKey}_cert_${attemptId}_submitted`, "true");
+      }
+      const targetReportUrl = `/assessment-report/${attemptId}`;
+      localStorage.setItem(`mz_${uKey}_cert_${certId}_report_url`, targetReportUrl);
+
       // Clear session from storage
       localStorage.removeItem("mz_active_cert_session");
       if (currentUserId) localStorage.removeItem(`mz_${currentUserId}_active_cert_session`);
       sessionStorage.removeItem("mz_cert_pending_refresh_violation");
 
-      // Stop proctoring tracks and exit fullscreen on final submission
-      if (cameraStream) {
-        cameraStream.getTracks().forEach((t) => t.stop());
-      }
-      if (screenStream) {
-        screenStream.getTracks().forEach((t) => t.stop());
-      }
-      if (document.fullscreenElement) {
-        try {
-          document.exitFullscreen().catch(() => {});
-        } catch {}
-      }
+      // Stop ALL proctoring tracks (camera, microphone, screen) automatically upon submission
+      stopAllProctoringMedia();
 
       toast.dismiss();
       toast.success(
@@ -982,15 +1161,16 @@ export default function CertificationExamWorkspace({
         passed: data.finalVerdict === "PASSED" || finalPct >= 80,
         mcqScore: data.mcqScore !== undefined ? data.mcqScore : answeredMcqCount,
         codingScore: data.codingScore !== undefined ? data.codingScore : totalPassedCodingTests,
-        reportUrl: `/assessment-report/${attemptId}`,
+        reportUrl: targetReportUrl,
       });
 
       if (onCompleted) {
         onCompleted(data);
       }
 
-      // Immediately navigate to official assessment report page
-      navigate(`/assessment-report/${attemptId}`);
+      // Replace history entry so browser Back button cannot re-enter the completed exam workspace
+      window.history.replaceState({ submitted: true, certId, attemptId }, "", targetReportUrl);
+      navigate(targetReportUrl, { replace: true });
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -1625,10 +1805,10 @@ export default function CertificationExamWorkspace({
             {/* Embedded Mastery Zone Compiler Frame */}
             <div className="mz-embedded-compiler-frame">
               <MasteryZoneCompilerWorkspace
-                key={`${attemptId}_coding_${codingIndex}`}
+                key={`${attemptId}_coding_${codingIndex}_${currentCodingQ.questionId || currentCodingQ.id || codingIndex}`}
                 title={`Question ${currentQuestionIndex + 1}: ${currentCodingQ.title || (codingIndex === 0 ? "Find Peak Element Index" : "Longest Substring Without Repeating Characters")}`}
-                questionId={currentCodingQ.questionId || currentCodingQ.id || (codingIndex === 0 ? "find-peak-element" : "longest-substring")}
-                sessionId={attemptId}
+                questionId={currentCodingQ.questionId || currentCodingQ.id || (codingIndex === 0 ? "ch_find_peak_element" : "ch_longest_substr_no_repeat")}
+                sessionId={`${attemptId}_q${21 + codingIndex}`}
                 initialProctoringStage="active"
                 isProctored={true}
                 isEmbedded={true}
@@ -1637,22 +1817,37 @@ export default function CertificationExamWorkspace({
                 externalMicStream={micStream}
                 problemData={{
                   ...currentCodingQ,
-                  id: currentCodingQ.questionId || currentCodingQ.id,
-                  testCases: currentCodingQ.testCases || [],
+                  id: currentCodingQ.questionId || currentCodingQ.id || (codingIndex === 0 ? "ch_find_peak_element" : "ch_longest_substr_no_repeat"),
+                  title: currentCodingQ.title || (codingIndex === 0 ? "Find Peak Element Index" : "Longest Substring Without Repeating Characters"),
+                  description: currentCodingQ.description || (codingIndex === 0
+                    ? "A peak element is an element that is strictly greater than its neighbors. Given a 0-indexed integer array nums, find a peak element, and return its index."
+                    : "Given a string s, find the length of the longest substring without duplicate characters."),
+                  difficulty: currentCodingQ.difficulty || "Medium",
+                  testCases: (currentCodingQ.testCases && currentCodingQ.testCases.length > 0)
+                    ? currentCodingQ.testCases
+                    : (currentCodingQ.publicTests || DEFAULT_CERT_CODING_QUESTIONS[codingIndex]?.testCases || []),
                 }}
-                starterCodeMap={currentCodingQ.starterCode || {}}
+                starterCodeMap={currentCodingQ.starterCode || DEFAULT_CERT_CODING_QUESTIONS[codingIndex]?.starterCode || {}}
                 defaultLanguage={codingSubmissions[codingIndex]?.language || "python"}
-                testCases={currentCodingQ.testCases || []}
-                questionsList={selectedCodingQuestions}
+                testCases={(currentCodingQ.testCases && currentCodingQ.testCases.length > 0)
+                  ? currentCodingQ.testCases
+                  : (currentCodingQ.publicTests || DEFAULT_CERT_CODING_QUESTIONS[codingIndex]?.testCases || [])}
+                questionsList={
+                  selectedCodingQuestions && selectedCodingQuestions.length >= 2
+                    ? selectedCodingQuestions
+                    : DEFAULT_CERT_CODING_QUESTIONS
+                }
                 currentQuestionIndex={codingIndex}
                 onSelectQuestion={(q, idx) => setCurrentQuestionIndex(20 + idx)}
                 onSaveDraft={async (code, lang) => {
                   handleUpdateCode(code, lang);
-                  toast.success("Code draft saved.");
+                  toast.success(`Question ${21 + codingIndex} draft saved.`);
                 }}
                 initialDraft={
                   codingSubmissions[codingIndex]?.code ||
+                  currentCodingQ.starterCode?.[codingSubmissions[codingIndex]?.language || "python"] ||
                   currentCodingQ.starterCode?.python ||
+                  DEFAULT_CERT_CODING_QUESTIONS[codingIndex]?.starterCode?.python ||
                   "# Enter your code below\n"
                 }
                 onRun={async (code, lang, customInput) => {

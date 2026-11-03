@@ -9,6 +9,8 @@ import heroIllustration from "../assets/interests_hero_illustration.png";
 import {
   LuHouse,
   LuTarget,
+  LuFileText,
+  LuVideo,
   LuChartColumn,
   LuUser,
   LuSettings,
@@ -445,6 +447,7 @@ const Progress = () => {
 
         {/* Sidebar Nav Items */}
         <nav className="mz-p-sidebar-nav">
+          {/* 1. Home */}
           <button
             type="button"
             className="mz-p-sidebar-item"
@@ -455,17 +458,51 @@ const Progress = () => {
             <span className="mz-p-sidebar-item-label">Home</span>
           </button>
 
+          {/* 2. Select Interests */}
           <button
             type="button"
             className="mz-p-sidebar-item"
-            onClick={() => navigate("/home")}
+            onClick={() => navigate("/select-interests")}
             title="Select Interests"
           >
             <LuTarget className="mz-p-sidebar-item-icon" />
             <span className="mz-p-sidebar-item-label">Select Interests</span>
           </button>
 
-          {/* Active Progress Tab */}
+          {/* 3. Reports */}
+          <button
+            type="button"
+            className="mz-p-sidebar-item"
+            onClick={() => navigate("/reports")}
+            title="Reports"
+          >
+            <LuFileText className="mz-p-sidebar-item-icon" />
+            <span className="mz-p-sidebar-item-label">Reports</span>
+          </button>
+
+          {/* 4. Recordings */}
+          <button
+            type="button"
+            className="mz-p-sidebar-item"
+            onClick={() => navigate("/recordings")}
+            title="Recordings"
+          >
+            <LuVideo className="mz-p-sidebar-item-icon" />
+            <span className="mz-p-sidebar-item-label">Recordings</span>
+          </button>
+
+          {/* 5. Certificates */}
+          <button
+            type="button"
+            className="mz-p-sidebar-item"
+            onClick={() => navigate("/certificates")}
+            title="Certificates"
+          >
+            <LuAward className="mz-p-sidebar-item-icon" />
+            <span className="mz-p-sidebar-item-label">Certificates</span>
+          </button>
+
+          {/* 6. Active Progress Tab */}
           <button
             type="button"
             className="mz-p-sidebar-item active"
@@ -475,6 +512,7 @@ const Progress = () => {
             <span className="mz-p-sidebar-item-label">Progress</span>
           </button>
 
+          {/* 7. Profile */}
           <button
             type="button"
             className="mz-p-sidebar-item"
@@ -485,16 +523,18 @@ const Progress = () => {
             <span className="mz-p-sidebar-item-label">Profile</span>
           </button>
 
+          {/* 8. Settings */}
           <button
             type="button"
             className="mz-p-sidebar-item"
-            onClick={() => setIsSettingsModalOpen(true)}
+            onClick={() => navigate("/settings")}
             title="Settings"
           >
             <LuSettings className="mz-p-sidebar-item-icon" />
             <span className="mz-p-sidebar-item-label">Settings</span>
           </button>
 
+          {/* 9. Log Out */}
           <button
             type="button"
             className="mz-p-sidebar-item mz-p-sidebar-logout"

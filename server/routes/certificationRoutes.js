@@ -129,6 +129,24 @@ router.post("/attempt/start", authenticateToken, async (req, res) => {
     const candidateName = user ? (user.fullName || user.name || "Candidate") : "Candidate";
     const candidateEmail = user ? (user.email || "") : "";
 
+    // 0. Check if candidate has already completed this certification exam (disallow retaking or re-entering completed exam)
+    const completedAttempt = await CertificationAttempt.findOne({
+      userId,
+      certId,
+      status: "COMPLETED",
+    }).sort({ submittedAt: -1, createdAt: -1 });
+
+    if (completedAttempt) {
+      return res.json({
+        success: true,
+        isCompleted: true,
+        status: "COMPLETED",
+        attemptId: completedAttempt.attemptId,
+        reportUrl: `/assessment-report/${completedAttempt.attemptId}`,
+        message: "This examination has already been submitted and completed.",
+      });
+    }
+
     // 1. Check if candidate already has an IN_PROGRESS attempt
     const activeAttempt = await CertificationAttempt.findOne({
       userId,

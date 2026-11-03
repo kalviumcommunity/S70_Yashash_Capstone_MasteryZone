@@ -1459,15 +1459,16 @@ export default function Coding() {
         <section className="mz-c-hero-anim" style={{ marginBottom: "24px" }}>
           <FeaturedLearningCarousel
             activeTrack={activeTrack.title}
+            activeTab={activeTab}
             challenges={challenges}
             projects={projects}
             onNavigateTab={(tab) => {
               setActiveTab(tab);
-              window.scrollTo({ top: 380, behavior: "smooth" });
+              window.scrollTo({ top: 0, behavior: "smooth" });
             }}
             onStartLearning={() => {
               setActiveTab("learning_path");
-              window.scrollTo({ top: 400, behavior: "smooth" });
+              window.scrollTo({ top: 0, behavior: "smooth" });
             }}
           />
         </section>
@@ -1476,43 +1477,64 @@ export default function Coding() {
         <nav className="mz-c-horizontal-tabs mz-c-tabs-anim">
           <button
             className={`mz-c-tab-btn ${activeTab === "learning_path" ? "active" : ""}`}
-            onClick={() => setActiveTab("learning_path")}
+            onClick={() => {
+              setActiveTab("learning_path");
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
           >
             <LuBookOpen size={16} /> Learning Path
           </button>
           <button
             className={`mz-c-tab-btn ${activeTab === "videos" ? "active" : ""}`}
-            onClick={() => setActiveTab("videos")}
+            onClick={() => {
+              setActiveTab("videos");
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
           >
             <LuTv size={16} /> Video Library
           </button>
           <button
             className={`mz-c-tab-btn ${activeTab === "challenges" ? "active" : ""}`}
-            onClick={() => setActiveTab("challenges")}
+            onClick={() => {
+              setActiveTab("challenges");
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
           >
             <LuCode size={16} /> Challenges ({challenges.length || 135})
           </button>
           <button
             className={`mz-c-tab-btn ${activeTab === "projects" ? "active" : ""}`}
-            onClick={() => setActiveTab("projects")}
+            onClick={() => {
+              setActiveTab("projects");
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
           >
             <LuFolderGit2 size={16} /> Projects
           </button>
           <button
             className={`mz-c-tab-btn ${activeTab === "study_groups" ? "active" : ""}`}
-            onClick={() => setActiveTab("study_groups")}
+            onClick={() => {
+              setActiveTab("study_groups");
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
           >
             <LuUsers size={16} /> Study Groups
           </button>
           <button
             className={`mz-c-tab-btn ${activeTab === "resources" ? "active" : ""}`}
-            onClick={() => setActiveTab("resources")}
+            onClick={() => {
+              setActiveTab("resources");
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
           >
             <LuFileText size={16} /> Resources
           </button>
           <button
             className={`mz-c-tab-btn ${activeTab === "certification" ? "active" : ""}`}
-            onClick={() => setActiveTab("certification")}
+            onClick={() => {
+              setActiveTab("certification");
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
           >
             <LuAward size={16} /> Certification
           </button>
@@ -1530,7 +1552,7 @@ export default function Coding() {
               <FeaturedVideosSlider
                 onViewAll={() => {
                   setActiveTab("videos");
-                  window.scrollTo({ top: 350, behavior: "smooth" });
+                  window.scrollTo({ top: 0, behavior: "smooth" });
                 }}
                 onPracticeInLearningPath={handlePracticeInLearningPath}
               />
@@ -2480,12 +2502,12 @@ export default function Coding() {
         {activeTab === "projects" && (
           <div className="mz-c-projects-grid mz-c-grid-anim">
             {projects.map((proj) => {
-              const isDone =
+              const isDone = Boolean(
                 proj.userState?.passed ||
                 proj.userState?.status === "PASSED" ||
                 proj.userState?.status === "passed" ||
-                (currentUserId && typeof window !== "undefined" && window.localStorage?.getItem(`mz_${currentUserId}_proj_passed_${proj.id}`) === "true") ||
-                (!currentUserId && typeof window !== "undefined" && window.localStorage?.getItem(`mz_proj_passed_${proj.id}`) === "true");
+                (currentUserId && typeof window !== "undefined" && window.localStorage?.getItem(`mz_${currentUserId}_proj_passed_${proj.id}`) === "true")
+              );
               return (
                 <div
                   key={proj.id}
@@ -2575,11 +2597,11 @@ export default function Coding() {
                 <button
                   type="button"
                   className="mz-c-btn-start-meeting"
-                  onClick={handleStartInstantMeeting}
-                  title="Create and start an instant meeting in a new browser tab with Admin / Host controls"
+                  onClick={() => navigate("/live")}
+                  title="Start Meeting"
                 >
                   <LuVideo size={16} />
-                  <span>Start Instant Meeting</span>
+                  <span>Start Meeting</span>
                 </button>
 
                 <form className="mz-c-join-code-form" onSubmit={handleJoinWithCode}>

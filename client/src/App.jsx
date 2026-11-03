@@ -50,6 +50,7 @@ function App() {
           <Route path="/reset-password/:token" element={<Suspense fallback={<GlobalLoader />}><ResetPassword /></Suspense>} />
 
           {/* Protected Routes (Require Valid Session) */}
+          {/* 1. Home Route */}
           <Route
             path="/home"
             element={
@@ -60,17 +61,73 @@ function App() {
               </ProtectedRoute>
             }
           />
+
+          {/* 2. Select Interests Route */}
+          <Route
+            path="/select-interests"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<GlobalLoader />}>
+                  <Home />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+
+          {/* 3. Reports Route */}
+          <Route
+            path="/reports"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<GlobalLoader />}>
+                  <Home />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+
+          {/* 4. Recordings Route */}
+          <Route
+            path="/recordings"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<GlobalLoader />}>
+                  <Home />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+
+          {/* 5. Certificates Route */}
+          <Route
+            path="/certificates"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<GlobalLoader />}>
+                  <Home />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/certifications"
+            element={<Navigate to="/certificates" replace />}
+          />
           <Route
             path="/courses"
             element={<Navigate to="/home" replace />}
           />
+
+          {/* 8. Settings Route */}
           <Route
-            path="/recordings"
-            element={<Navigate to="/home?tab=recordings" replace />}
-          />
-          <Route
-            path="/certifications"
-            element={<Navigate to="/home?tab=certifications" replace />}
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<GlobalLoader />}>
+                  <Home />
+                </Suspense>
+              </ProtectedRoute>
+            }
           />
           <Route
             path="/certification-exam/:certId"
