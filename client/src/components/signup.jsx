@@ -191,6 +191,7 @@ const Signup = () => {
       // Purge any prior session residual data completely to ensure strict individual isolation
       localStorage.clear();
       sessionStorage.clear();
+      sessionStorage.setItem("mz_session_active", "true");
 
       localStorage.setItem("token", data.token);
       if (data.user) {

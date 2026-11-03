@@ -509,7 +509,7 @@ const Profile = () => {
       {/* ================= LEFT SIDEBAR ================= */}
       <aside className="mz-sidebar">
         {/* Brand Logo Header */}
-        <div className="mz-sidebar-brand" onClick={() => navigate("/")} title="Mastery Zone Home">
+        <div className="mz-sidebar-brand" onClick={() => navigate("/home")} title="Mastery Zone Home">
           <img src={logoIcon} alt="Mastery Zone Logo" className="mz-sidebar-brand-icon" />
           <span className="mz-sidebar-brand-text">Mastery Zone</span>
         </div>
