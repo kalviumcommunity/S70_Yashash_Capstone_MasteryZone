@@ -83,6 +83,7 @@ const Login = () => {
       // Purge any prior session residual data completely to ensure strict individual isolation
       localStorage.clear();
       sessionStorage.clear();
+      sessionStorage.setItem("mz_session_active", "true");
 
       localStorage.setItem("token", data.token);
       if (data.user) {
@@ -143,6 +144,7 @@ const Login = () => {
       // Purge any prior session residual data completely to ensure strict individual isolation
       localStorage.clear();
       sessionStorage.clear();
+      sessionStorage.setItem("mz_session_active", "true");
 
       localStorage.setItem("token", data.token);
       if (data.user) {
@@ -194,6 +196,7 @@ const Login = () => {
       // Purge any prior session residual data completely to ensure strict individual isolation
       localStorage.clear();
       sessionStorage.clear();
+      sessionStorage.setItem("mz_session_active", "true");
 
       localStorage.setItem("token", data.token);
       if (data.user) {
@@ -245,7 +248,7 @@ const Login = () => {
               Log in to continue your learning journey and reach your goals.
             </p>
 
-            <form onSubmit={handleLoginSubmit} className="mz-form" noValidate>
+            <form onSubmit={handleLoginSubmit} className="mz-form" noValidate autoComplete="off">
               <div
                 className={`mz-input-field li-anim-4 ${
                   validationErrors.identifier ? "mz-field-error" : ""
@@ -255,7 +258,7 @@ const Login = () => {
                 <input
                   type="text"
                   placeholder="Username or E-Mail"
-                  autoComplete="username"
+                  autoComplete="off"
                   aria-label="Username or email"
                   aria-invalid={Boolean(validationErrors.identifier)}
                   value={identifier}
@@ -278,7 +281,7 @@ const Login = () => {
                 <input
                   type={showPassword ? "text" : "password"}
                   placeholder="Password"
-                  autoComplete="current-password"
+                  autoComplete="new-password"
                   aria-label="Password"
                   aria-invalid={Boolean(validationErrors.password)}
                   value={password}

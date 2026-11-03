@@ -594,7 +594,7 @@ export default function AssessmentReportPage() {
           <p style={{ color: "#64748b", fontSize: "0.9rem", marginBottom: 24 }}>
             {error || "This assessment session does not exist or could not be found."}
           </p>
-          <button className="mz-report-btn mz-report-btn-primary" onClick={() => navigate("/")}>
+          <button className="mz-report-btn mz-report-btn-primary" onClick={() => navigate("/home")}>
             <Home size={16} /> Back to Home
           </button>
         </div>
@@ -726,7 +726,7 @@ export default function AssessmentReportPage() {
             ===================================================================== */}
         <div className="mz-report-breadcrumb-bar mz-report-print-hide">
           <nav className="mz-report-breadcrumbs" aria-label="Breadcrumb">
-            <button type="button" className="mz-breadcrumb-link" onClick={() => navigate("/")}>
+            <button type="button" className="mz-breadcrumb-link" onClick={() => navigate("/home")}>
               Home
             </button>
             <span className="mz-breadcrumb-sep">
@@ -907,7 +907,7 @@ export default function AssessmentReportPage() {
               <button
                 type="button"
                 className="mz-report-btn mz-report-btn-primary"
-                onClick={() => navigate("/")}
+                onClick={() => navigate("/home")}
               >
                 <Home size={15} /> Back to Home
               </button>

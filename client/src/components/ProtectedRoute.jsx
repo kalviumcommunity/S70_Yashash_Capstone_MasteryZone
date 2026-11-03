@@ -12,6 +12,19 @@ const ProtectedRoute = ({ children }) => {
     let isMounted = true;
 
     const verifyAuth = async () => {
+      // If browser was reopened after closing or session is not active, require fresh login
+      if (!sessionStorage.getItem("mz_session_active")) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        localStorage.removeItem("mz_user");
+        localStorage.removeItem("userName");
+        localStorage.removeItem("userEmail");
+        localStorage.removeItem("Step2Dev_token");
+        localStorage.removeItem("mz_persistent_guest");
+        if (isMounted) setAuthState("unauthenticated");
+        return;
+      }
+
       const token = localStorage.getItem("token");
       if (!token) {
         if (isMounted) setAuthState("unauthenticated");

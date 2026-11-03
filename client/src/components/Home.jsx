@@ -19,6 +19,7 @@ import {
   LuTarget,
   LuChartColumn,
   LuUser,
+  LuSettings,
   LuLogOut,
   LuSearch,
   LuChevronDown,
@@ -793,19 +794,21 @@ const Home = () => {
       {/* ================= LEFT SIDEBAR (STICKY, LOGOUT ALWAYS ON SCREEN) ================= */}
       <aside className="mz-sidebar">
         {/* Brand Logo Header */}
-        <div className="mz-sidebar-brand" onClick={() => navigate("/")} title="Mastery Zone Home">
+        <div className="mz-sidebar-brand" onClick={() => navigate("/home")} title="Mastery Zone Home">
           <img src={logoIcon} alt="Mastery Zone Logo" className="mz-sidebar-brand-icon" />
           <span className="mz-sidebar-brand-text">Mastery Zone</span>
         </div>
 
         {/* Sidebar Nav Items */}
         <nav className="mz-sidebar-nav">
+          {/* 1. Home */}
           <button
             type="button"
-            className="mz-sidebar-item"
+            className={`mz-sidebar-item ${activeNavTab === "interests" ? "active" : ""}`}
             onClick={() => {
               setActiveNavTab("interests");
-              navigate("/");
+              navigate("/home");
+              window.scrollTo({ top: 0, behavior: "smooth" });
             }}
             title="Home"
           >
@@ -813,73 +816,23 @@ const Home = () => {
             <span className="mz-sidebar-item-label">Home</span>
           </button>
 
+          {/* 2. Select Interests */}
           <button
             type="button"
-            className={`mz-sidebar-item ${activeNavTab === "interests" ? "active" : ""}`}
-            onClick={() => setActiveNavTab("interests")}
+            className="mz-sidebar-item"
+            onClick={() => {
+              setActiveNavTab("interests");
+              navigate("/home");
+              const el = document.querySelector(".mz-section-header") || document.querySelector(".mz-cards-grid");
+              el?.scrollIntoView({ behavior: "smooth" });
+            }}
             title="Select Interests"
           >
             <LuTarget className="mz-sidebar-item-icon" />
             <span className="mz-sidebar-item-label">Select Interests</span>
           </button>
 
-          {/* Dedicated Assessment Reports Tab in Left Sidebar */}
-          <button
-            type="button"
-            className={`mz-sidebar-item ${activeNavTab === "reports" ? "active" : ""}`}
-            onClick={() => {
-              setActiveNavTab("reports");
-              fetchReports();
-            }}
-            title="View Saved Assessment Reports"
-          >
-            <LuFileText className="mz-sidebar-item-icon" />
-            <span className="mz-sidebar-item-label">Reports</span>
-            {reportsList.length > 0 && (
-              <span className="mz-sidebar-badge-count">{reportsList.length}</span>
-            )}
-          </button>
-
-          {/* Dedicated Meeting Recordings Tab in Left Sidebar */}
-          <button
-            type="button"
-            className={`mz-sidebar-item ${activeNavTab === "recordings" ? "active" : ""}`}
-            onClick={() => {
-              setActiveNavTab("recordings");
-              fetchRecordings();
-            }}
-            title="View Meeting Recordings & Collaborative Sessions"
-            data-testid="sidebar-nav-recordings"
-          >
-            <LuVideo className="mz-sidebar-item-icon" />
-            <span className="mz-sidebar-item-label">Recordings</span>
-            {recordingsList.length > 0 && (
-              <span className="mz-sidebar-badge-count" style={{ background: "#2563eb" }}>
-                {recordingsList.length}
-              </span>
-            )}
-          </button>
-
-          {/* Dedicated Certifications Tab in Left Sidebar */}
-          <button
-            type="button"
-            className={`mz-sidebar-item ${activeNavTab === "certifications" ? "active" : ""}`}
-            onClick={() => {
-              setActiveNavTab("certifications");
-              fetchCertHistory();
-            }}
-            title="View Earned Certifications & Exam History"
-            data-testid="sidebar-nav-certifications"
-          >
-            <LuAward className="mz-sidebar-item-icon" />
-            <span className="mz-sidebar-item-label">Certifications</span>
-            {certHistory.certificates?.length > 0 && (
-              <span className="mz-sidebar-badge-count" style={{ background: "#7c3aed" }}>
-                {certHistory.certificates.length}
-              </span>
-            )}
-          </button>
-
+          {/* 3. Progress */}
           <button
             type="button"
             className="mz-sidebar-item"
@@ -890,6 +843,7 @@ const Home = () => {
             <span className="mz-sidebar-item-label">Progress</span>
           </button>
 
+          {/* 4. Profile */}
           <button
             type="button"
             className="mz-sidebar-item"
@@ -899,10 +853,19 @@ const Home = () => {
             <LuUser className="mz-sidebar-item-icon" />
             <span className="mz-sidebar-item-label">Profile</span>
           </button>
-        </nav>
 
-        {/* Sidebar Bottom: Log Out (Permanently visible on screen) */}
-        <div className="mz-sidebar-footer">
+          {/* 5. Settings */}
+          <button
+            type="button"
+            className="mz-sidebar-item"
+            onClick={() => setIsSettingsModalOpen(true)}
+            title="Settings"
+          >
+            <LuSettings className="mz-sidebar-item-icon" />
+            <span className="mz-sidebar-item-label">Settings</span>
+          </button>
+
+          {/* 6. Log Out */}
           <button
             type="button"
             className="mz-sidebar-item mz-sidebar-logout"
@@ -912,7 +875,7 @@ const Home = () => {
             <LuLogOut className="mz-sidebar-item-icon" />
             <span className="mz-sidebar-item-label">Log Out</span>
           </button>
-        </div>
+        </nav>
       </aside>
 
       {/* ================= MAIN CONTAINER ================= */}

@@ -403,7 +403,7 @@ const Progress = () => {
       {/* ================= LEFT SIDEBAR ================= */}
       <aside className="mz-p-sidebar">
         {/* Brand Logo Header */}
-        <div className="mz-p-sidebar-brand" onClick={() => navigate("/")} title="Mastery Zone Home">
+        <div className="mz-p-sidebar-brand" onClick={() => navigate("/home")} title="Mastery Zone Home">
           <img src={logoIcon} alt="Mastery Zone Logo" className="mz-p-sidebar-brand-icon" />
           <span className="mz-p-sidebar-brand-text">Mastery Zone</span>
         </div>
@@ -413,7 +413,7 @@ const Progress = () => {
           <button
             type="button"
             className="mz-p-sidebar-item"
-            onClick={() => navigate("/")}
+            onClick={() => navigate("/home")}
             title="Home"
           >
             <LuHouse className="mz-p-sidebar-item-icon" />
