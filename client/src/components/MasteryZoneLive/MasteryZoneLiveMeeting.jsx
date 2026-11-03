@@ -1202,26 +1202,36 @@ export default function MasteryZoneLiveMeeting({
           ...participants.map((p) => p.fullName || p.username || "Participant"),
         ];
 
-        const res = await fetch("/api/recordings/upload", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            meetingId,
-            title: `${meetingData.title} (${new Date().toLocaleDateString()})`,
-            durationSeconds: recordingSeconds,
-            participantNames: allNames,
-            base64Data,
-            mimeType: "video/webm",
-          }),
-        });
+        let savedRecording = null;
+        try {
+          const res = await fetch(`${API_BASE}/api/recordings/upload`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              meetingId,
+              title: `${meetingData.title || "Live Meeting"} (${new Date().toLocaleDateString()})`,
+              durationSeconds: recordingSeconds,
+              participantNames: allNames,
+              base64Data,
+              mimeType: "video/webm",
+              hostUserId: currentUser?._id || currentUser?.id || currentUser?.userId,
+              hostName: currentUser?.fullName || currentUser?.username || "Host",
+            }),
+          });
 
-        if (res.ok) {
-          toast.success("Recording saved and published to Home → Recordings!");
-        } else {
-          toast.warn("Recording processed locally");
+          if (res.ok) {
+            const data = await res.json();
+            savedRecording = data.recording;
+            toast.success("Recording saved and published to Home → Recordings!");
+          } else {
+            toast.warn("Recording saved locally in browser storage");
+          }
+        } catch (uploadErr) {
+          console.warn("API upload failed, caching locally:", uploadErr);
+          toast.warn("Recording saved locally in browser storage");
         }
 
         // Also save recording entry to user-specific localStorage for instant client persistence
@@ -1231,15 +1241,22 @@ export default function MasteryZoneLiveMeeting({
           const uId = uObj?._id || uObj?.id || uObj?.userId || "guest";
           const recKey = `mz_${uId}_local_recordings`;
           const localRecs = JSON.parse(localStorage.getItem(recKey) || "[]");
-          localRecs.unshift({
+          const newRecEntry = savedRecording || {
+            recordingId: `rec_${Date.now()}`,
             id: `rec_${Date.now()}`,
             meetingId,
             title: `${meetingData.title || "Live Meeting"} (${new Date().toLocaleDateString()})`,
             durationSeconds: recordingSeconds,
             participantNames: allNames,
+            fileUrl: base64Data, // Fallback playback
             createdAt: new Date().toISOString(),
-          });
-          localStorage.setItem(recKey, JSON.stringify(localRecs.slice(0, 25)));
+            status: "ready",
+            hostUserId: uId,
+            hostName: currentUser?.fullName || currentUser?.username || "Host",
+          };
+          localRecs.unshift(newRecEntry);
+          localStorage.setItem(recKey, JSON.stringify(localRecs.slice(0, 30)));
+          window.dispatchEvent(new CustomEvent("new_recording_saved", { detail: newRecEntry }));
         } catch {}
 
         setRecordingStatus("idle");

@@ -48,6 +48,8 @@ import {
   LuLanguages,
   LuCar,
   LuDumbbell,
+  LuFolderGit2,
+  LuSparkles,
 } from "react-icons/lu";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
@@ -136,26 +138,16 @@ const Home = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Navigation Tab: "interests" | "reports" | "recordings" | "certifications"
-  const getInitialNavTab = () => {
-    const searchParams = new URLSearchParams(window.location.search);
-    const tabParam = searchParams.get("tab");
-    if (tabParam === "certifications" || location.state?.tab === "certifications") return "certifications";
-    if (tabParam === "recordings" || location.state?.tab === "recordings") return "recordings";
-    if (tabParam === "reports" || location.state?.tab === "reports") return "reports";
-    try {
-      const stored = sessionStorage.getItem("mz_home_nav_tab");
-      if (stored) return stored;
-    } catch {}
-    return "interests";
-  };
-  const [activeNavTab, setActiveNavTab] = useState(getInitialNavTab);
-
-  useEffect(() => {
-    try {
-      sessionStorage.setItem("mz_home_nav_tab", activeNavTab);
-    } catch {}
-  }, [activeNavTab]);
+  // Derive active navigation tab directly from current route pathname
+  const currentPath = location.pathname;
+  const activeNavTab = useMemo(() => {
+    if (currentPath === "/reports") return "reports";
+    if (currentPath === "/recordings") return "recordings";
+    if (currentPath === "/certificates" || currentPath === "/certifications") return "certifications";
+    if (currentPath === "/settings") return "settings";
+    if (currentPath === "/select-interests") return "select-interests";
+    return "home";
+  }, [currentPath]);
   const [certHistory, setCertHistory] = useState({ attempts: [], certificates: [] });
   const [isLoadingCertHistory, setIsLoadingCertHistory] = useState(false);
   const [activeCertExamModal, setActiveCertExamModal] = useState(() => {
@@ -210,15 +202,17 @@ const Home = () => {
   const [reportSubjectFilter, setReportSubjectFilter] = useState("ALL"); // "ALL" | "coding" | "language" | "driving" | "fitness"
   const [reportTypeFilter, setReportTypeFilter] = useState("ALL"); // "ALL" | "mcq_exam" | "coding_assessment"
 
-  // Fetch assessment reports from database & localStorage
-  const fetchReports = async () => {
-    setIsLoadingReports(true);
+  // Fetch assessment reports from database & localStorage without UI flash
+  const fetchReports = async (showLoader = false) => {
+    if (showLoader) {
+      setIsLoadingReports(true);
+    }
     try {
       const token = localStorage.getItem("token");
+      let uId = "";
       let localReports = [];
       try {
         const rawUser = localStorage.getItem("user");
-        let uId = "";
         if (rawUser) {
           const parsed = JSON.parse(rawUser);
           uId = parsed._id || parsed.id || parsed.userId || "";
@@ -266,6 +260,7 @@ const Home = () => {
         if (key) map.set(key, r);
       });
       localReports.forEach((r) => {
+        if (uId && r.userId && String(r.userId) !== String(uId)) return;
         const key = r.sessionId || r._id || r.id;
         if (key && !map.has(key)) map.set(key, r);
       });
@@ -300,8 +295,11 @@ const Home = () => {
   const [newBookmarkNote, setNewBookmarkNote] = useState("");
   const videoPlayerRef = useRef(null);
 
-  const fetchRecordings = async () => {
-    setIsLoadingRecordings(true);
+  // Fetch recordings with smooth state merging to prevent blinking
+  const fetchRecordings = async (showLoader = false) => {
+    if (showLoader) {
+      setIsLoadingRecordings(true);
+    }
     try {
       const token = localStorage.getItem("token");
       const queryParams = new URLSearchParams();
@@ -310,18 +308,51 @@ const Home = () => {
       if (recSortOrder) queryParams.set("sort", recSortOrder);
       if (recScope !== "all") queryParams.set("scope", recScope);
 
+      let apiRecs = [];
       const res = await fetch(`${API_BASE}/api/recordings?${queryParams.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data.recordings)) {
-          setRecordingsList(data.recordings);
+          apiRecs = data.recordings;
         }
         if (data.analytics) {
           setRecordingsAnalytics(data.analytics);
         }
       }
+
+      // Also merge user-specific local recordings
+      let uId = "";
+      try {
+        const rawUser = localStorage.getItem("user");
+        if (rawUser) {
+          const parsed = JSON.parse(rawUser);
+          uId = parsed._id || parsed.id || parsed.userId || "";
+        }
+      } catch {}
+
+      const recKey = uId ? `mz_${uId}_local_recordings` : "mz_local_recordings";
+      let localRecs = [];
+      try {
+        localRecs = JSON.parse(localStorage.getItem(recKey) || "[]");
+      } catch {}
+
+      const recMap = new Map();
+      apiRecs.forEach((r) => {
+        const key = r.recordingId || r._id || r.id;
+        if (key) recMap.set(key, r);
+      });
+      localRecs.forEach((r) => {
+        if (uId && r.hostUserId && String(r.hostUserId) !== String(uId)) return;
+        const key = r.recordingId || r._id || r.id;
+        if (key && !recMap.has(key)) recMap.set(key, r);
+      });
+
+      const combined = Array.from(recMap.values()).sort(
+        (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+      );
+      setRecordingsList(combined);
     } catch (err) {
       console.warn("Recordings fetch note:", err);
     } finally {
@@ -417,18 +448,30 @@ const Home = () => {
   };
 
   useEffect(() => {
-    fetchReports();
-    fetchRecordings();
+    fetchReports(false);
+    fetchRecordings(false);
     fetchCertHistory();
   }, []);
 
+  const prevTabRef = useRef(activeNavTab);
+  useEffect(() => {
+    if (prevTabRef.current !== activeNavTab) {
+      prevTabRef.current = activeNavTab;
+      if (activeNavTab === "reports") {
+        fetchReports(reportsList.length === 0);
+      } else if (activeNavTab === "recordings") {
+        fetchRecordings(recordingsList.length === 0);
+      } else if (activeNavTab === "certifications") {
+        fetchCertHistory();
+      }
+    }
+  }, [activeNavTab, reportsList.length, recordingsList.length]);
+
   useEffect(() => {
     if (activeNavTab === "recordings") {
-      fetchRecordings();
-    } else if (activeNavTab === "certifications") {
-      fetchCertHistory();
+      fetchRecordings(false);
     }
-  }, [recDateFilter, recSortOrder, recScope, activeNavTab]);
+  }, [recDateFilter, recSortOrder, recScope]);
 
   useEffect(() => {
     if (activePlayingRecording && videoPlayerRef.current) {
@@ -616,14 +659,23 @@ const Home = () => {
       fetchUser();
     };
 
+    const handleSync = () => {
+      fetchUser();
+      fetchReports(false);
+      fetchRecordings(false);
+      fetchCertHistory();
+    };
+
     window.addEventListener("user_profile_updated", handleProfileUpdated);
-    window.addEventListener("storage", handleProfileUpdated);
-    window.addEventListener("focus", fetchUser);
+    window.addEventListener("new_recording_saved", handleSync);
+    window.addEventListener("storage", handleSync);
+    window.addEventListener("focus", handleSync);
 
     return () => {
       window.removeEventListener("user_profile_updated", handleProfileUpdated);
-      window.removeEventListener("storage", handleProfileUpdated);
-      window.removeEventListener("focus", fetchUser);
+      window.removeEventListener("new_recording_saved", handleSync);
+      window.removeEventListener("storage", handleSync);
+      window.removeEventListener("focus", handleSync);
     };
   }, [fetchUser, location.pathname]);
 
@@ -849,9 +901,8 @@ const Home = () => {
           {/* 1. Home */}
           <button
             type="button"
-            className={`mz-sidebar-item ${activeNavTab === "interests" ? "active" : ""}`}
+            className={`mz-sidebar-item ${activeNavTab === "home" ? "active" : ""}`}
             onClick={() => {
-              setActiveNavTab("interests");
               navigate("/home");
               window.scrollTo({ top: 0, behavior: "smooth" });
             }}
@@ -864,12 +915,10 @@ const Home = () => {
           {/* 2. Select Interests */}
           <button
             type="button"
-            className="mz-sidebar-item"
+            className={`mz-sidebar-item ${activeNavTab === "select-interests" ? "active" : ""}`}
             onClick={() => {
-              setActiveNavTab("interests");
-              navigate("/home");
-              const el = document.querySelector(".mz-section-header") || document.querySelector(".mz-cards-grid");
-              el?.scrollIntoView({ behavior: "smooth" });
+              navigate("/select-interests");
+              window.scrollTo({ top: 0, behavior: "smooth" });
             }}
             title="Select Interests"
           >
@@ -877,7 +926,64 @@ const Home = () => {
             <span className="mz-sidebar-item-label">Select Interests</span>
           </button>
 
-          {/* 3. Progress */}
+          {/* 3. Reports */}
+          <button
+            type="button"
+            className={`mz-sidebar-item ${activeNavTab === "reports" ? "active" : ""}`}
+            onClick={() => {
+              navigate("/reports");
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+            title="Reports"
+          >
+            <LuFileText className="mz-sidebar-item-icon" />
+            <span className="mz-sidebar-item-label">Reports</span>
+            {reportsList.length > 0 && (
+              <span className="mz-sidebar-badge-count">{reportsList.length}</span>
+            )}
+          </button>
+
+          {/* 4. Recordings */}
+          <button
+            type="button"
+            className={`mz-sidebar-item ${activeNavTab === "recordings" ? "active" : ""}`}
+            onClick={() => {
+              navigate("/recordings");
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+            title="Recordings"
+            data-testid="sidebar-nav-recordings"
+          >
+            <LuVideo className="mz-sidebar-item-icon" />
+            <span className="mz-sidebar-item-label">Recordings</span>
+            {recordingsList.length > 0 && (
+              <span className="mz-sidebar-badge-count" style={{ background: "#2563eb" }}>
+                {recordingsList.length}
+              </span>
+            )}
+          </button>
+
+          {/* 5. Certificates */}
+          <button
+            type="button"
+            className={`mz-sidebar-item ${activeNavTab === "certifications" ? "active" : ""}`}
+            onClick={() => {
+              navigate("/certificates");
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+            title="Certificates"
+            data-testid="sidebar-nav-certifications"
+          >
+            <LuAward className="mz-sidebar-item-icon" />
+            <span className="mz-sidebar-item-label">Certificates</span>
+            {certHistory.certificates?.length > 0 && (
+              <span className="mz-sidebar-badge-count" style={{ background: "#7c3aed" }}>
+                {certHistory.certificates.length}
+              </span>
+            )}
+          </button>
+
+          {/* 6. Progress */}
           <button
             type="button"
             className="mz-sidebar-item"
@@ -888,7 +994,7 @@ const Home = () => {
             <span className="mz-sidebar-item-label">Progress</span>
           </button>
 
-          {/* 4. Profile */}
+          {/* 7. Profile */}
           <button
             type="button"
             className="mz-sidebar-item"
@@ -899,18 +1005,18 @@ const Home = () => {
             <span className="mz-sidebar-item-label">Profile</span>
           </button>
 
-          {/* 5. Settings */}
+          {/* 8. Settings */}
           <button
             type="button"
-            className="mz-sidebar-item"
-            onClick={() => setIsSettingsModalOpen(true)}
+            className={`mz-sidebar-item ${activeNavTab === "settings" ? "active" : ""}`}
+            onClick={() => navigate("/settings")}
             title="Settings"
           >
             <LuSettings className="mz-sidebar-item-icon" />
             <span className="mz-sidebar-item-label">Settings</span>
           </button>
 
-          {/* 6. Log Out */}
+          {/* 9. Log Out */}
           <button
             type="button"
             className="mz-sidebar-item mz-sidebar-logout"
@@ -1207,7 +1313,7 @@ const Home = () => {
               </div>
 
               {/* Reports Grid */}
-              {isLoadingReports ? (
+              {isLoadingReports && reportsList.length === 0 ? (
                 <div className="mz-reports-loading-box">
                   <div className="mz-reports-spinner" />
                   <p>Loading candidate reports...</p>
@@ -1568,7 +1674,7 @@ const Home = () => {
               </div>
 
               {/* Cards Grid */}
-              {isLoadingRecordings ? (
+              {isLoadingRecordings && recordingsList.length === 0 ? (
                 <div style={{ padding: "40px", textAlign: "center", color: "#64748b" }}>
                   <p style={{ marginTop: 8, fontSize: 13, fontWeight: 600 }}>Loading cloud recordings...</p>
                 </div>
@@ -2372,6 +2478,390 @@ const Home = () => {
                     No assessment attempts recorded yet.
                   </div>
                 )}
+              </div>
+            </div>
+          ) : activeNavTab === "settings" ? (
+            <div className="mz-reports-page-wrapper">
+              <div className="mz-reports-top-banner">
+                <div className="mz-reports-top-info">
+                  <div className="mz-reports-badge-pill" style={{ color: "#2563eb", background: "#eff6ff", borderColor: "#bfdbfe" }}>
+                    <LuSettings size={14} /> System Configuration
+                  </div>
+                  <h1 className="mz-reports-main-heading">
+                    Platform <span className="mz-hero-gradient-text">Settings</span>
+                  </h1>
+                  <p className="mz-reports-sub-heading">
+                    Manage your candidate preferences, notification channels, security parameters, and account controls.
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ maxWidth: 880, margin: "24px auto", display: "flex", flexDirection: "column", gap: 20 }}>
+                {/* 1. Account Details */}
+                <div style={{ background: "#ffffff", padding: "24px 28px", borderRadius: 18, border: "1px solid #e2e8f0", boxShadow: "0 2px 10px rgba(15,23,42,0.03)" }}>
+                  <h3 style={{ fontSize: "1.05rem", fontWeight: 700, margin: "0 0 4px", color: "#0f172a" }}>Profile & Candidate Identification</h3>
+                  <p style={{ fontSize: "0.85rem", color: "#64748b", margin: "0 0 16px" }}>Your verified credentials on Mastery Zone.</p>
+                  
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14 }}>
+                    <div style={{ padding: 14, background: "#f8fafc", borderRadius: 12, border: "1px solid #e2e8f0" }}>
+                      <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Full Name</span>
+                      <div style={{ fontSize: "0.92rem", fontWeight: 600, color: "#0f172a", marginTop: 4 }}>{user?.fullName || displayName || "Verified Candidate"}</div>
+                    </div>
+                    <div style={{ padding: 14, background: "#f8fafc", borderRadius: 12, border: "1px solid #e2e8f0" }}>
+                      <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Email Address</span>
+                      <div style={{ fontSize: "0.92rem", fontWeight: 600, color: "#0f172a", marginTop: 4 }}>{user?.email || localStorage.getItem("userEmail") || "user@masteryzone.com"}</div>
+                    </div>
+                    <div style={{ padding: 14, background: "#f8fafc", borderRadius: 12, border: "1px solid #e2e8f0" }}>
+                      <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Candidate ID</span>
+                      <div style={{ fontSize: "0.92rem", fontWeight: 600, color: "#2563eb", marginTop: 4 }}>{`CAND-${String(user?._id || user?.id || "7CA59D").slice(-6).toUpperCase()}`}</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Notification Preferences */}
+                <div style={{ background: "#ffffff", padding: "24px 28px", borderRadius: 18, border: "1px solid #e2e8f0", boxShadow: "0 2px 10px rgba(15,23,42,0.03)" }}>
+                  <h3 style={{ fontSize: "1.05rem", fontWeight: 700, margin: "0 0 4px", color: "#0f172a" }}>Preferences & Notifications</h3>
+                  <p style={{ fontSize: "0.85rem", color: "#64748b", margin: "0 0 16px" }}>Control notification channels, exam reminders, and progress telemetry.</p>
+                  
+                  <div className="mz-setting-row" style={{ padding: "14px 0", borderBottom: "1px solid #f1f5f9" }}>
+                    <div className="mz-setting-info">
+                      <span className="mz-setting-name">Email Notifications</span>
+                      <span className="mz-setting-desc">Receive assessment receipts, certificate alerts, and learning track milestones.</span>
+                    </div>
+                    <label className="mz-switch">
+                      <input
+                        type="checkbox"
+                        checked={preferences.notifications}
+                        onChange={(e) => handlePreferenceChange("notifications", e.target.checked)}
+                      />
+                      <span className="mz-slider" />
+                    </label>
+                  </div>
+
+                  <div className="mz-setting-row" style={{ padding: "14px 0" }}>
+                    <div className="mz-setting-info">
+                      <span className="mz-setting-name">Compiler Test Passed Audio Chime</span>
+                      <span className="mz-setting-desc">Play subtle confirmation tone when all test cases pass in the compiler.</span>
+                    </div>
+                    <label className="mz-switch">
+                      <input
+                        type="checkbox"
+                        defaultChecked={true}
+                      />
+                      <span className="mz-slider" />
+                    </label>
+                  </div>
+                </div>
+
+                {/* 3. Security & Account Controls */}
+                <div style={{ background: "#ffffff", padding: "24px 28px", borderRadius: 18, border: "1px solid #e2e8f0", boxShadow: "0 2px 10px rgba(15,23,42,0.03)" }}>
+                  <h3 style={{ fontSize: "1.05rem", fontWeight: 700, margin: "0 0 4px", color: "#0f172a" }}>Security & Account Controls</h3>
+                  <p style={{ fontSize: "0.85rem", color: "#64748b", margin: "0 0 16px" }}>Manage password security and permanent account removal.</p>
+
+                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 8 }}>
+                    <button
+                      type="button"
+                      className="mz-report-btn mz-report-btn-secondary"
+                      onClick={() => navigate("/forgot-password")}
+                      style={{ padding: "9px 18px", fontSize: "13px" }}
+                    >
+                      Reset Password
+                    </button>
+                    <button
+                      type="button"
+                      className="mz-report-btn"
+                      onClick={handleDeleteAccount}
+                      style={{ padding: "9px 18px", fontSize: "13px", color: "#dc2626", borderColor: "#fecaca", background: "#fef2f2" }}
+                    >
+                      Delete Account
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : activeNavTab === "home" ? (
+            <div className="mz-content-columns">
+              <div className="mz-center-column" style={{ flex: 1, maxWidth: "100%" }}>
+                {/* Home Header / Greeting */}
+                <div
+                  className="mz-section-header"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    flexWrap: "wrap",
+                    gap: 16,
+                    marginBottom: 24,
+                  }}
+                >
+                  <div>
+                    <h2 className="mz-section-title" style={{ fontSize: "1.65rem", fontWeight: 800 }}>
+                      Welcome back, {user?.fullName || user?.username || "Learner"} 👋
+                    </h2>
+                    <p className="mz-section-subtitle" style={{ fontSize: "0.95rem" }}>
+                      Track your engineering progress, resume active projects, and conquer daily algorithmic challenges.
+                    </p>
+                  </div>
+
+                  {user && (
+                    <div
+                      onClick={() => navigate("/profile")}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        background: "#ffffff",
+                        padding: "6px 14px 6px 8px",
+                        borderRadius: 30,
+                        border: "1px solid #e2e8f0",
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+                        cursor: "pointer",
+                        transition: "all 0.2s ease",
+                      }}
+                      title="View & Edit Profile"
+                    >
+                      <div
+                        style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: "50%",
+                          overflow: "hidden",
+                          background: "#e2e8f0",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontWeight: 700,
+                          fontSize: "0.85rem",
+                          color: "#3b82f6",
+                        }}
+                      >
+                        {user.avatar ? (
+                          <img
+                            src={user.avatar}
+                            alt="Avatar"
+                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                          />
+                        ) : (
+                          (user.fullName || user.username || "U")[0]?.toUpperCase()
+                        )}
+                      </div>
+                      <div style={{ textAlign: "left", lineHeight: 1.2 }}>
+                        <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b" }}>
+                          {user.fullName || user.username}
+                        </div>
+                        <div style={{ fontSize: "0.72rem", color: "#2563eb", fontWeight: 600 }}>
+                          Active Profile →
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Hero Spotlight: Active Learning Track */}
+                <div
+                  style={{
+                    background: "linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%)",
+                    border: "1px solid #bfdbfe",
+                    borderRadius: 20,
+                    padding: "28px 32px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 24,
+                    marginBottom: 28,
+                    boxShadow: "0 4px 20px rgba(59, 130, 246, 0.08)",
+                  }}
+                >
+                  <div style={{ maxWidth: 560 }}>
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#dbeafe", color: "#1e40af", padding: "4px 12px", borderRadius: 20, fontSize: "0.78rem", fontWeight: 700, marginBottom: 12 }}>
+                      <LuSparkles size={14} /> Active Learning Track: {selectedItem ? selectedItem.title : "Coding"}
+                    </div>
+                    <h3 style={{ fontSize: "1.4rem", fontWeight: 800, color: "#0f172a", margin: "0 0 8px" }}>
+                      {selectedItem?.title || "Coding"} Engineering Hub
+                    </h3>
+                    <p style={{ color: "#475569", fontSize: "0.92rem", lineHeight: 1.6, margin: "0 0 20px" }}>
+                      {selectedItem?.description || "Build real full-stack projects, solve algorithmic problems, and earn verifiable certifications."}
+                    </p>
+                    <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                      <button
+                        type="button"
+                        className="mz-report-btn mz-report-btn-primary"
+                        onClick={() => navigate(selectedItem?.targetRoute || "/coding")}
+                        style={{ padding: "10px 22px", fontSize: "0.92rem", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 6 }}
+                      >
+                        Continue Learning <LuArrowRight size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        className="mz-report-btn mz-report-btn-secondary"
+                        onClick={() => navigate("/select-interests")}
+                        style={{ padding: "10px 18px", fontSize: "0.88rem", display: "inline-flex", alignItems: "center", gap: 6 }}
+                      >
+                        <LuTarget size={15} /> Switch Track
+                      </button>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "center", alignItems: "center", flexShrink: 0 }}>
+                    <img
+                      src={selectedItem?.illustration || codingIllustration}
+                      alt="Track Illustration"
+                      style={{ width: 140, height: 140, objectFit: "contain", filter: "drop-shadow(0 10px 20px rgba(0,0,0,0.12))" }}
+                    />
+                  </div>
+                </div>
+
+                {/* Quick Launch Cards (4 Grid Items) */}
+                <h3 style={{ fontSize: "1.1rem", fontWeight: 700, color: "#1e293b", margin: "0 0 16px" }}>
+                  Quick Launchpad
+                </h3>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 18, marginBottom: 28 }}>
+                  {/* Card 1: Challenges */}
+                  <div
+                    onClick={() => navigate("/coding")}
+                    style={{
+                      background: "#ffffff",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: 16,
+                      padding: 20,
+                      cursor: "pointer",
+                      transition: "all 0.2s ease",
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.03)",
+                    }}
+                  >
+                    <div style={{ width: 40, height: 40, borderRadius: 10, background: "#eff6ff", color: "#2563eb", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+                      <LuCodeXml size={22} />
+                    </div>
+                    <h4 style={{ margin: "0 0 6px", fontSize: "1rem", fontWeight: 700, color: "#0f172a" }}>
+                      Algorithmic Challenges
+                    </h4>
+                    <p style={{ margin: "0 0 14px", fontSize: "0.82rem", color: "#64748b", lineHeight: 1.5 }}>
+                      135 challenges with real-time compilers and automated test suites.
+                    </p>
+                    <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "#2563eb", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      Solve Challenges <LuArrowRight size={14} />
+                    </span>
+                  </div>
+
+                  {/* Card 2: Projects */}
+                  <div
+                    onClick={() => navigate("/coding")}
+                    style={{
+                      background: "#ffffff",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: 16,
+                      padding: 20,
+                      cursor: "pointer",
+                      transition: "all 0.2s ease",
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.03)",
+                    }}
+                  >
+                    <div style={{ width: 40, height: 40, borderRadius: 10, background: "#ecfdf5", color: "#059669", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+                      <LuFolderGit2 size={22} />
+                    </div>
+                    <h4 style={{ margin: "0 0 6px", fontSize: "1rem", fontWeight: 700, color: "#0f172a" }}>
+                      Industry Projects
+                    </h4>
+                    <p style={{ margin: "0 0 14px", fontSize: "0.82rem", color: "#64748b", lineHeight: 1.5 }}>
+                      Guided milestone projects with in-browser multi-file workspaces.
+                    </p>
+                    <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "#059669", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      Open Projects <LuArrowRight size={14} />
+                    </span>
+                  </div>
+
+                  {/* Card 3: Assessment Reports */}
+                  <div
+                    onClick={() => navigate("/reports")}
+                    style={{
+                      background: "#ffffff",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: 16,
+                      padding: 20,
+                      cursor: "pointer",
+                      transition: "all 0.2s ease",
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.03)",
+                    }}
+                  >
+                    <div style={{ width: 40, height: 40, borderRadius: 10, background: "#eef2ff", color: "#4f46e5", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+                      <LuFileText size={22} />
+                    </div>
+                    <h4 style={{ margin: "0 0 6px", fontSize: "1rem", fontWeight: 700, color: "#0f172a" }}>
+                      Assessment Reports
+                    </h4>
+                    <p style={{ margin: "0 0 14px", fontSize: "0.82rem", color: "#64748b", lineHeight: 1.5 }}>
+                      Review verified code solutions, audit trails, and test execution history.
+                    </p>
+                    <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "#4f46e5", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      View Reports ({reportsList.length}) <LuArrowRight size={14} />
+                    </span>
+                  </div>
+
+                  {/* Card 4: Live Meeting Platform */}
+                  <div
+                    onClick={() => navigate("/live")}
+                    style={{
+                      background: "#ffffff",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: 16,
+                      padding: 20,
+                      cursor: "pointer",
+                      transition: "all 0.2s ease",
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.03)",
+                    }}
+                  >
+                    <div style={{ width: 40, height: 40, borderRadius: 10, background: "#f5f3ff", color: "#7c3aed", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+                      <LuVideo size={22} />
+                    </div>
+                    <h4 style={{ margin: "0 0 6px", fontSize: "1rem", fontWeight: 700, color: "#0f172a" }}>
+                      Live Study Groups
+                    </h4>
+                    <p style={{ margin: "0 0 14px", fontSize: "0.82rem", color: "#64748b", lineHeight: 1.5 }}>
+                      Real-time audio, HD video, screen sharing, and collaborative code chat.
+                    </p>
+                    <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "#7c3aed", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      Start Meeting <LuArrowRight size={14} />
+                    </span>
+                  </div>
+                </div>
+
+                {/* Metrics Summary Strip */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                    gap: 16,
+                    padding: "20px 24px",
+                    background: "#ffffff",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: 16,
+                    marginBottom: 32,
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: "0.78rem", color: "#64748b", fontWeight: 600 }}>Active Track</div>
+                    <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "#0f172a" }}>
+                      {selectedItem?.title || "Coding"}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: "0.78rem", color: "#64748b", fontWeight: 600 }}>Total Reports</div>
+                    <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "#2563eb" }}>
+                      {reportsList.length}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: "0.78rem", color: "#64748b", fontWeight: 600 }}>Recorded Sessions</div>
+                    <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "#059669" }}>
+                      {recordingsList.length}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: "0.78rem", color: "#64748b", fontWeight: 600 }}>Official Certificates</div>
+                    <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "#7c3aed" }}>
+                      {certHistory.certificates?.length || 0}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           ) : (

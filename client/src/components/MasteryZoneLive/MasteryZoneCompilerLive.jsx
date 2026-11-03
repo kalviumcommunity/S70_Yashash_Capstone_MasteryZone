@@ -354,12 +354,32 @@ export default function MasteryZoneCompilerLive({
       content: "# Enter your code below\n",
     };
 
+  const currentUserId = (() => {
+    try {
+      const u = JSON.parse(localStorage.getItem("user") || "{}");
+      return u._id || u.id || u.userId || "guest";
+    } catch {
+      return "guest";
+    }
+  })();
+  const meetSubmitKey = `mz_${currentUserId}_meeting_${meetingId}_test_submitted`;
+
+  const [isTestSubmitted, setIsTestSubmitted] = useState(() => {
+    try {
+      const item = localStorage.getItem(meetSubmitKey);
+      return Boolean(item && JSON.parse(item).submitted);
+    } catch {
+      return false;
+    }
+  });
+
   const isReadOnlyForUser =
+    isTestSubmitted ||
     codingPermission === "read-only" ||
     (codingPermission === "host-only" && !isHost);
 
   const passedCount = useMemo(
-    () => currentTestCases.filter((tc) => tc.passed === true).length,
+    () => currentTestCases.filter((tc) => tc.passed === true || tc.passed === "true" || tc.status === "PASSED" || tc.passed === 1).length,
     [currentTestCases]
   );
   const isAllPassed = currentTestCases.length > 0 && passedCount === currentTestCases.length;
@@ -692,10 +712,17 @@ export default function MasteryZoneCompilerLive({
       });
 
       const data = await res.json();
-      if (data.results) {
+      const resList = data.results || data.testResults || [];
+      if (resList.length > 0) {
         setHasEvaluated(true);
-        setCurrentTestCases(data.results.map((r, i) => ({ ...r, index: i + 1 })));
-        toast.success(`Completed Tests: ${data.passedCount}/${data.totalCount} passed`);
+        setCurrentTestCases(
+          resList.map((r, i) => ({
+            ...r,
+            index: i + 1,
+            passed: Boolean(r.passed === true || r.passed === "true" || r.status === "PASSED" || r.passed === 1),
+          }))
+        );
+        toast.success(`Completed Tests: ${data.passedCount ?? resList.filter(r => r.passed).length}/${data.totalCount || resList.length} passed`);
       }
     } catch (err) {
       toast.error(`Failed to run test cases: ${err.message}`);
@@ -706,7 +733,7 @@ export default function MasteryZoneCompilerLive({
 
   // Submit and Grade Solution (80% threshold required to pass)
   const handleSubmitSolution = async () => {
-    if (isSubmitting) return;
+    if (isSubmitting || isTestSubmitted) return;
     setIsSubmitting(true);
 
     try {
@@ -730,12 +757,29 @@ export default function MasteryZoneCompilerLive({
       setAttemptsCount((prev) => prev + 1);
       setHasEvaluated(true);
 
-      if (data.testResults) {
-        setCurrentTestCases(data.testResults.map((r, i) => ({ ...r, index: i + 1 })));
+      const resList = data.testResults || data.results || [];
+      if (resList.length > 0) {
+        setCurrentTestCases(
+          resList.map((r, i) => ({
+            ...r,
+            index: i + 1,
+            passed: Boolean(r.passed === true || r.passed === "true" || r.status === "PASSED" || r.passed === 1),
+          }))
+        );
       }
 
-      if (data.isPassing) {
-        toast.success(`🎉 Solution Accepted! Score: ${data.scorePercentage}% (${data.passedCount}/${data.totalCount} tests passed)`);
+      if (data.isPassing || (resList.length > 0 && resList.every(r => r.passed))) {
+        toast.success(`🎉 Solution Accepted! Score: ${data.scorePercentage || 100}% (${data.passedCount || resList.length}/${data.totalCount || resList.length} tests passed)`);
+        // Permanently record submission for this user and seal meeting test
+        localStorage.setItem(meetSubmitKey, JSON.stringify({
+          submitted: true,
+          scorePercentage: data.scorePercentage || 100,
+          passedCount: data.passedCount || resList.length,
+          totalCount: data.totalCount || resList.length,
+          isPassing: true,
+          submittedAt: new Date().toISOString(),
+        }));
+        setIsTestSubmitted(true);
       } else {
         toast.warn(`Solution did not meet the 80% passing threshold (${data.scorePercentage}% scored). Revise and try again!`);
       }
@@ -1790,13 +1834,17 @@ export default function MasteryZoneCompilerLive({
                           >
                             <span>Test Case {tc.index || idx + 1}</span>
                             <span>
-                              {tc.passed === true ? (
-                                <LuCircleCheck size={14} color="#16a34a" />
-                              ) : tc.passed === false ? (
-                                <LuCircleX size={14} color="#dc2626" />
-                              ) : (
-                                <LuCircle size={13} color="#94a3b8" />
-                              )}
+                              {(() => {
+                                const isTcPass = Boolean(tc.passed === true || tc.passed === "true" || tc.status === "PASSED" || tc.passed === 1);
+                                const isTcFail = Boolean((tc.passed === false || tc.passed === "false" || tc.status === "FAILED") && !isTcPass);
+                                if (isTcPass) {
+                                  return <LuCircleCheck size={14} color="#16a34a" style={{ color: "#16a34a" }} />;
+                                }
+                                if (isTcFail) {
+                                  return <LuCircleX size={14} color="#dc2626" style={{ color: "#dc2626" }} />;
+                                }
+                                return <LuCircle size={13} color="#94a3b8" style={{ color: "#94a3b8" }} />;
+                              })()}
                             </span>
                           </button>
                         ))}
@@ -2050,28 +2098,37 @@ export default function MasteryZoneCompilerLive({
               )}
             </div>
 
-            {/* Right: Accept & Grade Solution (Black Pill with Send Icon) */}
+            {/* Right: Accept & Grade Solution (Black Pill with Send Icon, or Green Locked when Submitted) */}
             <button
               type="button"
               onClick={handleSubmitSolution}
-              disabled={isSubmitting || isReadOnlyForUser}
+              disabled={isSubmitting || isReadOnlyForUser || isTestSubmitted}
               style={{
-                background: "#0f172a",
+                background: isTestSubmitted ? "#16a34a" : "#0f172a",
                 color: "#ffffff",
                 border: "none",
                 borderRadius: 8,
                 padding: "6px 16px",
                 fontSize: 12,
                 fontWeight: 700,
-                cursor: "pointer",
+                cursor: isTestSubmitted ? "default" : "pointer",
                 display: "flex",
                 alignItems: "center",
                 gap: 8,
                 boxShadow: "0 2px 6px rgba(15, 23, 42, 0.2)",
               }}
             >
-              <span>{isSubmitting ? "Evaluating..." : "Accept & Grade Solution"}</span>
-              <LuSend size={13} />
+              {isTestSubmitted ? (
+                <>
+                  <LuCircleCheck size={14} color="#ffffff" style={{ color: "#ffffff" }} />
+                  <span>Test Submitted & Graded (Locked)</span>
+                </>
+              ) : (
+                <>
+                  <span>{isSubmitting ? "Evaluating..." : "Accept & Grade Solution"}</span>
+                  <LuSend size={13} />
+                </>
+              )}
             </button>
           </footer>
         </div>

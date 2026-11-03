@@ -2403,7 +2403,7 @@ export default function MasteryZoneCompilerWorkspace({
         return;
       }
 
-      const resultsArray = result?.results || [];
+      const resultsArray = result?.results || result?.testResults || [];
       let pCount = 0;
 
       setAllTestCases((prev) => {
@@ -2414,7 +2414,7 @@ export default function MasteryZoneCompilerWorkspace({
         for (let i = 0; i < updated.length; i++) {
           const r = resultsArray[i];
           if (r) {
-            const isPassed = !!r.passed;
+            const isPassed = Boolean(r.passed === true || r.passed === "true" || r.passed === 1 || r.status === "PASSED" || r.status === "ACCEPTED");
             if (isPassed) pCount++;
             updated[i] = {
               ...(updated[i] || {}),
@@ -2422,12 +2422,12 @@ export default function MasteryZoneCompilerWorkspace({
               passed: isPassed,
               actualOutput: r.actual || r.actualOutput || (isPassed ? "[Passed]" : "[Failed Output]"),
               duration: r.duration || r.durationMs || 35,
-              error: r.error || null,
+              error: isPassed ? null : (r.error || null),
               input: r.input || updated[i]?.input || `Test Case #${i + 1}`,
               expectedOutput: r.expected || r.expectedOutput || updated[i]?.expectedOutput || "Expected Output",
               isHidden: r.isHidden !== undefined ? r.isHidden : (updated[i]?.isHidden !== undefined ? updated[i].isHidden : i >= 3),
             };
-          } else if (result?.passedCount === (base.length || 10) || result?.status === "ACCEPTED" || result?.status === "PASSED") {
+          } else if (result?.passedCount === (base.length || 10) || result?.status === "ACCEPTED" || result?.status === "PASSED" || result?.allPassed) {
             pCount++;
             updated[i] = {
               ...(updated[i] || {}),
@@ -2441,13 +2441,14 @@ export default function MasteryZoneCompilerWorkspace({
               isHidden: updated[i]?.isHidden !== undefined ? updated[i].isHidden : i >= 3,
             };
           } else {
+            // Unexecuted case in sample run remains neutral (passed: null), not falsely marked failed!
             updated[i] = {
               ...(updated[i] || {}),
               index: i + 1,
-              passed: false,
-              actualOutput: "[Execution Terminated]",
+              passed: null,
+              actualOutput: "[Awaiting Full Evaluation]",
               duration: 0,
-              error: "Test case did not execute",
+              error: null,
               input: updated[i]?.input || `Test Case #${i + 1}`,
               expectedOutput: updated[i]?.expectedOutput || "Expected Output",
               isHidden: updated[i]?.isHidden !== undefined ? updated[i].isHidden : i >= 3,
@@ -2566,7 +2567,11 @@ export default function MasteryZoneCompilerWorkspace({
         }
       }
 
-      const resultsArray = Array.isArray(result?.results) ? result.results : [];
+      const resultsArray = Array.isArray(result?.results)
+        ? result.results
+        : Array.isArray(result?.testResults)
+        ? result.testResults
+        : [];
       let pCount = 0;
 
       const baseCases = (allTestCases && allTestCases.length > 0)
@@ -2578,7 +2583,7 @@ export default function MasteryZoneCompilerWorkspace({
       const updatedCases = baseCases.map((tc, i) => {
         const r = resultsArray[i];
         if (r) {
-          const isPassed = !!r.passed;
+          const isPassed = Boolean(r.passed === true || r.passed === "true" || r.passed === 1 || r.status === "PASSED" || r.status === "ACCEPTED");
           if (isPassed) pCount++;
           return {
             ...(tc || {}),
@@ -2586,12 +2591,12 @@ export default function MasteryZoneCompilerWorkspace({
             passed: isPassed,
             actualOutput: r.actual || r.actualOutput || (isPassed ? "[Passed]" : "[Failed Output]"),
             duration: r.duration || r.durationMs || 35,
-            error: r.error || null,
+            error: isPassed ? null : (r.error || null),
             input: r.input || tc?.input || `Test Case #${i + 1}`,
             expectedOutput: r.expected || r.expectedOutput || tc?.expectedOutput || "Expected Output",
             isHidden: r.isHidden !== undefined ? r.isHidden : (tc?.isHidden !== undefined ? tc.isHidden : i >= 3),
           };
-        } else if (result?.passedCount === baseCases.length || result?.status === "ACCEPTED" || result?.status === "PASSED") {
+        } else if (result?.passedCount === baseCases.length || result?.status === "ACCEPTED" || result?.status === "PASSED" || result?.allPassed || result?.isSolved) {
           pCount++;
           return {
             ...(tc || {}),
@@ -2611,7 +2616,7 @@ export default function MasteryZoneCompilerWorkspace({
             passed: false,
             actualOutput: "[Failed Output]",
             duration: 0,
-            error: "Not executed",
+            error: "Test case did not pass",
             input: tc?.input || `Test Case #${i + 1}`,
             expectedOutput: tc?.expectedOutput || "Expected Output",
             isHidden: tc?.isHidden !== undefined ? tc.isHidden : i >= 3,
@@ -4396,11 +4401,11 @@ export default function MasteryZoneCompilerWorkspace({
                       {bannerVisible && (
                         <div
                           className={`mz-compiler-pass-banner ${
-                            isAllPassed
+                            isAllPassed || (hasEvaluated && !isCodeModifiedAfterEval && passedCount > 0 && passedCount === allTestCases.filter(t => t.passed !== null).length)
                               ? "all-passed"
-                              : hasEvaluated && !isCodeModifiedAfterEval && passedCount >= 8
+                              : hasEvaluated && !isCodeModifiedAfterEval && passedCount >= Math.ceil(allTestCases.length * 0.8)
                               ? "passed"
-                              : hasEvaluated && !isCodeModifiedAfterEval && passedCount < 8
+                              : hasEvaluated && !isCodeModifiedAfterEval
                               ? "failed"
                               : "idle"
                           }`}
@@ -4409,10 +4414,10 @@ export default function MasteryZoneCompilerWorkspace({
                           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                             {isAllPassed ? (
                               <LuSparkles size={16} />
-                            ) : hasEvaluated && !isCodeModifiedAfterEval && passedCount >= 8 ? (
-                              <LuCircleCheck size={16} />
-                            ) : hasEvaluated && !isCodeModifiedAfterEval && passedCount < 8 ? (
-                              <LuCircleX size={16} />
+                            ) : hasEvaluated && !isCodeModifiedAfterEval && (passedCount >= Math.ceil(allTestCases.length * 0.8) || (passedCount > 0 && passedCount === allTestCases.filter(t => t.passed !== null).length)) ? (
+                              <LuCircleCheck size={16} color="#10b981" style={{ color: "#10b981" }} />
+                            ) : hasEvaluated && !isCodeModifiedAfterEval ? (
+                              <LuCircleX size={16} color="#ef4444" style={{ color: "#ef4444" }} />
                             ) : (
                               <LuFileCode size={16} />
                             )}
@@ -4421,8 +4426,8 @@ export default function MasteryZoneCompilerWorkspace({
                                 ? "🎉 Perfect Score! All test cases passed (100%). Solution Verified & Graded!"
                                 : hasEvaluated && !isCodeModifiedAfterEval
                                 ? `You have passed ${passedCount}/${allTestCases.length} tests${
-                                    passedCount >= 8
-                                      ? " — Solution meets passing criteria (≥80%)!"
+                                    passedCount >= Math.ceil(allTestCases.length * 0.8) || (passedCount > 0 && passedCount === allTestCases.filter(t => t.passed !== null).length)
+                                      ? " — Passing criteria satisfied (Green Verified)!"
                                       : " — Keep revising to reach 80% passing threshold!"
                                   }`
                                 : "Run tests to evaluate your solution against the comprehensive test suite."}
@@ -4452,33 +4457,40 @@ export default function MasteryZoneCompilerWorkspace({
                           </button>
 
                           <div className="mz-compiler-test-cases-list">
-                            {allTestCases.map((tc, idx) => (
-                              <button
-                                key={tc.index}
-                                type="button"
-                                className={`mz-compiler-tc-item ${selectedCaseIndex === idx ? "active" : ""}`}
-                                onClick={() => setSelectedCaseIndex(idx)}
-                              >
-                                <span>Test Case {tc.index}</span>
-                                <span
-                                  className={`mz-compiler-status-icon ${
-                                    tc.passed === true || (isAllPassed && hasEvaluated)
-                                      ? "pass"
-                                      : tc.passed === false
-                                      ? "fail"
-                                      : "neutral"
-                                  }`}
+                            {allTestCases.map((tc, idx) => {
+                              const isTcPass = Boolean(
+                                tc.passed === true ||
+                                tc.passed === "true" ||
+                                tc.status === "PASSED" ||
+                                (isAllPassed && hasEvaluated)
+                              );
+                              const isTcFail = Boolean(
+                                (tc.passed === false || tc.passed === "false" || tc.status === "FAILED") && !isTcPass
+                              );
+                              return (
+                                <button
+                                  key={tc.index || idx + 1}
+                                  type="button"
+                                  className={`mz-compiler-tc-item ${selectedCaseIndex === idx ? "active" : ""}`}
+                                  onClick={() => setSelectedCaseIndex(idx)}
                                 >
-                                  {tc.passed === true || (isAllPassed && hasEvaluated) ? (
-                                    <LuCircleCheck size={16} />
-                                  ) : tc.passed === false ? (
-                                    <LuCircleX size={16} />
-                                  ) : (
-                                    <LuCircle size={15} color="#94a3b8" />
-                                  )}
-                                </span>
-                              </button>
-                            ))}
+                                  <span>Test Case {tc.index || idx + 1}</span>
+                                  <span
+                                    className={`mz-compiler-status-icon ${
+                                      isTcPass ? "pass" : isTcFail ? "fail" : "neutral"
+                                    }`}
+                                  >
+                                    {isTcPass ? (
+                                      <LuCircleCheck size={16} color="#10b981" style={{ color: "#10b981" }} />
+                                    ) : isTcFail ? (
+                                      <LuCircleX size={16} color="#ef4444" style={{ color: "#ef4444" }} />
+                                    ) : (
+                                      <LuCircle size={15} color="#94a3b8" style={{ color: "#94a3b8" }} />
+                                    )}
+                                  </span>
+                                </button>
+                              );
+                            })}
                           </div>
                         </div>
 

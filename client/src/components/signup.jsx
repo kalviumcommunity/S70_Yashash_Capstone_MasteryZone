@@ -308,7 +308,7 @@ const Signup = () => {
           />
           <div className="mz-nav-logo-text-group">
             <span className="mz-nav-brand-title">Mastery Zone</span>
-            <span className="mz-nav-brand-tagline">Learn • Grow • Achieve</span>
+            <span className="mz-nav-brand-tagline">Learn · Grow · Succeed</span>
           </div>
         </Link>
 
@@ -344,9 +344,7 @@ const Signup = () => {
               </div>
               <div className="mz-feature-text">
                 <span className="mz-feat-title">Learn</span>
-                <span className="mz-feat-desc">
-                  Access quality courses anytime
-                </span>
+                <span className="mz-feat-desc">Access quality courses anytime.</span>
               </div>
             </div>
 
@@ -371,7 +369,7 @@ const Signup = () => {
               </div>
               <div className="mz-feature-text">
                 <span className="mz-feat-title">Track</span>
-                <span className="mz-feat-desc">Monitor your progress</span>
+                <span className="mz-feat-desc">Monitor your progress.</span>
               </div>
             </div>
 
@@ -381,9 +379,7 @@ const Signup = () => {
               </div>
               <div className="mz-feature-text">
                 <span className="mz-feat-title">Achieve</span>
-                <span className="mz-feat-desc">
-                  Build the skills for tomorrow
-                </span>
+                <span className="mz-feat-desc">Build the skills for tomorrow.</span>
               </div>
             </div>
           </div>
