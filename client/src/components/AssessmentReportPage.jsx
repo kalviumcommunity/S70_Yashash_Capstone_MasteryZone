@@ -43,7 +43,7 @@ import {
 } from "react-icons/fi";
 import "./AssessmentReportPage.css";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5012";
+const API_BASE = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || "";
 
 // Helper to detect empty or comment-only code on client side
 function isClientCodeEmpty(code) {
@@ -167,11 +167,13 @@ export default function AssessmentReportPage() {
       let res = null;
       let data = null;
 
+      const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+
       // 0. Try Certification Attempt Report first if cert_att_ prefix or cert attempt
       if (isCertAttemptId || rawId.startsWith("cert_")) {
         try {
           res = await fetch(`${API_BASE}/api/certifications/attempt/${rawId}/report`, {
-            headers: { Authorization: `Bearer ${token}` },
+            headers: authHeaders,
           });
           data = await res.json().catch(() => ({}));
         } catch {}
@@ -180,7 +182,7 @@ export default function AssessmentReportPage() {
       // 1. Try Project Submission report endpoint first if proj_sub_ prefix
       if (isProjectSubId) {
         res = await fetch(`${API_BASE}/api/projects/submissions/${rawId}/report`, {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: authHeaders,
         });
         data = await res.json().catch(() => ({}));
       }
@@ -188,7 +190,7 @@ export default function AssessmentReportPage() {
       // 2. Try curriculum MCQ attempt endpoint if attempt_ prefix
       if ((!res || !res.ok || !data?.report) && isAttemptId) {
         res = await fetch(`${API_BASE}/api/curriculum/assessment-attempt/${cleanId}`, {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: authHeaders,
         });
         data = await res.json().catch(() => ({}));
       }
@@ -196,7 +198,7 @@ export default function AssessmentReportPage() {
       // 3. Try proctored coding session report endpoint
       if (!res || !res.ok || !data?.report) {
         res = await fetch(`${API_BASE}/api/coding/proctored-session/${rawId}/report`, {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: authHeaders,
         });
         data = await res.json().catch(() => ({}));
       }
@@ -204,7 +206,7 @@ export default function AssessmentReportPage() {
       // 4. Fallback to curriculum assessment attempt endpoint for raw ObjectId
       if (!res || !res.ok || !data?.report) {
         res = await fetch(`${API_BASE}/api/curriculum/assessment-attempt/${cleanId}`, {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: authHeaders,
         });
         data = await res.json().catch(() => ({}));
       }
@@ -212,27 +214,58 @@ export default function AssessmentReportPage() {
       // 5. Fallback to project submission report endpoint
       if (!res || !res.ok || !data?.report) {
         res = await fetch(`${API_BASE}/api/projects/submissions/${cleanId}/report`, {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: authHeaders,
         });
         data = await res.json().catch(() => ({}));
+      }
+
+      // 6. Fallback to certification attempt report endpoint
+      if (!res || !res.ok || !data?.report) {
+        try {
+          res = await fetch(`${API_BASE}/api/certifications/attempt/${rawId}/report`, {
+            headers: authHeaders,
+          });
+          data = await res.json().catch(() => ({}));
+        } catch {}
       }
 
       if (!res || !res.ok || !data?.report) {
         throw new Error(data?.error || "Failed to load assessment report.");
       }
 
-      setReport(data.report);
+      let finalReport = data.report;
+      // Enrich with logged in user profile on this device if report candidate details are generic
+      try {
+        const storedUser = localStorage.getItem("user");
+        if (storedUser) {
+          const parsed = JSON.parse(storedUser);
+          const currentName = parsed.fullName || parsed.username || parsed.name;
+          const currentEmail = parsed.email;
+          const currentId = parsed._id || parsed.id;
+          if (finalReport && finalReport.candidateDetails) {
+            if (
+              !finalReport.candidateDetails.fullName ||
+              finalReport.candidateDetails.fullName === "Candidate" ||
+              finalReport.candidateDetails.fullName === "Verified Candidate"
+            ) {
+              if (currentName) finalReport.candidateDetails.fullName = currentName;
+            }
+            if (!finalReport.candidateDetails.email && currentEmail) {
+              finalReport.candidateDetails.email = currentEmail;
+            }
+            if (!finalReport.candidateDetails.candidateId && currentId) {
+              finalReport.candidateDetails.candidateId = `CAND-${currentId.toString().slice(-6).toUpperCase()}`;
+            }
+          }
+        }
+      } catch {}
 
-      // Expand first 2 questions by default so report looks rich immediately
-      const qLen =
-        data.report.isMcq && Array.isArray(data.report.reviewBreakdown)
-          ? data.report.reviewBreakdown.length
-          : Array.isArray(data.report.questions)
-          ? data.report.questions.length
-          : 1;
-      const initialExpanded = {};
-      for (let i = 0; i < Math.min(2, qLen); i++) {
-        initialExpanded[i] = true;
+      setReport(finalReport);
+
+      // Expand first MCQ and first coding question by default so report looks rich immediately
+      const initialExpanded = { 0: true };
+      if (Array.isArray(data.report.reviewBreakdown) && data.report.reviewBreakdown.length > 0) {
+        initialExpanded[data.report.reviewBreakdown.length] = true;
       }
       setExpandedQuestions(initialExpanded);
     } catch (err) {
@@ -318,14 +351,28 @@ export default function AssessmentReportPage() {
   // Normalize questions across Coding, Project, and MCQ reports
   const normalizedQuestions = useMemo(() => {
     if (!report) return [];
-    const isMcq = Boolean(report.isMcq);
-    if (isMcq && Array.isArray(report.reviewBreakdown) && report.reviewBreakdown.length > 0) {
-      const avgSec = Math.max(1, Math.round((report.durationSeconds || 20) / report.reviewBreakdown.length));
-      return report.reviewBreakdown.map((item, idx) => {
-        const userAnsIdx = item.userSelected !== undefined ? item.userSelected : item.userAnswer;
-        const corrAnsIdx = item.correctIndex !== undefined ? item.correctIndex : item.correctAnswer;
+    const isPureMcq = Boolean(report.isMcq);
+    const hasMcqs = Array.isArray(report.reviewBreakdown) && report.reviewBreakdown.length > 0;
+    const hasCoding = Array.isArray(report.questions) && report.questions.length > 0;
+
+    let mcqList = [];
+    if (hasMcqs) {
+      const avgSec = Math.max(1, Math.round((report.durationSeconds || 1800) / report.reviewBreakdown.length));
+      mcqList = report.reviewBreakdown.map((item, idx) => {
+        const userAnsIdx =
+          item.userSelected !== undefined
+            ? item.userSelected
+            : item.selectedOption !== undefined
+            ? item.selectedOption
+            : item.userAnswer;
+        const corrAnsIdx =
+          item.correctIndex !== undefined
+            ? item.correctIndex
+            : item.correctOption !== undefined
+            ? item.correctOption
+            : item.correctAnswer;
         const isUnanswered = userAnsIdx === null || userAnsIdx === undefined || userAnsIdx === -1;
-        const isCorrect = Boolean(item.isCorrect);
+        const isCorrect = !isUnanswered && Number(userAnsIdx) === Number(corrAnsIdx);
         const status = isUnanswered ? "unanswered" : isCorrect ? "passed" : "failed";
         return {
           ...item,
@@ -333,45 +380,56 @@ export default function AssessmentReportPage() {
           questionIndex: idx,
           title: item.question || `Question ${idx + 1}`,
           status,
-          marksObtained: item.marksAwarded !== undefined ? item.marksAwarded : isCorrect ? item.maxMarks || 1 : 0,
+          marksObtained:
+            item.marksAwarded !== undefined
+              ? item.marksAwarded
+              : isCorrect
+              ? item.maxMarks || 1
+              : 0,
           totalMarks: item.maxMarks || 1,
           durationLabel: `${avgSec}s`,
-          userAnsIdx,
-          corrAnsIdx,
+          userAnsIdx: isUnanswered ? null : Number(userAnsIdx),
+          corrAnsIdx: Number(corrAnsIdx),
           isUnanswered,
           isCorrect,
         };
       });
     }
 
-    const rawQuestions =
-      Array.isArray(report.questions) && report.questions.length > 0
-        ? report.questions
-        : [
-            {
-              questionId: report.problemData?.id || "q_1",
-              title: report.problemData?.title || report.assessmentTitle || "Coding Problem",
-              difficulty: report.problemData?.difficulty || "Medium",
-              category: report.problemData?.category || report.trackId || "DSA",
-              description: report.problemData?.description || "",
-              inputFormat: report.problemData?.inputFormat || "",
-              outputFormat: report.problemData?.outputFormat || "",
-              constraints: report.problemData?.constraints || [],
-              examples: report.problemData?.examples || [],
-              submittedCode: report.submittedCode || "",
-              language: report.language || "python",
-              status: report.performance?.passed ? "passed" : "failed",
-              score: report.performance?.score || 0,
-              marksObtained: report.performance?.marksObtained ?? report.performance?.score ?? 0,
-              totalMarks: report.performance?.totalMarks || 100,
-              passedTests: report.performance?.passedTests || 0,
-              totalTests: report.performance?.totalTests || 10,
-              testResults: report.testResults || [],
-              submittedAt: report.submissionTime,
-            },
-          ];
+    if (isPureMcq && !hasCoding) {
+      return mcqList;
+    }
 
-    return rawQuestions.map((q, idx) => {
+    const rawCodingQuestions = hasCoding
+      ? report.questions
+      : !hasMcqs
+      ? [
+          {
+            questionId: report.problemData?.id || "q_1",
+            title: report.problemData?.title || report.assessmentTitle || "Coding Problem",
+            difficulty: report.problemData?.difficulty || "Medium",
+            category: report.problemData?.category || report.trackId || "DSA",
+            description: report.problemData?.description || "",
+            inputFormat: report.problemData?.inputFormat || "",
+            outputFormat: report.problemData?.outputFormat || "",
+            constraints: report.problemData?.constraints || [],
+            examples: report.problemData?.examples || [],
+            submittedCode: report.submittedCode || "",
+            language: report.language || "python",
+            status: report.performance?.passed ? "passed" : "failed",
+            score: report.performance?.score || 0,
+            marksObtained: report.performance?.marksObtained ?? report.performance?.score ?? 0,
+            totalMarks: report.performance?.totalMarks || 100,
+            passedTests: report.performance?.passedTests || 0,
+            totalTests: report.performance?.totalTests || 10,
+            testResults: report.testResults || [],
+            submittedAt: report.submissionTime,
+          },
+        ]
+      : [];
+
+    const codingOffset = mcqList.length;
+    const codingList = rawCodingQuestions.map((q, idx) => {
       const qCode = q.submittedCode !== undefined ? String(q.submittedCode) : "";
       const codeEmpty = q.isCodeEmpty !== undefined ? Boolean(q.isCodeEmpty) : isClientCodeEmpty(qCode);
       const tResults = Array.isArray(q.testResults) ? q.testResults : [];
@@ -448,7 +506,7 @@ export default function AssessmentReportPage() {
       return {
         ...q,
         isMcqQuestion: false,
-        questionIndex: idx,
+        questionIndex: codingOffset + idx,
         title: q.title || `Coding Problem ${idx + 1}`,
         submittedCode: codeEmpty && passedTests === 0 ? "" : qCode,
         isCodeEmpty: codeEmpty && passedTests === 0,
@@ -466,6 +524,8 @@ export default function AssessmentReportPage() {
         durationLabel: runtimeMs > 0 ? `${runtimeMs}ms` : "0ms",
       };
     });
+
+    return [...mcqList, ...codingList];
   }, [report]);
 
   // Filter counts for Question Navigator

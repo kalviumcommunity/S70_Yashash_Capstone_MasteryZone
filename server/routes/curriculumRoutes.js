@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const authenticateToken = require("../middleware/authMiddleware");
+const { optionalAuthenticateToken } = require("../middleware/authMiddleware");
 const { ALL_CURRICULA, getCurriculumFor, getSubjectModule } = require("../data/curriculumRegistry");
 const SubjectProgress = require("../models/SubjectProgress");
 const CodingProgress = require("../models/CodingProgress");
@@ -311,8 +312,63 @@ router.get("/reports", authenticateToken, async (req, res) => {
       });
     } catch {}
 
+    // 4. Fetch Certification Exam Attempts
+    let formattedCerts = [];
+    try {
+      const CertificationAttempt = require("../models/CertificationAttempt");
+      const userMatchOr = [{ userId }];
+      if (userObjId) userMatchOr.push({ userId: userObjId });
+      if (req.user?.email) userMatchOr.push({ candidateEmail: req.user.email });
+
+      const certAttempts = await CertificationAttempt.find({
+        $or: userMatchOr,
+      })
+        .sort({ submittedAt: -1, createdAt: -1 })
+        .lean();
+
+      formattedCerts = certAttempts.map((ca) => {
+        const isPass = ca.status === "PASSED" || ca.finalVerdict === "PASSED";
+        const totalMarks = ca.maxScore || 40;
+        const marksObtained = ca.finalScore || 0;
+        const pct = ca.finalPercentage || Math.round((marksObtained / totalMarks) * 100);
+        return {
+          id: ca.attemptId,
+          sessionId: ca.attemptId,
+          attemptId: ca.attemptId,
+          certificateId: ca.certificateId,
+          subjectKey: "coding",
+          trackId: ca.certId || "python",
+          moduleIndex: 0,
+          assessmentTitle: `${ca.certTitle} — Proctored Credential Examination`,
+          questionTitle: ca.certTitle,
+          difficulty: "Professional",
+          category: "CODING Professional Certification",
+          type: "certification_exam",
+          typeLabel: "Professional Certification Exam",
+          candidateDetails: {
+            fullName: ca.candidateName,
+            email: ca.candidateEmail,
+            candidateId: String(ca.userId),
+          },
+          submittedAt: ca.submittedAt || ca.updatedAt || ca.createdAt,
+          score: marksObtained,
+          marksObtained,
+          totalMarks,
+          percentage: pct,
+          grade: ca.grade || (isPass ? "A" : "F"),
+          accuracy: pct,
+          passedTests: ca.codingScore || 0,
+          totalTests: 20,
+          durationSeconds: ca.timeSpentSeconds || 0,
+          passed: isPass,
+          violationsCount: ca.interruptionCount || 0,
+          reportUrl: `/assessment-report/${ca.attemptId}`,
+        };
+      });
+    } catch {}
+
     // Combine and apply filters
-    let allReports = [...formattedMcq, ...formattedCoding, ...formattedProjects].sort(
+    let allReports = [...formattedMcq, ...formattedCoding, ...formattedProjects, ...formattedCerts].sort(
       (a, b) => new Date(b.submittedAt || 0) - new Date(a.submittedAt || 0)
     );
 
@@ -356,8 +412,8 @@ router.get("/reports", authenticateToken, async (req, res) => {
 // Returns detailed read-only audit attempt report for an MCQ exam
 // (Placed BEFORE parameterized routes to prevent route collision)
 // -------------------------------------------------------------
-router.get("/assessment-attempt/:attemptId", authenticateToken, async (req, res) => {
-  const userId = req.user.userId || req.user.id || req.user._id;
+router.get("/assessment-attempt/:attemptId", optionalAuthenticateToken, async (req, res) => {
+  const userId = req.user ? (req.user.userId || req.user.id || req.user._id) : null;
   const rawId = (req.params.attemptId || "").trim();
   const cleanId = rawId.startsWith("attempt_") ? rawId.replace("attempt_", "") : rawId;
 
@@ -367,10 +423,12 @@ router.get("/assessment-attempt/:attemptId", authenticateToken, async (req, res)
 
     // 1. Search by ObjectId in ModuleAssessmentAttempt
     if (mongoose.Types.ObjectId.isValid(cleanId)) {
-      attempt = await ModuleAssessmentAttempt.findOne({
-        _id: cleanId,
-        $or: [{ userId }, { userId: new mongoose.Types.ObjectId(userId) }],
-      }).lean();
+      if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+        attempt = await ModuleAssessmentAttempt.findOne({
+          _id: cleanId,
+          userId: new mongoose.Types.ObjectId(userId),
+        }).lean();
+      }
 
       if (!attempt) {
         attempt = await ModuleAssessmentAttempt.findById(cleanId).lean();
@@ -399,10 +457,30 @@ router.get("/assessment-attempt/:attemptId", authenticateToken, async (req, res)
         return res.redirect(`/api/coding/proctored-session/${codingSession.sessionId}/report`);
       }
 
+      // 4. Fallback: check CertificationAttempt
+      const CertificationAttempt = require("../models/CertificationAttempt");
+      const certAttempt = await CertificationAttempt.findOne({
+        $or: [{ attemptId: rawId }, { attemptId: cleanId }, { certificateId: rawId }, { certificateId: cleanId }],
+      }).lean();
+
+      if (certAttempt) {
+        return res.redirect(`/api/certifications/attempt/${certAttempt.attemptId}/report`);
+      }
+
       return res.status(404).json({ error: "Assessment attempt not found" });
     }
 
-    const user = await User.findById(attempt.userId || userId).lean();
+    let user = null;
+    const targetUserId = attempt.userId || userId;
+    if (targetUserId && mongoose.Types.ObjectId.isValid(targetUserId)) {
+      user = await User.findById(targetUserId).lean();
+    }
+    if (!user && req.user) {
+      const authUid = req.user.userId || req.user.id || req.user._id;
+      if (authUid && mongoose.Types.ObjectId.isValid(authUid)) {
+        user = await User.findById(authUid).lean();
+      }
+    }
     const module = getSubjectModule(attempt.subjectKey, attempt.trackId, attempt.moduleIndex);
     const questions = (Array.isArray(attempt.questions) && attempt.questions.length > 0)
       ? attempt.questions
@@ -556,9 +634,9 @@ router.get("/assessment-attempt/:attemptId", authenticateToken, async (req, res)
       moduleIndex: attempt.moduleIndex,
       attemptNumber: attempt.attemptNumber || 1,
       candidateDetails: {
-        fullName: user?.fullName || user?.name || "Verified Candidate",
+        fullName: user?.fullName || user?.name || user?.username || "Verified Candidate",
         email: user?.email || "candidate@masteryzone.edu",
-        candidateId: `CAND-${(attempt.userId || userId).toString().slice(-6).toUpperCase()}`,
+        candidateId: `CAND-${(attempt.userId || userId || attempt._id || "GUEST").toString().slice(-6).toUpperCase()}`,
         organization: "Mastery Zone Academic Accreditation",
       },
       status: isPass ? "passed" : "failed",

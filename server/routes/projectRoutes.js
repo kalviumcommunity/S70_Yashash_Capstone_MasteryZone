@@ -6,6 +6,7 @@ const os = require("os");
 const { spawn } = require("child_process");
 const mongoose = require("mongoose");
 const authenticateToken = require("../middleware/authMiddleware");
+const { optionalAuthenticateToken } = require("../middleware/authMiddleware");
 
 const {
   PROJECTS_CATALOG,
@@ -974,7 +975,7 @@ router.get("/", authenticateToken, async (req, res) => {
 // ============================================================================
 // 2. GET /api/projects/submissions/:sessionId/report — Fetch permanent report
 // ============================================================================
-router.get("/submissions/:sessionId/report", authenticateToken, async (req, res) => {
+router.get("/submissions/:sessionId/report", optionalAuthenticateToken, async (req, res) => {
   try {
     const { sessionId } = req.params;
     let sub = await ProjectSubmission.findOne({ sessionId }).lean();

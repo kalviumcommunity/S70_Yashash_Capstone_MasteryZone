@@ -45,7 +45,18 @@ import { toast } from "react-toastify";
 import MasteryZoneWhiteboard from "./MasteryZoneWhiteboard";
 import "./masteryZoneLive.css";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5012";
+const getApiBase = () => {
+  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+  if (typeof window !== "undefined" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
+    if (window.location.port === "5174" || window.location.port === "5173") {
+      return `http://${window.location.hostname}:5012`;
+    }
+    return window.location.origin;
+  }
+  return "";
+};
+
+const API_BASE = getApiBase();
 
 const EMOJI_OPTIONS = ["💖", "👍", "🎉", "👏", "😂", "🔥", "🚀", "💡"];
 
@@ -55,11 +66,18 @@ function PersistentVideoTile({ stream, isLocal, isMuted, isScreenSharing, isVide
   useEffect(() => {
     const el = videoRef.current;
     if (!el) return;
-    if (stream && el.srcObject !== stream) {
-      el.srcObject = stream;
-      el.play().catch(() => {});
+    if (isLocal) {
+      el.muted = true;
     }
-  }, [stream]);
+    if (stream) {
+      if (el.srcObject !== stream) {
+        el.srcObject = stream;
+      }
+      el.play().catch(() => {});
+    } else {
+      el.srcObject = null;
+    }
+  }, [stream, isVideoOff, isScreenSharing, isLocal]);
 
   return (
     <video
@@ -158,6 +176,76 @@ export default function MasteryZoneLiveMeeting({
   const recordingTimerRef = useRef(null);
   const audioContextRef = useRef(null);
   const analyserRef = useRef(null);
+
+  // Explicitly turn off camera and microphone hardware tracks
+  const stopAllMediaHardware = useCallback(() => {
+    try {
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach((t) => {
+          try {
+            t.enabled = false;
+            t.stop();
+          } catch {}
+        });
+        localStreamRef.current = null;
+      }
+      setLocalStreamState((prev) => {
+        if (prev) {
+          prev.getTracks().forEach((t) => {
+            try {
+              t.enabled = false;
+              t.stop();
+            } catch {}
+          });
+        }
+        return null;
+      });
+      if (screenStreamRef.current) {
+        screenStreamRef.current.getTracks().forEach((t) => {
+          try {
+            t.enabled = false;
+            t.stop();
+          } catch {}
+        });
+        screenStreamRef.current = null;
+      }
+      if (audioContextRef.current && audioContextRef.current.state !== "closed") {
+        try {
+          audioContextRef.current.close().catch(() => {});
+        } catch {}
+      }
+
+      // Stop senders on all active peer connections
+      peerConnectionsRef.current.forEach((pc) => {
+        try {
+          pc.getSenders().forEach((s) => {
+            try {
+              s.track?.stop();
+            } catch {}
+          });
+          pc.close();
+        } catch {}
+      });
+      peerConnectionsRef.current.clear();
+
+      // Detach and stop any leftover tracks on all media elements
+      document.querySelectorAll("video, audio").forEach((mediaEl) => {
+        if (mediaEl.srcObject && typeof mediaEl.srcObject.getTracks === "function") {
+          mediaEl.srcObject.getTracks().forEach((t) => {
+            try {
+              t.enabled = false;
+              t.stop();
+            } catch {}
+          });
+          mediaEl.srcObject = null;
+        }
+      });
+      setIsVideoOff(true);
+      setIsMuted(true);
+    } catch (err) {
+      console.warn("Hardware media shutdown warning:", err);
+    }
+  }, []);
 
   const inviteLink = `${typeof window !== "undefined" ? window.location.origin : ""}/meeting/${meetingData.meetingId || meetingId}`;
 
@@ -314,47 +402,213 @@ export default function MasteryZoneLiveMeeting({
   }, [isMuted]);
 
   // -------------------------------------------------------------
-  // Initialize Local Media Stream & Join Meeting
+  // Real Camera & Microphone Hardware Acquisition Helpers
+  // -------------------------------------------------------------
+  const acquireRealCamera = async () => {
+    try {
+      if (!navigator?.mediaDevices?.getUserMedia) {
+        toast.error("Camera is not supported on this browser or connection.");
+        return null;
+      }
+      let camStream = null;
+      try {
+        camStream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+        });
+      } catch {
+        camStream = await navigator.mediaDevices.getUserMedia({ video: true });
+      }
+
+      const newVideoTrack = camStream?.getVideoTracks()[0];
+      if (!newVideoTrack) return null;
+      newVideoTrack.enabled = true;
+
+      // Stop previous non-real or canvas tracks
+      if (localStreamRef.current) {
+        localStreamRef.current.getVideoTracks().forEach((t) => {
+          try { t.stop(); } catch {}
+          try { localStreamRef.current.removeTrack(t); } catch {}
+        });
+      }
+
+      if (!localStreamRef.current) {
+        localStreamRef.current = new MediaStream();
+      }
+      localStreamRef.current.addTrack(newVideoTrack);
+
+      const updatedStream = new MediaStream(localStreamRef.current.getTracks());
+      localStreamRef.current = updatedStream;
+      setLocalStreamState(updatedStream);
+      setIsVideoOff(false);
+
+      // Update WebRTC peer connections
+      peerConnectionsRef.current.forEach((pc) => {
+        const sender = pc.getSenders().find((s) => s.track && s.track.kind === "video");
+        if (sender) {
+          sender.replaceTrack(newVideoTrack).catch(() => {});
+        } else {
+          try {
+            pc.addTrack(newVideoTrack, updatedStream);
+          } catch {}
+        }
+      });
+
+      return newVideoTrack;
+    } catch (err) {
+      console.warn("Could not acquire real camera:", err);
+      toast.error("Camera access failed. Please ensure camera permission is granted in your browser settings.");
+      return null;
+    }
+  };
+
+  const acquireRealMicrophone = async () => {
+    try {
+      if (!navigator?.mediaDevices?.getUserMedia) {
+        toast.error("Microphone is not supported on this browser or connection.");
+        return null;
+      }
+      const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const newAudioTrack = micStream?.getAudioTracks()[0];
+      if (!newAudioTrack) return null;
+      newAudioTrack.enabled = true;
+
+      if (localStreamRef.current) {
+        localStreamRef.current.getAudioTracks().forEach((t) => {
+          try { t.stop(); } catch {}
+          try { localStreamRef.current.removeTrack(t); } catch {}
+        });
+      }
+
+      if (!localStreamRef.current) {
+        localStreamRef.current = new MediaStream();
+      }
+      localStreamRef.current.addTrack(newAudioTrack);
+
+      const updatedStream = new MediaStream(localStreamRef.current.getTracks());
+      localStreamRef.current = updatedStream;
+      setLocalStreamState(updatedStream);
+      setIsMuted(false);
+
+      peerConnectionsRef.current.forEach((pc) => {
+        const sender = pc.getSenders().find((s) => s.track && s.track.kind === "audio");
+        if (sender) {
+          sender.replaceTrack(newAudioTrack).catch(() => {});
+        } else {
+          try {
+            pc.addTrack(newAudioTrack, updatedStream);
+          } catch {}
+        }
+      });
+
+      return newAudioTrack;
+    } catch (err) {
+      console.warn("Could not acquire microphone:", err);
+      toast.error("Microphone access failed. Please ensure microphone permission is granted in your browser settings.");
+      return null;
+    }
+  };
+
+  // -------------------------------------------------------------
+  // Initialize Local Media Stream on Mount
   // -------------------------------------------------------------
   useEffect(() => {
     let active = true;
 
     async function initMedia() {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: true,
-        });
-        if (!active) {
-          // If unmounted while userMedia was opening, stop tracks immediately
-          stream.getTracks().forEach((t) => {
-            try { t.stop(); t.enabled = false; } catch {}
-          });
-          return;
-        }
-        localStreamRef.current = stream;
-        setLocalStreamState(stream);
-      } catch (err) {
-        console.warn("Using canvas stream fallback:", err);
+      let stream = null;
+      let cameraAvailable = false;
+      let micAvailable = false;
+
+      if (navigator?.mediaDevices?.getUserMedia) {
+        // Strategy 1: Ideal 720p constraints (reliable on modern laptops & phones)
         try {
-          const canvas = document.createElement("canvas");
-          canvas.width = 640;
-          canvas.height = 480;
-          const ctx = canvas.getContext("2d");
-          ctx.fillStyle = "#1e293b";
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-          const fallbackStream = canvas.captureStream ? canvas.captureStream(10) : new MediaStream();
-          localStreamRef.current = fallbackStream;
-          setLocalStreamState(fallbackStream);
-        } catch (canvasErr) {}
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+            audio: true,
+          });
+          cameraAvailable = stream.getVideoTracks().length > 0;
+          micAvailable = stream.getAudioTracks().length > 0;
+        } catch (combErr) {
+          console.warn("720p getUserMedia rejected, falling back to simple { video: true, audio: true }:", combErr);
+          // Strategy 2: Simple constraints
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            cameraAvailable = stream.getVideoTracks().length > 0;
+            micAvailable = stream.getAudioTracks().length > 0;
+          } catch (simpleErr) {
+            console.warn("Simple getUserMedia rejected, acquiring video and audio separately:", simpleErr);
+            // Strategy 3: Acquire video and audio independently
+            let vTrack = null;
+            let aTrack = null;
+            try {
+              const vStream = await navigator.mediaDevices.getUserMedia({ video: true });
+              vTrack = vStream.getVideoTracks()[0];
+              if (vTrack) cameraAvailable = true;
+            } catch (ve) {
+              console.warn("Independent camera acquisition failed:", ve);
+            }
+
+            try {
+              const aStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+              aTrack = aStream.getAudioTracks()[0];
+              if (aTrack) micAvailable = true;
+            } catch (ae) {
+              console.warn("Independent mic acquisition failed:", ae);
+            }
+
+            if (vTrack || aTrack) {
+              stream = new MediaStream();
+              if (vTrack) stream.addTrack(vTrack);
+              if (aTrack) stream.addTrack(aTrack);
+            }
+          }
+        }
       }
 
-      if (socket) {
-        socket.emit("join_meeting", {
-          meetingId,
-          user: currentUser,
-          mediaState: { isMuted: false, isVideoOff: false, isScreenSharing: false, isHandRaised: false },
+      if (!active) {
+        if (stream) {
+          stream.getTracks().forEach((t) => {
+            try { t.enabled = false; t.stop(); } catch {}
+          });
+        }
+        return;
+      }
+
+      if (stream && (cameraAvailable || micAvailable)) {
+        stream.getTracks().forEach((t) => { t.enabled = true; });
+        localStreamRef.current = stream;
+        setLocalStreamState(stream);
+        setIsVideoOff(!cameraAvailable);
+        setIsMuted(!micAvailable);
+
+        // Update senders for existing peer connections
+        peerConnectionsRef.current.forEach((pc) => {
+          stream.getTracks().forEach((track) => {
+            const sender = pc.getSenders().find((s) => s.track && s.track.kind === track.kind);
+            if (sender) {
+              sender.replaceTrack(track).catch(() => {});
+            } else {
+              try {
+                pc.addTrack(track, stream);
+              } catch {}
+            }
+          });
         });
+
+        if (socket?.connected) {
+          socket.emit("meeting_media_toggle", {
+            meetingId,
+            mediaState: {
+              isMuted: !micAvailable,
+              isVideoOff: !cameraAvailable,
+            },
+          });
+        }
+      } else {
+        localStreamRef.current = null;
+        setLocalStreamState(null);
+        setIsVideoOff(true);
+        setIsMuted(true);
       }
     }
 
@@ -362,16 +616,39 @@ export default function MasteryZoneLiveMeeting({
 
     return () => {
       active = false;
-      if (localStreamRef.current) {
-        localStreamRef.current.getTracks().forEach((t) => t.stop());
-      }
-      if (screenStreamRef.current) {
-        screenStreamRef.current.getTracks().forEach((t) => t.stop());
-      }
-      peerConnectionsRef.current.forEach((pc) => pc.close());
-      peerConnectionsRef.current.clear();
+      stopAllMediaHardware();
     };
-  }, [meetingId, socket]);
+  }, [meetingId, stopAllMediaHardware]);
+
+  // -------------------------------------------------------------
+  // Join Meeting via Socket.io
+  // -------------------------------------------------------------
+  useEffect(() => {
+    if (!socket || !meetingId) return;
+
+    const doJoin = () => {
+      socket.emit("join_meeting", {
+        meetingId,
+        user: currentUser,
+        mediaState: {
+          isMuted,
+          isVideoOff,
+          isScreenSharing: false,
+          isHandRaised: false,
+        },
+      });
+    };
+
+    if (socket.connected) {
+      doJoin();
+    } else {
+      socket.once("connect", doJoin);
+    }
+
+    return () => {
+      socket.off("connect", doJoin);
+    };
+  }, [socket, meetingId]);
 
   // -------------------------------------------------------------
   // WebRTC Peer Connection Helper
@@ -593,39 +870,89 @@ export default function MasteryZoneLiveMeeting({
   // -------------------------------------------------------------
   // Media Control Actions (Mic, Camera, Screen Share, Blur)
   // -------------------------------------------------------------
-  const handleToggleMic = () => {
-    const nextMuted = !isMuted;
-    setIsMuted(nextMuted);
+  const handleToggleMic = async () => {
+    if (isMuted) {
+      // User is unmuting
+      const existingAudioTrack = localStreamRef.current
+        ?.getAudioTracks()
+        .find((t) => t.readyState === "live");
 
-    if (localStreamRef.current) {
-      localStreamRef.current.getAudioTracks().forEach((track) => {
-        track.enabled = !nextMuted;
-      });
-    }
+      if (existingAudioTrack) {
+        existingAudioTrack.enabled = true;
+        setIsMuted(false);
+      } else {
+        const track = await acquireRealMicrophone();
+        if (track) {
+          track.enabled = true;
+          setIsMuted(false);
+        } else {
+          return;
+        }
+      }
 
-    if (socket) {
-      socket.emit("meeting_media_toggle", {
-        meetingId,
-        mediaState: { isMuted: nextMuted },
-      });
+      if (socket) {
+        socket.emit("meeting_media_toggle", {
+          meetingId,
+          mediaState: { isMuted: false },
+        });
+      }
+    } else {
+      // User is muting
+      setIsMuted(true);
+      if (localStreamRef.current) {
+        localStreamRef.current.getAudioTracks().forEach((track) => {
+          track.enabled = false;
+        });
+      }
+      if (socket) {
+        socket.emit("meeting_media_toggle", {
+          meetingId,
+          mediaState: { isMuted: true },
+        });
+      }
     }
   };
 
-  const handleToggleVideo = () => {
-    const nextVideoOff = !isVideoOff;
-    setIsVideoOff(nextVideoOff);
+  const handleToggleVideo = async () => {
+    if (isVideoOff) {
+      // User is turning camera ON
+      const existingVideoTrack = localStreamRef.current
+        ?.getVideoTracks()
+        .find((t) => t.readyState === "live" && !t.label.toLowerCase().includes("canvas"));
 
-    if (localStreamRef.current) {
-      localStreamRef.current.getVideoTracks().forEach((track) => {
-        track.enabled = !nextVideoOff;
-      });
-    }
+      if (existingVideoTrack) {
+        existingVideoTrack.enabled = true;
+        setIsVideoOff(false);
+      } else {
+        const track = await acquireRealCamera();
+        if (track) {
+          track.enabled = true;
+          setIsVideoOff(false);
+        } else {
+          return;
+        }
+      }
 
-    if (socket) {
-      socket.emit("meeting_media_toggle", {
-        meetingId,
-        mediaState: { isVideoOff: nextVideoOff },
-      });
+      if (socket) {
+        socket.emit("meeting_media_toggle", {
+          meetingId,
+          mediaState: { isVideoOff: false },
+        });
+      }
+    } else {
+      // User is turning camera OFF
+      setIsVideoOff(true);
+      if (localStreamRef.current) {
+        localStreamRef.current.getVideoTracks().forEach((track) => {
+          track.enabled = false;
+        });
+      }
+      if (socket) {
+        socket.emit("meeting_media_toggle", {
+          meetingId,
+          mediaState: { isVideoOff: true },
+        });
+      }
     }
   };
 
@@ -974,64 +1301,18 @@ export default function MasteryZoneLiveMeeting({
     }
   };
 
-  // Explicitly turn off camera and microphone hardware tracks
-  const stopAllMediaHardware = useCallback(() => {
-    try {
-      if (localStreamRef.current) {
-        localStreamRef.current.getTracks().forEach((t) => {
-          try {
-            t.stop();
-            t.enabled = false;
-          } catch {}
-        });
-        localStreamRef.current = null;
-      }
-      if (localStreamState) {
-        localStreamState.getTracks().forEach((t) => {
-          try {
-            t.stop();
-            t.enabled = false;
-          } catch {}
-        });
-        setLocalStreamState(null);
-      }
-      if (screenStreamRef.current) {
-        screenStreamRef.current.getTracks().forEach((t) => {
-          try {
-            t.stop();
-            t.enabled = false;
-          } catch {}
-        });
-        screenStreamRef.current = null;
-      }
-      if (audioContextRef.current && audioContextRef.current.state !== "closed") {
-        audioContextRef.current.close().catch(() => {});
-      }
-      // Detach and stop any leftover tracks on all media elements
-      document.querySelectorAll("video, audio").forEach((mediaEl) => {
-        if (mediaEl.srcObject && typeof mediaEl.srcObject.getTracks === "function") {
-          mediaEl.srcObject.getTracks().forEach((t) => {
-            try {
-              t.stop();
-              t.enabled = false;
-            } catch {}
-          });
-          mediaEl.srcObject = null;
-        }
-      });
-    } catch (err) {
-      console.warn("Hardware media shutdown warning:", err);
-    }
-  }, [localStreamState]);
-
   // Window unload / refresh guard to instantly release hardware camera & mic
   useEffect(() => {
     const handleUnload = () => {
       stopAllMediaHardware();
     };
     window.addEventListener("beforeunload", handleUnload);
+    window.addEventListener("pagehide", handleUnload);
+    window.addEventListener("unload", handleUnload);
     return () => {
       window.removeEventListener("beforeunload", handleUnload);
+      window.removeEventListener("pagehide", handleUnload);
+      window.removeEventListener("unload", handleUnload);
       stopAllMediaHardware();
     };
   }, [stopAllMediaHardware]);
@@ -1080,9 +1361,7 @@ export default function MasteryZoneLiveMeeting({
     };
 
     const seenSockets = new Set();
-    const seenUsers = new Set();
     if (currentSocId) seenSockets.add(currentSocId);
-    if (currentUid) seenUsers.add(currentUid);
 
     const remoteTiles = [];
     if (Array.isArray(participants)) {
@@ -1090,24 +1369,17 @@ export default function MasteryZoneLiveMeeting({
         if (!p || !p.socketId) continue;
         if (p.leftAt) continue;
 
-        // Never duplicate the local participant
+        // Never duplicate the exact local socket
         if (currentSocId && p.socketId === currentSocId) continue;
-        const pUid = p.userId ? String(p.userId) : null;
-        if (currentUid && pUid && pUid === currentUid) continue;
 
-        // Never duplicate local user if guest or matching name without remote stream
-        if (localName && p.fullName === localName && !remoteStreams[p.socketId]) continue;
-
-        // Deduplicate remote participants by socketId & userId
+        // Deduplicate remote participants strictly by socketId
         if (seenSockets.has(p.socketId)) continue;
-        if (pUid && seenUsers.has(pUid)) continue;
-
         seenSockets.add(p.socketId);
-        if (pUid) seenUsers.add(pUid);
 
         remoteTiles.push({
           ...p,
           isLocal: false,
+          fullName: p.fullName || p.username || "Participant",
           stream: remoteStreams[p.socketId] || null,
         });
       }
@@ -1501,7 +1773,9 @@ export default function MasteryZoneLiveMeeting({
             >
               {allTileUsers.map((tile) => {
                 const isSpeaking = activeSpeakerSocketId === tile.socketId;
-                const hasVideo = tile.isLocal ? !isVideoOff : tile.stream && !tile.isVideoOff;
+                const hasVideo = tile.isLocal
+                  ? !isVideoOff && Boolean(tile.stream?.getVideoTracks?.().some((t) => t.readyState === "live" && t.enabled))
+                  : !tile.isVideoOff && Boolean(tile.stream?.getVideoTracks?.().some((t) => t.readyState === "live"));
                 const isPinned = pinnedSocketId === tile.socketId;
 
                 return (
@@ -1650,15 +1924,23 @@ export default function MasteryZoneLiveMeeting({
           {/* B. SPOTLIGHT VIEW */}
           {layoutMode === "spotlight" && (
             <div style={{ position: "relative", width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <div style={{ width: "100%", height: "100%", background: "#0f172a", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ width: "100%", height: "100%", background: "#0f172a", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
                 <PersistentVideoTile
                   stream={spotlightUser.stream}
                   isLocal={spotlightUser.isLocal}
                   isMuted={spotlightUser.isMuted}
                   isScreenSharing={spotlightUser.isScreenSharing}
-                  isVideoOff={spotlightUser.isLocal ? isVideoOff : !spotlightUser.stream}
+                  isVideoOff={spotlightUser.isLocal ? isVideoOff : (!spotlightUser.stream || spotlightUser.isVideoOff)}
                   style={{ width: "100%", height: "100%", objectFit: "contain" }}
                 />
+                {(spotlightUser.isLocal ? isVideoOff : (!spotlightUser.stream || spotlightUser.isVideoOff)) && (
+                  <div style={{ position: "absolute", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12 }}>
+                    <div style={{ width: 88, height: 88, borderRadius: "50%", background: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)", display: "flex", alignItems: "center", justifyContent: "center", color: "#ffffff", fontSize: 32, fontWeight: 700, boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }}>
+                      {spotlightUser.fullName?.[0]?.toUpperCase() || "U"}
+                    </div>
+                    <span style={{ color: "#94a3b8", fontSize: 14, fontWeight: 600 }}>{spotlightUser.fullName}</span>
+                  </div>
+                )}
               </div>
 
               {/* Floating Self-View Picture-in-Picture */}
@@ -1675,6 +1957,9 @@ export default function MasteryZoneLiveMeeting({
                   border: "2px solid #334155",
                   boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
                   zIndex: 10,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                 }}
               >
                 <PersistentVideoTile
@@ -1686,6 +1971,11 @@ export default function MasteryZoneLiveMeeting({
                   isBlurred={isBlurActive}
                   style={{ width: "100%", height: "100%", objectFit: "cover" }}
                 />
+                {isVideoOff && (
+                  <div style={{ width: 44, height: 44, borderRadius: "50%", background: "#2563eb", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 18 }}>
+                    {currentUser?.fullName?.[0]?.toUpperCase() || "U"}
+                  </div>
+                )}
                 <span
                   style={{
                     position: "absolute",
@@ -1725,10 +2015,18 @@ export default function MasteryZoneLiveMeeting({
                   isLocal={spotlightUser.isLocal}
                   isMuted={spotlightUser.isMuted}
                   isScreenSharing={spotlightUser.isScreenSharing}
-                  isVideoOff={spotlightUser.isLocal ? isVideoOff : !spotlightUser.stream}
+                  isVideoOff={spotlightUser.isLocal ? isVideoOff : (!spotlightUser.stream || spotlightUser.isVideoOff)}
                   isBlurred={spotlightUser.isLocal && isBlurActive}
                   style={{ width: "100%", height: "100%", objectFit: "contain" }}
                 />
+                {(spotlightUser.isLocal ? isVideoOff : (!spotlightUser.stream || spotlightUser.isVideoOff)) && (
+                  <div style={{ position: "absolute", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12 }}>
+                    <div style={{ width: 88, height: 88, borderRadius: "50%", background: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)", display: "flex", alignItems: "center", justifyContent: "center", color: "#ffffff", fontSize: 32, fontWeight: 700, boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }}>
+                      {spotlightUser.fullName?.[0]?.toUpperCase() || "U"}
+                    </div>
+                    <span style={{ color: "#94a3b8", fontSize: 14, fontWeight: 600 }}>{spotlightUser.fullName}</span>
+                  </div>
+                )}
                 <div
                   style={{
                     position: "absolute",

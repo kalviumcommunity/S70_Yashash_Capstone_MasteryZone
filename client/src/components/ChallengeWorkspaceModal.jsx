@@ -127,17 +127,18 @@ export default function ChallengeWorkspaceModal({
     );
   }
 
-  const isPlayground = effectiveChallengeId?.startsWith("playground-");
+  const isPlayground = Boolean(effectiveChallengeId?.startsWith("playground-") || challenge?.id?.startsWith("playground-"));
+  const targetStarterLang = challenge.starterLanguage || "python";
 
   return (
     <MasteryZoneCompilerWorkspace
       key={challenge.id}
-      title={`Assignment | ${challenge.title} Challenge`}
+      title={isPlayground ? `MZ-ASM Playground | ${challenge.title}` : `Assignment | ${challenge.title} Challenge`}
       questionId={challenge.id}
-      isProctored={!isPlayground}
+      isProctored={true}
       problemData={challenge}
       starterCodeMap={challenge.starterCode || {}}
-      defaultLanguage={challenge.starterLanguage || "python"}
+      defaultLanguage={targetStarterLang}
       testCases={challenge.testCases || []}
       questionsList={questionsList}
       currentQuestionIndex={currentQuestionIndex}
@@ -151,10 +152,10 @@ export default function ChallengeWorkspaceModal({
         } catch {}
       }}
       initialDraft={
-        (currentUserId && localStorage.getItem(`mz_${currentUserId}_ch_draft_${challenge.id}_python`)) ||
-        localStorage.getItem(`mz_ch_draft_${challenge.id}_python`) ||
-        challenge.starterCode?.python ||
-        ""
+        (currentUserId && localStorage.getItem(`mz_${currentUserId}_ch_draft_${challenge.id}_${targetStarterLang}`)) ||
+        localStorage.getItem(`mz_ch_draft_${challenge.id}_${targetStarterLang}`) ||
+        challenge.starterCode?.[targetStarterLang] ||
+        (targetStarterLang === "python" ? "# Enter your code below\n" : "// Enter your code below\n")
       }
       onRun={async (code, lang, customInput) => {
         const res = await fetch(`${API_BASE}/api/coding/challenges/${challenge.id}/test`, {

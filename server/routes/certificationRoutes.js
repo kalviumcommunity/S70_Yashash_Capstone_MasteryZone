@@ -9,6 +9,7 @@ const IssuedCertificate = require("../models/IssuedCertificate");
 const User = require("../models/User");
 const Progress = require("../models/ProgressSchema");
 const authenticateToken = require("../middleware/authMiddleware");
+const { optionalAuthenticateToken } = require("../middleware/authMiddleware");
 const { pushNotification } = require("../utils/notificationService");
 const { DSA_MCQ_BANK } = require("../data/dsaQuestionsBank");
 const CHALLENGES_CATALOG = require("../data/challengesCatalog");
@@ -814,23 +815,21 @@ router.post("/attempt/:attemptId/finalize", authenticateToken, async (req, res) 
 
         await certificate.save();
 
-        // Generate the PDF file asynchronously to disk
-        try {
-          await generateCertificatePDF({
-            certificateId,
-            userId: attempt.userId,
-            recipientName: attempt.candidateName,
-            certificationTitle: attempt.certTitle,
-            issueDate: certificate.issueDate,
-            mcqScore,
-            mcqPercentage,
-            codingScore: `${passedCodingTests}/20 Tests Passed`,
-            finalGradePercentage: finalScorePercentage,
-            verificationUrl,
-          });
-        } catch (pdfErr) {
+        // Generate the PDF file asynchronously in the background (non-blocking)
+        generateCertificatePDF({
+          certificateId,
+          userId: attempt.userId,
+          recipientName: attempt.candidateName,
+          certificationTitle: attempt.certTitle,
+          issueDate: certificate.issueDate,
+          mcqScore,
+          mcqPercentage,
+          codingScore: `${passedCodingTests}/20 Tests Passed`,
+          finalGradePercentage: finalScorePercentage,
+          verificationUrl,
+        }).catch((pdfErr) => {
           console.warn("PDF generation background note:", pdfErr.message);
-        }
+        });
       }
 
       attempt.certificateId = certificate.certificateId;
@@ -923,16 +922,39 @@ router.post("/attempt/:attemptId/finalize", authenticateToken, async (req, res) 
 // 9. GET /api/certifications/attempt/:attemptId/report
 // Returns complete verified assessment report
 // -------------------------------------------------------------
-router.get("/attempt/:attemptId/report", authenticateToken, async (req, res) => {
+router.get("/attempt/:attemptId/report", optionalAuthenticateToken, async (req, res) => {
   try {
-    const userId = req.user.userId || req.user.id;
-    const attempt = await CertificationAttempt.findOne({
-      attemptId: req.params.attemptId,
-      userId,
+    const mongoose = require("mongoose");
+    const rawAttemptId = (req.params.attemptId || "").trim();
+    let attempt = await CertificationAttempt.findOne({
+      $or: [
+        { attemptId: rawAttemptId },
+        { certificateId: rawAttemptId },
+      ],
     });
+
+    if (!attempt && mongoose.Types.ObjectId.isValid(rawAttemptId)) {
+      attempt = await CertificationAttempt.findById(rawAttemptId);
+    }
 
     if (!attempt) {
       return res.status(404).json({ error: "Assessment report not found" });
+    }
+
+    // Enrich candidate details with actual registered user if available
+    let resolvedCandidateName = attempt.candidateName || "Verified Candidate";
+    let resolvedCandidateEmail = attempt.candidateEmail || "candidate@masteryzone.edu";
+    let targetUid = attempt.userId;
+    if (!targetUid && req.user) {
+      targetUid = req.user.userId || req.user.id || req.user._id;
+    }
+
+    if (targetUid && mongoose.Types.ObjectId.isValid(targetUid)) {
+      const u = await User.findById(targetUid).select("fullName username email").lean();
+      if (u) {
+        resolvedCandidateName = u.fullName || u.username || resolvedCandidateName;
+        resolvedCandidateEmail = u.email || resolvedCandidateEmail;
+      }
     }
 
     const certificate = attempt.certificateId
@@ -976,18 +998,29 @@ router.get("/attempt/:attemptId/report", authenticateToken, async (req, res) => 
 
     // Rich MCQ breakdown for AssessmentReportPage
     const reviewBreakdown = attempt.selectedMcqs.map((mcq, idx) => {
-      const selected = attempt.mcqAnswers ? attempt.mcqAnswers.get(mcq.id) : undefined;
-      const isCorrect = selected !== undefined && Number(selected) === Number(mcq.correctAnswer);
+      const answersMap = attempt.mcqAnswers;
+      const selected =
+        answersMap instanceof Map
+          ? answersMap.get(String(mcq.id))
+          : answersMap
+          ? answersMap[String(mcq.id)]
+          : undefined;
+      const isUnanswered = selected === undefined || selected === null || selected === -1;
+      const isCorrect = !isUnanswered && Number(selected) === Number(mcq.correctAnswer);
       return {
         questionId: mcq.id,
         question: mcq.question,
         options: mcq.options,
-        selectedOption: selected,
-        correctOption: mcq.correctAnswer,
+        userSelected: isUnanswered ? null : Number(selected),
+        selectedOption: isUnanswered ? null : Number(selected),
+        correctIndex: Number(mcq.correctAnswer),
+        correctOption: Number(mcq.correctAnswer),
         isCorrect: Boolean(isCorrect),
         topic: mcq.topic || "Algorithm & Complexity",
-        explanation: mcq.explanation || "",
+        explanation: mcq.explanation || "Review fundamental concepts of algorithm analysis and data structures.",
         codeSnippet: mcq.codeSnippet || "",
+        marksAwarded: isCorrect ? 1 : 0,
+        maxMarks: 1,
       };
     });
 
@@ -998,6 +1031,20 @@ router.get("/attempt/:attemptId/report", authenticateToken, async (req, res) => 
     const totalMaxMarks = 40;
     const overallPercentage = Math.round((totalMarksObtained / totalMaxMarks) * 100);
 
+    const answeredMcqsCount = attempt.selectedMcqs.filter((m) => {
+      const answersMap = attempt.mcqAnswers;
+      const sel =
+        answersMap instanceof Map
+          ? answersMap.get(String(m.id))
+          : answersMap
+          ? answersMap[String(m.id)]
+          : undefined;
+      return sel !== undefined && sel !== null && sel !== -1;
+    }).length;
+    const answeredCodingCount = attempt.codingSubmissions.filter((s) => s.solved || s.passedTests > 0).length;
+    const totalAttemptedQuestions = answeredMcqsCount + answeredCodingCount;
+    const totalQuestionsCount = attempt.selectedMcqs.length + attempt.selectedCodingQuestions.length;
+
     res.json({
       success: true,
       report: {
@@ -1007,12 +1054,12 @@ router.get("/attempt/:attemptId/report", authenticateToken, async (req, res) => 
         assessmentTitle: `${attempt.certTitle} — Proctored Credential Examination`,
         certTitle: attempt.certTitle,
         attemptNumber: attempt.attemptNumber,
-        candidateName: attempt.candidateName,
-        candidateEmail: attempt.candidateEmail,
+        candidateName: resolvedCandidateName,
+        candidateEmail: resolvedCandidateEmail,
         candidateDetails: {
-          fullName: attempt.candidateName,
-          email: attempt.candidateEmail,
-          candidateId: attempt.userId,
+          fullName: resolvedCandidateName,
+          email: resolvedCandidateEmail,
+          candidateId: attempt.userId ? `CAND-${attempt.userId.toString().slice(-6).toUpperCase()}` : "CAND-CERT",
         },
         startTime: attempt.startTime,
         submissionTime: attempt.submittedAt || attempt.updatedAt || new Date(),
@@ -1021,6 +1068,27 @@ router.get("/attempt/:attemptId/report", authenticateToken, async (req, res) => 
         timeLimitMinutes: attempt.durationMinutes || 90,
         status: isPassed ? "passed" : "failed",
         finalVerdict: attempt.finalVerdict,
+        scorecard: {
+          totalQuestions: totalQuestionsCount,
+          questionsAttempted: totalAttemptedQuestions,
+          questionsUnanswered: Math.max(0, totalQuestionsCount - totalAttemptedQuestions),
+          totalMarks: totalMaxMarks,
+          marksObtained: totalMarksObtained,
+          overallPercentage,
+          totalTestCases: totalCodingTests,
+          totalPassedTests: totalPassedCodingTests,
+          passed: isPassed,
+          grade:
+            overallPercentage >= 90
+              ? "A+"
+              : overallPercentage >= 80
+              ? "A"
+              : overallPercentage >= 70
+              ? "B"
+              : overallPercentage >= 60
+              ? "C"
+              : "F",
+        },
         performance: {
           score: overallPercentage,
           passed: isPassed,

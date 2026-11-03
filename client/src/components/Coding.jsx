@@ -393,29 +393,75 @@ export default function Coding() {
   const [videoCategoryFilter, setVideoCategoryFilter] = useState("all");
   const [videoSearchQuery, setVideoSearchQuery] = useState("");
 
-  // Real-Time Coding Hub & Telemetry Tracker
-  const [liveCodingSeconds, setLiveCodingSeconds] = useState(2540); // 42m 20s
-  const [isLiveTracking, setIsLiveTracking] = useState(true);
+  // Real-Time Coding Hub & Telemetry Tracker (starts at 0min 0sec, auto-resets at 12:00 AM midnight)
+  const rawCurrentUserId = (() => {
+    try {
+      const rawUser = localStorage.getItem("user");
+      if (rawUser) {
+        const u = JSON.parse(rawUser);
+        return u._id || u.id || u.userId || "guest";
+      }
+    } catch {}
+    return "guest";
+  })();
 
-  // Module Pathway Choice Confirmation Modal
+  const getTodayDateKey = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+
+  const getInitialLiveSeconds = () => {
+    try {
+      const today = getTodayDateKey();
+      const lastDate = localStorage.getItem(`mz_${rawCurrentUserId}_hub_date`);
+      if (lastDate !== today) {
+        localStorage.setItem(`mz_${rawCurrentUserId}_hub_date`, today);
+        localStorage.setItem(`mz_${rawCurrentUserId}_hub_seconds`, "0");
+        return 0;
+      }
+      const saved = localStorage.getItem(`mz_${rawCurrentUserId}_hub_seconds`);
+      return saved ? parseInt(saved, 10) || 0 : 0;
+    } catch {
+      return 0;
+    }
+  };
+
+  const [liveCodingSeconds, setLiveCodingSeconds] = useState(getInitialLiveSeconds);
+  const [isLiveTracking, setIsLiveTracking] = useState(true);
   const [selectedModuleChoice, setSelectedModuleChoice] = useState(null);
 
+  // Sync to localStorage and auto reset at 12:00 AM midnight
   useEffect(() => {
     if (!isLiveTracking) return;
     const interval = setInterval(() => {
-      setLiveCodingSeconds((prev) => prev + 1);
+      setLiveCodingSeconds((prev) => {
+        const today = getTodayDateKey();
+        const savedDate = localStorage.getItem(`mz_${rawCurrentUserId}_hub_date`);
+        if (savedDate && savedDate !== today) {
+          // Midnight has passed! Auto-reset to 0min 0sec
+          localStorage.setItem(`mz_${rawCurrentUserId}_hub_date`, today);
+          localStorage.setItem(`mz_${rawCurrentUserId}_hub_seconds`, "0");
+          return 0;
+        }
+        const nextVal = prev + 1;
+        try {
+          localStorage.setItem(`mz_${rawCurrentUserId}_hub_seconds`, String(nextVal));
+          localStorage.setItem(`mz_${rawCurrentUserId}_hub_date`, today);
+        } catch {}
+        return nextVal;
+      });
     }, 1000);
     return () => clearInterval(interval);
-  }, [isLiveTracking]);
+  }, [isLiveTracking, rawCurrentUserId]);
 
   const formatLiveDuration = useCallback((secs) => {
     const hrs = Math.floor(secs / 3600);
     const mins = Math.floor((secs % 3600) / 60);
     const s = secs % 60;
     if (hrs > 0) {
-      return `${hrs}h ${mins.toString().padStart(2, "0")}m ${s.toString().padStart(2, "0")}s`;
+      return `${hrs}h ${mins}m ${s}s`;
     }
-    return `${mins}m ${s.toString().padStart(2, "0")}s`;
+    return `${mins}min ${s}sec`;
   }, []);
 
   // 3-Step Curriculum Modules Progression State
@@ -894,7 +940,9 @@ export default function Coding() {
 
   const handleOpenPlayground = (langId, langName, starterCode) => {
     setShowSearchDropdown(false);
-    window.open(`/challenge-workspace/playground-${langId}`, "_blank", "noopener,noreferrer");
+    const targetLang = (langId || "python").toLowerCase();
+    const seed = Date.now();
+    window.open(`/challenge-workspace/playground-${targetLang}-${seed}`, "_blank", "noopener,noreferrer");
   };
 
   const handleStartInstantMeeting = async () => {
@@ -1477,6 +1525,17 @@ export default function Coding() {
         {/* ── TAB 1: LEARNING PATH ── */}
         {activeTab === "learning_path" && (
           <div className="mz-c-learning-path-wrapper">
+            {/* 1. Featured Video Courses Slider - ALWAYS VISIBLE ON STARTING DASHBOARD */}
+            <div className="mz-c-featured-videos-dashboard-section" style={{ marginBottom: "24px" }}>
+              <FeaturedVideosSlider
+                onViewAll={() => {
+                  setActiveTab("videos");
+                  window.scrollTo({ top: 350, behavior: "smooth" });
+                }}
+                onPracticeInLearningPath={handlePracticeInLearningPath}
+              />
+            </div>
+
             {/* 2. Track Selector Chips Bar */}
             <div className="mz-c-track-selector-bar" style={{ display: "flex", gap: "8px", overflowX: "auto", paddingBottom: "12px", marginBottom: "20px" }}>
               {tracks.map((tr) => (
@@ -2503,7 +2562,7 @@ export default function Coding() {
               <div className="mz-c-study-hero-info">
                 <div className="mz-c-study-live-indicator">
                   <span className="mz-c-live-pulse-dot" />
-                  <span>4 Live Study Pods Broadcasting Now</span>
+                  <span>Instant Collaboration & Meeting Pods</span>
                 </div>
                 <h2>Collaborative Code Pods & Live Meeting Rooms</h2>
                 <p>
@@ -2536,132 +2595,6 @@ export default function Coding() {
                   </button>
                 </form>
               </div>
-            </div>
-
-            {/* Active Study Pods Grid */}
-            <div className="mz-c-study-pods-grid">
-              {[
-                {
-                  id: "sg_py",
-                  cat: "dsa",
-                  title: "Python Algorithm Sprints & Graph Traversals",
-                  desc: "Solving LeetCode Hard dynamic programming problems and comparing asymptotic Big-O execution live.",
-                  host: "Yashash (Founder)",
-                  hostRole: "Admin / Host",
-                  peers: 8,
-                  tag: "Live Code Review",
-                  tech: ["Python 3", "Graphs", "DP"],
-                  status: "Voice & Screen Active",
-                },
-                {
-                  id: "sg_dsa",
-                  cat: "dsa",
-                  title: "DSA LeetCode Grinders & Daily Mock Sprints",
-                  desc: "Pair programming interview problems under timed proctored conditions with peer feedback.",
-                  host: "Mosh Hamedani",
-                  hostRole: "Host",
-                  peers: 14,
-                  tag: "Technical Interview Prep",
-                  tech: ["Two Pointers", "Trees", "Sorting"],
-                  status: "Screen Sharing",
-                },
-                {
-                  id: "sg_sys",
-                  cat: "systems",
-                  title: "System Design Deep Dive: Distributed Cache & Queue",
-                  desc: "Architecting high-throughput Redis caching layers, sharding, and consensus algorithms on the whiteboard.",
-                  host: "Engineering Team",
-                  hostRole: "Host",
-                  peers: 6,
-                  tag: "Distributed Systems",
-                  tech: ["Redis", "Kafka", "Microservices"],
-                  status: "Whiteboard Live",
-                },
-                {
-                  id: "sg_fullstack",
-                  cat: "fullstack",
-                  title: "Full-Stack Microservices & WebSocket Architecture",
-                  desc: "Building low-latency WebSocket presence channels with Node.js, Express, and React 19.",
-                  host: "Sarah Jenkins",
-                  hostRole: "Host",
-                  peers: 9,
-                  tag: "Full-Stack Engineering",
-                  tech: ["React 19", "WebSockets", "Docker"],
-                  status: "Live Pair Coding",
-                },
-                {
-                  id: "sg_cpp",
-                  cat: "systems",
-                  title: "Modern C++ Systems & Low-Latency Engines",
-                  desc: "Zero-cost abstractions, RAII, custom allocators, and memory pool optimization benchmarks.",
-                  host: "Alex Rivera",
-                  hostRole: "Host",
-                  peers: 5,
-                  tag: "Low-Latency Systems",
-                  tech: ["C++20", "Memory Pools", "STL"],
-                  status: "Voice Active",
-                },
-                {
-                  id: "sg_ai",
-                  cat: "ai",
-                  title: "AI & LLM Fine-Tuning Lab: LoRA & Embeddings",
-                  desc: "Implementing vector similarity search, transformer attention layers, and fast inference pipelines.",
-                  host: "Dr. Arvind Rao",
-                  hostRole: "Host",
-                  peers: 11,
-                  tag: "AI & ML Systems",
-                  tech: ["PyTorch", "HuggingFace", "FastAPI"],
-                  status: "Screen Sharing",
-                },
-              ]
-                .filter((p) => studyGroupCategory === "all" || p.cat === studyGroupCategory)
-                .map((sg) => (
-                  <div key={sg.id} className="mz-c-study-pod-card">
-                    <div className="mz-c-card-top-accent" />
-                    <div className="mz-c-pod-top">
-                      <div className="mz-c-pod-live-badge">
-                        <span className="mz-c-live-pulse-dot" />
-                        <span>{sg.status}</span>
-                      </div>
-                      <span className="mz-c-pod-tag-pill">{sg.tag}</span>
-                    </div>
-
-                    <h3 className="mz-c-pod-title">{sg.title}</h3>
-                    <p className="mz-c-pod-desc">{sg.desc}</p>
-
-                    <div className="mz-c-pod-host-row">
-                      <div className="mz-c-pod-host-avatar">
-                        {sg.host.slice(0, 2).toUpperCase()}
-                      </div>
-                      <div>
-                        <div className="mz-c-pod-host-name">👑 {sg.host}</div>
-                        <div className="mz-c-pod-host-sub">{sg.hostRole}</div>
-                      </div>
-                      <div className="mz-c-pod-peers-count" style={{ marginLeft: "auto" }}>
-                        <LuUsers size={13} color="#2563eb" />
-                        <span>{sg.peers} active</span>
-                      </div>
-                    </div>
-
-                    <div className="mz-c-pod-tech-row">
-                      {sg.tech.map((t) => (
-                        <span key={t} className="mz-c-pod-tech-pill">
-                          {t}
-                        </span>
-                      ))}
-                    </div>
-
-                    <div className="mz-c-pod-footer">
-                      <button
-                        type="button"
-                        className="mz-c-btn-solve mz-c-btn-join-pod"
-                        onClick={() => handleJoinStudyGroup(sg)}
-                      >
-                        Join Live Pod <LuExternalLink size={13} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
             </div>
           </div>
         )}
@@ -2882,11 +2815,11 @@ export default function Coding() {
                         </p>
                       </div>
 
-                      <div style={{ display: "flex", gap: "8px", marginTop: "14px", paddingTop: "12px", borderTop: "1px solid #f1f5f9" }}>
+                      <div style={{ display: "flex", gap: "8px", marginTop: "14px", paddingTop: "12px", borderTop: "1px solid #f1f5f9", flexWrap: "wrap" }}>
                         <button
                           type="button"
                           className="mz-c-btn-solve"
-                          style={{ flex: 1, padding: "8px 12px", fontSize: "12px", justifyContent: "center", background: "#2563eb", color: "#ffffff", borderRadius: "8px" }}
+                          style={{ flex: 1, minWidth: "100px", padding: "8px 12px", fontSize: "12px", justifyContent: "center", background: "#2563eb", color: "#ffffff", borderRadius: "8px" }}
                           onClick={() => window.open(`${API_BASE}/api/certifications/download/${cert.certificateId}`, "_blank")}
                         >
                           <LuDownload size={13} /> Download PDF
@@ -2894,10 +2827,18 @@ export default function Coding() {
                         <button
                           type="button"
                           className="mz-c-btn-solve"
-                          style={{ background: "#ffffff", color: "#0f172a", border: "1px solid #cbd5e1", padding: "8px 14px", fontSize: "12px", borderRadius: "8px", display: "flex", alignItems: "center", gap: "5px" }}
+                          style={{ background: "#ffffff", color: "#0f172a", border: "1px solid #cbd5e1", padding: "8px 12px", fontSize: "12px", borderRadius: "8px", display: "flex", alignItems: "center", gap: "5px" }}
                           onClick={() => window.open(`/certification/verify/${cert.certificateId}`, "_blank", "noopener,noreferrer")}
                         >
-                          <LuExternalLink size={13} /> Verify in Tab
+                          <LuExternalLink size={13} /> Verify
+                        </button>
+                        <button
+                          type="button"
+                          className="mz-c-btn-solve"
+                          style={{ background: "#eff6ff", color: "#1d4ed8", border: "1px solid #bfdbfe", padding: "8px 12px", fontSize: "12px", borderRadius: "8px", display: "flex", alignItems: "center", gap: "5px", fontWeight: 700 }}
+                          onClick={() => window.open(`/assessment-report/${cert.attemptId || cert.certificateId}`, "_blank", "noopener,noreferrer")}
+                        >
+                          <LuAward size={13} /> View Report
                         </button>
                       </div>
                     </div>
