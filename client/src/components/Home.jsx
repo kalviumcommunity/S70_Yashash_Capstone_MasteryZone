@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "react-toastify";
 import "./home.css";
 import NotificationBell from "./NotificationBell.jsx";
+import FeaturedLearningCarousel from "./FeaturedLearningCarousel.jsx";
 import CertificationExamWorkspace from "./CertificationExamWorkspace.jsx";
 import logoIcon from "../assets/logo_icon_transparent.png";
 import heroIllustration from "../assets/interests_hero_illustration.png";
@@ -2717,7 +2718,10 @@ const Home = () => {
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 18, marginBottom: 28 }}>
                   {/* Card 1: Challenges */}
                   <div
-                    onClick={() => navigate("/coding")}
+                    onClick={() => {
+                      navigate("/coding?tab=challenges", { state: { tab: "challenges" } });
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
                     style={{
                       background: "#ffffff",
                       border: "1px solid #e2e8f0",
@@ -2744,7 +2748,10 @@ const Home = () => {
 
                   {/* Card 2: Projects */}
                   <div
-                    onClick={() => navigate("/coding")}
+                    onClick={() => {
+                      navigate("/coding?tab=projects", { state: { tab: "projects" } });
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
                     style={{
                       background: "#ffffff",
                       border: "1px solid #e2e8f0",

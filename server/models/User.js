@@ -67,7 +67,21 @@ const userSchema = new mongoose.Schema({
   resetPasswordToken: String,
   resetPasswordExpires: Date,
   otpCodeHash: String,
-  otpExpires: Date
+  otpExpires: Date,
+  lastLoginAt: Date,
+  lastLoginIp: String,
+  lastLoginDevice: String,
+  lastLoginNotificationSentAt: Date,
+  knownDevices: [
+    {
+      deviceString: String,
+      browser: String,
+      os: String,
+      ip: String,
+      firstSeenAt: { type: Date, default: Date.now },
+      lastSeenAt: { type: Date, default: Date.now }
+    }
+  ]
 }, { timestamps: true });
 
 const User = mongoose.models.User || mongoose.model('User', userSchema);

@@ -1,133 +1,833 @@
 const nodemailer = require('nodemailer');
+const path = require('path');
+const os = require('os');
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 require('dotenv').config();
 
-let transporter;
-
-// Automatically create a test Ethereal account so the user doesn't have to provide real credentials
-nodemailer.createTestAccount((err, account) => {
-  if (err) {
-    console.error('Failed to create a testing account. ' + err.message);
-    return;
-  }
-
-  // Create a transporter object using the default SMTP transport
-  transporter = nodemailer.createTransport({
-    host: account.smtp.host,
-    port: account.smtp.port,
-    secure: account.smtp.secure,
-    auth: {
-      user: account.user,
-      pass: account.pass
+function getLanIpAddress() {
+  try {
+    const nets = os.networkInterfaces();
+    for (const name of Object.keys(nets)) {
+      for (const net of nets[name]) {
+        if (net.family === 'IPv4' && !net.internal) {
+          return net.address;
+        }
+      }
     }
-  });
-  console.log("📧 Ethereal Test Mailer Initialized Successfully!");
-});
+  } catch {}
+  return '192.168.1.13';
+}
 
-const sendLoginNotification = async (userEmail, username) => {
-  if (!transporter) {
-    console.log(`[Mock Mailer] Sent login notification to ${userEmail} for user ${username}`);
-    return;
-  }
+let transporter = null;
+let transporterInitPromise = null;
+let isEtherealAccount = false;
 
-  const mailOptions = {
-    from: `"MasteryZone Security" <security@masteryzone.com>`,
-    to: userEmail,
-    subject: 'New Login Detected on MasteryZone',
-    html: `
-      <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
-        <h2 style="color: #6a0572;">Hello ${username},</h2>
-        <p>We detected a new login to your MasteryZone account (${userEmail}).</p>
-        <p><strong>Time:</strong> ${new Date().toLocaleString()}</p>
-        <p>If this was you, you can safely ignore this email.</p>
-        <p>If you did not log in, please reset your password immediately or contact support.</p>
-        <br />
-        <p>Stay sharp,</p>
-        <p><strong>The MasteryZone Team</strong></p>
-      </div>
-    `
+// ── 1. INITIALIZE TRANSPORTER (REAL SMTP OR ETHEREAL FALLBACK) ──
+function getTransporter() {
+  if (transporter) return Promise.resolve(transporter);
+  if (transporterInitPromise) return transporterInitPromise;
+
+  transporterInitPromise = (async () => {
+    const smtpEmail = (process.env.SMTP_EMAIL || process.env.EMAIL_USER || "").trim();
+    const smtpPassword = (process.env.SMTP_PASSWORD || process.env.EMAIL_PASS || "").trim().replace(/\s+/g, "");
+    const smtpHost = process.env.SMTP_HOST;
+    const smtpPort = process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : 587;
+
+    const hasRealCredentials =
+      smtpEmail &&
+      smtpPassword &&
+      !smtpEmail.includes('your_email') &&
+      !smtpPassword.includes('your_app_password');
+
+    if (hasRealCredentials) {
+      const config = smtpHost
+        ? {
+            host: smtpHost,
+            port: smtpPort,
+            secure: smtpPort === 465,
+            auth: { user: smtpEmail, pass: smtpPassword },
+          }
+        : {
+            service: 'gmail',
+            auth: { user: smtpEmail, pass: smtpPassword },
+          };
+
+      transporter = nodemailer.createTransport(config);
+      isEtherealAccount = false;
+      console.log(`📧 [Mailer] Production SMTP transporter initialized for ${smtpEmail}`);
+      try {
+        await transporter.verify();
+        console.log(`✅ [Mailer] Production SMTP connection verified successfully.`);
+      } catch (verifyErr) {
+        console.warn(`⚠️ [Mailer] SMTP verification failed (${verifyErr.message}). Transporter will attempt on-demand send.`);
+      }
+      return transporter;
+    }
+
+    // Fallback: Automatic Ethereal Testing Mailer
+    try {
+      const account = await nodemailer.createTestAccount();
+      transporter = nodemailer.createTransport({
+        host: account.smtp.host,
+        port: account.smtp.port,
+        secure: account.smtp.secure,
+        auth: {
+          user: account.user,
+          pass: account.pass,
+        },
+      });
+      isEtherealAccount = true;
+      console.log(`📧 [Mailer] Ethereal test mailer initialized (${account.user})`);
+      return transporter;
+    } catch (testErr) {
+      console.warn(`⚠️ [Mailer] Could not create Ethereal test account: ${testErr.message}. Creating JSON mock transporter.`);
+      transporter = nodemailer.createTransport({ jsonTransport: true });
+      return transporter;
+    }
+  })();
+
+  return transporterInitPromise;
+}
+
+// Immediately trigger initialization in background
+getTransporter().catch((e) => console.warn('[Mailer] Initializer warning:', e.message));
+
+// ── 2. USER AGENT & DEVICE PARSER ──
+function parseDeviceAndBrowser(req) {
+  const ua = (req && req.headers ? req.headers['user-agent'] : '') || '';
+  const rawIp =
+    (req && req.headers ? req.headers['x-forwarded-for'] || req.socket?.remoteAddress || req.ip : '') ||
+    '127.0.0.1';
+  const clientIp = String(rawIp).split(',')[0].trim().replace(/^::ffff:/, '');
+
+  let browser = 'Modern Web Browser';
+  if (/Edg\//i.test(ua)) browser = 'Microsoft Edge';
+  else if (/Chrome\//i.test(ua) && !/Chromium|Edg/i.test(ua)) browser = 'Google Chrome';
+  else if (/Firefox\//i.test(ua)) browser = 'Mozilla Firefox';
+  else if (/Safari\//i.test(ua) && !/Chrome|Chromium/i.test(ua)) browser = 'Apple Safari';
+  else if (/OPR\/|Opera\//i.test(ua)) browser = 'Opera';
+
+  let os = 'Desktop Environment';
+  if (/Mac OS X|Macintosh/i.test(ua)) os = 'macOS';
+  else if (/Windows NT 10/i.test(ua)) os = 'Windows 10/11';
+  else if (/Windows NT/i.test(ua)) os = 'Windows PC';
+  else if (/iPhone/i.test(ua)) os = 'iOS (Apple iPhone)';
+  else if (/iPad/i.test(ua)) os = 'iPadOS (Apple iPad)';
+  else if (/Android/i.test(ua)) os = 'Android Mobile';
+  else if (/Linux/i.test(ua)) os = 'Linux Workstation';
+
+  let deviceType = 'Desktop';
+  if (/Mobile|Android|iPhone|iPod/i.test(ua)) deviceType = 'Mobile';
+  else if (/iPad|Tablet/i.test(ua)) deviceType = 'Tablet';
+
+  const deviceSummary = `${browser} on ${os}`;
+  const deviceKey = `${browser}_${os}_${clientIp}`.toLowerCase().replace(/[^a-z0-9_]/g, '');
+
+  return {
+    browser,
+    os,
+    deviceType,
+    clientIp,
+    deviceSummary,
+    deviceKey,
+    rawUa: ua,
   };
+}
 
-  try {
-    const info = await transporter.sendMail(mailOptions);
-    console.log(`\n==========================================`);
-    console.log(`✅ Email notification successfully sent to: ${userEmail}`);
-    console.log(`🔗 VIEW THE SENT EMAIL HERE: ${nodemailer.getTestMessageUrl(info)}`);
-    console.log(`==========================================\n`);
-  } catch (error) {
-    console.error('Error sending login notification email:', error);
+// ── 3. SEND MAIL WITH RETRIES AND AUDIT LOGGING ──
+async function sendMailWithRetry(mailOptions, maxRetries = 2) {
+  const tp = await getTransporter();
+  let attempt = 0;
+  let lastErr = null;
+
+  while (attempt <= maxRetries) {
+    try {
+      const info = await tp.sendMail(mailOptions);
+      const previewUrl = nodemailer.getTestMessageUrl(info);
+
+      console.log(`\n======================================================`);
+      console.log(`✉️  [MASTERY ZONE EMAIL DELIVERED]`);
+      console.log(`   To:       ${mailOptions.to}`);
+      console.log(`   Subject:  ${mailOptions.subject}`);
+      console.log(`   MessageId: ${info.messageId || 'MOCK_ID'}`);
+      if (previewUrl) {
+        console.log(`🔗 PREVIEW REAL INBOX EMAIL HERE:\n   ${previewUrl}`);
+      }
+      console.log(`======================================================\n`);
+
+      return {
+        success: true,
+        messageId: info.messageId,
+        previewUrl: previewUrl || null,
+        isEthereal: isEtherealAccount,
+      };
+    } catch (err) {
+      attempt++;
+      lastErr = err;
+      console.warn(`[Mailer] Delivery attempt ${attempt} failed for ${mailOptions.to}: ${err.message}`);
+      if (attempt <= maxRetries) {
+        await new Promise((r) => setTimeout(r, 600 * attempt));
+      }
+    }
   }
-};
 
-const sendPasswordResetEmail = async (userEmail, resetLink) => {
-  if (!transporter) {
-    console.log(`[Mock Mailer] Sent password reset link to ${userEmail}: ${resetLink}`);
-    return;
-  }
+  console.error(`❌ [Mailer] Permanent email delivery failure for ${mailOptions.to}:`, lastErr?.message);
+  return { success: false, error: lastErr?.message };
+}
 
-  const mailOptions = {
-    from: `"MasteryZone Security" <security@masteryzone.com>`,
-    to: userEmail,
-    subject: 'Password Reset Request',
-    html: `
-      <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
-        <h2 style="color: #6a0572;">Password Reset</h2>
-        <p>We received a request to reset your password. Click the button below to choose a new password.</p>
-        <a href="${resetLink}" style="display: inline-block; padding: 10px 20px; margin: 10px 0; font-size: 16px; color: #fff; background-color: #6a0572; text-decoration: none; border-radius: 5px;">Reset Password</a>
-        <p>If you did not request a password reset, please ignore this email.</p>
-        <br />
-        <p>Stay sharp,</p>
-        <p><strong>The MasteryZone Team</strong></p>
-      </div>
-    `
+// Helper: Check if account is a guest account to preserve isolation
+function isGuestAccount(email, role) {
+  if (role === 'guest') return true;
+  if (!email || typeof email !== 'string') return true;
+  const lower = email.toLowerCase().trim();
+  return lower.startsWith('guest_') || (lower.includes('@masteryzone.com') && lower.includes('guest'));
+}
+
+// Helper: Format date & time nicely
+function formatEmailDateTime(date = new Date()) {
+  const d = new Date(date);
+  const options = {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    timeZoneName: 'short',
   };
+  return d.toLocaleString('en-US', options);
+}
 
-  try {
-    const info = await transporter.sendMail(mailOptions);
-    console.log(`\n==========================================`);
-    console.log(`✅ Password Reset email successfully sent to: ${userEmail}`);
-    console.log(`🔗 VIEW THE SENT EMAIL HERE: ${nodemailer.getTestMessageUrl(info)}`);
-    console.log(`==========================================\n`);
-  } catch (error) {
-    console.error('Error sending password reset email:', error);
-  }
-};
+// ── 4. BRANDED HTML TEMPLATES ──
 
-const sendOtpEmail = async (userEmail, otp) => {
-  if (!transporter) {
-    console.log(`[Mock Mailer] Sent OTP ${otp} to ${userEmail}`);
-    return;
-  }
-
-  const mailOptions = {
-    from: `"MasteryZone Security" <security@masteryzone.com>`,
-    to: userEmail,
-    subject: 'Your MasteryZone Login OTP',
-    html: `
-      <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
-        <h2 style="color: #6a0572;">Your MasteryZone OTP</h2>
-        <p>Use the one-time code below to sign in. This code is valid for 10 minutes.</p>
-        <p style="font-size: 24px; font-weight: bold; letter-spacing: 5px;">${otp}</p>
-        <p>If you did not request this code, please ignore this message.</p>
-        <br />
-        <p>Stay sharp,</p>
-        <p><strong>The MasteryZone Team</strong></p>
+// Standard Mastery Zone Base Layout Wrapper
+function wrapHtmlEmail({ title, preheader, badgeText, badgeColor = '#4f46e5', badgeBg = '#eef2ff', contentHtml }) {
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title}</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #f1f5f9;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #0f172a;
+      -webkit-font-smoothing: antialiased;
+      width: 100% !important;
+      min-height: 100% !important;
+    }
+    .wrapper {
+      width: 100% !important;
+      min-height: 100vh;
+      background-color: #f1f5f9;
+      padding: 32px 16px;
+      box-sizing: border-box;
+    }
+    .container {
+      width: 100% !important;
+      max-width: 680px;
+      margin: 0 auto;
+      background: #ffffff;
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 12px 36px rgba(15, 23, 42, 0.08);
+      border: 1px solid #e2e8f0;
+    }
+    .header {
+      background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%);
+      padding: 36px 36px 30px;
+      text-align: center;
+      position: relative;
+    }
+    .brand-title {
+      color: #ffffff;
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin: 0 0 6px;
+    }
+    .brand-tagline {
+      color: #c7d2fe;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      margin: 0;
+    }
+    .badge {
+      display: inline-block;
+      margin-top: 16px;
+      padding: 6px 16px;
+      border-radius: 30px;
+      font-size: 12px;
+      font-weight: 700;
+      color: ${badgeColor};
+      background-color: ${badgeBg};
+      letter-spacing: 0.3px;
+    }
+    .body {
+      padding: 36px 36px 30px;
+      background: #ffffff;
+    }
+    .footer {
+      background: #f8fafc;
+      padding: 26px 36px;
+      text-align: center;
+      border-top: 1px solid #e2e8f0;
+    }
+    .footer-text {
+      font-size: 12px;
+      color: #64748b;
+      line-height: 1.6;
+      margin: 0 0 8px;
+    }
+    .data-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      margin: 20px 0;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .data-table td {
+      padding: 12px 16px;
+      font-size: 13px;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .data-table tr:last-child td {
+      border-bottom: none;
+    }
+    .data-table td.label {
+      color: #64748b;
+      font-weight: 600;
+      width: 38%;
+      background: #f8fafc;
+    }
+    .data-table td.val {
+      color: #0f172a;
+      font-weight: 600;
+    }
+    .btn-primary {
+      display: inline-block;
+      background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+      color: #ffffff !important;
+      text-decoration: none;
+      padding: 14px 32px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 700;
+      box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+      margin: 16px 0;
+    }
+    .alert-box {
+      border-radius: 12px;
+      padding: 16px 18px;
+      margin: 20px 0;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .alert-warning {
+      background-color: #fffbeb;
+      border: 1px solid #fde68a;
+      color: #92400e;
+    }
+    .alert-success {
+      background-color: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      color: #166534;
+    }
+    .alert-info {
+      background-color: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1e40af;
+    }
+    @media screen and (max-width: 640px) {
+      .wrapper {
+        padding: 0 !important;
+      }
+      .container {
+        border-radius: 0 !important;
+        border: none !important;
+        max-width: 100% !important;
+      }
+      .header {
+        padding: 28px 20px !important;
+      }
+      .body {
+        padding: 24px 20px !important;
+      }
+      .footer {
+        padding: 20px 20px !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div style="display:none;font-size:1px;color:#333;line-height:1px;max-height:0px;max-width:0px;opacity:0;overflow:hidden;">
+    ${preheader || title}
+  </div>
+  <div class="wrapper">
+    <div class="container">
+      <div class="header">
+        <h1 class="brand-title">Mastery Zone</h1>
+        <p class="brand-tagline">Learn · Grow · Succeed</p>
+        ${badgeText ? `<div class="badge">${badgeText}</div>` : ''}
       </div>
-    `
-  };
+      <div class="body">
+        ${contentHtml}
+      </div>
+      <div class="footer">
+        <p class="footer-text">
+          <strong>Mastery Zone Academic & Accreditation Security</strong><br>
+          Automated identity verification, proctored audit trails, and multi-factor notifications.
+        </p>
+        <p class="footer-text" style="font-size: 11px; color: #94a3b8; margin: 0;">
+          This is an automated transmission for account security. To adjust email preferences, visit Settings on Mastery Zone.
+        </p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+  `.trim();
+}
 
+// ── 5. EMAIL DELIVERY FUNCTIONS ──
+
+/**
+ * Send real-time login notification email
+ */
+async function sendLoginNotification(user, req, isNewDevice = false) {
   try {
-    const info = await transporter.sendMail(mailOptions);
-    console.log(`\n==========================================`);
-    console.log(`✅ OTP email sent to: ${userEmail}`);
-    console.log(`🔗 VIEW THE SENT EMAIL HERE: ${nodemailer.getTestMessageUrl(info)}`);
-    console.log(`==========================================\n`);
-  } catch (error) {
-    console.error('Error sending OTP email:', error);
+    if (!user || !user.email) return;
+    if (isGuestAccount(user.email, user.role)) {
+      console.log(`ℹ️ [Mailer] Guest login (${user.email}) — skipped external email delivery.`);
+      return;
+    }
+
+    const { browser, os, clientIp, deviceSummary } = parseDeviceAndBrowser(req);
+    const candidateName = user.fullName || user.username || 'Candidate';
+    const loginTimeStr = formatEmailDateTime(new Date());
+
+    const clientOrigin =
+      (req && typeof req.get === 'function' && req.get('origin')) ||
+      (req && req.headers && req.headers.origin) ||
+      process.env.CLIENT_URL ||
+      'http://localhost:5174';
+    const resetUrl = `${clientOrigin}/forgot-password`;
+
+    const badgeText = isNewDevice ? '⚠️ New Device Sign-In' : '🛡️ Successful Login';
+    const badgeColor = isNewDevice ? '#b45309' : '#15803d';
+    const badgeBg = isNewDevice ? '#fef3c7' : '#dcfce7';
+
+    const contentHtml = `
+      <h2 style="font-size: 20px; font-weight: 800; color: #0f172a; margin: 0 0 10px;">
+        Hello ${candidateName},
+      </h2>
+      <p style="font-size: 14px; color: #475569; line-height: 1.6; margin: 0 0 18px;">
+        ${
+          isNewDevice
+            ? `Your Mastery Zone account was just accessed from a <strong>new device or browser session</strong>.`
+            : `We detected a successful login to your Mastery Zone account (${user.email}).`
+        }
+      </p>
+
+      <table class="data-table">
+        <tr>
+          <td class="label">Date & Time</td>
+          <td class="val">${loginTimeStr}</td>
+        </tr>
+        <tr>
+          <td class="label">Device & OS</td>
+          <td class="val">${os}</td>
+        </tr>
+        <tr>
+          <td class="label">Web Browser</td>
+          <td class="val">${browser}</td>
+        </tr>
+        <tr>
+          <td class="label">IP Address</td>
+          <td class="val">${clientIp}</td>
+        </tr>
+        <tr>
+          <td class="label">Account ID</td>
+          <td class="val" style="font-family: monospace;">CAND-${String(user._id || 'ACC').slice(-6).toUpperCase()}</td>
+        </tr>
+      </table>
+
+      ${
+        isNewDevice
+          ? `
+          <div class="alert-box alert-warning">
+            <strong>Security Notice:</strong> If this was you, you can safely disregard this message. If you did not log in from this device, someone else may have gained access to your password. Please lock your account immediately.
+          </div>
+          `
+          : `
+          <div class="alert-box alert-info">
+            <strong>Security Verified:</strong> If this was you, no action is required. If you do not recognize this sign-in, secure your account right away.
+          </div>
+          `
+      }
+
+      <div style="text-align: center; margin: 24px 0 10px;">
+        <a href="${resetUrl}" class="btn-primary" style="background: ${isNewDevice ? 'linear-gradient(135deg, #d97706 0%, #b45309 100%)' : 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)'};">
+          ${isNewDevice ? 'Not You? Secure Your Account' : 'Manage Account Security'}
+        </a>
+      </div>
+    `;
+
+    const html = wrapHtmlEmail({
+      title: isNewDevice ? 'Security Alert: New Sign-In to Mastery Zone' : 'New Sign-In to Your Mastery Zone Account',
+      preheader: `Login detected from ${deviceSummary} on ${loginTimeStr}`,
+      badgeText,
+      badgeColor,
+      badgeBg,
+      contentHtml,
+    });
+
+    const mailOptions = {
+      from: `"Mastery Zone Security" <${process.env.SMTP_EMAIL || 'security@masteryzone.com'}>`,
+      to: user.email,
+      subject: isNewDevice
+        ? `[Security Alert] New device sign-in to Mastery Zone`
+        : `New sign-in to your Mastery Zone account`,
+      html,
+    };
+
+    return await sendMailWithRetry(mailOptions);
+  } catch (err) {
+    console.error('Error in sendLoginNotification:', err);
   }
-};
+}
+
+/**
+ * Send password reset request email with expiring secure link
+ */
+async function sendPasswordResetEmail(user, resetToken, req, clientOriginOverride = null) {
+  try {
+    if (!user || !user.email) return;
+    if (isGuestAccount(user.email, user.role)) {
+      console.log(`ℹ️ [Mailer] Guest password reset (${user.email}) — skipped external email delivery.`);
+      return;
+    }
+
+    const candidateName = user.fullName || user.username || 'Candidate';
+    const lanIp = getLanIpAddress();
+    const networkResetUrl = `http://${lanIp}:5174/reset-password/${resetToken}`;
+    const localResetUrl = `http://localhost:5174/reset-password/${resetToken}`;
+
+    // Prefer universal network URL so mobile phones, laptops, and desktops can all reach the page
+    let universalResetUrl = networkResetUrl;
+    if (clientOriginOverride && !clientOriginOverride.includes('localhost') && !clientOriginOverride.includes('127.0.0.1')) {
+      universalResetUrl = `${clientOriginOverride.replace(/\/+$/, '')}/reset-password/${resetToken}`;
+    }
+
+    const contentHtml = `
+      <h2 style="font-size: 22px; font-weight: 800; color: #0f172a; margin: 0 0 12px;">
+        Password Reset Assistance
+      </h2>
+      <p style="font-size: 15px; color: #475569; line-height: 1.6; margin: 0 0 18px;">
+        Hello <strong>${candidateName}</strong>, we received a verified request to reset the password associated with your Mastery Zone registered account (<strong>${user.email}</strong>).
+      </p>
+
+      <div class="alert-box alert-info">
+        ⏱️ <strong>Security Expiration:</strong> This reset link is single-use and will expire in <strong>60 minutes</strong>.
+      </div>
+
+      <div style="text-align: center; margin: 28px 0 14px;">
+        <a href="${universalResetUrl}" class="btn-primary" style="padding: 15px 36px; font-size: 15px; display: inline-block;">
+          Reset Your Password (Phone / PC) →
+        </a>
+      </div>
+
+      <div style="text-align: center; margin-bottom: 24px;">
+        <a href="${localResetUrl}" style="color: #4f46e5; font-size: 13px; font-weight: 600; text-decoration: underline;">
+          Or open on this computer (Localhost link)
+        </a>
+      </div>
+
+      <p style="font-size: 13px; color: #64748b; line-height: 1.5; margin: 20px 0 6px;">
+        Direct Link for all devices (Mobile & Desktop):
+      </p>
+      <div style="background: #f8fafc; padding: 14px 18px; border-radius: 10px; word-break: break-all; font-family: monospace; font-size: 13px; color: #1e293b; border: 1.5px solid #cbd5e1;">
+        <a href="${universalResetUrl}" style="color: #4f46e5; font-weight: 700; text-decoration: underline;">${universalResetUrl}</a>
+      </div>
+
+      <div style="margin-top: 16px; padding: 14px 18px; background: #e0e7ff; border-radius: 12px; font-size: 13px; color: #3730a3;">
+        🔑 <strong>Reset Security Token:</strong><br>
+        <code style="font-weight: 800; font-size: 14px; letter-spacing: 0.6px; word-break: break-all; color: #1e1b4b;">${resetToken}</code>
+        <div style="font-size: 11.5px; color: #4338ca; margin-top: 6px;">
+          (You can also paste this token or enter your email directly on the Reset Password page on any device)
+        </div>
+      </div>
+
+      <div class="alert-box alert-warning" style="margin-top: 24px;">
+        <strong>Didn't request this?</strong> If you did not request a password reset, you can safely ignore this email. Your password will not change and your account remains secure.
+      </div>
+    `;
+
+    const html = wrapHtmlEmail({
+      title: 'Reset Your Mastery Zone Password',
+      preheader: `Password reset link for ${user.email} (expires in 60 minutes)`,
+      badgeText: '🔒 Password Assistance',
+      badgeColor: '#4f46e5',
+      badgeBg: '#eef2ff',
+      contentHtml,
+    });
+
+    const mailOptions = {
+      from: `"Mastery Zone Security" <${process.env.SMTP_EMAIL || 'security@masteryzone.com'}>`,
+      to: user.email,
+      subject: 'Reset your Mastery Zone password',
+      html,
+    };
+
+    return await sendMailWithRetry(mailOptions);
+  } catch (err) {
+    console.error('Error in sendPasswordResetEmail:', err);
+  }
+}
+
+/**
+ * Send real-time signup welcome email notification
+ */
+async function sendSignupNotification(user, req) {
+  try {
+    if (!user || !user.email) return;
+    if (isGuestAccount(user.email, user.role)) {
+      console.log(`ℹ️ [Mailer] Guest signup (${user.email}) — skipped external email delivery.`);
+      return;
+    }
+
+    const { browser, os, clientIp, deviceSummary } = parseDeviceAndBrowser(req);
+    const candidateName = user.fullName || user.username || 'Candidate';
+    const createdAtStr = formatEmailDateTime(user.createdAt || new Date());
+
+    let clientOrigin =
+      (req && req.body && req.body.clientOrigin) ||
+      (req && typeof req.get === 'function' && req.get('origin')) ||
+      (req && req.headers && req.headers.origin) ||
+      process.env.CLIENT_URL ||
+      'http://localhost:5174';
+    clientOrigin = clientOrigin.replace(/\/+$/, '');
+    const loginUrl = `${clientOrigin}/login`;
+
+    const badgeText = '🎉 Welcome to Mastery Zone';
+    const badgeColor = '#059669';
+    const badgeBg = '#d1fae5';
+
+    const contentHtml = `
+      <h2 style="font-size: 22px; font-weight: 800; color: #0f172a; margin: 0 0 12px;">
+        Welcome to Mastery Zone, ${candidateName}!
+      </h2>
+      <p style="font-size: 15px; color: #475569; line-height: 1.6; margin: 0 0 20px;">
+        Your official Mastery Zone engineering account has been successfully registered. You now have access to structured curricula, real-world algorithmic challenges, full-stack milestone workspaces, and verified proctored certifications.
+      </p>
+
+      <table class="data-table">
+        <tr>
+          <td class="label">Candidate Name</td>
+          <td class="val">${candidateName}</td>
+        </tr>
+        <tr>
+          <td class="label">Registered Email</td>
+          <td class="val"><strong>${user.email}</strong></td>
+        </tr>
+        <tr>
+          <td class="label">Username</td>
+          <td class="val"><code style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px; color: #2563eb; font-weight: 700;">@${user.username}</code></td>
+        </tr>
+        <tr>
+          <td class="label">Registration Date</td>
+          <td class="val">${createdAtStr}</td>
+        </tr>
+        <tr>
+          <td class="label">Registered Session</td>
+          <td class="val">${deviceSummary}</td>
+        </tr>
+      </table>
+
+      <div class="alert-box alert-info">
+        🛡️ <strong>Strict Account Isolation:</strong> All progress, reports, certificates, and recordings belong exclusively to your individual registered account (${user.email}). Every sign-in and security event sends real-time notifications to this inbox.
+      </div>
+
+      <div style="text-align: center; margin: 28px 0 16px;">
+        <a href="${loginUrl}" class="btn-primary" style="padding: 14px 34px; font-size: 15px;">
+          Log In & Start Learning →
+        </a>
+      </div>
+    `;
+
+    const html = wrapHtmlEmail({
+      title: 'Welcome to Mastery Zone — Account Created Successfully',
+      preheader: `Welcome ${candidateName}! Your account (${user.email}) is active.`,
+      badgeText,
+      badgeColor,
+      badgeBg,
+      contentHtml,
+    });
+
+    const mailOptions = {
+      from: `"Mastery Zone Security" <${process.env.SMTP_EMAIL || 'security@masteryzone.com'}>`,
+      to: user.email,
+      subject: 'Welcome to Mastery Zone — Account Created Successfully',
+      html,
+    };
+
+    return await sendMailWithRetry(mailOptions);
+  } catch (err) {
+    console.error('Error in sendSignupNotification:', err);
+  }
+}
+
+/**
+ * Send password reset confirmation email after successful reset
+ */
+async function sendPasswordResetSuccessEmail(user, req) {
+  try {
+    if (!user || !user.email) return;
+    if (isGuestAccount(user.email, user.role)) {
+      console.log(`ℹ️ [Mailer] Guest password reset confirmation (${user.email}) — skipped.`);
+      return;
+    }
+
+    const { browser, os, clientIp } = parseDeviceAndBrowser(req);
+    const candidateName = user.fullName || user.username || 'Candidate';
+    const changeTimeStr = formatEmailDateTime(new Date());
+
+    const clientOrigin =
+      (req && typeof req.get === 'function' && req.get('origin')) ||
+      (req && req.headers && req.headers.origin) ||
+      process.env.CLIENT_URL ||
+      'http://localhost:5174';
+    const loginUrl = `${clientOrigin}/login`;
+    const forgotUrl = `${clientOrigin}/forgot-password`;
+
+    const contentHtml = `
+      <h2 style="font-size: 20px; font-weight: 800; color: #0f172a; margin: 0 0 10px;">
+        Password Changed Successfully
+      </h2>
+      <p style="font-size: 14px; color: #475569; line-height: 1.6; margin: 0 0 18px;">
+        Hello <strong>${candidateName}</strong>, this email confirms that the password for your Mastery Zone account (<strong>${user.email}</strong>) has been successfully changed.
+      </p>
+
+      <div class="alert-box alert-success">
+        ✅ <strong>Confirmation:</strong> Your new password is now active across all Mastery Zone platforms.
+      </div>
+
+      <table class="data-table">
+        <tr>
+          <td class="label">Date & Time</td>
+          <td class="val">${changeTimeStr}</td>
+        </tr>
+        <tr>
+          <td class="label">Device & OS</td>
+          <td class="val">${os}</td>
+        </tr>
+        <tr>
+          <td class="label">Web Browser</td>
+          <td class="val">${browser}</td>
+        </tr>
+        <tr>
+          <td class="label">IP Address</td>
+          <td class="val">${clientIp}</td>
+        </tr>
+      </table>
+
+      <div class="alert-box alert-warning">
+        <strong>Did not change your password?</strong> If you did not make this change, your account may have been compromised. <a href="${forgotUrl}" style="color: #92400e; font-weight: 700; text-decoration: underline;">Reset your password immediately</a> or reach out to our security team.
+      </div>
+
+      <div style="text-align: center; margin: 24px 0 10px;">
+        <a href="${loginUrl}" class="btn-primary">
+          Sign In with New Password
+        </a>
+      </div>
+    `;
+
+    const html = wrapHtmlEmail({
+      title: 'Your Mastery Zone Password Was Changed',
+      preheader: `Password successfully updated on ${changeTimeStr}`,
+      badgeText: '✅ Security Update Confirmed',
+      badgeColor: '#15803d',
+      badgeBg: '#dcfce7',
+      contentHtml,
+    });
+
+    const mailOptions = {
+      from: `"Mastery Zone Security" <${process.env.SMTP_EMAIL || 'security@masteryzone.com'}>`,
+      to: user.email,
+      subject: 'Your Mastery Zone password was successfully changed',
+      html,
+    };
+
+    return await sendMailWithRetry(mailOptions);
+  } catch (err) {
+    console.error('Error in sendPasswordResetSuccessEmail:', err);
+  }
+}
+
+/**
+ * Send OTP verification email
+ */
+async function sendOtpEmail(userEmail, otp) {
+  try {
+    if (!userEmail) return;
+    if (isGuestAccount(userEmail)) return;
+
+    const contentHtml = `
+      <h2 style="font-size: 20px; font-weight: 800; color: #0f172a; margin: 0 0 10px;">
+        Your Mastery Zone One-Time Code
+      </h2>
+      <p style="font-size: 14px; color: #475569; line-height: 1.6; margin: 0 0 18px;">
+        Use the verification code below to sign in or confirm your identity. This code is valid for <strong>10 minutes</strong>.
+      </p>
+
+      <div style="text-align: center; padding: 20px; background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 12px; margin: 20px 0;">
+        <span style="font-size: 32px; font-weight: 900; letter-spacing: 8px; color: #4f46e5; font-family: monospace;">
+          ${otp}
+        </span>
+      </div>
+
+      <p style="font-size: 12px; color: #64748b; line-height: 1.5; margin: 16px 0 0;">
+        Never share this verification code with anyone. Mastery Zone representatives will never ask you for your code.
+      </p>
+    `;
+
+    const html = wrapHtmlEmail({
+      title: 'Your Mastery Zone Verification Code',
+      preheader: `Your verification code is ${otp}`,
+      badgeText: '🔑 Identity Verification',
+      badgeColor: '#4f46e5',
+      badgeBg: '#eef2ff',
+      contentHtml,
+    });
+
+    const mailOptions = {
+      from: `"Mastery Zone Security" <${process.env.SMTP_EMAIL || 'security@masteryzone.com'}>`,
+      to: userEmail,
+      subject: `Your Mastery Zone Verification Code: ${otp}`,
+      html,
+    };
+
+    return await sendMailWithRetry(mailOptions);
+  } catch (err) {
+    console.error('Error in sendOtpEmail:', err);
+  }
+}
 
 module.exports = {
+  getTransporter,
+  parseDeviceAndBrowser,
+  sendSignupNotification,
   sendLoginNotification,
   sendPasswordResetEmail,
-  sendOtpEmail
+  sendPasswordResetSuccessEmail,
+  sendOtpEmail,
 };

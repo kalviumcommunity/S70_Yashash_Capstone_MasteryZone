@@ -10,7 +10,7 @@ import {
   LuStar,
 } from "react-icons/lu";
 import { FcGoogle } from "react-icons/fc";
-import { signInWithPopup } from "firebase/auth";
+import { signInWithPopup, signInWithEmailAndPassword } from "firebase/auth";
 import { auth, provider } from "../firebase/firebaseConfig";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { toast } from "react-toastify";
@@ -53,9 +53,10 @@ const Login = () => {
     e.preventDefault();
     setTouched({ identifier: true, password: true });
 
-    if (!identifier.trim() || !password) {
+    const trimmedIdentifier = identifier.trim();
+    if (!trimmedIdentifier || !password) {
       setValidationErrors({
-        identifier: !identifier.trim() ? "Username or Email is required" : "",
+        identifier: !trimmedIdentifier ? "Username or Email is required" : "",
         password: !password ? "Password is required" : "",
       });
       return;
@@ -63,12 +64,61 @@ const Login = () => {
 
     setIsSubmitting(true);
 
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedIdentifier);
+
+    // ── 1. FIREBASE EMAIL & PASSWORD LOGIN ──
+    if (isEmail) {
+      try {
+        const userCredential = await signInWithEmailAndPassword(auth, trimmedIdentifier, password);
+        const fbUser = userCredential.user;
+        const idToken = await fbUser.getIdToken();
+
+        const response = await fetch(`${AUTH_BASE}/firebase-login`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({
+            email: fbUser.email,
+            name: fbUser.displayName || fbUser.email.split("@")[0],
+            uid: fbUser.uid,
+            token: idToken,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          localStorage.clear();
+          sessionStorage.clear();
+          sessionStorage.setItem("mz_session_active", "true");
+
+          localStorage.setItem("token", data.token);
+          if (data.user) {
+            localStorage.setItem("user", JSON.stringify(data.user));
+            localStorage.setItem("mz_user", JSON.stringify(data.user));
+            localStorage.setItem("userName", data.user.fullName || data.user.username || data.user.email);
+            localStorage.setItem("userEmail", data.user.email);
+          }
+          toast.success("Login successful via Firebase!");
+          navigate(redirectTarget, { replace: true });
+          setIsSubmitting(false);
+          return;
+        }
+      } catch (fbErr) {
+        console.warn("Firebase email login attempt:", fbErr.code, fbErr.message);
+        // If wrong credentials on Firebase, check backend before giving error
+      }
+    }
+
+    // ── 2. BACKEND DATABASE AUTHENTICATION (Fallback & Username Support) ──
     try {
       const response = await fetch(`${AUTH_BASE}/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          usernameOrEmail: identifier.trim(),
+          usernameOrEmail: trimmedIdentifier,
           password,
         }),
       });
@@ -76,7 +126,7 @@ const Login = () => {
       const data = await response.json();
 
       if (!response.ok) {
-        toast.error(data.message || "Login failed");
+        toast.error(data.message || "Invalid email/username or password");
         return;
       }
 

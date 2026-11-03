@@ -1,161 +1,777 @@
 import React, { useState, useEffect } from "react";
-import { FaLock, FaEye, FaEyeSlash } from "react-icons/fa";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useSearchParams, useNavigate, Link } from "react-router-dom";
 import { toast } from "react-toastify";
-import "./forgot.css";
+import {
+  LuLock,
+  LuKeyRound,
+  LuShieldCheck,
+  LuShieldAlert,
+  LuEye,
+  LuEyeOff,
+  LuArrowRight,
+  LuCircleCheck,
+  LuArrowLeft,
+  LuSparkles,
+  LuCheck,
+  LuKey,
+} from "react-icons/lu";
 import logoImg from "../assets/mastery_zone_logo_transparent.png";
 
-const ResetPassword = () => {
-  const { token } = useParams();
+const API_BASE = import.meta.env.VITE_API_URL || "";
+const AUTH_BASE = API_BASE ? `${API_BASE}/auth` : "/auth";
+
+export default function ResetPassword() {
+  const { token: paramToken } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+
+  // Support token from URL path (:token) or query string (?token=...)
+  const initialToken = paramToken || searchParams.get("token") || "";
+  const [token, setToken] = useState(initialToken);
+  const [emailOrToken, setEmailOrToken] = useState("");
 
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const [touched, setTouched] = useState({});
-  const [validationErrors, setValidationErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [redirectCountdown, setRedirectCountdown] = useState(4);
+  const [errorMessage, setErrorMessage] = useState("");
 
+  // Keep token synced if URL changes
   useEffect(() => {
-    const errors = {};
-    if (touched.newPassword) {
-      if (!newPassword) {
-        errors.newPassword = "New password is required";
-      } else if (newPassword.length < 6) {
-        errors.newPassword = "Must be at least 6 characters";
-      }
+    const qToken = paramToken || searchParams.get("token");
+    if (qToken) {
+      setToken(qToken);
     }
-    if (touched.confirmPassword) {
-      if (!confirmPassword) {
-        errors.confirmPassword = "Confirm password is required";
-      } else if (confirmPassword !== newPassword) {
-        errors.confirmPassword = "Passwords do not match";
-      }
+  }, [paramToken, searchParams]);
+
+  // Countdown timer when password update succeeds
+  useEffect(() => {
+    let timer;
+    if (isSuccess && redirectCountdown > 0) {
+      timer = setTimeout(() => {
+        setRedirectCountdown((prev) => prev - 1);
+      }, 1000);
+    } else if (isSuccess && redirectCountdown === 0) {
+      navigate("/login");
     }
-    setValidationErrors(errors);
-  }, [newPassword, confirmPassword, touched]);
+    return () => clearTimeout(timer);
+  }, [isSuccess, redirectCountdown, navigate]);
+
+  // Password strength calculation
+  const getPasswordStrength = (pwd) => {
+    if (!pwd) return { score: 0, label: "", color: "#e2e8f0" };
+    let score = 0;
+    if (pwd.length >= 6) score++;
+    if (pwd.length >= 8) score++;
+    if (/[A-Z]/.test(pwd) && /[a-z]/.test(pwd)) score++;
+    if (/\d/.test(pwd)) score++;
+    if (/[^A-Za-z0-9]/.test(pwd)) score++;
+
+    if (score <= 2) return { score: 1, label: "Weak", color: "#ef4444" };
+    if (score <= 4) return { score: 2, label: "Medium", color: "#f59e0b" };
+    return { score: 3, label: "Strong", color: "#10b981" };
+  };
+
+  const strength = getPasswordStrength(newPassword);
+  const passwordsMatch = newPassword.length >= 6 && newPassword === confirmPassword;
+  const passwordsMismatched = confirmPassword.length > 0 && newPassword !== confirmPassword;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setErrorMessage("");
 
-    setTouched({ newPassword: true, confirmPassword: true });
-
-    const errors = {};
-    if (!newPassword) errors.newPassword = "New password is required";
-    else if (newPassword.length < 6) errors.newPassword = "Must be at least 6 characters";
-    if (!confirmPassword) errors.confirmPassword = "Confirm password is required";
-    else if (confirmPassword !== newPassword) errors.confirmPassword = "Passwords do not match";
-
-    if (Object.keys(errors).length > 0) {
-      setValidationErrors(errors);
+    const activeToken = token.trim() || emailOrToken.trim();
+    if (!activeToken) {
+      setErrorMessage("Please provide your registered account email or paste the reset token from your email.");
+      toast.error("Email or reset token is required.");
       return;
     }
 
+    if (!newPassword || newPassword.length < 6) {
+      setErrorMessage("Reset password must be at least 6 characters long.");
+      toast.error("Password must be at least 6 characters long.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setErrorMessage("Passwords do not match. Please re-enter.");
+      toast.error("Passwords do not match.");
+      return;
+    }
+
+    setIsSubmitting(true);
+
     try {
-      const response = await fetch(`/auth/reset-password/${token}`, {
+      // Relative path /auth/reset-password works seamlessly across all devices (laptop, desktop, phone)
+      const response = await fetch("/auth/reset-password", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           newPassword,
+          token: activeToken,
+          email: activeToken.includes("@") ? activeToken : undefined,
         }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        toast.error(data.message || "Failed to reset password");
+        const errorMsg = data.message || "Failed to reset password. The link may have expired.";
+        setErrorMessage(errorMsg);
+        toast.error(errorMsg);
+        setIsSubmitting(false);
         return;
       }
 
-      toast.success("Password has been successfully reset! You can now log in.");
-      navigate("/login");
+      setIsSuccess(true);
+      toast.success("Password has been reset successfully! A confirmation email has been dispatched.");
     } catch (err) {
-      toast.error("Failed to connect to server");
+      console.error("Password reset error:", err);
+      const networkMsg = "Unable to connect to the authentication server. Please check your connection.";
+      setErrorMessage(networkMsg);
+      toast.error(networkMsg);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="forgot-container">
-      <div className="login-box">
-        <div style={{ display: "flex", justifyContent: "center", marginTop: "20px", marginBottom: "5px" }}>
-          <img src={logoImg} alt="Mastery Zone Logo" style={{ height: "60px", width: "auto", objectFit: "contain" }} />
-        </div>
-        <div className="image">
-          <div className="resetpassward">
-            Reset Password
+    <div
+      style={{
+        minHeight: "100vh",
+        width: "100%",
+        display: "flex",
+        flexDirection: "column",
+        background:
+          "radial-gradient(circle at 15% 15%, rgba(99, 102, 241, 0.08) 0%, transparent 40%), radial-gradient(circle at 85% 85%, rgba(59, 130, 246, 0.08) 0%, transparent 40%), #f8fafc",
+        fontFamily:
+          "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+      }}
+    >
+      {/* ── Top Full-Screen Brand Navigation Bar ── */}
+      <header
+        style={{
+          width: "100%",
+          padding: "18px 36px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          boxSizing: "border-box",
+          borderBottom: "1px solid rgba(226, 232, 240, 0.7)",
+          background: "rgba(255, 255, 255, 0.8)",
+          backdropFilter: "blur(12px)",
+        }}
+      >
+        <Link
+          to="/"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            textDecoration: "none",
+          }}
+        >
+          <img
+            src={logoImg}
+            alt="Mastery Zone"
+            style={{
+              height: 38,
+              width: "auto",
+              objectFit: "contain",
+            }}
+          />
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            <span
+              style={{
+                fontSize: "1.15rem",
+                fontWeight: 800,
+                color: "#0f172a",
+                letterSpacing: "-0.4px",
+                lineHeight: 1.1,
+              }}
+            >
+              Mastery Zone
+            </span>
+            <span
+              style={{
+                fontSize: "0.72rem",
+                fontWeight: 600,
+                color: "#6366f1",
+                letterSpacing: "0.6px",
+                textTransform: "uppercase",
+              }}
+            >
+              Learn • Grow • Succeed
+            </span>
           </div>
-          <div className="text" style={{ fontSize: '14px', marginTop: '10px' }}>
-            Your new password must be different from previously used passwords.
-          </div>
-        </div>
+        </Link>
 
-        <form onSubmit={handleSubmit} style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "center", marginTop: "20px" }}>
-          <div className="input-group">
-            <div className="input-field1" style={{ position: "relative" }}>
-              <FaLock className="icon" />
-              <input
-                type={showNewPassword ? "text" : "password"}
-                autoComplete="new-password"
-                placeholder="New Password"
-                value={newPassword}
-                onChange={(e) => {
-                  setNewPassword(e.target.value);
-                  setTouched({ ...touched, newPassword: true });
+        <Link
+          to="/login"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            fontSize: "0.88rem",
+            fontWeight: 700,
+            color: "#4f46e5",
+            textDecoration: "none",
+            padding: "8px 16px",
+            borderRadius: 10,
+            border: "1px solid #c7d2fe",
+            background: "#eef2ff",
+            transition: "all 0.2s ease",
+          }}
+        >
+          <LuArrowLeft size={16} /> Back to Login
+        </Link>
+      </header>
+
+      {/* ── Main Full-Screen Content Area ── */}
+      <main
+        style={{
+          flex: 1,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "36px 20px",
+          boxSizing: "border-box",
+        }}
+      >
+        <div
+          style={{
+            width: "100%",
+            maxWidth: 520,
+            background: "#ffffff",
+            borderRadius: 24,
+            padding: "40px 36px",
+            boxSizing: "border-box",
+            border: "1px solid #e2e8f0",
+            boxShadow:
+              "0 20px 48px -10px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04)",
+            position: "relative",
+            overflow: "hidden",
+          }}
+        >
+          {/* Subtle top accent gradient line */}
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 4,
+              background:
+                "linear-gradient(90deg, #4f46e5 0%, #7c3aed 50%, #2563eb 100%)",
+            }}
+          />
+
+          {isSuccess ? (
+            /* ── SUCCESS STATE VIEW ── */
+            <div
+              style={{
+                textAlign: "center",
+                padding: "20px 0 10px",
+              }}
+            >
+              <div
+                style={{
+                  width: 76,
+                  height: 76,
+                  borderRadius: "50%",
+                  background:
+                    "linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)",
+                  color: "#059669",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  margin: "0 auto 20px",
+                  boxShadow: "0 10px 24px rgba(5, 150, 105, 0.15)",
                 }}
-                style={{ width: "65%" }}
-              />
-              <span
-                onClick={() => setShowNewPassword(!showNewPassword)}
-                style={{ cursor: "pointer", marginRight: "15px", display: "flex", alignItems: "center", color: "#555" }}
               >
-                {showNewPassword ? <FaEyeSlash /> : <FaEye />}
-              </span>
-              {validationErrors.newPassword && (
-                <span style={{ position: "absolute", bottom: "-13px", left: "20px", color: "#d90429", fontSize: "11px", fontWeight: "bold" }}>
-                  {validationErrors.newPassword}
-                </span>
-              )}
-            </div>
+                <LuCircleCheck size={42} />
+              </div>
 
-            <div className="input-field1" style={{ position: "relative" }}>
-              <FaLock className="icon" />
-              <input
-                type={showConfirmPassword ? "text" : "password"}
-                autoComplete="new-password"
-                placeholder="Confirm Password"
-                value={confirmPassword}
-                onChange={(e) => {
-                  setConfirmPassword(e.target.value);
-                  setTouched({ ...touched, confirmPassword: true });
+              <h2
+                style={{
+                  fontSize: "1.55rem",
+                  fontWeight: 800,
+                  color: "#0f172a",
+                  margin: "0 0 10px",
+                  letterSpacing: "-0.4px",
                 }}
-                style={{ width: "65%" }}
-              />
-              <span
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                style={{ cursor: "pointer", marginRight: "15px", display: "flex", alignItems: "center", color: "#555" }}
               >
-                {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
-              </span>
-              {validationErrors.confirmPassword && (
-                <span style={{ position: "absolute", bottom: "-13px", left: "20px", color: "#d90429", fontSize: "11px", fontWeight: "bold" }}>
-                  {validationErrors.confirmPassword}
-                </span>
-              )}
+                Password Updated!
+              </h2>
+
+              <p
+                style={{
+                  fontSize: "0.95rem",
+                  color: "#475569",
+                  lineHeight: 1.6,
+                  margin: "0 0 24px",
+                }}
+              >
+                Your Mastery Zone account password has been successfully reset.
+                An official security confirmation email has been dispatched to
+                your registered email address.
+              </p>
+
+              <div
+                style={{
+                  background: "#f0fdf4",
+                  border: "1px solid #bbf7d0",
+                  borderRadius: 14,
+                  padding: "14px 18px",
+                  marginBottom: 28,
+                  fontSize: "0.88rem",
+                  color: "#166534",
+                  fontWeight: 600,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                }}
+              >
+                <LuCheck size={18} /> Redirecting to login in{" "}
+                <strong>{redirectCountdown} seconds</strong>...
+              </div>
+
+              <button
+                type="button"
+                onClick={() => navigate("/login")}
+                style={{
+                  width: "100%",
+                  padding: "14px 24px",
+                  borderRadius: 14,
+                  background:
+                    "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)",
+                  color: "#ffffff",
+                  fontSize: "1rem",
+                  fontWeight: 700,
+                  border: "none",
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  boxShadow: "0 8px 20px rgba(99, 102, 241, 0.3)",
+                  transition: "all 0.2s ease",
+                }}
+              >
+                Proceed to Login <LuArrowRight size={18} />
+              </button>
             </div>
-          </div>
+          ) : (
+            /* ── FORM VIEW: RESET PASSWORD & CONFIRM PASSWORD ── */
+            <div>
+              {/* Header Icon + Title */}
+              <div style={{ textAlign: "center", marginBottom: 28 }}>
+                <div
+                  style={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: 20,
+                    background:
+                      "linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%)",
+                    color: "#4f46e5",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    margin: "0 auto 16px",
+                    boxShadow: "0 8px 20px rgba(79, 70, 229, 0.12)",
+                  }}
+                >
+                  <LuKeyRound size={32} />
+                </div>
+                <h1
+                  style={{
+                    fontSize: "1.6rem",
+                    fontWeight: 800,
+                    color: "#0f172a",
+                    margin: "0 0 8px",
+                    letterSpacing: "-0.5px",
+                  }}
+                >
+                  Reset Your Password
+                </h1>
+                <p
+                  style={{
+                    fontSize: "0.9rem",
+                    color: "#64748b",
+                    lineHeight: 1.5,
+                    margin: 0,
+                  }}
+                >
+                  Create a new, strong password to regain access to your Mastery Zone account.
+                </p>
+              </div>
 
-          <button className="login-button" type="submit">UPDATE PASSWORD</button>
+              {errorMessage && (
+                <div
+                  style={{
+                    background: "#fef2f2",
+                    border: "1px solid #fecaca",
+                    borderRadius: 12,
+                    padding: "12px 16px",
+                    color: "#991b1b",
+                    fontSize: "0.85rem",
+                    lineHeight: 1.5,
+                    marginBottom: 20,
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 10,
+                  }}
+                >
+                  <LuShieldAlert size={18} style={{ flexShrink: 0, marginTop: 2 }} />
+                  <div>{errorMessage}</div>
+                </div>
+              )}
 
-          <p className="signup-text">
-            <a href="/login">Back to Login</a>
-          </p>
-        </form>
-      </div>
+              <form onSubmit={handleSubmit}>
+                {/* Optional Email or Token Input (Visible if token is not already in URL path/query) */}
+                {!initialToken && (
+                  <div style={{ marginBottom: 20 }}>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: "0.82rem",
+                        fontWeight: 700,
+                        color: "#334155",
+                        marginBottom: 6,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.4px",
+                      }}
+                    >
+                      Account Email or Reset Token
+                    </label>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        background: "#f8fafc",
+                        border: "1.5px solid #cbd5e1",
+                        borderRadius: 14,
+                        padding: "4px 14px",
+                        transition: "all 0.2s ease",
+                      }}
+                    >
+                      <LuKey size={18} color="#64748b" style={{ flexShrink: 0, marginRight: 10 }} />
+                      <input
+                        type="text"
+                        placeholder="Enter registered email or paste reset token"
+                        value={emailOrToken}
+                        onChange={(e) => setEmailOrToken(e.target.value)}
+                        style={{
+                          width: "100%",
+                          padding: "10px 0",
+                          border: "none",
+                          outline: "none",
+                          background: "transparent",
+                          fontSize: "0.92rem",
+                          color: "#0f172a",
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* ── 1. Search Box: Reset Password ── */}
+                <div style={{ marginBottom: 20 }}>
+                  <label
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      fontSize: "0.82rem",
+                      fontWeight: 700,
+                      color: "#334155",
+                      marginBottom: 6,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.4px",
+                    }}
+                  >
+                    <span>Reset Password</span>
+                    {strength.label && (
+                      <span
+                        style={{
+                          fontSize: "0.75rem",
+                          fontWeight: 700,
+                          color: strength.color,
+                          textTransform: "none",
+                        }}
+                      >
+                        {strength.label}
+                      </span>
+                    )}
+                  </label>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      background: "#f8fafc",
+                      border: "1.5px solid #cbd5e1",
+                      borderRadius: 14,
+                      padding: "4px 14px",
+                      boxShadow: "inset 0 1px 2px rgba(0,0,0,0.03)",
+                      transition: "all 0.2s ease",
+                    }}
+                  >
+                    <LuLock
+                      size={18}
+                      color="#4f46e5"
+                      style={{ flexShrink: 0, marginRight: 10 }}
+                    />
+                    <input
+                      type={showNewPassword ? "text" : "password"}
+                      autoComplete="new-password"
+                      placeholder="Enter new password (min. 6 characters)"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "10px 0",
+                        border: "none",
+                        outline: "none",
+                        background: "transparent",
+                        fontSize: "0.95rem",
+                        color: "#0f172a",
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        padding: "4px 6px",
+                        cursor: "pointer",
+                        color: "#64748b",
+                        display: "flex",
+                        alignItems: "center",
+                        borderRadius: 6,
+                      }}
+                      title={showNewPassword ? "Hide password" : "Show password"}
+                      aria-label="Toggle password visibility"
+                    >
+                      {showNewPassword ? <LuEyeOff size={18} /> : <LuEye size={18} />}
+                    </button>
+                  </div>
+
+                  {/* Password Strength Meter Bar */}
+                  {newPassword.length > 0 && (
+                    <div
+                      style={{
+                        height: 4,
+                        borderRadius: 2,
+                        background: "#e2e8f0",
+                        marginTop: 8,
+                        overflow: "hidden",
+                      }}
+                    >
+                      <div
+                        style={{
+                          height: "100%",
+                          width:
+                            strength.score === 1
+                              ? "33%"
+                              : strength.score === 2
+                              ? "66%"
+                              : "100%",
+                          background: strength.color,
+                          transition: "all 0.3s ease",
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* ── 2. Search Box: Re-enter Reset Password ── */}
+                <div style={{ marginBottom: 28 }}>
+                  <label
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      fontSize: "0.82rem",
+                      fontWeight: 700,
+                      color: "#334155",
+                      marginBottom: 6,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.4px",
+                    }}
+                  >
+                    <span>Re-enter Reset Password</span>
+                    {passwordsMatch && (
+                      <span
+                        style={{
+                          fontSize: "0.75rem",
+                          fontWeight: 700,
+                          color: "#10b981",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 3,
+                          textTransform: "none",
+                        }}
+                      >
+                        <LuCheck size={12} /> Passwords match
+                      </span>
+                    )}
+                    {passwordsMismatched && (
+                      <span
+                        style={{
+                          fontSize: "0.75rem",
+                          fontWeight: 700,
+                          color: "#ef4444",
+                          textTransform: "none",
+                        }}
+                      >
+                        Passwords do not match
+                      </span>
+                    )}
+                  </label>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      background: "#f8fafc",
+                      border: `1.5px solid ${
+                        passwordsMatch
+                          ? "#10b981"
+                          : passwordsMismatched
+                          ? "#ef4444"
+                          : "#cbd5e1"
+                      }`,
+                      borderRadius: 14,
+                      padding: "4px 14px",
+                      boxShadow: "inset 0 1px 2px rgba(0,0,0,0.03)",
+                      transition: "all 0.2s ease",
+                    }}
+                  >
+                    <LuShieldCheck
+                      size={18}
+                      color={passwordsMatch ? "#10b981" : "#4f46e5"}
+                      style={{ flexShrink: 0, marginRight: 10 }}
+                    />
+                    <input
+                      type={showConfirmPassword ? "text" : "password"}
+                      autoComplete="new-password"
+                      placeholder="Confirm new password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "10px 0",
+                        border: "none",
+                        outline: "none",
+                        background: "transparent",
+                        fontSize: "0.95rem",
+                        color: "#0f172a",
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        padding: "4px 6px",
+                        cursor: "pointer",
+                        color: "#64748b",
+                        display: "flex",
+                        alignItems: "center",
+                        borderRadius: 6,
+                      }}
+                      title={showConfirmPassword ? "Hide password" : "Show password"}
+                      aria-label="Toggle password visibility"
+                    >
+                      {showConfirmPassword ? <LuEyeOff size={18} /> : <LuEye size={18} />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Submit Action Button */}
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  style={{
+                    width: "100%",
+                    padding: "14px 24px",
+                    borderRadius: 14,
+                    background: isSubmitting
+                      ? "#94a3b8"
+                      : "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)",
+                    color: "#ffffff",
+                    fontSize: "1rem",
+                    fontWeight: 700,
+                    letterSpacing: "0.3px",
+                    border: "none",
+                    cursor: isSubmitting ? "not-allowed" : "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                    boxShadow: isSubmitting
+                      ? "none"
+                      : "0 8px 24px rgba(79, 70, 229, 0.3)",
+                    transition: "all 0.2s ease",
+                  }}
+                >
+                  {isSubmitting ? (
+                    <span>UPDATING PASSWORD...</span>
+                  ) : (
+                    <>
+                      <span>UPDATE PASSWORD</span>
+                      <LuArrowRight size={18} />
+                    </>
+                  )}
+                </button>
+              </form>
+
+              <div
+                style={{
+                  marginTop: 24,
+                  textAlign: "center",
+                  fontSize: "0.85rem",
+                  color: "#64748b",
+                }}
+              >
+                Remember your password?{" "}
+                <Link
+                  to="/login"
+                  style={{
+                    color: "#4f46e5",
+                    fontWeight: 700,
+                    textDecoration: "none",
+                  }}
+                >
+                  Sign in here
+                </Link>
+              </div>
+            </div>
+          )}
+        </div>
+      </main>
+
+      {/* ── Footer ── */}
+      <footer
+        style={{
+          width: "100%",
+          padding: "16px 24px",
+          textAlign: "center",
+          fontSize: "0.8rem",
+          color: "#94a3b8",
+          boxSizing: "border-box",
+        }}
+      >
+        © {new Date().getFullYear()} Mastery Zone Inc. All Rights Reserved. • Protected by Military-Grade End-to-End Encryption.
+      </footer>
     </div>
   );
-};
-
-export default ResetPassword;
+}
