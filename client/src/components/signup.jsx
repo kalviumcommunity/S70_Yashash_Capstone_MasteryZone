@@ -11,7 +11,7 @@ import {
   LuStar,
 } from "react-icons/lu";
 import { FcGoogle } from "react-icons/fc";
-import { signInWithPopup } from "firebase/auth";
+import { signInWithPopup, createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { auth, provider } from "../firebase/firebaseConfig";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { toast } from "react-toastify";
@@ -121,18 +121,50 @@ const Signup = () => {
     }
 
     setIsSubmitting(true);
+    let firebaseUid = null;
+    let firebaseToken = null;
+
+    // ── 1. CREATE USER IN FIREBASE (EMAIL & PASSWORD) ──
+    try {
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        formData.email.trim(),
+        formData.password
+      );
+      firebaseUid = userCredential.user.uid;
+      const fullName = `${formData.firstName} ${formData.lastName}`.trim();
+      await updateProfile(userCredential.user, { displayName: fullName });
+      firebaseToken = await userCredential.user.getIdToken();
+    } catch (fbErr) {
+      console.warn("Firebase create user attempt:", fbErr.code, fbErr.message);
+      if (fbErr.code === "auth/email-already-in-use") {
+        setServerError("This email address is already registered in Firebase. Please log in.");
+        toast.error("Email is already registered. Please log in.");
+        setIsSubmitting(false);
+        return;
+      } else if (fbErr.code === "auth/weak-password") {
+        setServerError("Password must be at least 6 characters long.");
+        toast.error("Password must be at least 6 characters long.");
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
+    // ── 2. REGISTER IN BACKEND DATABASE & INITIALIZE TELEMETRY ──
     try {
       const response = await fetch(`${AUTH_BASE}/register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(firebaseToken ? { Authorization: `Bearer ${firebaseToken}` } : {}),
         },
         body: JSON.stringify({
           firstName: formData.firstName,
           lastName: formData.lastName,
-          email: formData.email,
+          email: formData.email.trim(),
           phoneNumber: formData.phoneNumber,
           password: formData.password,
+          uid: firebaseUid,
         }),
       });
 
@@ -144,7 +176,7 @@ const Signup = () => {
       }
 
       setServerError("");
-      toast.success("Registration successful! Please log in.");
+      toast.success("Account created successfully via Firebase! Please log in.");
       navigate("/login");
     } catch (err) {
       console.error("Signup error:", err);

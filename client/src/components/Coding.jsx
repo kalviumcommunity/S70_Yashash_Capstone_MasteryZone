@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { toast } from "react-toastify";
 import {
   LuSearch,
@@ -348,10 +348,29 @@ const DEFAULT_RESOURCES = [
 export default function Coding() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const location = useLocation();
 
   // Navigation tab state: "learning_path" | "videos" | "challenges" | "projects" | "study_groups" | "resources" | "certification"
-  const initialTab = searchParams.get("tab") || "learning_path";
+  const initialTab = searchParams.get("tab") || location.state?.tab || "learning_path";
   const [activeTab, setActiveTab] = useState(initialTab);
+
+  // Synchronize active tab whenever URL search params or router state changes
+  useEffect(() => {
+    const tabParam = searchParams.get("tab") || location.state?.tab;
+    const validTabs = [
+      "learning_path",
+      "videos",
+      "challenges",
+      "projects",
+      "study_groups",
+      "resources",
+      "certification",
+    ];
+    if (tabParam && validTabs.includes(tabParam)) {
+      setActiveTab(tabParam);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [searchParams, location.state]);
 
   // Global search & suggestions
   const [searchQuery, setSearchQuery] = useState("");

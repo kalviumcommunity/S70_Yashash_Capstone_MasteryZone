@@ -47,6 +47,7 @@ function App() {
           <Route path="/login" element={<Suspense fallback={<GlobalLoader />}><Login /></Suspense>} /> 
           <Route path="/signup" element={<Suspense fallback={<GlobalLoader />}><Signup /></Suspense>} /> 
           <Route path="/forgot-password" element={<Suspense fallback={<GlobalLoader />}><ForgotPassword /></Suspense>} />
+          <Route path="/reset-password" element={<Suspense fallback={<GlobalLoader />}><ResetPassword /></Suspense>} />
           <Route path="/reset-password/:token" element={<Suspense fallback={<GlobalLoader />}><ResetPassword /></Suspense>} />
 
           {/* Protected Routes (Require Valid Session) */}

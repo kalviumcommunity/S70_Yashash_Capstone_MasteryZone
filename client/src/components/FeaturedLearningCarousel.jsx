@@ -130,7 +130,7 @@ export default function FeaturedLearningCarousel({
     },
     {
       id: "slide_fullstack_projects",
-      tag: "Cloud & Systems Engineering",
+      tag: "Industry Projects",
       title: "Build Real-World Industry Projects",
       subtitle:
         "Architect production-ready full-stack applications with guided milestone tracking in our integrated cloud workspace.",
@@ -264,6 +264,8 @@ export default function FeaturedLearningCarousel({
             role="group"
             aria-roledescription="slide"
             aria-label={`${idx + 1} of ${totalSlides}: ${slide.title}`}
+            onClick={slide.primaryAction}
+            style={{ cursor: "pointer" }}
           >
             {/* Professional Photographic Cover Photo with High-Definition Vignette Overlay */}
             {slide.coverImage && (
@@ -308,7 +310,10 @@ export default function FeaturedLearningCarousel({
                 <button
                   type="button"
                   className="mzc-primary-cta"
-                  onClick={slide.primaryAction}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    slide.primaryAction?.();
+                  }}
                 >
                   <span>{slide.primaryCtaText}</span>
                   <LuArrowRight size={15} />

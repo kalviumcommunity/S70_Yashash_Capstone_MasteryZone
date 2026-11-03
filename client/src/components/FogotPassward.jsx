@@ -44,7 +44,7 @@ const ForgotPassword = () => {
 
     let sent = false;
 
-    // 1. Attempt Backend API reset
+    // Dispatch official Mastery Zone branded password reset email with exact client origin
     try {
       const response = await fetch(`${AUTH_BASE}/forgot-password`, {
         method: "POST",
@@ -53,53 +53,43 @@ const ForgotPassword = () => {
         },
         body: JSON.stringify({
           usernameOrEmail: email.trim(),
+          clientOrigin: window.location.origin,
         }),
       });
 
-      const data = await response.json();
+      const resData = await response.json();
 
       if (response.ok) {
         sent = true;
+      } else {
+        const errorMsg = resData.message || "No registered account found with that email address.";
         setStatus({
-          type: "success",
-          message: data.message || "Password reset link sent to your email!",
+          type: "error",
+          message: errorMsg,
         });
-        toast.success("Reset link sent! Check your inbox.");
-        setEmail("");
-        setTouched(false);
+        toast.error(errorMsg);
+        setLoading(false);
+        return;
       }
     } catch (err) {
-      console.log("Backend reset fetch skipped/errored, attempting Firebase fallback...");
+      console.warn("Backend reset fetch warning:", err);
     }
 
-    // 2. If backend didn't send or errored, attempt Firebase password reset
-    if (!sent) {
-      try {
-        await sendPasswordResetEmail(auth, email.trim());
-        sent = true;
-        setStatus({
-          type: "success",
-          message: "Password reset link sent to your email!",
-        });
-        toast.success("Reset link sent! Check your inbox.");
-        setEmail("");
-        setTouched(false);
-      } catch (fbErr) {
-        console.error("Firebase reset error:", fbErr);
-        if (!sent) {
-          const errMsg =
-            fbErr.code === "auth/user-not-found"
-              ? "No account found with this email."
-              : fbErr.code === "auth/invalid-email"
-              ? "Invalid email address."
-              : "Unable to send reset link. Please try again.";
-          setStatus({
-            type: "error",
-            message: errMsg,
-          });
-          toast.error(errMsg);
-        }
-      }
+    if (sent) {
+      setStatus({
+        type: "success",
+        message: "Password reset link has been dispatched to your email!",
+      });
+      toast.success("Reset link sent! Check your inbox.");
+      setEmail("");
+      setTouched(false);
+    } else {
+      const errMsg = "Unable to find an account with that email address. Please check and try again.";
+      setStatus({
+        type: "error",
+        message: errMsg,
+      });
+      toast.error(errMsg);
     }
 
     setLoading(false);

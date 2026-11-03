@@ -5,7 +5,13 @@ const crypto = require('crypto');
 const User = require('../models/User');
 const verifyFirebaseToken = require('../middleware/firebaseAuth');
 const verifyToken = require('../middleware/auth');
-const { sendLoginNotification, sendPasswordResetEmail } = require('../utils/mailer');
+const {
+  sendSignupNotification,
+  sendLoginNotification,
+  sendPasswordResetEmail,
+  sendPasswordResetSuccessEmail,
+  parseDeviceAndBrowser,
+} = require('../utils/mailer');
 const { pushNotification } = require('../utils/notificationService');
 const router = express.Router();
 
@@ -75,6 +81,12 @@ router.post(['/signup', '/register'], async (req, res) => {
     }
 
     const newUser = await User.create({ ...userData, notificationsInitialized: true });
+
+    // Send real-time welcome email notification to the newly registered account
+    sendSignupNotification(newUser, req).catch((mailErr) => {
+      console.warn("⚠️ [Auth Mailer] Signup notification warning:", mailErr.message);
+    });
+
     await pushNotification(req.app, {
       userId: newUser._id,
       title: "Welcome to Mastery Zone!",
@@ -117,8 +129,8 @@ router.post('/login', async (req, res) => {
     // Find user by either email or username
     const user = await User.findOne({
       $or: [
-        { email: usernameOrEmail.toLowerCase() },
-        { username: usernameOrEmail }
+        { email: usernameOrEmail.toLowerCase().trim() },
+        { username: usernameOrEmail.trim() }
       ]
     });
 
@@ -127,12 +139,55 @@ router.post('/login', async (req, res) => {
     const match = await bcrypt.compare(password, user.password);
     if (!match) return res.status(400).json({ message: 'Invalid credentials' });
 
-    // Send login notification asynchronously
-    try {
-      sendLoginNotification(user.email, user.username);
-    } catch (mailErr) {
-      console.warn("Mailer notification skipped:", mailErr.message);
+    // ── Device & Telemetry Detection ──
+    const { browser, os, clientIp, deviceSummary } = parseDeviceAndBrowser(req);
+    const hasKnownDevices = Array.isArray(user.knownDevices) && user.knownDevices.length > 0;
+    const isRecognized = hasKnownDevices && user.knownDevices.some(d => d.deviceString === deviceSummary || d.ip === clientIp);
+    const isNewDevice = hasKnownDevices && !isRecognized;
+
+    const now = new Date();
+
+    // Send login notification immediately to user's registered email on every login
+    sendLoginNotification(user, req, isNewDevice).catch((mailErr) => {
+      console.warn("Mailer notification warning:", mailErr.message);
+    });
+    user.lastLoginNotificationSentAt = now;
+
+    // In-app real-time notification
+    pushNotification(req.app, {
+      userId: user._id,
+      title: isNewDevice ? "⚠️ New Device Sign-In" : "Session Authenticated",
+      message: isNewDevice
+        ? `Sign-in detected from ${deviceSummary} (IP: ${clientIp}). If this wasn't you, reset your password immediately.`
+        : `Signed in successfully from ${deviceSummary}.`,
+      type: "security",
+      severity: isNewDevice ? "warning" : "info",
+      actionUrl: "/settings",
+      actionLabel: "Security",
+    }).catch(() => {});
+
+    // Update telemetry on user record
+    user.lastLoginAt = now;
+    user.lastLoginIp = clientIp;
+    user.lastLoginDevice = deviceSummary;
+    if (!Array.isArray(user.knownDevices)) {
+      user.knownDevices = [];
     }
+    const devIdx = user.knownDevices.findIndex(d => d.deviceString === deviceSummary);
+    if (devIdx >= 0) {
+      user.knownDevices[devIdx].lastSeenAt = now;
+      user.knownDevices[devIdx].ip = clientIp;
+    } else {
+      user.knownDevices.push({
+        deviceString: deviceSummary,
+        browser,
+        os,
+        ip: clientIp,
+        firstSeenAt: now,
+        lastSeenAt: now,
+      });
+    }
+    await user.save();
 
     const token = jwt.sign({ userId: user._id, email: user.email }, JWT_SECRET, { expiresIn: '1d' });
 
@@ -189,9 +244,9 @@ router.post('/guest-login', async (req, res) => {
 });
 
 
-// Forgot Password Route (Generates Token & Sends Email)
+// Forgot Password Route (Generates Secure Expiring Token & Sends Branded Email)
 router.post('/forgot-password', async (req, res) => {
-  const { usernameOrEmail } = req.body;
+  const { usernameOrEmail, clientOrigin } = req.body;
 
   if (!usernameOrEmail) {
     return res.status(400).json({ message: 'Email or Username is required' });
@@ -200,71 +255,158 @@ router.post('/forgot-password', async (req, res) => {
   try {
     const user = await User.findOne({
       $or: [
-        { email: usernameOrEmail.toLowerCase() },
-        { username: usernameOrEmail }
+        { email: usernameOrEmail.toLowerCase().trim() },
+        { username: usernameOrEmail.trim() }
       ]
     });
 
     if (!user) {
-      // For security, we can return success even if user not found, but we'll return 404 here for ease of UI
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: 'No registered account found with that email or username.' });
     }
 
-    // Generate a secure random token
+    // Generate a cryptographically secure random token (single-use, expires in 1 hour)
     const resetToken = crypto.randomBytes(32).toString('hex');
-    
-    // Hash token before saving to database for security
     const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
 
     user.resetPasswordToken = hashedToken;
     user.resetPasswordExpires = Date.now() + 3600000; // 1 hour expiration
     await user.save();
 
-    // The frontend must be running on localhost:5173 for local dev
-    const resetLink = `http://localhost:5173/reset-password/${resetToken}`;
-    
-    // Send Email asynchronously
-    sendPasswordResetEmail(user.email, resetLink);
+    // Send Branded HTML Password Reset Email asynchronously
+    sendPasswordResetEmail(user, resetToken, req, clientOrigin).catch((err) => {
+      console.warn('[Auth Mailer] Reset email dispatch warning:', err.message);
+    });
 
-    res.status(200).json({ message: 'Password reset link sent to your email.' });
+    // In-app security notification
+    pushNotification(req.app, {
+      userId: user._id,
+      title: "Password Reset Requested",
+      message: `A password reset request was initiated for your registered account (${user.email}). Link expires in 60 minutes.`,
+      type: "security",
+      severity: "warning",
+      actionUrl: "/settings",
+      actionLabel: "Security",
+    }).catch(() => {});
+
+    res.status(200).json({ message: 'Password reset link sent to your registered email address.' });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message });
+    console.error('Forgot password error:', err);
+    res.status(500).json({ message: 'Server error processing password reset', error: err.message });
   }
 });
 
-// Reset Password Route (Validates Token & Saves New Password)
-router.post('/reset-password/:token', async (req, res) => {
-  const { newPassword } = req.body;
-  const { token } = req.params;
+// Reset Password Route (Validates Single-Use Token & Sends Confirmation Email)
+router.post(['/reset-password', '/reset-password/:token'], async (req, res) => {
+  const { newPassword, email, usernameOrEmail } = req.body;
+  const token = req.params.token || req.body.token || req.query.token;
 
   if (!newPassword || newPassword.length < 6) {
-    return res.status(400).json({ message: 'Password must be at least 6 characters' });
+    return res.status(400).json({ message: 'Password must be at least 6 characters long' });
   }
 
   try {
-    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+    let user = null;
 
-    const user = await User.findOne({
-      resetPasswordToken: hashedToken,
-      resetPasswordExpires: { $gt: Date.now() } // Ensure token hasn't expired
-    });
-
-    if (!user) {
-      return res.status(400).json({ message: 'Invalid or expired password reset token' });
+    if (token && typeof token === 'string' && token.trim().length > 0) {
+      const hashedToken = crypto.createHash('sha256').update(token.trim()).digest('hex');
+      user = await User.findOne({
+        resetPasswordToken: hashedToken,
+        resetPasswordExpires: { $gt: Date.now() } // Ensure token hasn't expired
+      });
     }
 
-    // Hash the new password
+    if (!user && (email || usernameOrEmail)) {
+      const searchIdentifier = (email || usernameOrEmail).toLowerCase().trim();
+      user = await User.findOne({
+        $or: [
+          { email: searchIdentifier },
+          { username: (email || usernameOrEmail).trim() }
+        ],
+        resetPasswordToken: { $exists: true, $ne: null },
+        resetPasswordExpires: { $gt: Date.now() }
+      });
+    }
+
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid or expired password reset link/token. Please request a new link.' });
+    }
+
+    // Hash the new password with bcrypt
     user.password = await bcrypt.hash(newPassword, 10);
     
-    // Clear the reset token fields
+    // Clear the reset token fields immediately (strict single-use guarantee)
     user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
     
     await user.save();
 
-    res.status(200).json({ message: 'Password has been successfully reset!' });
+    // Immediately dispatch password reset confirmation email
+    sendPasswordResetSuccessEmail(user, req).catch((err) => {
+      console.warn('[Auth Mailer] Confirmation email warning:', err.message);
+    });
+
+    // In-app notification
+    pushNotification(req.app, {
+      userId: user._id,
+      title: "Password Changed Successfully",
+      message: "Your Mastery Zone account password was successfully updated.",
+      type: "security",
+      severity: "success",
+      actionUrl: "/settings",
+      actionLabel: "Security",
+    }).catch(() => {});
+
+    res.status(200).json({ message: 'Password has been successfully updated! A confirmation has been sent to your email.' });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message });
+    console.error('Reset password error:', err);
+    res.status(500).json({ message: 'Server error resetting password', error: err.message });
+  }
+});
+
+// Authenticated Password Change Route (for Settings)
+router.put('/change-password', verifyToken, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+
+  if (!newPassword || newPassword.length < 6) {
+    return res.status(400).json({ message: 'New password must be at least 6 characters long' });
+  }
+
+  try {
+    const user = await User.findById(req.user.userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (currentPassword) {
+      const match = await bcrypt.compare(currentPassword, user.password);
+      if (!match) {
+        return res.status(400).json({ message: 'Current password does not match' });
+      }
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
+
+    // Dispatch confirmation email
+    sendPasswordResetSuccessEmail(user, req).catch((err) => {
+      console.warn('[Auth Mailer] Password change email warning:', err.message);
+    });
+
+    // In-app notification
+    pushNotification(req.app, {
+      userId: user._id,
+      title: "Password Updated",
+      message: "Your Mastery Zone password was updated successfully.",
+      type: "security",
+      severity: "success",
+      actionUrl: "/settings",
+      actionLabel: "Security",
+    }).catch(() => {});
+
+    res.status(200).json({ message: 'Password updated successfully! A confirmation email has been dispatched.' });
+  } catch (err) {
+    console.error('Change password error:', err);
+    res.status(500).json({ message: 'Server error updating password', error: err.message });
   }
 });
 
@@ -306,14 +448,62 @@ router.post('/firebase-login', verifyFirebaseToken, async (req, res) => {
         password: randomPassword,
         authProvider: 'google'
       });
+
+      // Dispatch welcome email notification for new account
+      sendSignupNotification(user, req).catch((mailErr) => {
+        console.warn("Firebase signup mailer warning:", mailErr.message);
+      });
     }
 
-    // Send login notification asynchronously
-    try {
-      sendLoginNotification(user.email, user.username);
-    } catch (mailErr) {
-      console.warn("Mailer notification skipped:", mailErr.message);
+    // ── Device & Telemetry Detection ──
+    const { browser, os, clientIp, deviceSummary } = parseDeviceAndBrowser(req);
+    const hasKnownDevices = Array.isArray(user.knownDevices) && user.knownDevices.length > 0;
+    const isRecognized = hasKnownDevices && user.knownDevices.some(d => d.deviceString === deviceSummary || d.ip === clientIp);
+    const isNewDevice = hasKnownDevices && !isRecognized;
+
+    const now = new Date();
+
+    // Send login notification immediately on every login
+    sendLoginNotification(user, req, isNewDevice).catch((mailErr) => {
+      console.warn("Firebase login mailer warning:", mailErr.message);
+    });
+    user.lastLoginNotificationSentAt = now;
+
+    // In-app real-time notification
+    pushNotification(req.app, {
+      userId: user._id,
+      title: isNewDevice ? "⚠️ New Device Sign-In (Google)" : "Google Session Authenticated",
+      message: isNewDevice
+        ? `Google sign-in detected from ${deviceSummary} (IP: ${clientIp}).`
+        : `Signed in via Google from ${deviceSummary}.`,
+      type: "security",
+      severity: isNewDevice ? "warning" : "info",
+      actionUrl: "/settings",
+      actionLabel: "Security",
+    }).catch(() => {});
+
+    // Update telemetry
+    user.lastLoginAt = now;
+    user.lastLoginIp = clientIp;
+    user.lastLoginDevice = deviceSummary;
+    if (!Array.isArray(user.knownDevices)) {
+      user.knownDevices = [];
     }
+    const devIdx = user.knownDevices.findIndex(d => d.deviceString === deviceSummary);
+    if (devIdx >= 0) {
+      user.knownDevices[devIdx].lastSeenAt = now;
+      user.knownDevices[devIdx].ip = clientIp;
+    } else {
+      user.knownDevices.push({
+        deviceString: deviceSummary,
+        browser,
+        os,
+        ip: clientIp,
+        firstSeenAt: now,
+        lastSeenAt: now,
+      });
+    }
+    await user.save();
 
     // Issue standard JWT
     const token = jwt.sign({ userId: user._id, email: user.email }, JWT_SECRET, { expiresIn: '1d' });
