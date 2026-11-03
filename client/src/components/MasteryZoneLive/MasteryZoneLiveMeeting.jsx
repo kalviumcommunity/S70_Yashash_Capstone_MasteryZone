@@ -69,7 +69,7 @@ function PersistentVideoTile({ stream, isLocal, isMuted, isScreenSharing, isVide
     if (isLocal) {
       el.muted = true;
     }
-    if (stream) {
+    if (stream && !isVideoOff) {
       if (el.srcObject !== stream) {
         el.srcObject = stream;
       }
@@ -246,6 +246,20 @@ export default function MasteryZoneLiveMeeting({
       console.warn("Hardware media shutdown warning:", err);
     }
   }, []);
+
+  // Guarantee all hardware is powered down when closing tab or window
+  useEffect(() => {
+    const handleUnload = () => {
+      stopAllMediaHardware();
+    };
+    window.addEventListener("beforeunload", handleUnload);
+    window.addEventListener("pagehide", handleUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleUnload);
+      window.removeEventListener("pagehide", handleUnload);
+      stopAllMediaHardware();
+    };
+  }, [stopAllMediaHardware]);
 
   const inviteLink = `${typeof window !== "undefined" ? window.location.origin : ""}/meeting/${meetingData.meetingId || meetingId}`;
 
@@ -1814,26 +1828,80 @@ export default function MasteryZoneLiveMeeting({
                           flexDirection: "column",
                           alignItems: "center",
                           justifyContent: "center",
-                          gap: 10,
+                          gap: 12,
+                          zIndex: 1,
                         }}
                       >
                         <div
                           style={{
-                            width: 72,
-                            height: 72,
+                            width: 84,
+                            height: 84,
                             borderRadius: "50%",
                             background: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
                             color: "#ffffff",
-                            fontSize: 26,
+                            fontSize: 30,
                             fontWeight: 700,
-                            boxShadow: "0 8px 20px rgba(0,0,0,0.3)",
+                            boxShadow: "0 8px 24px rgba(0,0,0,0.45)",
+                            border: isSpeaking ? "3px solid #22c55e" : "2px solid rgba(255,255,255,0.18)",
                           }}
                         >
                           {tile.fullName?.[0]?.toUpperCase() || "U"}
                         </div>
+                        <div style={{ color: "#e2e8f0", fontSize: 13.5, fontWeight: 700, letterSpacing: "0.2px" }}>
+                          {tile.fullName} {tile.isLocal && "(You)"}
+                        </div>
+                        {tile.isLocal && (
+                          <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                            {isVideoOff && (
+                              <button
+                                type="button"
+                                onClick={handleToggleVideo}
+                                style={{
+                                  background: "#2563eb",
+                                  color: "#ffffff",
+                                  border: "none",
+                                  borderRadius: 20,
+                                  padding: "6px 14px",
+                                  fontSize: 12,
+                                  fontWeight: 600,
+                                  cursor: "pointer",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 6,
+                                  boxShadow: "0 2px 8px rgba(37,99,235,0.4)",
+                                }}
+                              >
+                                <LuVideo size={14} />
+                                <span>Turn Camera On</span>
+                              </button>
+                            )}
+                            {isMuted && (
+                              <button
+                                type="button"
+                                onClick={handleToggleMic}
+                                style={{
+                                  background: "rgba(255,255,255,0.1)",
+                                  color: "#ffffff",
+                                  border: "1px solid rgba(255,255,255,0.2)",
+                                  borderRadius: 20,
+                                  padding: "6px 14px",
+                                  fontSize: 12,
+                                  fontWeight: 600,
+                                  cursor: "pointer",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 6,
+                                }}
+                              >
+                                <LuMic size={14} />
+                                <span>Unmute</span>
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </div>
                     )}
 

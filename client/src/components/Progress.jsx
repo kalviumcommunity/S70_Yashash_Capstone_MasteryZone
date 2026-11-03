@@ -205,17 +205,52 @@ const Progress = () => {
       setDashboardData(data);
       setError(null);
 
-      // Fetch official assessment attempts & reports
+      // Fetch official assessment attempts & reports from all sources (MCQ, Proctored Coding, Projects)
       try {
         const repRes = await fetch(`${API_BASE}/api/curriculum/reports`, {
           headers: { Authorization: `Bearer ${token}` },
         });
+        const repList = [];
         if (repRes.ok) {
           const repData = await repRes.json();
           if (Array.isArray(repData.reports)) {
-            setAssessmentReports(repData.reports);
+            repList.push(...repData.reports);
           }
         }
+
+        try {
+          const codeRes = await fetch(`${API_BASE}/api/coding/proctored-session/user-reports`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (codeRes.ok) {
+            const codeData = await codeRes.json();
+            if (Array.isArray(codeData.reports)) {
+              repList.push(...codeData.reports);
+            }
+          }
+        } catch {}
+
+        // Merge with local account reports for real-time instant rendering
+        try {
+          const rawU = localStorage.getItem("user");
+          const uObj = rawU ? JSON.parse(rawU) : null;
+          const uId = uObj?._id || uObj?.id || uObj?.userId || "";
+          const localKey = uId ? `mz_${uId}_assessment_reports` : "mz_assessment_reports";
+          const localReps = JSON.parse(localStorage.getItem(localKey) || "[]");
+          repList.push(...localReps);
+        } catch {}
+
+        const seenReportIds = new Set();
+        const deduplicatedReports = [];
+        for (const r of repList) {
+          const rKey = r.sessionId || r.id || r.attemptId;
+          if (rKey && !seenReportIds.has(rKey)) {
+            seenReportIds.add(rKey);
+            deduplicatedReports.push(r);
+          }
+        }
+
+        setAssessmentReports(deduplicatedReports);
       } catch (rErr) {
         console.warn("Reports fetch note in progress:", rErr);
       }
