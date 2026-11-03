@@ -165,6 +165,8 @@ export default function CertificationExamWorkspace({
   const isSubmittedRef = useRef(false);
   const violationCooldownRef = useRef(false);
   const immunityUntilRef = useRef(Date.now() + 15000);
+  const secondsRemainingRef = useRef(secondsRemaining);
+  const currentQuestionIndexRef = useRef(currentQuestionIndex);
 
   useEffect(() => {
     isRecoveryModalOpenRef.current = isRecoveryModalOpen;
@@ -173,6 +175,14 @@ export default function CertificationExamWorkspace({
   useEffect(() => {
     isReverifyingRef.current = isReverifying;
   }, [isReverifying]);
+
+  useEffect(() => {
+    secondsRemainingRef.current = secondsRemaining;
+  }, [secondsRemaining]);
+
+  useEffect(() => {
+    currentQuestionIndexRef.current = currentQuestionIndex;
+  }, [currentQuestionIndex]);
 
   // Live Proctoring Media Streams (Continuous across MCQs & Coding)
   const [cameraStream, setCameraStream] = useState(null);
@@ -219,9 +229,11 @@ export default function CertificationExamWorkspace({
     }
   };
 
-  // Microphone volume level analyzer
+  // Microphone volume level analyzer (throttled to avoid 60-120fps component re-render churn)
   useEffect(() => {
     if (!micStream) return;
+    let isCancelled = false;
+    let lastUpdate = 0;
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (AudioCtx) {
@@ -234,12 +246,17 @@ export default function CertificationExamWorkspace({
 
         const dataArray = new Uint8Array(analyser.frequencyBinCount);
         const updateLevel = () => {
-          if (!analyser) return;
-          analyser.getByteFrequencyData(dataArray);
-          let sum = 0;
-          for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
-          const avg = sum / dataArray.length;
-          setProcMicVolume(Math.min(100, Math.round((avg / 128) * 100)));
+          if (isCancelled || !analyser) return;
+          const now = Date.now();
+          if (now - lastUpdate > 150) {
+            analyser.getByteFrequencyData(dataArray);
+            let sum = 0;
+            for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+            const avg = sum / dataArray.length;
+            const vol = Math.min(100, Math.round((avg / 128) * 100));
+            setProcMicVolume((prev) => (Math.abs(prev - vol) > 3 ? vol : prev));
+            lastUpdate = now;
+          }
           animFrameRef.current = requestAnimationFrame(updateLevel);
         };
         updateLevel();
@@ -249,6 +266,7 @@ export default function CertificationExamWorkspace({
     }
 
     return () => {
+      isCancelled = true;
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
       if (audioContextRef.current && audioContextRef.current.state !== "closed") {
         audioContextRef.current.close().catch(() => {});
@@ -663,8 +681,8 @@ export default function CertificationExamWorkspace({
             attemptId,
             certId,
             certTitle,
-            currentQuestionIndex,
-            secondsRemaining,
+            currentQuestionIndex: currentQuestionIndexRef.current,
+            secondsRemaining: secondsRemainingRef.current,
             status: "IN_PROGRESS",
           })
         );
@@ -694,8 +712,6 @@ export default function CertificationExamWorkspace({
     attemptId,
     certId,
     certTitle,
-    currentQuestionIndex,
-    secondsRemaining,
     currentUserId,
   ]);
 
@@ -972,6 +988,9 @@ export default function CertificationExamWorkspace({
       if (onCompleted) {
         onCompleted(data);
       }
+
+      // Immediately navigate to official assessment report page
+      navigate(`/assessment-report/${attemptId}`);
     } catch (err) {
       toast.error(err.message);
     } finally {

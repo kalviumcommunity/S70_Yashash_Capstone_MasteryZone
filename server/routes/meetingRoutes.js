@@ -290,8 +290,11 @@ router.get("/study-rooms", async (req, res) => {
 // -------------------------------------------------------------
 // 2. POST /api/meetings/create
 // -------------------------------------------------------------
-router.post("/create", authenticateToken, async (req, res) => {
-  const userId = String(req.user.userId || req.user.id || req.user._id);
+router.post("/create", optionalAuthToken, async (req, res) => {
+  const mongoose = require("mongoose");
+  const userId = req.user
+    ? String(req.user.userId || req.user.id || req.user._id)
+    : String(req.body.userId || req.body.guestId || "user_" + Math.random().toString(36).slice(2, 10));
   const {
     title = "DSA Practice",
     groupKey = "dsa",
@@ -347,7 +350,9 @@ router.post("/create", authenticateToken, async (req, res) => {
       });
     }
 
-    const user = await User.findById(userId).select("fullName username email avatarUrl").lean();
+    const user = mongoose.Types.ObjectId.isValid(userId)
+      ? await User.findById(userId).select("fullName username email avatarUrl").lean()
+      : null;
     const meetingId = await generateUniqueMeetingId();
 
     const starterFileName =
@@ -617,11 +622,11 @@ router.post("/:meetingId/join", optionalAuthToken, async (req, res) => {
 // -------------------------------------------------------------
 // 5. POST /api/meetings/:meetingId/leave
 // -------------------------------------------------------------
-router.post("/:meetingId/leave", authenticateToken, async (req, res) => {
+router.post("/:meetingId/leave", optionalAuthToken, async (req, res) => {
   try {
     const cleanId = normalizeMeetingId(req.params.meetingId);
     const nonDashed = cleanId.replace(/-/g, "");
-    const userId = req.user.userId || req.user.id || req.user._id;
+    const userId = req.user?.userId || req.user?.id || req.user?._id || req.body?.userId || req.body?.guestId;
 
     const meeting = await Meeting.findOne({
       $or: [
@@ -696,7 +701,7 @@ router.post("/:meetingId/end", authenticateToken, async (req, res) => {
 // -------------------------------------------------------------
 // 7. POST /api/meetings/:meetingId/run-code (Sandboxed execution)
 // -------------------------------------------------------------
-router.post("/:meetingId/run-code", authenticateToken, async (req, res) => {
+router.post("/:meetingId/run-code", optionalAuthToken, async (req, res) => {
   try {
     const { meetingId } = req.params;
     const { code, language = "python", stdin = "", files = [] } = req.body;
@@ -856,7 +861,7 @@ router.post("/:meetingId/run-code", authenticateToken, async (req, res) => {
 // -------------------------------------------------------------
 // 8. POST /api/meetings/:meetingId/run-tests (Collaborative Test Runner)
 // -------------------------------------------------------------
-router.post("/:meetingId/run-tests", authenticateToken, async (req, res) => {
+router.post("/:meetingId/run-tests", optionalAuthToken, async (req, res) => {
   try {
     const cleanId = normalizeMeetingId(req.params.meetingId);
     const nonDashed = cleanId.replace(/-/g, "");
@@ -993,7 +998,7 @@ router.post("/:meetingId/run-tests", authenticateToken, async (req, res) => {
     // Broadcast test run results to meeting
     const io = req.app.get("io");
     if (io) {
-      io.to(`meeting_${meetingId}`).emit("meeting_tests_executed", {
+      io.to(`meeting_${cleanId}`).emit("meeting_tests_executed", {
         passedCount,
         totalCount: testResults.length,
         results: testResults,
@@ -1015,7 +1020,7 @@ router.post("/:meetingId/run-tests", authenticateToken, async (req, res) => {
 // -------------------------------------------------------------
 // 9. POST /api/meetings/:meetingId/submit-solution (Collaborative Solution Grading)
 // -------------------------------------------------------------
-router.post("/:meetingId/submit-solution", authenticateToken, async (req, res) => {
+router.post("/:meetingId/submit-solution", optionalAuthToken, async (req, res) => {
   try {
     const cleanId = normalizeMeetingId(req.params.meetingId);
     const nonDashed = cleanId.replace(/-/g, "");
@@ -1165,7 +1170,7 @@ router.post("/:meetingId/submit-solution", authenticateToken, async (req, res) =
     // Broadcast submission result to all participants in meeting room
     const io = req.app.get("io");
     if (io) {
-      io.to(`meeting_${meetingId}`).emit("meeting_solution_submitted", {
+      io.to(`meeting_${cleanId}`).emit("meeting_solution_submitted", {
         result: evaluationResult,
         user: { fullName: evaluationResult.submittedBy },
       });

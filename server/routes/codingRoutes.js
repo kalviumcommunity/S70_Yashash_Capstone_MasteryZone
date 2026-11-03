@@ -7,6 +7,7 @@ const { execFile, spawn } = require("child_process");
 const https = require("https");
 const http = require("http");
 const authenticateToken = require("../middleware/authMiddleware");
+const { optionalAuthenticateToken } = require("../middleware/authMiddleware");
 
 // Models
 const CodingSnippet = require("../models/CodingSnippet");
@@ -611,6 +612,39 @@ function getValidCode(...candidates) {
   return "";
 }
 
+// Robust validation helper comparing student actual output with problem expected output
+function validateTestCaseOutput(actual, expected) {
+  if (typeof actual !== "string") actual = String(actual || "");
+  if (typeof expected !== "string") expected = String(expected || "");
+
+  const cleanAct = actual.trim().replace(/\r\n/g, "\n");
+  const cleanExp = expected.trim().replace(/\r\n/g, "\n");
+
+  // 1. Exact string match
+  if (cleanAct === cleanExp) return true;
+
+  // 2. Whitespace-normalized match (handles space differences like "4 8 1" vs "4  8  1" or extra newlines)
+  const normAct = cleanAct.replace(/[ \t]+/g, " ").split("\n").map((l) => l.trim()).filter(Boolean).join("\n");
+  const normExp = cleanExp.replace(/[ \t]+/g, " ").split("\n").map((l) => l.trim()).filter(Boolean).join("\n");
+  if (normAct === normExp) return true;
+
+  // 3. Case-insensitive boolean match ("true" vs "True", "false" vs "False")
+  if (normAct.toLowerCase() === normExp.toLowerCase()) return true;
+
+  // 4. JSON array/object equivalence (e.g. "[0, 1]" vs "[0,1]")
+  try {
+    const actJson = JSON.parse(normAct);
+    const expJson = JSON.parse(normExp);
+    if (JSON.stringify(actJson) === JSON.stringify(expJson)) return true;
+  } catch {}
+
+  // 5. Punctuation stripped numbers (e.g. "[1, 2]" vs "1 2" or "1, 2")
+  const stripPunct = (s) => s.replace(/[\[\],]/g, " ").replace(/\s+/g, " ").trim();
+  if (stripPunct(normAct) === stripPunct(normExp) && stripPunct(normExp).length > 0) return true;
+
+  return false;
+}
+
 // Helper to execute code against a single test case
 async function evaluateSingleTestCase(language, code, input, expectedOutput) {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "mz_judge_"));
@@ -770,7 +804,7 @@ async function evaluateSingleTestCase(language, code, input, expectedOutput) {
 
     const cleanActual = (result.output || "").trim().replace(/\r\n/g, "\n");
     const cleanExpected = (expectedOutput || "").trim().replace(/\r\n/g, "\n");
-    const passed = result.exitCode === 0 && cleanActual === cleanExpected;
+    const passed = result.exitCode === 0 && validateTestCaseOutput(cleanActual, cleanExpected);
 
     return {
       passed,
@@ -786,41 +820,119 @@ async function evaluateSingleTestCase(language, code, input, expectedOutput) {
   }
 }
 
+// Helper: Retrieve structured coding challenge for interactive playground
+function getPlaygroundChallenge(id) {
+  const raw = id.replace(/^playground-/, "");
+  const parts = raw.split("-");
+  const targetLang = (parts[0] || "python").toLowerCase();
+  let seed = 0;
+  if (parts.length > 1 && parts[1]) {
+    const parsed = parseInt(parts[1], 10);
+    if (!isNaN(parsed)) {
+      seed = parsed;
+    } else {
+      for (let i = 0; i < parts[1].length; i++) {
+        seed = (seed * 31 + parts[1].charCodeAt(i)) & 0x7fffffff;
+      }
+    }
+  } else {
+    seed = Math.floor(Date.now() / 60000);
+  }
+  const idx = Math.abs(seed) % CHALLENGES_CATALOG.length;
+  const base = CHALLENGES_CATALOG[idx] || CHALLENGES_CATALOG[0];
+
+  // Exactly 10 test cases with real inputs and expected outputs visible in Playground
+  const testCases = (base.testCases || []).map((tc, tIdx) => ({
+    ...tc,
+    index: tIdx + 1,
+    isHidden: false,
+  }));
+
+  const starterCodeMap = {
+    python: `# MZ-ASM Playground: ${base.title}
+# Read input from standard input (stdin) and print output to standard output (stdout)
+import sys
+
+def solve():
+    input_text = sys.stdin.read().strip()
+    if not input_text:
+        return
+    # Write your solution below
+    
+if __name__ == "__main__":
+    solve()
+`,
+    javascript: `// MZ-ASM Playground: ${base.title}
+// Read input from standard input (stdin) and print output to standard output (stdout)
+const fs = require('fs');
+
+function solve() {
+    const input = fs.readFileSync(0, 'utf-8').trim();
+    if (!input) return;
+    // Write your solution below
+    
+}
+
+solve();
+`,
+    java: `// MZ-ASM Playground: ${base.title}
+import java.util.Scanner;
+
+public class Solution {
+    public static void main(String[] args) {
+        Scanner scanner = new Scanner(System.in);
+        // Write your solution below
+        
+    }
+}
+`,
+    cpp: `// MZ-ASM Playground: ${base.title}
+#include <iostream>
+#include <vector>
+#include <string>
+
+using namespace std;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    // Write your solution below
+    
+    return 0;
+}
+`,
+    c: `// MZ-ASM Playground: ${base.title}
+#include <stdio.h>
+#include <stdlib.h>
+
+int main() {
+    // Write your solution below
+    
+    return 0;
+}
+`,
+  };
+
+  return {
+    ...base,
+    id,
+    questionNumber: idx + 1,
+    starterLanguage: targetLang,
+    starterCode: starterCodeMap,
+    testCases,
+  };
+}
+
 // -------------------------------------------------------------
 // GET /api/coding/challenges/:id
 // Get challenge details and problem specification
 // -------------------------------------------------------------
-router.get("/challenges/:id", authenticateToken, async (req, res) => {
+router.get("/challenges/:id", optionalAuthenticateToken, async (req, res) => {
   const { id } = req.params;
 
-  // Handle playground virtual challenge
   if (id.startsWith("playground-")) {
-    const lang = id.replace("playground-", "");
-    return res.json({
-      id,
-      questionNumber: 1,
-      title: `${lang.toUpperCase()} Interactive Playground`,
-      difficulty: "All Levels",
-      category: "Compiler Playground",
-      starterLanguage: lang,
-      starterCode: {
-        python: `# Python 3.11 Runtime Playground\nprint("Hello, MasteryZone!")\n`,
-        javascript: `// Node.js Runtime Playground\nconsole.log("Hello, MasteryZone!");\n`,
-        java: `// OpenJDK Compiler Playground\npublic class Solution {\n    public static void main(String[] args) {\n        System.out.println("Hello, MasteryZone!");\n    }\n}\n`,
-        cpp: `// Clang / C++20 Compiler Playground\n#include <iostream>\nusing namespace std;\n\nint main() {\n    cout << "Hello, MasteryZone!" << endl;\n    return 0;\n}\n`,
-      },
-      description: `Run, debug, and test your ${lang.toUpperCase()} code live in the sandboxed runtime with instant execution.`,
-      examples: [
-        {
-          input: "Run program",
-          output: "Execution Success",
-          explanation: `Interactive ${lang} sandbox environment.`,
-        },
-      ],
-      testCases: [
-        { id: "tc_1", input: "", expectedOutput: "", isHidden: false },
-      ],
-    });
+    const pg = getPlaygroundChallenge(id);
+    return res.json(pg);
   }
 
   const challenge = CHALLENGES_CATALOG.find((c) => c.id === id);
@@ -835,72 +947,67 @@ router.get("/challenges/:id", authenticateToken, async (req, res) => {
 // POST /api/coding/challenges/:id/test
 // Run code against visible/public test cases only
 // -------------------------------------------------------------
-router.post("/challenges/:id/test", authenticateToken, async (req, res) => {
+router.post("/challenges/:id/test", optionalAuthenticateToken, async (req, res) => {
   const { id } = req.params;
   const { language, code, customInput } = req.body;
 
-  // Handle virtual compiler playground execution
-  if (id && id.startsWith("playground-")) {
-    const defaultLang = id.replace("playground-", "");
-    const effectiveLang = language || defaultLang || "python";
-    try {
-      const outcome = await evaluateSingleTestCase(effectiveLang, code, customInput || "", "");
-      return res.json({
-        isCustom: true,
-        output: outcome.actual || (outcome.error ? "" : "Program executed with no output."),
-        error: outcome.error || "",
-        duration: outcome.duration || 0,
-        status: outcome.error ? "RUNTIME_ERROR" : "ACCEPTED",
-        results: [
-          {
-            testIndex: 1,
-            input: customInput || "(standard execution)",
-            expected: "",
-            actual: outcome.actual || "(no output)",
-            passed: !outcome.error,
-            error: outcome.error,
-            duration: outcome.duration,
-          },
-        ],
-        total: 1,
-        passedCount: outcome.error ? 0 : 1,
-      });
-    } catch (err) {
-      return res.status(500).json({ error: err.message });
-    }
-  }
+  const challenge = id && id.startsWith("playground-")
+    ? getPlaygroundChallenge(id)
+    : CHALLENGES_CATALOG.find((c) => c.id === id);
 
-  const challenge = CHALLENGES_CATALOG.find((c) => c.id === id);
   if (!challenge) {
     return res.status(404).json({ error: "Challenge not found" });
   }
 
+  const effectiveLang = language || challenge.starterLanguage || "python";
+
   try {
     if (customInput !== undefined && customInput !== null && customInput.trim() !== "") {
-      // Evaluate custom user input
-      const customRes = await evaluateSingleTestCase(language, code, customInput, "");
+      const customRes = await evaluateSingleTestCase(effectiveLang, code, customInput, "");
       return res.json({
         isCustom: true,
         output: customRes.actual,
         error: customRes.error,
         duration: customRes.duration,
+        results: [
+          {
+            testIndex: 1,
+            input: customInput,
+            expected: "",
+            actual: customRes.actual || "(no output)",
+            passed: !customRes.error,
+            error: customRes.error,
+            duration: customRes.duration,
+          },
+        ],
+        total: 1,
+        passedCount: customRes.error ? 0 : 1,
       });
     }
 
-    const publicTests = challenge.testCases.filter((t) => !t.isHidden);
+    const isPlayground = Boolean(id && id.startsWith("playground-"));
+    const publicTests = isPlayground
+      ? (challenge.testCases || [])
+      : (challenge.testCases || []).filter((t) => !t.isHidden);
+    const testCasesToRun = publicTests.length > 0 ? publicTests : challenge.testCases || [];
     const testResults = [];
 
-    for (let i = 0; i < publicTests.length; i++) {
-      const test = publicTests[i];
-      const outcome = await evaluateSingleTestCase(language, code, test.input, test.expectedOutput);
+    for (let i = 0; i < testCasesToRun.length; i++) {
+      const test = testCasesToRun[i];
+      const outcome = await evaluateSingleTestCase(effectiveLang, code, test.input, test.expectedOutput);
       testResults.push({
         testIndex: i + 1,
+        testNumber: i + 1,
         input: test.input,
         expected: test.expectedOutput,
+        expectedOutput: test.expectedOutput,
         actual: outcome.actual,
+        actualOutput: outcome.actual,
         passed: outcome.passed,
         error: outcome.error,
         duration: outcome.duration,
+        durationMs: outcome.duration,
+        isHidden: false,
       });
     }
 
@@ -916,47 +1023,24 @@ router.post("/challenges/:id/test", authenticateToken, async (req, res) => {
   }
 });
 
-
-
 // -------------------------------------------------------------
 // POST /api/coding/challenges/:id/submit
 // Formal submission evaluating all test cases (public + hidden)
 // -------------------------------------------------------------
-router.post("/challenges/:id/submit", authenticateToken, async (req, res) => {
+router.post("/challenges/:id/submit", optionalAuthenticateToken, async (req, res) => {
   const { id } = req.params;
   const { language, code } = req.body;
-  const userId = req.user.userId;
+  const userId = req.user ? (req.user.userId || req.user.id || req.user._id) : "guest";
 
-  // Handle virtual compiler playground submission
-  if (id && id.startsWith("playground-")) {
-    const defaultLang = id.replace("playground-", "");
-    const effectiveLang = language || defaultLang || "python";
-    try {
-      const outcome = await evaluateSingleTestCase(effectiveLang, code, "", "");
-      return res.json({
-        success: true,
-        score: outcome.error ? 0 : 100,
-        passedTests: outcome.error ? 0 : 1,
-        totalTests: 1,
-        results: [
-          {
-            testIndex: 1,
-            passed: !outcome.error,
-            actual: outcome.actual || "(no output)",
-            error: outcome.error,
-            duration: outcome.duration,
-          },
-        ],
-        message: outcome.error
-          ? `Playground execution terminated with error: ${outcome.error}`
-          : "Playground program compiled and executed successfully with 100% verified status!",
-      });
-    } catch (err) {
-      return res.status(500).json({ error: err.message });
-    }
+  const challenge = id && id.startsWith("playground-")
+    ? getPlaygroundChallenge(id)
+    : CHALLENGES_CATALOG.find((c) => c.id === id);
+
+  if (!challenge) {
+    return res.status(404).json({ error: "Challenge not found" });
   }
 
-  const challenge = CHALLENGES_CATALOG.find((c) => c.id === id);
+  const effectiveLang = language || challenge.starterLanguage || "python";
   if (!challenge) {
     return res.status(404).json({ error: "Challenge not found" });
   }
@@ -966,10 +1050,11 @@ router.post("/challenges/:id/submit", authenticateToken, async (req, res) => {
     const allTests = challenge.testCases;
     const testResults = [];
 
+    const isPlayground = Boolean(id && id.startsWith("playground-"));
     for (let i = 0; i < allTests.length; i++) {
       const test = allTests[i];
-      const isHidden = test.isHidden !== undefined ? test.isHidden : i >= 3;
-      const outcome = await evaluateSingleTestCase(language, code, test.input, test.expectedOutput);
+      const isHidden = isPlayground ? false : (test.isHidden !== undefined ? test.isHidden : i >= 3);
+      const outcome = await evaluateSingleTestCase(effectiveLang, code, test.input, test.expectedOutput);
       testResults.push({
         testIndex: i + 1,
         testNumber: i + 1,
@@ -4249,12 +4334,14 @@ router.post(["/proctored-session/:sessionId/submit", "/proctored-session/submit"
 });
 
 // 8. GET /api/coding/proctored-session/:sessionId/report
-router.get("/proctored-session/:sessionId/report", authenticateToken, async (req, res) => {
+router.get("/proctored-session/:sessionId/report", optionalAuthenticateToken, async (req, res) => {
   try {
-    const userId = req.user.userId || req.user.id || req.user._id;
+    const userId = req.user ? (req.user.userId || req.user.id || req.user._id) : null;
     const { sessionId } = req.params;
 
-    let session = await ProctoredCodingSession.findOne({ sessionId, userId });
+    let session = userId
+      ? await ProctoredCodingSession.findOne({ sessionId, userId })
+      : await ProctoredCodingSession.findOne({ sessionId });
     if (!session) {
       session = await ProctoredCodingSession.findOne({ sessionId });
     }
@@ -4374,7 +4461,7 @@ router.get("/proctored-session/:sessionId/report", authenticateToken, async (req
           candidateDetails: {
             fullName: user?.fullName || user?.name || "Verified Candidate",
             email: user?.email || "candidate@masteryzone.edu",
-            candidateId: `CAND-${(attempt.userId || userId).toString().slice(-6).toUpperCase()}`,
+            candidateId: `CAND-${(attempt.userId || userId || "GUEST").toString().slice(-6).toUpperCase()}`,
             organization: "Mastery Zone Academic Accreditation",
           },
           status: isPass ? "passed" : "failed",
@@ -4448,6 +4535,15 @@ router.get("/proctored-session/:sessionId/report", authenticateToken, async (req
         const projSpec = getProjectById(projSub.projectId);
         const report = formatSubmissionAsReport(projSub, projSpec);
         return res.json({ success: true, report });
+      }
+
+      // Check if this is a Certification Attempt (cert_att_... or cert ID)
+      const CertificationAttempt = require("../models/CertificationAttempt");
+      const certAtt = await CertificationAttempt.findOne({
+        $or: [{ attemptId: rawId }, { attemptId: cleanId }, { certificateId: rawId }, { certificateId: cleanId }],
+      }).lean();
+      if (certAtt) {
+        return res.redirect(`/api/certifications/attempt/${certAtt.attemptId}/report`);
       }
 
       return res.status(404).json({ error: "Assessment report not found" });
@@ -4697,11 +4793,26 @@ router.get("/proctored-session/:sessionId/report", authenticateToken, async (req
           questions[0]?.submittedCode
         );
 
+    let candidateDetails = session.candidateDetails || {};
+    const targetUid = session.userId || userId;
+    if (targetUid && mongoose.Types.ObjectId.isValid(targetUid)) {
+      const u = await User.findById(targetUid).select("fullName username email").lean();
+      if (u) {
+        candidateDetails = {
+          ...candidateDetails,
+          fullName: u.fullName || u.username || candidateDetails.fullName || "Candidate",
+          email: u.email || candidateDetails.email || "",
+          candidateId: `CAND-${u._id.toString().slice(-6).toUpperCase()}`,
+          organization: candidateDetails.organization || "Mastery Zone Academy",
+        };
+      }
+    }
+
     res.json({
       success: true,
       report: {
         sessionId: session.sessionId,
-        candidateDetails: session.candidateDetails,
+        candidateDetails,
         assessmentTitle: session.assessmentTitle || primaryProblem.title || "Coding Assessment",
         trackId: session.trackId || "python",
         timeLimitSeconds: session.timeLimitSeconds || 3600,

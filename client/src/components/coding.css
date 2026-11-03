@@ -4940,17 +4940,18 @@
 }
 
 /* ==========================================================================
-   REAL-TIME CODING HUB & TELEMETRY TRACKER
+   REAL-TIME CODING HUB & TELEMETRY TRACKER (HIGH-TECH OBSIDIAN HUD)
    ========================================================================== */
 .mz-c-live-tracker-card {
-  background: #ffffff;
-  border: 1px solid var(--mz-c-border, #e2e8f0);
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 16px;
-  padding: 20px;
-  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
+  padding: 22px;
+  box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
   transition: all 0.25s ease;
   position: relative;
   overflow: hidden;
+  color: #f8fafc;
 }
 
 .mz-c-live-tracker-card::before {
@@ -4960,12 +4961,23 @@
   left: 0;
   right: 0;
   height: 3px;
-  background: linear-gradient(90deg, #10b981, #06b6d4, #3b82f6);
+  background: linear-gradient(90deg, #10b981, #06b6d4, #6366f1, #a855f7);
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.6);
+}
+
+.mz-c-live-tracker-card .mz-c-card-heading {
+  color: #ffffff !important;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+}
+
+.mz-c-live-tracker-card .mz-c-card-sub {
+  color: #94a3b8 !important;
 }
 
 .mz-c-icon-emerald {
-  background: rgba(16, 185, 129, 0.12) !important;
-  color: #059669 !important;
+  background: rgba(16, 185, 129, 0.18) !important;
+  color: #34d399 !important;
 }
 
 .mz-c-live-pulsing-badge {
@@ -4976,7 +4988,7 @@
   height: 9px;
   border-radius: 50%;
   background: #10b981;
-  box-shadow: 0 0 0 2px #ffffff;
+  box-shadow: 0 0 0 2px #0f172a;
   animation: mzPulseLive 1.8s infinite;
 }
 
@@ -4990,14 +5002,15 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 2px 7px;
+  padding: 3px 8px;
   border-radius: 9999px;
-  background: #ecfdf5;
-  border: 1px solid #a7f3d0;
-  color: #065f46;
-  font-size: 10px;
+  background: rgba(16, 185, 129, 0.18);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #34d399;
+  font-size: 10.5px;
   font-weight: 800;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.6px;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
 }
 
 .mz-c-live-dot {
@@ -5005,38 +5018,49 @@
   height: 6px;
   border-radius: 50%;
   background: #10b981;
+  box-shadow: 0 0 6px #10b981;
+  animation: mzPulseLiveDot 1.5s infinite;
 }
 
-/* Live Timer Banner */
+@keyframes mzPulseLiveDot {
+  0% { transform: scale(0.9); opacity: 0.8; }
+  50% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0.8; }
+}
+
+/* Live Timer Banner - Digital HUD Glow */
 .mz-c-live-timer-banner {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 12px 16px;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 14px 18px;
   margin-bottom: 16px;
+  backdrop-filter: blur(8px);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.05);
 }
 
 .mz-c-live-timer-label {
   display: block;
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.6px;
-  color: #64748b;
-  margin-bottom: 2px;
+  letter-spacing: 0.8px;
+  color: #38bdf8;
+  margin-bottom: 4px;
+  text-transform: uppercase;
 }
 
 .mz-c-live-timer-clock {
   display: flex;
   align-items: center;
-  gap: 7px;
-  color: #0f172a;
+  gap: 8px;
+  color: #ffffff;
 }
 
 .mz-c-clock-ticker {
-  color: #2563eb;
+  color: #38bdf8;
   animation: mzClockSpin 4s linear infinite;
 }
 
@@ -5047,10 +5071,11 @@
 
 .mz-c-clock-digits {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 800;
-  color: #0f172a;
-  letter-spacing: 0.5px;
+  color: #ffffff;
+  letter-spacing: 0.8px;
+  text-shadow: 0 0 12px rgba(56, 189, 248, 0.35);
 }
 
 .mz-c-live-timer-actions {
@@ -5060,48 +5085,51 @@
 }
 
 .mz-c-live-toggle-btn {
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 700;
-  padding: 5px 11px;
-  border-radius: 6px;
-  border: 1px solid #cbd5e1;
-  background: #ffffff;
-  color: #334155;
+  padding: 6px 13px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.06);
+  color: #e2e8f0;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
 }
 
 .mz-c-live-toggle-btn.tracking {
-  background: #eff6ff;
-  border-color: #bfdbfe;
-  color: #2563eb;
+  background: rgba(16, 185, 129, 0.2);
+  border-color: rgba(16, 185, 129, 0.5);
+  color: #6ee7b7;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
 }
 
 .mz-c-live-toggle-btn:hover {
-  background: #f1f5f9;
+  background: rgba(255, 255, 255, 0.12);
+  transform: translateY(-1px);
 }
 
 .mz-c-live-reset-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 6px;
-  border: 1px solid #e2e8f0;
-  background: #ffffff;
-  color: #64748b;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  color: #94a3b8;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
 }
 
 .mz-c-live-reset-btn:hover {
-  background: #fee2e2;
-  border-color: #fecaca;
-  color: #ef4444;
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #fca5a5;
+  transform: rotate(-30deg);
 }
 
-/* 3-Col Metrics Grid */
+/* 3-Col Metrics Grid - Glassmorphism cards */
 .mz-c-live-metrics-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -5110,30 +5138,36 @@
 }
 
 .mz-c-live-metric-box {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
   padding: 10px 12px;
   display: flex;
   flex-direction: column;
   gap: 4px;
+  transition: all 0.2s ease;
+}
+
+.mz-c-live-metric-box:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.14);
 }
 
 .mz-c-live-metric-title {
   font-size: 9.5px;
   font-weight: 700;
-  letter-spacing: 0.4px;
-  color: #64748b;
+  letter-spacing: 0.5px;
+  color: #94a3b8;
   text-transform: uppercase;
 }
 
 .mz-c-live-metric-val {
   font-size: 13.5px;
   font-weight: 700;
-  color: #0f172a;
+  color: #f8fafc;
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
 }
 
 .mz-c-live-metric-tag {
@@ -5141,16 +5175,16 @@
   font-weight: 600;
 }
 
-.mz-c-live-metric-tag.ready { color: #059669; }
-.mz-c-live-metric-tag.xp    { color: #d97706; }
-.mz-c-live-metric-tag.pass  { color: #2563eb; }
+.mz-c-live-metric-tag.ready { color: #34d399; }
+.mz-c-live-metric-tag.xp    { color: #fbbf24; }
+.mz-c-live-metric-tag.pass  { color: #60a5fa; }
 
 /* Daily Goal Bar */
 .mz-c-live-goal-strip {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 10px 14px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 11px 14px;
   margin-bottom: 16px;
 }
 
@@ -5158,6 +5192,38 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.mz-c-live-goal-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #cbd5e1;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.mz-c-live-goal-pct {
+  font-size: 11px;
+  font-weight: 700;
+  color: #38bdf8;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.mz-c-live-goal-bar-bg {
+  height: 7px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.mz-c-live-goal-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #10b981, #06b6d4, #3b82f6);
+  border-radius: 9999px;
+  box-shadow: 0 0 10px rgba(6, 182, 212, 0.5);
+  transition: width 0.4s ease;
+}
   font-size: 11.5px;
   margin-bottom: 6px;
 }

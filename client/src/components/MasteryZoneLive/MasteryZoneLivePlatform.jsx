@@ -6,7 +6,18 @@ import MasteryZoneLiveLanding from "./MasteryZoneLiveLanding";
 import MasteryZoneLiveMeeting from "./MasteryZoneLiveMeeting";
 import "./masteryZoneLive.css";
 
-const SOCKET_SERVER_URL = import.meta.env.VITE_API_URL || "http://localhost:5012";
+const getBackendUrl = () => {
+  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+  if (typeof window !== "undefined" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
+    if (window.location.port === "5174" || window.location.port === "5173") {
+      return `http://${window.location.hostname}:5012`;
+    }
+    return window.location.origin;
+  }
+  return "http://localhost:5012";
+};
+
+const SOCKET_SERVER_URL = getBackendUrl();
 
 export default function MasteryZoneLivePlatform({ initialMeetingId = null }) {
   const params = useParams();
@@ -128,21 +139,25 @@ export default function MasteryZoneLivePlatform({ initialMeetingId = null }) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
           title,
           groupKey,
+          userId: currentUser?._id || currentUser?.id,
+          hostName: currentUser?.fullName || currentUser?.username || "Host",
         }),
       });
 
       if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || "Failed to create meeting session");
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.message || errData.error || "Failed to create meeting session");
       }
 
-      const data = await res.json();
-      const newId = data.meetingId;
+      const data = await res.json().catch(() => ({}));
+      const newId = data.meetingId || data.meeting?.meetingId;
+      if (!newId) throw new Error("Invalid meeting id returned by server");
+
       sessionStorage.setItem(`mz_host_${newId}`, "true");
       toast.success(`Meeting created: ${newId}`);
       setActiveMeetingId(newId);
@@ -175,7 +190,7 @@ export default function MasteryZoneLivePlatform({ initialMeetingId = null }) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
           fullName: currentUser?.fullName || currentUser?.username || "Learner",
@@ -184,11 +199,11 @@ export default function MasteryZoneLivePlatform({ initialMeetingId = null }) {
       });
 
       if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || "Could not join meeting");
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.message || errData.error || "Could not join meeting");
       }
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       const actualMeetingId = data.meeting?.meetingId || cleanCode;
       if (data.isHost) {
         sessionStorage.setItem(`mz_host_${actualMeetingId}`, "true");

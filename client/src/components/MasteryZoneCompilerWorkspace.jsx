@@ -72,10 +72,10 @@ import "./MasteryZoneCompiler.css";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
-// VS Code Playground Theme Specifications
+// MasteryZone Playground Theme Specifications
 const VSCODE_THEMES = [
-  { id: "vs-dark", label: "VS Code Dark+" },
-  { id: "vs", label: "VS Code Light+" },
+  { id: "vs-dark", label: "MasteryZone Dark+" },
+  { id: "vs", label: "MasteryZone Light+" },
   { id: "one-dark-pro", label: "One Dark Pro" },
   { id: "dracula", label: "Dracula" },
   { id: "monokai", label: "Monokai" },
@@ -306,10 +306,18 @@ export default function MasteryZoneCompilerWorkspace({
     };
   }, [isQMenuOpen]);
 
-  // Strictly blank commented placeholder only — never reveal solutions or preloaded code!
+  // Blank commented placeholder or starter code map
+  const isPlayground = Boolean(questionId?.startsWith("playground-") || problemData?.id?.startsWith("playground-"));
+
   const getStarterPlaceholder = (lang) => {
-    const l = (lang || "").toLowerCase().trim();
-    if (l === "python" || l === "py") {
+    const l = normalizeLang(lang);
+    if (starterCodeMap && starterCodeMap[l]) {
+      return starterCodeMap[l];
+    }
+    if (problemData?.starterCode && problemData.starterCode[l]) {
+      return problemData.starterCode[l];
+    }
+    if (l === "python") {
       return "# Enter your code below\n";
     }
     return "// Enter your code below\n";
@@ -318,6 +326,16 @@ export default function MasteryZoneCompilerWorkspace({
   const [code, setCode] = useState(
     initialDraft || getStarterPlaceholder(normalizeLang(defaultLanguage))
   );
+
+  useEffect(() => {
+    if (defaultLanguage) {
+      const norm = normalizeLang(defaultLanguage);
+      setSelectedLang(norm);
+      if (!initialDraft || initialDraft === "# Enter your code below\n" || initialDraft === "// Enter your code below\n") {
+        setCode(getStarterPlaceholder(norm));
+      }
+    }
+  }, [defaultLanguage]);
 
   // Scroll references
   const questionRef = useRef(null);
@@ -401,20 +419,20 @@ export default function MasteryZoneCompilerWorkspace({
       .catch(() => {});
   }, [historyUrl]);
 
-  // Actual test cases: exactly 10 test cases; first 3 visible, remaining 7 hidden
+  // Actual test cases: exactly 10 test cases; for playground, all 10 are visible with real inputs and expected outputs
   const effectiveTestCases = useMemo(() => {
     const list = (testCases && testCases.length > 0) ? testCases : (problemData?.testCases || []);
     return list.map((tc, idx) => ({
       index: idx + 1,
-      input: tc.isHidden || idx >= 3 ? `[Hidden Test Case #${idx + 1}]` : tc.input,
-      expectedOutput: tc.isHidden || idx >= 3 ? `[Hidden Output #${idx + 1}]` : tc.expectedOutput,
-      isHidden: !!tc.isHidden || idx >= 3,
+      input: (!isPlayground && (tc.isHidden || idx >= 3)) ? `[Hidden Test Case #${idx + 1}]` : tc.input,
+      expectedOutput: (!isPlayground && (tc.isHidden || idx >= 3)) ? `[Hidden Output #${idx + 1}]` : tc.expectedOutput,
+      isHidden: isPlayground ? false : (!!tc.isHidden || idx >= 3),
       passed: null,
       actualOutput: "",
       duration: 0,
       error: null,
     }));
-  }, [questionId, testCases, problemData]);
+  }, [questionId, testCases, problemData, isPlayground]);
 
   const [allTestCases, setAllTestCases] = useState(effectiveTestCases);
 
@@ -452,6 +470,61 @@ export default function MasteryZoneCompilerWorkspace({
   const isAllPassed = hasEvaluated && !isCodeModifiedAfterEval && allTestCases.length > 0 && (
     passedCount === allTestCases.length || allTestCases.every((tc) => tc.passed === true)
   );
+
+  // Real-time test cases validation in Interactive MZ-ASM Playground
+  useEffect(() => {
+    if (!isPlayground) return;
+    if (!code || code.trim().length < 10) return;
+    const timer = setTimeout(() => {
+      const qId = questionId || problemData?.id;
+      if (!qId) return;
+      const token = localStorage.getItem("token");
+      fetch(`${API_BASE}/api/coding/challenges/${qId}/test`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          language: selectedLang,
+          code,
+        }),
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((res) => {
+          if (res && Array.isArray(res.results) && res.results.length > 0) {
+            let pCount = 0;
+            setAllTestCases((prev) => {
+              const base = prev.length > 0 ? prev : (effectiveTestCases.length > 0 ? effectiveTestCases : Array.from({ length: res.results.length }));
+              const copy = [...base];
+              res.results.forEach((r, idx) => {
+                if (copy[idx]) {
+                  const isPassed = !!r.passed;
+                  if (isPassed) pCount++;
+                  copy[idx] = {
+                    ...(copy[idx] || {}),
+                    index: idx + 1,
+                    passed: isPassed,
+                    actualOutput: r.actual || r.actualOutput || (isPassed ? (r.expected || r.expectedOutput) : "[No Output]"),
+                    duration: r.duration || r.durationMs || 25,
+                    error: r.error || null,
+                    input: r.input || copy[idx].input,
+                    expectedOutput: r.expected || r.expectedOutput || copy[idx].expectedOutput,
+                    isHidden: false,
+                  };
+                }
+              });
+              return copy;
+            });
+            setPassedCount(pCount);
+            setHasEvaluated(true);
+          }
+        })
+        .catch(() => {});
+    }, 1200);
+
+    return () => clearTimeout(timer);
+  }, [code, selectedLang, isPlayground, questionId, problemData, effectiveTestCases]);
 
   // Trigger celebration party-popper confetti on 100% pass
   const confettiCanvasRef = useRef(null);
@@ -883,7 +956,6 @@ export default function MasteryZoneCompilerWorkspace({
   const { sessionId: routeSessionId } = useParams() || {};
   const navigate = useNavigate();
 
-  const isPlayground = Boolean(questionId?.startsWith("playground-") || problemData?.id?.startsWith("playground-"));
   const effectiveSessionId = sessionId || routeSessionId || null;
   const [proctoringStage, setProctoringStage] = useState(
     initialProctoringStage || (effectiveSessionId ? "active" : (isProctored && !isPlayground ? "gate" : "active"))
@@ -2219,15 +2291,28 @@ export default function MasteryZoneCompilerWorkspace({
         setCustomDuration(res.duration || 0);
       } else if (res.results) {
         setAllTestCases((prev) => {
-          const copy = [...prev];
+          const base = prev.length > 0 ? prev : (effectiveTestCases.length > 0 ? effectiveTestCases : Array.from({ length: res.results.length }));
+          const copy = [...base];
+          let pCount = 0;
           res.results.forEach((r, idx) => {
             if (copy[idx]) {
-              copy[idx].passed = r.passed;
-              copy[idx].actualOutput = r.actual || r.actualOutput || "";
-              copy[idx].duration = r.duration || r.durationMs || 0;
-              copy[idx].error = r.error;
+              const isPassed = !!r.passed;
+              if (isPassed) pCount++;
+              copy[idx] = {
+                ...(copy[idx] || {}),
+                index: idx + 1,
+                passed: isPassed,
+                actualOutput: r.actual || r.actualOutput || (isPassed ? (r.expected || r.expectedOutput) : "[No Output]"),
+                duration: r.duration || r.durationMs || 0,
+                error: r.error || null,
+                input: r.input || copy[idx].input,
+                expectedOutput: r.expected || r.expectedOutput || copy[idx].expectedOutput,
+                isHidden: isPlayground ? false : (copy[idx].isHidden !== undefined ? copy[idx].isHidden : idx >= 3),
+              };
             }
           });
+          setPassedCount(pCount);
+          setHasEvaluated(true);
           return copy;
         });
       }
@@ -3049,9 +3134,9 @@ export default function MasteryZoneCompilerWorkspace({
           2. SCROLLABLE BODY (QUESTION STATEMENT + COMPILER CARD + PROCTORING PANEL)
           ========================================================================= */}
       <div className="mz-compiler-scroll-body">
-        <div className={`mz-compiler-container ${isProctored && proctoringStage === "active" && !isSubmittedReadOnly ? "has-proctoring" : ""}`}>
-          {/* Dedicated Left Proctoring Panel */}
-          {isProctored && proctoringStage === "active" && !isSubmittedReadOnly && (
+        <div className={`mz-compiler-container ${!isEmbedded && isProctored && proctoringStage === "active" && !isSubmittedReadOnly ? "has-proctoring" : ""}`}>
+          {/* Dedicated Left Proctoring Panel (suppressed when embedded inside parent exam workspace) */}
+          {!isEmbedded && isProctored && proctoringStage === "active" && !isSubmittedReadOnly && (
             <aside className={`mz-proctoring-panel ${isProctoringCollapsed ? "collapsed" : ""}`}>
               {/* Header */}
               <div className="mz-proc-header">
@@ -3590,7 +3675,7 @@ export default function MasteryZoneCompilerWorkspace({
                     type="button"
                     className="mz-vscode-action-btn"
                     onClick={() => setIsThemeDropdownOpen(!isThemeDropdownOpen)}
-                    title="Change VS Code Editor Theme"
+                    title="Change MasteryZone Editor Theme"
                   >
                     <span>{VSCODE_THEMES.find((t) => t.id === editorTheme)?.label || "Theme"}</span>
                     <LuChevronDown size={12} />
@@ -4605,7 +4690,7 @@ export default function MasteryZoneCompilerWorkspace({
                   className="mz-vscode-status-item"
                   onClick={() => setIsThemeDropdownOpen(!isThemeDropdownOpen)}
                   style={{ textDecoration: "underline", cursor: "pointer" }}
-                  title="Click to Switch VS Code Theme"
+                  title="Click to Switch MasteryZone Theme"
                 >
                   <span>{VSCODE_THEMES.find((t) => t.id === editorTheme)?.label || editorTheme}</span>
                 </div>

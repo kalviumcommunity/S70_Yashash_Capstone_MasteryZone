@@ -31,6 +31,15 @@
   display: none !important;
 }
 
+.mz-compiler-overlay.mz-compiler-embedded .mz-proctoring-panel {
+  display: none !important;
+}
+
+.mz-compiler-overlay.mz-compiler-embedded .mz-compiler-container.has-proctoring {
+  display: flex !important;
+  grid-template-columns: 1fr !important;
+}
+
 /* --------------------------------------------------------------------------
    Top Assessment Bar (Sticky)
    -------------------------------------------------------------------------- */
@@ -1217,7 +1226,7 @@
    Expanded Drawer Body
    -------------------------------------------------------------------------- */
 .mz-compiler-drawer-body {
-  height: 320px;
+  height: 420px;
   background: #ffffff;
   border-top: 1px solid #e5e7eb;
   display: flex;
@@ -3413,7 +3422,7 @@
 }
 
 .mz-vscode-bottom-body {
-  height: 200px;
+  height: 340px;
   overflow-y: auto;
   padding: 12px 14px;
   font-family: Consolas, "Courier New", monospace;
@@ -3429,22 +3438,29 @@
 }
 
 .mz-vscode-bottom-body.is-maximized {
-  height: 380px;
+  height: 520px;
 }
 
-/* 5. VS Code Authentic Bottom Status Bar */
+/* 5. MasteryZone Authentic Bottom Status Bar */
 .mz-vscode-status-bar {
   height: 24px;
-  background: #007acc;
-  color: #ffffff;
+  background: #181818;
+  color: #94a3b8;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 10px;
-  font-size: 11.5px;
+  font-size: 11px;
   user-select: none;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
   flex-shrink: 0;
+  border-top: 1px solid #2d2d2d;
+}
+
+.mz-vscode-card.is-light .mz-vscode-status-bar {
+  background: #f1f5f9;
+  color: #475569;
+  border-top: 1px solid #e2e8f0;
 }
 
 .mz-vscode-status-left,

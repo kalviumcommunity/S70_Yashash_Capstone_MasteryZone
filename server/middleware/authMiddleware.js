@@ -18,4 +18,26 @@ const authenticateToken = (req, res, next) => {
   }
 };
 
+const optionalAuthenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    req.user = null;
+    return next();
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
+  } catch (err) {
+    req.user = null;
+  }
+  next();
+};
+
+authenticateToken.optionalAuthenticateToken = optionalAuthenticateToken;
+authenticateToken.authenticateToken = authenticateToken;
+
 module.exports = authenticateToken;
+module.exports.optionalAuthenticateToken = optionalAuthenticateToken;

@@ -181,11 +181,9 @@ function App() {
           <Route
             path="/assessment-report/:sessionId"
             element={
-              <ProtectedRoute>
-                <Suspense fallback={<CodingLoader />}>
-                  <AssessmentReportPage />
-                </Suspense>
-              </ProtectedRoute>
+              <Suspense fallback={<CodingLoader />}>
+                <AssessmentReportPage />
+              </Suspense>
             }
           />
           <Route
