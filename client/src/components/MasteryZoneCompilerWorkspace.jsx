@@ -50,7 +50,15 @@ import {
   LuMinimize2,
   LuTrash2,
   LuPlus,
+  LuFileText,
 } from "react-icons/lu";
+import {
+  SiPython,
+  SiJavascript,
+  SiOpenjdk,
+  SiCplusplus,
+  SiC,
+} from "react-icons/si";
 import {
   VscFiles,
   VscSearch,
@@ -235,6 +243,27 @@ const analyzeCodeWithAi = (codeString, lang) => {
     edgeCases,
   };
 };
+
+// Authentic programming language icon component
+function RealLanguageLogo({ lang, size = 14 }) {
+  const l = (lang || "").toLowerCase().trim();
+  if (l.includes("py")) {
+    return <SiPython size={size} color="#38bdf8" style={{ verticalAlign: "middle" }} />;
+  }
+  if (l.includes("script") || l === "js" || l === "node") {
+    return <SiJavascript size={size} color="#facc15" style={{ verticalAlign: "middle" }} />;
+  }
+  if (l.includes("java")) {
+    return <SiOpenjdk size={size} color="#f87171" style={{ verticalAlign: "middle" }} />;
+  }
+  if (l.includes("c++") || l === "cpp") {
+    return <SiCplusplus size={size} color="#60a5fa" style={{ verticalAlign: "middle" }} />;
+  }
+  if (l === "c") {
+    return <SiC size={size} color="#94a3b8" style={{ verticalAlign: "middle" }} />;
+  }
+  return <LuFileCode size={size} color="#60a5fa" style={{ verticalAlign: "middle" }} />;
+}
 
 export default function MasteryZoneCompilerWorkspace({
   title = "Assignment | Coding Challenge",
@@ -3584,10 +3613,9 @@ export default function MasteryZoneCompilerWorkspace({
                   className={`mz-vscode-tab ${activeEditorFile === "solution" ? "active" : ""}`}
                   onClick={() => setActiveEditorFile("solution")}
                   title={`Active Code (${selectedLang})`}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
                 >
-                  <span style={{ fontSize: "12px" }}>
-                    {selectedLang === "python" ? "🐍" : selectedLang === "javascript" ? "🟨" : selectedLang === "java" ? "☕" : "🔷"}
-                  </span>
+                  <RealLanguageLogo lang={selectedLang} size={15} />
                   <span>{getActiveFileName("solution", selectedLang)}</span>
                   {isCodeModifiedAfterEval && <span className="mz-vscode-tab-dot" title="Unsaved / Modified" />}
                 </div>
@@ -3597,8 +3625,9 @@ export default function MasteryZoneCompilerWorkspace({
                   className={`mz-vscode-tab ${activeEditorFile === "input" ? "active" : ""}`}
                   onClick={() => setActiveEditorFile("input")}
                   title="Custom Input STDIN buffer"
+                  style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
                 >
-                  <span style={{ fontSize: "12px" }}>📥</span>
+                  <LuTerminal size={14} color="#38bdf8" />
                   <span>input.txt</span>
                 </div>
 
@@ -3607,8 +3636,9 @@ export default function MasteryZoneCompilerWorkspace({
                   className={`mz-vscode-tab ${activeEditorFile === "scratchpad" ? "active" : ""}`}
                   onClick={() => setActiveEditorFile("scratchpad")}
                   title="Candidate Scratchpad Notes"
+                  style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
                 >
-                  <span style={{ fontSize: "12px" }}>📝</span>
+                  <LuFileText size={14} color="#a78bfa" />
                   <span>scratchpad.md</span>
                 </div>
 
@@ -3743,8 +3773,9 @@ export default function MasteryZoneCompilerWorkspace({
                     type="button"
                     className="mz-vscode-pill-toggle active"
                     onClick={() => setIsLangMenuOpen(!isLangMenuOpen)}
-                    style={{ background: "transparent", border: "none" }}
+                    style={{ background: "transparent", border: "none", display: "inline-flex", alignItems: "center", gap: 6 }}
                   >
+                    <RealLanguageLogo lang={selectedLang} size={14} />
                     <span>{langLabels[selectedLang] || "Language"}</span>
                     <LuChevronDown size={11} />
                   </button>
@@ -3757,8 +3788,10 @@ export default function MasteryZoneCompilerWorkspace({
                           type="button"
                           className={`mz-compiler-dropdown-item ${selectedLang === key ? "active" : ""}`}
                           onClick={() => handleSelectLanguage(key)}
+                          style={{ display: "flex", alignItems: "center", gap: 8 }}
                         >
-                          {label}
+                          <RealLanguageLogo lang={key} size={15} />
+                          <span>{label}</span>
                         </button>
                       ))}
                     </div>
@@ -3867,22 +3900,25 @@ export default function MasteryZoneCompilerWorkspace({
                         <div
                           className={`mz-vscode-file-item ${activeEditorFile === "solution" ? "active" : ""}`}
                           onClick={() => setActiveEditorFile("solution")}
+                          style={{ display: "flex", alignItems: "center", gap: 6 }}
                         >
-                          <span>{selectedLang === "python" ? "🐍" : selectedLang === "javascript" ? "🟨" : selectedLang === "java" ? "☕" : "🔷"}</span>
+                          <RealLanguageLogo lang={selectedLang} size={14} />
                           <span>{getActiveFileName("solution", selectedLang)}</span>
                         </div>
                         <div
                           className={`mz-vscode-file-item ${activeEditorFile === "input" ? "active" : ""}`}
                           onClick={() => setActiveEditorFile("input")}
+                          style={{ display: "flex", alignItems: "center", gap: 6 }}
                         >
-                          <span>📥</span>
+                          <LuTerminal size={14} color="#38bdf8" />
                           <span>input.txt (Stdin)</span>
                         </div>
                         <div
                           className={`mz-vscode-file-item ${activeEditorFile === "scratchpad" ? "active" : ""}`}
                           onClick={() => setActiveEditorFile("scratchpad")}
+                          style={{ display: "flex", alignItems: "center", gap: 6 }}
                         >
-                          <span>📝</span>
+                          <LuFileText size={14} color="#a78bfa" />
                           <span>scratchpad.md</span>
                         </div>
 

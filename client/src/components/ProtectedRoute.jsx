@@ -12,19 +12,6 @@ const ProtectedRoute = ({ children }) => {
     let isMounted = true;
 
     const verifyAuth = async () => {
-      // If browser was reopened after closing or session is not active, require fresh login
-      if (!sessionStorage.getItem("mz_session_active")) {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        localStorage.removeItem("mz_user");
-        localStorage.removeItem("userName");
-        localStorage.removeItem("userEmail");
-        localStorage.removeItem("Step2Dev_token");
-        localStorage.removeItem("mz_persistent_guest");
-        if (isMounted) setAuthState("unauthenticated");
-        return;
-      }
-
       const token = localStorage.getItem("token");
       if (!token) {
         if (isMounted) setAuthState("unauthenticated");
@@ -41,13 +28,24 @@ const ProtectedRoute = ({ children }) => {
         if (!isMounted) return;
 
         if (response.ok) {
+          const data = await response.json().catch(() => null);
+          if (data && data.user) {
+            localStorage.setItem("user", JSON.stringify(data.user));
+            localStorage.setItem("mz_user", JSON.stringify(data.user));
+          }
           setAuthState("authenticated");
-        } else {
+        } else if (response.status === 401 || response.status === 403) {
+          // Token is genuinely invalid or expired
           localStorage.removeItem("token");
+          localStorage.removeItem("user");
+          localStorage.removeItem("mz_user");
           setAuthState("unauthenticated");
+        } else {
+          // Non-auth server status (e.g. 500), keep valid session
+          setAuthState("authenticated");
         }
       } catch (err) {
-        // If server is unreachable in development, treat existing token as valid
+        // If server is temporarily unreachable in development/offline, maintain valid session
         if (isMounted) setAuthState("authenticated");
       }
     };

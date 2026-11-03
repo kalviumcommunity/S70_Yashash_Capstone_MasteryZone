@@ -282,12 +282,23 @@ const Profile = () => {
 
       if (response.ok) {
         const data = await response.json();
-        setUser((prev) => ({ ...prev, avatarUrl: data.avatarUrl || photoPreview }));
+        const updatedAvatar = data.avatarUrl || photoPreview;
+        setUser((prev) => ({ ...prev, avatarUrl: updatedAvatar }));
         setIsPhotoPreviewModalOpen(false);
         setPhotoPreview(null);
         toast.success("Profile photo updated successfully!");
-        // Synchronize across open views
-        window.dispatchEvent(new Event("user_profile_updated"));
+
+        // Persist to localStorage for instantaneous cross-tab & cross-page sync
+        try {
+          const stored = localStorage.getItem("user");
+          const u = stored ? JSON.parse(stored) : {};
+          u.avatarUrl = updatedAvatar;
+          localStorage.setItem("user", JSON.stringify(u));
+          localStorage.setItem("mz_avatarUrl", updatedAvatar);
+        } catch {}
+
+        // Synchronize across open views (Home / Interests / Progress / Topbar)
+        window.dispatchEvent(new CustomEvent("user_profile_updated", { detail: { avatarUrl: updatedAvatar } }));
       } else {
         const errData = await response.json().catch(() => ({}));
         toast.error(errData.message || "Failed to update profile photo.");
@@ -317,7 +328,18 @@ const Profile = () => {
         setUser((prev) => ({ ...prev, avatarUrl: null }));
         setIsDeletePhotoModalOpen(false);
         toast.info("Profile photo removed.");
-        window.dispatchEvent(new Event("user_profile_updated"));
+
+        try {
+          const stored = localStorage.getItem("user");
+          if (stored) {
+            const u = JSON.parse(stored);
+            u.avatarUrl = null;
+            localStorage.setItem("user", JSON.stringify(u));
+          }
+          localStorage.removeItem("mz_avatarUrl");
+        } catch {}
+
+        window.dispatchEvent(new CustomEvent("user_profile_updated", { detail: { avatarUrl: null } }));
       } else {
         toast.error("Failed to remove profile photo.");
       }

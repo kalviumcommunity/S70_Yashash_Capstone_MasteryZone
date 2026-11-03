@@ -154,33 +154,23 @@ router.post('/login', async (req, res) => {
 
 
 
-// Guest Login Route
+// Guest Login Route — Strict Individual Account Isolation for each guest
 router.post('/guest-login', async (req, res) => {
   try {
-    const guestEmail = 'guest@masteryzone.com';
-    let user = await User.findOne({ email: guestEmail });
+    const crypto = require('crypto');
+    const guestSuffix = crypto.randomBytes(3).toString('hex');
+    const guestEmail = `guest_${Date.now()}_${guestSuffix}@masteryzone.com`;
+    const guestUsername = `Guest_${guestSuffix.toUpperCase()}`;
+    const hashedPassword = await bcrypt.hash(`GuestPass_${guestSuffix}!`, 10);
 
-    if (!user) {
-      const hashedPassword = await bcrypt.hash('GuestPassword123!', 10);
-      user = await User.create({
-        username: 'guest_user',
-        email: guestEmail,
-        fullName: 'Guest User',
-        password: hashedPassword
-      });
-    }
+    const user = await User.create({
+      username: guestUsername,
+      email: guestEmail,
+      fullName: `Guest Candidate (${guestSuffix.toUpperCase()})`,
+      password: hashedPassword
+    });
 
-    // Reset certifications for guest user on each login (graceful)
-    try {
-      const Certification = require('../models/CertificationSchema');
-      if (Certification) {
-        await Certification.deleteMany({ userId: user._id });
-      }
-    } catch (certErr) {
-      console.warn("Could not reset guest certifications:", certErr.message);
-    }
-
-    const token = jwt.sign({ userId: user._id, email: user.email }, JWT_SECRET, { expiresIn: '1d' });
+    const token = jwt.sign({ userId: user._id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
 
     res.status(200).json({
       message: 'Guest login successful',

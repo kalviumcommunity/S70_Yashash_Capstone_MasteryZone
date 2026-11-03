@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "react-toastify";
 import "./home.css";
@@ -453,8 +453,14 @@ const Home = () => {
   // Single selection: exactly one particular interest can be selected at a time
   const [selectedInterest, setSelectedInterest] = useState("CODING");
 
-  const [user, setUser] = useState(null);
-  const [isLoadingUser, setIsLoadingUser] = useState(true);
+  const [user, setUser] = useState(() => {
+    try {
+      const stored = localStorage.getItem("user");
+      if (stored) return JSON.parse(stored);
+    } catch {}
+    return null;
+  });
+  const [isLoadingUser, setIsLoadingUser] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pulseBadge, setPulseBadge] = useState(false);
 
@@ -555,32 +561,34 @@ const Home = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Fetch current user details on mount
-  useEffect(() => {
-    let isMounted = true;
-    const fetchUser = async () => {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        navigate("/login");
-        return;
-      }
-      try {
-        const response = await fetch(`${API_BASE}/auth/me`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        if (response.ok) {
-          const data = await response.json();
-          if (!isMounted) return;
+  // Fetch current user details and keep synchronized across all views
+  const fetchUser = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    try {
+      const response = await fetch(`${API_BASE}/auth/me`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.user) {
           setUser(data.user);
+          try {
+            localStorage.setItem("user", JSON.stringify(data.user));
+            if (data.user.avatarUrl) {
+              localStorage.setItem("mz_avatarUrl", data.user.avatarUrl);
+            } else {
+              localStorage.removeItem("mz_avatarUrl");
+            }
+          } catch {}
           if (data.user.preferences) {
             setPreferences((prev) => ({
               ...prev,
               notifications: data.user.preferences.notifications ?? true,
             }));
           }
-          // Load existing saved interest if present
           if (Array.isArray(data.user.interests) && data.user.interests.length > 0) {
             const first = data.user.interests[0];
             const normalized = first === "VEHICLES" ? "VECHILES" : first;
@@ -588,21 +596,36 @@ const Home = () => {
               setSelectedInterest(normalized);
             }
           }
-        } else {
-          localStorage.removeItem("token");
-          navigate("/login");
         }
-      } catch (error) {
-        console.error("Failed to fetch user", error);
-      } finally {
-        if (isMounted) setIsLoadingUser(false);
       }
-    };
+    } catch (error) {
+      console.warn("Failed to fetch user", error);
+    } finally {
+      setIsLoadingUser(false);
+    }
+  }, []);
+
+  useEffect(() => {
     fetchUser();
-    return () => {
-      isMounted = false;
+
+    const handleProfileUpdated = (event) => {
+      const newAvatar = event?.detail?.avatarUrl;
+      if (newAvatar !== undefined) {
+        setUser((prev) => (prev ? { ...prev, avatarUrl: newAvatar } : { avatarUrl: newAvatar }));
+      }
+      fetchUser();
     };
-  }, [navigate]);
+
+    window.addEventListener("user_profile_updated", handleProfileUpdated);
+    window.addEventListener("storage", handleProfileUpdated);
+    window.addEventListener("focus", fetchUser);
+
+    return () => {
+      window.removeEventListener("user_profile_updated", handleProfileUpdated);
+      window.removeEventListener("storage", handleProfileUpdated);
+      window.removeEventListener("focus", fetchUser);
+    };
+  }, [fetchUser, location.pathname]);
 
   // Single Selection toggle with micro-spring pulse trigger
   const handleSelectInterest = (key) => {
@@ -727,6 +750,16 @@ const Home = () => {
         if (!response.ok) {
           setUser((prev) => ({ ...prev, avatarUrl: previousAvatar }));
           toast.error("Failed to update profile photo. Image might be too large.");
+        } else {
+          try {
+            const stored = localStorage.getItem("user");
+            const u = stored ? JSON.parse(stored) : {};
+            u.avatarUrl = base64Image;
+            localStorage.setItem("user", JSON.stringify(u));
+            localStorage.setItem("mz_avatarUrl", base64Image);
+          } catch {}
+          window.dispatchEvent(new CustomEvent("user_profile_updated", { detail: { avatarUrl: base64Image } }));
+          toast.success("Profile photo updated successfully!");
         }
       } catch (error) {
         console.error("Error updating photo", error);
@@ -751,6 +784,18 @@ const Home = () => {
       if (!response.ok) {
         setUser((prev) => ({ ...prev, avatarUrl: previousAvatar }));
         toast.error("Failed to remove profile photo.");
+      } else {
+        try {
+          const stored = localStorage.getItem("user");
+          if (stored) {
+            const u = JSON.parse(stored);
+            u.avatarUrl = null;
+            localStorage.setItem("user", JSON.stringify(u));
+          }
+          localStorage.removeItem("mz_avatarUrl");
+        } catch {}
+        window.dispatchEvent(new CustomEvent("user_profile_updated", { detail: { avatarUrl: null } }));
+        toast.info("Profile photo removed.");
       }
     } catch (error) {
       console.error("Error removing photo", error);
@@ -2334,11 +2379,72 @@ const Home = () => {
             {/* Left Column: Interest Cards */}
             <div className="mz-center-column">
               {/* Section Header: Choose Your Interest Track */}
-              <div className="mz-section-header">
-                <h2 className="mz-section-title">Choose Your Interest Track</h2>
-                <p className="mz-section-subtitle">
-                  Select one interest that excites you. You can change this anytime.
-                </p>
+              <div
+                className="mz-section-header"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  flexWrap: "wrap",
+                  gap: 16,
+                }}
+              >
+                <div>
+                  <h2 className="mz-section-title">Choose Your Interest Track</h2>
+                  <p className="mz-section-subtitle">
+                    Select one interest that excites you. You can change this anytime.
+                  </p>
+                </div>
+
+                {user && (
+                  <div
+                    onClick={() => navigate("/profile")}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      background: "#ffffff",
+                      padding: "6px 14px 6px 8px",
+                      borderRadius: 30,
+                      border: "1px solid #e2e8f0",
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+                      cursor: "pointer",
+                      transition: "all 0.2s ease",
+                    }}
+                    title="View & Edit Profile"
+                  >
+                    <div
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: "50%",
+                        overflow: "hidden",
+                        background: "#eff6ff",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        border: "2px solid #3b82f6",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {user.avatarUrl ? (
+                        <img
+                          src={user.avatarUrl}
+                          alt={displayName}
+                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                        />
+                      ) : (
+                        <LuUser size={18} color="#2563eb" />
+                      )}
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column" }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", lineHeight: 1.2 }}>
+                        {displayName}
+                      </span>
+                      <span style={{ fontSize: 11, color: "#2563eb", fontWeight: 600 }}>Active Profile ➔</span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* 2x2 Grid of Interest Cards */}
