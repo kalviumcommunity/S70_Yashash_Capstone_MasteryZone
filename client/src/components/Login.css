@@ -547,7 +547,7 @@
   transform-origin: center;
 }
 
-.mz-features-grid {
+.mz-login-page .mz-features-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 13px;
@@ -556,7 +556,7 @@
   align-self: center;
 }
 
-.mz-feature-card {
+.mz-login-page .mz-feature-card {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -564,7 +564,7 @@
   text-align: center;
 }
 
-.mz-feature-icon-box {
+.mz-login-page .mz-feature-icon-box {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -576,36 +576,36 @@
   transition: transform 220ms ease, box-shadow 220ms ease;
 }
 
-.mz-feature-card:hover .mz-feature-icon-box {
+.mz-login-page .mz-feature-card:hover .mz-feature-icon-box {
   transform: translateY(-3px);
   box-shadow: 0 7px 15px rgba(25, 43, 78, 0.07);
 }
 
-.mz-feature-icon-box.purple {
+.mz-login-page .mz-feature-icon-box.purple {
   border-color: #f0e2ff;
   background: #fbf5ff;
   color: #9b35ed;
 }
 
-.mz-feature-icon-box.cyan {
+.mz-login-page .mz-feature-icon-box.cyan {
   border-color: #d7f7e7;
   background: #f0fdf7;
   color: #079768;
 }
 
-.mz-feature-icon-box.blue {
+.mz-login-page .mz-feature-icon-box.blue {
   border-color: #dce8ff;
   background: #f1f6ff;
   color: #2864f0;
 }
 
-.mz-feature-icon-box.amber {
+.mz-login-page .mz-feature-icon-box.amber {
   border-color: #ffedc2;
   background: #fffaf0;
   color: #d58b0c;
 }
 
-.mz-feature-text {
+.mz-login-page .mz-feature-text {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -613,13 +613,13 @@
   line-height: 1.35;
 }
 
-.mz-feature-title {
+.mz-login-page .mz-feature-title {
   color: #15213a;
   font-size: 12px;
   font-weight: 700;
 }
 
-.mz-feature-desc {
+.mz-login-page .mz-feature-desc {
   color: #74829a;
   font-size: 11px;
   font-weight: 400;
@@ -757,7 +757,7 @@
     max-width: 420px;
   }
 
-  .mz-features-grid {
+  .mz-login-page .mz-features-grid {
     max-width: 430px;
   }
 }
@@ -806,7 +806,7 @@
     max-width: 100%;
   }
 
-  .mz-features-grid {
+  .mz-login-page .mz-features-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 7px;
   }
