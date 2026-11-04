@@ -8,7 +8,8 @@
   width: 100%;
   background-color: #ffffff;
   position: relative;
-  overflow-x: clip;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
   font-family: "Plus Jakarta Sans", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   color: #0f172a;
   box-sizing: border-box;
@@ -129,14 +130,10 @@
   position: sticky;
   top: 0;
   width: 100%;
-  background: rgba(245, 247, 255, 0.95);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border-bottom: 1px solid rgba(226, 232, 240, 0.65);
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
   z-index: 100;
   box-sizing: border-box;
-  transform: translateZ(0);
-  will-change: transform;
 }
 
 .mz-nav-wrapper {
@@ -499,8 +496,6 @@
   z-index: 10;
   padding: 12px 0 40px 0;
   background: #ffffff;
-  contain: layout style;
-  transform: translateZ(0);
 }
 
 .mz-ref-landing .mz-features-grid,
@@ -584,8 +579,6 @@
   z-index: 10;
   padding: 8px 0 44px 0;
   scroll-margin-top: 80px;
-  contain: layout style;
-  transform: translateZ(0);
 }
 
 .mz-courses-layout {
@@ -803,8 +796,6 @@
   z-index: 10;
   padding: 12px 40px 54px 40px;
   box-sizing: border-box;
-  contain: layout style;
-  transform: translateZ(0);
 }
 
 .mz-final-cta-card {
