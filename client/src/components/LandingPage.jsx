@@ -26,10 +26,10 @@ import {
 
 import logoIcon from "../assets/logo_icon_transparent.png";
 import heroPedestalArt from "../assets/hero_laptop_4k.svg";
-import bannerPython from "../assets/course_banner_python_4k.jpg";
-import bannerJava from "../assets/course_banner_java_4k.jpg";
-import bannerCpp from "../assets/course_banner_cpp_4k.jpg";
-import bannerDsa from "../assets/course_banner_dsa_4k.jpg";
+import bannerPython from "../assets/course_banner_python_opt.jpg";
+import bannerJava from "../assets/course_banner_java_opt.jpg";
+import bannerCpp from "../assets/course_banner_cpp_opt.jpg";
+import bannerDsa from "../assets/course_banner_dsa_opt.jpg";
 import ctaMortarboardCap from "../assets/cta_mortarboard_cap.png";
 
 import "./LandingPage.css";
@@ -426,7 +426,7 @@ const LandingPage = () => {
                     src={c.bannerImg}
                     alt={c.title}
                     className="mz-course-banner-img"
-                    loading="lazy"
+                    loading="eager"
                     decoding="async"
                     width="260"
                     height="140"
