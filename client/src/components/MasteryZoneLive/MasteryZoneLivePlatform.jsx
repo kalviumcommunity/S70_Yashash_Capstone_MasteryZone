@@ -8,16 +8,17 @@ import "./masteryZoneLive.css";
 
 const getBackendUrl = () => {
   if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
-  if (typeof window !== "undefined" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
-    if (window.location.port === "5174" || window.location.port === "5173") {
-      return `http://${window.location.hostname}:5012`;
+  if (typeof window !== "undefined") {
+    if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+      return "http://localhost:5012";
     }
     return window.location.origin;
   }
   return "http://localhost:5012";
 };
 
-const SOCKET_SERVER_URL = getBackendUrl();
+const API_BASE = getBackendUrl();
+const SOCKET_SERVER_URL = API_BASE;
 
 export default function MasteryZoneLivePlatform({ initialMeetingId = null }) {
   const params = useParams();
@@ -38,7 +39,7 @@ export default function MasteryZoneLivePlatform({ initialMeetingId = null }) {
     async function fetchUser() {
       try {
         if (token) {
-          const res = await fetch("/auth/me", {
+          const res = await fetch(`${API_BASE}/auth/me`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           if (res.ok) {
@@ -46,7 +47,9 @@ export default function MasteryZoneLivePlatform({ initialMeetingId = null }) {
             if (active && data?.user) {
               const u = data.user;
               const name = u.fullName || u.username || u.name || localStorage.getItem("userName") || "Learner";
-              setCurrentUser({ ...u, name, fullName: u.fullName || name });
+              const email = u.email || localStorage.getItem("userEmail") || "learner@masteryzone.com";
+              const avatar = u.avatar || u.avatarUrl || "";
+              setCurrentUser({ ...u, name, fullName: u.fullName || name, email, avatar });
               setIsLoadingUser(false);
               return;
             }
@@ -63,7 +66,9 @@ export default function MasteryZoneLivePlatform({ initialMeetingId = null }) {
           try {
             const u = JSON.parse(storedUser);
             const name = u.fullName || u.username || u.name || localStorage.getItem("userName") || "Learner";
-            setCurrentUser({ ...u, name, fullName: u.fullName || name });
+            const email = u.email || localStorage.getItem("userEmail") || "learner@masteryzone.com";
+            const avatar = u.avatar || u.avatarUrl || "";
+            setCurrentUser({ ...u, name, fullName: u.fullName || name, email, avatar });
             setIsLoadingUser(false);
             return;
           } catch {}
@@ -135,19 +140,37 @@ export default function MasteryZoneLivePlatform({ initialMeetingId = null }) {
     setIsActionPending(true);
     try {
       const token = localStorage.getItem("token") || "";
-      const res = await fetch("/api/meetings/create", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          title,
-          groupKey,
-          userId: currentUser?._id || currentUser?.id,
-          hostName: currentUser?.fullName || currentUser?.username || "Host",
-        }),
-      });
+      const effectiveUserId = currentUser?._id || currentUser?.id || localStorage.getItem("userId") || "";
+      const effectiveHostName = currentUser?.fullName || currentUser?.username || localStorage.getItem("userName") || "Host";
+
+      const payload = {
+        title: title || "Live Practice Session",
+        groupKey: groupKey || "dsa",
+        userId: effectiveUserId,
+        hostName: effectiveHostName,
+      };
+
+      let res;
+      try {
+        res = await fetch(`${API_BASE}/api/meetings/create`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify(payload),
+        });
+      } catch (directErr) {
+        // Fallback to relative URL if direct API call had connection failure
+        res = await fetch("/api/meetings/create", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify(payload),
+        });
+      }
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
@@ -164,6 +187,7 @@ export default function MasteryZoneLivePlatform({ initialMeetingId = null }) {
       if (window.location.pathname.startsWith("/live") || window.location.pathname.startsWith("/meeting")) {
         navigate(`/meeting/${newId}`);
       }
+      return data;
     } catch (err) {
       toast.error(err.message || "Failed to start meeting");
       throw err;
@@ -186,17 +210,34 @@ export default function MasteryZoneLivePlatform({ initialMeetingId = null }) {
       }
 
       const token = localStorage.getItem("token") || "";
-      const res = await fetch(`/api/meetings/${cleanCode}/join`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          fullName: currentUser?.fullName || currentUser?.username || "Learner",
-          guestId: currentUser?._id || currentUser?.id,
-        }),
-      });
+      const effectiveUserId = currentUser?._id || currentUser?.id || localStorage.getItem("userId") || "";
+      const effectiveUserName = currentUser?.fullName || currentUser?.username || localStorage.getItem("userName") || "Learner";
+
+      const payload = {
+        fullName: effectiveUserName,
+        guestId: effectiveUserId,
+      };
+
+      let res;
+      try {
+        res = await fetch(`${API_BASE}/api/meetings/${cleanCode}/join`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify(payload),
+        });
+      } catch (directErr) {
+        res = await fetch(`/api/meetings/${cleanCode}/join`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify(payload),
+        });
+      }
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
@@ -242,7 +283,11 @@ export default function MasteryZoneLivePlatform({ initialMeetingId = null }) {
   };
 
   const handleNavigateHome = () => {
-    navigate("/coding");
+    if (window.history && window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate("/home");
+    }
   };
 
   if (isLoadingUser) {

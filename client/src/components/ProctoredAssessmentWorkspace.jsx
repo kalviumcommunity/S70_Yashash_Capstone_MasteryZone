@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import AssessmentSecurityGate from "./AssessmentSecurityGate";
+import useNavigationLock from "../hooks/useNavigationLock";
 import "./proctoredAssessment.css";
 
 // Functional icons from react-icons/lu
@@ -131,6 +132,12 @@ export default function ProctoredAssessmentWorkspace({
   const [visitedQuestions, setVisitedQuestions] = useState({ 0: true });
   const [timeRemaining, setTimeRemaining] = useState(EXAM_DURATION_SECONDS);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Lock browser back / horizontal trackpad swipe navigation during active proctored assessment
+  useNavigationLock(
+    stage === "active" && !isSubmitting,
+    "An active proctored assessment is in progress. Leaving this page will trigger an assessment violation. Are you sure you want to exit?"
+  );
 
   // 5 Violation Chances System
   const [violationsCount, setViolationsCount] = useState(0);

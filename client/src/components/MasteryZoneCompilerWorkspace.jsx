@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Editor from "@monaco-editor/react";
 import { toast } from "react-toastify";
+import useNavigationLock from "../hooks/useNavigationLock";
 import {
   LuPlay,
   LuX,
@@ -1066,6 +1067,12 @@ export default function MasteryZoneCompilerWorkspace({
   const [isFullscreenActive, setIsFullscreenActive] = useState(() => !!document.fullscreenElement);
   const [isRefreshConfirmOpen, setIsRefreshConfirmOpen] = useState(false);
   const isSubmittedRef = useRef(false);
+
+  // Lock browser back / horizontal trackpad swipe navigation during active proctored assessment
+  useNavigationLock(
+    isProctored && proctoringStage === "active" && !isSubmittedReadOnly && !isSubmitting && !isTerminated,
+    "An active proctored assessment is in progress. Leaving this page will trigger an assessment violation. Are you sure you want to exit?"
+  );
 
   // Monitor live fullscreen status
   useEffect(() => {

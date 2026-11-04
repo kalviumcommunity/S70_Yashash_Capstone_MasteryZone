@@ -18,6 +18,7 @@ export default function FeaturedLearningCarousel({
   activeTab = "",
   challenges = [],
   projects = [],
+  earnedCertificates = [],
   solvedCount = 0,
   passedProjectsCount = 0,
 }) {
@@ -153,13 +154,18 @@ export default function FeaturedLearningCarousel({
       subtitle:
         "Pass strict proctoring assessments (20 MCQs + 2 Coding Problems) to earn verifiable credentials recognized across tech teams.",
       category: "Proctored Certification",
-      primaryCtaText: "Get Certified",
+      primaryCtaText: earnedCertificates.length > 0 ? "View Credentials" : "Get Certified",
       primaryAction: () => onNavigateTab?.("certification"),
       theme: "theme-blue-mastery",
       coverImage: coverCertClean,
-      isCompleted: false,
+      isCompleted: earnedCertificates.length > 0,
+      stats: [
+        `${earnedCertificates.length > 0 ? `${earnedCertificates.length} Verified Credentials` : "5 Professional Tracks"}`,
+        "20 MCQs + 2 Coding Problems",
+        "Strict 5-Life Proctoring",
+      ],
     },
-  ], [activeTrack, challenges?.length, computedPassedProjects, computedSolvedChallenges, onNavigateTab, onStartLearning, projects?.length]);
+  ], [activeTrack, challenges?.length, computedPassedProjects, computedSolvedChallenges, earnedCertificates, onNavigateTab, onStartLearning, projects?.length]);
 
   const totalSlides = slides.length;
 

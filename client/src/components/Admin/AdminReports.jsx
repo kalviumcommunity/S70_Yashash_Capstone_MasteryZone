@@ -1,0 +1,2031 @@
+import React, { useState, useEffect } from "react";
+import {
+  LuFileText,
+  LuAward,
+  LuDownload,
+  LuSearch,
+  LuEye,
+  LuCircleCheck,
+  LuCircleX,
+  LuCircleAlert,
+  LuClock,
+  LuCopy,
+  LuCheck,
+  LuRefreshCw,
+  LuShieldAlert,
+  LuShieldCheck,
+  LuCode,
+  LuUser,
+  LuMail,
+  LuSave,
+  LuSparkles,
+  LuHistory,
+  LuBell,
+  LuX,
+  LuExternalLink,
+} from "react-icons/lu";
+import { toast } from "react-toastify";
+import { io } from "socket.io-client";
+
+const API_BASE = import.meta.env.VITE_API_URL || "";
+
+const AdminReports = () => {
+  const [reports, setReports] = useState([]);
+  const [stats, setStats] = useState({
+    total: 0,
+    certificationsCount: 0,
+    assessmentsCount: 0,
+    mcqReportsCount: 0,
+  });
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [filterType, setFilterType] = useState("all"); // "all" | "Certification Report" | "Assessment Report" | "MCQ Assessment Report"
+  const [copiedCodeId, setCopiedCodeId] = useState(null);
+
+  // Modal State for Inspecting / Modifying Report
+  const [activeReport, setActiveReport] = useState(null);
+  const [loadingReport, setLoadingReport] = useState(false);
+  const [reportSubTab, setReportSubTab] = useState("questions"); // "questions" | "evaluation" | "audit"
+  const [mcqFilter, setMcqFilter] = useState("all"); // "all" | "correct" | "incorrect" | "unanswered"
+  const [copiedCodeText, setCopiedCodeText] = useState(false);
+
+  // Score Editing State
+  const [editScoreValue, setEditScoreValue] = useState("");
+  const [editStatusValue, setEditStatusValue] = useState("");
+  const [editAdminNote, setEditAdminNote] = useState("");
+  const [savingMarks, setSavingMarks] = useState(false);
+
+  // Fetch Reports
+  const fetchReports = async (showToast = false) => {
+    try {
+      if (showToast) setLoading(true);
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_BASE}/api/admin/reports`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success) {
+          setReports(json.reports || []);
+          if (json.stats) {
+            setStats(json.stats);
+          } else {
+            const certs = (json.reports || []).filter((r) => r.type === "Certification Report").length;
+            const assess = (json.reports || []).filter((r) => r.type === "Assessment Report").length;
+            const mcq = (json.reports || []).filter((r) => r.type === "MCQ Assessment Report").length;
+            setStats({
+              total: json.reports?.length || 0,
+              certificationsCount: certs,
+              assessmentsCount: assess,
+              mcqReportsCount: mcq,
+            });
+          }
+          if (showToast) toast.success("Reports synchronized with database");
+        }
+      }
+    } catch (err) {
+      console.error("Reports fetch error:", err);
+      if (showToast) toast.error("Failed to load reports");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchReports();
+
+    // Socket.io real-time listener for reports updates
+    let socket = null;
+    try {
+      socket = io(window.location.origin, {
+        auth: { token: localStorage.getItem("token") },
+      });
+
+      socket.on("connect", () => {
+        socket.emit("join_admin_monitoring");
+      });
+
+      // Handle new reports generated
+      const handleIncomingReport = (newRecord) => {
+        if (!newRecord) return;
+        setReports((prev) => {
+          const exists = prev.some((r) => r.id === newRecord.id || (newRecord.rawId && r.rawId === newRecord.rawId));
+          if (exists) return prev;
+          return [newRecord, ...prev];
+        });
+        setStats((prev) => ({
+          ...prev,
+          total: prev.total + 1,
+          certificationsCount:
+            newRecord.type === "Certification Report" ? prev.certificationsCount + 1 : prev.certificationsCount,
+          assessmentsCount:
+            newRecord.type === "Assessment Report" ? prev.assessmentsCount + 1 : prev.assessmentsCount,
+          mcqReportsCount:
+            newRecord.type === "MCQ Assessment Report" ? prev.mcqReportsCount + 1 : prev.mcqReportsCount,
+        }));
+      };
+
+      socket.on("NEW_REPORT", handleIncomingReport);
+      socket.on("NEW_CERTIFICATE", () => fetchReports());
+      socket.on("NEW_MCQ_REPORT", () => fetchReports());
+      socket.on("NEW_SUBMISSION", () => fetchReports());
+
+      // Handle marks modified across system
+      socket.on("ASSESSMENT_MARKS_UPDATED", (updateData) => {
+        if (!updateData) return;
+        setReports((prev) =>
+          prev.map((r) => {
+            const match =
+              r.id === updateData.id ||
+              r.rawId === updateData.id ||
+              r.attemptId === updateData.id ||
+              (updateData.itemType === r.itemType && String(r.id) === String(updateData.id));
+            if (match) {
+              const newScoreFormatted =
+                r.itemType === "module"
+                  ? `${updateData.newScore}/${r.maxScore || 10} (${Math.round((updateData.newScore / (r.maxScore || 10)) * 100)}%)`
+                  : `${updateData.newScore}%`;
+              return {
+                ...r,
+                score: newScoreFormatted,
+                rawScore: updateData.newScore,
+                status: updateData.newStatus || r.status,
+                grade:
+                  updateData.newStatus === "PASSED" || updateData.newStatus === "QUALIFIED"
+                    ? updateData.newScore >= 90
+                      ? "Distinction"
+                      : "First Class"
+                    : "Not Qualified",
+              };
+            }
+            return r;
+          })
+        );
+      });
+    } catch (e) {
+      console.warn("Socket initialization error in AdminReports:", e);
+    }
+
+    return () => {
+      if (socket) socket.disconnect();
+    };
+  }, []);
+
+  // Filter Logic
+  const filteredReports = reports.filter((r) => {
+    const q = search.trim().toLowerCase();
+    const matchSearch =
+      !q ||
+      r.title?.toLowerCase().includes(q) ||
+      r.recipient?.toLowerCase().includes(q) ||
+      r.email?.toLowerCase().includes(q) ||
+      r.verificationCode?.toLowerCase().includes(q) ||
+      r.score?.toLowerCase().includes(q) ||
+      r.grade?.toLowerCase().includes(q);
+
+    const matchType = filterType === "all" || r.type === filterType;
+    return matchSearch && matchType;
+  });
+
+  // Export to CSV
+  const exportToCSV = () => {
+    if (filteredReports.length === 0) {
+      toast.info("No reports available to export");
+      return;
+    }
+    const headers = [
+      "Report Title",
+      "Category",
+      "Recipient Student",
+      "Email Address",
+      "Score / Marks",
+      "Grade / Status",
+      "Verification Code",
+      "Date Issued / Submitted",
+    ];
+
+    const rows = filteredReports.map((r) => [
+      `"${(r.title || "").replace(/"/g, '""')}"`,
+      `"${(r.type || "").replace(/"/g, '""')}"`,
+      `"${(r.recipient || "").replace(/"/g, '""')}"`,
+      `"${(r.email || "").replace(/"/g, '""')}"`,
+      `"${(r.score || "").replace(/"/g, '""')}"`,
+      `"${(r.grade || r.status || "").replace(/"/g, '""')}"`,
+      `"${(r.verificationCode || "").replace(/"/g, '""')}"`,
+      `"${r.date ? new Date(r.date).toLocaleString() : "N/A"}"`,
+    ]);
+
+    const csvContent =
+      "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute(
+      "download",
+      `masteryzone_reports_${filterType.toLowerCase().replace(/\s+/g, "_")}_${new Date().toISOString().split("T")[0]}.csv`
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success(`Exported ${filteredReports.length} reports to CSV!`);
+  };
+
+  // Copy Verification Code
+  const handleCopyCode = (code, id, e) => {
+    e.stopPropagation();
+    if (!code) return;
+    navigator.clipboard.writeText(code);
+    setCopiedCodeId(id);
+    toast.success(`Copied verification code: ${code}`);
+    setTimeout(() => setCopiedCodeId(null), 2000);
+  };
+
+  // Open Full Report Inspection Modal
+  const handleOpenReportModal = async (reportItem) => {
+    try {
+      setLoadingReport(true);
+      setActiveReport({
+        ...reportItem,
+        itemType: reportItem.itemType || (reportItem.type === "Certification Report" ? "certificate" : "certification"),
+      });
+      setReportSubTab("questions");
+      setMcqFilter("all");
+
+      const itemType = reportItem.itemType || (reportItem.type === "Certification Report" ? "certificate" : "certification");
+      const itemId = reportItem.rawId || reportItem.id || reportItem.attemptId;
+
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_BASE}/api/admin/attempt-report/${itemType}/${itemId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.report) {
+          setActiveReport(json.report);
+          setEditScoreValue(json.report.score != null ? json.report.score : json.report.percentage || 0);
+          setEditStatusValue(json.report.status || "PASSED");
+          setEditAdminNote(json.report.adminNote || "");
+          return;
+        }
+      }
+
+      // Fallback
+      setEditScoreValue(reportItem.rawScore != null ? reportItem.rawScore : 0);
+      setEditStatusValue(reportItem.status || "PASSED");
+      setEditAdminNote("");
+    } catch (err) {
+      console.warn("Report modal load error:", err);
+    } finally {
+      setLoadingReport(false);
+    }
+  };
+
+  // Modify Marks Handler
+  const handleSaveMarks = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!activeReport) return;
+
+    const maxAllowed = activeReport.maxScore || 100;
+    const numVal = Number(editScoreValue);
+    if (isNaN(numVal) || numVal < 0 || numVal > maxAllowed) {
+      toast.error(`Score must be between 0 and ${maxAllowed}`);
+      return;
+    }
+
+    try {
+      setSavingMarks(true);
+      const token = localStorage.getItem("token");
+      const payload = {
+        itemType: activeReport.itemType,
+        itemId: activeReport.id || activeReport.rawId,
+        newScore: numVal,
+        newPercentage: activeReport.itemType === "certification" ? numVal : undefined,
+        newStatus: editStatusValue,
+        adminNote: editAdminNote,
+      };
+
+      const res = await fetch(`${API_BASE}/api/admin/modify-marks`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast.success(data.message || "Marks updated, synchronized, and student notified!");
+
+        // Update active modal report state
+        setActiveReport((prev) => ({
+          ...prev,
+          score: numVal,
+          percentage: activeReport.itemType === "certification" ? numVal : prev.percentage,
+          status: editStatusValue,
+          finalVerdict: editStatusValue,
+          grade: editStatusValue === "PASSED" || editStatusValue === "QUALIFIED" ? (numVal >= 90 ? "Distinction" : "Passed") : "Failed",
+          adminNote: editAdminNote,
+          adminModifiedAt: new Date().toISOString(),
+          notificationSent: true,
+          notificationEmailSent: true,
+          marksHistory: [
+            ...(prev.marksHistory || []),
+            {
+              originalScore: prev.score,
+              newScore: numVal,
+              originalStatus: prev.status,
+              newStatus: editStatusValue,
+              adminNote: editAdminNote,
+              modifiedAt: new Date().toISOString(),
+            },
+          ],
+        }));
+
+        // Refresh reports list
+        fetchReports();
+      } else {
+        toast.error(data.message || "Failed to update marks");
+      }
+    } catch (err) {
+      console.error("Modify marks error:", err);
+      toast.error("Failed to connect to server");
+    } finally {
+      setSavingMarks(false);
+    }
+  };
+
+  // Resolved Question List for Questions Tab
+  const questionItems =
+    activeReport?.reviewBreakdown && activeReport.reviewBreakdown.length > 0
+      ? activeReport.reviewBreakdown.map((q, idx) => ({
+          id: q.id || idx,
+          number: idx + 1,
+          question: q.question || q.questionText,
+          options: q.options || [],
+          userChoice: q.userSelected != null ? q.userSelected : q.studentChoice,
+          correctKey: q.correctIndex != null ? q.correctIndex : q.correctOptionIndex,
+          isCorrect: q.isCorrect,
+          marksAwarded: q.marksAwarded != null ? q.marksAwarded : q.isCorrect ? 1 : 0,
+          explanation: q.explanation,
+        }))
+      : activeReport?.questionsBreakdown && activeReport.questionsBreakdown.length > 0
+      ? activeReport.questionsBreakdown.map((q, idx) => ({
+          id: q.questionId || idx,
+          number: q.questionNumber || idx + 1,
+          question: q.questionText || q.question,
+          options: q.options || [],
+          userChoice: q.studentChoice != null ? q.studentChoice : q.userSelected,
+          correctKey: q.correctOptionIndex != null ? q.correctOptionIndex : q.correctIndex,
+          isCorrect: q.isCorrect,
+          marksAwarded: q.marksAwarded != null ? q.marksAwarded : q.isCorrect ? 1 : 0,
+          explanation: q.explanation,
+        }))
+      : [];
+
+  return (
+    <div style={{ padding: "28px 36px", background: "#f8fafc", minHeight: "100vh", fontFamily: "inherit" }}>
+      {/* Top Header */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: 24,
+          flexWrap: "wrap",
+          gap: 16,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <div
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 14,
+              background: "#ede9fe",
+              color: "#6366f1",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: "0 2px 8px rgba(99, 102, 241, 0.15)",
+            }}
+          >
+            <LuFileText style={{ width: 24, height: 24 }} />
+          </div>
+          <div>
+            <h1 style={{ fontSize: 24, fontWeight: 700, color: "#0f172a", margin: 0, letterSpacing: "-0.02em" }}>
+              Centralized Reports Management
+            </h1>
+            <p style={{ fontSize: 13, color: "#64748b", margin: "4px 0 0 0" }}>
+              Audit, filter, and export verified certificates, assessment scorecards, and learning transcripts.
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <button
+            onClick={() => fetchReports(true)}
+            title="Refresh database records"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "10px 16px",
+              borderRadius: 10,
+              fontSize: 13,
+              fontWeight: 600,
+              color: "#475569",
+              background: "#ffffff",
+              border: "1px solid #e2e8f0",
+              cursor: "pointer",
+              transition: "all 0.15s ease",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "#f1f5f9")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "#ffffff")}
+          >
+            <LuRefreshCw style={{ width: 15, height: 15 }} />
+            Sync Now
+          </button>
+
+          <button
+            onClick={exportToCSV}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "10px 20px",
+              borderRadius: 10,
+              fontSize: 13,
+              fontWeight: 600,
+              color: "#ffffff",
+              background: "#4f46e5",
+              border: "none",
+              cursor: "pointer",
+              boxShadow: "0 2px 8px rgba(79, 70, 229, 0.25)",
+              transition: "all 0.15s ease",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "#4338ca")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "#4f46e5")}
+          >
+            <LuDownload style={{ width: 16, height: 16 }} />
+            Export All to CSV
+          </button>
+        </div>
+      </div>
+
+      {/* Search & Filter Bar */}
+      <div
+        style={{
+          background: "#ffffff",
+          borderRadius: 16,
+          padding: "16px 20px",
+          border: "1px solid #e2e8f0",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
+          marginBottom: 20,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: 16,
+        }}
+      >
+        {/* Search Input */}
+        <div style={{ position: "relative", flex: "1 1 340px", maxWidth: 460 }}>
+          <LuSearch
+            style={{
+              position: "absolute",
+              left: 14,
+              top: "50%",
+              transform: "translateY(-50%)",
+              color: "#94a3b8",
+              width: 17,
+              height: 17,
+            }}
+          />
+          <input
+            type="text"
+            placeholder="Search report by user, title, or verification code..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "10px 14px 10px 40px",
+              borderRadius: 10,
+              border: "1px solid #e2e8f0",
+              fontSize: 13,
+              color: "#1e293b",
+              outline: "none",
+              background: "#f8fafc",
+              transition: "all 0.15s ease",
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = "#6366f1";
+              e.target.style.background = "#ffffff";
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = "#e2e8f0";
+              e.target.style.background = "#f8fafc";
+            }}
+          />
+          {search && (
+            <button
+              onClick={() => setSearch("")}
+              style={{
+                position: "absolute",
+                right: 12,
+                top: "50%",
+                transform: "translateY(-50%)",
+                background: "none",
+                border: "none",
+                color: "#94a3b8",
+                cursor: "pointer",
+                padding: 0,
+              }}
+            >
+              <LuX style={{ width: 14, height: 14 }} />
+            </button>
+          )}
+        </div>
+
+        {/* Filter Pills */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          {[
+            { id: "all", label: "All Reports", count: stats.total },
+            { id: "Certification Report", label: "Certification Report", count: stats.certificationsCount },
+            { id: "Assessment Report", label: "Assessment Report", count: stats.assessmentsCount },
+            { id: "MCQ Assessment Report", label: "MCQ Assessment Report — 10 Marks", count: stats.mcqReportsCount },
+          ].map((tab) => {
+            const isActive = filterType === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setFilterType(tab.id)}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: 20,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  border: isActive ? "1px solid #4f46e5" : "1px solid #e2e8f0",
+                  background: isActive ? "#4f46e5" : "#ffffff",
+                  color: isActive ? "#ffffff" : "#64748b",
+                  boxShadow: isActive ? "0 2px 6px rgba(79, 70, 229, 0.2)" : "none",
+                }}
+              >
+                <span>{tab.label}</span>
+                <span
+                  style={{
+                    fontSize: 10,
+                    padding: "2px 6px",
+                    borderRadius: 10,
+                    background: isActive ? "rgba(255,255,255,0.22)" : "#f1f5f9",
+                    color: isActive ? "#ffffff" : "#475569",
+                    fontWeight: 700,
+                  }}
+                >
+                  {tab.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Main Reports Table Container */}
+      <div
+        style={{
+          background: "#ffffff",
+          borderRadius: 16,
+          border: "1px solid #e2e8f0",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
+          overflow: "hidden",
+        }}
+      >
+        {/* Table Subheader */}
+        <div
+          style={{
+            padding: "16px 24px",
+            borderBottom: "1px solid #f1f5f9",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <div>
+            <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", margin: 0 }}>
+              Generated Platform Reports
+            </h2>
+            <p style={{ fontSize: 12, color: "#94a3b8", margin: "2px 0 0 0" }}>
+              {filteredReports.length} {filteredReports.length === 1 ? "record" : "records"} available
+            </p>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                color: "#059669",
+                background: "#ecfdf5",
+                padding: "4px 10px",
+                borderRadius: 20,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 5,
+              }}
+            >
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: "50%",
+                  background: "#10b981",
+                  display: "inline-block",
+                }}
+              />
+              Live Sync Active
+            </span>
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                color: "#4f46e5",
+                background: "#eef2ff",
+                padding: "4px 10px",
+                borderRadius: 20,
+              }}
+            >
+              Export Ready
+            </span>
+          </div>
+        </div>
+
+        {/* Reports Table with explicit column widths */}
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+            <thead>
+              <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+                <th
+                  style={{
+                    padding: "12px 24px",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: "#64748b",
+                    letterSpacing: "0.05em",
+                    textTransform: "uppercase",
+                    minWidth: 280,
+                  }}
+                >
+                  Report Title
+                </th>
+                <th
+                  style={{
+                    padding: "12px 18px",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: "#64748b",
+                    letterSpacing: "0.05em",
+                    textTransform: "uppercase",
+                    minWidth: 150,
+                  }}
+                >
+                  Category
+                </th>
+                <th
+                  style={{
+                    padding: "12px 18px",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: "#64748b",
+                    letterSpacing: "0.05em",
+                    textTransform: "uppercase",
+                    minWidth: 180,
+                  }}
+                >
+                  Recipient Candidate
+                </th>
+                <th
+                  style={{
+                    padding: "12px 18px",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: "#64748b",
+                    letterSpacing: "0.05em",
+                    textTransform: "uppercase",
+                    minWidth: 140,
+                  }}
+                >
+                  Score / Grade
+                </th>
+                <th
+                  style={{
+                    padding: "12px 18px",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: "#64748b",
+                    letterSpacing: "0.05em",
+                    textTransform: "uppercase",
+                    minWidth: 120,
+                  }}
+                >
+                  Verification Code
+                </th>
+                <th
+                  style={{
+                    padding: "12px 18px",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: "#64748b",
+                    letterSpacing: "0.05em",
+                    textTransform: "uppercase",
+                    minWidth: 110,
+                  }}
+                >
+                  Date Issued
+                </th>
+                <th
+                  style={{
+                    padding: "12px 24px",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: "#64748b",
+                    letterSpacing: "0.05em",
+                    textTransform: "uppercase",
+                    textAlign: "right",
+                    minWidth: 120,
+                  }}
+                >
+                  Action
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={7} style={{ padding: "48px 24px", textAlign: "center", color: "#64748b" }}>
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
+                      <LuRefreshCw style={{ animation: "spin 1s linear infinite", width: 18, height: 18, color: "#6366f1" }} />
+                      <span style={{ fontSize: 13, fontWeight: 500 }}>Loading verified platform reports...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : filteredReports.length === 0 ? (
+                <tr>
+                  <td colSpan={7} style={{ padding: "64px 24px", textAlign: "center" }}>
+                    <div
+                      style={{
+                        width: 52,
+                        height: 52,
+                        borderRadius: "50%",
+                        background: "#f1f5f9",
+                        color: "#94a3b8",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        margin: "0 auto 12px auto",
+                      }}
+                    >
+                      <LuFileText style={{ width: 24, height: 24 }} />
+                    </div>
+                    <p style={{ fontSize: 15, fontWeight: 600, color: "#1e293b", margin: "0 0 4px 0" }}>
+                      No reports found
+                    </p>
+                    <p style={{ fontSize: 13, color: "#64748b", margin: 0 }}>
+                      {search ? "Try adjusting your search keywords" : "No student reports exist in this category yet"}
+                    </p>
+                  </td>
+                </tr>
+              ) : (
+                filteredReports.map((r, idx) => {
+                  const isCert = r.type === "Certification Report";
+                  const isMcq = r.type === "MCQ Assessment Report";
+                  const categoryBg = isCert ? "#eff6ff" : isMcq ? "#ecfdf5" : "#eef2ff";
+                  const categoryColor = isCert ? "#2563eb" : isMcq ? "#059669" : "#4f46e5";
+                  const categoryBorder = isCert ? "#bfdbfe" : isMcq ? "#a7f3d0" : "#c7d2fe";
+
+                  const initial = (r.recipient ? r.recipient[0] : "S").toUpperCase();
+                  const isPass =
+                    r.status === "PASSED" ||
+                    r.grade === "Qualified" ||
+                    r.grade === "Distinction" ||
+                    r.grade === "First Class" ||
+                    r.grade === "Passed";
+
+                  return (
+                    <tr
+                      key={r.id || idx}
+                      onClick={() => handleOpenReportModal(r)}
+                      style={{
+                        borderBottom: "1px solid #f1f5f9",
+                        cursor: "pointer",
+                        transition: "background 0.15s ease",
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "#f8fafc")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "#ffffff")}
+                    >
+                      {/* Report Title */}
+                      <td style={{ padding: "16px 24px", verticalAlign: "middle" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                          <div
+                            style={{
+                              width: 32,
+                              height: 32,
+                              borderRadius: 8,
+                              background: categoryBg,
+                              color: categoryColor,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              flexShrink: 0,
+                            }}
+                          >
+                            {isCert ? (
+                              <LuAward style={{ width: 16, height: 16 }} />
+                            ) : isMcq ? (
+                              <LuCircleCheck style={{ width: 16, height: 16 }} />
+                            ) : (
+                              <LuFileText style={{ width: 16, height: 16 }} />
+                            )}
+                          </div>
+                          <div>
+                            <span
+                              style={{
+                                fontSize: 13,
+                                fontWeight: 600,
+                                color: "#0f172a",
+                                display: "block",
+                                lineHeight: 1.4,
+                              }}
+                            >
+                              {r.title}
+                            </span>
+                            {isMcq && (
+                              <span style={{ fontSize: 11, color: "#64748b" }}>
+                                {r.accuracy ? `Accuracy: ${r.accuracy}` : "10 MCQs evaluated"}
+                                {r.timeSpent ? ` • Time: ${r.timeSpent}` : ""}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Category Pill */}
+                      <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
+                        <span
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 600,
+                            padding: "4px 10px",
+                            borderRadius: 16,
+                            background: categoryBg,
+                            color: categoryColor,
+                            border: `1px solid ${categoryBorder}`,
+                            display: "inline-block",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {r.type}
+                        </span>
+                      </td>
+
+                      {/* Recipient Candidate */}
+                      <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <div
+                            style={{
+                              width: 30,
+                              height: 30,
+                              borderRadius: "50%",
+                              background: "#3b82f6",
+                              color: "#ffffff",
+                              fontSize: 12,
+                              fontWeight: 700,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              flexShrink: 0,
+                            }}
+                          >
+                            {initial}
+                          </div>
+                          <div>
+                            <span style={{ fontSize: 13, fontWeight: 600, color: "#1e293b", display: "block" }}>
+                              {r.recipient || "Candidate"}
+                            </span>
+                            <span style={{ fontSize: 11, color: "#94a3b8", display: "block" }}>
+                              {r.email || "No email"}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Score / Grade */}
+                      <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: "#0f172a" }}>{r.score}</span>
+                          <span style={{ color: "#94a3b8", fontSize: 12 }}>•</span>
+                          <span
+                            style={{
+                              fontSize: 12,
+                              fontWeight: 600,
+                              color: isPass ? "#059669" : "#dc2626",
+                            }}
+                          >
+                            {r.grade || (isPass ? "Qualified" : "Not Qualified")}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* Verification Code */}
+                      <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
+                        <button
+                          onClick={(e) => handleCopyCode(r.verificationCode, r.id, e)}
+                          title="Click to copy verification code"
+                          style={{
+                            background: "#eff6ff",
+                            border: "1px solid #bfdbfe",
+                            borderRadius: 6,
+                            padding: "4px 8px",
+                            fontSize: 11,
+                            fontWeight: 700,
+                            color: "#2563eb",
+                            letterSpacing: "0.04em",
+                            cursor: "pointer",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 5,
+                            transition: "all 0.15s ease",
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = "#dbeafe")}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = "#eff6ff")}
+                        >
+                          {copiedCodeId === r.id ? (
+                            <>
+                              <LuCheck style={{ width: 12, height: 12, color: "#16a34a" }} />
+                              <span style={{ color: "#16a34a" }}>Copied</span>
+                            </>
+                          ) : (
+                            <>
+                              <span>{r.verificationCode || "MZ-VERIF"}</span>
+                              <LuCopy style={{ width: 11, height: 11, opacity: 0.7 }} />
+                            </>
+                          )}
+                        </button>
+                      </td>
+
+                      {/* Date Issued */}
+                      <td style={{ padding: "16px 18px", verticalAlign: "middle", whiteSpace: "nowrap" }}>
+                        <span style={{ fontSize: 12, color: "#64748b" }}>
+                          {r.date
+                            ? new Date(r.date).toLocaleDateString("en-GB", {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                              })
+                            : "Recent"}
+                        </span>
+                      </td>
+
+                      {/* Action */}
+                      <td style={{ padding: "16px 24px", verticalAlign: "middle", textAlign: "right" }}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenReportModal(r);
+                          }}
+                          style={{
+                            padding: "6px 12px",
+                            borderRadius: 8,
+                            fontSize: 12,
+                            fontWeight: 600,
+                            color: "#4f46e5",
+                            background: "#eef2ff",
+                            border: "1px solid #c7d2fe",
+                            cursor: "pointer",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 6,
+                            transition: "all 0.15s ease",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = "#4f46e5";
+                            e.currentTarget.style.color = "#ffffff";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = "#eef2ff";
+                            e.currentTarget.style.color = "#4f46e5";
+                          }}
+                        >
+                          <LuEye style={{ width: 14, height: 14 }} />
+                          Inspect Report
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ─────────────────────────────────────────────────────────────────────────────
+          FULL DETAILED REPORT INSPECTION & MARKS EDITING MODAL
+         ───────────────────────────────────────────────────────────────────────────── */}
+      {activeReport && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15, 23, 42, 0.65)",
+            backdropFilter: "blur(4px)",
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+          }}
+          onClick={() => setActiveReport(null)}
+        >
+          <div
+            style={{
+              background: "#ffffff",
+              borderRadius: 20,
+              width: "100%",
+              maxWidth: 980,
+              height: "88vh",
+              maxHeight: 900,
+              display: "flex",
+              flexDirection: "column",
+              boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+              overflow: "hidden",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                padding: "20px 24px",
+                borderBottom: "1px solid #e2e8f0",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                background: "#f8fafc",
+                flexShrink: 0,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <div
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 12,
+                    background:
+                      activeReport.type === "Certification Report"
+                        ? "#eff6ff"
+                        : activeReport.type === "MCQ Assessment Report"
+                        ? "#ecfdf5"
+                        : "#ede9fe",
+                    color:
+                      activeReport.type === "Certification Report"
+                        ? "#2563eb"
+                        : activeReport.type === "MCQ Assessment Report"
+                        ? "#059669"
+                        : "#6366f1",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {activeReport.type === "Certification Report" ? (
+                    <LuAward style={{ width: 22, height: 22 }} />
+                  ) : activeReport.type === "MCQ Assessment Report" ? (
+                    <LuCircleCheck style={{ width: 22, height: 22 }} />
+                  ) : (
+                    <LuFileText style={{ width: 22, height: 22 }} />
+                  )}
+                </div>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <h2 style={{ fontSize: 18, fontWeight: 700, color: "#0f172a", margin: 0 }}>
+                      {activeReport.title || "Candidate Assessment Report"}
+                    </h2>
+                    <span
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        padding: "3px 8px",
+                        borderRadius: 6,
+                        background: "#eff6ff",
+                        color: "#2563eb",
+                        border: "1px solid #bfdbfe",
+                      }}
+                    >
+                      {activeReport.verificationCode || activeReport.certificateId || "MZ-VERIFIED"}
+                    </span>
+                  </div>
+                  <p style={{ fontSize: 12, color: "#64748b", margin: "4px 0 0 0" }}>
+                    Candidate: <strong>{activeReport.recipient || activeReport.candidateName || "Student"}</strong>{" "}
+                    ({activeReport.email || activeReport.candidateEmail || "Registered"}) • Submitted on{" "}
+                    {activeReport.date
+                      ? new Date(activeReport.date).toLocaleString()
+                      : "Recent"}
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 700,
+                    padding: "6px 12px",
+                    borderRadius: 20,
+                    background:
+                      activeReport.status === "PASSED" ||
+                      activeReport.grade === "Qualified" ||
+                      activeReport.grade === "Passed"
+                        ? "#dcfce7"
+                        : "#fee2e2",
+                    color:
+                      activeReport.status === "PASSED" ||
+                      activeReport.grade === "Qualified" ||
+                      activeReport.grade === "Passed"
+                        ? "#15803d"
+                        : "#b91c1c",
+                  }}
+                >
+                  {activeReport.status || activeReport.grade || "SUBMITTED"}
+                </span>
+
+                <button
+                  onClick={() => setActiveReport(null)}
+                  style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: 10,
+                    border: "1px solid #e2e8f0",
+                    background: "#ffffff",
+                    color: "#64748b",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                  }}
+                >
+                  <LuX style={{ width: 18, height: 18 }} />
+                </button>
+              </div>
+            </div>
+
+            {/* Sub-tabs Navigation */}
+            <div
+              style={{
+                display: "flex",
+                borderBottom: "1px solid #e2e8f0",
+                background: "#ffffff",
+                padding: "0 24px",
+                flexShrink: 0,
+              }}
+            >
+              {[
+                { id: "questions", label: "Questions Breakdown & Source Code", icon: LuFileText },
+                { id: "evaluation", label: "Marks & Admin Feedback", icon: LuSave },
+                { id: "audit", label: "Proctoring & Notification Tracking", icon: LuBell },
+              ].map((tab) => {
+                const isSelected = reportSubTab === tab.id;
+                const IconComponent = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setReportSubTab(tab.id)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "14px 18px",
+                      fontSize: 13,
+                      fontWeight: isSelected ? 700 : 500,
+                      color: isSelected ? "#4f46e5" : "#64748b",
+                      borderBottom: isSelected ? "2px solid #4f46e5" : "2px solid transparent",
+                      background: "none",
+                      borderTop: "none",
+                      borderLeft: "none",
+                      borderRight: "none",
+                      cursor: "pointer",
+                      transition: "all 0.15s ease",
+                    }}
+                  >
+                    <IconComponent style={{ width: 16, height: 16 }} />
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ flex: 1, overflowY: "auto", padding: 24, background: "#f8fafc" }}>
+              {loadingReport ? (
+                <div style={{ padding: "60px 0", textAlign: "center" }}>
+                  <LuRefreshCw
+                    style={{
+                      animation: "spin 1s linear infinite",
+                      width: 24,
+                      height: 24,
+                      color: "#6366f1",
+                      margin: "0 auto 12px auto",
+                    }}
+                  />
+                  <p style={{ fontSize: 13, color: "#64748b", margin: 0 }}>
+                    Retrieving full breakdown and source evaluation...
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* TAB 1: QUESTIONS BREAKDOWN & SOURCE CODE */}
+                  {reportSubTab === "questions" && (
+                    <div>
+                      {/* Metric Summary Cards */}
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                          gap: 14,
+                          marginBottom: 20,
+                        }}
+                      >
+                        <div
+                          style={{
+                            background: "#ffffff",
+                            padding: "14px 16px",
+                            borderRadius: 12,
+                            border: "1px solid #e2e8f0",
+                          }}
+                        >
+                          <span style={{ fontSize: 11, color: "#64748b", fontWeight: 600 }}>SCORE AWARDED</span>
+                          <p style={{ fontSize: 20, fontWeight: 700, color: "#0f172a", margin: "4px 0 0 0" }}>
+                            {activeReport.score != null ? activeReport.score : activeReport.rawScore || 0}
+                            <span style={{ fontSize: 13, color: "#94a3b8", fontWeight: 500 }}>
+                              {" "}
+                              / {activeReport.maxScore || 100}
+                            </span>
+                          </p>
+                        </div>
+                        <div
+                          style={{
+                            background: "#ffffff",
+                            padding: "14px 16px",
+                            borderRadius: 12,
+                            border: "1px solid #e2e8f0",
+                          }}
+                        >
+                          <span style={{ fontSize: 11, color: "#64748b", fontWeight: 600 }}>PERCENTAGE / ACCURACY</span>
+                          <p style={{ fontSize: 20, fontWeight: 700, color: "#4f46e5", margin: "4px 0 0 0" }}>
+                            {activeReport.percentage != null
+                              ? `${activeReport.percentage}%`
+                              : activeReport.accuracy || "N/A"}
+                          </p>
+                        </div>
+                        <div
+                          style={{
+                            background: "#ffffff",
+                            padding: "14px 16px",
+                            borderRadius: 12,
+                            border: "1px solid #e2e8f0",
+                          }}
+                        >
+                          <span style={{ fontSize: 11, color: "#64748b", fontWeight: 600 }}>TEST / QUESTION COUNT</span>
+                          <p style={{ fontSize: 20, fontWeight: 700, color: "#0f172a", margin: "4px 0 0 0" }}>
+                            {questionItems.length || activeReport.testResults?.length || 10} Items
+                          </p>
+                        </div>
+                        <div
+                          style={{
+                            background: "#ffffff",
+                            padding: "14px 16px",
+                            borderRadius: 12,
+                            border: "1px solid #e2e8f0",
+                          }}
+                        >
+                          <span style={{ fontSize: 11, color: "#64748b", fontWeight: 600 }}>FINAL VERDICT</span>
+                          <p
+                            style={{
+                              fontSize: 16,
+                              fontWeight: 700,
+                              color:
+                                activeReport.status === "PASSED" || activeReport.grade === "Qualified"
+                                  ? "#15803d"
+                                  : "#b91c1c",
+                              margin: "6px 0 0 0",
+                            }}
+                          >
+                            {activeReport.status || activeReport.grade || "SUBMITTED"}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Questions Breakdown List (for MCQs) */}
+                      {questionItems.length > 0 && (
+                        <div>
+                          {/* MCQ Filter Bar */}
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              marginBottom: 14,
+                            }}
+                          >
+                            <h3 style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", margin: 0 }}>
+                              Question-by-Question Evaluation ({questionItems.length} Questions)
+                            </h3>
+                            <div style={{ display: "flex", gap: 6 }}>
+                              {[
+                                { id: "all", label: "All" },
+                                { id: "correct", label: "Correct" },
+                                { id: "incorrect", label: "Incorrect" },
+                                { id: "unanswered", label: "Unanswered" },
+                              ].map((f) => (
+                                <button
+                                  key={f.id}
+                                  onClick={() => setMcqFilter(f.id)}
+                                  style={{
+                                    padding: "4px 10px",
+                                    borderRadius: 14,
+                                    fontSize: 11,
+                                    fontWeight: 600,
+                                    cursor: "pointer",
+                                    border: mcqFilter === f.id ? "1px solid #4f46e5" : "1px solid #e2e8f0",
+                                    background: mcqFilter === f.id ? "#4f46e5" : "#ffffff",
+                                    color: mcqFilter === f.id ? "#ffffff" : "#64748b",
+                                  }}
+                                >
+                                  {f.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                            {questionItems
+                              .filter((q) => {
+                                if (mcqFilter === "correct") return q.isCorrect;
+                                if (mcqFilter === "incorrect") return !q.isCorrect && q.userChoice != null;
+                                if (mcqFilter === "unanswered") return q.userChoice == null;
+                                return true;
+                              })
+                              .map((q, qIdx) => {
+                                const isCorrect = q.isCorrect;
+                                const isUnanswered = q.userChoice == null;
+
+                                return (
+                                  <div
+                                    key={q.id || qIdx}
+                                    style={{
+                                      background: "#ffffff",
+                                      borderRadius: 12,
+                                      border: isCorrect
+                                        ? "1px solid #bbf7d0"
+                                        : isUnanswered
+                                        ? "1px solid #e2e8f0"
+                                        : "1px solid #fecaca",
+                                      padding: 16,
+                                    }}
+                                  >
+                                    <div
+                                      style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "space-between",
+                                        marginBottom: 10,
+                                      }}
+                                    >
+                                      <span
+                                        style={{
+                                          fontSize: 12,
+                                          fontWeight: 700,
+                                          color: isCorrect ? "#15803d" : isUnanswered ? "#64748b" : "#b91c1c",
+                                          display: "inline-flex",
+                                          alignItems: "center",
+                                          gap: 6,
+                                        }}
+                                      >
+                                        {isCorrect ? (
+                                          <LuCircleCheck style={{ width: 15, height: 15 }} />
+                                        ) : isUnanswered ? (
+                                          <LuCircleAlert style={{ width: 15, height: 15 }} />
+                                        ) : (
+                                          <LuCircleX style={{ width: 15, height: 15 }} />
+                                        )}
+                                        Question #{q.number}
+                                      </span>
+
+                                      <span
+                                        style={{
+                                          fontSize: 11,
+                                          fontWeight: 600,
+                                          padding: "2px 8px",
+                                          borderRadius: 10,
+                                          background: isCorrect ? "#ecfdf5" : isUnanswered ? "#f1f5f9" : "#fef2f2",
+                                          color: isCorrect ? "#059669" : isUnanswered ? "#64748b" : "#dc2626",
+                                        }}
+                                      >
+                                        {isCorrect ? `+${q.marksAwarded} Mark` : "0 Marks"}
+                                      </span>
+                                    </div>
+
+                                    <p
+                                      style={{
+                                        fontSize: 13,
+                                        fontWeight: 600,
+                                        color: "#1e293b",
+                                        margin: "0 0 12px 0",
+                                        lineHeight: 1.5,
+                                      }}
+                                    >
+                                      {q.question}
+                                    </p>
+
+                                    {/* Options */}
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                      {q.options?.map((opt, oIdx) => {
+                                        const isChosen = q.userChoice === oIdx || q.userChoice === opt;
+                                        const isAnswerKey = q.correctKey === oIdx || q.correctKey === opt;
+
+                                        let optBg = "#f8fafc";
+                                        let optBorder = "#e2e8f0";
+                                        let optColor = "#334155";
+
+                                        if (isAnswerKey) {
+                                          optBg = "#ecfdf5";
+                                          optBorder = "#86efac";
+                                          optColor = "#166534";
+                                        }
+                                        if (isChosen && !isAnswerKey) {
+                                          optBg = "#fef2f2";
+                                          optBorder = "#fca5a5";
+                                          optColor = "#991b1b";
+                                        }
+
+                                        return (
+                                          <div
+                                            key={oIdx}
+                                            style={{
+                                              padding: "8px 12px",
+                                              borderRadius: 8,
+                                              background: optBg,
+                                              border: `1px solid ${optBorder}`,
+                                              color: optColor,
+                                              fontSize: 12,
+                                              display: "flex",
+                                              alignItems: "center",
+                                              justifyContent: "space-between",
+                                            }}
+                                          >
+                                            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                              <span
+                                                style={{
+                                                  width: 18,
+                                                  height: 18,
+                                                  borderRadius: "50%",
+                                                  display: "inline-flex",
+                                                  alignItems: "center",
+                                                  justifyContent: "center",
+                                                  fontSize: 10,
+                                                  fontWeight: 700,
+                                                  background: isChosen ? optColor : "#e2e8f0",
+                                                  color: isChosen ? "#ffffff" : "#64748b",
+                                                }}
+                                              >
+                                                {String.fromCharCode(65 + oIdx)}
+                                              </span>
+                                              {opt}
+                                            </span>
+
+                                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                              {isChosen && (
+                                                <span
+                                                  style={{
+                                                    fontSize: 10,
+                                                    fontWeight: 700,
+                                                    padding: "2px 6px",
+                                                    borderRadius: 4,
+                                                    background: isCorrect ? "#15803d" : "#b91c1c",
+                                                    color: "#ffffff",
+                                                  }}
+                                                >
+                                                  Student's Selection
+                                                </span>
+                                              )}
+                                              {isAnswerKey && (
+                                                <span
+                                                  style={{
+                                                    fontSize: 10,
+                                                    fontWeight: 700,
+                                                    padding: "2px 6px",
+                                                    borderRadius: 4,
+                                                    background: "#059669",
+                                                    color: "#ffffff",
+                                                  }}
+                                                >
+                                                  Correct Key
+                                                </span>
+                                              )}
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                    {q.explanation && (
+                                      <p style={{ margin: "10px 0 0 0", fontSize: 11, color: "#64748b", fontStyle: "italic" }}>
+                                        💡 Explanation: {q.explanation}
+                                      </p>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Submitted Source Code View (for Coding assessments) */}
+                      {activeReport.code && (
+                        <div style={{ marginTop: 20 }}>
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              marginBottom: 10,
+                            }}
+                          >
+                            <h3 style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", margin: 0 }}>
+                              Submitted Source Code ({activeReport.language || "Python"})
+                            </h3>
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(activeReport.code);
+                                setCopiedCodeText(true);
+                                setTimeout(() => setCopiedCodeText(false), 2000);
+                              }}
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 6,
+                                padding: "4px 10px",
+                                borderRadius: 6,
+                                fontSize: 11,
+                                fontWeight: 600,
+                                color: "#4f46e5",
+                                background: "#ffffff",
+                                border: "1px solid #c7d2fe",
+                                cursor: "pointer",
+                              }}
+                            >
+                              {copiedCodeText ? <LuCheck style={{ width: 13, height: 13 }} /> : <LuCopy style={{ width: 13, height: 13 }} />}
+                              {copiedCodeText ? "Copied" : "Copy Source"}
+                            </button>
+                          </div>
+
+                          <pre
+                            style={{
+                              background: "#0f172a",
+                              color: "#f8fafc",
+                              borderRadius: 12,
+                              padding: 18,
+                              fontSize: 12,
+                              fontFamily: "monospace",
+                              overflowX: "auto",
+                              lineHeight: 1.5,
+                              border: "1px solid #1e293b",
+                            }}
+                          >
+                            <code>{activeReport.code}</code>
+                          </pre>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* TAB 2: MARKS & ADMIN FEEDBACK */}
+                  {reportSubTab === "evaluation" && (
+                    <div style={{ maxWidth: 640, margin: "0 auto" }}>
+                      <div
+                        style={{
+                          background: "#ffffff",
+                          borderRadius: 16,
+                          padding: 24,
+                          border: "1px solid #e2e8f0",
+                          boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
+                        }}
+                      >
+                        <h3 style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", margin: "0 0 4px 0" }}>
+                          Adjust Student Marks & Add Evaluation Feedback
+                        </h3>
+                        <p style={{ fontSize: 12, color: "#64748b", margin: "0 0 20px 0" }}>
+                          Modifying marks permanently updates MongoDB, sends an official notification email to the
+                          candidate, and triggers an immediate in-app popup.
+                        </p>
+
+                        {/* Marks Input */}
+                        <div style={{ marginBottom: 18 }}>
+                          <label
+                            style={{
+                              display: "block",
+                              fontSize: 12,
+                              fontWeight: 700,
+                              color: "#334155",
+                              marginBottom: 6,
+                            }}
+                          >
+                            Marks Awarded (Max Allowed: {activeReport.maxScore || 100})
+                          </label>
+                          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                            <input
+                              type="number"
+                              min="0"
+                              max={activeReport.maxScore || 100}
+                              value={editScoreValue}
+                              onChange={(e) => setEditScoreValue(e.target.value)}
+                              required
+                              style={{
+                                width: 140,
+                                padding: "10px 14px",
+                                borderRadius: 8,
+                                border: "1px solid #cbd5e1",
+                                fontSize: 16,
+                                fontWeight: 700,
+                                color: "#0f172a",
+                                outline: "none",
+                              }}
+                            />
+                            {/* Preset Buttons */}
+                            <div style={{ display: "flex", gap: 6 }}>
+                              {[
+                                {
+                                  label: "+1",
+                                  val: Math.min(
+                                    (Number(editScoreValue) || 0) + 1,
+                                    activeReport.maxScore || 100
+                                  ),
+                                },
+                                {
+                                  label: "+2",
+                                  val: Math.min(
+                                    (Number(editScoreValue) || 0) + 2,
+                                    activeReport.maxScore || 100
+                                  ),
+                                },
+                                {
+                                  label: "Max Score",
+                                  val: activeReport.maxScore || 100,
+                                },
+                              ].map((btn, bIdx) => (
+                                <button
+                                  type="button"
+                                  key={bIdx}
+                                  onClick={() => setEditScoreValue(btn.val)}
+                                  style={{
+                                    padding: "6px 10px",
+                                    borderRadius: 6,
+                                    fontSize: 11,
+                                    fontWeight: 600,
+                                    color: "#4f46e5",
+                                    background: "#eef2ff",
+                                    border: "1px solid #c7d2fe",
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  {btn.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Status Select */}
+                        <div style={{ marginBottom: 18 }}>
+                          <label
+                            style={{
+                              display: "block",
+                              fontSize: 12,
+                              fontWeight: 700,
+                              color: "#334155",
+                              marginBottom: 6,
+                            }}
+                          >
+                            Evaluation Status
+                          </label>
+                          <select
+                            value={editStatusValue}
+                            onChange={(e) => setEditStatusValue(e.target.value)}
+                            style={{
+                              width: "100%",
+                              padding: "10px 14px",
+                              borderRadius: 8,
+                              border: "1px solid #cbd5e1",
+                              fontSize: 13,
+                              fontWeight: 600,
+                              color: "#0f172a",
+                              background: "#ffffff",
+                              outline: "none",
+                            }}
+                          >
+                            <option value="PASSED">PASSED / QUALIFIED</option>
+                            <option value="FAILED">FAILED / NOT QUALIFIED</option>
+                            <option value="UNDER_REVIEW">UNDER REVIEW</option>
+                          </select>
+                        </div>
+
+                        {/* Admin Feedback Comment */}
+                        <div style={{ marginBottom: 20 }}>
+                          <label
+                            style={{
+                              display: "block",
+                              fontSize: 12,
+                              fontWeight: 700,
+                              color: "#334155",
+                              marginBottom: 6,
+                            }}
+                          >
+                            Official Admin Comments & Feedback (Sent to student via email & in-app)
+                          </label>
+                          <textarea
+                            rows={4}
+                            placeholder="Enter evaluation notes, marks adjustments rationale, or guidance for the student..."
+                            value={editAdminNote}
+                            onChange={(e) => setEditAdminNote(e.target.value)}
+                            style={{
+                              width: "100%",
+                              padding: "10px 14px",
+                              borderRadius: 8,
+                              border: "1px solid #cbd5e1",
+                              fontSize: 13,
+                              color: "#1e293b",
+                              lineHeight: 1.5,
+                              outline: "none",
+                            }}
+                          />
+                        </div>
+
+                        {/* Submit Button */}
+                        <button
+                          type="button"
+                          onClick={handleSaveMarks}
+                          disabled={savingMarks}
+                          style={{
+                            width: "100%",
+                            padding: "12px 20px",
+                            borderRadius: 10,
+                            background: "#4f46e5",
+                            color: "#ffffff",
+                            fontSize: 14,
+                            fontWeight: 700,
+                            border: "none",
+                            cursor: savingMarks ? "not-allowed" : "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: 8,
+                            boxShadow: "0 2px 8px rgba(79, 70, 229, 0.25)",
+                          }}
+                        >
+                          {savingMarks ? (
+                            <>
+                              <LuRefreshCw style={{ animation: "spin 1s linear infinite", width: 16, height: 16 }} />
+                              Updating & Notifying Student...
+                            </>
+                          ) : (
+                            <>
+                              <LuSave style={{ width: 16, height: 16 }} />
+                              Save Marks & Dispatch Notification
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      {/* Marks Revision Audit History */}
+                      {activeReport.marksHistory && activeReport.marksHistory.length > 0 && (
+                        <div
+                          style={{
+                            marginTop: 20,
+                            background: "#ffffff",
+                            borderRadius: 16,
+                            padding: 20,
+                            border: "1px solid #e2e8f0",
+                          }}
+                        >
+                          <h4
+                            style={{
+                              fontSize: 13,
+                              fontWeight: 700,
+                              color: "#0f172a",
+                              margin: "0 0 12px 0",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 6,
+                            }}
+                          >
+                            <LuHistory style={{ width: 15, height: 15, color: "#6366f1" }} />
+                            Marks Audit Trail ({activeReport.marksHistory.length} revisions)
+                          </h4>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                            {activeReport.marksHistory.map((rev, rIdx) => (
+                              <div
+                                key={rIdx}
+                                style={{
+                                  padding: "10px 14px",
+                                  borderRadius: 8,
+                                  background: "#f8fafc",
+                                  border: "1px solid #e2e8f0",
+                                  fontSize: 12,
+                                }}
+                              >
+                                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                                  <span style={{ fontWeight: 700, color: "#1e293b" }}>
+                                    Score: {rev.originalScore} ➔ {rev.newScore} ({rev.newStatus})
+                                  </span>
+                                  <span style={{ color: "#94a3b8" }}>
+                                    {new Date(rev.modifiedAt || rev.date).toLocaleString()}
+                                  </span>
+                                </div>
+                                {rev.adminNote && (
+                                  <p style={{ margin: "4px 0 0 0", color: "#64748b", fontStyle: "italic" }}>
+                                    "{rev.adminNote}"
+                                  </p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* TAB 3: PROCTORING & NOTIFICATION TRACKING */}
+                  {reportSubTab === "audit" && (
+                    <div style={{ maxWidth: 720, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
+                      {/* Notification Delivery & Read Status Card */}
+                      <div
+                        style={{
+                          background: "#ffffff",
+                          borderRadius: 16,
+                          padding: 20,
+                          border: "1px solid #e2e8f0",
+                        }}
+                      >
+                        <h4
+                          style={{
+                            fontSize: 14,
+                            fontWeight: 700,
+                            color: "#0f172a",
+                            margin: "0 0 14px 0",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                          }}
+                        >
+                          <LuBell style={{ width: 16, height: 16, color: "#4f46e5" }} />
+                          Student Notification & View Tracking
+                        </h4>
+
+                        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                          <div
+                            style={{
+                              padding: "12px 14px",
+                              borderRadius: 10,
+                              background: activeReport.notificationEmailSent ? "#f0fdf4" : "#f8fafc",
+                              border: activeReport.notificationEmailSent ? "1px solid #bbf7d0" : "1px solid #e2e8f0",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                            }}
+                          >
+                            <span style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>
+                              Official Email Delivery Status
+                            </span>
+                            <span
+                              style={{
+                                fontSize: 12,
+                                fontWeight: 700,
+                                color: activeReport.notificationEmailSent ? "#16a34a" : "#64748b",
+                              }}
+                            >
+                              {activeReport.notificationEmailSent
+                                ? `Delivered to ${activeReport.email || activeReport.candidateEmail}`
+                                : "Pending / On Score Update"}
+                            </span>
+                          </div>
+
+                          <div
+                            style={{
+                              padding: "12px 14px",
+                              borderRadius: 10,
+                              background: activeReport.notificationViewed ? "#f0fdf4" : "#fffbeb",
+                              border: activeReport.notificationViewed ? "1px solid #bbf7d0" : "1px solid #fde68a",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                            }}
+                          >
+                            <span style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>
+                              In-App Student Notification Status
+                            </span>
+                            <span
+                              style={{
+                                fontSize: 12,
+                                fontWeight: 700,
+                                color: activeReport.notificationViewed ? "#16a34a" : "#d97706",
+                              }}
+                            >
+                              {activeReport.notificationViewed
+                                ? `Viewed by student on ${new Date(activeReport.notificationViewedAt).toLocaleString()}`
+                                : activeReport.notificationSent
+                                ? "Delivered • Unread by student"
+                                : "Ready for next update"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Proctoring Integrity Summary */}
+                      <div
+                        style={{
+                          background: "#ffffff",
+                          borderRadius: 16,
+                          padding: 20,
+                          border: "1px solid #e2e8f0",
+                        }}
+                      >
+                        <h4
+                          style={{
+                            fontSize: 14,
+                            fontWeight: 700,
+                            color: "#0f172a",
+                            margin: "0 0 14px 0",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                          }}
+                        >
+                          <LuShieldCheck style={{ width: 16, height: 16, color: "#059669" }} />
+                          Proctoring Security & Telemetry
+                        </h4>
+
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+                          <div
+                            style={{
+                              padding: "12px",
+                              borderRadius: 8,
+                              background: "#f8fafc",
+                              border: "1px solid #e2e8f0",
+                              textAlign: "center",
+                            }}
+                          >
+                            <span style={{ fontSize: 11, color: "#64748b", display: "block" }}>Webcam Monitoring</span>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: "#059669" }}>Active & Verified</span>
+                          </div>
+                          <div
+                            style={{
+                              padding: "12px",
+                              borderRadius: 8,
+                              background: "#f8fafc",
+                              border: "1px solid #e2e8f0",
+                              textAlign: "center",
+                            }}
+                          >
+                            <span style={{ fontSize: 11, color: "#64748b", display: "block" }}>Tab Switches</span>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: "#0f172a" }}>0 Detected</span>
+                          </div>
+                          <div
+                            style={{
+                              padding: "12px",
+                              borderRadius: 8,
+                              background: "#f8fafc",
+                              border: "1px solid #e2e8f0",
+                              textAlign: "center",
+                            }}
+                          >
+                            <span style={{ fontSize: 11, color: "#64748b", display: "block" }}>Audio Proctor</span>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: "#059669" }}>Normal Levels</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default AdminReports;

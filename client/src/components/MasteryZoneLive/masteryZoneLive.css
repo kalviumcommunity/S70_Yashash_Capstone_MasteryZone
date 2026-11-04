@@ -54,6 +54,61 @@
   gap: 12px;
 }
 
+.mzl-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+.mzl-back-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+  border-color: #94a3b8;
+  transform: translateX(-2px);
+}
+
+.mzl-heading-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto 16px auto;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.mzl-sub-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 20px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+.mzl-sub-back-btn:hover {
+  background: #dbeafe;
+  color: #1e40af;
+  border-color: #93c5fd;
+  transform: translateX(-2px);
+}
+
 .mzl-brand-logo {
   display: flex;
   align-items: center;
@@ -139,6 +194,151 @@
   display: flex;
   align-items: center;
   gap: 16px;
+}
+
+/* ==========================================================================
+   USER PROFILE PILL & DROPDOWN (Matches /coding UI exactly)
+   ========================================================================== */
+.mz-c-user-pill-wrap {
+  position: relative;
+}
+
+.mz-c-user-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 12px 4px 4px;
+  border-radius: 24px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  user-select: none;
+}
+
+.mz-c-user-pill:hover {
+  border-color: #2563eb;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.08);
+}
+
+.mz-c-user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6366f1, #2563eb);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.mz-c-user-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mz-c-user-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #1e293b;
+  max-width: 140px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mz-c-user-chevron {
+  color: #64748b;
+  transition: transform 0.2s ease;
+}
+
+.mz-c-user-dropdown {
+  position: absolute;
+  top: 44px;
+  right: 0;
+  width: 230px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  padding: 6px;
+  z-index: 100;
+  animation: mzDropdownFadeIn 0.15s ease-out;
+}
+
+@keyframes mzDropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.mz-c-dropdown-item {
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 500;
+  color: #334155;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: all 0.15s ease;
+}
+
+.mz-c-dropdown-item:hover {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+.mz-c-dropdown-item.mz-c-dropdown-header-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 8px 12px 6px;
+  cursor: default;
+  background: transparent !important;
+}
+
+.mz-c-dropdown-item.mz-c-dropdown-header-item strong {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.mz-c-dropdown-item.mz-c-dropdown-header-item .mz-c-dropdown-sub {
+  font-size: 11.5px;
+  color: #64748b;
+  margin-top: 2px;
+  word-break: break-all;
+}
+
+.mz-c-dropdown-item.mz-c-item-danger {
+  color: #ef4444;
+}
+
+.mz-c-dropdown-item.mz-c-item-danger:hover {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.mz-c-dropdown-divider {
+  height: 1px;
+  background: #e2e8f0;
+  margin: 4px 0;
 }
 
 .mzl-nav-btn {

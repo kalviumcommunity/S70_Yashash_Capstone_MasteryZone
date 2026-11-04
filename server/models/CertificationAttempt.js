@@ -43,6 +43,18 @@ const certificationAttemptSchema = new mongoose.Schema(
       default: "IN_PROGRESS",
       index: true,
     },
+    percentage: {
+      type: Number,
+      default: 0,
+    },
+    score: {
+      type: Number,
+      default: 0,
+    },
+    adminNote: {
+      type: String,
+      default: "",
+    },
     startTime: {
       type: Date,
       default: Date.now,
@@ -129,6 +141,18 @@ const certificationAttemptSchema = new mongoose.Schema(
           type: { type: String }, // e.g. "TAB_SWITCH", "FULLSCREEN_EXIT", "FOCUS_LOST"
           timestamp: { type: Date, default: Date.now },
           details: { type: String, default: "" },
+          screenshotUrl: { type: String, default: "" },
+          severity: { type: String, default: "warning" },
+        },
+      ],
+      recordingUrl: { type: String, default: "" },
+      recordingDurationSeconds: { type: Number, default: 0 },
+      evidenceScreenshots: [
+        {
+          url: { type: String },
+          timestamp: { type: Date, default: Date.now },
+          reason: { type: String },
+          severity: { type: String, default: "warning" },
         },
       ],
     },
@@ -146,6 +170,47 @@ const certificationAttemptSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    adminModifiedAt: {
+      type: Date,
+      default: null,
+    },
+    adminModifiedBy: {
+      type: String,
+      default: "",
+    },
+    notificationSent: {
+      type: Boolean,
+      default: false,
+    },
+    notificationEmailSent: {
+      type: Boolean,
+      default: false,
+    },
+    notificationInAppId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Notification",
+      default: null,
+      index: true,
+    },
+    notificationViewed: {
+      type: Boolean,
+      default: false,
+    },
+    notificationViewedAt: {
+      type: Date,
+      default: null,
+    },
+    marksHistory: [
+      {
+        oldScore: Number,
+        newScore: Number,
+        oldStatus: String,
+        newStatus: String,
+        adminNote: String,
+        modifiedBy: String,
+        modifiedAt: { type: Date, default: Date.now },
+      },
+    ],
   },
   { timestamps: true }
 );

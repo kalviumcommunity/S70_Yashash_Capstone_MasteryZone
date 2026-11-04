@@ -143,7 +143,11 @@ const Login = () => {
         localStorage.setItem("userEmail", data.user.email);
       }
       toast.success("Login successful!");
-      navigate(redirectTarget, { replace: true });
+      if (data.user?.role === "SUPER_ADMIN" || data.user?.email?.toLowerCase().trim() === "yashashyash1@gmail.com") {
+        navigate("/admin/overview", { replace: true });
+      } else {
+        navigate(redirectTarget, { replace: true });
+      }
     } catch (error) {
       console.error("Login submit error:", error);
       toast.error("Failed to connect to server");
@@ -204,7 +208,11 @@ const Login = () => {
         localStorage.setItem("userEmail", data.user.email);
       }
       toast.success("Login successful!");
-      navigate(redirectTarget, { replace: true });
+      if (data.user?.role === "SUPER_ADMIN" || data.user?.email?.toLowerCase().trim() === "yashashyash1@gmail.com") {
+        navigate("/admin/overview", { replace: true });
+      } else {
+        navigate(redirectTarget, { replace: true });
+      }
     } catch (error) {
       console.error("Google Login Error:", error);
       if (error?.code === "auth/popup-closed-by-user") {

@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   LuGraduationCap,
   LuSearch,
-  LuBell,
   LuPlay,
   LuCode,
   LuSparkles,
   LuArrowRight,
+  LuArrowLeft,
   LuUsers,
   LuLock,
   LuX,
@@ -16,8 +17,28 @@ import {
   LuPlus,
   LuCheck,
   LuShieldCheck,
+  LuChevronDown,
+  LuUser,
+  LuTrendingUp,
+  LuAward,
+  LuCircleHelp,
+  LuLogOut,
 } from "react-icons/lu";
 import { toast } from "react-toastify";
+import NotificationBell from "../NotificationBell";
+
+const getApiBase = () => {
+  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+  if (typeof window !== "undefined") {
+    if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+      return "http://localhost:5012";
+    }
+    return window.location.origin;
+  }
+  return "http://localhost:5012";
+};
+
+const API_BASE = getApiBase();
 
 const QUICK_TRACKS = [
   {
@@ -51,11 +72,12 @@ const QUICK_TRACKS = [
 ];
 
 export default function MasteryZoneLiveLanding({
-  currentUser,
+  currentUser: initialUser,
   onStartMeeting,
   onJoinMeetingById,
   onNavigateHome,
 }) {
+  const navigate = useNavigate();
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [inputCode, setInputCode] = useState("");
@@ -64,24 +86,113 @@ export default function MasteryZoneLiveLanding({
   const [isCreating, setIsCreating] = useState(false);
   const [recentMeetings, setRecentMeetings] = useState([]);
 
+  // Profile dropdown state
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const userPillRef = useRef(null);
+
+  const [currentUser, setCurrentUser] = useState(() => {
+    if (initialUser && (initialUser.name || initialUser.fullName)) {
+      const name = initialUser.fullName || initialUser.name || initialUser.username || "Learner";
+      const email = initialUser.email || localStorage.getItem("userEmail") || "learner@masteryzone.com";
+      return { ...initialUser, name, fullName: initialUser.fullName || name, email };
+    }
+    try {
+      const stored = localStorage.getItem("user") || localStorage.getItem("mz_user");
+      if (stored) {
+        const u = JSON.parse(stored);
+        const name = u.fullName || u.username || u.name || localStorage.getItem("userName") || "Learner";
+        const email = u.email || localStorage.getItem("userEmail") || "learner@masteryzone.com";
+        return { ...u, name, fullName: u.fullName || name, email };
+      }
+    } catch {}
+    const name = localStorage.getItem("userName") || "Learner";
+    const email = localStorage.getItem("userEmail") || "learner@masteryzone.com";
+    return { name, fullName: name, email };
+  });
+
+  useEffect(() => {
+    if (initialUser) {
+      const name = initialUser.fullName || initialUser.name || initialUser.username || "Learner";
+      const email = initialUser.email || localStorage.getItem("userEmail") || "learner@masteryzone.com";
+      setCurrentUser((prev) => ({ ...(prev || {}), ...initialUser, name, fullName: initialUser.fullName || name, email }));
+    }
+  }, [initialUser]);
+
+  // Click outside to dismiss dropdown
+  useEffect(() => {
+    const handleGlobalClick = (e) => {
+      if (userPillRef.current && !userPillRef.current.contains(e.target)) {
+        setShowUserDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleGlobalClick);
+    return () => document.removeEventListener("mousedown", handleGlobalClick);
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.clear();
+    sessionStorage.clear();
+    toast.info("Signed out successfully.");
+    navigate("/login");
+  };
+
+  const handleBack = () => {
+    if (typeof onNavigateHome === "function") {
+      onNavigateHome();
+    } else if (window.history && window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate("/home");
+    }
+  };
+
   // Fetch recent meetings for this user
   useEffect(() => {
     let isMounted = true;
     const token = localStorage.getItem("token") || "";
-    fetch("/api/meetings/history", {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (isMounted && data && Array.isArray(data.meetings)) {
-          setRecentMeetings(data.meetings.slice(0, 4));
+    const fetchHistory = async () => {
+      try {
+        let res;
+        try {
+          res = await fetch(`${API_BASE}/api/meetings/history`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+        } catch {
+          res = await fetch("/api/meetings/history", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
         }
-      })
-      .catch(() => {});
+        if (res && res.ok) {
+          const data = await res.json();
+          if (isMounted && data && Array.isArray(data.meetings)) {
+            setRecentMeetings(data.meetings.slice(0, 4));
+          }
+        }
+      } catch {}
+    };
+
+    fetchHistory();
     return () => {
       isMounted = false;
     };
   }, []);
+
+  const handleStartInstantMeeting = async () => {
+    if (isCreating) return;
+    setIsCreating(true);
+    try {
+      const hostFirstName = (currentUser?.fullName || currentUser?.name || currentUser?.username || "Live").split(" ")[0];
+      const defaultTitle = `${hostFirstName}'s Instant Practice Session`;
+      await onStartMeeting({
+        title: defaultTitle,
+        groupKey: newMeetingGroup || "dsa",
+      });
+    } catch (err) {
+      toast.error(err.message || "Failed to start instant meeting");
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   const handleStartSubmit = async (e) => {
     e?.preventDefault();
@@ -146,7 +257,17 @@ export default function MasteryZoneLiveLanding({
       {/* 1. TOP NAVIGATION / HEADER */}
       <header className="mzl-top-nav">
         <div className="mzl-nav-left">
-          <div className="mzl-brand-logo" onClick={onNavigateHome}>
+          <button
+            type="button"
+            className="mzl-back-btn"
+            onClick={handleBack}
+            title="Go Back"
+            aria-label="Go Back"
+          >
+            <LuArrowLeft size={16} />
+            <span>Back</span>
+          </button>
+          <div className="mzl-brand-logo" onClick={handleBack}>
             <div className="mzl-logo-badge">MZ</div>
             <span className="mzl-brand-title">Mastery Zone</span>
           </div>
@@ -178,16 +299,78 @@ export default function MasteryZoneLiveLanding({
         </div>
 
         <div className="mzl-nav-right">
-          <button
-            className="mzl-nav-btn"
-            title="Notifications"
-            onClick={() => toast.info("No new live meeting notifications.")}
-          >
-            <LuBell size={18} />
-            <span className="mzl-bell-badge" />
-          </button>
-          <div className="mzl-user-avatar" title={currentUser?.fullName || "User"}>
-            {userInitial}
+          <NotificationBell />
+
+          {/* User Profile Pill matching Coding page */}
+          <div className="mz-c-user-pill-wrap" ref={userPillRef}>
+            <div
+              className="mz-c-user-pill"
+              onClick={() => setShowUserDropdown((prev) => !prev)}
+            >
+              <div className="mz-c-user-avatar">
+                {currentUser?.avatar || currentUser?.avatarUrl ? (
+                  <img src={currentUser.avatar || currentUser.avatarUrl} alt="User" />
+                ) : (
+                  (currentUser?.name || currentUser?.fullName || "U").charAt(0).toUpperCase()
+                )}
+              </div>
+              <span className="mz-c-user-name">
+                {currentUser?.name || currentUser?.fullName || "Learner"}
+              </span>
+              <LuChevronDown className="mz-c-user-chevron" size={14} />
+            </div>
+
+            {showUserDropdown && (
+              <div className="mz-c-user-dropdown">
+                <div className="mz-c-dropdown-item mz-c-dropdown-header-item">
+                  <strong>{currentUser?.name || currentUser?.fullName || "Learner"}</strong>
+                  <span className="mz-c-dropdown-sub">
+                    {currentUser?.email || "learner@masteryzone.com"}
+                  </span>
+                </div>
+                <div className="mz-c-dropdown-divider" />
+                <div
+                  className="mz-c-dropdown-item"
+                  onClick={() => {
+                    navigate("/profile");
+                    setShowUserDropdown(false);
+                  }}
+                >
+                  <LuUser size={15} /> Profile Settings
+                </div>
+                <div
+                  className="mz-c-dropdown-item"
+                  onClick={() => {
+                    navigate("/progress");
+                    setShowUserDropdown(false);
+                  }}
+                >
+                  <LuTrendingUp size={15} /> My Learning Progress
+                </div>
+                <div
+                  className="mz-c-dropdown-item"
+                  onClick={() => {
+                    navigate("/coding?tab=certification");
+                    setShowUserDropdown(false);
+                  }}
+                >
+                  <LuAward size={15} /> Certifications & Hall
+                </div>
+                <div
+                  className="mz-c-dropdown-item"
+                  onClick={() => {
+                    navigate("/help");
+                    setShowUserDropdown(false);
+                  }}
+                >
+                  <LuCircleHelp size={15} /> Help & Support
+                </div>
+                <div className="mz-c-dropdown-divider" />
+                <div className="mz-c-dropdown-item mz-c-item-danger" onClick={handleLogout}>
+                  <LuLogOut size={15} /> Sign Out
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -196,11 +379,22 @@ export default function MasteryZoneLiveLanding({
       <main className="mzl-landing-body">
         {/* Title Header */}
         <div className="mzl-hero-heading-block">
-          <div className="mzl-badge-row">
-            <span className="mzl-platform-pill">
-              <LuGraduationCap size={14} />
-              Google Meet-Style Real-Time Collaboration
-            </span>
+          <div className="mzl-heading-toolbar">
+            <button
+              type="button"
+              className="mzl-sub-back-btn"
+              onClick={handleBack}
+              title="Return to previous screen"
+            >
+              <LuArrowLeft size={15} />
+              <span>Back to Dashboard</span>
+            </button>
+            <div className="mzl-badge-row">
+              <span className="mzl-platform-pill">
+                <LuGraduationCap size={14} />
+                Google Meet-Style Real-Time Collaboration
+              </span>
+            </div>
           </div>
           <h1 className="mzl-hero-title">
             <LuVideo size={28} color="#2563eb" />
@@ -223,14 +417,26 @@ export default function MasteryZoneLiveLanding({
             </p>
             <div className="mzl-hero-actions">
               <button
+                type="button"
                 className="mzl-btn-primary"
-                onClick={() => setShowCreateModal(true)}
+                onClick={handleStartInstantMeeting}
+                disabled={isCreating}
                 data-testid="mzl-start-meeting-btn"
               >
                 <LuPlay size={16} />
-                Start Instant Meeting
+                {isCreating ? "Starting Meeting..." : "Start Instant Meeting"}
               </button>
               <button
+                type="button"
+                className="mzl-btn-outline"
+                onClick={() => setShowCreateModal(true)}
+                title="Create a meeting with custom room settings"
+              >
+                <LuPlus size={16} />
+                Custom Room
+              </button>
+              <button
+                type="button"
                 className="mzl-btn-outline"
                 onClick={() => setShowJoinModal(true)}
                 data-testid="mzl-join-meeting-btn"

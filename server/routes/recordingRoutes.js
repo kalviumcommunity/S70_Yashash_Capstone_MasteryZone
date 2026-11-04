@@ -73,13 +73,17 @@ router.post("/upload", authenticateToken, async (req, res) => {
 
     // Broadcast socket event if meetingId exists
     const io = req.app.get("io");
-    if (io && meetingId) {
-      io.to(`meeting_${meetingId}`).emit("meeting_recording_saved", {
-        recordingId,
-        title: recording.title,
-        fileUrl,
-        durationSeconds: recording.durationSeconds,
-      });
+    if (io) {
+      if (meetingId) {
+        io.to(`meeting_${meetingId}`).emit("meeting_recording_saved", {
+          recordingId,
+          title: recording.title,
+          fileUrl,
+          durationSeconds: recording.durationSeconds,
+        });
+      }
+      // Broadcast real-time synchronization to Super Admin dashboard
+      io.emit("NEW_RECORDING_SAVED", recording);
     }
 
     res.status(201).json({
@@ -90,6 +94,57 @@ router.post("/upload", authenticateToken, async (req, res) => {
   } catch (err) {
     console.error("Recording upload error:", err);
     res.status(500).json({ error: err.message || "Failed to save recording" });
+  }
+});
+
+// Dedicated video chunk streaming route with HTTP 206 Partial Content (Mac, Win, Chrome, Edge)
+router.get("/stream/:filename", (req, res) => {
+  try {
+    const filename = path.basename(req.params.filename);
+    const filePath = path.join(RECORDINGS_DIR, filename);
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).send("Video file not found");
+    }
+
+    const stat = fs.statSync(filePath);
+    const fileSize = stat.size;
+    const range = req.headers.range;
+    const ext = path.extname(filePath).toLowerCase();
+    const contentType = ext === ".mp4" ? "video/mp4" : "video/webm";
+
+    if (range && fileSize > 0) {
+      const parts = range.replace(/bytes=/, "").split("-");
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+
+      if (start >= fileSize) {
+        res.status(416).send(`Requested range not satisfiable: ${start} >= ${fileSize}`);
+        return;
+      }
+
+      const chunksize = end - start + 1;
+      const file = fs.createReadStream(filePath, { start, end });
+      const head = {
+        "Content-Range": `bytes ${start}-${end}/${fileSize}`,
+        "Accept-Ranges": "bytes",
+        "Content-Length": chunksize,
+        "Content-Type": contentType,
+      };
+      res.writeHead(206, head);
+      file.pipe(res);
+    } else {
+      const head = {
+        "Content-Length": fileSize,
+        "Content-Type": contentType,
+        "Accept-Ranges": "bytes",
+      };
+      res.writeHead(200, head);
+      fs.createReadStream(filePath).pipe(res);
+    }
+  } catch (streamErr) {
+    console.error("Stream error:", streamErr);
+    res.status(500).send("Streaming error");
   }
 });
 

@@ -13,6 +13,7 @@ const {
   parseDeviceAndBrowser,
 } = require('../utils/mailer');
 const { pushNotification } = require('../utils/notificationService');
+const { pushAdminNotification } = require('../utils/adminNotificationService');
 const router = express.Router();
 
 const JWT_SECRET = process.env.JWT_SECRET || "supersecretkey";
@@ -54,6 +55,10 @@ router.post(['/signup', '/register'], async (req, res) => {
   }
 
   try {
+    if (email.toLowerCase().trim() === 'yashashyash1@gmail.com') {
+      return res.status(403).json({ message: 'This email is reserved for platform administration and cannot be registered publicly.' });
+    }
+
     const existingUser = await User.findOne({ email });
     if (existingUser) return res.status(400).json({ message: 'User already exists' });
 
@@ -75,7 +80,7 @@ router.post(['/signup', '/register'], async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const fullName = (firstName && lastName) ? `${firstName} ${lastName}`.trim() : (firstName || lastName || "");
-    const userData = { username, email, password: hashedPassword, fullName };
+    const userData = { username, email, password: hashedPassword, fullName, role: 'user', isSuspended: false };
     if (normalizedPhone) {
       userData.phoneNumber = normalizedPhone;
     }
@@ -96,6 +101,18 @@ router.post(['/signup', '/register'], async (req, res) => {
       actionUrl: "/home",
       actionLabel: "Explore Hub",
     });
+
+    // Notify Super Admin of new genuine user registration
+    pushAdminNotification({
+      title: "New Student Registration",
+      message: `${newUser.fullName || newUser.username} (${newUser.email}) registered an account on MasteryZone.`,
+      type: "registration",
+      severity: "info",
+      targetId: String(newUser._id),
+      targetUser: { fullName: newUser.fullName, email: newUser.email, username: newUser.username },
+      actionUrl: "/admin/users",
+      io: req.app.get("io"),
+    }).catch(() => {});
     const safeUser = {
       username: newUser.username,
       email: newUser.email,
@@ -135,6 +152,12 @@ router.post('/login', async (req, res) => {
     });
 
     if (!user) return res.status(400).json({ message: 'Invalid credentials' });
+
+    if (user.isSuspended) {
+      return res.status(403).json({
+        message: user.suspendedReason || 'Your account has been suspended by the platform administrator.',
+      });
+    }
 
     const match = await bcrypt.compare(password, user.password);
     if (!match) return res.status(400).json({ message: 'Invalid credentials' });
@@ -198,7 +221,9 @@ router.post('/login', async (req, res) => {
         _id: user._id,
         username: user.username,
         email: user.email,
-        fullName: user.fullName || user.username
+        fullName: user.fullName || user.username,
+        role: user.role || 'user',
+        isSuspended: !!user.isSuspended
       }
     });
   } catch (err) {
@@ -222,7 +247,9 @@ router.post('/guest-login', async (req, res) => {
       username: guestUsername,
       email: guestEmail,
       fullName: `Guest Candidate (${guestSuffix.toUpperCase()})`,
-      password: hashedPassword
+      password: hashedPassword,
+      role: 'user',
+      isSuspended: false
     });
 
     const token = jwt.sign({ userId: user._id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
@@ -234,7 +261,8 @@ router.post('/guest-login', async (req, res) => {
         _id: user._id,
         username: user.username,
         email: user.email,
-        fullName: user.fullName || 'Guest User'
+        fullName: user.fullName || 'Guest User',
+        role: 'user'
       }
     });
   } catch (err) {
@@ -424,6 +452,12 @@ router.post('/firebase-login', verifyFirebaseToken, async (req, res) => {
     // Check if user exists in our DB
     let user = await User.findOne({ email });
 
+    if (user && user.isSuspended) {
+      return res.status(403).json({
+        message: user.suspendedReason || 'Your account has been suspended by the platform administrator.',
+      });
+    }
+
     if (!user) {
       // Create a new user if they don't exist
       const nameParts = name.trim().split(' ');
@@ -446,7 +480,9 @@ router.post('/firebase-login', verifyFirebaseToken, async (req, res) => {
         email,
         fullName: name,
         password: randomPassword,
-        authProvider: 'google'
+        authProvider: 'google',
+        role: 'user',
+        isSuspended: false,
       });
 
       // Dispatch welcome email notification for new account
@@ -515,7 +551,9 @@ router.post('/firebase-login', verifyFirebaseToken, async (req, res) => {
         _id: user._id,
         username: user.username,
         email: user.email,
-        fullName: user.fullName || name
+        fullName: user.fullName || name,
+        role: user.role || 'user',
+        isSuspended: !!user.isSuspended
       }
     });
 
@@ -530,7 +568,11 @@ router.post('/firebase-login', verifyFirebaseToken, async (req, res) => {
 // Get current user and calculate real statistics
 router.get('/me', verifyToken, async (req, res) => {
   try {
-    const user = await User.findById(req.user.userId).select('-password');
+    const targetId = req.user.userId || req.user.id || req.user._id;
+    let user = targetId ? await User.findById(targetId).select('-password') : null;
+    if (!user && req.user.email) {
+      user = await User.findOne({ email: req.user.email.toLowerCase().trim() }).select('-password');
+    }
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     // Update real activity streak

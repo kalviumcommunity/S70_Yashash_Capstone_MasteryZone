@@ -16,6 +16,9 @@ const notificationRoutes = require("./routes/notificationRoutes");
 const { router: projectRoutes } = require("./routes/projectRoutes");
 const meetingRoutes = require("./routes/meetingRoutes");
 const recordingRoutes = require("./routes/recordingRoutes");
+const adminRoutes = require("./routes/adminRoutes");
+const supportRoutes = require("./routes/supportRoutes");
+const { bootstrapSuperAdmin } = require("./bootstrap/adminBootstrap");
 const Meeting = require("./models/Meeting");
 const jwt = require("jsonwebtoken");
 const User = require("./models/User");
@@ -42,6 +45,11 @@ app.set("io", io);
 
 // Store online users: { socketId: username }
 const onlineUsers = new Map();
+
+// Active User Sessions Map for Real-Time Super Admin Monitoring:
+// socketId => { socketId, userId, username, fullName, email, currentPage, activity, startedAt, lastHeartbeat, device }
+const activeUserSessions = new Map();
+app.set("activeUserSessions", activeUserSessions);
 
 // Active collaborative coding rooms in memory:
 // roomId => { code, language, participants: Map(socketId => { user, role, cursor }) }
@@ -98,6 +106,89 @@ io.on("connection", (socket) => {
   socket.on("user_joined", (username) => {
     onlineUsers.set(socket.id, username);
     io.emit("update_online_users", Array.from(onlineUsers.values()));
+  });
+
+  // Real-time Support Ticket Chat & Typing Rooms
+  socket.on("join_ticket_room", (ticketId) => {
+    if (ticketId) {
+      socket.join(`ticket_${ticketId}`);
+      console.log(`📡 Socket ${socket.id} joined room ticket_${ticketId}`);
+    }
+  });
+
+  socket.on("leave_ticket_room", (ticketId) => {
+    if (ticketId) {
+      socket.leave(`ticket_${ticketId}`);
+      console.log(`📡 Socket ${socket.id} left room ticket_${ticketId}`);
+    }
+  });
+
+  socket.on("ticket_typing", (data) => {
+    if (data?.ticketId) {
+      socket.to(`ticket_${data.ticketId}`).emit("ticket_typing_update", {
+        ticketId: data.ticketId,
+        userName: data.userName || "User",
+        userRole: data.userRole || "USER",
+        isTyping: !!data.isTyping,
+      });
+    }
+  });
+
+  // Real-time user activity heartbeat for Super Admin live activity monitoring
+  socket.on("user_activity_heartbeat", async (data) => {
+    if (!data) return;
+    const uid = socket.data.userId || data.userId;
+    if (!uid || uid === "guest") return; // Exclude non-authenticated guest sessions
+
+    let userInfo = null;
+    if (uid && mongoose.Types.ObjectId.isValid(uid)) {
+      try {
+        userInfo = await User.findById(uid).select("username fullName email isGuest role lastLoginDevice");
+      } catch {}
+    }
+
+    // Strictly ensure only genuine registered student accounts are added to real-time telemetry
+    if (
+      !userInfo ||
+      userInfo.isGuest ||
+      userInfo.role === "SUPER_ADMIN" ||
+      String(userInfo.email || "").includes("@masteryzone.com") ||
+      String(userInfo.username || "").startsWith("guest_")
+    ) {
+      return;
+    }
+
+    const sessionObj = {
+      socketId: socket.id,
+      userId: String(userInfo._id),
+      username: userInfo.username,
+      fullName: userInfo.fullName || userInfo.username,
+      email: userInfo.email,
+      currentPage: data.page || "/home",
+      activity: data.activity || "Learning Path",
+      startedAt: activeUserSessions.get(socket.id)?.startedAt || Date.now(),
+      lastHeartbeat: Date.now(),
+      device: data.device || userInfo.lastLoginDevice || "Desktop / Chrome",
+    };
+
+    activeUserSessions.set(socket.id, sessionObj);
+
+    // Notify Super Admin live monitoring channel in real time
+    io.to("super_admin_room").emit("live_session_update", sessionObj);
+  });
+
+  // Super Admin joins real-time live monitoring room
+  socket.on("join_admin_monitoring", () => {
+    socket.join("super_admin_room");
+    // Filter snapshot to ensure only valid registered student accounts are transmitted
+    const validSessions = Array.from(activeUserSessions.values()).filter(
+      (s) =>
+        s.userId &&
+        s.userId !== "guest" &&
+        !String(s.email || "").includes("@masteryzone.com") &&
+        !String(s.username || "").startsWith("guest_")
+    );
+    socket.emit("live_sessions_snapshot", validSessions);
   });
 
   // When a user sends a direct message (invite)
@@ -816,6 +907,13 @@ io.on("connection", (socket) => {
   // Voluntary leave
   socket.on("leave_meeting", () => {
     handleUserLeavingMeeting(socket);
+
+    // Clean up active session for Super Admin live activity
+    if (activeUserSessions.has(socket.id)) {
+      const sess = activeUserSessions.get(socket.id);
+      activeUserSessions.delete(socket.id);
+      io.to("super_admin_room").emit("live_session_ended", { socketId: socket.id, userId: sess?.userId });
+    }
   });
 
   // When a user disconnects
@@ -825,6 +923,13 @@ io.on("connection", (socket) => {
     io.emit("update_online_users", Array.from(onlineUsers.values()));
 
     handleUserLeavingMeeting(socket);
+
+    // Clean up active session for Super Admin live activity
+    if (activeUserSessions.has(socket.id)) {
+      const sess = activeUserSessions.get(socket.id);
+      activeUserSessions.delete(socket.id);
+      io.to("super_admin_room").emit("live_session_ended", { socketId: socket.id, userId: sess?.userId });
+    }
 
     // Clean up coding rooms
     for (const [roomId, room] of codingRooms.entries()) {
@@ -867,8 +972,13 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/meetings', meetingRoutes);
 app.use('/api/recordings', recordingRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/support', supportRoutes);
+app.use('/api/admin/support', supportRoutes);
 app.use('/recordings', express.static(path.join(__dirname, 'uploads/recordings')));
 app.use('/certificates', express.static(path.join(__dirname, 'uploads/certificates')));
+app.use('/proctoring-evidence', express.static(path.join(__dirname, 'uploads/evidence')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use("/api", router);
 
 const PRIMARY_MONGO_URI = process.env.MONGODB_URI || process.env.db_url || "mongodb://127.0.0.1:27017/masteryzone";
@@ -878,11 +988,13 @@ async function connectDB() {
   try {
     await mongoose.connect(PRIMARY_MONGO_URI, { serverSelectionTimeoutMS: 2000 });
     console.log("✅ MongoDB Connected Successfully");
+    await bootstrapSuperAdmin();
   } catch (err) {
     console.warn("🔌 Primary MongoDB connection failed, connecting to Atlas fallback...");
     try {
       await mongoose.connect(ATLAS_FALLBACK_URI, { serverSelectionTimeoutMS: 8000 });
       console.log("✅ MongoDB Connected Successfully via Atlas fallback");
+      await bootstrapSuperAdmin();
     } catch (atlasErr) {
       console.error("🔌 Atlas fallback connection failed:", atlasErr.message);
     }
