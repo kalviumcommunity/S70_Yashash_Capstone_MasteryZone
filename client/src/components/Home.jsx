@@ -9,8 +9,11 @@ import logoIcon from "../assets/logo_icon_transparent.png";
 import heroIllustration from "../assets/interests_hero_illustration.png";
 import rocketIcon from "../assets/interests_card_rocket.png";
 
-// Ultra-sharp 1024x1024 300DPI 3D Apple-style illustration for Coding
+// Ultra-sharp 1024x1024 300DPI 3D Apple-style illustrations (Zero Blur)
 import codingIllustration from "../assets/interests_card_coding_hd.png";
+import languageIllustration from "../assets/interests_card_language_hd.png";
+import vehiclesIllustration from "../assets/interests_card_vehicles_hd.png";
+import gymIllustration from "../assets/interests_card_gym_hd.png";
 
 import {
   LuHouse,
@@ -43,193 +46,92 @@ import {
   LuRotateCcw,
   LuPlus,
   LuCodeXml,
+  LuLanguages,
+  LuCar,
+  LuDumbbell,
   LuFolderGit2,
   LuSparkles,
-  LuFlame,
-  LuTrophy,
-  LuZap,
-  LuTerminal,
-  LuBookOpen,
-  LuLayers,
-  LuCpu,
-  LuBraces,
-  LuGitBranch,
-  LuLifeBuoy,
-  LuLock,
 } from "react-icons/lu";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
-// Vector Badge Component for Coding
+// Vector Badge Component for 100% crisp, sharp logo rendering (0 blur on any screen)
 const InterestBadge = ({ type, className = "" }) => {
-  return (
-    <div className={`mz-badge-box mz-badge-coding ${className}`} title="Coding & DSA">
-      <LuCodeXml size={22} strokeWidth={2.4} />
-    </div>
-  );
+  switch (type) {
+    case "CODING":
+      return (
+        <div className={`mz-badge-box mz-badge-coding ${className}`} title="Coding">
+          <LuCodeXml size={22} strokeWidth={2.4} />
+        </div>
+      );
+    case "LANGUAGE":
+      return (
+        <div className={`mz-badge-box mz-badge-language ${className}`} title="Language">
+          <span className="mz-badge-lang-glyph">文A</span>
+        </div>
+      );
+    case "VECHILES":
+      return (
+        <div className={`mz-badge-box mz-badge-vehicles ${className}`} title="Vehicles">
+          <LuCar size={22} strokeWidth={2.3} />
+        </div>
+      );
+    case "GYM":
+      return (
+        <div className={`mz-badge-box mz-badge-gym ${className}`} title="Gym">
+          <LuDumbbell size={22} strokeWidth={2.3} />
+        </div>
+      );
+    default:
+      return null;
+  }
 };
 
-// Core DSA & Problem-Solving Categories
-const DSA_TOPICS = [
-  {
-    id: "arrays-hashing",
-    title: "Arrays & Hashing",
-    description: "Hash maps, frequency counters, prefix sums, and two-pointer arrays.",
-    problemCount: 28,
-    difficulty: "Easy to Hard",
-    badgeColor: "#3b82f6",
-    badgeBg: "#eff6ff",
-    challenges: ["Two Sum", "Subarray Sum Equals K", "Longest Consecutive Sequence"],
-    route: "/coding?tab=challenges&topic=arrays",
-  },
-  {
-    id: "two-pointers",
-    title: "Two Pointers & Sliding Window",
-    description: "Subarray optimization, monotonic queues, and window shrinking.",
-    problemCount: 22,
-    difficulty: "Medium to Hard",
-    badgeColor: "#f59e0b",
-    badgeBg: "#fffbeb",
-    challenges: ["Trapping Rain Water", "3Sum", "Minimum Window Substring"],
-    route: "/coding?tab=challenges&topic=pointers",
-  },
-  {
-    id: "stacks-queues",
-    title: "Stacks & Queues",
-    description: "LIFO/FIFO paradigms, monotonic stacks, and operation simulators.",
-    problemCount: 18,
-    difficulty: "Medium",
-    badgeColor: "#8b5cf6",
-    badgeBg: "#f5f3ff",
-    challenges: ["Min Stack Operations Simulator", "Valid Parentheses", "Daily Temperatures"],
-    route: "/coding?tab=challenges&topic=stacks",
-  },
-  {
-    id: "trees-binary-search",
-    title: "Trees & Binary Search",
-    description: "BST traversal, BFS/DFS algorithms, and asymptotic tight-bound proofs.",
-    problemCount: 26,
-    difficulty: "Medium to Hard",
-    badgeColor: "#10b981",
-    badgeBg: "#f0fdf4",
-    challenges: ["Tight Bound Proof Challenge", "Invert Binary Tree", "Lowest Common Ancestor"],
-    route: "/coding?tab=challenges&topic=trees",
-  },
-  {
-    id: "dynamic-programming",
-    title: "Dynamic Programming",
-    description: "Memoization, bottom-up tabulation, grid paths, and knapsack variants.",
-    problemCount: 24,
-    difficulty: "Hard",
-    badgeColor: "#ef4444",
-    badgeBg: "#fef2f2",
-    challenges: ["Coin Change", "Climbing Stairs", "Longest Increasing Subsequence"],
-    route: "/coding?tab=challenges&topic=dp",
-  },
-  {
-    id: "graphs-backtracking",
-    title: "Graphs & Backtracking",
-    description: "Dijkstra, topological sort, connected components, and recursion trees.",
-    problemCount: 20,
-    difficulty: "Medium to Hard",
-    badgeColor: "#06b6d4",
-    badgeBg: "#ecfeff",
-    challenges: ["Number of Islands", "Course Schedule", "Word Search"],
-    route: "/coding?tab=challenges&topic=graphs",
-  },
-];
-
-// Structured Programming Language Curricula
-const PROGRAMMING_COURSES = [
-  {
-    id: "python",
-    title: "Python Core to Advanced DSA",
-    level: "All Levels",
-    modules: 8,
-    hours: "24 Hours",
-    description: "Variables, OOP, algorithmic complexity, hash tables, and binary trees.",
-    iconColor: "#387EB8",
-    route: "/coding?tab=learning_path&track=python",
-  },
-  {
-    id: "java",
-    title: "Java Enterprise & Algorithms",
-    level: "Intermediate",
-    modules: 12,
-    hours: "36 Hours",
-    description: "Generics, collections, JVM memory model, concurrency, and enterprise systems.",
-    iconColor: "#E76F00",
-    route: "/coding?tab=learning_path&track=java",
-  },
-  {
-    id: "javascript",
-    title: "Full-Stack JavaScript & Node.js Engine",
-    level: "Intermediate",
-    modules: 10,
-    hours: "30 Hours",
-    description: "Event loop, V8 engine internals, asynchronous architecture, and microservices.",
-    iconColor: "#F7DF1E",
-    route: "/coding?tab=learning_path&track=javascript",
-  },
-  {
-    id: "cpp",
-    title: "C++ Systems & Memory Management",
-    level: "Advanced",
-    modules: 10,
-    hours: "28 Hours",
-    description: "Pointers, manual allocations, RAII, move semantics, and standard template library.",
-    iconColor: "#00599C",
-    route: "/coding?tab=learning_path&track=cpp",
-  },
-];
-
-// Software Engineering Projects
-const SOFTWARE_PROJECTS = [
-  {
-    id: "proj_min_stack",
-    title: "Min Stack Operations Simulator",
-    tech: "Python / Data Structures",
-    badge: "Stack Architecture",
-    description: "Build an O(1) space/time-optimized stack simulator with constant retrieval and memory telemetry.",
-    route: "/coding?tab=projects",
-  },
-  {
-    id: "proj_tight_bound",
-    title: "Tight Bound Proof Challenge",
-    tech: "Algorithms & Math",
-    badge: "Asymptotic Analysis",
-    description: "Formalize asymptotic bounds Big-O, Big-Omega, and Big-Theta with automated test verification.",
-    route: "/coding?tab=projects",
-  },
-  {
-    id: "proj_collab_editor",
-    title: "Real-Time Collaborative Code Editor",
-    tech: "Node.js / WebSockets",
-    badge: "Distributed Systems",
-    description: "Implement operational transformations, room synchronization, and sandboxed code execution.",
-    route: "/live",
-  },
-  {
-    id: "proj_compiler_telemetry",
-    title: "Compiler Telemetry & Profiler Hub",
-    tech: "Full-Stack System",
-    badge: "Compiler Design",
-    description: "Process execution runtime, memory benchmarks, and automated test case assertions.",
-    route: "/coding",
-  },
-];
-
+// Extensible registry of interests
 const INTEREST_CARDS = [
   {
     key: "CODING",
-    title: "Coding & Software Engineering",
+    title: "Coding",
     description: "Learn programming, build real projects, and grow your problem-solving skills.",
-    tags: ["Python", "Java", "C++", "JavaScript", "Algorithms", "DSA"],
+    tags: ["Python", "JavaScript", "Web Development"],
     illustration: codingIllustration,
     activeBorder: "#3b82f6",
     activeGlow: "rgba(59, 130, 246, 0.22)",
     checkBg: "#2563eb",
     targetRoute: "/coding",
+  },
+  {
+    key: "LANGUAGE",
+    title: "Language",
+    description: "Learn new languages and connect with the world.",
+    tags: ["English", "Spanish", "French"],
+    illustration: languageIllustration,
+    activeBorder: "#10b981",
+    activeGlow: "rgba(16, 185, 129, 0.22)",
+    checkBg: "#10b981",
+    targetRoute: "/language",
+  },
+  {
+    key: "VECHILES",
+    title: "Vehicles",
+    description: "Explore vehicle systems, maintenance and more.",
+    tags: ["Cars", "Motorcycles", "Electric Vehicles"],
+    illustration: vehiclesIllustration,
+    activeBorder: "#0284c7",
+    activeGlow: "rgba(2, 132, 199, 0.22)",
+    checkBg: "#0284c7",
+    targetRoute: "/driving",
+  },
+  {
+    key: "GYM",
+    title: "Gym",
+    description: "Build a healthier body and a stronger mindset.",
+    tags: ["Fitness", "Nutrition", "Wellness"],
+    illustration: gymIllustration,
+    activeBorder: "#ec4899",
+    activeGlow: "rgba(236, 72, 153, 0.22)",
+    checkBg: "#ec4899",
+    targetRoute: "/fitness",
   },
 ];
 
@@ -249,65 +151,6 @@ const Home = () => {
   }, [currentPath]);
   const [certHistory, setCertHistory] = useState({ attempts: [], certificates: [] });
   const [isLoadingCertHistory, setIsLoadingCertHistory] = useState(false);
-
-  const getEarnedCertInfo = useCallback(
-    (certId) => {
-      if (!certId) return { isCompleted: false };
-      const target = certId.toLowerCase();
-      const cert = certHistory.certificates?.find((c) => {
-        const cId = (c.certificationId || c.certId || "").toLowerCase();
-        return (
-          cId === target ||
-          (target === "js_cert" && cId === "fullstack_cert") ||
-          (target === "fullstack_cert" && cId === "js_cert")
-        );
-      });
-      const passedAtt = certHistory.attempts?.find((a) => {
-        const aId = (a.certId || "").toLowerCase();
-        const matches =
-          aId === target ||
-          (target === "js_cert" && aId === "fullstack_cert") ||
-          (target === "fullstack_cert" && aId === "js_cert");
-        return (
-          matches &&
-          (a.status === "PASSED" || (a.percentage != null && a.percentage >= 80))
-        );
-      });
-      return {
-        isCompleted: Boolean(cert || passedAtt),
-        certificateId: cert?.certificateId || passedAtt?.certificateId || null,
-        attemptId: passedAtt?.attemptId || cert?.attemptId || null,
-      };
-    },
-    [certHistory]
-  );
-
-  const handleOpenCertExam = useCallback(
-    (certId, certName) => {
-      const info = getEarnedCertInfo(certId);
-      if (info.isCompleted) {
-        toast.info("You have already passed this certification and earned your credential! Completed tests cannot be retaken.", {
-          toastId: `cert_already_passed_${certId}`,
-        });
-        if (info.certificateId) {
-          navigate(`/verify/${info.certificateId}`);
-        }
-        return;
-      }
-
-      // Clean stale submitted flags from localStorage before starting retake
-      try {
-        const rawUser = localStorage.getItem("user");
-        const u = rawUser ? JSON.parse(rawUser) : null;
-        const uKey = u?._id || u?.id || "guest";
-        localStorage.removeItem(`mz_${uKey}_cert_${certId}_submitted`);
-        localStorage.removeItem(`mz_${uKey}_cert_${certId}_report_url`);
-      } catch {}
-
-      setActiveCertExamModal({ id: certId, name: certName });
-    },
-    [getEarnedCertInfo, navigate]
-  );
   const [activeCertExamModal, setActiveCertExamModal] = useState(() => {
     try {
       const rawUser = localStorage.getItem("user");
@@ -352,68 +195,6 @@ const Home = () => {
       console.warn("Cert history fetch note:", err);
     } finally {
       setIsLoadingCertHistory(false);
-    }
-  };
-
-  // Dedicated Coding Platform Data State
-  const [codingStats, setCodingStats] = useState({
-    totalXp: 120,
-    totalHours: 4.5,
-    streak: 1,
-    challengesSolvedCount: 0,
-    tracks: [],
-  });
-  const [recentCodingSubmissions, setRecentCodingSubmissions] = useState([]);
-  const [isLoadingCodingData, setIsLoadingCodingData] = useState(false);
-  const [showPodHint, setShowPodHint] = useState(false);
-
-  // Fetch real-time coding statistics and submissions
-  const fetchCodingPlatformData = async () => {
-    setIsLoadingCodingData(true);
-    try {
-      const token = localStorage.getItem("token");
-      if (!token) return;
-
-      // 1. Fetch live coding progress and stats
-      try {
-        const res = await fetch(`${API_BASE}/api/coding/data`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success) {
-            const up = json.userProgress || {};
-            setCodingStats({
-              totalXp: up.totalXp != null ? up.totalXp : 150,
-              totalHours: up.totalHours != null ? up.totalHours : 3.5,
-              streak: up.streak != null ? up.streak : 1,
-              challengesSolvedCount: Array.isArray(up.challengesSolved) ? up.challengesSolved.length : 0,
-              tracks: json.tracks || [],
-            });
-          }
-        }
-      } catch (err) {
-        console.warn("Coding data fetch note:", err);
-      }
-
-      // 2. Fetch student's real recent submissions
-      try {
-        const resSub = await fetch(`${API_BASE}/api/coding/submissions/my-recent`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (resSub.ok) {
-          const jsonSub = await resSub.json();
-          if (jsonSub.success && Array.isArray(jsonSub.submissions)) {
-            setRecentCodingSubmissions(jsonSub.submissions);
-          }
-        }
-      } catch (err) {
-        console.warn("Recent submissions fetch note:", err);
-      }
-    } catch (e) {
-      console.warn("Coding platform data load error:", e);
-    } finally {
-      setIsLoadingCodingData(false);
     }
   };
   const [reportsList, setReportsList] = useState([]);
@@ -671,7 +452,6 @@ const Home = () => {
     fetchReports(false);
     fetchRecordings(false);
     fetchCertHistory();
-    fetchCodingPlatformData();
   }, []);
 
   const prevTabRef = useRef(activeNavTab);
@@ -885,7 +665,6 @@ const Home = () => {
       fetchReports(false);
       fetchRecordings(false);
       fetchCertHistory();
-      fetchCodingPlatformData();
     };
 
     window.addEventListener("user_profile_updated", handleProfileUpdated);
@@ -1120,7 +899,7 @@ const Home = () => {
 
         {/* Sidebar Nav Items */}
         <nav className="mz-sidebar-nav">
-          {/* 1. Dashboard */}
+          {/* 1. Home */}
           <button
             type="button"
             className={`mz-sidebar-item ${activeNavTab === "home" ? "active" : ""}`}
@@ -1128,70 +907,24 @@ const Home = () => {
               navigate("/home");
               window.scrollTo({ top: 0, behavior: "smooth" });
             }}
-            title="Dashboard"
-            data-testid="sidebar-nav-dashboard"
+            title="Home"
           >
             <LuHouse className="mz-sidebar-item-icon" />
-            <span className="mz-sidebar-item-label">Dashboard</span>
+            <span className="mz-sidebar-item-label">Home</span>
           </button>
 
-          {/* 2. Practice & DSA */}
+          {/* 2. Select Interests */}
           <button
             type="button"
-            className="mz-sidebar-item"
+            className={`mz-sidebar-item ${activeNavTab === "select-interests" ? "active" : ""}`}
             onClick={() => {
-              navigate("/coding?tab=challenges", { state: { tab: "challenges" } });
+              navigate("/select-interests");
               window.scrollTo({ top: 0, behavior: "smooth" });
             }}
-            title="Practice & DSA"
-            data-testid="sidebar-nav-practice"
+            title="Select Interests"
           >
-            <LuCodeXml className="mz-sidebar-item-icon" />
-            <span className="mz-sidebar-item-label">Practice & DSA</span>
-          </button>
-
-          {/* 3. Learn & Path */}
-          <button
-            type="button"
-            className="mz-sidebar-item"
-            onClick={() => {
-              navigate("/coding?tab=learning_path", { state: { tab: "learning_path" } });
-              window.scrollTo({ top: 0, behavior: "smooth" });
-            }}
-            title="Learn & Path"
-            data-testid="sidebar-nav-learn"
-          >
-            <LuBookOpen className="mz-sidebar-item-icon" />
-            <span className="mz-sidebar-item-label">Learn & Path</span>
-          </button>
-
-          {/* 4. Software Projects */}
-          <button
-            type="button"
-            className="mz-sidebar-item"
-            onClick={() => {
-              navigate("/coding?tab=projects", { state: { tab: "projects" } });
-              window.scrollTo({ top: 0, behavior: "smooth" });
-            }}
-            title="Projects"
-            data-testid="sidebar-nav-projects"
-          >
-            <LuFolderGit2 className="mz-sidebar-item-icon" />
-            <span className="mz-sidebar-item-label">Projects</span>
-          </button>
-
-          {/* 5. Live Study Platform */}
-          <button
-            type="button"
-            className="mz-sidebar-item"
-            onClick={() => {
-              navigate("/live");
-            }}
-            title="Live Study Groups"
-            data-testid="sidebar-nav-live"
-          >
-            <LuVideo className="mz-sidebar-item-icon" />
-            <span className="mz-sidebar-item-label">Live Study</span>
+            <LuTarget className="mz-sidebar-item-icon" />
+            <span className="mz-sidebar-item-label">Select Interests</span>
           </button>
 
           {/* 3. Reports */}
@@ -1273,18 +1006,7 @@ const Home = () => {
             <span className="mz-sidebar-item-label">Profile</span>
           </button>
 
-          {/* 8. Help & Support */}
-          <button
-            type="button"
-            className="mz-sidebar-item"
-            onClick={() => navigate("/help")}
-            title="Help & Support Center"
-          >
-            <LuLifeBuoy className="mz-sidebar-item-icon" />
-            <span className="mz-sidebar-item-label">Help & Support</span>
-          </button>
-
-          {/* 9. Settings */}
+          {/* 8. Settings */}
           <button
             type="button"
             className={`mz-sidebar-item ${activeNavTab === "settings" ? "active" : ""}`}
@@ -1319,7 +1041,7 @@ const Home = () => {
               ref={searchInputRef}
               type="text"
               className="mz-search-bar-input"
-              placeholder="Search challenges, algorithms, or concepts (e.g. Binary Search, Dynamic Programming, Python)..."
+              placeholder="Search interests or skills (e.g. Python, Web, Spanish, Gym, Driving)..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               aria-label="Real-time search"
@@ -1427,19 +1149,6 @@ const Home = () => {
                       Remove Photo
                     </button>
                   )}
-                  {((user?.role === "SUPER_ADMIN" || user?.role === "admin") || user?.email === "yashashyash1@gmail.com") && (
-                    <button
-                      type="button"
-                      className="mz-menu-item"
-                      style={{ color: "#6366f1", fontWeight: 700 }}
-                      onClick={() => {
-                        setIsDropdownOpen(false);
-                        navigate("/admin/overview");
-                      }}
-                    >
-                      🛡️ Super Admin Portal
-                    </button>
-                  )}
                   <button
                     type="button"
                     className="mz-menu-item"
@@ -1521,21 +1230,16 @@ const Home = () => {
                   {/* Row 1: Subject Filter Pills */}
                   <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
                     <span style={{ fontSize: "12px", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px", marginRight: "4px" }}>
-                      Category:
+                      Discipline:
                     </span>
                     {[
-                      { id: "ALL", label: "All Engineering" },
-                      { id: "coding", label: "DSA & Algorithms" },
-                      { id: "proctored", label: "Proctored Certifications" },
-                      { id: "project", label: "Software Projects" },
+                      { id: "ALL", label: "All Subjects" },
+                      { id: "coding", label: "Coding" },
+                      { id: "language", label: "Language" },
+                      { id: "driving", label: "Driving" },
+                      { id: "fitness", label: "Fitness" },
                     ].map((s) => {
-                      const count = s.id === "ALL" 
-                        ? reportsList.length 
-                        : s.id === "proctored"
-                        ? reportsList.filter((r) => String(r.sessionId || "").startsWith("mz_proc_") || String(r.type || "").toLowerCase().includes("proctor")).length
-                        : s.id === "project"
-                        ? reportsList.filter((r) => String(r.sessionId || "").startsWith("proj_") || String(r.type || "").toLowerCase().includes("project")).length
-                        : reportsList.filter((r) => (r.subjectKey || "coding").toLowerCase() === "coding" || !String(r.sessionId || "").startsWith("proj_")).length;
+                      const count = s.id === "ALL" ? reportsList.length : reportsList.filter((r) => (r.subjectKey || "coding").toLowerCase() === s.id).length;
                       return (
                         <button
                           key={s.id}
@@ -2291,57 +1995,31 @@ const Home = () => {
                       {certHistory.certificates?.length || 0}
                     </strong>
                   </div>
-                  {(() => {
-                    const dsaInfo = getEarnedCertInfo("dsa_cert");
-                    if (dsaInfo.isCompleted) {
-                      return (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (dsaInfo.certificateId) navigate(`/verify/${dsaInfo.certificateId}`);
-                          }}
-                          style={{
-                            padding: "8px 16px",
-                            background: "#16a34a",
-                            color: "#ffffff",
-                            border: "none",
-                            borderRadius: 8,
-                            fontSize: 13,
-                            fontWeight: 700,
-                            cursor: "pointer",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 6,
-                            boxShadow: "0 2px 8px rgba(22,163,74,0.3)",
-                          }}
-                        >
-                          <LuCircleCheck size={15} /> DSA Certified 🏆
-                        </button>
-                      );
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setActiveCertExamModal({
+                        id: "dsa_cert",
+                        name: "Data Structures & Algorithms (DSA)",
+                      })
                     }
-                    return (
-                      <button
-                        type="button"
-                        onClick={() => handleOpenCertExam("dsa_cert", "Data Structures & Algorithms (DSA)")}
-                        style={{
-                          padding: "8px 16px",
-                          background: "#2563eb",
-                          color: "#ffffff",
-                          border: "none",
-                          borderRadius: 8,
-                          fontSize: 13,
-                          fontWeight: 700,
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 6,
-                          boxShadow: "0 2px 8px rgba(37,99,235,0.3)",
-                        }}
-                      >
-                        <LuAward size={15} /> Take DSA Assessment 🚀
-                      </button>
-                    );
-                  })()}
+                    style={{
+                      padding: "8px 16px",
+                      background: "#2563eb",
+                      color: "#ffffff",
+                      border: "none",
+                      borderRadius: 8,
+                      fontSize: 13,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      boxShadow: "0 2px 8px rgba(37,99,235,0.3)",
+                    }}
+                  >
+                    <LuAward size={15} /> Take DSA Assessment 🚀
+                  </button>
                 </div>
               </div>
 
@@ -2564,49 +2242,27 @@ const Home = () => {
                     >
                       Pass the 20 randomized multiple-choice questions (≥80%) and solve both algorithmic coding challenges under live proctoring to earn your verified Mastery Zone Certificate.
                     </p>
-                    {(() => {
-                      const dsaInfo = getEarnedCertInfo("dsa_cert");
-                      if (dsaInfo.isCompleted) {
-                        return (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (dsaInfo.certificateId) navigate(`/verify/${dsaInfo.certificateId}`);
-                            }}
-                            style={{
-                              padding: "9px 20px",
-                              background: "#16a34a",
-                              color: "#ffffff",
-                              border: "none",
-                              borderRadius: 8,
-                              fontSize: 13,
-                              fontWeight: 700,
-                              cursor: "pointer",
-                            }}
-                          >
-                            ✓ View Earned DSA Certificate
-                          </button>
-                        );
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setActiveCertExamModal({
+                          id: "dsa_cert",
+                          name: "Data Structures & Algorithms (DSA)",
+                        })
                       }
-                      return (
-                        <button
-                          type="button"
-                          onClick={() => handleOpenCertExam("dsa_cert", "Data Structures & Algorithms (DSA)")}
-                          style={{
-                            padding: "9px 20px",
-                            background: "#7c3aed",
-                            color: "#ffffff",
-                            border: "none",
-                            borderRadius: 8,
-                            fontSize: 13,
-                            fontWeight: 700,
-                            cursor: "pointer",
-                          }}
-                        >
-                          Start DSA Certification Assessment 🚀
-                        </button>
-                      );
-                    })()}
+                      style={{
+                        padding: "9px 20px",
+                        background: "#7c3aed",
+                        color: "#ffffff",
+                        border: "none",
+                        borderRadius: 8,
+                        fontSize: 13,
+                        fontWeight: 700,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Start DSA Certification Assessment 🚀
+                    </button>
                   </div>
                 )}
               </div>
@@ -2780,49 +2436,29 @@ const Home = () => {
                               >
                                 <LuCircleCheck size={13} /> Certificate
                               </a>
-                            ) : (() => {
-                              const subjectStatus = getEarnedCertInfo(att.certId);
-                              if (subjectStatus.isCompleted) {
-                                return (
-                                  <span
-                                    style={{
-                                      fontSize: 12,
-                                      color: "#166534",
-                                      fontWeight: 700,
-                                      display: "inline-flex",
-                                      alignItems: "center",
-                                      gap: 4,
-                                      background: "#dcfce7",
-                                      padding: "5px 10px",
-                                      borderRadius: 6,
-                                      border: "1px solid #86efac",
-                                    }}
-                                  >
-                                    <LuCircleCheck size={13} /> Certified
-                                  </span>
-                                );
-                              }
-                              return (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleOpenCertExam(att.certId, att.certTitle || "Certification Examination")
-                                  }
-                                  style={{
-                                    padding: "6px 14px",
-                                    borderRadius: 6,
-                                    background: "#f1f5f9",
-                                    border: "1px solid #cbd5e1",
-                                    color: "#334155",
-                                    fontSize: 12,
-                                    fontWeight: 600,
-                                    cursor: "pointer",
-                                  }}
-                                >
-                                  Retake Exam
-                                </button>
-                              );
-                            })()}
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setActiveCertExamModal({
+                                    id: att.certId,
+                                    name: att.certTitle,
+                                  })
+                                }
+                                style={{
+                                  padding: "6px 14px",
+                                  borderRadius: 6,
+                                  background: "#f1f5f9",
+                                  border: "1px solid #cbd5e1",
+                                  color: "#334155",
+                                  fontSize: 12,
+                                  fontWeight: 600,
+                                  cursor: "pointer",
+                                }}
+                              >
+                                Retake Exam
+                              </button>
+                            )}
                           </div>
                         </div>
                       );
@@ -2944,26 +2580,316 @@ const Home = () => {
                 </div>
               </div>
             </div>
+          ) : activeNavTab === "home" ? (
+            <div className="mz-content-columns">
+              <div className="mz-center-column" style={{ flex: 1, maxWidth: "100%" }}>
+                {/* Home Header / Greeting */}
+                <div
+                  className="mz-section-header"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    flexWrap: "wrap",
+                    gap: 16,
+                    marginBottom: 24,
+                  }}
+                >
+                  <div>
+                    <h2 className="mz-section-title" style={{ fontSize: "1.65rem", fontWeight: 800 }}>
+                      Welcome back, {user?.fullName || user?.username || "Learner"} 👋
+                    </h2>
+                    <p className="mz-section-subtitle" style={{ fontSize: "0.95rem" }}>
+                      Track your engineering progress, resume active projects, and conquer daily algorithmic challenges.
+                    </p>
+                  </div>
+
+                  {user && (
+                    <div
+                      onClick={() => navigate("/profile")}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        background: "#ffffff",
+                        padding: "6px 14px 6px 8px",
+                        borderRadius: 30,
+                        border: "1px solid #e2e8f0",
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+                        cursor: "pointer",
+                        transition: "all 0.2s ease",
+                      }}
+                      title="View & Edit Profile"
+                    >
+                      <div
+                        style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: "50%",
+                          overflow: "hidden",
+                          background: "#e2e8f0",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontWeight: 700,
+                          fontSize: "0.85rem",
+                          color: "#3b82f6",
+                        }}
+                      >
+                        {user.avatar ? (
+                          <img
+                            src={user.avatar}
+                            alt="Avatar"
+                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                          />
+                        ) : (
+                          (user.fullName || user.username || "U")[0]?.toUpperCase()
+                        )}
+                      </div>
+                      <div style={{ textAlign: "left", lineHeight: 1.2 }}>
+                        <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b" }}>
+                          {user.fullName || user.username}
+                        </div>
+                        <div style={{ fontSize: "0.72rem", color: "#2563eb", fontWeight: 600 }}>
+                          Active Profile →
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Hero Spotlight: Active Learning Track */}
+                <div
+                  style={{
+                    background: "linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%)",
+                    border: "1px solid #bfdbfe",
+                    borderRadius: 20,
+                    padding: "28px 32px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 24,
+                    marginBottom: 28,
+                    boxShadow: "0 4px 20px rgba(59, 130, 246, 0.08)",
+                  }}
+                >
+                  <div style={{ maxWidth: 560 }}>
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#dbeafe", color: "#1e40af", padding: "4px 12px", borderRadius: 20, fontSize: "0.78rem", fontWeight: 700, marginBottom: 12 }}>
+                      <LuSparkles size={14} /> Active Learning Track: {selectedItem ? selectedItem.title : "Coding"}
+                    </div>
+                    <h3 style={{ fontSize: "1.4rem", fontWeight: 800, color: "#0f172a", margin: "0 0 8px" }}>
+                      {selectedItem?.title || "Coding"} Engineering Hub
+                    </h3>
+                    <p style={{ color: "#475569", fontSize: "0.92rem", lineHeight: 1.6, margin: "0 0 20px" }}>
+                      {selectedItem?.description || "Build real full-stack projects, solve algorithmic problems, and earn verifiable certifications."}
+                    </p>
+                    <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                      <button
+                        type="button"
+                        className="mz-report-btn mz-report-btn-primary"
+                        onClick={() => navigate(selectedItem?.targetRoute || "/coding")}
+                        style={{ padding: "10px 22px", fontSize: "0.92rem", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 6 }}
+                      >
+                        Continue Learning <LuArrowRight size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        className="mz-report-btn mz-report-btn-secondary"
+                        onClick={() => navigate("/select-interests")}
+                        style={{ padding: "10px 18px", fontSize: "0.88rem", display: "inline-flex", alignItems: "center", gap: 6 }}
+                      >
+                        <LuTarget size={15} /> Switch Track
+                      </button>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "center", alignItems: "center", flexShrink: 0 }}>
+                    <img
+                      src={selectedItem?.illustration || codingIllustration}
+                      alt="Track Illustration"
+                      style={{ width: 140, height: 140, objectFit: "contain", filter: "drop-shadow(0 10px 20px rgba(0,0,0,0.12))" }}
+                    />
+                  </div>
+                </div>
+
+                {/* Quick Launch Cards (4 Grid Items) */}
+                <h3 style={{ fontSize: "1.1rem", fontWeight: 700, color: "#1e293b", margin: "0 0 16px" }}>
+                  Quick Launchpad
+                </h3>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 18, marginBottom: 28 }}>
+                  {/* Card 1: Challenges */}
+                  <div
+                    onClick={() => {
+                      navigate("/coding?tab=challenges", { state: { tab: "challenges" } });
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
+                    style={{
+                      background: "#ffffff",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: 16,
+                      padding: 20,
+                      cursor: "pointer",
+                      transition: "all 0.2s ease",
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.03)",
+                    }}
+                  >
+                    <div style={{ width: 40, height: 40, borderRadius: 10, background: "#eff6ff", color: "#2563eb", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+                      <LuCodeXml size={22} />
+                    </div>
+                    <h4 style={{ margin: "0 0 6px", fontSize: "1rem", fontWeight: 700, color: "#0f172a" }}>
+                      Algorithmic Challenges
+                    </h4>
+                    <p style={{ margin: "0 0 14px", fontSize: "0.82rem", color: "#64748b", lineHeight: 1.5 }}>
+                      135 challenges with real-time compilers and automated test suites.
+                    </p>
+                    <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "#2563eb", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      Solve Challenges <LuArrowRight size={14} />
+                    </span>
+                  </div>
+
+                  {/* Card 2: Projects */}
+                  <div
+                    onClick={() => {
+                      navigate("/coding?tab=projects", { state: { tab: "projects" } });
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
+                    style={{
+                      background: "#ffffff",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: 16,
+                      padding: 20,
+                      cursor: "pointer",
+                      transition: "all 0.2s ease",
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.03)",
+                    }}
+                  >
+                    <div style={{ width: 40, height: 40, borderRadius: 10, background: "#ecfdf5", color: "#059669", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+                      <LuFolderGit2 size={22} />
+                    </div>
+                    <h4 style={{ margin: "0 0 6px", fontSize: "1rem", fontWeight: 700, color: "#0f172a" }}>
+                      Industry Projects
+                    </h4>
+                    <p style={{ margin: "0 0 14px", fontSize: "0.82rem", color: "#64748b", lineHeight: 1.5 }}>
+                      Guided milestone projects with in-browser multi-file workspaces.
+                    </p>
+                    <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "#059669", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      Open Projects <LuArrowRight size={14} />
+                    </span>
+                  </div>
+
+                  {/* Card 3: Assessment Reports */}
+                  <div
+                    onClick={() => navigate("/reports")}
+                    style={{
+                      background: "#ffffff",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: 16,
+                      padding: 20,
+                      cursor: "pointer",
+                      transition: "all 0.2s ease",
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.03)",
+                    }}
+                  >
+                    <div style={{ width: 40, height: 40, borderRadius: 10, background: "#eef2ff", color: "#4f46e5", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+                      <LuFileText size={22} />
+                    </div>
+                    <h4 style={{ margin: "0 0 6px", fontSize: "1rem", fontWeight: 700, color: "#0f172a" }}>
+                      Assessment Reports
+                    </h4>
+                    <p style={{ margin: "0 0 14px", fontSize: "0.82rem", color: "#64748b", lineHeight: 1.5 }}>
+                      Review verified code solutions, audit trails, and test execution history.
+                    </p>
+                    <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "#4f46e5", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      View Reports ({reportsList.length}) <LuArrowRight size={14} />
+                    </span>
+                  </div>
+
+                  {/* Card 4: Live Meeting Platform */}
+                  <div
+                    onClick={() => navigate("/live")}
+                    style={{
+                      background: "#ffffff",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: 16,
+                      padding: 20,
+                      cursor: "pointer",
+                      transition: "all 0.2s ease",
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.03)",
+                    }}
+                  >
+                    <div style={{ width: 40, height: 40, borderRadius: 10, background: "#f5f3ff", color: "#7c3aed", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+                      <LuVideo size={22} />
+                    </div>
+                    <h4 style={{ margin: "0 0 6px", fontSize: "1rem", fontWeight: 700, color: "#0f172a" }}>
+                      Live Study Groups
+                    </h4>
+                    <p style={{ margin: "0 0 14px", fontSize: "0.82rem", color: "#64748b", lineHeight: 1.5 }}>
+                      Real-time audio, HD video, screen sharing, and collaborative code chat.
+                    </p>
+                    <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "#7c3aed", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      Start Meeting <LuArrowRight size={14} />
+                    </span>
+                  </div>
+                </div>
+
+                {/* Metrics Summary Strip */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                    gap: 16,
+                    padding: "20px 24px",
+                    background: "#ffffff",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: 16,
+                    marginBottom: 32,
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: "0.78rem", color: "#64748b", fontWeight: 600 }}>Active Track</div>
+                    <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "#0f172a" }}>
+                      {selectedItem?.title || "Coding"}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: "0.78rem", color: "#64748b", fontWeight: 600 }}>Total Reports</div>
+                    <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "#2563eb" }}>
+                      {reportsList.length}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: "0.78rem", color: "#64748b", fontWeight: 600 }}>Recorded Sessions</div>
+                    <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "#059669" }}>
+                      {recordingsList.length}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: "0.78rem", color: "#64748b", fontWeight: 600 }}>Official Certificates</div>
+                    <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "#7c3aed" }}>
+                      {certHistory.certificates?.length || 0}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           ) : (
-            /* ================= DEDICATED CODING PLATFORM DASHBOARD ================= */
-            <div className="mz-coding-platform-dashboard mz-fade-in-up" style={{ maxWidth: 1200, margin: "0 auto", padding: "8px 0 40px" }}>
-              {/* 1. Header & Learner Profile Spotlight */}
+            <div className="mz-content-columns">
+            {/* Left Column: Interest Cards */}
+            <div className="mz-center-column">
+              {/* Section Header: Choose Your Interest Track */}
               <div
+                className="mz-section-header"
                 style={{
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
                   flexWrap: "wrap",
                   gap: 16,
-                  marginBottom: 26,
                 }}
               >
                 <div>
-                  <h2 style={{ fontSize: "1.75rem", fontWeight: 800, color: "#0f172a", margin: 0, letterSpacing: "-0.02em" }}>
-                    Welcome back, {displayName} 👋
-                  </h2>
-                  <p style={{ fontSize: "0.95rem", color: "#64748b", margin: "6px 0 0", lineHeight: 1.5 }}>
-                    Your centralized software engineering headquarters. Master Data Structures, build production systems, and earn accredited credentials.
+                  <h2 className="mz-section-title">Choose Your Interest Track</h2>
+                  <p className="mz-section-subtitle">
+                    Select one interest that excites you. You can change this anytime.
                   </p>
                 </div>
 
@@ -2973,22 +2899,14 @@ const Home = () => {
                     style={{
                       display: "flex",
                       alignItems: "center",
-                      gap: 12,
+                      gap: 10,
                       background: "#ffffff",
-                      padding: "8px 18px 8px 10px",
-                      borderRadius: 32,
+                      padding: "6px 14px 6px 8px",
+                      borderRadius: 30,
                       border: "1px solid #e2e8f0",
                       boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
                       cursor: "pointer",
                       transition: "all 0.2s ease",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = "#93c5fd";
-                      e.currentTarget.style.transform = "translateY(-1px)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = "#e2e8f0";
-                      e.currentTarget.style.transform = "translateY(0)";
                     }}
                     title="View & Edit Profile"
                   >
@@ -3002,1180 +2920,218 @@ const Home = () => {
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        fontWeight: 700,
-                        fontSize: "0.9rem",
-                        color: "#2563eb",
                         border: "2px solid #3b82f6",
+                        flexShrink: 0,
                       }}
                     >
                       {user.avatarUrl ? (
                         <img
                           src={user.avatarUrl}
-                          alt="Avatar"
+                          alt={displayName}
                           style={{ width: "100%", height: "100%", objectFit: "cover" }}
                         />
                       ) : (
-                        (displayName || "U")[0]?.toUpperCase()
+                        <LuUser size={18} color="#2563eb" />
                       )}
                     </div>
-                    <div style={{ textAlign: "left", lineHeight: 1.25 }}>
-                      <div style={{ fontSize: "0.88rem", fontWeight: 700, color: "#0f172a" }}>
+                    <div style={{ display: "flex", flexDirection: "column" }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", lineHeight: 1.2 }}>
                         {displayName}
-                      </div>
-                      <div style={{ fontSize: "0.75rem", color: "#2563eb", fontWeight: 600 }}>
-                        Active Profile →
-                      </div>
+                      </span>
+                      <span style={{ fontSize: 11, color: "#2563eb", fontWeight: 600 }}>Active Profile ➔</span>
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* 2. Coding Telemetry Quick Stats Strip (4 Interactive Tiles) */}
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                  gap: 16,
-                  marginBottom: 28,
-                }}
-              >
-                {/* Tile 1: Streak */}
-                <div
-                  className="mz-telemetry-tile"
-                  onClick={() => navigate("/coding?tab=challenges")}
-                  title="Click to view DSA Challenges and maintain your streak"
-                  style={{ cursor: "pointer" }}
-                >
-                  <div
-                    style={{
-                      width: 46,
-                      height: 46,
-                      borderRadius: 14,
-                      background: "linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)",
-                      color: "#ea580c",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      border: "1px solid #fed7aa",
-                    }}
-                  >
-                    <LuFlame size={24} className="mz-pulse-flame" />
-                  </div>
-                  <div>
-                    <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#9a3412", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                      Coding Streak
-                    </span>
-                    <div style={{ fontSize: "1.45rem", fontWeight: 800, color: "#0f172a", lineHeight: 1.2 }}>
-                      {codingStats.streak || 1} <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#64748b" }}>Days</span>
-                    </div>
-                    <span style={{ fontSize: "0.72rem", color: "#16a34a", fontWeight: 600 }}>
-                      🔥 Keep daily momentum
-                    </span>
-                  </div>
-                </div>
+              {/* 2x2 Grid of Interest Cards */}
+              <div className="mz-cards-grid">
+                {filteredCards.length > 0 ? (
+                  filteredCards.map((card, idx) => {
+                    const isSelected = selectedInterest === card.key;
 
-                {/* Tile 2: Engineering XP */}
-                <div
-                  className="mz-telemetry-tile"
-                  onClick={() => navigate("/progress")}
-                  title="Click to view learning progress & XP breakdown"
-                  style={{ cursor: "pointer" }}
-                >
-                  <div
-                    style={{
-                      width: 46,
-                      height: 46,
-                      borderRadius: 14,
-                      background: "linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)",
-                      color: "#2563eb",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      border: "1px solid #bfdbfe",
-                    }}
-                  >
-                    <LuZap size={24} />
-                  </div>
-                  <div>
-                    <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#1e40af", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                      Engineering XP
-                    </span>
-                    <div style={{ fontSize: "1.45rem", fontWeight: 800, color: "#0f172a", lineHeight: 1.2 }}>
-                      {codingStats.totalXp || 120} <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#64748b" }}>XP</span>
-                    </div>
-                    <span style={{ fontSize: "0.72rem", color: "#2563eb", fontWeight: 600 }}>
-                      ⚡ Level 2 Developer
-                    </span>
-                  </div>
-                </div>
-
-                {/* Tile 3: Challenges Solved */}
-                <div
-                  className="mz-telemetry-tile"
-                  onClick={() => navigate("/coding?tab=challenges")}
-                  title="Click to solve algorithmic challenges"
-                  style={{ cursor: "pointer" }}
-                >
-                  <div
-                    style={{
-                      width: 46,
-                      height: 46,
-                      borderRadius: 14,
-                      background: "linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)",
-                      color: "#16a34a",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      border: "1px solid #bbf7d0",
-                    }}
-                  >
-                    <LuCodeXml size={24} />
-                  </div>
-                  <div>
-                    <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#166534", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                      Challenges Solved
-                    </span>
-                    <div style={{ fontSize: "1.45rem", fontWeight: 800, color: "#0f172a", lineHeight: 1.2 }}>
-                      {codingStats.challengesSolvedCount || 0} <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#64748b" }}>/ 135</span>
-                    </div>
-                    <span style={{ fontSize: "0.72rem", color: "#059669", fontWeight: 600 }}>
-                      🎯 Real Test Assertions
-                    </span>
-                  </div>
-                </div>
-
-                {/* Tile 4: Study Time */}
-                <div
-                  className="mz-telemetry-tile"
-                  onClick={() => navigate("/progress")}
-                  title="Click to view total study telemetry"
-                  style={{ cursor: "pointer" }}
-                >
-                  <div
-                    style={{
-                      width: 46,
-                      height: 46,
-                      borderRadius: 14,
-                      background: "linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)",
-                      color: "#7c3aed",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      border: "1px solid #ddd6fe",
-                    }}
-                  >
-                    <LuClock size={24} />
-                  </div>
-                  <div>
-                    <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#6d28d9", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                      Study Time
-                    </span>
-                    <div style={{ fontSize: "1.45rem", fontWeight: 800, color: "#0f172a", lineHeight: 1.2 }}>
-                      {codingStats.totalHours || 4.5} <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#64748b" }}>Hours</span>
-                    </div>
-                    <span style={{ fontSize: "0.72rem", color: "#7c3aed", fontWeight: 600 }}>
-                      ⏱️ Active Focus Telemetry
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* 3. Hero Spotlight: Coding & Software Engineering Ecosystem */}
-              <div className="mz-hero-banner-glass">
-                <div style={{ maxWidth: 640, zIndex: 1 }}>
-                  <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(59, 130, 246, 0.18)", border: "1px solid rgba(147, 197, 253, 0.35)", color: "#93c5fd", padding: "5px 14px", borderRadius: 24, fontSize: "0.78rem", fontWeight: 700, marginBottom: 14 }}>
-                    <LuSparkles size={14} /> Official Coding & DSA Ecosystem
-                  </div>
-                  <h3 style={{ fontSize: "1.85rem", fontWeight: 800, color: "#ffffff", margin: "0 0 12px", letterSpacing: "-0.02em", lineHeight: 1.25 }}>
-                    Master Algorithmic Thinking & Full-Stack Systems
-                  </h3>
-                  <p style={{ color: "#cbd5e1", fontSize: "0.95rem", lineHeight: 1.6, margin: "0 0 24px" }}>
-                    Solve industrial coding challenges with real-time browser compilers, construct milestone multi-file architectures, and earn accredited, proctored computer science certificates.
-                  </p>
-                  
-                  {/* Action Buttons Row */}
-                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-                    <button
-                      type="button"
-                      className="mz-hero-btn-primary"
-                      onClick={() => navigate("/coding?tab=challenges", { state: { tab: "challenges" } })}
-                      title="Solve DSA Challenges in Compiler"
-                    >
-                      <LuCodeXml size={18} /> Solve DSA Challenges
-                    </button>
-                    <button
-                      type="button"
-                      className="mz-hero-btn-glass"
-                      onClick={() => navigate("/coding?tab=learning_path", { state: { tab: "learning_path" } })}
-                      title="Open Structured Learning Path"
-                    >
-                      <LuBookOpen size={18} /> Learn & Path
-                    </button>
-                    <button
-                      type="button"
-                      className="mz-hero-btn-glass"
-                      onClick={() => navigate("/coding?tab=projects", { state: { tab: "projects" } })}
-                      title="Open Industry Software Projects"
-                    >
-                      <LuFolderGit2 size={18} /> Projects
-                    </button>
-                    <button
-                      type="button"
-                      className="mz-hero-btn-glass"
-                      onClick={() => navigate("/certificates")}
-                      title="View Proctored Examinations"
-                    >
-                      <LuAward size={18} /> Proctored Exams
-                    </button>
-                  </div>
-                </div>
-
-                <div style={{ display: "flex", justifyContent: "center", alignItems: "center", flexShrink: 0, zIndex: 1 }}>
-                  <img
-                    src={codingIllustration}
-                    alt="Coding Platform Illustration"
-                    style={{ width: 190, height: 190, objectFit: "contain", filter: "drop-shadow(0 16px 32px rgba(0,0,0,0.45))" }}
-                  />
-                </div>
-              </div>
-
-              {/* 4. Interactive Problem of the Day Spotlight */}
-              <div className="mz-pod-card">
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 20 }}>
-                  <div style={{ maxWidth: 760 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
-                      <span style={{ fontSize: "0.75rem", fontWeight: 800, color: "#ea580c", background: "#fff7ed", border: "1px solid #ffedd5", padding: "4px 12px", borderRadius: 20, display: "inline-flex", alignItems: "center", gap: 5 }}>
-                        <LuFlame size={14} className="mz-pulse-flame" /> Problem of the Day
-                      </span>
-                      <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#d97706", background: "#fef3c7", padding: "3px 9px", borderRadius: 6 }}>
-                        Medium
-                      </span>
-                      <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "#334155", background: "#f1f5f9", padding: "3px 9px", borderRadius: 6 }}>
-                        Arrays & Prefix Sum
-                      </span>
-                      <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#16a34a", background: "#ecfdf5", padding: "3px 9px", borderRadius: 6 }}>
-                        +50 XP Reward
-                      </span>
-                    </div>
-
-                    <h3 style={{ fontSize: "1.35rem", fontWeight: 800, color: "#0f172a", margin: "0 0 8px" }}>
-                      Subarray Sum Equals K
-                    </h3>
-                    <p style={{ fontSize: "0.9rem", color: "#475569", lineHeight: 1.6, margin: "0 0 12px" }}>
-                      Given an array of integers <code>nums</code> and an integer <code>k</code>, return the total number of continuous subarrays whose sum equals to <code>k</code>. Implement an optimal O(N) solution using a prefix sum frequency hash map.
-                    </p>
-
-                    {/* Test Case Preview */}
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
-                      <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "#64748b" }}>Sample Input:</span>
-                      <code style={{ fontSize: "0.78rem", background: "#f8fafc", border: "1px solid #e2e8f0", padding: "2px 8px", borderRadius: 6, color: "#0f172a" }}>
-                        nums = [1, 1, 1], k = 2
-                      </code>
-                      <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "#64748b" }}>Output:</span>
-                      <code style={{ fontSize: "0.78rem", background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "2px 8px", borderRadius: 6, color: "#16a34a", fontWeight: 700 }}>
-                        2
-                      </code>
-                    </div>
-
-                    <div style={{ fontSize: "0.78rem", color: "#64748b", display: "flex", gap: 14 }}>
-                      <span>Acceptance: <strong>44.2%</strong></span>
-                      <span>•</span>
-                      <span>Time Limit: <strong>1000ms</strong></span>
-                      <span>•</span>
-                      <span>Languages: <strong>Python, Java, C++, JS</strong></span>
-                    </div>
-                  </div>
-
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 200 }}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigate("/coding?tab=challenges", { state: { tab: "challenges" } });
-                        window.scrollTo({ top: 0, behavior: "smooth" });
-                      }}
-                      style={{
-                        background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
-                        color: "#ffffff",
-                        border: "none",
-                        padding: "12px 24px",
-                        borderRadius: 12,
-                        fontWeight: 700,
-                        fontSize: "0.92rem",
-                        cursor: "pointer",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: 8,
-                        boxShadow: "0 4px 14px rgba(37, 99, 235, 0.3)",
-                        transition: "all 0.15s ease",
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-1px)")}
-                      onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}
-                    >
-                      Solve Challenge <LuArrowRight size={16} />
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setShowPodHint((prev) => !prev)}
-                      style={{
-                        background: "#ffffff",
-                        color: "#475569",
-                        border: "1px solid #cbd5e1",
-                        padding: "9px 18px",
-                        borderRadius: 10,
-                        fontWeight: 600,
-                        fontSize: "0.82rem",
-                        cursor: "pointer",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: 6,
-                        transition: "all 0.15s ease",
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = "#f8fafc")}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = "#ffffff")}
-                    >
-                      {showPodHint ? "Hide Solution Hint" : "💡 View Solution Hint"}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Collapsible Solution Hint Accordion */}
-                {showPodHint && (
-                  <div
-                    style={{
-                      marginTop: 18,
-                      padding: "16px 20px",
-                      background: "#fffbeb",
-                      border: "1px solid #fef3c7",
-                      borderRadius: 14,
-                      animation: "mzFadeInUp 0.25s ease-out forwards",
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                      <span style={{ fontSize: "0.88rem", fontWeight: 700, color: "#92400e" }}>
-                        💡 Algorithmic Intuition & Optimal Approach
-                      </span>
-                    </div>
-                    <p style={{ fontSize: "0.85rem", color: "#78350f", lineHeight: 1.6, margin: 0 }}>
-                      Maintain a running prefix sum <code>currSum</code> and a hash map tracking how often each prefix sum occurs. For each element, check if <code>currSum - k</code> exists in your map. If so, add its frequency to your answer. This reduces the brute-force O(N²) solution down to an optimal <strong>O(N) Time and O(N) Space</strong> algorithm.
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* 5. DSA Problem-Solving Tracks (6 Cards in 3x2 Grid) */}
-              <div style={{ marginBottom: 38 }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18, flexWrap: "wrap", gap: 12 }}>
-                  <div>
-                    <h3 style={{ fontSize: "1.3rem", fontWeight: 800, color: "#0f172a", margin: 0 }}>
-                      Data Structures & Algorithms Tracks
-                    </h3>
-                    <p style={{ fontSize: "0.88rem", color: "#64748b", margin: "4px 0 0" }}>
-                      Curated algorithmic topics designed to take you from foundational concepts to FAANG-grade mastery.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => navigate("/coding?tab=challenges", { state: { tab: "challenges" } })}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "#2563eb",
-                      fontSize: "0.88rem",
-                      fontWeight: 700,
-                      cursor: "pointer",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 4,
-                    }}
-                  >
-                    View All 135 Challenges <LuArrowRight size={14} />
-                  </button>
-                </div>
-
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 18 }}>
-                  {DSA_TOPICS.map((topic) => (
-                    <div
-                      key={topic.id}
-                      className="mz-interactive-card"
-                      onClick={() => navigate(topic.route, { state: { tab: "challenges", topic: topic.id } })}
-                      title={`Open ${topic.title} practice`}
-                    >
-                      <div>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-                          <div
-                            style={{
-                              width: 44,
-                              height: 44,
-                              borderRadius: 12,
-                              background: topic.badgeBg,
-                              color: topic.badgeColor,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                            }}
-                          >
-                            <LuCodeXml size={22} />
-                          </div>
-                          <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "#475569", background: "#f8fafc", border: "1px solid #e2e8f0", padding: "3px 9px", borderRadius: 8 }}>
-                            {topic.problemCount} Challenges
-                          </span>
-                        </div>
-
-                        <h4 style={{ fontSize: "1.08rem", fontWeight: 700, color: "#0f172a", margin: "0 0 6px" }}>
-                          {topic.title}
-                        </h4>
-                        <p style={{ fontSize: "0.84rem", color: "#64748b", lineHeight: 1.5, margin: "0 0 14px" }}>
-                          {topic.description}
-                        </p>
-
-                        {/* Sample Problem Tags */}
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
-                          {topic.challenges?.slice(0, 3).map((ch) => (
-                            <span key={ch} style={{ fontSize: "0.72rem", background: "#f1f5f9", color: "#334155", padding: "2px 7px", borderRadius: 6, fontWeight: 500 }}>
-                              {ch}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div style={{ borderTop: "1px solid #f1f5f9", paddingTop: 12, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <span style={{ fontSize: "0.78rem", fontWeight: 600, color: "#94a3b8" }}>
-                          {topic.difficulty}
-                        </span>
-                        <span style={{ fontSize: "0.82rem", fontWeight: 700, color: topic.badgeColor, display: "inline-flex", alignItems: "center", gap: 4 }}>
-                          Practice Topic <LuArrowRight size={13} className="mz-card-arrow-icon" />
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* 6. Structured Learning Paths (Curricula) */}
-              <div style={{ marginBottom: 38 }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18, flexWrap: "wrap", gap: 12 }}>
-                  <div>
-                    <h3 style={{ fontSize: "1.3rem", fontWeight: 800, color: "#0f172a", margin: 0 }}>
-                      Structured Learning Paths
-                    </h3>
-                    <p style={{ fontSize: "0.88rem", color: "#64748b", margin: "4px 0 0" }}>
-                      Deepen your software engineering expertise in industry-standard languages, paradigms, and architecture.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => navigate("/coding?tab=learning_path", { state: { tab: "learning_path" } })}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "#2563eb",
-                      fontSize: "0.88rem",
-                      fontWeight: 700,
-                      cursor: "pointer",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 4,
-                    }}
-                  >
-                    Open Learning Path <LuArrowRight size={14} />
-                  </button>
-                </div>
-
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 18 }}>
-                  {PROGRAMMING_COURSES.map((course) => (
-                    <div
-                      key={course.id}
-                      className="mz-interactive-card"
-                      onClick={() => navigate(course.route, { state: { tab: "learning_path", track: course.id } })}
-                      title={`Open ${course.title} in Learning Path`}
-                    >
-                      <div>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-                          <span style={{ fontSize: "0.75rem", fontWeight: 700, color: course.iconColor, background: `${course.iconColor}15`, padding: "3px 9px", borderRadius: 6 }}>
-                            {course.level}
-                          </span>
-                          <span style={{ fontSize: "0.78rem", color: "#64748b", fontWeight: 600 }}>
-                            {course.hours}
-                          </span>
-                        </div>
-                        <h4 style={{ fontSize: "1.08rem", fontWeight: 700, color: "#0f172a", margin: "0 0 8px" }}>
-                          {course.title}
-                        </h4>
-                        <p style={{ fontSize: "0.84rem", color: "#64748b", lineHeight: 1.5, margin: "0 0 14px" }}>
-                          {course.description}
-                        </p>
-                      </div>
-
-                      <div style={{ borderTop: "1px solid #f1f5f9", paddingTop: 12, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <span style={{ fontSize: "0.78rem", fontWeight: 600, color: "#94a3b8" }}>
-                          {course.modules} Interactive Modules
-                        </span>
-                        <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "#2563eb", display: "inline-flex", alignItems: "center", gap: 4 }}>
-                          Start Track <LuArrowRight size={13} className="mz-card-arrow-icon" />
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* 7. Industry Software Projects */}
-              <div style={{ marginBottom: 38 }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18, flexWrap: "wrap", gap: 12 }}>
-                  <div>
-                    <h3 style={{ fontSize: "1.3rem", fontWeight: 800, color: "#0f172a", margin: 0 }}>
-                      Real-World Software Engineering Projects
-                    </h3>
-                    <p style={{ fontSize: "0.88rem", color: "#64748b", margin: "4px 0 0" }}>
-                      Hands-on multi-file workspaces with step-by-step milestones, code review, and automated testing.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => navigate("/coding?tab=projects", { state: { tab: "projects" } })}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "#059669",
-                      fontSize: "0.88rem",
-                      fontWeight: 700,
-                      cursor: "pointer",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 4,
-                    }}
-                  >
-                    Open Projects Workspace <LuArrowRight size={14} />
-                  </button>
-                </div>
-
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 18 }}>
-                  {SOFTWARE_PROJECTS.map((proj) => (
-                    <div
-                      key={proj.id}
-                      className="mz-interactive-card"
-                      onClick={() => navigate(proj.route, { state: { tab: "projects", project: proj.id } })}
-                      title={`Open ${proj.title}`}
-                    >
-                      <div>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-                          <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#059669", background: "#ecfdf5", padding: "3px 9px", borderRadius: 6 }}>
-                            {proj.badge}
-                          </span>
-                          <span style={{ fontSize: "0.78rem", color: "#64748b", fontWeight: 600 }}>
-                            {proj.tech}
-                          </span>
-                        </div>
-                        <h4 style={{ fontSize: "1.08rem", fontWeight: 700, color: "#0f172a", margin: "0 0 8px" }}>
-                          {proj.title}
-                        </h4>
-                        <p style={{ fontSize: "0.84rem", color: "#64748b", lineHeight: 1.5, margin: "0 0 14px" }}>
-                          {proj.description}
-                        </p>
-                      </div>
-
-                      <div style={{ borderTop: "1px solid #f1f5f9", paddingTop: 12, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <span style={{ fontSize: "0.78rem", fontWeight: 600, color: "#94a3b8" }}>
-                          Milestone Architecture
-                        </span>
-                        <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "#059669", display: "inline-flex", alignItems: "center", gap: 4 }}>
-                          Launch Workspace <LuArrowRight size={13} className="mz-card-arrow-icon" />
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* 8. Recent Coding Submissions Log (Genuine Database Data) */}
-              <div style={{ marginBottom: 38 }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18, flexWrap: "wrap", gap: 12 }}>
-                  <div>
-                    <h3 style={{ fontSize: "1.3rem", fontWeight: 800, color: "#0f172a", margin: 0 }}>
-                      Recent Algorithm Submissions
-                    </h3>
-                    <p style={{ fontSize: "0.88rem", color: "#64748b", margin: "4px 0 0" }}>
-                      Real-time compiler execution history and test assertions from your student account.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => navigate("/reports")}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "#4f46e5",
-                      fontSize: "0.88rem",
-                      fontWeight: 700,
-                      cursor: "pointer",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 4,
-                    }}
-                  >
-                    View All Reports ({reportsList.length}) <LuArrowRight size={14} />
-                  </button>
-                </div>
-
-                <div
-                  style={{
-                    background: "#ffffff",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: 18,
-                    overflow: "hidden",
-                    boxShadow: "0 2px 8px rgba(0,0,0,0.03)",
-                  }}
-                >
-                  {recentCodingSubmissions && recentCodingSubmissions.length > 0 ? (
-                    <div style={{ overflowX: "auto" }}>
-                      <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
-                        <thead>
-                          <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-                            <th style={{ padding: "14px 20px", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em" }}>Challenge</th>
-                            <th style={{ padding: "14px 16px", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em" }}>Language</th>
-                            <th style={{ padding: "14px 16px", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em" }}>Tests Passed</th>
-                            <th style={{ padding: "14px 16px", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em" }}>Score</th>
-                            <th style={{ padding: "14px 16px", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em" }}>Status</th>
-                            <th style={{ padding: "14px 20px", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em" }}>Submitted</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {recentCodingSubmissions.slice(0, 5).map((sub, idx) => {
-                            const isPass = sub.status === "PASSED" || sub.status === "ACCEPTED" || (sub.score && sub.score >= 80);
-                            return (
-                              <tr key={sub._id || idx} style={{ borderBottom: "1px solid #f1f5f9", transition: "background 0.15s ease" }}>
-                                <td style={{ padding: "14px 20px", fontSize: 13, fontWeight: 700, color: "#0f172a" }}>
-                                  {sub.challengeTitle || sub.title || "Algorithmic Challenge"}
-                                </td>
-                                <td style={{ padding: "14px 16px" }}>
-                                  <span style={{ fontSize: 11, fontWeight: 700, background: "#f1f5f9", color: "#334155", padding: "3px 8px", borderRadius: 6, textTransform: "uppercase" }}>
-                                    {sub.language || "python"}
-                                  </span>
-                                </td>
-                                <td style={{ padding: "14px 16px", fontSize: 12, fontWeight: 600, color: "#475569" }}>
-                                  {sub.passedTests != null && sub.totalTests != null ? `${sub.passedTests}/${sub.totalTests} Passed` : "All Tests Passed"}
-                                </td>
-                                <td style={{ padding: "14px 16px", fontSize: 13, fontWeight: 700, color: "#0f172a" }}>
-                                  {sub.score != null ? `${sub.score}%` : "100%"}
-                                </td>
-                                <td style={{ padding: "14px 16px" }}>
-                                  <span style={{
-                                    fontSize: 11,
-                                    fontWeight: 700,
-                                    padding: "3px 8px",
-                                    borderRadius: 12,
-                                    background: isPass ? "#ecfdf5" : "#fef2f2",
-                                    color: isPass ? "#059669" : "#dc2626",
-                                    border: isPass ? "1px solid #a7f3d0" : "1px solid #fecaca",
-                                  }}>
-                                    {isPass ? "Accepted" : "Needs Review"}
-                                  </span>
-                                </td>
-                                <td style={{ padding: "14px 20px", fontSize: 12, color: "#64748b" }}>
-                                  {sub.createdAt ? new Date(sub.createdAt).toLocaleDateString() : "Today"}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <div style={{ padding: "40px 20px", textAlign: "center" }}>
-                      <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#eff6ff", color: "#2563eb", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
-                        <LuCodeXml size={24} />
-                      </div>
-                      <h4 style={{ fontSize: "1.05rem", fontWeight: 700, color: "#0f172a", margin: "0 0 6px" }}>
-                        Ready to write your first algorithm?
-                      </h4>
-                      <p style={{ fontSize: "0.88rem", color: "#64748b", margin: "0 0 18px", maxWidth: 440, marginLeft: "auto", marginRight: "auto" }}>
-                        Solve a problem in Python, Java, C++, or JavaScript to start recording your execution telemetry.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => navigate("/coding?tab=challenges", { state: { tab: "challenges" } })}
+                    return (
+                      <div
+                        key={card.key}
+                        className={`mz-interest-card mz-card-anim-${idx + 1} ${
+                          isSelected ? "selected" : ""
+                        }`}
                         style={{
-                          background: "#2563eb",
-                          color: "#ffffff",
-                          border: "none",
-                          padding: "10px 22px",
-                          borderRadius: 12,
-                          fontSize: "0.88rem",
-                          fontWeight: 700,
-                          cursor: "pointer",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 6,
-                          boxShadow: "0 4px 12px rgba(37, 99, 235, 0.25)",
+                          "--card-active-border": card.activeBorder,
+                          "--card-active-glow": card.activeGlow,
+                          "--card-check-bg": card.checkBg,
+                        }}
+                        onClick={() => handleSelectInterest(card.key)}
+                        role="radio"
+                        aria-checked={isSelected}
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            handleSelectInterest(card.key);
+                          }
                         }}
                       >
-                        <LuCodeXml size={16} /> Start DSA Practice
+                        {/* Top Row: Crisp Vector Logo Badge & Checkmark Indicator */}
+                        <div className="mz-card-top-row">
+                          <InterestBadge type={card.key} />
+
+                          <div
+                            className={`mz-card-checkbox ${isSelected ? "checked" : ""}`}
+                            style={{
+                              backgroundColor: isSelected ? card.checkBg : "#ffffff",
+                              borderColor: isSelected ? card.checkBg : "#cbd5e1",
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSelectInterest(card.key);
+                            }}
+                          >
+                            {isSelected && <LuCheck size={14} className="mz-check-icon" />}
+                          </div>
+                        </div>
+
+                        {/* Card Content & Sharpened 3D Illustration */}
+                        <div className="mz-card-body-row">
+                          <div className="mz-card-text-col">
+                            <h3 className="mz-card-title">{card.title}</h3>
+                            <p className="mz-card-desc">{card.description}</p>
+
+                            {/* Skill Tags */}
+                            <div className="mz-card-tags">
+                              {card.tags.map((tag) => (
+                                <span key={tag} className="mz-card-tag-pill">
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="mz-card-illus-col">
+                            <img
+                              src={card.illustration}
+                              alt={`${card.title} 3D illustration`}
+                              className="mz-card-3d-img"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="mz-no-results-box">
+                    <p>No interests match "{searchQuery}"</p>
+                    <button
+                      type="button"
+                      className="mz-reset-search-btn"
+                      onClick={() => setSearchQuery("")}
+                    >
+                      Show All Interests
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Bottom Continue Action */}
+              <div className="mz-bottom-actions mz-bottom-single-action single-action">
+                <button
+                  type="button"
+                  className={`mz-btn-continue ${isSubmitting ? "is-loading" : ""}`}
+                  onClick={handleContinue}
+                  disabled={isSubmitting}
+                  title="Continue to training track"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <span className="mz-btn-spinner" aria-hidden="true" />
+                      <span>Saving Focus...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Continue</span>
+                      <LuArrowRight size={17} className="mz-continue-arrow" />
+                    </>
+                  )}
+                </button>
+              </div>
+
+            </div>
+
+            {/* Right Column: Selected Summary Panel */}
+            <aside className="mz-right-panel">
+              {/* Section 1: Selected Interest Box */}
+              <div className="mz-summary-card">
+                <div className="mz-summary-header">
+                  <div className="mz-summary-title-wrap">
+                    <span className="mz-summary-icon-box">
+                      <LuTarget size={18} />
+                    </span>
+                    <h4 className="mz-summary-title">Selected Interests</h4>
+                  </div>
+                  <span
+                    className={`mz-summary-count-badge ${pulseBadge ? "mz-badge-pulse" : ""}`}
+                  >
+                    {selectedInterest ? 1 : 0} of 1
+                  </span>
+                </div>
+
+                <div className="mz-selected-list">
+                  {selectedItem ? (
+                    <div className="mz-selected-row">
+                      <div className="mz-selected-row-left">
+                        <InterestBadge type={selectedItem.key} className="mini" />
+                        <span className="mz-selected-name">{selectedItem.title}</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="mz-remove-btn"
+                        onClick={handleDeselect}
+                        title={`Remove ${selectedItem.title}`}
+                        aria-label={`Remove ${selectedItem.title}`}
+                      >
+                        <LuX size={13} />
                       </button>
+                    </div>
+                  ) : (
+                    <div className="mz-selected-empty">
+                      <p>No interest selected</p>
+                      <span>Click an interest card to select</span>
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* 9. Verified Proctored Coding Credentials Hall */}
-              <div
-                style={{
-                  background: "#ffffff",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: 20,
-                  padding: "30px 34px",
-                  boxShadow: "0 2px 10px rgba(0,0,0,0.03)",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16, marginBottom: 22 }}>
-                  <div>
-                    <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#f5f3ff", color: "#7c3aed", padding: "4px 12px", borderRadius: 20, fontSize: "0.75rem", fontWeight: 700, marginBottom: 8 }}>
-                      <LuAward size={14} /> Official Verifiable Credentials
-                    </div>
-                    <h3 style={{ fontSize: "1.35rem", fontWeight: 800, color: "#0f172a", margin: "0 0 4px" }}>
-                      Proctored Examination & Certification Hall
-                    </h3>
-                    <p style={{ fontSize: "0.88rem", color: "#64748b", margin: 0 }}>
-                      Take verified computer science credential examinations with biometric proctoring and earn digital certificates.
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => navigate("/certificates")}
-                    style={{
-                      background: "linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)",
-                      color: "#ffffff",
-                      border: "none",
-                      padding: "11px 22px",
-                      borderRadius: 12,
-                      fontSize: "0.88rem",
-                      fontWeight: 700,
-                      cursor: "pointer",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 6,
-                      boxShadow: "0 4px 14px rgba(124, 58, 237, 0.25)",
-                      transition: "all 0.15s ease",
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-1px)")}
-                    onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}
-                  >
-                    View All Certificates ({certHistory.certificates?.length || 0}) <LuArrowRight size={15} />
-                  </button>
-                </div>
-
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 18 }}>
-                  <div
-                    style={{
-                      padding: 22,
-                      background: "#f8fafc",
-                      borderRadius: 16,
-                      border: "1px solid #e2e8f0",
-                      display: "flex",
-                      flexDirection: "column",
-                      justifyContent: "space-between",
-                    }}
-                  >
-                    <div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                        <div style={{ width: 40, height: 40, borderRadius: 12, background: "#eff6ff", color: "#2563eb", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          <LuShieldCheck size={22} />
-                        </div>
-                        <div>
-                          <h4 style={{ fontSize: "1rem", fontWeight: 700, color: "#0f172a", margin: 0 }}>
-                            Data Structures & Algorithms (DSA)
-                          </h4>
-                          <span style={{ fontSize: "0.75rem", color: "#059669", fontWeight: 700 }}>
-                            Level: Professional • Proctored Exam
-                          </span>
-                        </div>
-                      </div>
-                      <p style={{ fontSize: "0.84rem", color: "#64748b", margin: "0 0 16px", lineHeight: 1.5 }}>
-                        Comprehensive proctored assessment covering Arrays, Binary Trees, Dynamic Programming, and Graph theory with live compiler problems.
-                      </p>
-                    </div>
-
-                    {(() => {
-                      const dsaInfo = getEarnedCertInfo("dsa_cert");
-                      if (dsaInfo.isCompleted) {
-                        return (
-                          <div>
-                            <div style={{ background: "#dcfce7", border: "1px solid #86efac", borderRadius: 8, padding: "8px 12px", marginBottom: 12, fontSize: 12, color: "#166534", fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
-                              <LuCircleCheck size={14} /> Completed • Certificate Awarded 🏆
-                            </div>
-                            <div style={{ display: "flex", gap: 8 }}>
-                              {dsaInfo.certificateId && (
-                                <button
-                                  type="button"
-                                  onClick={() => navigate(`/verify/${dsaInfo.certificateId}`)}
-                                  style={{
-                                    flex: 1,
-                                    padding: "9px 0",
-                                    background: "#16a34a",
-                                    color: "#ffffff",
-                                    border: "none",
-                                    borderRadius: 10,
-                                    fontSize: "0.85rem",
-                                    fontWeight: 700,
-                                    cursor: "pointer",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    gap: 5,
-                                  }}
-                                >
-                                  <LuAward size={14} /> View Certificate
-                                </button>
-                              )}
-                              {dsaInfo.attemptId && (
-                                <button
-                                  type="button"
-                                  onClick={() => navigate(`/assessment-report/${dsaInfo.attemptId}`)}
-                                  style={{
-                                    flex: 1,
-                                    padding: "9px 0",
-                                    background: "#eff6ff",
-                                    color: "#1d4ed8",
-                                    border: "1px solid #bfdbfe",
-                                    borderRadius: 10,
-                                    fontSize: "0.85rem",
-                                    fontWeight: 700,
-                                    cursor: "pointer",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    gap: 5,
-                                  }}
-                                >
-                                  <LuFileText size={14} /> View Report
-                                </button>
-                              )}
-                            </div>
-                            <div style={{ fontSize: "0.75rem", color: "#64748b", textAlign: "center", marginTop: 6, display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
-                              <LuLock size={12} /> Test Passed • Cannot Attend Again
-                            </div>
-                          </div>
-                        );
-                      }
-                      return (
-                        <button
-                          type="button"
-                          onClick={() => handleOpenCertExam("dsa_cert", "Data Structures & Algorithms (DSA)")}
-                          style={{
-                            width: "100%",
-                            padding: "10px 0",
-                            background: "#ffffff",
-                            color: "#2563eb",
-                            border: "1px solid #bfdbfe",
-                            borderRadius: 10,
-                            fontSize: "0.85rem",
-                            fontWeight: 700,
-                            cursor: "pointer",
-                            transition: "all 0.15s ease",
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.background = "#eff6ff";
-                            e.currentTarget.style.borderColor = "#93c5fd";
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.background = "#ffffff";
-                            e.currentTarget.style.borderColor = "#bfdbfe";
-                          }}
-                        >
-                          Start DSA Examination
-                        </button>
-                      );
-                    })()}
-                  </div>
-
-                  <div
-                    style={{
-                      padding: 22,
-                      background: "#f8fafc",
-                      borderRadius: 16,
-                      border: "1px solid #e2e8f0",
-                      display: "flex",
-                      flexDirection: "column",
-                      justifyContent: "space-between",
-                    }}
-                  >
-                    <div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                        <div style={{ width: 40, height: 40, borderRadius: 12, background: "#fef3c7", color: "#d97706", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          <LuAward size={22} />
-                        </div>
-                        <div>
-                          <h4 style={{ fontSize: "1rem", fontWeight: 700, color: "#0f172a", margin: 0 }}>
-                            Python Software Engineer
-                          </h4>
-                          <span style={{ fontSize: "0.75rem", color: "#059669", fontWeight: 700 }}>
-                            Level: Associate • Proctored Exam
-                          </span>
-                        </div>
-                      </div>
-                      <p style={{ fontSize: "0.84rem", color: "#64748b", margin: "0 0 16px", lineHeight: 1.5 }}>
-                        Verifies mastery in core Python semantics, memory model, generator mechanics, algorithms, and modular software design.
-                      </p>
-                    </div>
-
-                    {(() => {
-                      const pyInfo = getEarnedCertInfo("python_cert");
-                      if (pyInfo.isCompleted) {
-                        return (
-                          <div>
-                            <div style={{ background: "#dcfce7", border: "1px solid #86efac", borderRadius: 8, padding: "8px 12px", marginBottom: 12, fontSize: 12, color: "#166534", fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
-                              <LuCircleCheck size={14} /> Completed • Certificate Awarded 🏆
-                            </div>
-                            <div style={{ display: "flex", gap: 8 }}>
-                              {pyInfo.certificateId && (
-                                <button
-                                  type="button"
-                                  onClick={() => navigate(`/verify/${pyInfo.certificateId}`)}
-                                  style={{
-                                    flex: 1,
-                                    padding: "9px 0",
-                                    background: "#16a34a",
-                                    color: "#ffffff",
-                                    border: "none",
-                                    borderRadius: 10,
-                                    fontSize: "0.85rem",
-                                    fontWeight: 700,
-                                    cursor: "pointer",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    gap: 5,
-                                  }}
-                                >
-                                  <LuAward size={14} /> View Certificate
-                                </button>
-                              )}
-                              {pyInfo.attemptId && (
-                                <button
-                                  type="button"
-                                  onClick={() => navigate(`/assessment-report/${pyInfo.attemptId}`)}
-                                  style={{
-                                    flex: 1,
-                                    padding: "9px 0",
-                                    background: "#eff6ff",
-                                    color: "#1d4ed8",
-                                    border: "1px solid #bfdbfe",
-                                    borderRadius: 10,
-                                    fontSize: "0.85rem",
-                                    fontWeight: 700,
-                                    cursor: "pointer",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    gap: 5,
-                                  }}
-                                >
-                                  <LuFileText size={14} /> View Report
-                                </button>
-                              )}
-                            </div>
-                            <div style={{ fontSize: "0.75rem", color: "#64748b", textAlign: "center", marginTop: 6, display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
-                              <LuLock size={12} /> Test Passed • Cannot Attend Again
-                            </div>
-                          </div>
-                        );
-                      }
-                      return (
-                        <button
-                          type="button"
-                          onClick={() => handleOpenCertExam("python_cert", "Python Software Engineer")}
-                          style={{
-                            width: "100%",
-                            padding: "10px 0",
-                            background: "#ffffff",
-                            color: "#d97706",
-                            border: "1px solid #fde68a",
-                            borderRadius: 10,
-                            fontSize: "0.85rem",
-                            fontWeight: 700,
-                            cursor: "pointer",
-                            transition: "all 0.15s ease",
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.background = "#fffbeb";
-                            e.currentTarget.style.borderColor = "#fcd34d";
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.background = "#ffffff";
-                            e.currentTarget.style.borderColor = "#fde68a";
-                          }}
-                        >
-                          Start Python Examination
-                        </button>
-                      );
-                    })()}
-                  </div>
-                </div>
+              {/* Section 2: Why It Matters Box */}
+              <div className="mz-why-matters-card">
+                <h4 className="mz-why-title">Why it matters?</h4>
+                <ul className="mz-why-list">
+                  <li className="mz-why-item">
+                    <LuCircleCheck className="mz-why-check" size={17} />
+                    <span>Get personalized recommendations</span>
+                  </li>
+                  <li className="mz-why-item">
+                    <LuCircleCheck className="mz-why-check" size={17} />
+                    <span>See relevant learning paths</span>
+                  </li>
+                  <li className="mz-why-item">
+                    <LuCircleCheck className="mz-why-check" size={17} />
+                    <span>Track your progress in your favorite area</span>
+                  </li>
+                </ul>
               </div>
 
-              {/* 10. Dedicated Help & Support Section */}
-              <div
-                style={{
-                  background: "#ffffff",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: 20,
-                  padding: "30px 32px",
-                  boxShadow: "0 4px 18px rgba(0, 0, 0, 0.03)",
-                  marginBottom: 38,
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    flexWrap: "wrap",
-                    gap: 16,
-                    marginBottom: 24,
-                  }}
-                >
-                  <div>
-                    <div
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 6,
-                        background: "#eef2ff",
-                        color: "#4f46e5",
-                        padding: "4px 12px",
-                        borderRadius: 20,
-                        fontSize: "0.75rem",
-                        fontWeight: 700,
-                        marginBottom: 8,
-                      }}
-                    >
-                      <LuLifeBuoy size={14} /> 24/7 Technical Support & Issue Resolution
-                    </div>
-                    <h3 style={{ fontSize: "1.35rem", fontWeight: 800, color: "#0f172a", margin: "0 0 4px" }}>
-                      Help & Support Center
-                    </h3>
-                    <p style={{ fontSize: "0.88rem", color: "#64748b", margin: 0 }}>
-                      Need help with code compilation, proctored examinations, or reports? Submit a ticket and our engineers will respond in real time.
-                    </p>
-                  </div>
-
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <button
-                      type="button"
-                      onClick={() => navigate("/help")}
-                      style={{
-                        background: "linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)",
-                        color: "#ffffff",
-                        border: "none",
-                        padding: "11px 22px",
-                        borderRadius: 12,
-                        fontSize: "0.88rem",
-                        fontWeight: 700,
-                        cursor: "pointer",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 8,
-                        boxShadow: "0 4px 14px rgba(79, 70, 229, 0.25)",
-                        transition: "all 0.15s ease",
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-1px)")}
-                      onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}
-                    >
-                      <LuLifeBuoy size={16} /> Open Support Center <LuArrowRight size={14} />
-                    </button>
-                  </div>
+              {/* Section 3: Motivation Card with 3D Rocket */}
+              <div className="mz-promo-card">
+                <div className="mz-promo-rocket-wrap">
+                  <img src={rocketIcon} alt="Rocket icon" className="mz-promo-rocket-img" />
                 </div>
-
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-                    gap: 16,
-                  }}
-                >
-                  {[
-                    {
-                      title: "Compiler & IDE Issues",
-                      desc: "Runtime execution errors, memory limits, language compilers, and test cases.",
-                      icon: LuCodeXml,
-                      color: "#0891b2",
-                      bg: "#ecfeff",
-                      border: "#a5f3fc",
-                    },
-                    {
-                      title: "Examinations & Proctoring",
-                      desc: "Biometric webcam locks, screen sharing stream verification, submission timers.",
-                      icon: LuShieldCheck,
-                      color: "#7c3aed",
-                      bg: "#f5f3ff",
-                      border: "#ddd6fe",
-                    },
-                    {
-                      title: "Reports & Marks Audit",
-                      desc: "Scorecard synchronization, grade verification, and detailed evaluation reviews.",
-                      icon: LuFileText,
-                      color: "#2563eb",
-                      bg: "#eff6ff",
-                      border: "#bfdbfe",
-                    },
-                    {
-                      title: "Certificates & Verification",
-                      desc: "Official credential issuance, distinction honors, verification links, and QR codes.",
-                      icon: LuAward,
-                      color: "#059669",
-                      bg: "#ecfdf5",
-                      border: "#a7f3d0",
-                    },
-                  ].map((item, idx) => {
-                    const Icon = item.icon;
-                    return (
-                      <div
-                        key={idx}
-                        className="mz-interactive-card"
-                        onClick={() => navigate("/help")}
-                        style={{
-                          padding: 18,
-                          borderRadius: 14,
-                          background: "#f8fafc",
-                          border: `1px solid #e2e8f0`,
-                          cursor: "pointer",
-                          transition: "all 0.15s ease",
-                        }}
-                      >
-                        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                          <div
-                            style={{
-                              width: 36,
-                              height: 36,
-                              borderRadius: 10,
-                              background: item.bg,
-                              color: item.color,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                            }}
-                          >
-                            <Icon size={18} />
-                          </div>
-                          <h4 style={{ margin: 0, fontSize: "0.92rem", fontWeight: 700, color: "#0f172a" }}>
-                            {item.title}
-                          </h4>
-                        </div>
-                        <p style={{ margin: "0 0 12px", fontSize: "0.8rem", color: "#64748b", lineHeight: 1.45 }}>
-                          {item.desc}
-                        </p>
-                        <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: "0.8rem", fontWeight: 700, color: item.color }}>
-                          <span>Report Issue</span> <LuArrowRight size={13} className="mz-card-arrow-icon" />
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div className="mz-promo-text-wrap">
+                  <h5 className="mz-promo-heading">Your goals. Our guidance.</h5>
+                  <p className="mz-promo-subheading">Let's build your future together.</p>
                 </div>
               </div>
-            </div>
+            </aside>
+          </div>
           )}
         </main>
       </div>
@@ -4286,10 +3242,10 @@ const Home = () => {
                     </label>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "8px" }}>
                       {[
-                        { key: "CODING", name: "Algorithms & DSA" },
-                        { key: "SYSTEMS", name: "System Architecture" },
-                        { key: "PROJECTS", name: "Software Projects" },
-                        { key: "EXAM", name: "Proctored Exam Prep" },
+                        { key: "CODING", name: "Coding" },
+                        { key: "LANGUAGE", name: "Language" },
+                        { key: "VEHICLES", name: "Vehicles" },
+                        { key: "FITNESS", name: "Gym & Fitness" },
                       ].map((t) => (
                         <button
                           type="button"
@@ -4310,7 +3266,7 @@ const Home = () => {
                             transition: "all 0.15s ease",
                           }}
                         >
-                          <InterestBadge type="CODING" />
+                          <InterestBadge type={t.key === "FITNESS" ? "GYM" : t.key === "VEHICLES" ? "VECHILES" : t.key} />
                           <span>{t.name}</span>
                         </button>
                       ))}

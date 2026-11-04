@@ -209,6 +209,16 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/fitness"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<FitnessLoader />}>
+                  <Fitness />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
           {/* Coding Routes */}
           <Route
             path="/coding"
@@ -220,16 +230,31 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/driving"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<DrivingLoader />}>
+                  <Driving />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/language"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<LanguageLoader />}>
+                  <Language />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
           <Route path="/practice" element={<Navigate to="/coding" replace />} />
           <Route path="/learn" element={<Navigate to="/coding" replace />} />
           <Route path="/challenges" element={<Navigate to="/coding" replace />} />
           <Route path="/projects" element={<Navigate to="/coding" replace />} />
           <Route path="/assessments" element={<Navigate to="/certificates" replace />} />
-
-          {/* Legacy Unrelated Tracks Redirect to Coding */}
-          <Route path="/fitness" element={<Navigate to="/coding" replace />} />
-          <Route path="/driving" element={<Navigate to="/coding" replace />} />
-          <Route path="/language" element={<Navigate to="/coding" replace />} />
           <Route
             path="/assessment/:sessionId"
             element={
