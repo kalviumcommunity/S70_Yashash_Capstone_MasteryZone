@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import AssessmentSecurityGate from "./AssessmentSecurityGate";
 import MasteryZoneCompilerWorkspace from "./MasteryZoneCompilerWorkspace";
+import useNavigationLock from "../hooks/useNavigationLock";
 import "./CertificationExamWorkspace.css";
 import {
   LuAward,
@@ -41,6 +42,7 @@ import {
   LuExternalLink,
   LuTriangleAlert,
   LuTrophy,
+  LuFileText,
   LuHouse,
   LuStar,
   LuLock,
@@ -166,6 +168,7 @@ export default function CertificationExamWorkspace({
 
   // Workflow Stage: "gate" | "active"
   const [stage, setStage] = useState(() => (isResumingActive ? "active" : "gate"));
+  const [alreadyCertifiedInfo, setAlreadyCertifiedInfo] = useState(null);
   const [attemptId, setAttemptId] = useState(() => savedSession?.attemptId || null);
   const [attemptNumber, setAttemptNumber] = useState(2);
   const [candidateName, setCandidateName] = useState("Candidate");
@@ -254,14 +257,36 @@ export default function CertificationExamWorkspace({
 
   const procCameraVideoRef = useRef(null);
   const procScreenVideoRef = useRef(null);
+  const cameraStreamRef = useRef(null);
+  const screenStreamRef = useRef(null);
+  const micStreamRef = useRef(null);
   const audioContextRef = useRef(null);
   const animFrameRef = useRef(null);
+
+  useEffect(() => {
+    cameraStreamRef.current = cameraStream;
+  }, [cameraStream]);
+
+  useEffect(() => {
+    screenStreamRef.current = screenStream;
+  }, [screenStream]);
+
+  useEffect(() => {
+    micStreamRef.current = micStream;
+  }, [micStream]);
 
   // Modals & Finalizing
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [submissionSuccessData, setSubmissionSuccessData] = useState(null);
+
+  // Centralized Navigation Lock (protects against trackpad two-finger swipe-back, browser Back, and reload)
+  useNavigationLock({
+    isLocked: stage === "active" && !isFinalizing && !submissionSuccessData,
+    warningMessage: "An active certification examination is in progress. Submitting your examination is required to exit.",
+    lockKey: `mz_cert_${certId}`,
+  });
 
   const ensureMediaStreams = async () => {
     try {
@@ -409,20 +434,27 @@ export default function CertificationExamWorkspace({
       });
 
       if (!res.ok) {
-        const err = await res.json();
+        const err = await res.json().catch(() => ({}));
+        if (err.alreadyCertified || err.isPassed || res.status === 403) {
+          setAlreadyCertifiedInfo(err);
+          toast.info("You have already passed this certification! Retaking is not allowed.", {
+            toastId: "cert_already_certified",
+          });
+          return;
+        }
         throw new Error(err.error || "Failed to initiate certification attempt");
       }
 
       const data = await res.json();
-      if (data.status === "COMPLETED" || data.status === "SUBMITTED" || data.isCompleted) {
-        const uKey = currentUserId && currentUserId !== "guest" ? currentUserId : "guest";
-        const repUrl = `/assessment-report/${data.attemptId || attemptId}`;
-        localStorage.setItem(`mz_${uKey}_cert_${certId}_submitted`, "true");
-        localStorage.setItem(`mz_${uKey}_cert_${certId}_report_url`, repUrl);
-        toast.info("This certification test has already been completed and submitted.", { toastId: "cert_already_done" });
-        navigate(repUrl, { replace: true });
+      if (data.alreadyCertified || data.isPassed) {
+        setAlreadyCertifiedInfo(data);
         return;
       }
+
+      // If candidate is starting a fresh valid attempt, clear stale submitted flag
+      const uKey = currentUserId && currentUserId !== "guest" ? currentUserId : "guest";
+      localStorage.removeItem(`mz_${uKey}_cert_${certId}_submitted`);
+      localStorage.removeItem(`mz_${uKey}_cert_${certId}_report_url`);
       setAttemptId(data.attemptId);
       setAttemptNumber(data.attemptNumber || 2);
       setCandidateName(data.candidateName || "Candidate");
@@ -508,22 +540,45 @@ export default function CertificationExamWorkspace({
     }
   };
 
-  // Auto-resume if active session is stored in localStorage, or redirect if submitted
+  // Verify backend session state: check if certified, active, or allowed to retake
   useEffect(() => {
-    const uKey = currentUserId && currentUserId !== "guest" ? currentUserId : "guest";
-    const isCertSubmitted =
-      localStorage.getItem(`mz_${uKey}_cert_${certId}_submitted`) === "true" ||
-      (attemptId && localStorage.getItem(`mz_${uKey}_cert_${attemptId}_submitted`) === "true");
+    let isCancelled = false;
+    const token = localStorage.getItem("token");
+    if (token && certId) {
+      fetch(`${API_BASE}/api/certifications/attempt/start`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ certId }),
+      })
+        .then(async (res) => {
+          const data = await res.json().catch(() => ({}));
+          if (isCancelled) return;
+          if (data.alreadyCertified || data.isPassed || res.status === 403) {
+            setAlreadyCertifiedInfo(data);
+          } else {
+            // Clean up stale submission flags for uncertified or retake attempts
+            const uKey = currentUserId && currentUserId !== "guest" ? currentUserId : "guest";
+            localStorage.removeItem(`mz_${uKey}_cert_${certId}_submitted`);
+            localStorage.removeItem(`mz_${uKey}_cert_${certId}_report_url`);
 
-    if (isCertSubmitted) {
-      const repUrl =
-        localStorage.getItem(`mz_${uKey}_cert_${certId}_report_url`) ||
-        (attemptId ? `/assessment-report/${attemptId}` : "/home");
-      toast.info("This certification test has already been completed and submitted. Displaying report.", {
-        toastId: "cert_already_submitted",
-      });
-      navigate(repUrl, { replace: true });
-      return;
+            if (data.resumed && data.attemptId) {
+              setAttemptId(data.attemptId);
+              setAttemptNumber(data.attemptNumber || 1);
+              if (data.candidateName) setCandidateName(data.candidateName);
+              if (Array.isArray(data.selectedMcqs) && data.selectedMcqs.length > 0) {
+                setSelectedMcqs(data.selectedMcqs);
+              }
+              if (data.mcqAnswers) setMcqAnswers(data.mcqAnswers);
+              if (Array.isArray(data.selectedCodingQuestions) && data.selectedCodingQuestions.length > 0) {
+                setSelectedCodingQuestions(data.selectedCodingQuestions);
+              }
+            }
+          }
+        })
+        .catch(() => {});
     }
 
     const handlePopState = () => {
@@ -833,6 +888,49 @@ export default function CertificationExamWorkspace({
     }
   }, [stage, logProctoringAnomaly]);
 
+  // 3b. Continuous Hardware & Track Disconnection Monitoring
+  useEffect(() => {
+    if (stage !== "active" || isTerminated || isFinalizing) return;
+
+    const camTrack = cameraStreamRef.current?.getVideoTracks?.()[0];
+    const screenTrack = screenStreamRef.current?.getVideoTracks?.()[0];
+    const micTrack = micStreamRef.current?.getAudioTracks?.()[0];
+
+    const onCamEnded = () => {
+      if (isSubmittedRef.current || isTerminated || isFinalizing) return;
+      logProctoringAnomaly(
+        "CAMERA_DISCONNECTED",
+        "Webcam video connection was lost or disconnected. Reconnecting camera is required."
+      );
+    };
+
+    const onScreenEnded = () => {
+      if (isSubmittedRef.current || isTerminated || isFinalizing) return;
+      logProctoringAnomaly(
+        "SCREEN_SHARE_STOPPED",
+        "Entire screen sharing was stopped. Continuous entire screen sharing is required throughout the examination."
+      );
+    };
+
+    const onMicEnded = () => {
+      if (isSubmittedRef.current || isTerminated || isFinalizing) return;
+      logProctoringAnomaly(
+        "MIC_DISCONNECTED",
+        "Microphone audio connection was lost. Reconnecting microphone is required."
+      );
+    };
+
+    if (camTrack) camTrack.addEventListener("ended", onCamEnded);
+    if (screenTrack) screenTrack.addEventListener("ended", onScreenEnded);
+    if (micTrack) micTrack.addEventListener("ended", onMicEnded);
+
+    return () => {
+      if (camTrack) camTrack.removeEventListener("ended", onCamEnded);
+      if (screenTrack) screenTrack.removeEventListener("ended", onScreenEnded);
+      if (micTrack) micTrack.removeEventListener("ended", onMicEnded);
+    };
+  }, [stage, isTerminated, isFinalizing, logProctoringAnomaly, cameraStream, screenStream, micStream]);
+
   // -------------------------------------------------------------
   // 4. Timer Countdown (Pauses when modal open or terminated)
   // -------------------------------------------------------------
@@ -1023,23 +1121,29 @@ export default function CertificationExamWorkspace({
   // Stop all media tracks (camera, screen, microphone) and clean up contexts immediately
   const stopAllProctoringMedia = useCallback(() => {
     try {
-      [cameraStream, screenStream, micStream].forEach((st) => {
-        if (st) {
-          try {
-            st.getTracks().forEach((track) => {
-              try {
-                track.enabled = false;
-                track.stop();
-              } catch {}
-            });
-          } catch {}
+      const activeStreams = [
+        cameraStreamRef.current,
+        screenStreamRef.current,
+        micStreamRef.current,
+      ];
+
+      activeStreams.forEach((st) => {
+        if (st && typeof st.getTracks === "function") {
+          st.getTracks().forEach((track) => {
+            try {
+              track.onended = null;
+              track.enabled = false;
+              track.stop();
+            } catch {}
+          });
         }
       });
 
       if (procCameraVideoRef.current) {
-        if (procCameraVideoRef.current.srcObject) {
+        if (procCameraVideoRef.current.srcObject && typeof procCameraVideoRef.current.srcObject.getTracks === "function") {
           try {
             procCameraVideoRef.current.srcObject.getTracks().forEach((t) => {
+              t.onended = null;
               t.enabled = false;
               t.stop();
             });
@@ -1049,9 +1153,10 @@ export default function CertificationExamWorkspace({
       }
 
       if (procScreenVideoRef.current) {
-        if (procScreenVideoRef.current.srcObject) {
+        if (procScreenVideoRef.current.srcObject && typeof procScreenVideoRef.current.srcObject.getTracks === "function") {
           try {
             procScreenVideoRef.current.srcObject.getTracks().forEach((t) => {
+              t.onended = null;
               t.enabled = false;
               t.stop();
             });
@@ -1064,25 +1169,37 @@ export default function CertificationExamWorkspace({
         try {
           audioContextRef.current.close().catch(() => {});
         } catch {}
+        audioContextRef.current = null;
       }
 
       if (animFrameRef.current) {
         cancelAnimationFrame(animFrameRef.current);
+        animFrameRef.current = null;
       }
 
-      if (document.fullscreenElement || document.webkitFullscreenElement) {
-        try {
-          document.exitFullscreen().catch(() => {});
-        } catch {}
-      }
+      try {
+        if (document.fullscreenElement || document.webkitFullscreenElement) {
+          const exitFn =
+            document.exitFullscreen ||
+            document.webkitExitFullscreen ||
+            document.mozCancelFullScreen ||
+            document.msExitFullscreen;
+          if (exitFn) {
+            exitFn.call(document).catch(() => {});
+          }
+        }
+      } catch {}
 
+      cameraStreamRef.current = null;
+      screenStreamRef.current = null;
+      micStreamRef.current = null;
       setCameraStream(null);
       setScreenStream(null);
       setMicStream(null);
     } catch (e) {
       console.warn("Error stopping proctoring media:", e);
     }
-  }, [cameraStream, screenStream, micStream]);
+  }, []);
 
   // Ensure all streams are terminated on component unmount
   useEffect(() => {
@@ -1182,6 +1299,176 @@ export default function CertificationExamWorkspace({
   const answeredMcqCount = Object.keys(mcqAnswers).length;
   const totalPassedCodingTests = codingSubmissions.reduce((acc, s) => acc + (s.passedTests || 0), 0);
   const totalAttemptedCount = answeredMcqCount + (codingSubmissions.filter((s) => s.solved || s.passedTests > 0).length);
+
+  // -------------------------------------------------------------
+  // STAGE 0: CANDIDATE ALREADY PASSED & EARNED CERTIFICATE
+  // -------------------------------------------------------------
+  if (alreadyCertifiedInfo) {
+    const certIdVal = alreadyCertifiedInfo.certificateId || "VERIFIED";
+    const attIdVal = alreadyCertifiedInfo.attemptId;
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "linear-gradient(135deg, #090d16 0%, #15102a 100%)",
+          color: "#ffffff",
+          padding: "24px",
+          fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
+        }}
+      >
+        <div
+          style={{
+            maxWidth: "560px",
+            width: "100%",
+            background: "rgba(255, 255, 255, 0.05)",
+            backdropFilter: "blur(20px)",
+            borderRadius: "24px",
+            border: "1.5px solid rgba(255, 255, 255, 0.12)",
+            padding: "36px 32px",
+            textAlign: "center",
+            boxShadow: "0 20px 60px rgba(0, 0, 0, 0.5)",
+          }}
+        >
+          <div
+            style={{
+              width: "72px",
+              height: "72px",
+              borderRadius: "50%",
+              background: "rgba(34, 197, 94, 0.15)",
+              color: "#4ade80",
+              border: "2px solid #22c55e",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "0 auto 18px",
+              fontSize: "32px",
+            }}
+          >
+            🏆
+          </div>
+
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              background: "rgba(34, 197, 94, 0.2)",
+              color: "#86efac",
+              border: "1px solid rgba(34, 197, 94, 0.4)",
+              borderRadius: "20px",
+              padding: "4px 14px",
+              fontSize: "12px",
+              fontWeight: 800,
+              textTransform: "uppercase",
+              letterSpacing: "0.5px",
+              marginBottom: "14px",
+            }}
+          >
+            <LuCircleCheck size={14} /> Completed • Certificate Awarded
+          </div>
+
+          <h1 style={{ fontSize: "22px", fontWeight: 800, margin: "0 0 10px", color: "#ffffff" }}>
+            {certTitle}
+          </h1>
+
+          <p style={{ fontSize: "14px", color: "#cbd5e1", lineHeight: 1.6, margin: "0 0 22px" }}>
+            You have already cleared the 80% passing cutoff and earned your verified credential for this subject.
+            <br />
+            <strong style={{ color: "#fde047" }}>Completed certification examinations cannot be attended again.</strong>
+          </p>
+
+          {certIdVal && (
+            <div
+              style={{
+                background: "rgba(0, 0, 0, 0.3)",
+                border: "1px solid rgba(255, 255, 255, 0.1)",
+                borderRadius: "12px",
+                padding: "12px",
+                marginBottom: "24px",
+                fontSize: "13px",
+                color: "#94a3b8",
+              }}
+            >
+              Credential ID:{" "}
+              <strong style={{ color: "#ffffff", fontFamily: "monospace", letterSpacing: "1px" }}>
+                {certIdVal}
+              </strong>
+            </div>
+          )}
+
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            {certIdVal && (
+              <a
+                href={`/verify/${certIdVal}`}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "8px",
+                  padding: "12px 20px",
+                  borderRadius: "12px",
+                  background: "linear-gradient(135deg, #22c55e, #16a34a)",
+                  color: "#ffffff",
+                  fontWeight: 700,
+                  fontSize: "14px",
+                  textDecoration: "none",
+                  boxShadow: "0 4px 14px rgba(34, 197, 94, 0.3)",
+                }}
+              >
+                <LuAward size={16} /> View Verified Certificate
+              </a>
+            )}
+
+            {attIdVal && (
+              <a
+                href={`/assessment-report/${attIdVal}`}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "8px",
+                  padding: "12px 20px",
+                  borderRadius: "12px",
+                  background: "rgba(255, 255, 255, 0.08)",
+                  color: "#ffffff",
+                  fontWeight: 600,
+                  fontSize: "14px",
+                  textDecoration: "none",
+                  border: "1px solid rgba(255, 255, 255, 0.16)",
+                }}
+              >
+                <LuFileText size={16} /> View Examination Report
+              </a>
+            )}
+
+            <button
+              type="button"
+              onClick={() => {
+                if (onClose) onClose();
+                else if (window.opener) window.close();
+                else navigate("/certificates");
+              }}
+              style={{
+                marginTop: "4px",
+                background: "transparent",
+                border: "none",
+                color: "#94a3b8",
+                fontSize: "13px",
+                fontWeight: 600,
+                cursor: "pointer",
+                padding: "8px",
+              }}
+            >
+              ← Return to Certifications
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // -------------------------------------------------------------
   // STAGE 1: ASSESSMENT SECURITY GATE
@@ -1395,8 +1682,8 @@ export default function CertificationExamWorkspace({
                   <div className="mz-proc-feed-badge-bottom-right">Webcam</div>
                   {(!cameraStream || !cameraStream.active) && (
                     <div className="mz-proc-feed-disconnected-overlay">
-                      <LuCamera size={20} color="#94a3b8" />
-                      <span>Webcam Feed Active</span>
+                      <LuCamera size={20} color="#f87171" />
+                      <span style={{ color: "#f87171", fontWeight: 600 }}>Webcam Disconnected</span>
                     </div>
                   )}
                 </div>
@@ -1417,8 +1704,8 @@ export default function CertificationExamWorkspace({
                   <div className="mz-proc-feed-badge-bottom-right">Entire Screen</div>
                   {(!screenStream || !screenStream.active) && (
                     <div className="mz-proc-feed-disconnected-overlay">
-                      <LuMonitor size={20} color="#94a3b8" />
-                      <span>Screen Shared</span>
+                      <LuMonitor size={20} color="#f87171" />
+                      <span style={{ color: "#f87171", fontWeight: 600 }}>Screen Share Inactive</span>
                     </div>
                   )}
                 </div>

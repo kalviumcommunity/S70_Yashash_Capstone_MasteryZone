@@ -50,6 +50,55 @@ const challengeSubmissionSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    adminNote: {
+      type: String,
+      default: "",
+    },
+    score: {
+      type: Number,
+      default: 0,
+    },
+    adminModifiedAt: {
+      type: Date,
+      default: null,
+    },
+    adminModifiedBy: {
+      type: String,
+      default: "",
+    },
+    notificationSent: {
+      type: Boolean,
+      default: false,
+    },
+    notificationEmailSent: {
+      type: Boolean,
+      default: false,
+    },
+    notificationInAppId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Notification",
+      default: null,
+      index: true,
+    },
+    notificationViewed: {
+      type: Boolean,
+      default: false,
+    },
+    notificationViewedAt: {
+      type: Date,
+      default: null,
+    },
+    marksHistory: [
+      {
+        oldScore: Number,
+        newScore: Number,
+        oldStatus: String,
+        newStatus: String,
+        adminNote: String,
+        modifiedBy: String,
+        modifiedAt: { type: Date, default: Date.now },
+      },
+    ],
   },
   { timestamps: true }
 );

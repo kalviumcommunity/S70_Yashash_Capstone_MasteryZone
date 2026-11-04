@@ -18,6 +18,8 @@ body {
   min-height: 100%;
   background-color: #f8fafc;
   overflow-x: hidden;
+  /* Prevent trackpad horizontal two-finger gesture history navigation across browser engines */
+  overscroll-behavior-x: none;
   font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -31,6 +33,17 @@ body {
   min-height: 100%;
   display: flex;
   flex-direction: column;
+  overscroll-behavior-x: none;
+}
+
+/* Examination & live meeting viewports: completely trap swipe-back bounce */
+.mz-cert-workspace-root,
+.mz-compiler-workspace-root,
+.mz-proctored-assessment-root,
+.mzl-platform-root,
+.mzl-meeting-room-container,
+.mz-gate-fullscreen-overlay {
+  overscroll-behavior-x: none;
 }
 
 a {

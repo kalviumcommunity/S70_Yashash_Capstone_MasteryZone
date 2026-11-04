@@ -61,6 +61,19 @@ import {
 import { toast } from "react-toastify";
 import "../MasteryZoneCompiler.css";
 
+const getApiBase = () => {
+  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+  if (typeof window !== "undefined") {
+    if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+      return "http://localhost:5012";
+    }
+    return window.location.origin;
+  }
+  return "http://localhost:5012";
+};
+
+const API_BASE = getApiBase();
+
 export function TechIcon({ lang, size = 15, className = "" }) {
   const l = (lang || "").toLowerCase();
   if (l.includes("python") || l === "py") return <SiPython size={size} color="#3776ab" className={className} />;
@@ -643,19 +656,33 @@ export default function MasteryZoneCompilerLive({
 
     try {
       const token = localStorage.getItem("token") || "";
-      const res = await fetch(`/api/meetings/${meetingId}/run-code`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          code: activeFile.content,
-          language: activeFile.language,
-          stdin: stdinInput,
-          files,
-        }),
-      });
+      const runPayload = {
+        code: activeFile.content,
+        language: activeFile.language,
+        stdin: stdinInput,
+        files,
+      };
+
+      let res;
+      try {
+        res = await fetch(`${API_BASE}/api/meetings/${meetingId}/run-code`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(runPayload),
+        });
+      } catch {
+        res = await fetch(`/api/meetings/${meetingId}/run-code`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(runPayload),
+        });
+      }
 
       const data = await res.json();
       const output = data.output || (data.result?.output) || "";
@@ -698,18 +725,32 @@ export default function MasteryZoneCompilerLive({
 
     try {
       const token = localStorage.getItem("token") || "";
-      const res = await fetch(`/api/meetings/${meetingId}/run-tests`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          code: activeFile.content,
-          language: activeFile.language,
-          testCases: currentTestCases,
-        }),
-      });
+      const testPayload = {
+        code: activeFile.content,
+        language: activeFile.language,
+        testCases: currentTestCases,
+      };
+
+      let res;
+      try {
+        res = await fetch(`${API_BASE}/api/meetings/${meetingId}/run-tests`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(testPayload),
+        });
+      } catch {
+        res = await fetch(`/api/meetings/${meetingId}/run-tests`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(testPayload),
+        });
+      }
 
       const data = await res.json();
       const resList = data.results || data.testResults || [];
@@ -738,20 +779,34 @@ export default function MasteryZoneCompilerLive({
 
     try {
       const token = localStorage.getItem("token") || "";
-      const res = await fetch(`/api/meetings/${meetingId}/submit-solution`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          code: activeFile.content,
-          language: activeFile.language,
-          challengeTitle: "Two Sum",
-          testCases: currentTestCases,
-          passingPercentage: 80,
-        }),
-      });
+      const submitPayload = {
+        code: activeFile.content,
+        language: activeFile.language,
+        challengeTitle: "Two Sum",
+        testCases: currentTestCases,
+        passingPercentage: 80,
+      };
+
+      let res;
+      try {
+        res = await fetch(`${API_BASE}/api/meetings/${meetingId}/submit-solution`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(submitPayload),
+        });
+      } catch {
+        res = await fetch(`/api/meetings/${meetingId}/submit-solution`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(submitPayload),
+        });
+      }
 
       const data = await res.json();
       setAttemptsCount((prev) => prev + 1);

@@ -33,6 +33,23 @@ const FullScreenConceptLearning = lazy(() => import("./components/FullScreenConc
 const PracticalAssignmentModal = lazy(() => import("./components/PracticalAssignmentModal.jsx"));
 const ProctoredAssessmentWorkspace = lazy(() => import("./components/ProctoredAssessmentWorkspace.jsx"));
 const CertificationExamWorkspace = lazy(() => import("./components/CertificationExamWorkspace.jsx"));
+const HelpSupport = lazy(() => import("./components/HelpSupport.jsx"));
+
+import AdminRoute from "./components/Admin/AdminRoute.jsx";
+const AdminLayout = lazy(() => import("./components/Admin/AdminLayout.jsx"));
+const AdminOverview = lazy(() => import("./components/Admin/AdminOverview.jsx"));
+const AdminUsers = lazy(() => import("./components/Admin/AdminUsers.jsx"));
+const AdminLiveActivity = lazy(() => import("./components/Admin/AdminLiveActivity.jsx"));
+const AdminLearningAnalytics = lazy(() => import("./components/Admin/AdminLearningAnalytics.jsx"));
+const AdminCodingAnalytics = lazy(() => import("./components/Admin/AdminCodingAnalytics.jsx"));
+const AdminAssessments = lazy(() => import("./components/Admin/AdminAssessments.jsx"));
+const AdminProctoring = lazy(() => import("./components/Admin/AdminProctoring.jsx"));
+const AdminProctoringAuditDetail = lazy(() => import("./components/Admin/AdminProctoringAuditDetail.jsx"));
+const AdminReports = lazy(() => import("./components/Admin/AdminReports.jsx"));
+const AdminRecordings = lazy(() => import("./components/Admin/AdminRecordings.jsx"));
+const AdminStorage = lazy(() => import("./components/Admin/AdminStorage.jsx"));
+const AdminHelpSupport = lazy(() => import("./components/Admin/AdminHelpSupport.jsx"));
+const AdminSettings = lazy(() => import("./components/Admin/AdminSettings.jsx"));
 
 function App() {
   return (
@@ -63,16 +80,22 @@ function App() {
             }
           />
 
-          {/* 2. Select Interests Route */}
+          {/* Help & Support Route */}
           <Route
-            path="/select-interests"
+            path="/help"
             element={
               <ProtectedRoute>
                 <Suspense fallback={<GlobalLoader />}>
-                  <Home />
+                  <HelpSupport />
                 </Suspense>
               </ProtectedRoute>
             }
+          />
+
+          {/* 2. Legacy Select Interests Route -> Dedicated Coding Platform */}
+          <Route
+            path="/select-interests"
+            element={<Navigate to="/home" replace />}
           />
 
           {/* 3. Reports Route */}
@@ -186,16 +209,7 @@ function App() {
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/fitness"
-            element={
-              <ProtectedRoute>
-                <Suspense fallback={<FitnessLoader />}>
-                  <Fitness />
-                </Suspense>
-              </ProtectedRoute>
-            }
-          />
+          {/* Coding Routes */}
           <Route
             path="/coding"
             element={
@@ -206,26 +220,16 @@ function App() {
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/driving"
-            element={
-              <ProtectedRoute>
-                <Suspense fallback={<DrivingLoader />}>
-                  <Driving />
-                </Suspense>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/language"
-            element={
-              <ProtectedRoute>
-                <Suspense fallback={<LanguageLoader />}>
-                  <Language />
-                </Suspense>
-              </ProtectedRoute>
-            }
-          />
+          <Route path="/practice" element={<Navigate to="/coding" replace />} />
+          <Route path="/learn" element={<Navigate to="/coding" replace />} />
+          <Route path="/challenges" element={<Navigate to="/coding" replace />} />
+          <Route path="/projects" element={<Navigate to="/coding" replace />} />
+          <Route path="/assessments" element={<Navigate to="/certificates" replace />} />
+
+          {/* Legacy Unrelated Tracks Redirect to Coding */}
+          <Route path="/fitness" element={<Navigate to="/coding" replace />} />
+          <Route path="/driving" element={<Navigate to="/coding" replace />} />
+          <Route path="/language" element={<Navigate to="/coding" replace />} />
           <Route
             path="/assessment/:sessionId"
             element={
@@ -322,6 +326,34 @@ function App() {
               </ProtectedRoute>
             }
           />
+          {/* Super Admin Dashboard Routes (Strictly Isolated & Protected) */}
+          <Route
+            path="/admin"
+            element={
+              <AdminRoute>
+                <Suspense fallback={<GlobalLoader />}>
+                  <AdminLayout />
+                </Suspense>
+              </AdminRoute>
+            }
+          >
+            <Route index element={<Navigate to="/admin/overview" replace />} />
+            <Route path="overview" element={<Suspense fallback={<GlobalLoader />}><AdminOverview /></Suspense>} />
+            <Route path="users" element={<Suspense fallback={<GlobalLoader />}><AdminUsers /></Suspense>} />
+            <Route path="live-activity" element={<Suspense fallback={<GlobalLoader />}><AdminLiveActivity /></Suspense>} />
+            <Route path="learning-analytics" element={<Suspense fallback={<GlobalLoader />}><AdminLearningAnalytics /></Suspense>} />
+            <Route path="coding-analytics" element={<Suspense fallback={<GlobalLoader />}><AdminCodingAnalytics /></Suspense>} />
+            <Route path="assessments" element={<Suspense fallback={<GlobalLoader />}><AdminAssessments /></Suspense>} />
+            <Route path="proctoring" element={<Suspense fallback={<GlobalLoader />}><AdminProctoring /></Suspense>} />
+            <Route path="proctoring/audit/:sessionId" element={<Suspense fallback={<GlobalLoader />}><AdminProctoringAuditDetail /></Suspense>} />
+            <Route path="reports" element={<Suspense fallback={<GlobalLoader />}><AdminReports /></Suspense>} />
+            <Route path="recordings" element={<Suspense fallback={<GlobalLoader />}><AdminRecordings /></Suspense>} />
+            <Route path="storage" element={<Suspense fallback={<GlobalLoader />}><AdminStorage /></Suspense>} />
+            <Route path="help" element={<Suspense fallback={<GlobalLoader />}><AdminHelpSupport /></Suspense>} />
+            <Route path="support" element={<Navigate to="/admin/help" replace />} />
+            <Route path="settings" element={<Suspense fallback={<GlobalLoader />}><AdminSettings /></Suspense>} />
+          </Route>
+
           {/* Fallback to default Landing Page */}
             <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

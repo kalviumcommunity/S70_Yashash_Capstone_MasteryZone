@@ -328,9 +328,9 @@ router.get("/reports", authenticateToken, async (req, res) => {
 
       formattedCerts = certAttempts.map((ca) => {
         const isPass = ca.status === "PASSED" || ca.finalVerdict === "PASSED";
-        const totalMarks = ca.maxScore || 40;
-        const marksObtained = ca.finalScore || 0;
-        const pct = ca.finalPercentage || Math.round((marksObtained / totalMarks) * 100);
+        const totalMarks = ca.maxScore || 100;
+        const pct = ca.percentage != null ? ca.percentage : (ca.finalPercentage || 0);
+        const marksObtained = ca.score != null ? ca.score : pct;
         return {
           id: ca.attemptId,
           sessionId: ca.attemptId,
@@ -355,7 +355,8 @@ router.get("/reports", authenticateToken, async (req, res) => {
           marksObtained,
           totalMarks,
           percentage: pct,
-          grade: ca.grade || (isPass ? "A" : "F"),
+          adminNote: ca.adminNote || "",
+          grade: ca.grade || (pct >= 90 ? "A+" : pct >= 80 ? "A" : pct >= 70 ? "B" : "F"),
           accuracy: pct,
           passedTests: ca.codingScore || 0,
           totalTests: 20,

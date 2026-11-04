@@ -27,6 +27,15 @@ const recordingSchema = new mongoose.Schema(
       type: String,
       default: "Host",
     },
+    hostEmail: {
+      type: String,
+      default: "",
+    },
+    recordingType: {
+      type: String,
+      enum: ["Meeting", "Screen Share", "Proctoring"],
+      default: "Meeting",
+    },
     durationSeconds: {
       type: Number,
       default: 0,
@@ -84,6 +93,16 @@ const recordingSchema = new mongoose.Schema(
         timestampSeconds: Number,
         note: String,
         createdAt: { type: Date, default: Date.now },
+      },
+    ],
+    activityTimeline: [
+      {
+        type: { type: String, default: "info" },
+        event: { type: String, required: true },
+        description: { type: String, default: "" },
+        timestamp: { type: Date, default: Date.now },
+        user: { type: String, default: "Host" },
+        role: { type: String, default: "Host" },
       },
     ],
   },

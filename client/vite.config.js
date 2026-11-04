@@ -9,17 +9,40 @@ export default defineConfig({
     port: 5174,
     proxy: {
       '/auth': {
-        target: 'http://127.0.0.1:5012',
+        target: 'http://localhost:5012',
         changeOrigin: true,
+        secure: false,
       },
       '/api': {
-        target: 'http://127.0.0.1:5012',
+        target: 'http://localhost:5012',
         changeOrigin: true,
+        secure: false,
+      },
+      '/recordings': {
+        target: 'http://localhost:5012',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/uploads': {
+        target: 'http://localhost:5012',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/certificates': {
+        target: 'http://localhost:5012',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/proctoring-evidence': {
+        target: 'http://localhost:5012',
+        changeOrigin: true,
+        secure: false,
       },
       '/socket.io': {
-        target: 'http://127.0.0.1:5012',
+        target: 'http://localhost:5012',
         ws: true,
         changeOrigin: true,
+        secure: false,
       }
     }
   },

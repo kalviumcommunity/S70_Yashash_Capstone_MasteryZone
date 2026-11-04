@@ -12,6 +12,7 @@ import {
   LuLayers,
   LuUsers,
   LuFileText,
+  LuLock,
   LuAward,
   LuChevronRight,
   LuChevronLeft,
@@ -35,6 +36,9 @@ import {
   LuActivity,
   LuFlame,
   LuZap,
+  LuTerminal,
+  LuPenTool,
+  LuPlus,
 } from "react-icons/lu";
 
 import NotificationBell from "./NotificationBell";
@@ -235,48 +239,152 @@ const DEFAULT_TRACKS = [
 ];
 
 /* ══════════════════════════════════════════════════════════════
-   DEFAULT PRACTICAL PROJECTS DATA
+   DEFAULT PRACTICAL PROJECTS DATA (12 Industry Labs)
    ══════════════════════════════════════════════════════════════ */
 const DEFAULT_PROJECTS = [
   {
     id: "proj_task_queue",
     title: "Distributed Task Queue & Job Scheduler",
     domain: "Backend Systems",
+    starterLanguage: "javascript",
     description: "Architect a resilient background job queue with concurrency limits, exponential backoff retries, and dead-letter queues.",
     technologies: ["Node.js", "Redis", "TypeScript", "Docker"],
-    milestones: ["Worker Daemon & IPC", "Priority Priority Queue", "Exponential Backoff & Telemetry"],
+    milestones: ["Worker Daemon & IPC", "Priority Queue Engine", "Exponential Backoff & Telemetry"],
     progressPercent: 35,
     difficulty: "Advanced",
+    xpReward: 350,
   },
   {
     id: "proj_collab_canvas",
     title: "Real-Time Collaborative Code Canvas",
     domain: "Real-Time Systems",
+    starterLanguage: "react",
     description: "Build an interactive multi-cursor live code editor powered by WebSockets, Operational Transformation (OT), and presence tracking.",
     technologies: ["React", "WebSockets", "Monaco Editor", "Express"],
     milestones: ["WebSocket Protocol & Auth", "Cursor Broadcasting", "Conflict Resolution Engine"],
     progressPercent: 0,
     difficulty: "Intermediate",
+    xpReward: 300,
   },
   {
     id: "proj_algo_trading",
     title: "Algorithmic Order Matching Engine",
     domain: "Financial Engineering",
+    starterLanguage: "cpp",
     description: "Construct a high-throughput Limit Order Book (LOB) engine in Modern C++ processing bid/ask orders with sub-millisecond execution.",
     technologies: ["C++20", "STL", "Memory Pools", "CMake"],
     milestones: ["Price-Time Priority Book", "Trade Execution Engine", "Performance Benchmark Suite"],
     progressPercent: 0,
     difficulty: "Hard",
+    xpReward: 400,
   },
   {
     id: "proj_ecommerce_api",
     title: "Enterprise E-Commerce Microservices API",
     domain: "Full-Stack Web",
+    starterLanguage: "python",
     description: "Design modular RESTful microservices for product catalogs, cart state, payment webhook gateways, and JWT authentication.",
     technologies: ["Python", "FastAPI", "PostgreSQL", "Docker"],
     milestones: ["Schema & Database Migrations", "Payment Webhook Dispatcher", "Inventory Concurrency Lock"],
     progressPercent: 0,
     difficulty: "Intermediate",
+    xpReward: 320,
+  },
+  {
+    id: "proj_portfolio",
+    title: "Modern Developer Portfolio & Terminal Resume",
+    domain: "Full-Stack Web",
+    starterLanguage: "javascript",
+    description: "Build a fast, responsive developer portfolio engine featuring dynamic project filtering, an interactive terminal resume parser, and contact form validation.",
+    technologies: ["HTML5", "CSS3 Grid", "JavaScript ES6", "DOM Validation"],
+    milestones: ["Interactive Project Filter", "Terminal Resume CLI", "Sanitized Contact Endpoint"],
+    progressPercent: 0,
+    difficulty: "Beginner",
+    xpReward: 250,
+  },
+  {
+    id: "proj_task_api",
+    title: "RESTful Task Management Engine",
+    domain: "Backend Systems",
+    starterLanguage: "python",
+    description: "Develop a secure RESTful API featuring role-based access control, encrypted session tokens, and relational schema validation.",
+    technologies: ["Python", "Flask", "SQLite", "JWT Auth"],
+    milestones: ["Token Authentication Middleware", "CRUD Task Lifecycle", "Filter & Pagination API"],
+    progressPercent: 0,
+    difficulty: "Intermediate",
+    xpReward: 280,
+  },
+  {
+    id: "proj_banking_system",
+    title: "Java Enterprise OOP Banking Engine",
+    domain: "Enterprise Systems",
+    starterLanguage: "java",
+    description: "Architect an object-oriented banking transaction platform supporting checking/savings polymorphism, atomic fund transfers, and ledger persistence.",
+    technologies: ["Java 17", "OOP Polymorphism", "Atomic Transactions", "JUnit"],
+    milestones: ["Account Hierarchy & Overdraft", "Atomic Ledger Transfers", "Interest Accrual Service"],
+    progressPercent: 0,
+    difficulty: "Intermediate",
+    xpReward: 320,
+  },
+  {
+    id: "proj_realtime_chat",
+    title: "Real-Time Chat & Multi-Room Presence",
+    domain: "Real-Time Systems",
+    starterLanguage: "javascript",
+    description: "Engineer an instant messaging backbone with peer-to-peer room routing, typing presence indicators, and message caching.",
+    technologies: ["Node.js", "Socket.io", "Redis Pub/Sub", "Express"],
+    milestones: ["Room Broadcasting Protocol", "Heartbeat Presence Tracker", "Message History Cache"],
+    progressPercent: 0,
+    difficulty: "Intermediate",
+    xpReward: 300,
+  },
+  {
+    id: "proj_online_exam",
+    title: "Online Examination & Proctoring Engine",
+    domain: "Full-Stack Web",
+    starterLanguage: "react",
+    description: "Construct a proctored assessment system with synchronized countdown timers, randomized question banks, and anti-tamper telemetry.",
+    technologies: ["React", "Node.js", "MongoDB", "WebRTC"],
+    milestones: ["Timed Exam State Machine", "Automated MCQ Auto-Grading", "Anti-Tamper Event Listener"],
+    progressPercent: 0,
+    difficulty: "Advanced",
+    xpReward: 350,
+  },
+  {
+    id: "proj_resume_analyzer",
+    title: "AI-Powered Resume Analyzer & Keyword Parser",
+    domain: "AI & Data Engineering",
+    starterLanguage: "python",
+    description: "Implement an algorithmic resume screening pipeline that extracts technical competencies, computes JD match scores, and highlights missing keywords.",
+    technologies: ["Python", "NLP Regex", "FastAPI", "JSON Schema"],
+    milestones: ["Resume Tokenizer & Section Extractor", "Skills TF-IDF Matching Engine", "Match Scoring Algorithm"],
+    progressPercent: 0,
+    difficulty: "Intermediate",
+    xpReward: 320,
+  },
+  {
+    id: "proj_inventory_warehouse",
+    title: "Inventory & Warehouse State Management",
+    domain: "Enterprise Systems",
+    starterLanguage: "java",
+    description: "Build a warehouse management platform tracking product SKUs, multi-bin storage allocations, and automated low-stock reorder thresholds.",
+    technologies: ["Java", "Spring Boot", "PostgreSQL", "JPA"],
+    milestones: ["SKU Tracking & Stock Levels", "Order Fulfillment Pipeline", "Low-Stock Event Dispatcher"],
+    progressPercent: 0,
+    difficulty: "Intermediate",
+    xpReward: 310,
+  },
+  {
+    id: "proj_url_shortener",
+    title: "High-Scale URL Shortener & Analytics",
+    domain: "Backend Systems",
+    starterLanguage: "javascript",
+    description: "Design a high-throughput URL shortening service with Base62 collision-free encoding, Redis cache lookups, and click geocoding metrics.",
+    technologies: ["Node.js", "Base62 Encoding", "Redis", "PostgreSQL"],
+    milestones: ["Base62 Hash Tokenizer", "Sub-Millisecond Redis Cache", "Click Analytics Stream"],
+    progressPercent: 0,
+    difficulty: "Intermediate",
+    xpReward: 290,
   },
 ];
 
@@ -343,6 +451,11 @@ const DEFAULT_RESOURCES = [
 ];
 
 /* ══════════════════════════════════════════════════════════════
+   DEFAULT STUDY GROUPS & COLLABORATIVE PODS
+   ══════════════════════════════════════════════════════════════ */
+const DEFAULT_STUDY_GROUPS = [];
+
+/* ══════════════════════════════════════════════════════════════
    MAIN CODING DASHBOARD COMPONENT
    ══════════════════════════════════════════════════════════════ */
 export default function Coding() {
@@ -350,24 +463,44 @@ export default function Coding() {
   const [searchParams] = useSearchParams();
   const location = useLocation();
 
-  // Navigation tab state: "learning_path" | "videos" | "challenges" | "projects" | "study_groups" | "resources" | "certification"
-  const initialTab = searchParams.get("tab") || location.state?.tab || "learning_path";
+  // Normalize tab names to support aliases like 'learn', 'tracks', 'learning-path', 'practice'
+  const normalizeTabName = (name) => {
+    if (!name) return "learning_path";
+    const lower = String(name).toLowerCase().trim();
+    if (lower === "learning_path" || lower === "learning-path" || lower === "learningpath" || lower === "learn" || lower === "tracks" || lower === "track" || lower === "path") {
+      return "learning_path";
+    }
+    if (lower === "challenges" || lower === "challenge" || lower === "practice" || lower === "dsa") {
+      return "challenges";
+    }
+    if (lower === "projects" || lower === "project") {
+      return "projects";
+    }
+    if (lower === "certification" || lower === "certificates" || lower === "certifications" || lower === "exams") {
+      return "certification";
+    }
+    if (lower === "videos" || lower === "video") {
+      return "videos";
+    }
+    if (lower === "study_groups" || lower === "study-groups" || lower === "studygroups" || lower === "live") {
+      return "study_groups";
+    }
+    if (lower === "resources" || lower === "resource") {
+      return "resources";
+    }
+    return "learning_path";
+  };
+
+  const rawInitialTab = searchParams.get("tab") || location.state?.tab;
+  const initialTab = normalizeTabName(rawInitialTab);
   const [activeTab, setActiveTab] = useState(initialTab);
 
   // Synchronize active tab whenever URL search params or router state changes
   useEffect(() => {
     const tabParam = searchParams.get("tab") || location.state?.tab;
-    const validTabs = [
-      "learning_path",
-      "videos",
-      "challenges",
-      "projects",
-      "study_groups",
-      "resources",
-      "certification",
-    ];
-    if (tabParam && validTabs.includes(tabParam)) {
-      setActiveTab(tabParam);
+    if (tabParam) {
+      const normalized = normalizeTabName(tabParam);
+      setActiveTab(normalized);
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
   }, [searchParams, location.state]);
@@ -388,6 +521,7 @@ export default function Coding() {
   const [challenges, setChallenges] = useState([]);
   const [projects, setProjects] = useState(DEFAULT_PROJECTS);
   const [resources, setResources] = useState(DEFAULT_RESOURCES);
+  const [studyGroups, setStudyGroups] = useState(DEFAULT_STUDY_GROUPS);
   const [stats, setStats] = useState({
     totalXp: 450,
     hoursSpent: 12.5,
@@ -396,6 +530,7 @@ export default function Coding() {
     activeTrack: "Python Track",
   });
   const [earnedCertificates, setEarnedCertificates] = useState([]);
+  const [certAttempts, setCertAttempts] = useState([]);
 
   // Filter states inside Challenges tab
   const [challengeDifficulty, setChallengeDifficulty] = useState("all");
@@ -564,9 +699,21 @@ export default function Coding() {
   const [certSearchQuery, setCertSearchQuery] = useState("");
   const [certFilterCategory, setCertFilterCategory] = useState("all");
 
-  // Study Groups state
+  // Projects interactive domain filter state
+  const [projectDomainFilter, setProjectDomainFilter] = useState("all");
+  const [projectSearchQuery, setProjectSearchQuery] = useState("");
+
+  // Study Groups interactive state & configurator
   const [studyGroupCategory, setStudyGroupCategory] = useState("all");
   const [studyRoomCodeInput, setStudyRoomCodeInput] = useState("");
+  const [isCreatingMeeting, setIsCreatingMeeting] = useState(false);
+  const [pairLang, setPairLang] = useState("Python");
+  const [dsaTopic, setDsaTopic] = useState("Dynamic Programming");
+  const [archTopic, setArchTopic] = useState("Microservices");
+  const [interviewTrack, setInterviewTrack] = useState("Full-Stack Lead");
+  const [customRoomTopic, setCustomRoomTopic] = useState("");
+  const [customRoomTrack, setCustomRoomTrack] = useState("DSA & Problem Solving");
+  const [customRoomLimit, setCustomRoomLimit] = useState("4");
 
   // Re-render tick when challenges or projects are solved in separate tabs
   const [completionTick, setCompletionTick] = useState(0);
@@ -670,9 +817,35 @@ export default function Coding() {
           if (Array.isArray(certData.certificates)) {
             setEarnedCertificates(certData.certificates);
           }
+          if (Array.isArray(certData.attempts)) {
+            setCertAttempts(certData.attempts);
+          }
         }
       } catch {}
     }
+
+    // Fetch active collaborative study rooms
+    try {
+      const meetRes = await fetch(`${API_BASE}/api/meetings/study-rooms`);
+      if (meetRes.ok) {
+        const mData = await meetRes.json();
+        if (Array.isArray(mData.rooms) && mData.rooms.length > 0) {
+          setStudyGroups((prev) =>
+            prev.map((pod) => {
+              const liveRoom = mData.rooms.find((r) => r.key === pod.key);
+              if (liveRoom) {
+                return {
+                  ...pod,
+                  activeMeetingId: liveRoom.activeMeetingId || pod.activeMeetingId || pod.id,
+                  peersCount: liveRoom.liveParticipantsCount > 0 ? liveRoom.liveParticipantsCount : pod.peersCount,
+                };
+              }
+              return pod;
+            })
+          );
+        }
+      }
+    } catch {}
   }, [token]);
 
   useEffect(() => {
@@ -924,10 +1097,54 @@ export default function Coding() {
     });
   }, [videoCourses, videoCategoryFilter, videoSearchQuery]);
 
+  const filteredProjects = useMemo(() => {
+    let list = Array.isArray(projects) && projects.length > 0 ? projects : DEFAULT_PROJECTS;
+    if (projectDomainFilter !== "all") {
+      const target = projectDomainFilter.toLowerCase();
+      list = list.filter((p) => {
+        const d = (p.domain || p.category || p.track || "").toLowerCase();
+        const tech = (p.technologies || []).map((t) => t.toLowerCase());
+        if (target === "backend") return d.includes("backend") || tech.some((t) => t.includes("node") || t.includes("redis") || t.includes("sql"));
+        if (target === "real-time") return d.includes("real-time") || tech.some((t) => t.includes("websocket") || t.includes("socket"));
+        if (target === "financial") return d.includes("financial") || tech.some((t) => t.includes("c++") || t.includes("trading"));
+        if (target === "full-stack") return d.includes("full-stack") || d.includes("web") || tech.some((t) => t.includes("react") || t.includes("fastapi"));
+        if (target === "enterprise") return d.includes("enterprise") || tech.some((t) => t.includes("java") || t.includes("spring"));
+        if (target === "ai") return d.includes("ai") || d.includes("data") || tech.some((t) => t.includes("nlp") || t.includes("regex"));
+        return d.includes(target);
+      });
+    }
+    if (projectSearchQuery.trim()) {
+      const q = projectSearchQuery.toLowerCase().trim();
+      list = list.filter((p) => {
+        const title = (p.title || "").toLowerCase();
+        const desc = (p.description || "").toLowerCase();
+        const techs = (p.technologies || []).map((t) => t.toLowerCase());
+        return title.includes(q) || desc.includes(q) || techs.some((t) => t.includes(q));
+      });
+    }
+    return list;
+  }, [projects, projectDomainFilter, projectSearchQuery]);
+
   const challengeCategoriesList = useMemo(() => {
     const cats = new Set(challenges.map((c) => c.category).filter(Boolean));
     return ["all", ...Array.from(cats)];
   }, [challenges]);
+
+  const filteredStudyGroups = useMemo(() => {
+    if (studyGroupCategory === "all") return studyGroups;
+    return studyGroups.filter((g) => {
+      const cat = (g.category || "").toLowerCase();
+      const tags = (g.tags || []).map((t) => t.toLowerCase());
+      const target = studyGroupCategory.toLowerCase();
+      if (target === "algorithms") return cat.includes("algorithm") || tags.some((t) => t.includes("tree") || t.includes("dp") || t.includes("pointer"));
+      if (target === "backend") return cat.includes("backend") || cat.includes("ai") || tags.some((t) => t.includes("python") || t.includes("fastapi"));
+      if (target === "web") return cat.includes("web") || tags.some((t) => t.includes("react") || t.includes("node"));
+      if (target === "systems") return cat.includes("system") || tags.some((t) => t.includes("c++") || t.includes("raii"));
+      if (target === "career") return cat.includes("career") || tags.some((t) => t.includes("mock") || t.includes("behavioral"));
+      if (target === "communication") return cat.includes("communication") || tags.some((t) => t.includes("english"));
+      return true;
+    });
+  }, [studyGroups, studyGroupCategory]);
 
   /* ────────────────────────────────────────────────────────────
      4. Action Handlers
@@ -952,7 +1169,83 @@ export default function Coding() {
     }
   };
 
+  const getSubjectCertStatus = useCallback(
+    (subjectId) => {
+      if (!subjectId) return { isCompleted: false };
+      const target = subjectId.toLowerCase();
+
+      // Check earned valid certificates
+      const cert = earnedCertificates.find((c) => {
+        const cId = (c.certificationId || c.certId || "").toLowerCase();
+        return (
+          cId === target ||
+          (target === "js_cert" && cId === "fullstack_cert") ||
+          (target === "fullstack_cert" && cId === "js_cert")
+        );
+      });
+
+      // Check passed attempts (cutoff >= 80% or status PASSED)
+      const passedAttempt = certAttempts.find((att) => {
+        const aId = (att.certId || "").toLowerCase();
+        const matches =
+          aId === target ||
+          (target === "js_cert" && aId === "fullstack_cert") ||
+          (target === "fullstack_cert" && aId === "js_cert");
+        return (
+          matches &&
+          (att.status === "PASSED" || (att.percentage != null && att.percentage >= 80))
+        );
+      });
+
+      // Check latest attempt for previous score feedback
+      const latestAttempt = certAttempts
+        .filter((att) => {
+          const aId = (att.certId || "").toLowerCase();
+          return (
+            aId === target ||
+            (target === "js_cert" && aId === "fullstack_cert") ||
+            (target === "fullstack_cert" && aId === "js_cert")
+          );
+        })
+        .sort(
+          (a, b) =>
+            new Date(b.startTime || b.createdAt || 0) -
+            new Date(a.startTime || a.createdAt || 0)
+        )[0];
+
+      const isCompleted = Boolean(cert || passedAttempt);
+      const certificateId = cert?.certificateId || passedAttempt?.certificateId || null;
+      const attemptId = passedAttempt?.attemptId || cert?.attemptId || latestAttempt?.attemptId || null;
+
+      return {
+        isCompleted,
+        certificate: cert,
+        passedAttempt,
+        latestAttempt,
+        certificateId,
+        attemptId,
+      };
+    },
+    [earnedCertificates, certAttempts]
+  );
+
   const handleStartExam = (certId, certTitle, language = "python") => {
+    const status = getSubjectCertStatus(certId);
+    if (status.isCompleted) {
+      toast.info("You have already passed this certification and earned your credential! Completed tests cannot be retaken.", {
+        toastId: "cert_cannot_retake",
+      });
+      if (status.certificateId) {
+        window.open(`/certification/verify/${status.certificateId}`, "_blank", "noopener,noreferrer");
+      }
+      return;
+    }
+
+    // Clean stale submitted flags from localStorage before starting retake
+    const uKey = currentUser?._id || currentUser?.id || "guest";
+    localStorage.removeItem(`mz_${uKey}_cert_${certId}_submitted`);
+    localStorage.removeItem(`mz_${uKey}_cert_${certId}_report_url`);
+
     // Open certification examination strictly in a dedicated separate tab
     window.open(`/certification-exam/${certId}`, "_blank", "noopener,noreferrer");
   };
@@ -964,18 +1257,26 @@ export default function Coding() {
     window.open(`/challenge-workspace/playground-${targetLang}-${seed}`, "_blank", "noopener,noreferrer");
   };
 
-  const handleStartInstantMeeting = async () => {
+  const handleStartInstantMeeting = async (customTitle, customKey) => {
+    setIsCreatingMeeting(true);
     try {
+      const titleStr = typeof customTitle === "string" && customTitle.trim()
+        ? customTitle.trim()
+        : "Mastery Zone Instant Live Pod";
+      const keyStr = typeof customKey === "string" && customKey.trim()
+        ? customKey.trim()
+        : "study_group";
+
       const token = localStorage.getItem("token") || "";
-      const res = await fetch("/api/meetings/create", {
+      const res = await fetch(`${API_BASE}/api/meetings/create`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          title: "Mastery Zone Instant Live Pod",
-          groupKey: "study_group",
+          title: titleStr,
+          groupKey: keyStr,
         }),
       });
       let meetingId = null;
@@ -992,6 +1293,7 @@ export default function Coding() {
       if (meetingId) {
         sessionStorage.setItem(`mz_host_${meetingId}`, "true");
         window.open(`/meeting/${meetingId}`, "_blank", "noopener,noreferrer");
+        toast.success(`Live room "${titleStr}" launched!`);
       }
     } catch (err) {
       console.warn("Instant meeting creation:", err);
@@ -1001,11 +1303,22 @@ export default function Coding() {
       const fallbackId = `${r1}-${r2}-${r3}`;
       sessionStorage.setItem(`mz_host_${fallbackId}`, "true");
       window.open(`/meeting/${fallbackId}`, "_blank", "noopener,noreferrer");
+      toast.success("Live room launched in fallback mode!");
+    } finally {
+      setIsCreatingMeeting(false);
     }
   };
 
+  const handleCreateCustomRoom = (e) => {
+    e?.preventDefault();
+    const title = customRoomTopic.trim() || `${customRoomTrack} Live Pod`;
+    handleStartInstantMeeting(`${title} (${customRoomLimit} peers max)`, customRoomTrack.toLowerCase().replace(/[^a-z0-9]/g, "_"));
+    setCustomRoomTopic("");
+  };
+
   const handleJoinStudyGroup = (sg) => {
-    window.open(`/meeting/${sg.id}`, "_blank", "noopener,noreferrer");
+    const meetingKey = sg.activeMeetingId || sg.meetingId || sg.id || sg.key;
+    window.open(`/meeting/${meetingKey}`, "_blank", "noopener,noreferrer");
   };
 
   const handleJoinWithCode = (e) => {
@@ -1400,7 +1713,7 @@ export default function Coding() {
         <div className="mz-c-nav-right">
           <button
             className="mz-c-live-room-btn"
-            onClick={() => navigate("/live")}
+            onClick={handleStartInstantMeeting}
             title="Launch Instant Collaborative Live Room"
           >
             <span className="mz-c-live-dot" />
@@ -1481,6 +1794,9 @@ export default function Coding() {
             activeTab={activeTab}
             challenges={challenges}
             projects={projects}
+            earnedCertificates={earnedCertificates}
+            solvedCount={stats?.solvedCount || 0}
+            passedProjectsCount={projects.filter((p) => p.userState?.passed).length}
             onNavigateTab={(tab) => {
               setActiveTab(tab);
               window.scrollTo({ top: 0, behavior: "smooth" });
@@ -2093,6 +2409,67 @@ export default function Coding() {
         {/* ── TAB 2: CHALLENGES TAB (Curated Algorithmic Problems with Question Numbers) ── */}
         {activeTab === "challenges" && (
           <div className="mz-c-challenges-tab-view mz-c-grid-anim">
+            {/* Top 135 Challenges Showcase Cover Card */}
+            <div
+              style={{
+                background: "linear-gradient(135deg, #0b1329 0%, #172554 55%, #1e3a8a 100%)",
+                borderRadius: "20px",
+                padding: "26px 30px",
+                color: "#ffffff",
+                marginBottom: "22px",
+                boxShadow: "0 12px 32px -4px rgba(15, 23, 42, 0.25)",
+                position: "relative",
+                overflow: "hidden",
+                border: "1px solid rgba(59, 130, 246, 0.35)",
+                display: "flex",
+                flexWrap: "wrap",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "20px",
+              }}
+            >
+              <div style={{ position: "relative", zIndex: 1, maxWidth: "660px" }}>
+                <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: "rgba(59, 130, 246, 0.2)", border: "1px solid rgba(147, 197, 253, 0.4)", padding: "4px 12px", borderRadius: "9999px", marginBottom: "12px" }}>
+                  <LuCode size={13} color="#93c5fd" />
+                  <span style={{ fontSize: "11px", fontWeight: 800, color: "#bfdbfe", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                    Official LeetCode & FAANG Problem Catalog
+                  </span>
+                </div>
+                <h2 style={{ fontSize: "24px", fontWeight: 900, margin: "0 0 8px", color: "#ffffff", letterSpacing: "-0.01em" }}>
+                  135 Curated Algorithmic Coding Challenges
+                </h2>
+                <p style={{ margin: 0, fontSize: "13.5px", color: "#cbd5e1", lineHeight: 1.55 }}>
+                  Practice essential data structures and algorithms across Python, Modern C++, Java, and JavaScript. Every problem features automated multi-test execution, edge-case evaluation, and sub-millisecond benchmarking.
+                </p>
+              </div>
+
+              {/* Mini Quick Metric Counters */}
+              <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", position: "relative", zIndex: 1 }}>
+                <div style={{ background: "rgba(255, 255, 255, 0.08)", backdropFilter: "blur(8px)", padding: "10px 16px", borderRadius: "12px", border: "1px solid rgba(255, 255, 255, 0.12)", textAlign: "center", minWidth: "85px" }}>
+                  <div style={{ fontSize: "10px", color: "#94a3b8", textTransform: "uppercase", fontWeight: 700 }}>Total</div>
+                  <div style={{ fontSize: "18px", fontWeight: 800, color: "#ffffff", marginTop: "2px" }}>{challenges.length || 135}</div>
+                </div>
+                <div style={{ background: "rgba(255, 255, 255, 0.08)", backdropFilter: "blur(8px)", padding: "10px 16px", borderRadius: "12px", border: "1px solid rgba(255, 255, 255, 0.12)", textAlign: "center", minWidth: "85px" }}>
+                  <div style={{ fontSize: "10px", color: "#86efac", textTransform: "uppercase", fontWeight: 700 }}>Easy</div>
+                  <div style={{ fontSize: "18px", fontWeight: 800, color: "#4ade80", marginTop: "2px" }}>
+                    {challenges.filter((c) => c.difficulty?.toLowerCase() === "easy").length || 45}
+                  </div>
+                </div>
+                <div style={{ background: "rgba(255, 255, 255, 0.08)", backdropFilter: "blur(8px)", padding: "10px 16px", borderRadius: "12px", border: "1px solid rgba(255, 255, 255, 0.12)", textAlign: "center", minWidth: "85px" }}>
+                  <div style={{ fontSize: "10px", color: "#fde047", textTransform: "uppercase", fontWeight: 700 }}>Medium</div>
+                  <div style={{ fontSize: "18px", fontWeight: 800, color: "#facc15", marginTop: "2px" }}>
+                    {challenges.filter((c) => c.difficulty?.toLowerCase() === "medium").length || 65}
+                  </div>
+                </div>
+                <div style={{ background: "rgba(255, 255, 255, 0.08)", backdropFilter: "blur(8px)", padding: "10px 16px", borderRadius: "12px", border: "1px solid rgba(255, 255, 255, 0.12)", textAlign: "center", minWidth: "85px" }}>
+                  <div style={{ fontSize: "10px", color: "#fca5a5", textTransform: "uppercase", fontWeight: 700 }}>Hard</div>
+                  <div style={{ fontSize: "18px", fontWeight: 800, color: "#f87171", marginTop: "2px" }}>
+                    {challenges.filter((c) => c.difficulty?.toLowerCase() === "hard").length || 25}
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Filter Bar */}
             <div
               style={{
@@ -2184,59 +2561,178 @@ export default function Coding() {
                       className={`mz-c-challenge-card ${isDone ? "is-completed" : ""}`}
                       onClick={() => handleOpenChallenge(ch)}
                     >
-                      <div className="mz-c-card-top-accent" />
-                      <div className="mz-c-challenge-top">
-                        <span className="mz-c-result-qnum-tag" style={{ fontSize: "12px", fontWeight: 800 }}>
-                          #{ch.questionNumber || idx + 1}
-                        </span>
-                        <span
+                      {/* Top Accent Line - clipped cleanly by overflow: hidden */}
+                      <div
+                        className="mz-c-card-top-accent"
+                        style={{
+                          background: isDone
+                            ? "linear-gradient(90deg, #10b981, #059669)"
+                            : ch.difficulty?.toLowerCase() === "easy"
+                            ? "linear-gradient(90deg, #10b981, #3b82f6)"
+                            : ch.difficulty?.toLowerCase() === "hard"
+                            ? "linear-gradient(90deg, #ef4444, #8b5cf6)"
+                            : "linear-gradient(90deg, #2563eb, #6366f1)",
+                        }}
+                      />
+
+                      {/* Interactive Problem Cover Stage */}
+                      <div
+                        className="mz-c-ch-cover-stage"
+                        style={{
+                          padding: "18px 20px 14px",
+                          background: isDone
+                            ? "linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(5, 150, 105, 0.03) 100%)"
+                            : ch.difficulty?.toLowerCase() === "easy"
+                            ? "linear-gradient(135deg, rgba(16, 185, 129, 0.07) 0%, rgba(37, 99, 235, 0.03) 100%)"
+                            : ch.difficulty?.toLowerCase() === "hard"
+                            ? "linear-gradient(135deg, rgba(239, 68, 68, 0.07) 0%, rgba(139, 92, 246, 0.03) 100%)"
+                            : "linear-gradient(135deg, rgba(37, 99, 235, 0.07) 0%, rgba(99, 102, 241, 0.03) 100%)",
+                          borderBottom: "1px solid #f1f5f9",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "10px",
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            <span
+                              style={{
+                                fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+                                fontSize: "12px",
+                                fontWeight: 800,
+                                padding: "3px 9px",
+                                borderRadius: "7px",
+                                background: "#0f172a",
+                                color: "#ffffff",
+                                boxShadow: "0 2px 5px rgba(15, 23, 42, 0.15)",
+                              }}
+                            >
+                              #{ch.questionNumber || idx + 1}
+                            </span>
+                            <span
+                              style={{
+                                fontSize: "11px",
+                                fontWeight: 700,
+                                padding: "3px 9px",
+                                borderRadius: "12px",
+                                background:
+                                  ch.difficulty?.toLowerCase() === "easy"
+                                    ? "rgba(16,185,129,0.12)"
+                                    : ch.difficulty?.toLowerCase() === "hard"
+                                    ? "rgba(239,68,68,0.12)"
+                                    : "rgba(245,158,11,0.12)",
+                                color:
+                                  ch.difficulty?.toLowerCase() === "easy"
+                                    ? "#10b981"
+                                    : ch.difficulty?.toLowerCase() === "hard"
+                                    ? "#ef4444"
+                                    : "#d97706",
+                                border:
+                                  ch.difficulty?.toLowerCase() === "easy"
+                                    ? "1px solid rgba(16,185,129,0.25)"
+                                    : ch.difficulty?.toLowerCase() === "hard"
+                                    ? "1px solid rgba(239,68,68,0.25)"
+                                    : "1px solid rgba(245,158,11,0.25)",
+                                textTransform: "capitalize",
+                              }}
+                            >
+                              {ch.difficulty || "Medium"}
+                            </span>
+                          </div>
+
+                          {isDone ? (
+                            <span
+                              style={{
+                                fontSize: "11px",
+                                fontWeight: 800,
+                                color: "#059669",
+                                background: "#ecfdf5",
+                                border: "1px solid #a7f3d0",
+                                padding: "3px 8px",
+                                borderRadius: "12px",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "4px",
+                              }}
+                            >
+                              <LuCircleCheck size={13} /> Solved
+                            </span>
+                          ) : (
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                              <TechBrandIcon type={ch.starterLanguage || "python"} size={16} />
+                              <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 700 }}>
+                                {ch.category || "DSA Core"}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Title on the Cover */}
+                        <h3
                           style={{
-                            fontSize: "11px",
-                            fontWeight: 700,
-                            padding: "3px 9px",
-                            borderRadius: "12px",
-                            background:
-                              ch.difficulty?.toLowerCase() === "easy"
-                                ? "rgba(16,185,129,0.12)"
-                                : ch.difficulty?.toLowerCase() === "hard"
-                                ? "rgba(239,68,68,0.12)"
-                                : "rgba(245,158,11,0.12)",
-                            color:
-                              ch.difficulty?.toLowerCase() === "easy"
-                                ? "#10b981"
-                                : ch.difficulty?.toLowerCase() === "hard"
-                                ? "#ef4444"
-                                : "#f59e0b",
+                            margin: "2px 0 0",
+                            fontSize: "16px",
+                            fontWeight: 800,
+                            color: "#0f172a",
+                            lineHeight: 1.35,
+                            display: "-webkit-box",
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: "vertical",
+                            overflow: "hidden",
                           }}
                         >
-                          {ch.difficulty || "Medium"}
-                        </span>
-                        {isDone && (
-                          <span className="mz-c-card-completed-badge" style={{ marginLeft: "auto" }}>
-                            <LuCircleCheck size={13} /> Completed
-                          </span>
-                        )}
+                          {ch.title}
+                        </h3>
                       </div>
 
-                      <h3 className="mz-c-challenge-title">{ch.title}</h3>
-                      <p className="mz-c-challenge-desc">
-                        {ch.description ? ch.description.slice(0, 110) + "..." : "Master algorithmic optimization and verify edge cases."}
-                      </p>
-
-                      <div className="mz-c-challenge-meta">
-                        <span style={{ fontSize: "11.5px", color: "#64748b", display: "flex", alignItems: "center", gap: "6px" }}>
-                          <LuShieldCheck size={13} color="#2563eb" /> 10 Test Cases (80% Cutoff)
-                        </span>
-                        <button
-                          className={`mz-c-btn-solve ${isDone ? "mz-c-btn-completed" : ""}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenChallenge(ch);
+                      {/* Problem Body Info */}
+                      <div style={{ padding: "16px 20px 18px", display: "flex", flexDirection: "column", flex: 1, justifyContent: "space-between" }}>
+                        <p
+                          style={{
+                            margin: "0 0 16px",
+                            fontSize: "13px",
+                            color: "#64748b",
+                            lineHeight: 1.5,
+                            display: "-webkit-box",
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: "vertical",
+                            overflow: "hidden",
                           }}
                         >
-                          {isDone ? "Review Solution" : "Solve Challenge"}{" "}
-                          <LuArrowRight className="mz-c-solve-arrow" size={13} />
-                        </button>
+                          {ch.description ? ch.description.slice(0, 110) + "..." : "Master algorithmic optimization and verify edge cases across automated test suites."}
+                        </p>
+
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: "12px", borderTop: "1px solid #f1f5f9" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            <span style={{ fontSize: "11.5px", color: "#64748b", display: "flex", alignItems: "center", gap: "5px", fontWeight: 600 }}>
+                              <LuShieldCheck size={13} color="#2563eb" /> 10 Test Cases
+                            </span>
+                            <span style={{ fontSize: "11px", color: "#d97706", background: "#fef3c7", padding: "2px 6px", borderRadius: "6px", fontWeight: 700 }}>
+                              +40 XP
+                            </span>
+                          </div>
+
+                          <button
+                            type="button"
+                            className={`mz-c-btn-solve ${isDone ? "mz-c-btn-completed" : ""}`}
+                            style={{
+                              padding: "7px 15px",
+                              fontSize: "12px",
+                              borderRadius: "8px",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "6px",
+                              fontWeight: 700,
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenChallenge(ch);
+                            }}
+                          >
+                            <span>{isDone ? "Review Solution" : "Solve Challenge"}</span>
+                            <LuArrowRight className="mz-c-solve-arrow" size={13} />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -2517,102 +3013,205 @@ export default function Coding() {
           </div>
         )}
 
-        {/* ── TAB 4: PROJECTS TAB ── */}
+        {/* ── TAB 4: PROJECTS TAB (12 Production-Grade Industry Labs) ── */}
         {activeTab === "projects" && (
-          <div className="mz-c-projects-grid mz-c-grid-anim">
-            {projects.map((proj) => {
-              const isDone = Boolean(
-                proj.userState?.passed ||
-                proj.userState?.status === "PASSED" ||
-                proj.userState?.status === "passed" ||
-                (currentUserId && typeof window !== "undefined" && window.localStorage?.getItem(`mz_${currentUserId}_proj_passed_${proj.id}`) === "true")
-              );
-              return (
-                <div
-                  key={proj.id}
-                  className={`mz-c-project-card ${isDone ? "is-completed" : ""}`}
-                  onClick={() => handleOpenProject(proj)}
-                >
-                  <div className="mz-c-card-top-accent" />
-                  <div className="mz-c-project-header">
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      <span className="mz-c-chip mz-c-status-in-progress" style={{ fontSize: "11px" }}>
-                        {proj.domain || "Practical Engineering"}
-                      </span>
-                      <span style={{ fontSize: "12px", color: "#64748b", fontWeight: 600 }}>
-                        {proj.difficulty || "Intermediate"}
-                      </span>
-                    </div>
-                    {isDone && (
-                      <span className="mz-c-card-completed-badge" style={{ marginLeft: "auto" }}>
-                        <LuCircleCheck size={13} /> Completed
-                      </span>
-                    )}
-                  </div>
-                  <h3>{proj.title}</h3>
-                  <p>{proj.description}</p>
+          <div className="mz-c-projects-tab-view mz-c-grid-anim">
+            {/* Top 12 Projects Showcase Cover Slide (No blue line above top slide) */}
+            <div className="mz-c-projects-showcase-cover">
+              <div className="mz-c-proj-cover-content">
+                <div className="mz-c-proj-cover-badge-row">
+                  <span className="mz-c-proj-cover-tag">
+                    <LuSparkles size={13} /> Full-Stack & Systems Engineering Labs
+                  </span>
+                  <span className="mz-c-proj-cover-meta-pill">
+                    Monaco Multi-File Cloud IDE • Automated Milestones
+                  </span>
+                </div>
+                <h2 className="mz-c-proj-cover-title">
+                  12 Production-Grade Industry Engineering Projects
+                </h2>
+                <p className="mz-c-proj-cover-desc">
+                  Architect and deploy end-to-end distributed systems, real-time WebSockets engines, microservices APIs, and high-frequency order books with milestone-by-milestone guided verification.
+                </p>
 
-                  {/* Tech tags */}
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", margin: "14px 0" }}>
-                    {(proj.technologies || []).map((t) => (
-                      <span
-                        key={t}
-                        style={{
-                          fontSize: "11px",
-                          fontWeight: 700,
-                          padding: "3px 8px",
-                          borderRadius: "8px",
-                          background: "#f1f5f9",
-                          color: "#475569",
+                {/* Interactive Domain Filter Chips inside Cover */}
+                <div className="mz-c-proj-cover-filter-row">
+                  <span className="mz-c-proj-filter-label">Filter Labs:</span>
+                  {[
+                    { id: "all", label: "All Projects (12)" },
+                    { id: "backend", label: "Backend Systems" },
+                    { id: "real-time", label: "Real-Time Systems" },
+                    { id: "financial", label: "Financial Engineering" },
+                    { id: "full-stack", label: "Full-Stack Web" },
+                    { id: "enterprise", label: "Enterprise Systems" },
+                    { id: "ai", label: "AI & Data" },
+                  ].map((cat) => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      className={`mz-c-proj-filter-pill ${projectDomainFilter === cat.id ? "is-active" : ""}`}
+                      onClick={() => setProjectDomainFilter(cat.id)}
+                    >
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Quick Metrics Cluster */}
+              <div className="mz-c-proj-cover-stats">
+                <div className="mz-c-proj-stat-box">
+                  <div className="mz-c-proj-stat-label">Total Labs</div>
+                  <div className="mz-c-proj-stat-num">12</div>
+                  <div className="mz-c-proj-stat-sub">Production Grade</div>
+                </div>
+                <div className="mz-c-proj-stat-box">
+                  <div className="mz-c-proj-stat-label">Completed</div>
+                  <div className="mz-c-proj-stat-num" style={{ color: "#4ade80" }}>
+                    {projects.filter((p) => p.userState?.passed).length}
+                  </div>
+                  <div className="mz-c-proj-stat-sub">Verified</div>
+                </div>
+                <div className="mz-c-proj-stat-box">
+                  <div className="mz-c-proj-stat-label">Max Reward</div>
+                  <div className="mz-c-proj-stat-num" style={{ color: "#38bdf8" }}>+3,600</div>
+                  <div className="mz-c-proj-stat-sub">Total XP</div>
+                </div>
+              </div>
+            </div>
+
+            {/* 12 Projects Grid (Blue line above slides removed) */}
+            <div className="mz-c-projects-grid">
+              {filteredProjects.map((proj) => {
+                const isDone = Boolean(
+                  proj.userState?.passed ||
+                  proj.userState?.status === "PASSED" ||
+                  proj.userState?.status === "passed" ||
+                  (currentUserId && typeof window !== "undefined" && window.localStorage?.getItem(`mz_${currentUserId}_proj_passed_${proj.id}`) === "true")
+                );
+                const techList = proj.technologies || [];
+                const milestonesList = proj.milestones || proj.tasks || [];
+                const checkedMilestones = isDone
+                  ? milestonesList.length
+                  : (proj.userState?.checkedTasks?.length || (proj.progressPercent ? Math.round((proj.progressPercent / 100) * milestonesList.length) : 0));
+                const progressPct = isDone
+                  ? 100
+                  : (milestonesList.length > 0 ? Math.round((checkedMilestones / milestonesList.length) * 100) : 0);
+
+                return (
+                  <div
+                    key={proj.id}
+                    className={`mz-c-project-card ${isDone ? "is-completed" : ""}`}
+                    onClick={() => handleOpenProject(proj)}
+                  >
+                    {/* Notice: Blue line (.mz-c-card-top-accent) removed above slide */}
+
+                    {/* Interactive Project Cover Stage */}
+                    <div className="mz-c-project-cover-stage">
+                      <div className="mz-c-stage-top-row">
+                        <span className="mz-c-domain-badge">
+                          <TechBrandIcon type={proj.starterLanguage || proj.lang || techList[0]} size={16} />
+                          <span>{proj.domain || proj.category || "Engineering Lab"}</span>
+                        </span>
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          <span className={`mz-c-proj-diff-badge ${String(proj.difficulty || "Intermediate").toLowerCase()}`}>
+                            {proj.difficulty || "Intermediate"}
+                          </span>
+                          {isDone && (
+                            <span className="mz-c-proj-completed-badge">
+                              <LuCircleCheck size={13} /> Completed
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <h3 className="mz-c-project-title">{proj.title}</h3>
+                      <p className="mz-c-project-desc">{proj.description}</p>
+                    </div>
+
+                    {/* Tech Stack Pills */}
+                    <div className="mz-c-project-tech-row">
+                      {techList.slice(0, 4).map((t) => (
+                        <span key={t} className="mz-c-tech-tag-pill">
+                          {t}
+                        </span>
+                      ))}
+                      {techList.length > 4 && (
+                        <span className="mz-c-tech-tag-pill" style={{ opacity: 0.75 }}>
+                          +{techList.length - 4}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Guided Milestones Progress Bar */}
+                    <div className="mz-c-project-milestones-box">
+                      <div className="mz-c-milestone-header">
+                        <span className="mz-c-milestone-label">
+                          {isDone ? "✓ All Milestones Verified" : `${milestonesList.length} Guided Milestones`}
+                        </span>
+                        <span className="mz-c-milestone-pct">{progressPct}%</span>
+                      </div>
+                      <div className="mz-c-milestone-progress-track">
+                        <div
+                          className="mz-c-milestone-progress-fill"
+                          style={{
+                            width: `${progressPct}%`,
+                            background: isDone
+                              ? "linear-gradient(90deg, #10b981, #059669)"
+                              : "linear-gradient(90deg, #3b82f6, #6366f1)",
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Card Footer with Launch CTA */}
+                    <div className="mz-c-project-footer">
+                      <span className="mz-c-proj-xp-badge">
+                        <LuZap size={13} color="#f59e0b" /> +{proj.xpReward || 300} XP
+                      </span>
+                      <a
+                        href={`/project-workspace/${proj.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`mz-c-btn-solve ${isDone ? "mz-c-btn-completed" : ""}`}
+                        style={{ padding: "7px 16px", fontSize: "12.5px", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "6px" }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenProject(proj);
                         }}
                       >
-                        {t}
-                      </span>
-                    ))}
+                        {isDone ? "Review Workspace" : "Open Workspace"} <LuArrowRight size={13} />
+                      </a>
+                    </div>
                   </div>
-
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "auto", paddingTop: "12px", borderTop: "1px solid #f1f5f9" }}>
-                    <span style={{ fontSize: "12px", color: isDone ? "#10b981" : "#64748b", fontWeight: 600 }}>
-                      {isDone ? "✓ All Milestones Verified" : `${(proj.milestones || []).length} Guided Milestones`}
-                    </span>
-                    <a
-                      href={`/project-workspace/${proj.id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={`mz-c-btn-solve ${isDone ? "mz-c-btn-completed" : ""}`}
-                      style={{ padding: "6px 14px", fontSize: "12px", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "6px" }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenProject(proj);
-                      }}
-                    >
-                      {isDone ? "Review Workspace" : "Open Workspace"} <LuArrowRight size={13} />
-                    </a>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         )}
 
-        {/* ── TAB 5: STUDY GROUPS TAB (Collaborative Live Pods & Instant Meetings) ── */}
+        {/* ── TAB 5: STUDY GROUPS TAB (Interactive Cover Page & Collaborative Live Pods) ── */}
         {activeTab === "study_groups" && (
           <div className="mz-c-study-groups-view mz-c-grid-anim">
-            {/* Header Hero Action Bar */}
-            <div className="mz-c-study-hero-card">
-              <div className="mz-c-study-hero-info">
-                <div className="mz-c-study-live-indicator">
-                  <span className="mz-c-live-pulse-dot" />
-                  <span>Instant Collaboration & Meeting Pods</span>
+            {/* 1. Hero Cover Banner */}
+            <div className="mz-c-study-cover-hero">
+              <div className="mz-c-study-cover-hero-top">
+                <div className="mz-c-study-badges-row">
+                  <span className="mz-c-study-live-indicator">
+                    <span className="mz-c-live-pulse-dot" /> Live Collaborative Rooms Active
+                  </span>
+                  <span className="mz-c-study-tech-badge">
+                    <LuSparkles size={13} /> WebRTC P2P • Monaco Dual IDE • Infinite Whiteboard
+                  </span>
                 </div>
-                <h2>Collaborative Code Pods & Live Meeting Rooms</h2>
-                <p>
-                  Pair program with top engineers, join peer study rooms with integrated audio, live code execution,
-                  whiteboard diagrams, and real-time cloud recordings.
+                <h2 className="mz-c-study-cover-title">Real-Time Collaborative Coding Pods & Study Rooms</h2>
+                <p className="mz-c-study-cover-desc">
+                  Step into synchronized live rooms engineered for high-performance software developers. Pair-program with zero latency, dissect algorithmic challenges together, diagram distributed systems on an infinite whiteboard, and conduct realistic FAANG technical mock interviews.
                 </p>
               </div>
 
-              <div className="mz-c-study-hero-actions">
+              {/* Quick Actions Console */}
+              <div className="mz-c-study-cover-actions">
                 <button
                   type="button"
                   className="mz-c-btn-start-meeting"
@@ -2632,9 +3231,333 @@ export default function Coding() {
                     className="mz-c-join-code-input"
                   />
                   <button type="submit" className="mz-c-join-code-btn" disabled={!studyRoomCodeInput.trim()}>
-                    Join
+                    Join Room
                   </button>
                 </form>
+              </div>
+            </div>
+
+            {/* 2. Real-Time Capability Highlights */}
+            <div className="mz-c-study-pillars-grid">
+              <div className="mz-c-study-pillar-card">
+                <div className="mz-c-pillar-icon-wrap" style={{ background: "rgba(37, 99, 235, 0.1)", color: "#2563eb" }}>
+                  <LuVideo size={22} />
+                </div>
+                <h4 className="mz-c-pillar-title">WebRTC Audio & HD Video</h4>
+                <p className="mz-c-pillar-desc">
+                  Low-latency peer-to-peer audio mesh, crisp camera feeds, and 60 FPS full-screen code streaming for peer reviews.
+                </p>
+              </div>
+
+              <div className="mz-c-study-pillar-card">
+                <div className="mz-c-pillar-icon-wrap" style={{ background: "rgba(14, 165, 233, 0.1)", color: "#0284c7" }}>
+                  <LuTerminal size={22} />
+                </div>
+                <h4 className="mz-c-pillar-title">Synchronized Monaco IDE</h4>
+                <p className="mz-c-pillar-desc">
+                  Multi-cursor real-time code editor with integrated compiler support for Python, C++, Java, JavaScript, and Go.
+                </p>
+              </div>
+
+              <div className="mz-c-study-pillar-card">
+                <div className="mz-c-pillar-icon-wrap" style={{ background: "rgba(16, 185, 129, 0.1)", color: "#059669" }}>
+                  <LuPenTool size={22} />
+                </div>
+                <h4 className="mz-c-pillar-title">Infinite System Whiteboard</h4>
+                <p className="mz-c-pillar-desc">
+                  Collaborative vector canvas for sketching data structure pointers, database schemas, and microservice architectures.
+                </p>
+              </div>
+
+              <div className="mz-c-study-pillar-card">
+                <div className="mz-c-pillar-icon-wrap" style={{ background: "rgba(147, 51, 234, 0.1)", color: "#9333ea" }}>
+                  <LuSparkles size={22} />
+                </div>
+                <h4 className="mz-c-pillar-title">Session Cloud Sync</h4>
+                <p className="mz-c-pillar-desc">
+                  Export session code snippets, download whiteboard architectural diagrams, and share room transcripts post-meeting.
+                </p>
+              </div>
+            </div>
+
+            {/* 3. Interactive Pod Mode Launchers */}
+            <div className="mz-c-study-launchers-header">
+              <h3 className="mz-c-study-section-title">
+                <LuLayers size={20} color="#2563eb" />
+                Interactive Collaborative Pod Launchers
+              </h3>
+              <p className="mz-c-study-section-desc">
+                Select an environment preset, customize target parameters, and jump directly into a synchronized live workspace.
+              </p>
+            </div>
+
+            <div className="mz-c-study-launchers-grid">
+              {/* Launcher 1: 1:1 Pair Programming */}
+              <div className="mz-c-study-launcher-card">
+                <div className="mz-c-launcher-top-accent" style={{ background: "linear-gradient(90deg, #06b6d4, #3b82f6)" }} />
+                <div className="mz-c-launcher-header">
+                  <div className="mz-c-launcher-icon-box" style={{ background: "rgba(6, 182, 212, 0.12)", color: "#0891b2" }}>
+                    <LuTerminal size={22} />
+                  </div>
+                  <span className="mz-c-launcher-badge" style={{ background: "rgba(6, 182, 212, 0.12)", color: "#0891b2" }}>
+                    Pair Coding
+                  </span>
+                </div>
+                <h4 className="mz-c-launcher-card-title">1:1 Live Pair Programming</h4>
+                <p className="mz-c-launcher-card-desc">
+                  Dual Monaco editor with real-time cursor tracking, synchronized terminal execution, and side-by-side voice walkthrough.
+                </p>
+
+                <div className="mz-c-launcher-selector-wrap">
+                  <span className="mz-c-launcher-selector-label">Target Runtime Language:</span>
+                  <div className="mz-c-launcher-pills-row">
+                    {["Python", "C++", "JavaScript", "Java", "Go"].map((lang) => (
+                      <button
+                        key={lang}
+                        type="button"
+                        className={`mz-c-launcher-pill-btn ${pairLang === lang ? "is-active" : ""}`}
+                        onClick={() => setPairLang(lang)}
+                      >
+                        {lang}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  className="mz-c-launcher-action-btn"
+                  style={{ background: "linear-gradient(135deg, #0284c7, #2563eb)" }}
+                  onClick={() => handleStartInstantMeeting(`1:1 Pair Programming Pod (${pairLang})`, "pair_programming")}
+                  disabled={isCreatingMeeting}
+                >
+                  <LuPlay size={15} /> Launch Pair Pod ({pairLang})
+                </button>
+              </div>
+
+              {/* Launcher 2: DSA Algorithmic Sprint */}
+              <div className="mz-c-study-launcher-card">
+                <div className="mz-c-launcher-top-accent" style={{ background: "linear-gradient(90deg, #2563eb, #6366f1)" }} />
+                <div className="mz-c-launcher-header">
+                  <div className="mz-c-launcher-icon-box" style={{ background: "rgba(37, 99, 235, 0.12)", color: "#2563eb" }}>
+                    <LuCode size={22} />
+                  </div>
+                  <span className="mz-c-launcher-badge" style={{ background: "rgba(37, 99, 235, 0.12)", color: "#2563eb" }}>
+                    Algorithmic Sprint
+                  </span>
+                </div>
+                <h4 className="mz-c-launcher-card-title">DSA & LeetCode Sprint Pod</h4>
+                <p className="mz-c-launcher-card-desc">
+                  Timed sprint countdown, synchronized problem dissection, shared test runner, and Big-O complexity scratchpad.
+                </p>
+
+                <div className="mz-c-launcher-selector-wrap">
+                  <span className="mz-c-launcher-selector-label">Sprint Focus Topic:</span>
+                  <div className="mz-c-launcher-pills-row">
+                    {["Dynamic Programming", "Sliding Window", "Graph BFS/DFS", "Binary Trees"].map((top) => (
+                      <button
+                        key={top}
+                        type="button"
+                        className={`mz-c-launcher-pill-btn ${dsaTopic === top ? "is-active" : ""}`}
+                        onClick={() => setDsaTopic(top)}
+                      >
+                        {top}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  className="mz-c-launcher-action-btn"
+                  style={{ background: "linear-gradient(135deg, #2563eb, #4f46e5)" }}
+                  onClick={() => handleStartInstantMeeting(`DSA Sprint Pod (${dsaTopic})`, "dsa_sprint")}
+                  disabled={isCreatingMeeting}
+                >
+                  <LuPlay size={15} /> Launch DSA Sprint ({dsaTopic})
+                </button>
+              </div>
+
+              {/* Launcher 3: System Architecture & Whiteboard */}
+              <div className="mz-c-study-launcher-card">
+                <div className="mz-c-launcher-top-accent" style={{ background: "linear-gradient(90deg, #10b981, #06b6d4)" }} />
+                <div className="mz-c-launcher-header">
+                  <div className="mz-c-launcher-icon-box" style={{ background: "rgba(16, 185, 129, 0.12)", color: "#059669" }}>
+                    <LuPenTool size={22} />
+                  </div>
+                  <span className="mz-c-launcher-badge" style={{ background: "rgba(16, 185, 129, 0.12)", color: "#059669" }}>
+                    Architecture Canvas
+                  </span>
+                </div>
+                <h4 className="mz-c-launcher-card-title">System Architecture Whiteboard</h4>
+                <p className="mz-c-launcher-card-desc">
+                  Infinite vector canvas for distributed systems design, microservice architectures, database schema modeling, and sequence flows.
+                </p>
+
+                <div className="mz-c-launcher-selector-wrap">
+                  <span className="mz-c-launcher-selector-label">Architecture Pattern:</span>
+                  <div className="mz-c-launcher-pills-row">
+                    {["Microservices", "High-Scale Caching", "Event-Driven Kafka", "DB Sharding"].map((pat) => (
+                      <button
+                        key={pat}
+                        type="button"
+                        className={`mz-c-launcher-pill-btn ${archTopic === pat ? "is-active" : ""}`}
+                        onClick={() => setArchTopic(pat)}
+                      >
+                        {pat}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  className="mz-c-launcher-action-btn"
+                  style={{ background: "linear-gradient(135deg, #059669, #0d9488)" }}
+                  onClick={() => handleStartInstantMeeting(`System Architecture Pod (${archTopic})`, "architecture_whiteboard")}
+                  disabled={isCreatingMeeting}
+                >
+                  <LuPlay size={15} /> Launch Whiteboard ({archTopic})
+                </button>
+              </div>
+
+              {/* Launcher 4: Mock Technical Interview */}
+              <div className="mz-c-study-launcher-card">
+                <div className="mz-c-launcher-top-accent" style={{ background: "linear-gradient(90deg, #8b5cf6, #ec4899)" }} />
+                <div className="mz-c-launcher-header">
+                  <div className="mz-c-launcher-icon-box" style={{ background: "rgba(139, 92, 246, 0.12)", color: "#7c3aed" }}>
+                    <LuUser size={22} />
+                  </div>
+                  <span className="mz-c-launcher-badge" style={{ background: "rgba(139, 92, 246, 0.12)", color: "#7c3aed" }}>
+                    FAANG Simulation
+                  </span>
+                </div>
+                <h4 className="mz-c-launcher-card-title">Live Mock Technical Interview</h4>
+                <p className="mz-c-launcher-card-desc">
+                  Realistic 45-minute timed interview with candidate and interviewer split perspectives, code execution, and behavioral rubrics.
+                </p>
+
+                <div className="mz-c-launcher-selector-wrap">
+                  <span className="mz-c-launcher-selector-label">Target Role Track:</span>
+                  <div className="mz-c-launcher-pills-row">
+                    {["Full-Stack Lead", "SDE-1 / SDE-2", "Backend Systems", "System Design"].map((role) => (
+                      <button
+                        key={role}
+                        type="button"
+                        className={`mz-c-launcher-pill-btn ${interviewTrack === role ? "is-active" : ""}`}
+                        onClick={() => setInterviewTrack(role)}
+                      >
+                        {role}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  className="mz-c-launcher-action-btn"
+                  style={{ background: "linear-gradient(135deg, #7c3aed, #9333ea)" }}
+                  onClick={() => handleStartInstantMeeting(`Mock Technical Interview (${interviewTrack})`, "mock_interview")}
+                  disabled={isCreatingMeeting}
+                >
+                  <LuPlay size={15} /> Launch Mock Interview ({interviewTrack})
+                </button>
+              </div>
+            </div>
+
+            {/* 4. Custom Live Room Configurator Card */}
+            <div className="mz-c-study-custom-panel">
+              <div className="mz-c-custom-panel-header">
+                <div className="mz-c-custom-panel-info">
+                  <h3>Custom Live Pod Configurator</h3>
+                  <p>Design a tailored live coding pod with a custom topic name, domain specialization, and peer capacity limit.</p>
+                </div>
+                <span className="mz-c-study-tech-badge">
+                  <LuZap size={13} color="#f59e0b" /> Instant WebRTC Provisioning
+                </span>
+              </div>
+
+              <form className="mz-c-custom-form-grid" onSubmit={handleCreateCustomRoom}>
+                <div className="mz-c-custom-input-group">
+                  <label>Room Topic / Sprint Title</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Striver SDE Sheet DP Marathon"
+                    value={customRoomTopic}
+                    onChange={(e) => setCustomRoomTopic(e.target.value)}
+                    className="mz-c-custom-input"
+                  />
+                </div>
+
+                <div className="mz-c-custom-input-group">
+                  <label>Focus Domain</label>
+                  <select
+                    value={customRoomTrack}
+                    onChange={(e) => setCustomRoomTrack(e.target.value)}
+                    className="mz-c-custom-select"
+                  >
+                    <option value="DSA & Problem Solving">DSA & Problem Solving</option>
+                    <option value="Full-Stack Engineering">Full-Stack Engineering</option>
+                    <option value="Backend & Distributed Systems">Backend & Distributed Systems</option>
+                    <option value="Modern C++ Systems">Modern C++ Systems</option>
+                    <option value="Machine Learning Pipelines">Machine Learning Pipelines</option>
+                  </select>
+                </div>
+
+                <div className="mz-c-custom-input-group">
+                  <label>Peer Limit</label>
+                  <select
+                    value={customRoomLimit}
+                    onChange={(e) => setCustomRoomLimit(e.target.value)}
+                    className="mz-c-custom-select"
+                  >
+                    <option value="2">2 Peers (Pair)</option>
+                    <option value="4">4 Peers (Squad)</option>
+                    <option value="8">8 Peers (Study Group)</option>
+                    <option value="16">16 Peers (Open Hall)</option>
+                  </select>
+                </div>
+
+                <button
+                  type="submit"
+                  className="mz-c-btn-create-custom-pod"
+                  disabled={isCreatingMeeting}
+                >
+                  <LuPlus size={16} /> Create & Enter Pod
+                </button>
+              </form>
+            </div>
+
+            {/* 5. Collaboration Best Practices */}
+            <div className="mz-c-study-guidelines-grid">
+              <div className="mz-c-study-guideline-card">
+                <div className="mz-c-guideline-step-num">01</div>
+                <div className="mz-c-guideline-content">
+                  <h4>Driver & Navigator Rotation</h4>
+                  <p>
+                    Swap keyboard control every 20-30 minutes. The Driver writes code while the Navigator dictates architectural constraints and boundary tests.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mz-c-study-guideline-card">
+                <div className="mz-c-guideline-step-num">02</div>
+                <div className="mz-c-guideline-content">
+                  <h4>Diagram Before Coding</h4>
+                  <p>
+                    Spend the first 10 minutes on the infinite whiteboard clarifying constraints, data structures, and edge cases before writing syntax.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mz-c-study-guideline-card">
+                <div className="mz-c-guideline-step-num">03</div>
+                <div className="mz-c-guideline-content">
+                  <h4>Test-Driven Verification</h4>
+                  <p>
+                    Step through code with empty arrays, single elements, and extreme boundaries before considering an algorithmic challenge solved.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -2654,15 +3577,20 @@ export default function Coding() {
                     display: "flex",
                     flexDirection: "column",
                     justifyContent: "space-between",
-                    transition: "transform 0.2s ease, box-shadow 0.2s ease",
+                    transition: "transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease",
                     cursor: "pointer",
                     position: "relative",
+                    overflow: "hidden",
+                    borderRadius: "16px",
                     border: isVisited ? "1.5px solid #10b981" : "1px solid #e2e8f0",
-                    background: isVisited ? "#f0fdf4" : "#ffffff",
-                    boxShadow: isVisited ? "0 4px 18px rgba(16, 185, 129, 0.14)" : "0 2px 8px rgba(0, 0, 0, 0.04)",
+                    background: "#ffffff",
+                    boxShadow: isVisited
+                      ? "0 8px 24px -4px rgba(16, 185, 129, 0.14), 0 2px 6px rgba(15, 23, 42, 0.04)"
+                      : "0 2px 8px rgba(15, 23, 42, 0.04)",
                   }}
                   onClick={() => handleOpenResource(resItem)}
                 >
+                  {/* Top Accent Line - clipped cleanly by overflow: hidden */}
                   <div
                     className="mz-c-card-top-accent"
                     style={{
@@ -2670,17 +3598,18 @@ export default function Coding() {
                       top: 0,
                       left: 0,
                       right: 0,
-                      height: "4px",
-                      background: isVisited ? "#10b981" : "transparent",
-                      borderTopLeftRadius: "12px",
-                      borderTopRightRadius: "12px",
+                      height: "3.5px",
+                      background: isVisited
+                        ? "linear-gradient(90deg, #10b981, #059669)"
+                        : "linear-gradient(90deg, #2563eb, #6366f1)",
+                      opacity: isVisited ? 1 : 0.65,
                     }}
                   />
                   <div>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px", marginTop: "4px" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                         <TechBrandIcon type={resItem.lang} size={22} />
-                        <span style={{ fontSize: "12px", fontWeight: 700, color: isVisited ? "#047857" : "#64748b" }}>{resItem.category}</span>
+                        <span style={{ fontSize: "12px", fontWeight: 700, color: isVisited ? "#059669" : "#64748b" }}>{resItem.category}</span>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                         {resItem.official && (
@@ -2699,31 +3628,31 @@ export default function Coding() {
                               display: "inline-flex",
                               alignItems: "center",
                               gap: "4px",
-                              padding: "3px 8px",
+                              padding: "3px 9px",
                               borderRadius: "12px",
                               fontSize: "11px",
                             }}
                             title="Viewed and recorded"
                           >
-                            <LuCheck size={12} /> Visited
+                            <LuCircleCheck size={13} /> Visited
                           </span>
                         )}
                       </div>
                     </div>
-                    <h3 style={{ margin: "0 0 8px", fontSize: "16px", fontWeight: 700, color: isVisited ? "#064e3b" : "#0f172a" }}>
+                    <h3 style={{ margin: "0 0 8px", fontSize: "16.5px", fontWeight: 800, color: "#0f172a", lineHeight: 1.35 }}>
                       {resItem.title}
                     </h3>
-                    <p style={{ margin: 0, fontSize: "13px", color: isVisited ? "#33534b" : "#64748b", lineHeight: 1.5 }}>
+                    <p style={{ margin: 0, fontSize: "13px", color: "#64748b", lineHeight: 1.55 }}>
                       {resItem.description}
                     </p>
                   </div>
 
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "16px", paddingTop: "12px", borderTop: isVisited ? "1px solid #d1fae5" : "1px solid #f1f5f9" }}>
-                    <span style={{ fontSize: "11.5px", color: isVisited ? "#059669" : "#64748b", fontWeight: 700, display: "flex", alignItems: "center", gap: "4px" }}>
-                      {isVisited ? "✓ Viewed Documentation" : "Reference Manual"}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "16px", paddingTop: "12px", borderTop: "1px solid #f1f5f9" }}>
+                    <span style={{ fontSize: "11.5px", color: isVisited ? "#059669" : "#64748b", fontWeight: 700, display: "flex", alignItems: "center", gap: "5px" }}>
+                      {isVisited ? "✓ Reference Explored" : "Reference Manual"}
                     </span>
                     <span style={{ color: isVisited ? "#059669" : "#2563eb", fontSize: "12.5px", fontWeight: 700, display: "flex", alignItems: "center", gap: "5px" }}>
-                      {isVisited ? "Explore Guide" : "Open Documentation"} <LuExternalLink size={13} />
+                      {isVisited ? "Explore Docs" : "Open Documentation"} <LuExternalLink size={13} />
                     </span>
                   </div>
                 </div>
@@ -3022,96 +3951,236 @@ export default function Coding() {
                   }
                   return true;
                 })
-                .map((certItem) => (
-                  <div
-                    key={certItem.id}
-                    className="mz-c-card"
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      justifyContent: "space-between",
-                      position: "relative",
-                      borderRadius: "16px",
-                      border: "1px solid #e2e8f0",
-                      background: "#ffffff",
-                      boxShadow: "0 4px 16px rgba(15, 23, 42, 0.05)",
-                      overflow: "hidden",
-                    }}
-                  >
+                .map((certItem) => {
+                  const certStatus = getSubjectCertStatus(certItem.id);
+                  const isCompleted = certStatus.isCompleted;
+
+                  return (
                     <div
+                      key={certItem.id}
+                      className="mz-c-card"
                       style={{
-                        position: "absolute",
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        height: "4px",
-                        background: certItem.accentColor,
-                      }}
-                    />
-                    <div>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px", marginTop: "4px" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                          <TechBrandIcon type={certItem.language} size={28} />
-                          <span style={{ fontSize: "11px", fontWeight: 800, textTransform: "uppercase", padding: "2px 8px", borderRadius: "10px", background: "#f8fafc", border: "1px solid #e2e8f0", color: "#475569" }}>
-                            {certItem.language.toUpperCase()}
-                          </span>
-                        </div>
-                        <span style={{ fontSize: "11px", fontWeight: 800, padding: "3px 9px", borderRadius: "10px", background: "#fef3c7", color: "#b45309", border: "1px solid #fde68a" }}>
-                          OFFICIAL CERT
-                        </span>
-                      </div>
-
-                      <h3 style={{ margin: "0 0 8px", fontSize: "18px", fontWeight: 800, color: "#0f172a" }}>
-                        {certItem.title}
-                      </h3>
-                      <p style={{ margin: "0 0 16px", fontSize: "13px", color: "#64748b", lineHeight: 1.5 }}>
-                        {certItem.desc}
-                      </p>
-
-                      {/* Skills Chips */}
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "16px" }}>
-                        {certItem.skills.map((sk, sIdx) => (
-                          <span key={sIdx} style={{ fontSize: "11px", background: "#f1f5f9", color: "#334155", padding: "2px 8px", borderRadius: "6px", fontWeight: 600 }}>
-                            {sk}
-                          </span>
-                        ))}
-                      </div>
-
-                      {/* Exam Specs Box */}
-                      <div style={{ fontSize: "12px", color: "#334155", background: "#f8fafc", padding: "12px 14px", borderRadius: "10px", border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", gap: "6px" }}>
-                        <div><strong>Format:</strong> {certItem.format}</div>
-                        <div><strong>Passing:</strong> {certItem.cutoff}</div>
-                        <div><strong>Duration:</strong> {certItem.time} • <strong>Proctoring:</strong> Strict (5 Lives)</div>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      className="mz-c-btn-solve"
-                      style={{
-                        marginTop: "18px",
-                        width: "100%",
-                        justifyContent: "center",
-                        padding: "11px 16px",
-                        fontSize: "13px",
-                        fontWeight: 700,
-                        background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
-                        color: "#ffffff",
-                        border: "none",
-                        borderRadius: "10px",
                         display: "flex",
-                        alignItems: "center",
-                        gap: "6px",
-                        cursor: "pointer",
-                        boxShadow: "0 2px 8px rgba(37, 99, 235, 0.25)",
+                        flexDirection: "column",
+                        justifyContent: "space-between",
+                        position: "relative",
+                        borderRadius: "16px",
+                        border: isCompleted ? "2px solid #22c55e" : "1px solid #e2e8f0",
+                        background: isCompleted ? "linear-gradient(180deg, #ffffff 0%, #f0fdf4 100%)" : "#ffffff",
+                        boxShadow: isCompleted
+                          ? "0 6px 20px rgba(34, 197, 94, 0.12)"
+                          : "0 4px 16px rgba(15, 23, 42, 0.05)",
+                        overflow: "hidden",
                       }}
-                      onClick={() => handleStartExam(certItem.id, certItem.title, certItem.language)}
                     >
-                      <span>Start Certification Exam</span>
-                      <LuExternalLink size={14} />
-                    </button>
-                  </div>
-                ))}
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          height: "4px",
+                          background: isCompleted ? "#22c55e" : certItem.accentColor,
+                        }}
+                      />
+                      <div>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px", marginTop: "4px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                            <TechBrandIcon type={certItem.language} size={28} />
+                            <span style={{ fontSize: "11px", fontWeight: 800, textTransform: "uppercase", padding: "2px 8px", borderRadius: "10px", background: "#f8fafc", border: "1px solid #e2e8f0", color: "#475569" }}>
+                              {certItem.language.toUpperCase()}
+                            </span>
+                          </div>
+                          {isCompleted ? (
+                            <span style={{ fontSize: "11px", fontWeight: 800, padding: "3px 9px", borderRadius: "10px", background: "#dcfce7", color: "#15803d", border: "1px solid #86efac", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                              <LuCircleCheck size={13} /> COMPLETED
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: "11px", fontWeight: 800, padding: "3px 9px", borderRadius: "10px", background: "#fef3c7", color: "#b45309", border: "1px solid #fde68a" }}>
+                              OFFICIAL CERT
+                            </span>
+                          )}
+                        </div>
+
+                        <h3 style={{ margin: "0 0 8px", fontSize: "18px", fontWeight: 800, color: "#0f172a" }}>
+                          {certItem.title}
+                        </h3>
+                        <p style={{ margin: "0 0 16px", fontSize: "13px", color: "#64748b", lineHeight: 1.5 }}>
+                          {certItem.desc}
+                        </p>
+
+                        {/* Completed Banner */}
+                        {isCompleted && (
+                          <div
+                            style={{
+                              background: "#dcfce7",
+                              border: "1.5px solid #86efac",
+                              borderRadius: "10px",
+                              padding: "10px 12px",
+                              marginBottom: "14px",
+                            }}
+                          >
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "#166534", fontWeight: 800, fontSize: "12.5px" }}>
+                              <span>🏆</span> Cutoff Cleared (≥80%) • Certificate Awarded
+                            </div>
+                            {certStatus.certificateId && (
+                              <div style={{ fontSize: "11.5px", color: "#15803d", fontFamily: "monospace", marginTop: "3px", fontWeight: 600 }}>
+                                Credential ID: {certStatus.certificateId}
+                              </div>
+                            )}
+                            <div style={{ fontSize: "11px", color: "#166534", marginTop: "2px", fontWeight: 600 }}>
+                              ✓ Examination completed. Retaking is locked.
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Skills Chips */}
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "16px" }}>
+                          {certItem.skills.map((sk, sIdx) => (
+                            <span key={sIdx} style={{ fontSize: "11px", background: "#f1f5f9", color: "#334155", padding: "2px 8px", borderRadius: "6px", fontWeight: 600 }}>
+                              {sk}
+                            </span>
+                          ))}
+                        </div>
+
+                        {/* Exam Specs Box */}
+                        <div style={{ fontSize: "12px", color: "#334155", background: "#f8fafc", padding: "12px 14px", borderRadius: "10px", border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", gap: "6px" }}>
+                          <div><strong>Format:</strong> {certItem.format}</div>
+                          <div><strong>Passing:</strong> {certItem.cutoff}</div>
+                          <div><strong>Duration:</strong> {certItem.time} • <strong>Proctoring:</strong> Strict (5 Lives)</div>
+                        </div>
+                      </div>
+
+                      {/* Action Area */}
+                      {isCompleted ? (
+                        <div style={{ marginTop: "16px" }}>
+                          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                            {certStatus.certificateId && (
+                              <button
+                                type="button"
+                                className="mz-c-btn-solve"
+                                style={{
+                                  flex: 1,
+                                  minWidth: "120px",
+                                  justifyContent: "center",
+                                  padding: "10px 14px",
+                                  fontSize: "12.5px",
+                                  fontWeight: 700,
+                                  background: "linear-gradient(135deg, #16a34a, #15803d)",
+                                  color: "#ffffff",
+                                  border: "none",
+                                  borderRadius: "10px",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "6px",
+                                  cursor: "pointer",
+                                  boxShadow: "0 2px 8px rgba(22, 163, 74, 0.25)",
+                                }}
+                                onClick={() => window.open(`/certification/verify/${certStatus.certificateId}`, "_blank", "noopener,noreferrer")}
+                              >
+                                <LuAward size={14} />
+                                <span>View Certificate</span>
+                              </button>
+                            )}
+                            {certStatus.attemptId && (
+                              <button
+                                type="button"
+                                className="mz-c-btn-solve"
+                                style={{
+                                  flex: 1,
+                                  minWidth: "110px",
+                                  justifyContent: "center",
+                                  padding: "10px 14px",
+                                  fontSize: "12.5px",
+                                  fontWeight: 700,
+                                  background: "#eff6ff",
+                                  color: "#1d4ed8",
+                                  border: "1px solid #bfdbfe",
+                                  borderRadius: "10px",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "6px",
+                                  cursor: "pointer",
+                                }}
+                                onClick={() => window.open(`/assessment-report/${certStatus.attemptId}`, "_blank", "noopener,noreferrer")}
+                              >
+                                <LuFileText size={14} />
+                                <span>View Report</span>
+                              </button>
+                            )}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: "11.5px",
+                              color: "#64748b",
+                              marginTop: "8px",
+                              textAlign: "center",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: "4px",
+                              fontWeight: 600,
+                            }}
+                          >
+                            <LuLock size={12} /> Test Passed • Cannot Attend Again
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          {certStatus.latestAttempt &&
+                            (certStatus.latestAttempt.status === "FAILED" ||
+                              (certStatus.latestAttempt.percentage != null &&
+                                certStatus.latestAttempt.percentage < 80)) && (
+                              <div
+                                style={{
+                                  background: "#fef2f2",
+                                  border: "1px solid #fecaca",
+                                  borderRadius: "10px",
+                                  padding: "8px 12px",
+                                  marginTop: "12px",
+                                  fontSize: "12px",
+                                  color: "#991b1b",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "6px",
+                                }}
+                              >
+                                <span>⚠️</span> Previous Attempt: Score {certStatus.latestAttempt.percentage ?? 0}% (Cutoff 80% Not Met)
+                              </div>
+                            )}
+
+                          <button
+                            type="button"
+                            className="mz-c-btn-solve"
+                            style={{
+                              marginTop: "16px",
+                              width: "100%",
+                              justifyContent: "center",
+                              padding: "11px 16px",
+                              fontSize: "13px",
+                              fontWeight: 700,
+                              background: certStatus.latestAttempt
+                                ? "linear-gradient(135deg, #4f46e5, #4338ca)"
+                                : "linear-gradient(135deg, #2563eb, #1d4ed8)",
+                              color: "#ffffff",
+                              border: "none",
+                              borderRadius: "10px",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "6px",
+                              cursor: "pointer",
+                              boxShadow: "0 2px 8px rgba(37, 99, 235, 0.25)",
+                            }}
+                            onClick={() => handleStartExam(certItem.id, certItem.title, certItem.language)}
+                          >
+                            <span>{certStatus.latestAttempt ? "Retake Examination" : "Start Certification Exam"}</span>
+                            <LuExternalLink size={14} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
             </div>
           </div>
         )}

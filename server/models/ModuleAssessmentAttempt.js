@@ -109,6 +109,10 @@ const moduleAssessmentAttemptSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    adminNote: {
+      type: String,
+      default: "",
+    },
     proctoringVerified: {
       camera: { type: Boolean, default: false },
       microphone: { type: Boolean, default: false },
@@ -135,6 +139,47 @@ const moduleAssessmentAttemptSchema = new mongoose.Schema(
       type: Array,
       default: [],
     },
+    adminModifiedAt: {
+      type: Date,
+      default: null,
+    },
+    adminModifiedBy: {
+      type: String,
+      default: "",
+    },
+    notificationSent: {
+      type: Boolean,
+      default: false,
+    },
+    notificationEmailSent: {
+      type: Boolean,
+      default: false,
+    },
+    notificationInAppId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Notification",
+      default: null,
+      index: true,
+    },
+    notificationViewed: {
+      type: Boolean,
+      default: false,
+    },
+    notificationViewedAt: {
+      type: Date,
+      default: null,
+    },
+    marksHistory: [
+      {
+        oldScore: Number,
+        newScore: Number,
+        oldStatus: String,
+        newStatus: String,
+        adminNote: String,
+        modifiedBy: String,
+        modifiedAt: { type: Date, default: Date.now },
+      },
+    ],
   },
   { timestamps: true, strict: false }
 );

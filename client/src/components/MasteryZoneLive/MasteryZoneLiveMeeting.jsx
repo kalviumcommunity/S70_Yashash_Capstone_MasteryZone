@@ -43,6 +43,7 @@ import {
 } from "react-icons/lu";
 import { toast } from "react-toastify";
 import MasteryZoneWhiteboard from "./MasteryZoneWhiteboard";
+import useNavigationLock from "../../hooks/useNavigationLock";
 import "./masteryZoneLive.css";
 
 const getApiBase = () => {
@@ -124,6 +125,16 @@ export default function MasteryZoneLiveMeeting({
   const [showDeviceSettingsModal, setShowDeviceSettingsModal] = useState(false);
   const [showLeaveConfirmModal, setShowLeaveConfirmModal] = useState(false);
 
+  // Centralized Navigation Lock (traps trackpad horizontal swipe-back and browser Back button)
+  useNavigationLock({
+    isLocked: Boolean(meetingId),
+    warningMessage: "You are currently in an active meeting. Use the Leave button to exit cleanly.",
+    onAttemptLeave: () => {
+      setShowLeaveConfirmModal(true);
+    },
+    lockKey: `mz_meeting_${meetingId}`,
+  });
+
   // Audio & Device selector states
   const [audioInputDevices, setAudioInputDevices] = useState([]);
   const [videoInputDevices, setVideoInputDevices] = useState([]);
@@ -176,6 +187,9 @@ export default function MasteryZoneLiveMeeting({
   const recordingTimerRef = useRef(null);
   const audioContextRef = useRef(null);
   const analyserRef = useRef(null);
+  const recordingCanvasRef = useRef(null);
+  const recordingAnimFrameRef = useRef(null);
+  const recordingAudioCtxRef = useRef(null);
 
   // Explicitly turn off camera and microphone hardware tracks
   const stopAllMediaHardware = useCallback(() => {
@@ -213,6 +227,17 @@ export default function MasteryZoneLiveMeeting({
         try {
           audioContextRef.current.close().catch(() => {});
         } catch {}
+      }
+
+      if (recordingAnimFrameRef.current) {
+        cancelAnimationFrame(recordingAnimFrameRef.current);
+        recordingAnimFrameRef.current = null;
+      }
+      if (recordingAudioCtxRef.current && recordingAudioCtxRef.current.state !== "closed") {
+        try {
+          recordingAudioCtxRef.current.close().catch(() => {});
+        } catch {}
+        recordingAudioCtxRef.current = null;
       }
 
       // Stop senders on all active peer connections
@@ -281,9 +306,16 @@ export default function MasteryZoneLiveMeeting({
     const fetchMeeting = async () => {
       try {
         const token = localStorage.getItem("token") || "";
-        const res = await fetch(`/api/meetings/${meetingId}`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
+        let res;
+        try {
+          res = await fetch(`${API_BASE}/api/meetings/${meetingId}`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          });
+        } catch {
+          res = await fetch(`/api/meetings/${meetingId}`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          });
+        }
         if (res.ok) {
           const data = await res.json();
           if (!cancelled && data.meeting) {
@@ -1066,6 +1098,7 @@ export default function MasteryZoneLiveMeeting({
 
   // -------------------------------------------------------------
   // Meeting Recording (Host Control, Actual Stream Capture & Upload)
+  // Continuous 1280x720 Canvas Compositor + Mixed Web Audio (Guarantees valid 30fps frames & zero corruption)
   // -------------------------------------------------------------
   const handleStartRecording = () => {
     if (recordingStatus === "recording") return;
@@ -1073,31 +1106,183 @@ export default function MasteryZoneLiveMeeting({
     try {
       recordedChunksRef.current = [];
 
-      let captureStream = screenStreamRef.current || localStreamRef.current;
-      if (!captureStream || captureStream.getTracks().length === 0) {
-        // Fallback synthetic video/audio stream so recording functions cleanly in all environments
-        const canvas = document.createElement("canvas");
-        canvas.width = 640;
-        canvas.height = 360;
-        const ctx = canvas.getContext("2d");
-        ctx.fillStyle = "#090e23";
-        ctx.fillRect(0, 0, 640, 360);
-        ctx.fillStyle = "#38bdf8";
-        ctx.font = "bold 20px sans-serif";
-        ctx.fillText("Mastery Zone Live Pod Recording", 40, 160);
-        ctx.fillStyle = "#94a3b8";
-        ctx.font = "14px sans-serif";
-        ctx.fillText(`Meeting ID: ${meetingId} • Host: ${currentUser?.fullName || "Admin"}`, 40, 200);
-        captureStream = canvas.captureStream(15);
+      // 1. Audio Mixing Engine via Web Audio Context
+      const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
+      const audioCtx = new AudioCtxClass();
+      const audioDest = audioCtx.createMediaStreamDestination();
+
+      if (localStreamRef.current && localStreamRef.current.getAudioTracks().length > 0) {
+        try {
+          const micSource = audioCtx.createMediaStreamSource(localStreamRef.current);
+          micSource.connect(audioDest);
+        } catch (e) {
+          console.warn("Could not connect mic track to audio mixer:", e);
+        }
       }
 
+      if (screenStreamRef.current && screenStreamRef.current.getAudioTracks().length > 0) {
+        try {
+          const screenAudioSource = audioCtx.createMediaStreamSource(screenStreamRef.current);
+          screenAudioSource.connect(audioDest);
+        } catch (e) {
+          console.warn("Could not connect screen audio to mixer:", e);
+        }
+      }
+
+      recordingAudioCtxRef.current = audioCtx;
+
+      // 2. High-Performance Continuous Compositor Canvas (1280x720 @ 30fps)
+      const canvas = document.createElement("canvas");
+      canvas.width = 1280;
+      canvas.height = 720;
+      const ctx = canvas.getContext("2d");
+      recordingCanvasRef.current = canvas;
+
+      const screenVidEl = document.createElement("video");
+      screenVidEl.muted = true;
+      screenVidEl.autoplay = true;
+      screenVidEl.playsInline = true;
+
+      const cameraVidEl = document.createElement("video");
+      cameraVidEl.muted = true;
+      cameraVidEl.autoplay = true;
+      cameraVidEl.playsInline = true;
+
+      let tick = 0;
+      const renderCompositor = () => {
+        tick++;
+        ctx.fillStyle = "#0a0e1a";
+        ctx.fillRect(0, 0, 1280, 720);
+
+        const isScreenLive = isScreenSharing && screenStreamRef.current && screenStreamRef.current.getVideoTracks().some((t) => t.readyState === "live");
+        const isCamLive = isVideoEnabled && localStreamRef.current && localStreamRef.current.getVideoTracks().some((t) => t.readyState === "live" && t.enabled);
+
+        if (isScreenLive) {
+          if (screenVidEl.srcObject !== screenStreamRef.current) {
+            screenVidEl.srcObject = screenStreamRef.current;
+            screenVidEl.play().catch(() => {});
+          }
+          if (screenVidEl.readyState >= 2) {
+            ctx.drawImage(screenVidEl, 0, 0, 1280, 720);
+          } else {
+            ctx.fillStyle = "#1e1b4b";
+            ctx.fillRect(0, 0, 1280, 720);
+            ctx.fillStyle = "#a5b4fc";
+            ctx.font = "bold 28px sans-serif";
+            ctx.fillText("🖥️ Screen Sharing Active...", 80, 360);
+          }
+
+          // Picture-in-picture camera in bottom-right corner if camera on
+          if (isCamLive) {
+            if (cameraVidEl.srcObject !== localStreamRef.current) {
+              cameraVidEl.srcObject = localStreamRef.current;
+              cameraVidEl.play().catch(() => {});
+            }
+            if (cameraVidEl.readyState >= 2) {
+              const pipW = 260;
+              const pipH = 146;
+              const pipX = 1280 - pipW - 24;
+              const pipY = 720 - pipH - 24;
+              ctx.save();
+              ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
+              ctx.fillRect(pipX - 4, pipY - 4, pipW + 8, pipH + 8);
+              ctx.strokeStyle = "#6366f1";
+              ctx.lineWidth = 3;
+              ctx.strokeRect(pipX, pipY, pipW, pipH);
+              ctx.drawImage(cameraVidEl, pipX, pipY, pipW, pipH);
+              ctx.restore();
+            }
+          }
+        } else if (isCamLive) {
+          if (cameraVidEl.srcObject !== localStreamRef.current) {
+            cameraVidEl.srcObject = localStreamRef.current;
+            cameraVidEl.play().catch(() => {});
+          }
+          if (cameraVidEl.readyState >= 2) {
+            ctx.drawImage(cameraVidEl, 0, 0, 1280, 720);
+          } else {
+            ctx.fillStyle = "#0f172a";
+            ctx.fillRect(0, 0, 1280, 720);
+          }
+        } else {
+          // Dynamic animated card ensuring active non-zero frames
+          const grad = ctx.createLinearGradient(0, 0, 1280, 720);
+          grad.addColorStop(0, "#090d1f");
+          grad.addColorStop(1, "#1e1b4b");
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, 0, 1280, 720);
+
+          ctx.fillStyle = "rgba(30, 41, 59, 0.7)";
+          if (ctx.roundRect) ctx.roundRect(340, 160, 600, 400, 20);
+          else ctx.fillRect(340, 160, 600, 400);
+          ctx.fill();
+
+          const pulse = Math.sin(tick * 0.08) * 8;
+          ctx.fillStyle = "#4f46e5";
+          ctx.beginPath();
+          ctx.arc(640, 270, 50 + pulse, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = "#ffffff";
+          ctx.font = "bold 36px sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText((currentUser?.fullName || "H")[0].toUpperCase(), 640, 282);
+
+          ctx.font = "bold 24px sans-serif";
+          ctx.fillText(currentUser?.fullName || "Meeting Host", 640, 360);
+
+          ctx.font = "16px sans-serif";
+          ctx.fillStyle = "#94a3b8";
+          ctx.fillText(meetingData.title || "Mastery Zone Live Collaboration Session", 640, 395);
+
+          ctx.fillStyle = "#818cf8";
+          for (let b = 0; b < 12; b++) {
+            const barH = 10 + Math.sin(tick * 0.15 + b) * 18;
+            ctx.fillRect(540 + b * 18, 450 - barH / 2, 8, barH);
+          }
+          ctx.textAlign = "left";
+        }
+
+        // Header watermark badge
+        ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
+        ctx.fillRect(20, 20, 380, 44);
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 15px sans-serif";
+        ctx.fillText(meetingData.title || "Mastery Zone Live Meeting", 36, 47);
+
+        // Blinking Red REC Indicator
+        ctx.fillStyle = tick % 60 < 30 ? "#ef4444" : "#7f1d1d";
+        ctx.beginPath();
+        ctx.arc(374, 42, 6, 0, Math.PI * 2);
+        ctx.fill();
+
+        recordingAnimFrameRef.current = requestAnimationFrame(renderCompositor);
+      };
+
+      recordingAnimFrameRef.current = requestAnimationFrame(renderCompositor);
+
+      // 3. Assemble composite capture stream
+      const animStream = canvas.captureStream(30);
+      const captureStream = new MediaStream();
+      if (animStream.getVideoTracks()[0]) {
+        captureStream.addTrack(animStream.getVideoTracks()[0]);
+      }
+      if (audioDest.stream.getAudioTracks()[0]) {
+        captureStream.addTrack(audioDest.stream.getAudioTracks()[0]);
+      }
+
+      // 4. Initialize MediaRecorder with VP9/Opus
       const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")
         ? "video/webm;codecs=vp9,opus"
         : MediaRecorder.isTypeSupported("video/webm")
         ? "video/webm"
         : "video/mp4";
 
-      const recorder = new MediaRecorder(captureStream, { mimeType });
+      const recorder = new MediaRecorder(captureStream, {
+        mimeType,
+        videoBitsPerSecond: 2500000,
+      });
+
       recorder.ondataavailable = (e) => {
         if (e.data && e.data.size > 0) {
           recordedChunksRef.current.push(e.data);
@@ -1130,6 +1315,7 @@ export default function MasteryZoneLiveMeeting({
 
       toast.success("● REC: Meeting recording started");
     } catch (err) {
+      console.error("Recording start error:", err);
       toast.error(`Recording failed: ${err.message}`);
     }
   };
@@ -1168,6 +1354,16 @@ export default function MasteryZoneLiveMeeting({
   };
 
   const handleStopRecording = () => {
+    if (recordingAnimFrameRef.current) {
+      cancelAnimationFrame(recordingAnimFrameRef.current);
+      recordingAnimFrameRef.current = null;
+    }
+    if (recordingAudioCtxRef.current) {
+      try {
+        recordingAudioCtxRef.current.close();
+      } catch (e) {}
+      recordingAudioCtxRef.current = null;
+    }
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
       mediaRecorderRef.current.stop();
     }
@@ -1212,13 +1408,15 @@ export default function MasteryZoneLiveMeeting({
             },
             body: JSON.stringify({
               meetingId,
-              title: `${meetingData.title || "Live Meeting"} (${new Date().toLocaleDateString()})`,
+              title: `${meetingData.title || "Live Meeting"} — ${isScreenSharing ? "Screen Share" : "Collaboration"} (${new Date().toLocaleDateString()})`,
+              recordingType: isScreenSharing ? "Screen Share" : "Meeting",
               durationSeconds: recordingSeconds,
               participantNames: allNames,
               base64Data,
               mimeType: "video/webm",
               hostUserId: currentUser?._id || currentUser?.id || currentUser?.userId,
               hostName: currentUser?.fullName || currentUser?.username || "Host",
+              hostEmail: currentUser?.email || "",
             }),
           });
 
@@ -3025,13 +3223,7 @@ export default function MasteryZoneLiveMeeting({
           {/* Leave Call Button (Red Pill) */}
           <button
             type="button"
-            onClick={() => {
-              if (isHost) {
-                setShowLeaveConfirmModal(true);
-              } else {
-                handleEndMeeting(false);
-              }
-            }}
+            onClick={() => setShowLeaveConfirmModal(true)}
             style={{
               background: "#ef4444",
               color: "#ffffff",
@@ -3293,40 +3485,78 @@ export default function MasteryZoneLiveMeeting({
           >
             <h3 style={{ margin: "0 0 10px", fontSize: 16, fontWeight: 700 }}>Leave Meeting?</h3>
             <p style={{ margin: "0 0 16px", fontSize: 13, color: "#64748b" }}>
-              As the host, you can leave the call while keeping it open for others, or end the meeting for all participants.
+              {isHost
+                ? "As the host, you can leave the call while keeping it open for others, or end the meeting for all participants."
+                : "Are you sure you want to disconnect and leave this meeting?"}
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {isHost ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => handleEndMeeting(true)}
+                    style={{
+                      background: "#ef4444",
+                      color: "#ffffff",
+                      border: "none",
+                      borderRadius: 8,
+                      padding: "9px 14px",
+                      fontSize: 13,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    End Meeting for All
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleEndMeeting(false)}
+                    style={{
+                      background: "#f1f5f9",
+                      border: "1px solid #cbd5e1",
+                      color: "#334155",
+                      borderRadius: 8,
+                      padding: "9px 14px",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Just Leave Call
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => handleEndMeeting(false)}
+                  style={{
+                    background: "#ef4444",
+                    color: "#ffffff",
+                    border: "none",
+                    borderRadius: 8,
+                    padding: "9px 14px",
+                    fontSize: 13,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  Leave Meeting
+                </button>
+              )}
               <button
                 type="button"
-                onClick={() => handleEndMeeting(true)}
+                onClick={() => setShowLeaveConfirmModal(false)}
                 style={{
-                  background: "#ef4444",
-                  color: "#ffffff",
+                  background: "transparent",
                   border: "none",
-                  borderRadius: 8,
-                  padding: "9px 14px",
-                  fontSize: 13,
-                  fontWeight: 700,
-                  cursor: "pointer",
-                }}
-              >
-                End Meeting for All
-              </button>
-              <button
-                type="button"
-                onClick={() => handleEndMeeting(false)}
-                style={{
-                  background: "#f1f5f9",
-                  border: "1px solid #cbd5e1",
-                  color: "#334155",
-                  borderRadius: 8,
-                  padding: "9px 14px",
+                  color: "#64748b",
+                  padding: "8px 14px",
                   fontSize: 13,
                   fontWeight: 600,
                   cursor: "pointer",
                 }}
               >
-                Just Leave Call
+                Cancel
               </button>
             </div>
           </div>

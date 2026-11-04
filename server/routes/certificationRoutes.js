@@ -11,6 +11,7 @@ const Progress = require("../models/ProgressSchema");
 const authenticateToken = require("../middleware/authMiddleware");
 const { optionalAuthenticateToken } = require("../middleware/authMiddleware");
 const { pushNotification } = require("../utils/notificationService");
+const { pushAdminNotification } = require("../utils/adminNotificationService");
 const { DSA_MCQ_BANK } = require("../data/dsaQuestionsBank");
 const CHALLENGES_CATALOG = require("../data/challengesCatalog");
 const { CURRICULUM } = require("../data/codingCurriculum");
@@ -129,21 +130,33 @@ router.post("/attempt/start", authenticateToken, async (req, res) => {
     const candidateName = user ? (user.fullName || user.name || "Candidate") : "Candidate";
     const candidateEmail = user ? (user.email || "") : "";
 
-    // 0. Check if candidate has already completed this certification exam (disallow retaking or re-entering completed exam)
-    const completedAttempt = await CertificationAttempt.findOne({
+    // 0. Check if candidate has already cleared the cutoff and earned a certificate (disallow retaking or attending completed exam)
+    const earnedCert = await IssuedCertificate.findOne({
+      userId,
+      certificationId: certId,
+      status: "VALID",
+    });
+
+    const passedAttempt = await CertificationAttempt.findOne({
       userId,
       certId,
-      status: "COMPLETED",
+      status: "PASSED",
     }).sort({ submittedAt: -1, createdAt: -1 });
 
-    if (completedAttempt) {
-      return res.json({
-        success: true,
+    if (earnedCert || passedAttempt) {
+      const certIdToUse = earnedCert ? earnedCert.certificateId : (passedAttempt?.certificateId || "");
+      const attemptIdToUse = passedAttempt ? passedAttempt.attemptId : (earnedCert?.attemptId || "");
+      return res.status(403).json({
+        success: false,
+        alreadyCertified: true,
         isCompleted: true,
-        status: "COMPLETED",
-        attemptId: completedAttempt.attemptId,
-        reportUrl: `/assessment-report/${completedAttempt.attemptId}`,
-        message: "This examination has already been submitted and completed.",
+        isPassed: true,
+        certId,
+        certificateId: certIdToUse,
+        attemptId: attemptIdToUse,
+        reportUrl: `/assessment-report/${attemptIdToUse}`,
+        verificationUrl: `/verify/${certIdToUse}`,
+        message: "You have already passed this certification examination and earned your verified certificate. Completed certifications cannot be attended again.",
       });
     }
 
@@ -710,6 +723,15 @@ router.post("/attempt/:attemptId/proctoring-event", authenticateToken, async (re
     // Flag attempt if violations exceed threshold (e.g. 5)
     if (attempt.proctoring.violationsCount >= 5) {
       attempt.proctoring.status = "FLAGGED";
+      pushAdminNotification({
+        title: "Proctoring Integrity Flagged",
+        message: `${attempt.candidateName || "Candidate"} exceeded maximum allowed proctoring anomalies during ${attempt.certTitle || "Certification Exam"}.`,
+        type: "certification",
+        severity: "warning",
+        targetId: String(attempt._id),
+        actionUrl: "/admin/assessments",
+        io: req.app.get("io"),
+      }).catch(() => {});
     }
 
     await attempt.save();
@@ -899,6 +921,17 @@ router.post("/attempt/:attemptId/finalize", authenticateToken, async (req, res) 
 
     await attempt.save();
 
+    // Notify Super Admin of examination completion
+    pushAdminNotification({
+      title: passed ? "Certification Exam Passed" : "Certification Exam Completed",
+      message: `${attempt.candidateName || "Candidate"} (${attempt.candidateEmail || "Student"}) completed ${attempt.certTitle} — Verdict: ${finalVerdict} (MCQ: ${mcqScore}/20, Coding: ${passedCodingTests}/20 tests).`,
+      type: "certification",
+      severity: passed ? "success" : "warning",
+      targetId: String(attempt._id),
+      actionUrl: "/admin/assessments",
+      io: req.app.get("io"),
+    }).catch(() => {});
+
     res.json({
       success: true,
       alreadyFinalized: false,
@@ -1047,7 +1080,8 @@ router.get("/attempt/:attemptId/report", optionalAuthenticateToken, async (req, 
     const totalCodingTests = attempt.codingSubmissions.reduce((acc, s) => acc + (s.totalTests || 10), 0);
     const totalMarksObtained = (attempt.mcqScore || 0) + totalPassedCodingTests;
     const totalMaxMarks = 40;
-    const overallPercentage = Math.round((totalMarksObtained / totalMaxMarks) * 100);
+    const overallPercentage = attempt.percentage != null ? attempt.percentage : Math.round((totalMarksObtained / totalMaxMarks) * 100);
+    const marksObtainedFinal = attempt.score != null ? attempt.score : totalMarksObtained;
 
     const answeredMcqsCount = attempt.selectedMcqs.filter((m) => {
       const answersMap = attempt.mcqAnswers;
@@ -1091,7 +1125,7 @@ router.get("/attempt/:attemptId/report", optionalAuthenticateToken, async (req, 
           questionsAttempted: totalAttemptedQuestions,
           questionsUnanswered: Math.max(0, totalQuestionsCount - totalAttemptedQuestions),
           totalMarks: totalMaxMarks,
-          marksObtained: totalMarksObtained,
+          marksObtained: marksObtainedFinal,
           overallPercentage,
           totalTestCases: totalCodingTests,
           totalPassedTests: totalPassedCodingTests,
@@ -1112,13 +1146,16 @@ router.get("/attempt/:attemptId/report", optionalAuthenticateToken, async (req, 
           passed: isPassed,
           passedTests: totalPassedCodingTests,
           totalTests: totalCodingTests,
-          marksObtained: totalMarksObtained,
+          marksObtained: marksObtainedFinal,
           totalMarks: totalMaxMarks,
           mcqScore: attempt.mcqScore,
           mcqTotal: attempt.selectedMcqs.length,
           codingSolvedCount: attempt.codingSubmissions.filter((s) => s.solved).length,
           passingThreshold: 80,
         },
+        adminNote: attempt.adminNote || "",
+        adminModifiedAt: attempt.adminModifiedAt || null,
+        adminModifiedBy: attempt.adminModifiedBy || "",
         isMcq: false,
         questions: codingQuestionsReport,
         reviewBreakdown,
@@ -1157,7 +1194,7 @@ router.get("/my-history", authenticateToken, async (req, res) => {
 
     const attempts = await CertificationAttempt.find({ userId })
       .sort({ createdAt: -1 })
-      .select("attemptId certId certTitle attemptNumber status mcqScore mcqPassed finalVerdict certificateId startTime submittedAt codingSubmissions proctoring");
+      .select("attemptId certId certTitle attemptNumber status percentage score adminNote mcqScore mcqPassed finalVerdict certificateId startTime submittedAt codingSubmissions proctoring");
 
     const certificates = await IssuedCertificate.find({ userId, status: "VALID" })
       .sort({ createdAt: -1 });
@@ -1170,7 +1207,18 @@ router.get("/my-history", authenticateToken, async (req, res) => {
       status: att.status,
       finalVerdict: att.finalVerdict,
       mcqScore: att.mcqScore,
-      mcqPercentage: Math.round(((att.mcqScore || 0) / 20) * 100),
+      mcqPercentage: att.percentage != null ? att.percentage : Math.round(((att.mcqScore || 0) / 20) * 100),
+      percentage: att.percentage != null ? att.percentage : Math.round(((att.mcqScore || 0) / 20) * 100),
+      score: {
+        mcqScore: att.mcqScore ?? 0,
+        mcqTotal: 20,
+        mcqPercentage: att.percentage != null ? att.percentage : Math.round(((att.mcqScore || 0) / 20) * 100),
+        mcqPassed: (att.percentage != null ? att.percentage >= 70 : Boolean(att.mcqPassed)),
+        codingPassed: (att.codingSubmissions || []).some((s) => s.solved),
+        codingQ1Solved: Boolean(att.codingSubmissions?.[0]?.solved),
+        codingQ2Solved: Boolean(att.codingSubmissions?.[1]?.solved),
+      },
+      adminNote: att.adminNote || "",
       codingQuestion1Solved: Boolean(att.codingSubmissions?.[0]?.solved),
       codingQuestion2Solved: Boolean(att.codingSubmissions?.[1]?.solved),
       proctoringStatus: att.proctoring?.status || "COMPLIANT",
@@ -1223,10 +1271,10 @@ router.get("/verify/:certificateId", async (req, res) => {
 });
 
 // -------------------------------------------------------------
-// 12. GET /api/certifications/certificate/:certificateId/download
+// 12. GET /api/certifications/certificate/:certificateId/download (and alias /download/:certificateId)
 // Downloads the high-resolution vector PDF certificate
 // -------------------------------------------------------------
-router.get("/certificate/:certificateId/download", async (req, res) => {
+router.get(["/certificate/:certificateId/download", "/download/:certificateId"], async (req, res) => {
   try {
     const { certificateId } = req.params;
     const cert = await IssuedCertificate.findOne({ certificateId, status: "VALID" });

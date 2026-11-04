@@ -42,6 +42,8 @@ import {
   LuCodeXml,
   LuSprout,
   LuSparkles,
+  LuBookOpen,
+  LuFolderGit2,
 } from "react-icons/lu";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
@@ -540,26 +542,59 @@ const Profile = () => {
 
         {/* Sidebar Nav Items */}
         <nav className="mz-sidebar-nav">
-          {/* 1. Home */}
+          {/* 1. Dashboard */}
           <button
             type="button"
             className="mz-sidebar-item"
             onClick={() => navigate("/home")}
-            title="Home"
+            title="Dashboard"
           >
             <LuHouse className="mz-sidebar-item-icon" />
-            <span className="mz-sidebar-item-label">Home</span>
+            <span className="mz-sidebar-item-label">Dashboard</span>
           </button>
 
-          {/* 2. Select Interests */}
+          {/* 2. Practice & DSA */}
           <button
             type="button"
             className="mz-sidebar-item"
-            onClick={() => navigate("/select-interests")}
-            title="Select Interests"
+            onClick={() => navigate("/coding?tab=challenges", { state: { tab: "challenges" } })}
+            title="Practice & DSA"
           >
-            <LuTarget className="mz-sidebar-item-icon" />
-            <span className="mz-sidebar-item-label">Select Interests</span>
+            <LuCodeXml className="mz-sidebar-item-icon" />
+            <span className="mz-sidebar-item-label">Practice & DSA</span>
+          </button>
+
+          {/* 3. Learn & Path */}
+          <button
+            type="button"
+            className="mz-sidebar-item"
+            onClick={() => navigate("/coding?tab=learning_path", { state: { tab: "learning_path" } })}
+            title="Learn & Path"
+          >
+            <LuBookOpen className="mz-sidebar-item-icon" />
+            <span className="mz-sidebar-item-label">Learn & Path</span>
+          </button>
+
+          {/* 4. Projects */}
+          <button
+            type="button"
+            className="mz-sidebar-item"
+            onClick={() => navigate("/coding?tab=projects", { state: { tab: "projects" } })}
+            title="Projects"
+          >
+            <LuFolderGit2 className="mz-sidebar-item-icon" />
+            <span className="mz-sidebar-item-label">Projects</span>
+          </button>
+
+          {/* 5. Live Study */}
+          <button
+            type="button"
+            className="mz-sidebar-item"
+            onClick={() => navigate("/live")}
+            title="Live Study"
+          >
+            <LuVideo className="mz-sidebar-item-icon" />
+            <span className="mz-sidebar-item-label">Live Study</span>
           </button>
 
           {/* 3. Reports */}

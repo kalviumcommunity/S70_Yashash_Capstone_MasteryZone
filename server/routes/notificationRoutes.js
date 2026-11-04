@@ -97,6 +97,29 @@ const markAllReadHandler = async (req, res) => {
       { $set: { isRead: true, readAt: new Date() } }
     );
 
+    // Synchronize ChallengeSubmission, CertificationAttempt, and ModuleAssessmentAttempt view tracking
+    try {
+      const ChallengeSubmission = require("../models/ChallengeSubmission");
+      const CertificationAttempt = require("../models/CertificationAttempt");
+      const ModuleAssessmentAttempt = require("../models/ModuleAssessmentAttempt");
+      await Promise.allSettled([
+        ChallengeSubmission.updateMany(
+          { userId: userObjId, notificationSent: true, notificationViewed: false },
+          { $set: { notificationViewed: true, notificationViewedAt: new Date() } }
+        ),
+        CertificationAttempt.updateMany(
+          { userId: userObjId, notificationSent: true, notificationViewed: false },
+          { $set: { notificationViewed: true, notificationViewedAt: new Date() } }
+        ),
+        ModuleAssessmentAttempt.updateMany(
+          { userId: userObjId, notificationSent: true, notificationViewed: false },
+          { $set: { notificationViewed: true, notificationViewedAt: new Date() } }
+        ),
+      ]);
+    } catch (subErr) {
+      console.warn("Notification view tracking sync warning:", subErr.message);
+    }
+
     await emitNotificationsSync(req.app, userObjId, {
       action: "mark_all_read",
       unreadCount: 0,
@@ -129,6 +152,29 @@ const markOneReadHandler = async (req, res) => {
 
     if (!updated) {
       return res.status(404).json({ error: "Notification not found" });
+    }
+
+    // Synchronize ChallengeSubmission, CertificationAttempt, and ModuleAssessmentAttempt view tracking
+    try {
+      const ChallengeSubmission = require("../models/ChallengeSubmission");
+      const CertificationAttempt = require("../models/CertificationAttempt");
+      const ModuleAssessmentAttempt = require("../models/ModuleAssessmentAttempt");
+      await Promise.allSettled([
+        ChallengeSubmission.updateMany(
+          { notificationInAppId: id },
+          { $set: { notificationViewed: true, notificationViewedAt: new Date() } }
+        ),
+        CertificationAttempt.updateMany(
+          { notificationInAppId: id },
+          { $set: { notificationViewed: true, notificationViewedAt: new Date() } }
+        ),
+        ModuleAssessmentAttempt.updateMany(
+          { notificationInAppId: id },
+          { $set: { notificationViewed: true, notificationViewedAt: new Date() } }
+        ),
+      ]);
+    } catch (subErr) {
+      console.warn("Notification view tracking sync warning:", subErr.message);
     }
 
     const unreadCount = await Notification.countDocuments({ userId: userObjId, isRead: false });
