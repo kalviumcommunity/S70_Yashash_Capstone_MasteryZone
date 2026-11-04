@@ -1009,6 +1009,9 @@ app.use(express.static(path.join(__dirname, '../client/dist')));
 
 // Catch-all route to serve the React app for non-API requests (SPA routing)
 app.get(/.*/, (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   res.sendFile(path.join(__dirname, '../client/dist/index.html'));
 });
 
