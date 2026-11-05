@@ -11,6 +11,7 @@ import rocketIcon from "../assets/interests_card_rocket.png";
 
 // Ultra-sharp 1024x1024 300DPI 3D Apple-style illustration for Coding
 import codingIllustration from "../assets/interests_card_coding_hd.png";
+import heroLaptop4k from "../assets/hero_laptop_4k.svg";
 
 import {
   LuHouse,
@@ -1133,6 +1134,21 @@ const Home = () => {
           >
             <LuHouse className="mz-sidebar-item-icon" />
             <span className="mz-sidebar-item-label">Dashboard</span>
+          </button>
+
+          {/* 2. Coding */}
+          <button
+            type="button"
+            className={`mz-sidebar-item ${currentPath === "/coding" ? "active" : ""}`}
+            onClick={() => {
+              navigate("/coding");
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+            title="Coding"
+            data-testid="sidebar-nav-coding"
+          >
+            <LuCodeXml className="mz-sidebar-item-icon" />
+            <span className="mz-sidebar-item-label">Coding</span>
           </button>
 
           {/* 2. Practice & DSA */}
@@ -2946,7 +2962,7 @@ const Home = () => {
             </div>
           ) : (
             /* ================= DEDICATED CODING PLATFORM DASHBOARD ================= */
-            <div className="mz-coding-platform-dashboard mz-fade-in-up" style={{ maxWidth: 1200, margin: "0 auto", padding: "8px 0 40px" }}>
+            <div className="mz-coding-platform-dashboard mz-dashboard-entrance" style={{ maxWidth: 1200, margin: "0 auto", padding: "8px 0 40px" }}>
               {/* 1. Header & Learner Profile Spotlight */}
               <div
                 style={{
@@ -2958,9 +2974,9 @@ const Home = () => {
                   marginBottom: 26,
                 }}
               >
-                <div>
+                <div className="mz-welcome-entrance">
                   <h2 style={{ fontSize: "1.75rem", fontWeight: 800, color: "#0f172a", margin: 0, letterSpacing: "-0.02em" }}>
-                    Welcome back, {displayName} 👋
+                    Welcome back, {displayName} <span className="mz-wave-hand">👋</span>
                   </h2>
                   <p style={{ fontSize: "0.95rem", color: "#64748b", margin: "6px 0 0", lineHeight: 1.5 }}>
                     Your centralized software engineering headquarters. Master Data Structures, build production systems, and earn accredited credentials.
@@ -2969,6 +2985,7 @@ const Home = () => {
 
                 {user && (
                   <div
+                    className="mz-user-entrance"
                     onClick={() => navigate("/profile")}
                     style={{
                       display: "flex",
@@ -2978,24 +2995,15 @@ const Home = () => {
                       padding: "8px 18px 8px 10px",
                       borderRadius: 32,
                       border: "1px solid #e2e8f0",
-                      boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+                      boxShadow: "0 2px 10px rgba(0,0,0,0.04)",
                       cursor: "pointer",
-                      transition: "all 0.2s ease",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = "#93c5fd";
-                      e.currentTarget.style.transform = "translateY(-1px)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = "#e2e8f0";
-                      e.currentTarget.style.transform = "translateY(0)";
                     }}
                     title="View & Edit Profile"
                   >
                     <div
                       style={{
-                        width: 36,
-                        height: 36,
+                        width: 38,
+                        height: 38,
                         borderRadius: "50%",
                         overflow: "hidden",
                         background: "#eff6ff",
@@ -3003,9 +3011,10 @@ const Home = () => {
                         alignItems: "center",
                         justifyContent: "center",
                         fontWeight: 700,
-                        fontSize: "0.9rem",
+                        fontSize: "0.95rem",
                         color: "#2563eb",
                         border: "2px solid #3b82f6",
+                        boxShadow: "0 0 0 2px rgba(59, 130, 246, 0.2)",
                       }}
                     >
                       {user.avatarUrl ? (
@@ -3022,8 +3031,9 @@ const Home = () => {
                       <div style={{ fontSize: "0.88rem", fontWeight: 700, color: "#0f172a" }}>
                         {displayName}
                       </div>
-                      <div style={{ fontSize: "0.75rem", color: "#2563eb", fontWeight: 600 }}>
-                        Active Profile →
+                      <div style={{ fontSize: "0.75rem", color: "#2563eb", fontWeight: 600, display: "flex", alignItems: "center", gap: 5, marginTop: 2 }}>
+                        <span className="mz-live-status-dot" />
+                        <span>Active Profile →</span>
                       </div>
                     </div>
                   </div>
@@ -3041,7 +3051,7 @@ const Home = () => {
               >
                 {/* Tile 1: Streak */}
                 <div
-                  className="mz-telemetry-tile"
+                  className="mz-telemetry-tile mz-tile-anim-1"
                   onClick={() => navigate("/coding?tab=challenges")}
                   title="Click to view DSA Challenges and maintain your streak"
                   style={{ cursor: "pointer" }}
@@ -3068,15 +3078,18 @@ const Home = () => {
                     <div style={{ fontSize: "1.45rem", fontWeight: 800, color: "#0f172a", lineHeight: 1.2 }}>
                       {codingStats.streak || 1} <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#64748b" }}>Days</span>
                     </div>
-                    <span style={{ fontSize: "0.72rem", color: "#16a34a", fontWeight: 600 }}>
-                      🔥 Keep daily momentum
+                    <span style={{ fontSize: "0.74rem", color: "#ea580c", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 5 }}>
+                      <span className="mz-telemetry-badge-icon" style={{ background: "#ffedd5", border: "1px solid #fed7aa" }}>
+                        <LuFlame size={11} color="#ea580c" />
+                      </span>
+                      <span>Keep daily momentum</span>
                     </span>
                   </div>
                 </div>
 
                 {/* Tile 2: Engineering XP */}
                 <div
-                  className="mz-telemetry-tile"
+                  className="mz-telemetry-tile mz-tile-anim-2"
                   onClick={() => navigate("/progress")}
                   title="Click to view learning progress & XP breakdown"
                   style={{ cursor: "pointer" }}
@@ -3103,15 +3116,18 @@ const Home = () => {
                     <div style={{ fontSize: "1.45rem", fontWeight: 800, color: "#0f172a", lineHeight: 1.2 }}>
                       {codingStats.totalXp || 120} <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#64748b" }}>XP</span>
                     </div>
-                    <span style={{ fontSize: "0.72rem", color: "#2563eb", fontWeight: 600 }}>
-                      ⚡ Level 2 Developer
+                    <span style={{ fontSize: "0.74rem", color: "#2563eb", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 5 }}>
+                      <span className="mz-telemetry-badge-icon" style={{ background: "#dbeafe", border: "1px solid #bfdbfe" }}>
+                        <LuZap size={11} color="#2563eb" />
+                      </span>
+                      <span>Level 2 Developer</span>
                     </span>
                   </div>
                 </div>
 
                 {/* Tile 3: Challenges Solved */}
                 <div
-                  className="mz-telemetry-tile"
+                  className="mz-telemetry-tile mz-tile-anim-3"
                   onClick={() => navigate("/coding?tab=challenges")}
                   title="Click to solve algorithmic challenges"
                   style={{ cursor: "pointer" }}
@@ -3138,15 +3154,18 @@ const Home = () => {
                     <div style={{ fontSize: "1.45rem", fontWeight: 800, color: "#0f172a", lineHeight: 1.2 }}>
                       {codingStats.challengesSolvedCount || 0} <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#64748b" }}>/ 135</span>
                     </div>
-                    <span style={{ fontSize: "0.72rem", color: "#059669", fontWeight: 600 }}>
-                      🎯 Real Test Assertions
+                    <span style={{ fontSize: "0.74rem", color: "#059669", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 5 }}>
+                      <span className="mz-telemetry-badge-icon" style={{ background: "#dcfce7", border: "1px solid #bbf7d0" }}>
+                        <LuTarget size={11} color="#059669" />
+                      </span>
+                      <span>Real Test Assertions</span>
                     </span>
                   </div>
                 </div>
 
                 {/* Tile 4: Study Time */}
                 <div
-                  className="mz-telemetry-tile"
+                  className="mz-telemetry-tile mz-tile-anim-4"
                   onClick={() => navigate("/progress")}
                   title="Click to view total study telemetry"
                   style={{ cursor: "pointer" }}
@@ -3173,8 +3192,11 @@ const Home = () => {
                     <div style={{ fontSize: "1.45rem", fontWeight: 800, color: "#0f172a", lineHeight: 1.2 }}>
                       {codingStats.totalHours || 4.5} <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#64748b" }}>Hours</span>
                     </div>
-                    <span style={{ fontSize: "0.72rem", color: "#7c3aed", fontWeight: 600 }}>
-                      ⏱️ Active Focus Telemetry
+                    <span style={{ fontSize: "0.74rem", color: "#7c3aed", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 5 }}>
+                      <span className="mz-telemetry-badge-icon" style={{ background: "#ede9fe", border: "1px solid #ddd6fe" }}>
+                        <LuClock size={11} color="#7c3aed" />
+                      </span>
+                      <span>Active Focus Telemetry</span>
                     </span>
                   </div>
                 </div>
@@ -3183,13 +3205,43 @@ const Home = () => {
               {/* 3. Hero Spotlight: Coding & Software Engineering Ecosystem */}
               <div className="mz-hero-banner-glass">
                 <div style={{ maxWidth: 640, zIndex: 1 }}>
-                  <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(59, 130, 246, 0.18)", border: "1px solid rgba(147, 197, 253, 0.35)", color: "#93c5fd", padding: "5px 14px", borderRadius: 24, fontSize: "0.78rem", fontWeight: 700, marginBottom: 14 }}>
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      background: "#eff6ff",
+                      border: "1px solid #bfdbfe",
+                      color: "#1d4ed8",
+                      padding: "5px 14px",
+                      borderRadius: 24,
+                      fontSize: "0.78rem",
+                      fontWeight: 700,
+                      marginBottom: 14,
+                    }}
+                  >
                     <LuSparkles size={14} /> Official Coding & DSA Ecosystem
                   </div>
-                  <h3 style={{ fontSize: "1.85rem", fontWeight: 800, color: "#ffffff", margin: "0 0 12px", letterSpacing: "-0.02em", lineHeight: 1.25 }}>
+                  <h3
+                    style={{
+                      fontSize: "1.9rem",
+                      fontWeight: 800,
+                      color: "#0f172a",
+                      margin: "0 0 12px",
+                      letterSpacing: "-0.02em",
+                      lineHeight: 1.25,
+                    }}
+                  >
                     Master Algorithmic Thinking & Full-Stack Systems
                   </h3>
-                  <p style={{ color: "#cbd5e1", fontSize: "0.95rem", lineHeight: 1.6, margin: "0 0 24px" }}>
+                  <p
+                    style={{
+                      color: "#475569",
+                      fontSize: "0.95rem",
+                      lineHeight: 1.6,
+                      margin: "0 0 24px",
+                    }}
+                  >
                     Solve industrial coding challenges with real-time browser compilers, construct milestone multi-file architectures, and earn accredited, proctored computer science certificates.
                   </p>
                   
@@ -3230,11 +3282,28 @@ const Home = () => {
                   </div>
                 </div>
 
-                <div style={{ display: "flex", justifyContent: "center", alignItems: "center", flexShrink: 0, zIndex: 1 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    flexShrink: 0,
+                    zIndex: 1,
+                    width: 360,
+                    maxWidth: "100%",
+                  }}
+                >
                   <img
-                    src={codingIllustration}
-                    alt="Coding Platform Illustration"
-                    style={{ width: 190, height: 190, objectFit: "contain", filter: "drop-shadow(0 16px 32px rgba(0,0,0,0.45))" }}
+                    src={heroLaptop4k}
+                    alt="Mastery Zone 4K Interactive Coding Platform"
+                    className="mz-hero-laptop-img"
+                    style={{
+                      width: "100%",
+                      height: "auto",
+                      maxHeight: 230,
+                      objectFit: "contain",
+                      filter: "drop-shadow(0 14px 28px rgba(15, 23, 42, 0.12))",
+                    }}
                   />
                 </div>
               </div>
