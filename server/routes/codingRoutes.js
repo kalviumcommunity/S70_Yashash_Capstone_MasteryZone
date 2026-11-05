@@ -1513,28 +1513,27 @@ router.post("/challenges/:id/submit", optionalAuthenticateToken, async (req, res
   const startTime = Date.now();
   try {
     const allTests = challenge.testCases;
-    const testResults = [];
-
     const isPlayground = Boolean(id && id.startsWith("playground-"));
-    for (let i = 0; i < allTests.length; i++) {
-      const test = allTests[i];
-      const isHidden = isPlayground ? false : (test.isHidden !== undefined ? test.isHidden : i >= 3);
-      const outcome = await evaluateSingleTestCase(effectiveLang, code, test.input, test.expectedOutput);
-      testResults.push({
-        testIndex: i + 1,
-        testNumber: i + 1,
-        isHidden,
-        passed: outcome.passed,
-        duration: outcome.duration,
-        durationMs: outcome.duration,
-        error: outcome.passed ? null : (isHidden ? (outcome.error ? "Runtime Error on Hidden Case" : "Wrong Answer on Hidden Case") : outcome.error),
-        input: isHidden ? "[Hidden Test Case]" : test.input,
-        expected: isHidden ? "[Hidden Test Case]" : test.expectedOutput,
-        expectedOutput: isHidden ? "[Hidden Test Case]" : test.expectedOutput,
-        actual: isHidden ? (outcome.passed ? "[Passed]" : "[Output Hidden]") : outcome.actual,
-        actualOutput: isHidden ? (outcome.passed ? "[Passed]" : "[Output Hidden]") : outcome.actual,
-      });
-    }
+    const testResults = await Promise.all(
+      allTests.map(async (test, i) => {
+        const isHidden = isPlayground ? false : (test.isHidden !== undefined ? test.isHidden : i >= 3);
+        const outcome = await evaluateSingleTestCase(effectiveLang, code, test.input, test.expectedOutput);
+        return {
+          testIndex: i + 1,
+          testNumber: i + 1,
+          isHidden,
+          passed: outcome.passed,
+          duration: outcome.duration,
+          durationMs: outcome.duration,
+          error: outcome.passed ? null : (isHidden ? (outcome.error ? "Runtime Error on Hidden Case" : "Wrong Answer on Hidden Case") : outcome.error),
+          input: isHidden ? "[Hidden Test Case]" : test.input,
+          expected: isHidden ? "[Hidden Test Case]" : test.expectedOutput,
+          expectedOutput: isHidden ? "[Hidden Test Case]" : test.expectedOutput,
+          actual: isHidden ? (outcome.passed ? "[Passed]" : "[Output Hidden]") : outcome.actual,
+          actualOutput: isHidden ? (outcome.passed ? "[Passed]" : "[Output Hidden]") : outcome.actual,
+        };
+      })
+    );
 
     const passedCount = testResults.filter((r) => r.passed).length;
     // Strict completion rule: completed ONLY when 100% of all test cases pass (including hidden tests)
@@ -2350,28 +2349,28 @@ router.post("/curriculum/exercise/submit", authenticateToken, async (req, res) =
 
   try {
     const testCases = module.codingExercise.testCases;
-    const testResults = [];
     const lang = (language || (trackId === "cpp" ? "cpp" : trackId === "java" ? "java" : trackId === "python" ? "python" : "javascript")).toLowerCase().trim();
 
-    for (let i = 0; i < testCases.length; i++) {
-      const tc = testCases[i];
-      const isHidden = tc.isHidden !== undefined ? tc.isHidden : i >= 3;
-      const outcome = await evaluateSingleTestCase(lang, code, tc.input, tc.expectedOutput);
-      testResults.push({
-        testIndex: i + 1,
-        testNumber: i + 1,
-        isHidden,
-        passed: outcome.passed,
-        duration: outcome.duration,
-        durationMs: outcome.duration,
-        error: outcome.passed ? null : (isHidden ? (outcome.error ? "Runtime Error on Hidden Case" : "Wrong Answer on Hidden Case") : outcome.error),
-        input: isHidden ? "[Hidden Test Case]" : tc.input,
-        expected: isHidden ? "[Hidden Test Case]" : tc.expectedOutput,
-        expectedOutput: isHidden ? "[Hidden Test Case]" : tc.expectedOutput,
-        actual: isHidden ? (outcome.passed ? "[Passed]" : "[Output Hidden]") : outcome.actual,
-        actualOutput: isHidden ? (outcome.passed ? "[Passed]" : "[Output Hidden]") : outcome.actual,
-      });
-    }
+    const testResults = await Promise.all(
+      testCases.map(async (tc, i) => {
+        const isHidden = tc.isHidden !== undefined ? tc.isHidden : i >= 3;
+        const outcome = await evaluateSingleTestCase(lang, code, tc.input, tc.expectedOutput);
+        return {
+          testIndex: i + 1,
+          testNumber: i + 1,
+          isHidden,
+          passed: outcome.passed,
+          duration: outcome.duration,
+          durationMs: outcome.duration,
+          error: outcome.passed ? null : (isHidden ? (outcome.error ? "Runtime Error on Hidden Case" : "Wrong Answer on Hidden Case") : outcome.error),
+          input: isHidden ? "[Hidden Test Case]" : tc.input,
+          expected: isHidden ? "[Hidden Test Case]" : tc.expectedOutput,
+          expectedOutput: isHidden ? "[Hidden Test Case]" : tc.expectedOutput,
+          actual: isHidden ? (outcome.passed ? "[Passed]" : "[Output Hidden]") : outcome.actual,
+          actualOutput: isHidden ? (outcome.passed ? "[Passed]" : "[Output Hidden]") : outcome.actual,
+        };
+      })
+    );
 
     const passedCount = testResults.filter((r) => r.passed).length;
     const score = Math.round((passedCount / testCases.length) * 100);
@@ -2701,7 +2700,10 @@ router.post("/curriculum/assessment/submit", authenticateToken, async (req, res)
       const q = questions[i];
       let selected = null;
       if (answers) {
-        const raw = answers[i] !== undefined ? answers[i] : answers[String(i)];
+        const keyById = q.id !== undefined ? (answers[q.id] ?? answers[String(q.id)]) : undefined;
+        const keyByOrig = q.originalIndex !== undefined ? (answers[q.originalIndex] ?? answers[String(q.originalIndex)]) : undefined;
+        const keyByIdx = answers[i] ?? answers[String(i)];
+        const raw = keyById !== undefined ? keyById : (keyByOrig !== undefined ? keyByOrig : keyByIdx);
         if (raw !== undefined && raw !== null && raw !== "" && raw !== -1 && raw !== "-1") {
           const parsed = parseInt(raw, 10);
           if (!isNaN(parsed) && parsed >= 0) {
@@ -4716,21 +4718,22 @@ router.post(["/proctored-session/:sessionId/submit", "/proctored-session/submit"
       if (Array.isArray(testResults) && testResults.length > 0) {
         evaluatedResults = testResults;
       } else {
-        for (let i = 0; i < qTestCases.length; i++) {
-          const tc = qTestCases[i];
-          const isHidden = tc.isHidden !== undefined ? tc.isHidden : i >= 3;
-          const outcome = await evaluateSingleTestCase(submissionLang, submissionCode, tc.input, tc.expectedOutput);
-          evaluatedResults.push({
-            testIndex: i + 1,
-            passed: outcome.passed,
-            durationMs: outcome.duration || 0,
-            input: isHidden ? "[Hidden Test Case]" : tc.input,
-            expected: isHidden ? "[Hidden Output]" : tc.expectedOutput,
-            actual: isHidden ? (outcome.passed ? "[Passed]" : "[Output Hidden]") : (outcome.actual || (hasExecutableCode ? "" : "[No Output]")),
-            error: outcome.passed ? null : outcome.error || "Wrong output",
-            isHidden,
-          });
-        }
+        evaluatedResults = await Promise.all(
+          qTestCases.map(async (tc, i) => {
+            const isHidden = tc.isHidden !== undefined ? tc.isHidden : i >= 3;
+            const outcome = await evaluateSingleTestCase(submissionLang, submissionCode, tc.input, tc.expectedOutput);
+            return {
+              testIndex: i + 1,
+              passed: outcome.passed,
+              durationMs: outcome.duration || 0,
+              input: isHidden ? "[Hidden Test Case]" : tc.input,
+              expected: isHidden ? "[Hidden Output]" : tc.expectedOutput,
+              actual: isHidden ? (outcome.passed ? "[Passed]" : "[Output Hidden]") : (outcome.actual || (hasExecutableCode ? "" : "[No Output]")),
+              error: outcome.passed ? null : outcome.error || "Wrong output",
+              isHidden,
+            };
+          })
+        );
       }
 
       const totalTests = providedTotalTests || qTestCases.length || 10;

@@ -686,9 +686,6 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
         }
       } catch {}
 
-      // Open Post-Submission Result Screen with "View Official Report" option
-      setSubmissionResultModal(sub);
-
       if (sub.passed) {
         try {
           const pId = projectSpec?.id || projectId;
@@ -702,6 +699,16 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
       }
 
       if (onProjectStateUpdated) onProjectStateUpdated();
+
+      // Automatically grade and show the report page instantly
+      const reportTarget = sub.reportUrl || `/assessment-report/${sub.sessionId}`;
+      toast.dismiss();
+      toast.success("Project Graded! Opening your official report card...", {
+        toastId: "project-graded-toast",
+        autoClose: 1800,
+      });
+      navigate(reportTarget, { replace: true });
+      return;
     } catch (err) {
       setStatusToast({ type: "error", text: `Submission failed: ${err.message}` });
     } finally {

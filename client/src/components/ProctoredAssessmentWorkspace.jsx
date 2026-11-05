@@ -74,7 +74,7 @@ export default function ProctoredAssessmentWorkspace({
       .finally(() => setLoadingModule(false));
   }, [propModule, tId, mIdx]);
 
-  // Check if this assessment has already been submitted for current user account
+  // Clear any legacy submission lock so re-attempts are always ready for the user
   useEffect(() => {
     const rawUser = localStorage.getItem("user");
     let uId = "";
@@ -85,23 +85,9 @@ export default function ProctoredAssessmentWorkspace({
       } catch {}
     }
     const userSubmittedKey = uId ? `mz_${uId}_exam_${subjectKey}_${tId}_${mIdx}_submitted` : `mz_exam_${mIdx}_submitted`;
-    if (localStorage.getItem(userSubmittedKey) === "true") {
-      const repUrl = localStorage.getItem(`${userSubmittedKey}_report_url`);
-      if (repUrl) {
-        toast.info("This accreditation assessment has already been completed and submitted.", { toastId: "assessment_already_submitted" });
-        navigate(repUrl, { replace: true });
-      }
-    }
-
-    const handlePopState = () => {
-      if (localStorage.getItem(userSubmittedKey) === "true") {
-        const repUrl = localStorage.getItem(`${userSubmittedKey}_report_url`) || "/home";
-        navigate(repUrl, { replace: true });
-      }
-    };
-    window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
-  }, [subjectKey, tId, mIdx, navigate]);
+    localStorage.removeItem(userSubmittedKey);
+    localStorage.removeItem(`${userSubmittedKey}_report_url`);
+  }, [subjectKey, tId, mIdx]);
 
   // Assessment workflow stages: "gate", "active", "results"
   const [stage, setStage] = useState("gate");
@@ -172,15 +158,37 @@ export default function ProctoredAssessmentWorkspace({
 
   const sessionStorageKey = `mz_exam_session_${subjectKey}_${tId}_${mIdx}`;
 
-  // Safe question extract
-  useEffect(() => {
+  // Shuffled questions preparation for every new attempt
+  const initShuffledQuestions = useCallback((sourceModule) => {
     const rawQuestions =
-      module?.assessment?.questions ||
-      module?.questions ||
-      module?.safeQuestions ||
+      sourceModule?.assessment?.questions ||
+      sourceModule?.questions ||
+      sourceModule?.safeQuestions ||
       [];
-    setQuestions(rawQuestions);
-  }, [module]);
+    if (!rawQuestions || rawQuestions.length === 0) {
+      setQuestions([]);
+      return;
+    }
+    // Tag each question with its original index and id so grading is always 100% accurate
+    const indexed = rawQuestions.map((q, idx) => ({
+      ...q,
+      originalIndex: typeof q.originalIndex === "number" ? q.originalIndex : idx,
+      id: q.id || `q_${idx + 1}`,
+    }));
+    // Fisher-Yates array shuffle for randomized question order on every attempt
+    const shuffled = [...indexed];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    setQuestions(shuffled);
+  }, []);
+
+  useEffect(() => {
+    if (module) {
+      initShuffledQuestions(module);
+    }
+  }, [module, initShuffledQuestions]);
 
   // Clean up all streams, audio contexts, and exit fullscreen immediately
   const cleanUpMediaStreams = useCallback(() => {
@@ -463,6 +471,7 @@ export default function ProctoredAssessmentWorkspace({
       }
 
       setStage("active");
+      initShuffledQuestions(module);
       setCurrentQIndex(0);
       setAnswers({});
       setMarkedForReview({});
@@ -571,6 +580,20 @@ export default function ProctoredAssessmentWorkspace({
     const token = localStorage.getItem("token");
     const timeSpent = Math.max(1, EXAM_DURATION_SECONDS - timeRemaining);
 
+    // Prepare answers payload mapped by both original question index and question ID
+    const submissionAnswers = {};
+    questions.forEach((q, currentPos) => {
+      const userSelected = answers[currentPos];
+      if (userSelected !== undefined && userSelected !== null && userSelected !== "") {
+        submissionAnswers[q.originalIndex] = userSelected;
+        submissionAnswers[String(q.originalIndex)] = userSelected;
+        if (q.id) {
+          submissionAnswers[q.id] = userSelected;
+        }
+        submissionAnswers[currentPos] = userSelected;
+      }
+    });
+
     try {
       const res = await fetch(`${API_BASE}/api/curriculum/assessment/submit`, {
         method: "POST",
@@ -582,7 +605,7 @@ export default function ProctoredAssessmentWorkspace({
           subjectKey,
           trackId: tId,
           moduleIndex: mIdx,
-          answers,
+          answers: submissionAnswers,
           timeSpentSeconds: timeSpent,
           violationsCount,
           violationsLog,
@@ -603,7 +626,7 @@ export default function ProctoredAssessmentWorkspace({
 
       const resolvedSessionId = data.sessionId || (data.attemptId ? `attempt_${data.attemptId}` : `mz_mcq_${Date.now()}`);
 
-      // Cache report locally for instant offline availability and resilience strictly scoped to logged-in user
+      // Cache report locally for instant zero-latency report page rendering
       try {
         const rawUser = localStorage.getItem("user");
         let uId = "";
@@ -643,32 +666,35 @@ export default function ProctoredAssessmentWorkspace({
         const updated = [newRecord, ...existing.filter((r) => r.sessionId !== resolvedSessionId && r.attemptId !== data.attemptId)];
         localStorage.setItem(reportsKey, JSON.stringify(updated.slice(0, 30)));
 
-        // Record per-account assessment submission lock
+        // Remove any old locks so user is completely free to re-attempt anytime
         const userSubmittedKey = uId ? `mz_${uId}_exam_${subjectKey}_${tId}_${mIdx}_submitted` : `mz_exam_${mIdx}_submitted`;
-        localStorage.setItem(userSubmittedKey, "true");
-        localStorage.setItem(`${userSubmittedKey}_report_url`, `/assessment-report/${resolvedSessionId}`);
+        localStorage.removeItem(userSubmittedKey);
+        localStorage.removeItem(`${userSubmittedKey}_report_url`);
       } catch (e) {
         console.warn("Could not cache report locally:", e);
       }
 
-      setResultsData({
-        ...data,
-        sessionId: resolvedSessionId,
-        score: data.score ?? 0,
-        marksObtained: data.marksObtained ?? data.score ?? 0,
-        totalMarks: data.totalMarks ?? (data.totalQuestions || questions.length || 10),
-        percentage: data.percentage ?? 0,
-        totalQuestions: data.totalQuestions ?? questions.length ?? 10,
-        questionsAttempted: data.questionsAttempted ?? Object.keys(answers).length,
-        questionsUnanswered: data.questionsUnanswered ?? Math.max(0, (data.totalQuestions || questions.length || 10) - Object.keys(answers).length),
-        accuracy: data.accuracy ?? 0,
-        grade: data.grade || (data.percentage >= 90 ? "A+" : data.percentage >= 80 ? "A" : data.percentage >= 70 ? "B" : data.percentage >= 60 ? "C" : "F"),
-        reviewBreakdown: data.reviewBreakdown ?? [],
-        timeSpentSeconds: timeSpent,
-        violationsCount,
-        submittedAt: new Date().toISOString(),
-      });
-      setStage("results");
+      if (onAssessmentCompleted) {
+        onAssessmentCompleted(data);
+      }
+
+      toast.dismiss();
+      if (data.passed) {
+        toast.success(data.message || `🎉 Passed with ${data.percentage}%! Opening your official grade report...`, {
+          toastId: "mcq_submit_result",
+          autoClose: 2000,
+        });
+      } else {
+        toast.warn(data.message || `Score: ${data.percentage}%. Opening your official grade report...`, {
+          toastId: "mcq_submit_result",
+          autoClose: 2000,
+        });
+      }
+
+      // Directly show the report page instantly
+      const targetReportUrl = `/assessment-report/${resolvedSessionId}`;
+      navigate(targetReportUrl, { replace: true });
+      return;
 
       if (data.passed) {
         toast.success(data.message || `Congratulations! Passed with ${data.percentage}%!`, {
@@ -1362,12 +1388,15 @@ export default function ProctoredAssessmentWorkspace({
                     type="button"
                     className="mz-exam-nav-btn"
                     onClick={() => {
+                      initShuffledQuestions(module);
+                      setCurrentQIndex(0);
                       setStage("gate");
                       setAnswers({});
                       setMarkedForReview({});
                       setResultsData(null);
                       setViolationsCount(0);
                       setViolationsLog([]);
+                      setTimeRemaining(EXAM_DURATION_SECONDS);
                     }}
                   >
                     <LuRotateCcw size={16} /> Retake Assessment

@@ -4704,7 +4704,7 @@ export default function Coding() {
                         flexShrink: 0,
                       }}
                     >
-                      {isUnlocked ? (isPassed ? "Review Exam" : "Take Assessment") : "🔒 Locked"}{" "}
+                      {isUnlocked ? (isPassed ? "Retake Assessment" : "Take Assessment") : "🔒 Locked"}{" "}
                       {isUnlocked && <LuArrowRight size={13} />}
                     </button>
                   </div>

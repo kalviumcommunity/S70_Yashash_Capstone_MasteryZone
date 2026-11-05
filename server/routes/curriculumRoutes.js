@@ -1019,29 +1019,28 @@ router.post("/assignment/submit", authenticateToken, async (req, res) => {
       totalTests = testCases.length;
       const lang = normTrack === "cpp" ? "cpp" : normTrack === "java" ? "java" : normTrack === "python" ? "python" : "javascript";
 
-      for (let i = 0; i < testCases.length; i++) {
-        const tc = testCases[i];
-        const isHidden = tc.isHidden || i >= 2;
-        const execRes = await executeInSandbox(lang, code, tc.input, 7000);
-        const actualOut = (execRes.output || "").trim();
-        const expected = (tc.expectedOutput || "").trim();
-        const passed = actualOut === expected && !execRes.error;
-
-        if (passed) passedCount++;
-
-        testResults.push({
-          testNumber: i + 1,
-          testIndex: i + 1,
-          isHidden,
-          passed,
-          input: isHidden ? "[Hidden Test Case]" : tc.input,
-          expectedOutput: isHidden ? "[Hidden Test Case]" : expected,
-          actualOutput: isHidden ? (passed ? "[Passed]" : "[Output Hidden]") : actualOut,
-          error: isHidden ? (passed ? null : "Hidden Test Case Failed") : (execRes.error || null),
-          durationMs: execRes.duration,
-          duration: execRes.duration,
-        });
-      }
+      testResults = await Promise.all(
+        testCases.map(async (tc, i) => {
+          const isHidden = tc.isHidden || i >= 2;
+          const execRes = await executeInSandbox(lang, code, tc.input, 7000);
+          const actualOut = (execRes.output || "").trim();
+          const expected = (tc.expectedOutput || "").trim();
+          const passed = actualOut === expected && !execRes.error;
+          return {
+            testNumber: i + 1,
+            testIndex: i + 1,
+            isHidden,
+            passed,
+            input: isHidden ? "[Hidden Test Case]" : tc.input,
+            expectedOutput: isHidden ? "[Hidden Test Case]" : expected,
+            actualOutput: isHidden ? (passed ? "[Passed]" : "[Output Hidden]") : actualOut,
+            error: isHidden ? (passed ? null : "Hidden Test Case Failed") : (execRes.error || null),
+            durationMs: execRes.duration,
+            duration: execRes.duration,
+          };
+        })
+      );
+      passedCount = testResults.filter((r) => r.passed).length;
       const score = totalTests > 0 ? Math.round((passedCount / totalTests) * 100) : 0;
       isAccepted = score >= 80 && totalTests > 0;
       feedback = isAccepted
@@ -1294,7 +1293,10 @@ router.post("/assessment/submit", authenticateToken, async (req, res) => {
     questions.forEach((q, qIdx) => {
       let selected = null;
       if (answers) {
-        const raw = answers[qIdx] !== undefined ? answers[qIdx] : answers[String(qIdx)];
+        const keyById = q.id !== undefined ? (answers[q.id] ?? answers[String(q.id)]) : undefined;
+        const keyByOrig = q.originalIndex !== undefined ? (answers[q.originalIndex] ?? answers[String(q.originalIndex)]) : undefined;
+        const keyByIdx = answers[qIdx] ?? answers[String(qIdx)];
+        const raw = keyById !== undefined ? keyById : (keyByOrig !== undefined ? keyByOrig : keyByIdx);
         if (raw !== undefined && raw !== null && raw !== "" && raw !== -1 && raw !== "-1") {
           const parsed = parseInt(raw, 10);
           if (!isNaN(parsed) && parsed >= 0) {

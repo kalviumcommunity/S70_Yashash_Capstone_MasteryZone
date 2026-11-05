@@ -336,26 +336,28 @@ async function evaluateFullProject(project, rawFiles) {
         });
       }
     } else {
-      for (let i = 0; i < testCases.length; i++) {
-        const tc = testCases[i];
-        const res = await sandbox.runInput(tc.input);
-        const actualClean = (res.output || "").trim().replace(/\r\n/g, "\n");
-        const expectedClean = (tc.expectedOutput || "").trim().replace(/\r\n/g, "\n");
-        const passed = res.exitCode === 0 && actualClean === expectedClean;
+      const parallelResults = await Promise.all(
+        testCases.map(async (tc, i) => {
+          const res = await sandbox.runInput(tc.input);
+          const actualClean = (res.output || "").trim().replace(/\r\n/g, "\n");
+          const expectedClean = (tc.expectedOutput || "").trim().replace(/\r\n/g, "\n");
+          const passed = res.exitCode === 0 && actualClean === expectedClean;
 
-        testResults.push({
-          testIndex: i + 1,
-          name: tc.name,
-          input: tc.isHidden ? "[Hidden Edge-Case Input]" : tc.input,
-          expectedOutput: tc.isHidden ? "[Hidden Expected Output]" : expectedClean,
-          actualOutput: tc.isHidden ? (passed ? "[Verified Match]" : actualClean || "[Mismatch]") : actualClean,
-          passed,
-          durationMs: res.duration || 1,
-          isHidden: Boolean(tc.isHidden),
-          isEdgeCase: Boolean(tc.isEdgeCase),
-          error: passed ? null : res.error || (actualClean ? "Output mismatch against specification" : "No output produced"),
-        });
-      }
+          return {
+            testIndex: i + 1,
+            name: tc.name,
+            input: tc.isHidden ? "[Hidden Edge-Case Input]" : tc.input,
+            expectedOutput: tc.isHidden ? "[Hidden Expected Output]" : expectedClean,
+            actualOutput: tc.isHidden ? (passed ? "[Verified Match]" : actualClean || "[Mismatch]") : actualClean,
+            passed,
+            durationMs: res.duration || 1,
+            isHidden: Boolean(tc.isHidden),
+            isEdgeCase: Boolean(tc.isEdgeCase),
+            error: passed ? null : res.error || (actualClean ? "Output mismatch against specification" : "No output produced"),
+          };
+        })
+      );
+      testResults.push(...parallelResults);
     }
   } finally {
     sandbox.cleanup();
@@ -898,7 +900,10 @@ function formatSubmissionAsReport(sub, project) {
 router.get("/", authenticateToken, async (req, res) => {
   try {
     const userId = resolveUserId(req);
-    const states = await ProjectWorkspaceState.find({ userId }).lean();
+    const isValidId = userId && mongoose.Types.ObjectId.isValid(userId);
+    const states = isValidId
+      ? await ProjectWorkspaceState.find({ userId: new mongoose.Types.ObjectId(userId) }).lean()
+      : [];
     const stateMap = new Map(states.map((s) => [s.projectId, s]));
 
     const enrichedProjects = PROJECTS_CATALOG.map((proj) => {
@@ -1008,15 +1013,19 @@ router.get("/:projectId", authenticateToken, async (req, res) => {
     }
 
     const spec = getPublicProjectSpec(project);
+    const isValidId = userId && mongoose.Types.ObjectId.isValid(userId);
+    const userObjId = isValidId ? new mongoose.Types.ObjectId(userId) : null;
     const [workspace, submissions] = await Promise.all([
-      ProjectWorkspaceState.findOne({ userId, projectId }).lean(),
-      ProjectSubmission.find({ userId, projectId })
-        .sort({ createdAt: -1 })
-        .limit(10)
-        .select(
-          "sessionId attemptNumber marksObtained totalMarks percentage grade passed status badgeAwarded passedTests totalTests submittedAt durationSeconds"
-        )
-        .lean(),
+      userObjId ? ProjectWorkspaceState.findOne({ userId: userObjId, projectId }).lean() : null,
+      userObjId
+        ? ProjectSubmission.find({ userId: userObjId, projectId })
+            .sort({ createdAt: -1 })
+            .limit(10)
+            .select(
+              "sessionId attemptNumber marksObtained totalMarks percentage grade passed status badgeAwarded passedTests totalTests submittedAt durationSeconds"
+            )
+            .lean()
+        : [],
     ]);
 
     const activeFiles =
@@ -1061,10 +1070,15 @@ router.post("/:projectId/save", authenticateToken, async (req, res) => {
     const { files, checkedTasks, timeSpentSeconds } = req.body;
     const normalizedFiles = normalizeFilesList(project, files);
 
-    let ws = await ProjectWorkspaceState.findOne({ userId, projectId });
+    const isValidId = userId && mongoose.Types.ObjectId.isValid(userId);
+    if (!isValidId) {
+      return res.status(401).json({ error: "Invalid user session" });
+    }
+    const userObjId = new mongoose.Types.ObjectId(userId);
+    let ws = await ProjectWorkspaceState.findOne({ userId: userObjId, projectId });
     if (!ws) {
       ws = new ProjectWorkspaceState({
-        userId,
+        userId: userObjId,
         projectId,
         status: "in_progress",
         startedAt: new Date(),
@@ -1143,10 +1157,15 @@ router.post("/:projectId/run", authenticateToken, async (req, res) => {
     const evaluation = await evaluateFullProject(project, normalizedFiles);
 
     // Persist workspace draft & lastRunSummary
-    let ws = await ProjectWorkspaceState.findOne({ userId, projectId });
+    const isValidId = userId && mongoose.Types.ObjectId.isValid(userId);
+    if (!isValidId) {
+      return res.status(401).json({ error: "Invalid user session" });
+    }
+    const userObjId = new mongoose.Types.ObjectId(userId);
+    let ws = await ProjectWorkspaceState.findOne({ userId: userObjId, projectId });
     if (!ws) {
       ws = new ProjectWorkspaceState({
-        userId,
+        userId: userObjId,
         projectId,
         status: "in_progress",
         startedAt: new Date(),
@@ -1201,18 +1220,23 @@ router.post("/:projectId/submit", authenticateToken, async (req, res) => {
     const { files, checkedTasks, timeSpentSeconds, durationSeconds: bodyDuration } = req.body;
     const evaluation = await evaluateFullProject(project, files);
 
-    const user = await User.findById(userId).lean();
-    let ws = await ProjectWorkspaceState.findOne({ userId, projectId });
+    const isValidId = userId && mongoose.Types.ObjectId.isValid(userId);
+    if (!isValidId) {
+      return res.status(401).json({ error: "Invalid user session" });
+    }
+    const userObjId = new mongoose.Types.ObjectId(userId);
+    const user = await User.findById(userObjId).lean();
+    let ws = await ProjectWorkspaceState.findOne({ userId: userObjId, projectId });
     if (!ws) {
       ws = new ProjectWorkspaceState({
-        userId,
+        userId: userObjId,
         projectId,
         startedAt: new Date(Date.now() - 180000),
       });
     }
 
     const existingPassedSub = await ProjectSubmission.findOne({
-      userId,
+      userId: userObjId,
       projectId: project.id,
       passed: true,
     }).lean();
@@ -1240,7 +1264,7 @@ router.post("/:projectId/submit", authenticateToken, async (req, res) => {
 
     const submissionDoc = await ProjectSubmission.create({
       sessionId,
-      userId,
+      userId: userObjId,
       candidateDetails: {
         fullName: user?.fullName || user?.username || "Candidate",
         email: user?.email || "candidate@masteryzone.com",

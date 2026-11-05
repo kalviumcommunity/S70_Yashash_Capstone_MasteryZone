@@ -697,8 +697,13 @@ router.post("/attempt/:attemptId/proctoring-event", authenticateToken, async (re
     const events = attempt.proctoring.events || [];
     const lastEvent = events.length > 0 ? events[events.length - 1] : null;
 
-    // Deduplicate rapid repeat events from browser (e.g. visibility + blur + fullscreen firing simultaneously)
-    if (lastEvent && lastEvent.timestamp && (now.getTime() - new Date(lastEvent.timestamp).getTime()) < 4000) {
+    // Deduplicate rapid repeat events from browser of exact same type within 800ms
+    if (
+      lastEvent &&
+      lastEvent.type === type &&
+      lastEvent.timestamp &&
+      now.getTime() - new Date(lastEvent.timestamp).getTime() < 800
+    ) {
       return res.json({
         success: true,
         duplicateIgnored: true,
@@ -721,12 +726,12 @@ router.post("/attempt/:attemptId/proctoring-event", authenticateToken, async (re
       timestamp: now,
     });
 
-    // Flag attempt if violations exceed threshold (e.g. 5)
+    // Flag attempt if violations exhaust all 5 chances
     if (attempt.proctoring.violationsCount >= 5) {
       attempt.proctoring.status = "FLAGGED";
       pushAdminNotification({
-        title: "Proctoring Integrity Flagged",
-        message: `${attempt.candidateName || "Candidate"} exceeded maximum allowed proctoring anomalies during ${attempt.certTitle || "Certification Exam"}.`,
+        title: "Proctoring Integrity Flagged — 5 Violations",
+        message: `${attempt.candidateName || "Candidate"} (${attempt.candidateEmail || "Student"}) exhausted all 5 recovery chances during ${attempt.certTitle || "Certification Exam"}. Assessment auto-locked.`,
         type: "certification",
         severity: "warning",
         targetId: String(attempt._id),
@@ -765,6 +770,50 @@ router.post("/attempt/:attemptId/finalize", authenticateToken, async (req, res) 
       return res.status(404).json({ error: "Attempt not found" });
     }
 
+    // Merge any latest client-side submitted MCQ answers if provided in payload
+    if (req.body.mcqAnswers && typeof req.body.mcqAnswers === "object") {
+      Object.entries(req.body.mcqAnswers).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== -1) {
+          if (attempt.mcqAnswers && typeof attempt.mcqAnswers.set === "function") {
+            attempt.mcqAnswers.set(String(k), Number(v));
+          } else {
+            if (!attempt.mcqAnswers) attempt.mcqAnswers = {};
+            attempt.mcqAnswers[String(k)] = Number(v);
+          }
+        }
+      });
+      attempt.markModified("mcqAnswers");
+    }
+
+    // Merge any latest coding submissions if provided in payload
+    if (Array.isArray(req.body.codingSubmissions) && req.body.codingSubmissions.length > 0) {
+      req.body.codingSubmissions.forEach((sub, idx) => {
+        if (sub && sub.code) {
+          if (!attempt.codingSubmissions[idx]) attempt.codingSubmissions[idx] = {};
+          attempt.codingSubmissions[idx] = {
+            ...attempt.codingSubmissions[idx],
+            questionId: sub.questionId || attempt.selectedCodingQuestions[idx]?.questionId,
+            code: sub.code,
+            language: sub.language || "python",
+            solved: Boolean(sub.solved),
+            passedTests: sub.passedTests !== undefined ? sub.passedTests : attempt.codingSubmissions[idx]?.passedTests || 0,
+            totalTests: sub.totalTests !== undefined ? sub.totalTests : 10,
+            testResults: sub.testResults || attempt.codingSubmissions[idx]?.testResults || [],
+            submittedAt: new Date(),
+          };
+        }
+      });
+      attempt.markModified("codingSubmissions");
+    }
+
+    // Merge violations count if provided in payload
+    if (req.body.violationsCount !== undefined && Number(req.body.violationsCount) > (attempt.proctoring.violationsCount || 0)) {
+      attempt.proctoring.violationsCount = Number(req.body.violationsCount);
+      if (attempt.proctoring.violationsCount >= 5) {
+        attempt.proctoring.status = "FLAGGED";
+      }
+    }
+
     // Idempotency: if already submitted, return the final result
     if (attempt.status === "PASSED" || attempt.status === "FAILED") {
       const existingCert = attempt.certificateId
@@ -776,6 +825,8 @@ router.post("/attempt/:attemptId/finalize", authenticateToken, async (req, res) 
         alreadyFinalized: true,
         attemptId: attempt.attemptId,
         finalVerdict: attempt.finalVerdict,
+        score: attempt.score || attempt.totalMarksObtained,
+        percentage: attempt.percentage || attempt.finalScorePercentage,
         mcqScore: attempt.mcqScore,
         mcqPassed: attempt.mcqPassed,
         codingPassed: attempt.codingSubmissions.every((s) => s.solved),
@@ -790,8 +841,8 @@ router.post("/attempt/:attemptId/finalize", authenticateToken, async (req, res) 
     const mcqAnswersMap = attempt.mcqAnswers || new Map();
 
     attempt.selectedMcqs.forEach((q) => {
-      const candidateAns = mcqAnswersMap.get ? mcqAnswersMap.get(q.id) : mcqAnswersMap[q.id];
-      if (candidateAns !== undefined && Number(candidateAns) === Number(q.correctAnswer)) {
+      const candidateAns = mcqAnswersMap.get ? mcqAnswersMap.get(String(q.id)) : mcqAnswersMap[String(q.id)];
+      if (candidateAns !== undefined && candidateAns !== null && Number(candidateAns) === Number(q.correctAnswer)) {
         mcqScore++;
       }
     });
@@ -822,6 +873,8 @@ router.post("/attempt/:attemptId/finalize", authenticateToken, async (req, res) 
     attempt.mcqScore = mcqScore;
     attempt.mcqPassed = mcqPassed;
     attempt.codingPassed = codingPassed;
+    attempt.score = totalMarksObtained;
+    attempt.percentage = finalScorePercentage;
     attempt.totalMarksObtained = totalMarksObtained;
     attempt.totalMaxMarks = totalMaxMarks;
     attempt.finalScorePercentage = finalScorePercentage;
@@ -919,17 +972,24 @@ router.post("/attempt/:attemptId/finalize", authenticateToken, async (req, res) 
         meta: { certificateId: certificate.certificateId },
       });
 
-      // Dispatch Official Certificate Email in background without delaying finalization response
-      sendCertificateAwardedEmail({
-        candidateEmail: attempt.candidateEmail || user?.email,
-        candidateName: attempt.candidateName || user?.fullName || "Candidate",
-        certTitle: attempt.certTitle,
-        certificateId: certificate.certificateId,
-        score: finalPercentage,
-        req,
-      }).catch((emailErr) => {
-        console.warn("Certificate email notification note:", emailErr?.message);
-      });
+      // Dispatch Official Certificate Email in background
+      try {
+        const userObj = await User.findById(userId).select("fullName username email").lean();
+        const recipientEmail = attempt.candidateEmail || userObj?.email || req.user.email;
+        const recipientName = attempt.candidateName || userObj?.fullName || userObj?.username || "Candidate";
+        sendCertificateAwardedEmail({
+          candidateEmail: recipientEmail,
+          candidateName: recipientName,
+          certTitle: attempt.certTitle,
+          certificateId: certificate.certificateId,
+          score: finalScorePercentage,
+          req,
+        }).catch((emailErr) => {
+          console.warn("Certificate email notification note:", emailErr?.message);
+        });
+      } catch (userErr) {
+        console.warn("User lookup note for email:", userErr.message);
+      }
     }
 
     await attempt.save();
@@ -950,6 +1010,11 @@ router.post("/attempt/:attemptId/finalize", authenticateToken, async (req, res) 
       alreadyFinalized: false,
       attemptId: attempt.attemptId,
       finalVerdict,
+      score: totalMarksObtained,
+      percentage: finalScorePercentage,
+      totalMarksObtained,
+      totalMaxMarks,
+      finalScorePercentage,
       mcqScore,
       mcqPercentage,
       mcqPassed,
@@ -1091,10 +1156,21 @@ router.get("/attempt/:attemptId/report", optionalAuthenticateToken, async (req, 
     const isPassed = attempt.status === "PASSED" || attempt.finalVerdict === "PASSED";
     const totalPassedCodingTests = attempt.codingSubmissions.reduce((acc, s) => acc + (s.passedTests || 0), 0);
     const totalCodingTests = attempt.codingSubmissions.reduce((acc, s) => acc + (s.totalTests || 10), 0);
-    const totalMarksObtained = (attempt.mcqScore || 0) + totalPassedCodingTests;
+    const calculatedMarks = (attempt.mcqScore || 0) + totalPassedCodingTests;
     const totalMaxMarks = 40;
-    const overallPercentage = attempt.percentage != null ? attempt.percentage : Math.round((totalMarksObtained / totalMaxMarks) * 100);
-    const marksObtainedFinal = attempt.score != null ? attempt.score : totalMarksObtained;
+    const calculatedPct = Math.round((calculatedMarks / totalMaxMarks) * 100);
+    const overallPercentage =
+      attempt.finalScorePercentage != null && attempt.finalScorePercentage > 0
+        ? attempt.finalScorePercentage
+        : attempt.percentage != null && attempt.percentage > 0
+        ? attempt.percentage
+        : calculatedPct;
+    const marksObtainedFinal =
+      attempt.totalMarksObtained != null && attempt.totalMarksObtained > 0
+        ? attempt.totalMarksObtained
+        : attempt.score != null && attempt.score > 0
+        ? attempt.score
+        : calculatedMarks;
 
     const answeredMcqsCount = attempt.selectedMcqs.filter((m) => {
       const answersMap = attempt.mcqAnswers;

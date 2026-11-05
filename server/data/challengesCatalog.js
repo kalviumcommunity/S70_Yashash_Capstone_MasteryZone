@@ -1,6 +1,6 @@
 /**
  * MASTERY ZONE ALGORITHMIC CHALLENGES CATALOG
- * 135 Verified Challenges across Core DSA Topics
+ * 235 Verified Challenges across Core DSA Topics
  * Generated with strict 10 test cases (3 visible, 7 hidden) each.
  */
 
@@ -12909,6 +12909,9350 @@ const CHALLENGES_CATALOG = [
       "pacific[r][c] tracks reachability to Pacific.",
       "atlantic[r][c] tracks reachability to Atlantic.",
       "Count cells where both are true."
+    ]
+  },
+  {
+    "id": "ch_plus_one",
+    "title": "Plus One Large Integer",
+    "difficulty": "Easy",
+    "category": "Arrays",
+    "description": "You are given a large integer represented as an integer array `digits`, where each `digits[i]` is the i-th digit of the integer. The digits are ordered from most significant to least significant in left-to-right order. The large integer does not contain any leading 0's.\n\nIncrement the large integer by one and return the resulting array of digits.",
+    "inputFormat": "Line 1: Space-separated integers representing digits.",
+    "outputFormat": "Space-separated integers representing the incremented digits.",
+    "constraints": [
+      "1 <= digits.length <= 100",
+      "0 <= digits[i] <= 9",
+      "digits does not contain any leading 0's."
+    ],
+    "examples": [
+      {
+        "input": "1 2 3",
+        "output": "1 2 4",
+        "explanation": "Start from the rightmost digit."
+      },
+      {
+        "input": "4 3 2 1",
+        "output": "4 3 2 2",
+        "explanation": "If < 9, add 1 and stop."
+      }
+    ],
+    "hints": [
+      "Traverse from the last digit to the first.",
+      "If a digit is less than 9, increment and return.",
+      "If 9, set to 0 and continue to propagate carry."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "1 2 3",
+        "expectedOutput": "1 2 4",
+        "isHidden": false
+      },
+      {
+        "input": "4 3 2 1",
+        "expectedOutput": "4 3 2 2",
+        "isHidden": false
+      },
+      {
+        "input": "9",
+        "expectedOutput": "1 0",
+        "isHidden": false
+      },
+      {
+        "input": "9 9 9",
+        "expectedOutput": "1 0 0 0",
+        "isHidden": true
+      },
+      {
+        "input": "0",
+        "expectedOutput": "1",
+        "isHidden": true
+      },
+      {
+        "input": "1 0 9 9",
+        "expectedOutput": "1 1 0 0",
+        "isHidden": true
+      },
+      {
+        "input": "8 9 9 9",
+        "expectedOutput": "9 0 0 0",
+        "isHidden": true
+      },
+      {
+        "input": "2 9 9",
+        "expectedOutput": "3 0 0",
+        "isHidden": true
+      },
+      {
+        "input": "5 4 3 2 1 0",
+        "expectedOutput": "5 4 3 2 1 1",
+        "isHidden": true
+      },
+      {
+        "input": "9 9 9 9 9 9 9 9 9",
+        "expectedOutput": "1 0 0 0 0 0 0 0 0 0",
+        "isHidden": true
+      }
+    ],
+    "objective": "Increment a big integer represented as an array of digits by one.",
+    "conceptualExplanation": [
+      "Start from the rightmost digit.",
+      "If < 9, add 1 and stop.",
+      "If 9, set to 0 and propagate carry left.",
+      "If all digits were 9, prepend 1."
+    ]
+  },
+  {
+    "id": "ch_remove_element",
+    "title": "Remove Element in Place",
+    "difficulty": "Easy",
+    "category": "Arrays",
+    "description": "Given an integer array `nums` and an integer `val`, remove all occurrences of `val` in `nums` in-place. The order of the elements may be changed. Then return the number of elements in `nums` which are not equal to `val`.\n\nOutput the remaining count k followed by the space-separated elements.",
+    "inputFormat": "Line 1: Space-separated integers representing nums (empty string if empty array).\nLine 2: Single integer val.",
+    "outputFormat": "Line 1: Integer count k.\nLine 2: Space-separated remaining elements (empty if k = 0).",
+    "constraints": [
+      "0 <= nums.length <= 100",
+      "0 <= nums[i] <= 50",
+      "0 <= val <= 100"
+    ],
+    "examples": [
+      {
+        "input": "3 2 2 3\n3",
+        "output": "2\n2 2",
+        "explanation": "Maintain write pointer k = 0."
+      },
+      {
+        "input": "0 1 2 2 3 0 4 2\n2",
+        "output": "5\n0 1 3 0 4",
+        "explanation": "Scan array: if nums[i] !== val, write to nums[k] and k++."
+      }
+    ],
+    "hints": [
+      "Use a two-pointer approach.",
+      "One pointer reads, the other writes non-val elements."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "3 2 2 3\n3",
+        "expectedOutput": "2\n2 2",
+        "isHidden": false
+      },
+      {
+        "input": "0 1 2 2 3 0 4 2\n2",
+        "expectedOutput": "5\n0 1 3 0 4",
+        "isHidden": false
+      },
+      {
+        "input": "1\n1",
+        "expectedOutput": "0",
+        "isHidden": false
+      },
+      {
+        "input": "1 2 3 4 5\n6",
+        "expectedOutput": "5\n1 2 3 4 5",
+        "isHidden": true
+      },
+      {
+        "input": "4 4 4 4\n4",
+        "expectedOutput": "0",
+        "isHidden": true
+      },
+      {
+        "input": "5 1 5 2 5 3\n5",
+        "expectedOutput": "3\n1 2 3",
+        "isHidden": true
+      },
+      {
+        "input": "7 8 9 10\n7",
+        "expectedOutput": "3\n8 9 10",
+        "isHidden": true
+      },
+      {
+        "input": "2 2 2 1\n2",
+        "expectedOutput": "1\n1",
+        "isHidden": true
+      },
+      {
+        "input": "10 20 30\n20",
+        "expectedOutput": "2\n10 30",
+        "isHidden": true
+      },
+      {
+        "input": "100\n0",
+        "expectedOutput": "1\n100",
+        "isHidden": true
+      }
+    ],
+    "objective": "Remove target elements in-place and return remaining count and array.",
+    "conceptualExplanation": [
+      "Maintain write pointer k = 0.",
+      "Scan array: if nums[i] !== val, write to nums[k] and k++.",
+      "Return k and the sliced array."
+    ]
+  },
+  {
+    "id": "ch_majority_element",
+    "title": "Majority Element (Boyer-Moore)",
+    "difficulty": "Easy",
+    "category": "Arrays",
+    "description": "Given an array `nums` of size n, return the majority element. The majority element is the element that appears more than ⌊n / 2⌋ times. You may assume that the majority element always exists in the array.",
+    "inputFormat": "Line 1: Space-separated integers representing nums.",
+    "outputFormat": "A single integer representing the majority element.",
+    "constraints": [
+      "n == nums.length",
+      "1 <= n <= 5 * 10^4",
+      "-10^9 <= nums[i] <= 10^9"
+    ],
+    "examples": [
+      {
+        "input": "3 2 3",
+        "output": "3",
+        "explanation": "Initialize candidate = nums[0], count = 0."
+      },
+      {
+        "input": "2 2 1 1 1 2 2",
+        "output": "2",
+        "explanation": "Increment count when element matches candidate, else decrement."
+      }
+    ],
+    "hints": [
+      "Can you do it in linear time and O(1) space?",
+      "Boyer-Moore Voting Algorithm cancels opposing votes."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "3 2 3",
+        "expectedOutput": "3",
+        "isHidden": false
+      },
+      {
+        "input": "2 2 1 1 1 2 2",
+        "expectedOutput": "2",
+        "isHidden": false
+      },
+      {
+        "input": "1",
+        "expectedOutput": "1",
+        "isHidden": false
+      },
+      {
+        "input": "6 6 6 7 7",
+        "expectedOutput": "6",
+        "isHidden": true
+      },
+      {
+        "input": "10 10 20 10 30 10 10",
+        "expectedOutput": "10",
+        "isHidden": true
+      },
+      {
+        "input": "-1 -1 -1 2 3 -1",
+        "expectedOutput": "-1",
+        "isHidden": true
+      },
+      {
+        "input": "100 200 100",
+        "expectedOutput": "100",
+        "isHidden": true
+      },
+      {
+        "input": "5 5 5 5 1 2 3",
+        "expectedOutput": "5",
+        "isHidden": true
+      },
+      {
+        "input": "0 0 0 1 0",
+        "expectedOutput": "0",
+        "isHidden": true
+      },
+      {
+        "input": "42 42 42 42 42 1 2 3 4",
+        "expectedOutput": "42",
+        "isHidden": true
+      }
+    ],
+    "objective": "Find the majority element in an array using O(1) extra memory.",
+    "conceptualExplanation": [
+      "Initialize candidate = nums[0], count = 0.",
+      "Increment count when element matches candidate, else decrement.",
+      "When count reaches 0, select current element as new candidate."
+    ]
+  },
+  {
+    "id": "ch_find_pivot_index",
+    "title": "Find Pivot Index",
+    "difficulty": "Easy",
+    "category": "Arrays",
+    "description": "Given an array of integers `nums`, calculate the pivot index of this array. The pivot index is the index where the sum of all the numbers strictly to the left of the index is equal to the sum of all the numbers strictly to the index's right. Return the leftmost pivot index. If no such index exists, return -1.",
+    "inputFormat": "Line 1: Space-separated integers representing nums.",
+    "outputFormat": "An integer representing the pivot index, or -1.",
+    "constraints": [
+      "1 <= nums.length <= 10^4",
+      "-1000 <= nums[i] <= 1000"
+    ],
+    "examples": [
+      {
+        "input": "1 7 3 6 5 6",
+        "output": "3",
+        "explanation": "Calculate totalSum."
+      },
+      {
+        "input": "1 2 3",
+        "output": "-1",
+        "explanation": "Iterate through elements maintaining leftSum."
+      }
+    ],
+    "hints": [
+      "Precompute the total sum.",
+      "Iterate and maintain leftSum; check if leftSum === totalSum - leftSum - nums[i]."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "1 7 3 6 5 6",
+        "expectedOutput": "3",
+        "isHidden": false
+      },
+      {
+        "input": "1 2 3",
+        "expectedOutput": "-1",
+        "isHidden": false
+      },
+      {
+        "input": "2 1 -1",
+        "expectedOutput": "0",
+        "isHidden": false
+      },
+      {
+        "input": "0 0 0 0",
+        "expectedOutput": "0",
+        "isHidden": true
+      },
+      {
+        "input": "-1 -1 -1 -1 -1 0",
+        "expectedOutput": "2",
+        "isHidden": true
+      },
+      {
+        "input": "1 -1 2",
+        "expectedOutput": "2",
+        "isHidden": true
+      },
+      {
+        "input": "10",
+        "expectedOutput": "0",
+        "isHidden": true
+      },
+      {
+        "input": "2 3 5 5",
+        "expectedOutput": "2",
+        "isHidden": true
+      },
+      {
+        "input": "5 1 2 3 2 1",
+        "expectedOutput": "2",
+        "isHidden": true
+      },
+      {
+        "input": "-1 -1 0 1 1 0",
+        "expectedOutput": "5",
+        "isHidden": true
+      }
+    ],
+    "objective": "Identify the index where prefix sum equals suffix sum.",
+    "conceptualExplanation": [
+      "Calculate totalSum.",
+      "Iterate through elements maintaining leftSum.",
+      "At index i, rightSum = totalSum - leftSum - nums[i]. If equal, return i."
+    ]
+  },
+  {
+    "id": "ch_running_sum",
+    "title": "Running Sum of 1D Array",
+    "difficulty": "Easy",
+    "category": "Arrays",
+    "description": "Given an array `nums`. We define a running sum of an array as `runningSum[i] = sum(nums[0]…nums[i])`. Return the running sum of nums.",
+    "inputFormat": "Line 1: Space-separated integers representing nums.",
+    "outputFormat": "Space-separated integers representing running sum.",
+    "constraints": [
+      "1 <= nums.length <= 1000",
+      "-10^6 <= nums[i] <= 10^6"
+    ],
+    "examples": [
+      {
+        "input": "1 2 3 4",
+        "output": "1 3 6 10",
+        "explanation": "Iterate through array."
+      },
+      {
+        "input": "1 1 1 1 1",
+        "output": "1 2 3 4 5",
+        "explanation": "Add each element to cumulative sum."
+      }
+    ],
+    "hints": [
+      "Keep a cumulative sum as you iterate."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "1 2 3 4",
+        "expectedOutput": "1 3 6 10",
+        "isHidden": false
+      },
+      {
+        "input": "1 1 1 1 1",
+        "expectedOutput": "1 2 3 4 5",
+        "isHidden": false
+      },
+      {
+        "input": "3 1 2 10 1",
+        "expectedOutput": "3 4 6 16 17",
+        "isHidden": false
+      },
+      {
+        "input": "0 0 0",
+        "expectedOutput": "0 0 0",
+        "isHidden": true
+      },
+      {
+        "input": "-1 -2 -3 -4",
+        "expectedOutput": "-1 -3 -6 -10",
+        "isHidden": true
+      },
+      {
+        "input": "100",
+        "expectedOutput": "100",
+        "isHidden": true
+      },
+      {
+        "input": "5 -5 5 -5",
+        "expectedOutput": "5 0 5 0",
+        "isHidden": true
+      },
+      {
+        "input": "10 20 30 40 50",
+        "expectedOutput": "10 30 60 100 150",
+        "isHidden": true
+      },
+      {
+        "input": "-10 20 -30 40",
+        "expectedOutput": "-10 10 -20 20",
+        "isHidden": true
+      },
+      {
+        "input": "1 0 2 0 3",
+        "expectedOutput": "1 1 3 3 6",
+        "isHidden": true
+      }
+    ],
+    "objective": "Compute cumulative prefix sums across an array.",
+    "conceptualExplanation": [
+      "Iterate through array.",
+      "Add each element to cumulative sum.",
+      "Return formatted results."
+    ]
+  },
+  {
+    "id": "ch_monotonic_array",
+    "title": "Monotonic Array",
+    "difficulty": "Easy",
+    "category": "Arrays",
+    "description": "An array is monotonic if it is either monotone increasing or monotone decreasing. Return `true` if the given array is monotonic, or `false` otherwise.",
+    "inputFormat": "Line 1: Space-separated integers representing nums.",
+    "outputFormat": "true or false",
+    "constraints": [
+      "1 <= nums.length <= 10^5",
+      "-10^5 <= nums[i] <= 10^5"
+    ],
+    "examples": [
+      {
+        "input": "1 2 2 3",
+        "output": "true",
+        "explanation": "Flag increasing = true, decreasing = true."
+      },
+      {
+        "input": "6 5 4 4",
+        "output": "true",
+        "explanation": "If nums[i] > nums[i-1], decreasing = false."
+      }
+    ],
+    "hints": [
+      "Check if nums is non-decreasing OR non-increasing."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "1 2 2 3",
+        "expectedOutput": "true",
+        "isHidden": false
+      },
+      {
+        "input": "6 5 4 4",
+        "expectedOutput": "true",
+        "isHidden": false
+      },
+      {
+        "input": "1 3 2",
+        "expectedOutput": "false",
+        "isHidden": false
+      },
+      {
+        "input": "1",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "1 1 1 1",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "1 2 4 5",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "5 3 2 1",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "2 2 2 1 4",
+        "expectedOutput": "false",
+        "isHidden": true
+      },
+      {
+        "input": "-5 -3 -1 0 2",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "10 20 15 30",
+        "expectedOutput": "false",
+        "isHidden": true
+      }
+    ],
+    "objective": "Determine if an array maintains monotonic order.",
+    "conceptualExplanation": [
+      "Flag increasing = true, decreasing = true.",
+      "If nums[i] > nums[i-1], decreasing = false.",
+      "If nums[i] < nums[i-1], increasing = false.",
+      "Return increasing || decreasing."
+    ]
+  },
+  {
+    "id": "ch_transpose_matrix",
+    "title": "Transpose Matrix",
+    "difficulty": "Easy",
+    "category": "Arrays",
+    "description": "Given a 2D integer array `matrix`, return the transpose of `matrix`. The transpose of a matrix is the matrix flipped over its main diagonal, switching the matrix's row and column indices.",
+    "inputFormat": "Line 1: Two integers m and n.\nNext m lines: n space-separated integers per row.",
+    "outputFormat": "n lines of m space-separated integers representing transposed matrix.",
+    "constraints": [
+      "m == matrix.length",
+      "n == matrix[i].length",
+      "1 <= m, n <= 1000",
+      "1 <= m * n <= 10^5",
+      "-10^9 <= matrix[i][j] <= 10^9"
+    ],
+    "examples": [
+      {
+        "input": "3 3\n1 2 3\n4 5 6\n7 8 9",
+        "output": "1 4 7\n2 5 8\n3 6 9",
+        "explanation": "Create new n x m matrix."
+      },
+      {
+        "input": "2 3\n1 2 3\n4 5 6",
+        "output": "1 4\n2 5\n3 6",
+        "explanation": "Assign transposed[j][i] = matrix[i][j]."
+      }
+    ],
+    "hints": [
+      "The element at row i, col j moves to row j, col i."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "3 3\n1 2 3\n4 5 6\n7 8 9",
+        "expectedOutput": "1 4 7\n2 5 8\n3 6 9",
+        "isHidden": false
+      },
+      {
+        "input": "2 3\n1 2 3\n4 5 6",
+        "expectedOutput": "1 4\n2 5\n3 6",
+        "isHidden": false
+      },
+      {
+        "input": "1 1\n42",
+        "expectedOutput": "42",
+        "isHidden": false
+      },
+      {
+        "input": "1 3\n10 20 30",
+        "expectedOutput": "10\n20\n30",
+        "isHidden": true
+      },
+      {
+        "input": "3 1\n10\n20\n30",
+        "expectedOutput": "10 20 30",
+        "isHidden": true
+      },
+      {
+        "input": "2 2\n1 0\n0 1",
+        "expectedOutput": "1 0\n0 1",
+        "isHidden": true
+      },
+      {
+        "input": "2 2\n5 8\n9 3",
+        "expectedOutput": "5 9\n8 3",
+        "isHidden": true
+      },
+      {
+        "input": "3 2\n1 2\n3 4\n5 6",
+        "expectedOutput": "1 3 5\n2 4 6",
+        "isHidden": true
+      },
+      {
+        "input": "2 4\n1 2 3 4\n5 6 7 8",
+        "expectedOutput": "1 5\n2 6\n3 7\n4 8",
+        "isHidden": true
+      },
+      {
+        "input": "4 2\n1 2\n3 4\n5 6\n7 8",
+        "expectedOutput": "1 3 5 7\n2 4 6 8",
+        "isHidden": true
+      }
+    ],
+    "objective": "Transpose rows and columns of an m x n matrix.",
+    "conceptualExplanation": [
+      "Create new n x m matrix.",
+      "Assign transposed[j][i] = matrix[i][j]."
+    ]
+  },
+  {
+    "id": "ch_set_matrix_zeroes",
+    "title": "Set Matrix Zeroes",
+    "difficulty": "Medium",
+    "category": "Arrays",
+    "description": "Given an m x n integer matrix, if an element is 0, set its entire row and column to 0's in-place.",
+    "inputFormat": "Line 1: Dimensions m and n.\nNext m lines: n space-separated integers per row.",
+    "outputFormat": "m lines representing the modified matrix.",
+    "constraints": [
+      "m == matrix.length",
+      "n == matrix[0].length",
+      "1 <= m, n <= 200",
+      "-2^31 <= matrix[i][j] <= 2^31 - 1"
+    ],
+    "examples": [
+      {
+        "input": "3 3\n1 1 1\n1 0 1\n1 1 1",
+        "output": "1 0 1\n0 0 0\n1 0 1",
+        "explanation": "Mark rows and cols that contain zero."
+      },
+      {
+        "input": "3 4\n0 1 2 0\n3 4 5 2\n1 3 1 5",
+        "output": "0 0 0 0\n0 4 5 0\n0 3 1 0",
+        "explanation": "Second pass: set cells to zero if row or col is marked."
+      }
+    ],
+    "hints": [
+      "Use the first row and column as markers to achieve O(1) space."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "3 3\n1 1 1\n1 0 1\n1 1 1",
+        "expectedOutput": "1 0 1\n0 0 0\n1 0 1",
+        "isHidden": false
+      },
+      {
+        "input": "3 4\n0 1 2 0\n3 4 5 2\n1 3 1 5",
+        "expectedOutput": "0 0 0 0\n0 4 5 0\n0 3 1 0",
+        "isHidden": false
+      },
+      {
+        "input": "1 1\n0",
+        "expectedOutput": "0",
+        "isHidden": false
+      },
+      {
+        "input": "1 1\n5",
+        "expectedOutput": "5",
+        "isHidden": true
+      },
+      {
+        "input": "2 2\n1 2\n3 4",
+        "expectedOutput": "1 2\n3 4",
+        "isHidden": true
+      },
+      {
+        "input": "2 2\n1 0\n3 4",
+        "expectedOutput": "0 0\n3 0",
+        "isHidden": true
+      },
+      {
+        "input": "3 1\n1\n0\n3",
+        "expectedOutput": "0\n0\n0",
+        "isHidden": true
+      },
+      {
+        "input": "1 3\n1 0 3",
+        "expectedOutput": "0 0 0",
+        "isHidden": true
+      },
+      {
+        "input": "3 3\n0 0 0\n0 0 0\n0 0 0",
+        "expectedOutput": "0 0 0\n0 0 0\n0 0 0",
+        "isHidden": true
+      },
+      {
+        "input": "3 3\n1 2 3\n4 0 6\n7 8 9",
+        "expectedOutput": "1 0 3\n0 0 0\n7 0 9",
+        "isHidden": true
+      }
+    ],
+    "objective": "Zero out full rows and columns for any cell containing zero.",
+    "conceptualExplanation": [
+      "Mark rows and cols that contain zero.",
+      "Second pass: set cells to zero if row or col is marked."
+    ]
+  },
+  {
+    "id": "ch_spiral_matrix",
+    "title": "Spiral Matrix Traversal",
+    "difficulty": "Medium",
+    "category": "Arrays",
+    "description": "Given an m x n matrix, return all elements of the matrix in spiral order (clockwise starting from top-left).",
+    "inputFormat": "Line 1: Dimensions m and n.\nNext m lines: n space-separated integers per row.",
+    "outputFormat": "A single line with space-separated integers in spiral order.",
+    "constraints": [
+      "m == matrix.length",
+      "n == matrix[i].length",
+      "1 <= m, n <= 20",
+      "-100 <= matrix[i][j] <= 100"
+    ],
+    "examples": [
+      {
+        "input": "3 3\n1 2 3\n4 5 6\n7 8 9",
+        "output": "1 2 3 6 9 8 7 4 5",
+        "explanation": "Initialize top=0, bottom=m-1, left=0, right=n-1."
+      },
+      {
+        "input": "3 4\n1 2 3 4\n5 6 7 8\n9 10 11 12",
+        "output": "1 2 3 4 8 12 11 10 9 5 6 7",
+        "explanation": "Loop while top <= bottom and left <= right."
+      }
+    ],
+    "hints": [
+      "Maintain 4 boundaries: top, bottom, left, right.",
+      "Traverse right, down, left, up and shrink boundaries."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "3 3\n1 2 3\n4 5 6\n7 8 9",
+        "expectedOutput": "1 2 3 6 9 8 7 4 5",
+        "isHidden": false
+      },
+      {
+        "input": "3 4\n1 2 3 4\n5 6 7 8\n9 10 11 12",
+        "expectedOutput": "1 2 3 4 8 12 11 10 9 5 6 7",
+        "isHidden": false
+      },
+      {
+        "input": "1 1\n99",
+        "expectedOutput": "99",
+        "isHidden": false
+      },
+      {
+        "input": "1 4\n1 2 3 4",
+        "expectedOutput": "1 2 3 4",
+        "isHidden": true
+      },
+      {
+        "input": "4 1\n1\n2\n3\n4",
+        "expectedOutput": "1 2 3 4",
+        "isHidden": true
+      },
+      {
+        "input": "2 2\n1 2\n3 4",
+        "expectedOutput": "1 2 4 3",
+        "isHidden": true
+      },
+      {
+        "input": "2 3\n1 2 3\n4 5 6",
+        "expectedOutput": "1 2 3 6 5 4",
+        "isHidden": true
+      },
+      {
+        "input": "3 2\n1 2\n3 4\n5 6",
+        "expectedOutput": "1 2 4 6 5 3",
+        "isHidden": true
+      },
+      {
+        "input": "4 4\n1 2 3 4\n5 6 7 8\n9 10 11 12\n13 14 15 16",
+        "expectedOutput": "1 2 3 4 8 12 16 15 14 13 9 5 6 7 11 10",
+        "isHidden": true
+      },
+      {
+        "input": "3 1\n5\n10\n15",
+        "expectedOutput": "5 10 15",
+        "isHidden": true
+      }
+    ],
+    "objective": "Traverse matrix elements in clockwise spiral order.",
+    "conceptualExplanation": [
+      "Initialize top=0, bottom=m-1, left=0, right=n-1.",
+      "Loop while top <= bottom and left <= right.",
+      "Collect elements along 4 edges and advance bounds."
+    ]
+  },
+  {
+    "id": "ch_rotate_image",
+    "title": "Rotate Image 90 Degrees Clockwise",
+    "difficulty": "Medium",
+    "category": "Arrays",
+    "description": "You are given an n x n 2D matrix representing an image. Rotate the image by 90 degrees (clockwise) in-place.",
+    "inputFormat": "Line 1: Integer n.\nNext n lines: n space-separated integers per row.",
+    "outputFormat": "n lines of space-separated integers representing rotated matrix.",
+    "constraints": [
+      "n == matrix.length == matrix[i].length",
+      "1 <= n <= 20",
+      "-1000 <= matrix[i][j] <= 1000"
+    ],
+    "examples": [
+      {
+        "input": "3\n1 2 3\n4 5 6\n7 8 9",
+        "output": "7 4 1\n8 5 2\n9 6 3",
+        "explanation": "Step 1: Transpose matrix along main diagonal."
+      },
+      {
+        "input": "4\n5 1 9 11\n2 4 8 10\n13 3 6 7\n15 14 12 16",
+        "output": "15 13 2 5\n14 3 4 1\n12 6 8 9\n16 7 10 11",
+        "explanation": "Step 2: Reverse each row."
+      }
+    ],
+    "hints": [
+      "Transpose the matrix (swap matrix[i][j] with matrix[j][i]).",
+      "Reverse each row horizontally."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "3\n1 2 3\n4 5 6\n7 8 9",
+        "expectedOutput": "7 4 1\n8 5 2\n9 6 3",
+        "isHidden": false
+      },
+      {
+        "input": "4\n5 1 9 11\n2 4 8 10\n13 3 6 7\n15 14 12 16",
+        "expectedOutput": "15 13 2 5\n14 3 4 1\n12 6 8 9\n16 7 10 11",
+        "isHidden": false
+      },
+      {
+        "input": "1\n1",
+        "expectedOutput": "1",
+        "isHidden": false
+      },
+      {
+        "input": "2\n1 2\n3 4",
+        "expectedOutput": "3 1\n4 2",
+        "isHidden": true
+      },
+      {
+        "input": "2\n0 0\n0 0",
+        "expectedOutput": "0 0\n0 0",
+        "isHidden": true
+      },
+      {
+        "input": "3\n1 0 0\n0 1 0\n0 0 1",
+        "expectedOutput": "0 0 1\n0 1 0\n1 0 0",
+        "isHidden": true
+      },
+      {
+        "input": "3\n9 8 7\n6 5 4\n3 2 1",
+        "expectedOutput": "3 6 9\n2 5 8\n1 4 7",
+        "isHidden": true
+      },
+      {
+        "input": "4\n1 2 3 4\n5 6 7 8\n9 10 11 12\n13 14 15 16",
+        "expectedOutput": "13 9 5 1\n14 10 6 2\n15 11 7 3\n16 12 8 4",
+        "isHidden": true
+      },
+      {
+        "input": "2\n-1 -2\n-3 -4",
+        "expectedOutput": "-3 -1\n-4 -2",
+        "isHidden": true
+      },
+      {
+        "input": "3\n1 4 7\n2 5 8\n3 6 9",
+        "expectedOutput": "3 2 1\n6 5 4\n9 8 7",
+        "isHidden": true
+      }
+    ],
+    "objective": "Rotate a square matrix 90 degrees clockwise in-place.",
+    "conceptualExplanation": [
+      "Step 1: Transpose matrix along main diagonal.",
+      "Step 2: Reverse each row.",
+      "Result is a 90-degree clockwise rotation."
+    ]
+  },
+  {
+    "id": "ch_diagonal_traverse",
+    "title": "Diagonal Traverse",
+    "difficulty": "Medium",
+    "category": "Arrays",
+    "description": "Given an m x n matrix `mat`, return an array of all the elements of the array in a diagonal order (alternating up-right and down-left directions).",
+    "inputFormat": "Line 1: Dimensions m and n.\nNext m lines: n space-separated integers per row.",
+    "outputFormat": "Space-separated integers in diagonal order.",
+    "constraints": [
+      "m == mat.length",
+      "n == mat[i].length",
+      "1 <= m, n <= 100",
+      "-10^5 <= mat[i][j] <= 10^5"
+    ],
+    "examples": [
+      {
+        "input": "3 3\n1 2 3\n4 5 6\n7 8 9",
+        "output": "1 2 4 7 5 3 6 8 9",
+        "explanation": "Sum of coordinates (i + j) is constant along diagonals."
+      },
+      {
+        "input": "2 2\n1 2\n3 4",
+        "output": "1 2 3 4",
+        "explanation": "Collect elements by sum (i + j)."
+      }
+    ],
+    "hints": [
+      "Group elements by their diagonal sum d = i + j.",
+      "Even sums go upwards (reverse order), odd sums go downwards."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "3 3\n1 2 3\n4 5 6\n7 8 9",
+        "expectedOutput": "1 2 4 7 5 3 6 8 9",
+        "isHidden": false
+      },
+      {
+        "input": "2 2\n1 2\n3 4",
+        "expectedOutput": "1 2 3 4",
+        "isHidden": false
+      },
+      {
+        "input": "1 1\n7",
+        "expectedOutput": "7",
+        "isHidden": false
+      },
+      {
+        "input": "1 3\n1 2 3",
+        "expectedOutput": "1 2 3",
+        "isHidden": true
+      },
+      {
+        "input": "3 1\n1\n2\n3",
+        "expectedOutput": "1 2 3",
+        "isHidden": true
+      },
+      {
+        "input": "2 3\n1 2 3\n4 5 6",
+        "expectedOutput": "1 2 4 5 3 6",
+        "isHidden": true
+      },
+      {
+        "input": "3 2\n1 2\n3 4\n5 6",
+        "expectedOutput": "1 2 3 5 4 6",
+        "isHidden": true
+      },
+      {
+        "input": "4 4\n1 2 3 4\n5 6 7 8\n9 10 11 12\n13 14 15 16",
+        "expectedOutput": "1 2 5 9 6 3 4 7 10 13 14 11 8 12 15 16",
+        "isHidden": true
+      },
+      {
+        "input": "2 4\n1 2 3 4\n5 6 7 8",
+        "expectedOutput": "1 2 5 6 3 4 7 8",
+        "isHidden": true
+      },
+      {
+        "input": "3 3\n0 1 0\n1 0 1\n0 1 0",
+        "expectedOutput": "0 1 1 0 0 0 1 1 0",
+        "isHidden": true
+      }
+    ],
+    "objective": "Traverse matrix along alternating diagonal stripes.",
+    "conceptualExplanation": [
+      "Sum of coordinates (i + j) is constant along diagonals.",
+      "Collect elements by sum (i + j).",
+      "Reverse elements on even sums."
+    ]
+  },
+  {
+    "id": "ch_ransom_note",
+    "title": "Ransom Note Construction",
+    "difficulty": "Easy",
+    "category": "Strings",
+    "description": "Given two strings `ransomNote` and `magazine`, return `true` if `ransomNote` can be constructed by using the letters from `magazine` and `false` otherwise. Each letter in `magazine` can only be used once in `ransomNote`.",
+    "inputFormat": "Line 1: ransomNote\nLine 2: magazine",
+    "outputFormat": "true or false",
+    "constraints": [
+      "1 <= ransomNote.length, magazine.length <= 10^5",
+      "ransomNote and magazine consist of lowercase English letters."
+    ],
+    "examples": [
+      {
+        "input": "a\nb",
+        "output": "false",
+        "explanation": "Tally magazine letters in a frequency hash map."
+      },
+      {
+        "input": "aa\nab",
+        "output": "false",
+        "explanation": "Iterate ransomNote: decrement count. If missing or 0, return false."
+      }
+    ],
+    "hints": [
+      "Count character frequencies in magazine.",
+      "Check if magazine has enough counts for each character in ransomNote."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "a\nb",
+        "expectedOutput": "false",
+        "isHidden": false
+      },
+      {
+        "input": "aa\nab",
+        "expectedOutput": "false",
+        "isHidden": false
+      },
+      {
+        "input": "aa\naab",
+        "expectedOutput": "true",
+        "isHidden": false
+      },
+      {
+        "input": "hello\nolelhworld",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "leetcode\ncodeleet",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "abc\ndef",
+        "expectedOutput": "false",
+        "isHidden": true
+      },
+      {
+        "input": "zzz\nzz",
+        "expectedOutput": "false",
+        "isHidden": true
+      },
+      {
+        "input": "cat\ntacoma",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "test\ntest",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "abc\nabcdef",
+        "expectedOutput": "true",
+        "isHidden": true
+      }
+    ],
+    "objective": "Determine if a string can be constructed from a character pool.",
+    "conceptualExplanation": [
+      "Tally magazine letters in a frequency hash map.",
+      "Iterate ransomNote: decrement count. If missing or 0, return false.",
+      "Return true."
+    ]
+  },
+  {
+    "id": "ch_isomorphic_strings",
+    "title": "Isomorphic Strings",
+    "difficulty": "Easy",
+    "category": "Strings",
+    "description": "Given two strings `s` and `t`, determine if they are isomorphic. Two strings `s` and `t` are isomorphic if the characters in `s` can be replaced to get `t`. All occurrences of a character must be replaced with another character while preserving the order of characters. No two characters may map to the same character, but a character may map to itself.",
+    "inputFormat": "Line 1: String s\nLine 2: String t",
+    "outputFormat": "true or false",
+    "constraints": [
+      "1 <= s.length <= 5 * 10^4",
+      "t.length == s.length",
+      "s and t consist of any valid ascii character."
+    ],
+    "examples": [
+      {
+        "input": "egg\nadd",
+        "output": "true",
+        "explanation": "Map s[i] -> t[i] and t[i] -> s[i]."
+      },
+      {
+        "input": "foo\nbar",
+        "output": "false",
+        "explanation": "If conflict occurs at any index, return false."
+      }
+    ],
+    "hints": [
+      "Use two maps to track s->t and t->s mappings.",
+      "Ensure bijection."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "egg\nadd",
+        "expectedOutput": "true",
+        "isHidden": false
+      },
+      {
+        "input": "foo\nbar",
+        "expectedOutput": "false",
+        "isHidden": false
+      },
+      {
+        "input": "paper\ntitle",
+        "expectedOutput": "true",
+        "isHidden": false
+      },
+      {
+        "input": "badc\nbaba",
+        "expectedOutput": "false",
+        "isHidden": true
+      },
+      {
+        "input": "a\na",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "ab\naa",
+        "expectedOutput": "false",
+        "isHidden": true
+      },
+      {
+        "input": "abcdef\nabcdef",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "turtle\nturing",
+        "expectedOutput": "false",
+        "isHidden": true
+      },
+      {
+        "input": "bbbaaaba\naaabbbab",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "paper\ntitles",
+        "expectedOutput": "false",
+        "isHidden": true
+      }
+    ],
+    "objective": "Verify one-to-one character correspondence between two strings.",
+    "conceptualExplanation": [
+      "Map s[i] -> t[i] and t[i] -> s[i].",
+      "If conflict occurs at any index, return false.",
+      "Return true if bijection holds."
+    ]
+  },
+  {
+    "id": "ch_word_pattern",
+    "title": "Word Pattern Bijection",
+    "difficulty": "Easy",
+    "category": "Strings",
+    "description": "Given a `pattern` and a string `s`, find if `s` follows the same pattern. Here follow means a full match, such that there is a bijection between a letter in `pattern` and a non-empty word in `s`.",
+    "inputFormat": "Line 1: pattern\nLine 2: string s",
+    "outputFormat": "true or false",
+    "constraints": [
+      "1 <= pattern.length <= 300",
+      "pattern contains only lower-case English letters.",
+      "1 <= s.length <= 3000",
+      "s contains only lowercase English letters and spaces ' '."
+    ],
+    "examples": [
+      {
+        "input": "abba\ndog cat cat dog",
+        "output": "true",
+        "explanation": "Split s into words."
+      },
+      {
+        "input": "abba\ndog cat cat fish",
+        "output": "false",
+        "explanation": "If lengths mismatch, return false."
+      }
+    ],
+    "hints": [
+      "Split s into words.",
+      "Check pattern.length === words.length.",
+      "Enforce two-way map."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "abba\ndog cat cat dog",
+        "expectedOutput": "true",
+        "isHidden": false
+      },
+      {
+        "input": "abba\ndog cat cat fish",
+        "expectedOutput": "false",
+        "isHidden": false
+      },
+      {
+        "input": "aaaa\ndog cat cat dog",
+        "expectedOutput": "false",
+        "isHidden": false
+      },
+      {
+        "input": "abba\ndog dog dog dog",
+        "expectedOutput": "false",
+        "isHidden": true
+      },
+      {
+        "input": "a\nfish",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "abc\ncat dog bird",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "aaa\naaa aaa aaa",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "aba\ncat dog cat",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "ab\nred blue",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "abc\ncat dog",
+        "expectedOutput": "false",
+        "isHidden": true
+      }
+    ],
+    "objective": "Verify bijective mapping between pattern letters and words.",
+    "conceptualExplanation": [
+      "Split s into words.",
+      "If lengths mismatch, return false.",
+      "Check letter-to-word and word-to-letter consistency."
+    ]
+  },
+  {
+    "id": "ch_reverse_words",
+    "title": "Reverse Words in a String",
+    "difficulty": "Medium",
+    "category": "Strings",
+    "description": "Given an input string `s`, reverse the order of the words. A word is defined as a sequence of non-space characters. The words in `s` will be separated by at least one space. Return a string of the words in reverse order concatenated by a single space.",
+    "inputFormat": "A single line containing string s.",
+    "outputFormat": "The words in reverse order separated by a single space.",
+    "constraints": [
+      "1 <= s.length <= 10^4",
+      "s contains English letters, digits, and spaces ' '."
+    ],
+    "examples": [
+      {
+        "input": "the sky is blue",
+        "output": "blue is sky the",
+        "explanation": "Trim leading/trailing whitespace."
+      },
+      {
+        "input": "  hello world  ",
+        "output": "world hello",
+        "explanation": "Split by regex /\\s+/ to handle consecutive spaces."
+      }
+    ],
+    "hints": [
+      "Split by whitespace, filter empty tokens, reverse and join with space."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "the sky is blue",
+        "expectedOutput": "blue is sky the",
+        "isHidden": false
+      },
+      {
+        "input": "  hello world  ",
+        "expectedOutput": "world hello",
+        "isHidden": false
+      },
+      {
+        "input": "a good   example",
+        "expectedOutput": "example good a",
+        "isHidden": false
+      },
+      {
+        "input": "word",
+        "expectedOutput": "word",
+        "isHidden": true
+      },
+      {
+        "input": "   single   ",
+        "expectedOutput": "single",
+        "isHidden": true
+      },
+      {
+        "input": "Bob Loves Alice",
+        "expectedOutput": "Alice Loves Bob",
+        "isHidden": true
+      },
+      {
+        "input": "Alice does not love Bob",
+        "expectedOutput": "Bob love not does Alice",
+        "isHidden": true
+      },
+      {
+        "input": "1 2 3 4 5",
+        "expectedOutput": "5 4 3 2 1",
+        "isHidden": true
+      },
+      {
+        "input": "   multiple   spaces    between    words   ",
+        "expectedOutput": "words between spaces multiple",
+        "isHidden": true
+      },
+      {
+        "input": "Open Source Community",
+        "expectedOutput": "Community Source Open",
+        "isHidden": true
+      }
+    ],
+    "objective": "Reverse word sequence while cleaning multiple spaces.",
+    "conceptualExplanation": [
+      "Trim leading/trailing whitespace.",
+      "Split by regex /\\s+/ to handle consecutive spaces.",
+      "Reverse word list and join with a single space."
+    ]
+  },
+  {
+    "id": "ch_length_last_word",
+    "title": "Length of Last Word",
+    "difficulty": "Easy",
+    "category": "Strings",
+    "description": "Given a string `s` consisting of words and spaces, return the length of the last word in the string. A word is a maximal substring consisting of non-space characters only.",
+    "inputFormat": "A single line containing string s.",
+    "outputFormat": "An integer representing the length of the last word.",
+    "constraints": [
+      "1 <= s.length <= 10^4",
+      "s consists of only English letters and spaces ' '."
+    ],
+    "examples": [
+      {
+        "input": "Hello World",
+        "output": "5",
+        "explanation": "Trim string."
+      },
+      {
+        "input": "   fly me   to   the moon  ",
+        "output": "4",
+        "explanation": "Find last word."
+      }
+    ],
+    "hints": [
+      "Trim spaces from right, then count characters until next space."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "Hello World",
+        "expectedOutput": "5",
+        "isHidden": false
+      },
+      {
+        "input": "   fly me   to   the moon  ",
+        "expectedOutput": "4",
+        "isHidden": false
+      },
+      {
+        "input": "luffy is still joyboy",
+        "expectedOutput": "6",
+        "isHidden": false
+      },
+      {
+        "input": "a",
+        "expectedOutput": "1",
+        "isHidden": true
+      },
+      {
+        "input": "day",
+        "expectedOutput": "3",
+        "isHidden": true
+      },
+      {
+        "input": "   singleword   ",
+        "expectedOutput": "10",
+        "isHidden": true
+      },
+      {
+        "input": "Today is a nice day",
+        "expectedOutput": "3",
+        "isHidden": true
+      },
+      {
+        "input": "test string ending with wordlengthten",
+        "expectedOutput": "13",
+        "isHidden": true
+      },
+      {
+        "input": "b a",
+        "expectedOutput": "1",
+        "isHidden": true
+      },
+      {
+        "input": "c d e f g",
+        "expectedOutput": "1",
+        "isHidden": true
+      }
+    ],
+    "objective": "Find the character count of the terminal word in a string.",
+    "conceptualExplanation": [
+      "Trim string.",
+      "Find last word.",
+      "Return length."
+    ]
+  },
+  {
+    "id": "ch_valid_palindrome_ii",
+    "title": "Valid Palindrome II (At Most One Deletion)",
+    "difficulty": "Easy",
+    "category": "Two Pointers",
+    "description": "Given a string `s`, return `true` if the `s` can be palindrome after deleting at most one character from it.",
+    "inputFormat": "A single line containing string s.",
+    "outputFormat": "true or false",
+    "constraints": [
+      "1 <= s.length <= 10^5",
+      "s consists of lowercase English letters."
+    ],
+    "examples": [
+      {
+        "input": "aba",
+        "output": "true",
+        "explanation": "Two pointers l=0, r=s.length-1."
+      },
+      {
+        "input": "abca",
+        "output": "true",
+        "explanation": "While l < r: if s[l] == s[r] continue."
+      }
+    ],
+    "hints": [
+      "Use two pointers from left and right.",
+      "When mismatch occurs, check if skipping left or skipping right yields a palindrome."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "aba",
+        "expectedOutput": "true",
+        "isHidden": false
+      },
+      {
+        "input": "abca",
+        "expectedOutput": "true",
+        "isHidden": false
+      },
+      {
+        "input": "abc",
+        "expectedOutput": "false",
+        "isHidden": false
+      },
+      {
+        "input": "racecar",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "deeee",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "aguokepatgbnvfqmgmlcupuufxoohdfpgjdmysgvhmvffcnqxjjxqncffvmhvgvysmdjgpfdhooxfuupuculmgmqfvnbgtapekouga",
+        "expectedOutput": "false",
+        "isHidden": true
+      },
+      {
+        "input": "tebbem",
+        "expectedOutput": "false",
+        "isHidden": true
+      },
+      {
+        "input": "pidqr",
+        "expectedOutput": "false",
+        "isHidden": true
+      },
+      {
+        "input": "eeccccbebaeeabebccceea",
+        "expectedOutput": "false",
+        "isHidden": true
+      },
+      {
+        "input": "ab",
+        "expectedOutput": "true",
+        "isHidden": true
+      }
+    ],
+    "objective": "Determine palindrome feasibility allowing at most one character deletion.",
+    "conceptualExplanation": [
+      "Two pointers l=0, r=s.length-1.",
+      "While l < r: if s[l] == s[r] continue.",
+      "Else check if substring s[l+1..r] or s[l..r-1] is a palindrome."
+    ]
+  },
+  {
+    "id": "ch_four_sum",
+    "title": "4Sum Quadruplets",
+    "difficulty": "Medium",
+    "category": "Two Pointers",
+    "description": "Given an array `nums` of n integers, return an array of all the unique quadruplets `[nums[a], nums[b], nums[c], nums[d]]` such that `a, b, c, d` are distinct and `nums[a] + nums[b] + nums[c] + nums[d] == target`. Output the count of quadruplets on line 1, and each quadruplet on a new line (space-separated, sorted).",
+    "inputFormat": "Line 1: Space-separated integers representing nums.\nLine 2: Single integer target.",
+    "outputFormat": "Line 1: Integer count.\nSubsequent lines: Space-separated quadruplet.",
+    "constraints": [
+      "1 <= nums.length <= 200",
+      "-10^9 <= nums[i] <= 10^9",
+      "-10^9 <= target <= 10^9"
+    ],
+    "examples": [
+      {
+        "input": "1 0 -1 0 -2 2\n0",
+        "output": "3\n-2 -1 1 2\n-2 0 0 2\n-1 0 0 1",
+        "explanation": "Sort nums."
+      },
+      {
+        "input": "2 2 2 2 2\n8",
+        "output": "1\n2 2 2 2",
+        "explanation": "Loop i from 0..n-4, loop j from i+1..n-3."
+      }
+    ],
+    "hints": [
+      "Sort array.",
+      "Fix two outer numbers and use two pointers for the inner pair."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "1 0 -1 0 -2 2\n0",
+        "expectedOutput": "3\n-2 -1 1 2\n-2 0 0 2\n-1 0 0 1",
+        "isHidden": false
+      },
+      {
+        "input": "2 2 2 2 2\n8",
+        "expectedOutput": "1\n2 2 2 2",
+        "isHidden": false
+      },
+      {
+        "input": "1 2 3 4\n10",
+        "expectedOutput": "1\n1 2 3 4",
+        "isHidden": false
+      },
+      {
+        "input": "0 0 0 0\n0",
+        "expectedOutput": "1\n0 0 0 0",
+        "isHidden": true
+      },
+      {
+        "input": "-3 -2 -1 0 0 1 2 3\n0",
+        "expectedOutput": "8\n-3 -2 2 3\n-3 -1 1 3\n-3 0 0 3\n-3 0 1 2\n-2 -1 0 3\n-2 -1 1 2\n-2 0 0 2\n-1 0 0 1",
+        "isHidden": true
+      },
+      {
+        "input": "1 -2 -5 -4 -3 3 3 5\n-11",
+        "expectedOutput": "1\n-5 -4 -3 1",
+        "isHidden": true
+      },
+      {
+        "input": "1 2 3 4 5\n100",
+        "expectedOutput": "0",
+        "isHidden": true
+      },
+      {
+        "input": "1 1 1 1 1 1\n4",
+        "expectedOutput": "1\n1 1 1 1",
+        "isHidden": true
+      },
+      {
+        "input": "-1 0 1 2 -1 -4\n-1",
+        "expectedOutput": "2\n-4 0 1 2\n-1 -1 0 1",
+        "isHidden": true
+      },
+      {
+        "input": "1000000000 1000000000 1000000000 1000000000\n4000000000",
+        "expectedOutput": "1\n1000000000 1000000000 1000000000 1000000000",
+        "isHidden": true
+      }
+    ],
+    "objective": "Find all unique 4-element combinations summing to target.",
+    "conceptualExplanation": [
+      "Sort nums.",
+      "Loop i from 0..n-4, loop j from i+1..n-3.",
+      "Use two pointers l and r to find remaining two elements.",
+      "Skip duplicate elements."
+    ]
+  },
+  {
+    "id": "ch_max_consecutive_ones",
+    "title": "Max Consecutive Ones",
+    "difficulty": "Easy",
+    "category": "Sliding Window",
+    "description": "Given a binary array `nums`, return the maximum number of consecutive 1's in the array.",
+    "inputFormat": "Line 1: Space-separated 0s and 1s.",
+    "outputFormat": "A single integer representing the maximum consecutive 1s.",
+    "constraints": [
+      "1 <= nums.length <= 10^5",
+      "nums[i] is either 0 or 1."
+    ],
+    "examples": [
+      {
+        "input": "1 1 0 1 1 1",
+        "output": "3",
+        "explanation": "Scan through array."
+      },
+      {
+        "input": "1 0 1 1 0 1",
+        "output": "2",
+        "explanation": "If element is 1, increment current streak and update max."
+      }
+    ],
+    "hints": [
+      "Maintain current count of 1s; reset on 0."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "1 1 0 1 1 1",
+        "expectedOutput": "3",
+        "isHidden": false
+      },
+      {
+        "input": "1 0 1 1 0 1",
+        "expectedOutput": "2",
+        "isHidden": false
+      },
+      {
+        "input": "0 0 0",
+        "expectedOutput": "0",
+        "isHidden": false
+      },
+      {
+        "input": "1 1 1 1 1",
+        "expectedOutput": "5",
+        "isHidden": true
+      },
+      {
+        "input": "0",
+        "expectedOutput": "0",
+        "isHidden": true
+      },
+      {
+        "input": "1",
+        "expectedOutput": "1",
+        "isHidden": true
+      },
+      {
+        "input": "1 0 0 1 1 0 1 1 1 1",
+        "expectedOutput": "4",
+        "isHidden": true
+      },
+      {
+        "input": "0 1 0 1 0 1",
+        "expectedOutput": "1",
+        "isHidden": true
+      },
+      {
+        "input": "1 1 0 0 1 1",
+        "expectedOutput": "2",
+        "isHidden": true
+      },
+      {
+        "input": "0 0 1 1 1 0 0 0 1 1",
+        "expectedOutput": "3",
+        "isHidden": true
+      }
+    ],
+    "objective": "Find maximum uninterrupted run of 1s in a binary array.",
+    "conceptualExplanation": [
+      "Scan through array.",
+      "If element is 1, increment current streak and update max.",
+      "If 0, reset current streak to 0."
+    ]
+  },
+  {
+    "id": "ch_make_string_great",
+    "title": "Make The String Great",
+    "difficulty": "Easy",
+    "category": "Stacks",
+    "description": "A good string is a string which doesn't have two adjacent characters `s[i]` and `s[i + 1]` where: `0 <= i <= s.length - 2`, and `s[i]` is a lower-case letter and `s[i + 1]` is the same letter but in upper-case or vice-versa. Return the string after making it good.",
+    "inputFormat": "A single line containing string s.",
+    "outputFormat": "The resulting great string (or empty line if string becomes empty).",
+    "constraints": [
+      "1 <= s.length <= 100",
+      "s contains only lower and upper case English letters."
+    ],
+    "examples": [
+      {
+        "input": "leEeetcode",
+        "output": "leetcode",
+        "explanation": "Iterate characters."
+      },
+      {
+        "input": "abBAcC",
+        "output": "",
+        "explanation": "If Math.abs(ch.charCodeAt(0) - top.charCodeAt(0)) === 32, pop."
+      }
+    ],
+    "hints": [
+      "Use a stack.",
+      "If current char and stack top differ by 32 in ASCII, pop stack. Else push."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "leEeetcode",
+        "expectedOutput": "leetcode",
+        "isHidden": false
+      },
+      {
+        "input": "abBAcC",
+        "expectedOutput": "",
+        "isHidden": false
+      },
+      {
+        "input": "s",
+        "expectedOutput": "s",
+        "isHidden": false
+      },
+      {
+        "input": "Pp",
+        "expectedOutput": "",
+        "isHidden": true
+      },
+      {
+        "input": "mCmMcm",
+        "expectedOutput": "mm",
+        "isHidden": true
+      },
+      {
+        "input": "qFxXfQo",
+        "expectedOutput": "o",
+        "isHidden": true
+      },
+      {
+        "input": "aA",
+        "expectedOutput": "",
+        "isHidden": true
+      },
+      {
+        "input": "abBA",
+        "expectedOutput": "",
+        "isHidden": true
+      },
+      {
+        "input": "AaBbCc",
+        "expectedOutput": "",
+        "isHidden": true
+      },
+      {
+        "input": "HhOoWw",
+        "expectedOutput": "",
+        "isHidden": true
+      }
+    ],
+    "objective": "Cancel adjacent same-letter uppercase/lowercase pairs using a stack.",
+    "conceptualExplanation": [
+      "Iterate characters.",
+      "If Math.abs(ch.charCodeAt(0) - top.charCodeAt(0)) === 32, pop.",
+      "Else push char to stack."
+    ]
+  },
+  {
+    "id": "ch_online_stock_span",
+    "title": "Online Stock Span",
+    "difficulty": "Medium",
+    "category": "Stacks",
+    "description": "Design an algorithm that collects daily price quotes for some stock and returns the span of that stock's price for the current day. The span of the stock's price in one day is the maximum number of consecutive days (starting from that day and going backward) for which the stock price was less than or equal to the price of that day.",
+    "inputFormat": "Line 1: Space-separated integers representing daily prices.",
+    "outputFormat": "Space-separated integers representing spans.",
+    "constraints": [
+      "1 <= prices.length <= 10^4",
+      "1 <= price <= 10^5"
+    ],
+    "examples": [
+      {
+        "input": "100 80 60 70 60 75 85",
+        "output": "1 1 1 2 1 4 6",
+        "explanation": "Store [price, span] in stack."
+      },
+      {
+        "input": "31 41 48 49 50",
+        "output": "1 2 3 4 5",
+        "explanation": "While stack top price <= current price, span += stack.pop()[1]."
+      }
+    ],
+    "hints": [
+      "Monotonic stack of (price, span) pairs.",
+      "Collapse lower prices into span."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "100 80 60 70 60 75 85",
+        "expectedOutput": "1 1 1 2 1 4 6",
+        "isHidden": false
+      },
+      {
+        "input": "31 41 48 49 50",
+        "expectedOutput": "1 2 3 4 5",
+        "isHidden": false
+      },
+      {
+        "input": "10 9 8 7",
+        "expectedOutput": "1 1 1 1",
+        "isHidden": false
+      },
+      {
+        "input": "50 50 50",
+        "expectedOutput": "1 2 3",
+        "isHidden": true
+      },
+      {
+        "input": "10 20 30 40 50",
+        "expectedOutput": "1 2 3 4 5",
+        "isHidden": true
+      },
+      {
+        "input": "100",
+        "expectedOutput": "1",
+        "isHidden": true
+      },
+      {
+        "input": "29 91 62 76 51",
+        "expectedOutput": "1 2 1 2 1",
+        "isHidden": true
+      },
+      {
+        "input": "40 30 20 10 50",
+        "expectedOutput": "1 1 1 1 5",
+        "isHidden": true
+      },
+      {
+        "input": "90 80 85 87 95",
+        "expectedOutput": "1 1 2 3 5",
+        "isHidden": true
+      },
+      {
+        "input": "10 5 15 5 20",
+        "expectedOutput": "1 1 3 1 5",
+        "isHidden": true
+      }
+    ],
+    "objective": "Compute continuous non-decreasing backward span for stream prices.",
+    "conceptualExplanation": [
+      "Store [price, span] in stack.",
+      "While stack top price <= current price, span += stack.pop()[1].",
+      "Push [price, span] and output span."
+    ]
+  },
+  {
+    "id": "ch_dota2_senate",
+    "title": "Dota2 Senate Voting Queue",
+    "difficulty": "Medium",
+    "category": "Queues",
+    "description": "In the world of Dota2, there are two parties: the Radiant and the Dire. The senate consists of senators from both parties. Each senator can ban one senator's right or announce victory. Radiant senators are represented by 'R' and Dire senators by 'D'. Suppose every senator exercises the best strategy for his own party. Predict which party will finally announce the victory.",
+    "inputFormat": "A single line containing string senate.",
+    "outputFormat": "Radiant or Dire",
+    "constraints": [
+      "n == senate.length",
+      "1 <= n <= 10^4",
+      "senate[i] is either 'R' or 'D'."
+    ],
+    "examples": [
+      {
+        "input": "RD",
+        "output": "Radiant",
+        "explanation": "Queue rad holds R indices, queue dir holds D indices."
+      },
+      {
+        "input": "RDD",
+        "output": "Dire",
+        "explanation": "Pop r from rad, d from dir."
+      }
+    ],
+    "hints": [
+      "Use two queues for Radiant and Dire senator indices.",
+      "Smaller index bans the larger index and requeues with index + n."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "RD",
+        "expectedOutput": "Radiant",
+        "isHidden": false
+      },
+      {
+        "input": "RDD",
+        "expectedOutput": "Dire",
+        "isHidden": false
+      },
+      {
+        "input": "R",
+        "expectedOutput": "Radiant",
+        "isHidden": false
+      },
+      {
+        "input": "D",
+        "expectedOutput": "Dire",
+        "isHidden": true
+      },
+      {
+        "input": "RRDDD",
+        "expectedOutput": "Radiant",
+        "isHidden": true
+      },
+      {
+        "input": "DDRRR",
+        "expectedOutput": "Dire",
+        "isHidden": true
+      },
+      {
+        "input": "RDRDRD",
+        "expectedOutput": "Radiant",
+        "isHidden": true
+      },
+      {
+        "input": "DDRDRR",
+        "expectedOutput": "Dire",
+        "isHidden": true
+      },
+      {
+        "input": "DRRDRD",
+        "expectedOutput": "Radiant",
+        "isHidden": true
+      },
+      {
+        "input": "RRRDDD",
+        "expectedOutput": "Radiant",
+        "isHidden": true
+      }
+    ],
+    "objective": "Simulate greedy round-robin elimination with queues.",
+    "conceptualExplanation": [
+      "Queue rad holds R indices, queue dir holds D indices.",
+      "Pop r from rad, d from dir.",
+      "Whichever is smaller requeues as (idx + n). Other senator is eliminated.",
+      "Winner is whichever queue is not empty."
+    ]
+  },
+  {
+    "id": "ch_moving_average",
+    "title": "Moving Average from Data Stream",
+    "difficulty": "Easy",
+    "category": "Queues",
+    "description": "Given a stream of integers and a window size `size`, calculate the moving average of all integers in the sliding window. Format floating point numbers to 2 decimal places.",
+    "inputFormat": "Line 1: Integer size (window capacity)\nLine 2: Space-separated integers representing stream values.",
+    "outputFormat": "Space-separated moving averages rounded to 2 decimal places.",
+    "constraints": [
+      "1 <= size <= 1000",
+      "-10^5 <= val <= 10^5",
+      "At most 10^4 calls will be made."
+    ],
+    "examples": [
+      {
+        "input": "3\n1 10 3 5",
+        "output": "1.00 5.50 4.67 6.00",
+        "explanation": "Maintain queue of size k."
+      },
+      {
+        "input": "1\n4 0 -4",
+        "output": "4.00 0.00 -4.00",
+        "explanation": "On new value, if queue.length === k, subtract queue.pop() from running sum."
+      }
+    ],
+    "hints": [
+      "Use a queue to store window elements and maintain running sum."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "3\n1 10 3 5",
+        "expectedOutput": "1.00 5.50 4.67 6.00",
+        "isHidden": false
+      },
+      {
+        "input": "1\n4 0 -4",
+        "expectedOutput": "4.00 0.00 -4.00",
+        "isHidden": false
+      },
+      {
+        "input": "5\n1 2 3 4 5 6 7",
+        "expectedOutput": "1.00 1.50 2.00 2.50 3.00 4.00 5.00",
+        "isHidden": false
+      },
+      {
+        "input": "2\n10 20 30 40",
+        "expectedOutput": "10.00 15.00 25.00 35.00",
+        "isHidden": true
+      },
+      {
+        "input": "4\n100 200 300 400 500",
+        "expectedOutput": "100.00 150.00 200.00 250.00 350.00",
+        "isHidden": true
+      },
+      {
+        "input": "3\n0 0 0 0",
+        "expectedOutput": "0.00 0.00 0.00 0.00",
+        "isHidden": true
+      },
+      {
+        "input": "2\n-5 5 -5 5",
+        "expectedOutput": "-5.00 0.00 0.00 0.00",
+        "isHidden": true
+      },
+      {
+        "input": "3\n1 2 1 2 1",
+        "expectedOutput": "1.00 1.50 1.33 1.67 1.33",
+        "isHidden": true
+      },
+      {
+        "input": "1\n42",
+        "expectedOutput": "42.00",
+        "isHidden": true
+      },
+      {
+        "input": "4\n2 4 6 8 10 12",
+        "expectedOutput": "2.00 3.00 4.00 5.00 7.00 9.00",
+        "isHidden": true
+      }
+    ],
+    "objective": "Compute sliding window moving averages in constant time per step.",
+    "conceptualExplanation": [
+      "Maintain queue of size k.",
+      "On new value, if queue.length === k, subtract queue.pop() from running sum.",
+      "Push new value, add to sum, return sum / queue.length."
+    ]
+  },
+  {
+    "id": "ch_delete_node_linked_list",
+    "title": "Delete Node in a Linked List",
+    "difficulty": "Medium",
+    "category": "Linked Lists",
+    "description": "There is a singly-linked list `head` and we want to delete a node with value `target` in it. You are given the values of the linked list and the target value to delete. Return the list after deletion.",
+    "inputFormat": "Line 1: Space-separated integers representing linked list.\nLine 2: Single integer target value to delete.",
+    "outputFormat": "Space-separated integers representing remaining list.",
+    "constraints": [
+      "The number of nodes in the list is in the range [2, 1000].",
+      "-1000 <= Node.val <= 1000",
+      "The value of each node in the list is unique."
+    ],
+    "examples": [
+      {
+        "input": "4 5 1 9\n5",
+        "output": "4 1 9",
+        "explanation": "Filter target out of node sequence."
+      },
+      {
+        "input": "4 5 1 9\n1",
+        "output": "4 5 9",
+        "explanation": "Return joined list."
+      }
+    ],
+    "hints": [
+      "Filter out target value."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "4 5 1 9\n5",
+        "expectedOutput": "4 1 9",
+        "isHidden": false
+      },
+      {
+        "input": "4 5 1 9\n1",
+        "expectedOutput": "4 5 9",
+        "isHidden": false
+      },
+      {
+        "input": "1 2 3 4\n3",
+        "expectedOutput": "1 2 4",
+        "isHidden": false
+      },
+      {
+        "input": "0 1\n0",
+        "expectedOutput": "1",
+        "isHidden": true
+      },
+      {
+        "input": "10 20 30 40 50\n50",
+        "expectedOutput": "10 20 30 40",
+        "isHidden": true
+      },
+      {
+        "input": "-3 5 -99\n5",
+        "expectedOutput": "-3 -99",
+        "isHidden": true
+      },
+      {
+        "input": "1 2 3\n1",
+        "expectedOutput": "2 3",
+        "isHidden": true
+      },
+      {
+        "input": "100 200\n200",
+        "expectedOutput": "100",
+        "isHidden": true
+      },
+      {
+        "input": "7 8 9 10\n8",
+        "expectedOutput": "7 9 10",
+        "isHidden": true
+      },
+      {
+        "input": "2 4 6 8\n6",
+        "expectedOutput": "2 4 8",
+        "isHidden": true
+      }
+    ],
+    "objective": "Simulate node deletion in linked list.",
+    "conceptualExplanation": [
+      "Filter target out of node sequence.",
+      "Return joined list."
+    ]
+  },
+  {
+    "id": "ch_remove_nth_node_end",
+    "title": "Remove N-th Node From End of List",
+    "difficulty": "Medium",
+    "category": "Linked Lists",
+    "description": "Given the head of a linked list, remove the n-th node from the end of the list and return its head.",
+    "inputFormat": "Line 1: Space-separated integers representing list.\nLine 2: Integer n.",
+    "outputFormat": "Space-separated integers of modified list (empty line if list becomes empty).",
+    "constraints": [
+      "The number of nodes in the list is sz.",
+      "1 <= sz <= 30",
+      "0 <= Node.val <= 100",
+      "1 <= n <= sz"
+    ],
+    "examples": [
+      {
+        "input": "1 2 3 4 5\n2",
+        "output": "1 2 3 5",
+        "explanation": "Length = sz."
+      },
+      {
+        "input": "1\n1",
+        "output": "",
+        "explanation": "Index to remove from front = sz - n."
+      }
+    ],
+    "hints": [
+      "Two pointers fast and slow separated by n nodes."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "1 2 3 4 5\n2",
+        "expectedOutput": "1 2 3 5",
+        "isHidden": false
+      },
+      {
+        "input": "1\n1",
+        "expectedOutput": "",
+        "isHidden": false
+      },
+      {
+        "input": "1 2\n1",
+        "expectedOutput": "1",
+        "isHidden": false
+      },
+      {
+        "input": "1 2\n2",
+        "expectedOutput": "2",
+        "isHidden": true
+      },
+      {
+        "input": "10 20 30 40\n4",
+        "expectedOutput": "20 30 40",
+        "isHidden": true
+      },
+      {
+        "input": "5 10 15 20 25\n1",
+        "expectedOutput": "5 10 15 20",
+        "isHidden": true
+      },
+      {
+        "input": "1 2 3 4\n3",
+        "expectedOutput": "1 3 4",
+        "isHidden": true
+      },
+      {
+        "input": "7 8 9\n2",
+        "expectedOutput": "7 9",
+        "isHidden": true
+      },
+      {
+        "input": "100 200 300\n3",
+        "expectedOutput": "200 300",
+        "isHidden": true
+      },
+      {
+        "input": "4 5 6 7 8 9\n5",
+        "expectedOutput": "4 6 7 8 9",
+        "isHidden": true
+      }
+    ],
+    "objective": "Remove the n-th node from tail in one pass.",
+    "conceptualExplanation": [
+      "Length = sz.",
+      "Index to remove from front = sz - n.",
+      "Remove element at that index."
+    ]
+  },
+  {
+    "id": "ch_rotate_list_k",
+    "title": "Rotate List by K Places",
+    "difficulty": "Medium",
+    "category": "Linked Lists",
+    "description": "Given the head of a linked list, rotate the list to the right by `k` places.",
+    "inputFormat": "Line 1: Space-separated integers representing list (empty line if empty).\nLine 2: Integer k.",
+    "outputFormat": "Space-separated integers of rotated list.",
+    "constraints": [
+      "The number of nodes in the list is in the range [0, 500].",
+      "-100 <= Node.val <= 100",
+      "0 <= k <= 2 * 10^9"
+    ],
+    "examples": [
+      {
+        "input": "1 2 3 4 5\n2",
+        "output": "4 5 1 2 3",
+        "explanation": "Effective shift k = k % n."
+      },
+      {
+        "input": "0 1 2\n4",
+        "output": "2 0 1",
+        "explanation": "New tail is at index n - k - 1."
+      }
+    ],
+    "hints": [
+      "k = k % length.",
+      "Split list at length - k."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "1 2 3 4 5\n2",
+        "expectedOutput": "4 5 1 2 3",
+        "isHidden": false
+      },
+      {
+        "input": "0 1 2\n4",
+        "expectedOutput": "2 0 1",
+        "isHidden": false
+      },
+      {
+        "input": "1 2\n0",
+        "expectedOutput": "1 2",
+        "isHidden": false
+      },
+      {
+        "input": "1\n99",
+        "expectedOutput": "1",
+        "isHidden": true
+      },
+      {
+        "input": "1 2 3 4\n4",
+        "expectedOutput": "1 2 3 4",
+        "isHidden": true
+      },
+      {
+        "input": "10 20 30 40 50\n7",
+        "expectedOutput": "40 50 10 20 30",
+        "isHidden": true
+      },
+      {
+        "input": "5 10\n1",
+        "expectedOutput": "10 5",
+        "isHidden": true
+      },
+      {
+        "input": "1 2 3\n5",
+        "expectedOutput": "2 3 1",
+        "isHidden": true
+      },
+      {
+        "input": "7 8 9 10\n2",
+        "expectedOutput": "9 10 7 8",
+        "isHidden": true
+      },
+      {
+        "input": "4 5 6 7\n1000000",
+        "expectedOutput": "4 5 6 7",
+        "isHidden": true
+      }
+    ],
+    "objective": "Rotate linked list elements cyclically by k positions.",
+    "conceptualExplanation": [
+      "Effective shift k = k % n.",
+      "New tail is at index n - k - 1.",
+      "Slice and recombine."
+    ]
+  },
+  {
+    "id": "ch_swap_nodes_in_pairs",
+    "title": "Swap Nodes in Pairs",
+    "difficulty": "Medium",
+    "category": "Linked Lists",
+    "description": "Given a linked list, swap every two adjacent nodes and return its head. You must solve the problem without modifying the values in the list's nodes (i.e., only nodes themselves may be changed).",
+    "inputFormat": "Line 1: Space-separated integers representing list.",
+    "outputFormat": "Space-separated integers after pairwise swaps.",
+    "constraints": [
+      "The number of nodes in the list is in the range [0, 100].",
+      "0 <= Node.val <= 100"
+    ],
+    "examples": [
+      {
+        "input": "1 2 3 4",
+        "output": "2 1 4 3",
+        "explanation": "Iterate in steps of 2."
+      },
+      {
+        "input": "1",
+        "output": "1",
+        "explanation": "Swap nums[i] and nums[i+1] if i+1 exists."
+      }
+    ],
+    "hints": [
+      "Swap nodes in chunks of 2."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "1 2 3 4",
+        "expectedOutput": "2 1 4 3",
+        "isHidden": false
+      },
+      {
+        "input": "1",
+        "expectedOutput": "1",
+        "isHidden": false
+      },
+      {
+        "input": "1 2 3",
+        "expectedOutput": "2 1 3",
+        "isHidden": false
+      },
+      {
+        "input": "1 2 3 4 5 6",
+        "expectedOutput": "2 1 4 3 6 5",
+        "isHidden": true
+      },
+      {
+        "input": "10 20",
+        "expectedOutput": "20 10",
+        "isHidden": true
+      },
+      {
+        "input": "5 10 15",
+        "expectedOutput": "10 5 15",
+        "isHidden": true
+      },
+      {
+        "input": "4 3 2 1",
+        "expectedOutput": "3 4 1 2",
+        "isHidden": true
+      },
+      {
+        "input": "7 8 9 10 11",
+        "expectedOutput": "8 7 10 9 11",
+        "isHidden": true
+      },
+      {
+        "input": "100 200 300 400",
+        "expectedOutput": "200 100 400 300",
+        "isHidden": true
+      },
+      {
+        "input": "2 4 6 8 10 12",
+        "expectedOutput": "4 2 8 6 12 10",
+        "isHidden": true
+      }
+    ],
+    "objective": "Swap adjacent node pairs in linked list.",
+    "conceptualExplanation": [
+      "Iterate in steps of 2.",
+      "Swap nums[i] and nums[i+1] if i+1 exists."
+    ]
+  },
+  {
+    "id": "ch_reverse_nodes_k_group",
+    "title": "Reverse Nodes in K-Group",
+    "difficulty": "Hard",
+    "category": "Linked Lists",
+    "description": "Given the head of a linked list, reverse the nodes of the list `k` at a time, and return the modified list. `k` is a positive integer and is less than or equal to the length of the linked list. If the number of nodes is not a multiple of `k` then left-out nodes, in the end, should remain as it is.",
+    "inputFormat": "Line 1: Space-separated integers representing list.\nLine 2: Integer k.",
+    "outputFormat": "Space-separated integers of modified list.",
+    "constraints": [
+      "The number of nodes in the list is n.",
+      "1 <= k <= n <= 5000",
+      "0 <= Node.val <= 1000"
+    ],
+    "examples": [
+      {
+        "input": "1 2 3 4 5\n2",
+        "output": "2 1 4 3 5",
+        "explanation": "Chunk list by size k."
+      },
+      {
+        "input": "1 2 3 4 5\n3",
+        "output": "3 2 1 4 5",
+        "explanation": "If chunk.length === k, reverse it."
+      }
+    ],
+    "hints": [
+      "Reverse each slice of length k.",
+      "If remaining length < k, keep order intact."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "1 2 3 4 5\n2",
+        "expectedOutput": "2 1 4 3 5",
+        "isHidden": false
+      },
+      {
+        "input": "1 2 3 4 5\n3",
+        "expectedOutput": "3 2 1 4 5",
+        "isHidden": false
+      },
+      {
+        "input": "1 2 3 4 5 6\n2",
+        "expectedOutput": "2 1 4 3 6 5",
+        "isHidden": false
+      },
+      {
+        "input": "1 2 3 4 5 6\n3",
+        "expectedOutput": "3 2 1 6 5 4",
+        "isHidden": true
+      },
+      {
+        "input": "1 2\n2",
+        "expectedOutput": "2 1",
+        "isHidden": true
+      },
+      {
+        "input": "1\n1",
+        "expectedOutput": "1",
+        "isHidden": true
+      },
+      {
+        "input": "1 2 3 4 5 6 7 8\n4",
+        "expectedOutput": "4 3 2 1 8 7 6 5",
+        "isHidden": true
+      },
+      {
+        "input": "10 20 30 40 50\n5",
+        "expectedOutput": "50 40 30 20 10",
+        "isHidden": true
+      },
+      {
+        "input": "5 4 3 2 1\n2",
+        "expectedOutput": "4 5 2 3 1",
+        "isHidden": true
+      },
+      {
+        "input": "1 2 3 4 5 6 7\n3",
+        "expectedOutput": "3 2 1 6 5 4 7",
+        "isHidden": true
+      }
+    ],
+    "objective": "Reverse linked list nodes in groups of k.",
+    "conceptualExplanation": [
+      "Chunk list by size k.",
+      "If chunk.length === k, reverse it.",
+      "Join all chunks."
+    ]
+  },
+  {
+    "id": "ch_guess_number_higher_lower",
+    "title": "Guess Number Higher or Lower",
+    "difficulty": "Easy",
+    "category": "Binary Search",
+    "description": "We are playing the Guess Game. The game will pick a number from 1 to n. You have to guess which number is picked. Given n and the picked target number, simulate binary search and return the target number.",
+    "inputFormat": "Line 1: Integer n (upper bound)\nLine 2: Integer pick (target number)",
+    "outputFormat": "The picked integer.",
+    "constraints": [
+      "1 <= target <= n <= 2^31 - 1"
+    ],
+    "examples": [
+      {
+        "input": "10\n6",
+        "output": "6",
+        "explanation": "Search interval [1, n]."
+      },
+      {
+        "input": "1\n1",
+        "output": "1",
+        "explanation": "Mid = low + (high - low) / 2."
+      }
+    ],
+    "hints": [
+      "Standard binary search between 1 and n."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "10\n6",
+        "expectedOutput": "6",
+        "isHidden": false
+      },
+      {
+        "input": "1\n1",
+        "expectedOutput": "1",
+        "isHidden": false
+      },
+      {
+        "input": "2\n1",
+        "expectedOutput": "1",
+        "isHidden": false
+      },
+      {
+        "input": "100\n42",
+        "expectedOutput": "42",
+        "isHidden": true
+      },
+      {
+        "input": "1000\n789",
+        "expectedOutput": "789",
+        "isHidden": true
+      },
+      {
+        "input": "50\n25",
+        "expectedOutput": "25",
+        "isHidden": true
+      },
+      {
+        "input": "20\n19",
+        "expectedOutput": "19",
+        "isHidden": true
+      },
+      {
+        "input": "15\n1",
+        "expectedOutput": "1",
+        "isHidden": true
+      },
+      {
+        "input": "500\n333",
+        "expectedOutput": "333",
+        "isHidden": true
+      },
+      {
+        "input": "10000\n9999",
+        "expectedOutput": "9999",
+        "isHidden": true
+      }
+    ],
+    "objective": "Simulate binary search guess game bounds.",
+    "conceptualExplanation": [
+      "Search interval [1, n].",
+      "Mid = low + (high - low) / 2.",
+      "Narrow bounds until mid === target."
+    ]
+  },
+  {
+    "id": "ch_first_bad_version",
+    "title": "First Bad Version (Binary Search Boundary)",
+    "difficulty": "Easy",
+    "category": "Binary Search",
+    "description": "You are a product manager and currently leading a team to develop a new product. Unfortunately, the latest version of your product fails the quality check. Since each version is developed based on the previous version, all the versions after a bad version are also bad. Given n versions [1, 2, ..., n] and the first bad version index, find the first bad version using binary search.",
+    "inputFormat": "Line 1: Total versions n\nLine 2: First bad version bad",
+    "outputFormat": "Integer representing first bad version.",
+    "constraints": [
+      "1 <= bad <= n <= 2^31 - 1"
+    ],
+    "examples": [
+      {
+        "input": "5\n4",
+        "output": "4",
+        "explanation": "low = 1, high = n."
+      },
+      {
+        "input": "1\n1",
+        "output": "1",
+        "explanation": "mid = low + (high - low) / 2."
+      }
+    ],
+    "hints": [
+      "Binary search: if isBadVersion(mid), first bad is <= mid. Else it is > mid."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "5\n4",
+        "expectedOutput": "4",
+        "isHidden": false
+      },
+      {
+        "input": "1\n1",
+        "expectedOutput": "1",
+        "isHidden": false
+      },
+      {
+        "input": "10\n10",
+        "expectedOutput": "10",
+        "isHidden": false
+      },
+      {
+        "input": "10\n1",
+        "expectedOutput": "1",
+        "isHidden": true
+      },
+      {
+        "input": "100\n55",
+        "expectedOutput": "55",
+        "isHidden": true
+      },
+      {
+        "input": "50\n23",
+        "expectedOutput": "23",
+        "isHidden": true
+      },
+      {
+        "input": "1000\n420",
+        "expectedOutput": "420",
+        "isHidden": true
+      },
+      {
+        "input": "2\n2",
+        "expectedOutput": "2",
+        "isHidden": true
+      },
+      {
+        "input": "2\n1",
+        "expectedOutput": "1",
+        "isHidden": true
+      },
+      {
+        "input": "10000\n7777",
+        "expectedOutput": "7777",
+        "isHidden": true
+      }
+    ],
+    "objective": "Find monotonic false/true transition boundary with binary search.",
+    "conceptualExplanation": [
+      "low = 1, high = n.",
+      "mid = low + (high - low) / 2.",
+      "if mid >= bad: high = mid.",
+      "else: low = mid + 1.",
+      "return low."
+    ]
+  },
+  {
+    "id": "ch_peak_index_mountain",
+    "title": "Peak Index in a Mountain Array",
+    "difficulty": "Medium",
+    "category": "Binary Search",
+    "description": "An array `arr` is a mountain if `arr.length >= 3` and there exists some i with `0 < i < arr.length - 1` such that `arr[0] < arr[1] < ... < arr[i - 1] < arr[i]` and `arr[i] > arr[i + 1] > ... > arr[arr.length - 1]`. Given a mountain array `arr`, return the index `i` such that arr[0] < arr[1] < ... < arr[i - 1] < arr[i] > arr[i + 1] > ... > arr[arr.length - 1] in O(log(n)) time.",
+    "inputFormat": "Line 1: Space-separated integers representing mountain array.",
+    "outputFormat": "Index of the peak element.",
+    "constraints": [
+      "3 <= arr.length <= 10^5",
+      "0 <= arr[i] <= 10^6",
+      "arr is guaranteed to be a mountain array."
+    ],
+    "examples": [
+      {
+        "input": "0 1 0",
+        "output": "1",
+        "explanation": "Binary search l=0, r=arr.length-1."
+      },
+      {
+        "input": "0 2 1 0",
+        "output": "1",
+        "explanation": "If arr[mid] < arr[mid + 1], peak is to the right: l = mid + 1."
+      }
+    ],
+    "hints": [
+      "Binary search: compare arr[mid] with arr[mid + 1]."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "0 1 0",
+        "expectedOutput": "1",
+        "isHidden": false
+      },
+      {
+        "input": "0 2 1 0",
+        "expectedOutput": "1",
+        "isHidden": false
+      },
+      {
+        "input": "0 10 5 2",
+        "expectedOutput": "1",
+        "isHidden": false
+      },
+      {
+        "input": "3 5 3 2 0",
+        "expectedOutput": "1",
+        "isHidden": true
+      },
+      {
+        "input": "0 1 2 3 4 5 3 1",
+        "expectedOutput": "5",
+        "isHidden": true
+      },
+      {
+        "input": "10 20 30 40 35 25 15",
+        "expectedOutput": "3",
+        "isHidden": true
+      },
+      {
+        "input": "1 3 5 4 2",
+        "expectedOutput": "2",
+        "isHidden": true
+      },
+      {
+        "input": "0 100 0",
+        "expectedOutput": "1",
+        "isHidden": true
+      },
+      {
+        "input": "24 69 100 99 79 78 67 36 26 19",
+        "expectedOutput": "2",
+        "isHidden": true
+      },
+      {
+        "input": "1 2 3 4 5 6 7 8 9 10 9 8",
+        "expectedOutput": "9",
+        "isHidden": true
+      }
+    ],
+    "objective": "Locate peak element in mountain array using O(log N) binary search.",
+    "conceptualExplanation": [
+      "Binary search l=0, r=arr.length-1.",
+      "If arr[mid] < arr[mid + 1], peak is to the right: l = mid + 1.",
+      "Else peak is at mid or to the left: r = mid.",
+      "Return l."
+    ]
+  },
+  {
+    "id": "ch_search_2d_matrix",
+    "title": "Search a 2D Matrix",
+    "difficulty": "Medium",
+    "category": "Binary Search",
+    "description": "You are given an m x n integer matrix with the following two properties:\n1. Each row is sorted in non-decreasing order.\n2. The first integer of each row is greater than the last integer of the previous row.\nGiven an integer `target`, return `true` if target is in matrix or `false` otherwise in O(log(m * n)) time.",
+    "inputFormat": "Line 1: Dimensions m and n\nNext m lines: n space-separated integers\nLast line: Single integer target",
+    "outputFormat": "true or false",
+    "constraints": [
+      "m == matrix.length",
+      "n == matrix[i].length",
+      "1 <= m, n <= 100",
+      "-10^4 <= matrix[i][j], target <= 10^4"
+    ],
+    "examples": [
+      {
+        "input": "3 4\n1 3 5 7\n10 11 16 20\n23 30 34 60\n3",
+        "output": "true",
+        "explanation": "Map 1D index idx to (row = Math.floor(idx / n), col = idx % n)."
+      },
+      {
+        "input": "3 4\n1 3 5 7\n10 11 16 20\n23 30 34 60\n13",
+        "output": "false",
+        "explanation": "Binary search over [0, m * n - 1]."
+      }
+    ],
+    "hints": [
+      "Treat 2D matrix as a flat 1D array of size m * n."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "3 4\n1 3 5 7\n10 11 16 20\n23 30 34 60\n3",
+        "expectedOutput": "true",
+        "isHidden": false
+      },
+      {
+        "input": "3 4\n1 3 5 7\n10 11 16 20\n23 30 34 60\n13",
+        "expectedOutput": "false",
+        "isHidden": false
+      },
+      {
+        "input": "1 1\n42\n42",
+        "expectedOutput": "true",
+        "isHidden": false
+      },
+      {
+        "input": "1 1\n42\n7",
+        "expectedOutput": "false",
+        "isHidden": true
+      },
+      {
+        "input": "2 2\n1 2\n3 4\n4",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "2 2\n1 2\n3 4\n0",
+        "expectedOutput": "false",
+        "isHidden": true
+      },
+      {
+        "input": "1 4\n1 3 5 7\n5",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "4 1\n1\n3\n5\n7\n3",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "3 3\n1 2 3\n4 5 6\n7 8 9\n10",
+        "expectedOutput": "false",
+        "isHidden": true
+      },
+      {
+        "input": "3 3\n1 2 3\n4 5 6\n7 8 9\n1",
+        "expectedOutput": "true",
+        "isHidden": true
+      }
+    ],
+    "objective": "Binary search in row-major sorted 2D matrix.",
+    "conceptualExplanation": [
+      "Map 1D index idx to (row = Math.floor(idx / n), col = idx % n).",
+      "Binary search over [0, m * n - 1]."
+    ]
+  },
+  {
+    "id": "ch_binary_tree_paths",
+    "title": "Binary Tree Root-to-Leaf Paths",
+    "difficulty": "Easy",
+    "category": "Trees",
+    "description": "Given a binary tree represented as parent-child nodes (or level-order list where root is first), return all root-to-leaf paths formatted as `node1->node2->node3`. Output paths on separate lines.",
+    "inputFormat": "Line 1: Space-separated integers representing complete binary tree level order.",
+    "outputFormat": "Root-to-leaf paths on separate lines.",
+    "constraints": [
+      "The number of nodes in the tree is in the range [1, 100].",
+      "-100 <= Node.val <= 100"
+    ],
+    "examples": [
+      {
+        "input": "1 2 3",
+        "output": "1->2\n1->3",
+        "explanation": "Recursive DFS: path.push(node.val)."
+      },
+      {
+        "input": "1 2 3 5",
+        "output": "1->2->5\n1->3",
+        "explanation": "If leaf node (no left or right child), record path.join('->')."
+      }
+    ],
+    "hints": [
+      "DFS recursion carrying path string."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "1 2 3",
+        "expectedOutput": "1->2\n1->3",
+        "isHidden": false
+      },
+      {
+        "input": "1 2 3 5",
+        "expectedOutput": "1->2->5\n1->3",
+        "isHidden": false
+      },
+      {
+        "input": "1",
+        "expectedOutput": "1",
+        "isHidden": false
+      },
+      {
+        "input": "1 2",
+        "expectedOutput": "1->2",
+        "isHidden": true
+      },
+      {
+        "input": "1 2 3 4 5",
+        "expectedOutput": "1->2->4\n1->2->5\n1->3",
+        "isHidden": true
+      },
+      {
+        "input": "10 20 30 40 50 60 70",
+        "expectedOutput": "10->20->40\n10->20->50\n10->30->60\n10->30->70",
+        "isHidden": true
+      },
+      {
+        "input": "5 3 8 2 4",
+        "expectedOutput": "5->3->2\n5->3->4\n5->8",
+        "isHidden": true
+      },
+      {
+        "input": "1 2 3 4 5 6",
+        "expectedOutput": "1->2->4\n1->2->5\n1->3->6",
+        "isHidden": true
+      },
+      {
+        "input": "7 8 9 10",
+        "expectedOutput": "7->8->10\n7->9",
+        "isHidden": true
+      },
+      {
+        "input": "4 2 6 1 3 5 7",
+        "expectedOutput": "4->2->1\n4->2->3\n4->6->5\n4->6->7",
+        "isHidden": true
+      }
+    ],
+    "objective": "Enumerate all root-to-leaf traversal routes in a binary tree.",
+    "conceptualExplanation": [
+      "Recursive DFS: path.push(node.val).",
+      "If leaf node (no left or right child), record path.join('->').",
+      "Recursively visit children."
+    ]
+  },
+  {
+    "id": "ch_sum_root_to_leaf_numbers",
+    "title": "Sum Root to Leaf Numbers",
+    "difficulty": "Medium",
+    "category": "Trees",
+    "description": "You are given a binary tree containing digits from 0 to 9 only. Each root-to-leaf path in the tree represents a number. For example, the root-to-leaf path 1 -> 2 -> 3 represents the number 123. Return the total sum of all root-to-leaf numbers.",
+    "inputFormat": "Line 1: Space-separated digits representing binary tree in level order.",
+    "outputFormat": "Total sum integer.",
+    "constraints": [
+      "The number of nodes in the tree is in the range [1, 1000].",
+      "0 <= Node.val <= 9"
+    ],
+    "examples": [
+      {
+        "input": "1 2 3",
+        "output": "25",
+        "explanation": "DFS passing running number curr = curr * 10 + val."
+      },
+      {
+        "input": "4 9 0 5 1",
+        "output": "1026",
+        "explanation": "At leaf, add to total sum."
+      }
+    ],
+    "hints": [
+      "Accumulate path value as curr = curr * 10 + val.",
+      "At leaf, return curr. Else return sum of subtrees."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "1 2 3",
+        "expectedOutput": "25",
+        "isHidden": false
+      },
+      {
+        "input": "4 9 0 5 1",
+        "expectedOutput": "1026",
+        "isHidden": false
+      },
+      {
+        "input": "1",
+        "expectedOutput": "1",
+        "isHidden": false
+      },
+      {
+        "input": "1 0",
+        "expectedOutput": "10",
+        "isHidden": true
+      },
+      {
+        "input": "2 3 4 5",
+        "expectedOutput": "259",
+        "isHidden": true
+      },
+      {
+        "input": "1 2 3 4 5 6 7",
+        "expectedOutput": "522",
+        "isHidden": true
+      },
+      {
+        "input": "9 9 9",
+        "expectedOutput": "198",
+        "isHidden": true
+      },
+      {
+        "input": "3 1 4",
+        "expectedOutput": "65",
+        "isHidden": true
+      },
+      {
+        "input": "5 2 8 1 3",
+        "expectedOutput": "1102",
+        "isHidden": true
+      },
+      {
+        "input": "1 0 1 0 1",
+        "expectedOutput": "212",
+        "isHidden": true
+      }
+    ],
+    "objective": "Compute sum of decimal representations of all root-to-leaf paths.",
+    "conceptualExplanation": [
+      "DFS passing running number curr = curr * 10 + val.",
+      "At leaf, add to total sum.",
+      "Sum across all paths."
+    ]
+  },
+  {
+    "id": "ch_path_sum_iii",
+    "title": "Path Sum III Matching Target",
+    "difficulty": "Medium",
+    "category": "Trees",
+    "description": "Given the root of a binary tree and an integer `targetSum`, return the number of paths where the sum of the values along the path equals `targetSum`. The path does not need to start or end at the root or a leaf, but it must go downwards (i.e., traveling only from parent nodes to child nodes).",
+    "inputFormat": "Line 1: Space-separated integers representing tree level order.\nLine 2: Single integer targetSum.",
+    "outputFormat": "Integer count of matching paths.",
+    "constraints": [
+      "The number of nodes in the tree is in the range [0, 1000].",
+      "-10^9 <= Node.val <= 10^9",
+      "-1000 <= targetSum <= 1000"
+    ],
+    "examples": [
+      {
+        "input": "10 5 -3 3 2 11\n8",
+        "output": "2",
+        "explanation": "Maintain running prefix sum and hash map of prefix sum frequencies."
+      },
+      {
+        "input": "5 4 8 11 13 4 7 2 5 1\n22",
+        "output": "2",
+        "explanation": "At each node, matching paths ending here = map[currSum - targetSum]."
+      }
+    ],
+    "hints": [
+      "Prefix sum hash map with DFS."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "10 5 -3 3 2 11\n8",
+        "expectedOutput": "2",
+        "isHidden": false
+      },
+      {
+        "input": "5 4 8 11 13 4 7 2 5 1\n22",
+        "expectedOutput": "2",
+        "isHidden": false
+      },
+      {
+        "input": "1\n1",
+        "expectedOutput": "1",
+        "isHidden": false
+      },
+      {
+        "input": "1\n2",
+        "expectedOutput": "0",
+        "isHidden": true
+      },
+      {
+        "input": "1 2 3\n3",
+        "expectedOutput": "2",
+        "isHidden": true
+      },
+      {
+        "input": "1 -2 -3 1 3 -2 -1\n-1",
+        "expectedOutput": "3",
+        "isHidden": true
+      },
+      {
+        "input": "1 1 1 1\n2",
+        "expectedOutput": "3",
+        "isHidden": true
+      },
+      {
+        "input": "3 3 3\n3",
+        "expectedOutput": "3",
+        "isHidden": true
+      },
+      {
+        "input": "10 20 30\n50",
+        "expectedOutput": "0",
+        "isHidden": true
+      },
+      {
+        "input": "0 0 0 0\n0",
+        "expectedOutput": "8",
+        "isHidden": true
+      }
+    ],
+    "objective": "Count all downward paths summing to targetSum in binary tree.",
+    "conceptualExplanation": [
+      "Maintain running prefix sum and hash map of prefix sum frequencies.",
+      "At each node, matching paths ending here = map[currSum - targetSum].",
+      "Backtrack hash map upon returning."
+    ]
+  },
+  {
+    "id": "ch_lowest_common_ancestor_bt",
+    "title": "Lowest Common Ancestor of a Binary Tree",
+    "difficulty": "Medium",
+    "category": "Trees",
+    "description": "Given a binary tree, find the lowest common ancestor (LCA) of two given nodes `p` and `q` in the tree. The lowest common ancestor is defined between two nodes p and q as the lowest node in T that has both p and q as descendants (where we allow a node to be a descendant of itself).",
+    "inputFormat": "Line 1: Space-separated integers representing binary tree in level order.\nLine 2: Value p and value q.",
+    "outputFormat": "Value of the lowest common ancestor node.",
+    "constraints": [
+      "The number of nodes in the tree is in the range [2, 10^5].",
+      "-10^9 <= Node.val <= 10^9",
+      "All Node.val are unique.",
+      "p != q",
+      "p and q exist in the tree."
+    ],
+    "examples": [
+      {
+        "input": "3 5 1 6 2 0 8\n5 1",
+        "output": "3",
+        "explanation": "DFS traversal: if current node matches p or q, return node."
+      },
+      {
+        "input": "3 5 1 6 2 0 8\n5 4",
+        "output": "5",
+        "explanation": "Search left and right subtrees."
+      }
+    ],
+    "hints": [
+      "If root is p or q, root is LCA.",
+      "Recurse on left and right subtrees. If both return non-null, root is LCA."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "3 5 1 6 2 0 8\n5 1",
+        "expectedOutput": "3",
+        "isHidden": false
+      },
+      {
+        "input": "3 5 1 6 2 0 8\n5 4",
+        "expectedOutput": "5",
+        "isHidden": false
+      },
+      {
+        "input": "1 2 3\n2 3",
+        "expectedOutput": "1",
+        "isHidden": false
+      },
+      {
+        "input": "1 2\n1 2",
+        "expectedOutput": "1",
+        "isHidden": true
+      },
+      {
+        "input": "10 5 20 3 8 15 25\n3 8",
+        "expectedOutput": "5",
+        "isHidden": true
+      },
+      {
+        "input": "10 5 20 3 8 15 25\n3 25",
+        "expectedOutput": "10",
+        "isHidden": true
+      },
+      {
+        "input": "6 2 8 0 4 7 9\n2 8",
+        "expectedOutput": "6",
+        "isHidden": true
+      },
+      {
+        "input": "6 2 8 0 4 7 9\n2 4",
+        "expectedOutput": "2",
+        "isHidden": true
+      },
+      {
+        "input": "4 2 6 1 3 5 7\n1 7",
+        "expectedOutput": "4",
+        "isHidden": true
+      },
+      {
+        "input": "5 3 6 2 4\n2 4",
+        "expectedOutput": "3",
+        "isHidden": true
+      }
+    ],
+    "objective": "Identify LCA node for two target values in binary tree.",
+    "conceptualExplanation": [
+      "DFS traversal: if current node matches p or q, return node.",
+      "Search left and right subtrees.",
+      "If both left and right return results, current node is the LCA."
+    ]
+  },
+  {
+    "id": "ch_construct_binary_tree_pre_in",
+    "title": "Construct Tree from Preorder & Inorder",
+    "difficulty": "Medium",
+    "category": "Trees",
+    "description": "Given two integer arrays `preorder` and `inorder` where preorder is the preorder traversal of a binary tree and inorder is the inorder traversal of the same tree, construct and return the binary tree's postorder traversal.",
+    "inputFormat": "Line 1: Space-separated integers representing preorder.\nLine 2: Space-separated integers representing inorder.",
+    "outputFormat": "Space-separated integers representing postorder traversal.",
+    "constraints": [
+      "1 <= preorder.length <= 3000",
+      "inorder.length == preorder.length",
+      "-3000 <= preorder[i], inorder[i] <= 3000",
+      "All values are unique."
+    ],
+    "examples": [
+      {
+        "input": "3 9 20 15 7\n9 3 15 20 7",
+        "output": "9 15 7 20 3",
+        "explanation": "Root = preorder[0]."
+      },
+      {
+        "input": "-1\n-1",
+        "output": "-1",
+        "explanation": "Inorder index divides into leftSub and rightSub."
+      }
+    ],
+    "hints": [
+      "First element in preorder is root.",
+      "Find root index in inorder to divide left and right subtrees."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "3 9 20 15 7\n9 3 15 20 7",
+        "expectedOutput": "9 15 7 20 3",
+        "isHidden": false
+      },
+      {
+        "input": "-1\n-1",
+        "expectedOutput": "-1",
+        "isHidden": false
+      },
+      {
+        "input": "1 2 4 5 3\n4 2 5 1 3",
+        "expectedOutput": "4 5 2 3 1",
+        "isHidden": false
+      },
+      {
+        "input": "1 2 3\n2 1 3",
+        "expectedOutput": "2 3 1",
+        "isHidden": true
+      },
+      {
+        "input": "10 5 2 7 15 12 20\n2 5 7 10 12 15 20",
+        "expectedOutput": "2 7 5 12 20 15 10",
+        "isHidden": true
+      },
+      {
+        "input": "1 2\n2 1",
+        "expectedOutput": "2 1",
+        "isHidden": true
+      },
+      {
+        "input": "1 2\n1 2",
+        "expectedOutput": "2 1",
+        "isHidden": true
+      },
+      {
+        "input": "4 2 1 3 6 5 7\n1 2 3 4 5 6 7",
+        "expectedOutput": "1 3 2 5 7 6 4",
+        "isHidden": true
+      },
+      {
+        "input": "2 1 3\n1 2 3",
+        "expectedOutput": "1 3 2",
+        "isHidden": true
+      },
+      {
+        "input": "5 3 2 4 7 6 8\n2 3 4 5 6 7 8",
+        "expectedOutput": "2 4 3 6 8 7 5",
+        "isHidden": true
+      }
+    ],
+    "objective": "Reconstruct binary tree and return its postorder sequence.",
+    "conceptualExplanation": [
+      "Root = preorder[0].",
+      "Inorder index divides into leftSub and rightSub.",
+      "Recursively construct left and right subtrees.",
+      "Return postorder: left + right + root."
+    ]
+  },
+  {
+    "id": "ch_serialize_deserialize_bt",
+    "title": "Serialize and Deserialize Binary Tree",
+    "difficulty": "Hard",
+    "category": "Trees",
+    "description": "Serialization is the process of converting a data structure or object into a sequence of bits so that it can be stored in a file or memory buffer. Design an algorithm to serialize a binary tree into a string and deserialize it back, outputting the reconstructed level-order traversal.",
+    "inputFormat": "Line 1: Space-separated integers representing serialized binary tree.",
+    "outputFormat": "Space-separated integers representing deserialized tree values.",
+    "constraints": [
+      "The number of nodes in the tree is in the range [0, 10^4].",
+      "-1000 <= Node.val <= 1000"
+    ],
+    "examples": [
+      {
+        "input": "1 2 3 null null 4 5",
+        "output": "1 2 3 4 5",
+        "explanation": "Encode tree with preorder DFS."
+      },
+      {
+        "input": "null",
+        "output": "",
+        "explanation": "Decode by reconstructing nodes recursively from stream."
+      }
+    ],
+    "hints": [
+      "Use preorder traversal with null markers 'null' or level order queue."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "1 2 3 null null 4 5",
+        "expectedOutput": "1 2 3 4 5",
+        "isHidden": false
+      },
+      {
+        "input": "null",
+        "expectedOutput": "",
+        "isHidden": false
+      },
+      {
+        "input": "1",
+        "expectedOutput": "1",
+        "isHidden": false
+      },
+      {
+        "input": "1 2",
+        "expectedOutput": "1 2",
+        "isHidden": true
+      },
+      {
+        "input": "1 2 3 4 5",
+        "expectedOutput": "1 2 3 4 5",
+        "isHidden": true
+      },
+      {
+        "input": "10 20 null 30 null null 40",
+        "expectedOutput": "10 20 30 40",
+        "isHidden": true
+      },
+      {
+        "input": "5 3 6 2 4 null null",
+        "expectedOutput": "5 3 6 2 4",
+        "isHidden": true
+      },
+      {
+        "input": "100 200 300",
+        "expectedOutput": "100 200 300",
+        "isHidden": true
+      },
+      {
+        "input": "1 null 2 null 3",
+        "expectedOutput": "1 2 3",
+        "isHidden": true
+      },
+      {
+        "input": "4 2 7 1 3",
+        "expectedOutput": "4 2 7 1 3",
+        "isHidden": true
+      }
+    ],
+    "objective": "Verify complete serialization round-trip of binary tree data.",
+    "conceptualExplanation": [
+      "Encode tree with preorder DFS.",
+      "Decode by reconstructing nodes recursively from stream.",
+      "Output reconstructed values."
+    ]
+  },
+  {
+    "id": "ch_implement_trie",
+    "title": "Implement Trie (Prefix Tree)",
+    "difficulty": "Medium",
+    "category": "Tries",
+    "description": "Implement a Trie with `insert`, `search`, and `startsWith` methods.\nYou are given a series of operations:\n• `insert word`\n• `search word` -> outputs `true` or `false`\n• `startsWith prefix` -> outputs `true` or `false`\nReturn outputs of queries separated by space.",
+    "inputFormat": "Multiple lines: operation followed by word.",
+    "outputFormat": "Space-separated boolean results for search and startsWith operations.",
+    "constraints": [
+      "1 <= word.length, prefix.length <= 2000",
+      "word and prefix consist only of lowercase English letters.",
+      "At most 3 * 10^4 calls will be made."
+    ],
+    "examples": [
+      {
+        "input": "insert apple\nsearch apple\nsearch app\nstartsWith app\ninsert app\nsearch app",
+        "output": "true false true true",
+        "explanation": "Trie node has children Map and isEnd boolean."
+      },
+      {
+        "input": "insert cat\ninsert car\nsearch cat\nsearch car\nsearch cap\nstartsWith ca",
+        "output": "true true false true",
+        "explanation": "insert: traverse/add characters."
+      }
+    ],
+    "hints": [
+      "Each TrieNode holds 26 children pointers and an isEndOfWord flag."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "insert apple\nsearch apple\nsearch app\nstartsWith app\ninsert app\nsearch app",
+        "expectedOutput": "true false true true",
+        "isHidden": false
+      },
+      {
+        "input": "insert cat\ninsert car\nsearch cat\nsearch car\nsearch cap\nstartsWith ca",
+        "expectedOutput": "true true false true",
+        "isHidden": false
+      },
+      {
+        "input": "insert a\nsearch a\nstartsWith a\nsearch b",
+        "expectedOutput": "true true false",
+        "isHidden": false
+      },
+      {
+        "input": "insert test\nstartsWith te\nstartsWith ta",
+        "expectedOutput": "true false",
+        "isHidden": true
+      },
+      {
+        "input": "insert hello\nsearch hell\nstartsWith hell",
+        "expectedOutput": "false true",
+        "isHidden": true
+      },
+      {
+        "input": "insert world\nsearch world\nstartsWith worl\nstartsWith word",
+        "expectedOutput": "true true false",
+        "isHidden": true
+      },
+      {
+        "input": "insert code\ninsert coder\nsearch code\nsearch coder\nsearch cod",
+        "expectedOutput": "true true false",
+        "isHidden": true
+      },
+      {
+        "input": "insert python\nsearch python\nstartsWith py\nstartsWith java",
+        "expectedOutput": "true true false",
+        "isHidden": true
+      },
+      {
+        "input": "insert abc\ninsert ab\nsearch ab\nsearch abc\nsearch a",
+        "expectedOutput": "true true false",
+        "isHidden": true
+      },
+      {
+        "input": "insert z\nsearch z\nstartsWith z\nsearch y",
+        "expectedOutput": "true true false",
+        "isHidden": true
+      }
+    ],
+    "objective": "Implement an efficient prefix tree supporting insertion, exact search, and prefix matching.",
+    "conceptualExplanation": [
+      "Trie node has children Map and isEnd boolean.",
+      "insert: traverse/add characters.",
+      "search: check all characters and isEnd.",
+      "startsWith: check all characters exist."
+    ]
+  },
+  {
+    "id": "ch_design_add_search_words",
+    "title": "Design Add and Search Words with Wildcards",
+    "difficulty": "Medium",
+    "category": "Tries",
+    "description": "Design a data structure that supports adding new words and finding if a string matches any previously added string. Implement the WordDictionary with `addWord(word)` and `search(word)` where `word` in search may contain dots '.' where dots can match any letter.",
+    "inputFormat": "Multiple lines: 'add word' or 'search word'.",
+    "outputFormat": "Space-separated boolean results for search queries.",
+    "constraints": [
+      "1 <= word.length <= 25",
+      "word in addWord consists of lowercase English letters.",
+      "word in search consist of '.' or lowercase English letters.",
+      "At most 10^4 calls will be made."
+    ],
+    "examples": [
+      {
+        "input": "add bad\nadd dad\nadd mad\nsearch pad\nsearch bad\nsearch .ad\nsearch b..",
+        "output": "false true true true",
+        "explanation": "Store words in Trie."
+      },
+      {
+        "input": "add a\nadd a\nsearch .\nsearch a\nsearch aa\nsearch .a\nsearch a.",
+        "output": "true true false false false",
+        "explanation": "When searching '.', branch into all child nodes."
+      }
+    ],
+    "hints": [
+      "Use Trie. When '.' is encountered, recurse across all existing child nodes."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "add bad\nadd dad\nadd mad\nsearch pad\nsearch bad\nsearch .ad\nsearch b..",
+        "expectedOutput": "false true true true",
+        "isHidden": false
+      },
+      {
+        "input": "add a\nadd a\nsearch .\nsearch a\nsearch aa\nsearch .a\nsearch a.",
+        "expectedOutput": "true true false false false",
+        "isHidden": false
+      },
+      {
+        "input": "add apple\nsearch app..\nsearch a.p.e\nsearch .....",
+        "expectedOutput": "true true true",
+        "isHidden": false
+      },
+      {
+        "input": "add cat\nadd dog\nsearch ...\nsearch c.t\nsearch d.g\nsearch .o.",
+        "expectedOutput": "true true true true",
+        "isHidden": true
+      },
+      {
+        "input": "add test\nsearch t.st\nsearch ....",
+        "expectedOutput": "true true",
+        "isHidden": true
+      },
+      {
+        "input": "add hello\nsearch h.l.o\nsearch h...o",
+        "expectedOutput": "true true",
+        "isHidden": true
+      },
+      {
+        "input": "add code\nsearch c...\nsearch .o..\nsearch ....e",
+        "expectedOutput": "true true false",
+        "isHidden": true
+      },
+      {
+        "input": "add xyz\nsearch ...\nsearch x..\nsearch ..z",
+        "expectedOutput": "true true true",
+        "isHidden": true
+      },
+      {
+        "input": "add abc\nsearch abc\nsearch .bc\nsearch a.c\nsearch ab.",
+        "expectedOutput": "true true true true",
+        "isHidden": true
+      },
+      {
+        "input": "add word\nsearch w...\nsearch .o.d\nsearch ....",
+        "expectedOutput": "true true true",
+        "isHidden": true
+      }
+    ],
+    "objective": "Implement wildcard character pattern matching with Trie recursion.",
+    "conceptualExplanation": [
+      "Store words in Trie.",
+      "When searching '.', branch into all child nodes.",
+      "Return true if any branch reaches word end."
+    ]
+  },
+  {
+    "id": "ch_k_closest_points_origin",
+    "title": "K Closest Points to Origin",
+    "difficulty": "Medium",
+    "category": "Heaps",
+    "description": "Given an array of points where `points[i] = [xi, yi]` represents a point on the X-Y plane and an integer `k`, return the `k` closest points to the origin `(0, 0)`. The distance between two points is the Euclidean distance `sqrt(x^2 + y^2)`. Output points ordered by distance ascending, one per line as `x y`.",
+    "inputFormat": "Line 1: Number of points n and integer k\nNext n lines: Two integers x and y per line.",
+    "outputFormat": "k lines of space-separated x y coordinates.",
+    "constraints": [
+      "1 <= k <= points.length <= 10^4",
+      "-10^4 <= xi, yi <= 10^4"
+    ],
+    "examples": [
+      {
+        "input": "2 1\n1 3\n-2 2",
+        "output": "-2 2",
+        "explanation": "Compute distSq = x^2 + y^2."
+      },
+      {
+        "input": "3 2\n3 3\n5 -1\n-2 4",
+        "output": "3 3\n-2 4",
+        "explanation": "Sort points by distSq ascending."
+      }
+    ],
+    "hints": [
+      "Use max-heap of size k or sort by squared distance x^2 + y^2."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "2 1\n1 3\n-2 2",
+        "expectedOutput": "-2 2",
+        "isHidden": false
+      },
+      {
+        "input": "3 2\n3 3\n5 -1\n-2 4",
+        "expectedOutput": "3 3\n-2 4",
+        "isHidden": false
+      },
+      {
+        "input": "1 1\n0 0",
+        "expectedOutput": "0 0",
+        "isHidden": false
+      },
+      {
+        "input": "3 3\n1 1\n2 2\n3 3",
+        "expectedOutput": "1 1\n2 2\n3 3",
+        "isHidden": true
+      },
+      {
+        "input": "4 2\n0 1\n1 0\n2 2\n-1 -1",
+        "expectedOutput": "0 1\n1 0",
+        "isHidden": true
+      },
+      {
+        "input": "5 1\n10 10\n5 5\n1 1\n2 2\n3 3",
+        "expectedOutput": "1 1",
+        "isHidden": true
+      },
+      {
+        "input": "3 2\n-5 4\n-6 -5\n4 6",
+        "expectedOutput": "-5 4\n4 6",
+        "isHidden": true
+      },
+      {
+        "input": "4 3\n1 3\n-2 2\n2 -2\n5 5",
+        "expectedOutput": "-2 2\n2 -2\n1 3",
+        "isHidden": true
+      },
+      {
+        "input": "2 2\n1 2\n2 1",
+        "expectedOutput": "1 2\n2 1",
+        "isHidden": true
+      },
+      {
+        "input": "5 3\n1 0\n0 2\n3 3\n0 0\n-1 -1",
+        "expectedOutput": "0 0\n1 0\n-1 -1",
+        "isHidden": true
+      }
+    ],
+    "objective": "Select top k points closest to Euclidean origin using heaps.",
+    "conceptualExplanation": [
+      "Compute distSq = x^2 + y^2.",
+      "Sort points by distSq ascending.",
+      "Return first k points."
+    ]
+  },
+  {
+    "id": "ch_kth_largest_stream",
+    "title": "Kth Largest Element in a Stream",
+    "difficulty": "Easy",
+    "category": "Heaps",
+    "description": "Design a class to find the kth largest element in a stream. You are given an integer k and initial scores, followed by incoming numbers. For each incoming number, return the element representing the kth largest element in the pool.",
+    "inputFormat": "Line 1: Integer k\nLine 2: Initial space-separated integers\nLine 3: Incoming space-separated integers",
+    "outputFormat": "Space-separated kth largest values after each incoming element.",
+    "constraints": [
+      "1 <= k <= 10^4",
+      "0 <= nums.length <= 10^4",
+      "-10^4 <= val <= 10^4"
+    ],
+    "examples": [
+      {
+        "input": "3\n4 5 8 2\n3 5 10 9 4",
+        "output": "4 5 5 8 8",
+        "explanation": "Maintain min-heap of capacity k."
+      },
+      {
+        "input": "1\n\n-3 -2 -4 0 4",
+        "output": "-3 -2 -2 0 4",
+        "explanation": "Push new stream values."
+      }
+    ],
+    "hints": [
+      "Maintain a min-heap of size k.",
+      "Heap top is always the kth largest element."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "3\n4 5 8 2\n3 5 10 9 4",
+        "expectedOutput": "4 5 5 8 8",
+        "isHidden": false
+      },
+      {
+        "input": "1\n\n-3 -2 -4 0 4",
+        "expectedOutput": "-3 -2 -2 0 4",
+        "isHidden": false
+      },
+      {
+        "input": "2\n0\n-1 1 -2 2 -3",
+        "expectedOutput": "-1 0 0 1 1",
+        "isHidden": false
+      },
+      {
+        "input": "4\n7 7 7 7 8 3\n2 10 9 9",
+        "expectedOutput": "7 7 7 8",
+        "isHidden": true
+      },
+      {
+        "input": "3\n5 10 15\n20 25 30",
+        "expectedOutput": "10 15 20",
+        "isHidden": true
+      },
+      {
+        "input": "1\n10 20 30\n5 40 1",
+        "expectedOutput": "30 40 40",
+        "isHidden": true
+      },
+      {
+        "input": "2\n1 2 3\n4 5 6",
+        "expectedOutput": "3 4 5",
+        "isHidden": true
+      },
+      {
+        "input": "3\n1 1 1 1\n1 1",
+        "expectedOutput": "1 1",
+        "isHidden": true
+      },
+      {
+        "input": "2\n100 200\n150 250",
+        "expectedOutput": "150 200",
+        "isHidden": true
+      },
+      {
+        "input": "5\n1 2 3 4 5\n6 7 8",
+        "expectedOutput": "2 3 4",
+        "isHidden": true
+      }
+    ],
+    "objective": "Track running kth largest number in real-time stream.",
+    "conceptualExplanation": [
+      "Maintain min-heap of capacity k.",
+      "Push new stream values.",
+      "Heap top is the kth largest."
+    ]
+  },
+  {
+    "id": "ch_task_scheduler_cooldown",
+    "title": "Task Scheduler with Cooldown",
+    "difficulty": "Medium",
+    "category": "Heaps",
+    "description": "Given a characters array `tasks`, representing the tasks a CPU needs to do, where each letter represents a different task. Tasks could be done in any order. Each task is done in one unit of time. For each unit of time, the CPU could complete either one task or just be idle. However, there is a non-negative integer `n` that represents the cooldown period between two same tasks. Return the least number of units of times that the CPU will take to finish all the given tasks.",
+    "inputFormat": "Line 1: Space-separated task characters.\nLine 2: Single integer n cooldown.",
+    "outputFormat": "Minimum CPU execution intervals integer.",
+    "constraints": [
+      "1 <= tasks.length <= 10^4",
+      "tasks[i] is upper-case English letter.",
+      "The integer n is in the range [0, 100]."
+    ],
+    "examples": [
+      {
+        "input": "A A A B B B\n2",
+        "output": "8",
+        "explanation": "Tally task frequencies."
+      },
+      {
+        "input": "A A A B B B\n0",
+        "output": "6",
+        "explanation": "Identify maxFreq and how many tasks share maxFreq."
+      }
+    ],
+    "hints": [
+      "Find task with max frequency.",
+      "Formula: (maxFreq - 1) * (n + 1) + countOfMaxFreqTasks."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "A A A B B B\n2",
+        "expectedOutput": "8",
+        "isHidden": false
+      },
+      {
+        "input": "A A A B B B\n0",
+        "expectedOutput": "6",
+        "isHidden": false
+      },
+      {
+        "input": "A A A A A A B C D E F G\n2",
+        "expectedOutput": "16",
+        "isHidden": false
+      },
+      {
+        "input": "A B C D E\n2",
+        "expectedOutput": "5",
+        "isHidden": true
+      },
+      {
+        "input": "A A A\n1",
+        "expectedOutput": "5",
+        "isHidden": true
+      },
+      {
+        "input": "A B C A B C\n3",
+        "expectedOutput": "7",
+        "isHidden": true
+      },
+      {
+        "input": "A A B B C C D D\n2",
+        "expectedOutput": "8",
+        "isHidden": true
+      },
+      {
+        "input": "A A A B B B C C C\n2",
+        "expectedOutput": "9",
+        "isHidden": true
+      },
+      {
+        "input": "A\n5",
+        "expectedOutput": "1",
+        "isHidden": true
+      },
+      {
+        "input": "A A A A\n3",
+        "expectedOutput": "13",
+        "isHidden": true
+      }
+    ],
+    "objective": "Calculate minimum CPU cycles required to schedule tasks with cooldown.",
+    "conceptualExplanation": [
+      "Tally task frequencies.",
+      "Identify maxFreq and how many tasks share maxFreq.",
+      "Total time = max(tasks.length, (maxFreq - 1) * (n + 1) + maxCount)."
+    ]
+  },
+  {
+    "id": "ch_find_median_data_stream",
+    "title": "Find Median from Data Stream",
+    "difficulty": "Hard",
+    "category": "Heaps",
+    "description": "The median is the middle value in an ordered integer list. If the size of the list is even, there is no middle value, and the median is the mean of the two middle values. Design a data structure that supports adding numbers and finding the running median formatted to 1 decimal place.",
+    "inputFormat": "Line 1: Space-separated integers representing stream elements.",
+    "outputFormat": "Space-separated running medians rounded to 1 decimal place.",
+    "constraints": [
+      "-10^5 <= num <= 10^5",
+      "There will be at least one element in the data structure before calling findMedian.",
+      "At most 5 * 10^4 calls will be made."
+    ],
+    "examples": [
+      {
+        "input": "1 2 3",
+        "output": "1.0 1.5 2.0",
+        "explanation": "Keep max-heap left and min-heap right."
+      },
+      {
+        "input": "2 3 4",
+        "output": "2.0 2.5 3.0",
+        "explanation": "Balance sizes so left.size === right.size or left.size === right.size + 1."
+      }
+    ],
+    "hints": [
+      "Use two heaps: max-heap for lower half and min-heap for upper half."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "1 2 3",
+        "expectedOutput": "1.0 1.5 2.0",
+        "isHidden": false
+      },
+      {
+        "input": "2 3 4",
+        "expectedOutput": "2.0 2.5 3.0",
+        "isHidden": false
+      },
+      {
+        "input": "5 15 1 3",
+        "expectedOutput": "5.0 10.0 5.0 4.0",
+        "isHidden": false
+      },
+      {
+        "input": "10",
+        "expectedOutput": "10.0",
+        "isHidden": true
+      },
+      {
+        "input": "10 20",
+        "expectedOutput": "10.0 15.0",
+        "isHidden": true
+      },
+      {
+        "input": "-1 -2 -3 -4 -5",
+        "expectedOutput": "-1.0 -1.5 -2.0 -2.5 -3.0",
+        "isHidden": true
+      },
+      {
+        "input": "6 10 2 6 5 0 6 3 1 0 0",
+        "expectedOutput": "6.0 8.0 6.0 6.0 6.0 5.5 6.0 5.5 5.0 4.0 3.0",
+        "isHidden": true
+      },
+      {
+        "input": "100 50 150 25",
+        "expectedOutput": "100.0 75.0 100.0 75.0",
+        "isHidden": true
+      },
+      {
+        "input": "1 1 1 1",
+        "expectedOutput": "1.0 1.0 1.0 1.0",
+        "isHidden": true
+      },
+      {
+        "input": "7 3 9 1 5",
+        "expectedOutput": "7.0 5.0 7.0 5.0 5.0",
+        "isHidden": true
+      }
+    ],
+    "objective": "Calculate running median of a dynamic stream in logarithmic time.",
+    "conceptualExplanation": [
+      "Keep max-heap left and min-heap right.",
+      "Balance sizes so left.size === right.size or left.size === right.size + 1.",
+      "Median is left.peek or average of both peeks."
+    ]
+  },
+  {
+    "id": "ch_subsets_ii",
+    "title": "Subsets II with Duplicates",
+    "difficulty": "Medium",
+    "category": "Backtracking",
+    "description": "Given an integer array `nums` that may contain duplicates, return all possible subsets (the power set). The solution set must not contain duplicate subsets. Output the count on line 1, and each subset space-separated on subsequent lines (empty line for empty subset).",
+    "inputFormat": "Line 1: Space-separated integers representing nums.",
+    "outputFormat": "Line 1: Count of subsets\nSubsequent lines: Space-separated subset elements.",
+    "constraints": [
+      "1 <= nums.length <= 10",
+      "-10 <= nums[i] <= 10"
+    ],
+    "examples": [
+      {
+        "input": "1 2 2",
+        "output": "6\n\n1\n1 2\n1 2 2\n2\n2 2",
+        "explanation": "Sort nums."
+      },
+      {
+        "input": "0",
+        "output": "2\n\n0",
+        "explanation": "Backtrack with start index."
+      }
+    ],
+    "hints": [
+      "Sort the array first.",
+      "If nums[i] === nums[i - 1] and i > start, skip to avoid duplicate subsets."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "1 2 2",
+        "expectedOutput": "6\n\n1\n1 2\n1 2 2\n2\n2 2",
+        "isHidden": false
+      },
+      {
+        "input": "0",
+        "expectedOutput": "2\n\n0",
+        "isHidden": false
+      },
+      {
+        "input": "1 1",
+        "expectedOutput": "3\n\n1\n1 1",
+        "isHidden": false
+      },
+      {
+        "input": "4 4 4 1 4",
+        "expectedOutput": "10\n\n1\n1 4\n1 4 4\n1 4 4 4\n1 4 4 4 4\n4\n4 4\n4 4 4\n4 4 4 4",
+        "isHidden": true
+      },
+      {
+        "input": "1 2 3",
+        "expectedOutput": "8\n\n1\n1 2\n1 2 3\n1 3\n2\n2 3\n3",
+        "isHidden": true
+      },
+      {
+        "input": "2 1 2",
+        "expectedOutput": "6\n\n1\n1 2\n1 2 2\n2\n2 2",
+        "isHidden": true
+      },
+      {
+        "input": "1 1 1",
+        "expectedOutput": "4\n\n1\n1 1\n1 1 1",
+        "isHidden": true
+      },
+      {
+        "input": "3 1 2 2",
+        "expectedOutput": "12\n\n1\n1 2\n1 2 2\n1 2 2 3\n1 2 3\n1 3\n2\n2 2\n2 2 3\n2 3\n3",
+        "isHidden": true
+      },
+      {
+        "input": "5 5",
+        "expectedOutput": "3\n\n5\n5 5",
+        "isHidden": true
+      },
+      {
+        "input": "2 2 3 3",
+        "expectedOutput": "9\n\n2\n2 2\n2 2 3\n2 2 3 3\n2 3\n2 3 3\n3\n3 3",
+        "isHidden": true
+      }
+    ],
+    "objective": "Generate all unique subsets from a multiset using backtracking.",
+    "conceptualExplanation": [
+      "Sort nums.",
+      "Backtrack with start index.",
+      "Skip duplicate elements when i > start.",
+      "Collect all unique subsets."
+    ]
+  },
+  {
+    "id": "ch_permutations_ii",
+    "title": "Permutations II Unique",
+    "difficulty": "Medium",
+    "category": "Backtracking",
+    "description": "Given a collection of numbers, `nums`, that might contain duplicates, return all possible unique permutations in any order. Output the count on line 1, and each permutation on subsequent lines.",
+    "inputFormat": "Line 1: Space-separated integers representing nums.",
+    "outputFormat": "Line 1: Count of unique permutations\nSubsequent lines: Space-separated permutation.",
+    "constraints": [
+      "1 <= nums.length <= 8",
+      "-10 <= nums[i] <= 10"
+    ],
+    "examples": [
+      {
+        "input": "1 1 2",
+        "output": "3\n1 1 2\n1 2 1\n2 1 1",
+        "explanation": "Sort array to cluster duplicates."
+      },
+      {
+        "input": "1 2 3",
+        "output": "6\n1 2 3\n1 3 2\n2 1 3\n2 3 1\n3 1 2\n3 2 1",
+        "explanation": "Use boolean used[] array."
+      }
+    ],
+    "hints": [
+      "Sort nums.",
+      "Skip duplicates if !used[i-1] && nums[i] === nums[i-1]."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "1 1 2",
+        "expectedOutput": "3\n1 1 2\n1 2 1\n2 1 1",
+        "isHidden": false
+      },
+      {
+        "input": "1 2 3",
+        "expectedOutput": "6\n1 2 3\n1 3 2\n2 1 3\n2 3 1\n3 1 2\n3 2 1",
+        "isHidden": false
+      },
+      {
+        "input": "1 1",
+        "expectedOutput": "1\n1 1",
+        "isHidden": false
+      },
+      {
+        "input": "2 2 1 1",
+        "expectedOutput": "6\n1 1 2 2\n1 2 1 2\n1 2 2 1\n2 1 1 2\n2 1 2 1\n2 2 1 1",
+        "isHidden": true
+      },
+      {
+        "input": "1",
+        "expectedOutput": "1\n1",
+        "isHidden": true
+      },
+      {
+        "input": "3 3 0 3",
+        "expectedOutput": "4\n0 3 3 3\n3 0 3 3\n3 3 0 3\n3 3 3 0",
+        "isHidden": true
+      },
+      {
+        "input": "1 2 2",
+        "expectedOutput": "3\n1 2 2\n2 1 2\n2 2 1",
+        "isHidden": true
+      },
+      {
+        "input": "2 2 2",
+        "expectedOutput": "1\n2 2 2",
+        "isHidden": true
+      },
+      {
+        "input": "1 1 2 2",
+        "expectedOutput": "6\n1 1 2 2\n1 2 1 2\n1 2 2 1\n2 1 1 2\n2 1 2 1\n2 2 1 1",
+        "isHidden": true
+      },
+      {
+        "input": "5 5 6",
+        "expectedOutput": "3\n5 5 6\n5 6 5\n6 5 5",
+        "isHidden": true
+      }
+    ],
+    "objective": "Generate all distinct permutations of an array containing duplicates.",
+    "conceptualExplanation": [
+      "Sort array to cluster duplicates.",
+      "Use boolean used[] array.",
+      "Backtrack picking unused elements; skip if nums[i] == nums[i-1] and !used[i-1]."
+    ]
+  },
+  {
+    "id": "ch_combination_sum_ii",
+    "title": "Combination Sum II (Unique Elements)",
+    "difficulty": "Medium",
+    "category": "Backtracking",
+    "description": "Given a collection of candidate numbers (`candidates`) and a target number (`target`), find all unique combinations in `candidates` where the candidate numbers sum to `target`. Each number in `candidates` may only be used once in the combination. Output count on line 1 and each combination on subsequent lines.",
+    "inputFormat": "Line 1: Space-separated integers representing candidates.\nLine 2: Single integer target.",
+    "outputFormat": "Line 1: Count of combinations\nSubsequent lines: Space-separated combination.",
+    "constraints": [
+      "1 <= candidates.length <= 100",
+      "1 <= candidates[i] <= 50",
+      "1 <= target <= 30"
+    ],
+    "examples": [
+      {
+        "input": "10 1 2 7 6 1 5\n8",
+        "output": "4\n1 1 6\n1 2 5\n1 7\n2 6",
+        "explanation": "Sort candidates."
+      },
+      {
+        "input": "2 5 2 1 2\n5",
+        "output": "2\n1 2 2\n5",
+        "explanation": "Backtrack passing remaining target."
+      }
+    ],
+    "hints": [
+      "Sort candidates.",
+      "Skip duplicate numbers in the same recursion level if i > start && candidates[i] === candidates[i - 1]."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "10 1 2 7 6 1 5\n8",
+        "expectedOutput": "4\n1 1 6\n1 2 5\n1 7\n2 6",
+        "isHidden": false
+      },
+      {
+        "input": "2 5 2 1 2\n5",
+        "expectedOutput": "2\n1 2 2\n5",
+        "isHidden": false
+      },
+      {
+        "input": "1 2 3\n5",
+        "expectedOutput": "1\n2 3",
+        "isHidden": false
+      },
+      {
+        "input": "1 1 1 1\n2",
+        "expectedOutput": "1\n1 1",
+        "isHidden": true
+      },
+      {
+        "input": "5 10 15 20\n25",
+        "expectedOutput": "2\n5 20\n10 15",
+        "isHidden": true
+      },
+      {
+        "input": "1 1 2 5 6 7 10\n8",
+        "expectedOutput": "4\n1 1 6\n1 2 5\n1 7\n2 6",
+        "isHidden": true
+      },
+      {
+        "input": "2 3 6 7\n7",
+        "expectedOutput": "1\n7",
+        "isHidden": true
+      },
+      {
+        "input": "3 4 5\n1",
+        "expectedOutput": "0",
+        "isHidden": true
+      },
+      {
+        "input": "1 2 3 4 5\n10",
+        "expectedOutput": "3\n1 2 3 4\n1 4 5\n2 3 5",
+        "isHidden": true
+      },
+      {
+        "input": "1 1 1 1 1\n3",
+        "expectedOutput": "1\n1 1 1",
+        "isHidden": true
+      }
+    ],
+    "objective": "Find combinations summing to target where each candidate is used at most once.",
+    "conceptualExplanation": [
+      "Sort candidates.",
+      "Backtrack passing remaining target.",
+      "Skip duplicate elements when branching.",
+      "Record when target === 0."
+    ]
+  },
+  {
+    "id": "ch_combination_sum_iii",
+    "title": "Combination Sum III (K Digits Sum to N)",
+    "difficulty": "Medium",
+    "category": "Backtracking",
+    "description": "Find all valid combinations of `k` numbers that sum up to `n` such that only numbers from 1 to 9 are used and each number is used at most once. Output count on line 1 and each combination on subsequent lines.",
+    "inputFormat": "Line 1: Integer k\nLine 2: Integer n",
+    "outputFormat": "Line 1: Count of combinations\nSubsequent lines: Space-separated combination.",
+    "constraints": [
+      "2 <= k <= 9",
+      "1 <= n <= 60"
+    ],
+    "examples": [
+      {
+        "input": "3\n7",
+        "output": "1\n1 2 4",
+        "explanation": "Recursive search from start digit 1 to 9."
+      },
+      {
+        "input": "3\n9",
+        "output": "3\n1 2 6\n1 3 5\n2 3 4",
+        "explanation": "When k === 0 and n === 0, record path."
+      }
+    ],
+    "hints": [
+      "Backtrack from 1 to 9.",
+      "Keep track of remaining count k and remaining sum n."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "3\n7",
+        "expectedOutput": "1\n1 2 4",
+        "isHidden": false
+      },
+      {
+        "input": "3\n9",
+        "expectedOutput": "3\n1 2 6\n1 3 5\n2 3 4",
+        "isHidden": false
+      },
+      {
+        "input": "4\n1",
+        "expectedOutput": "0",
+        "isHidden": false
+      },
+      {
+        "input": "3\n15",
+        "expectedOutput": "8\n1 5 9\n1 6 8\n2 4 9\n2 5 8\n2 6 7\n3 4 8\n3 5 7\n4 5 6",
+        "isHidden": true
+      },
+      {
+        "input": "2\n18",
+        "expectedOutput": "0",
+        "isHidden": true
+      },
+      {
+        "input": "2\n5",
+        "expectedOutput": "2\n1 4\n2 3",
+        "isHidden": true
+      },
+      {
+        "input": "4\n24",
+        "expectedOutput": "8\n1 6 8 9\n2 5 8 9\n2 6 7 9\n3 4 8 9\n3 5 7 9\n3 6 7 8\n4 5 6 9\n4 5 7 8",
+        "isHidden": true
+      },
+      {
+        "input": "9\n45",
+        "expectedOutput": "1\n1 2 3 4 5 6 7 8 9",
+        "isHidden": true
+      },
+      {
+        "input": "1\n5",
+        "expectedOutput": "1\n5",
+        "isHidden": true
+      },
+      {
+        "input": "3\n12",
+        "expectedOutput": "7\n1 2 9\n1 3 8\n1 4 7\n1 5 6\n2 3 7\n2 4 6\n3 4 5",
+        "isHidden": true
+      }
+    ],
+    "objective": "Select k distinct single-digit numbers summing to n.",
+    "conceptualExplanation": [
+      "Recursive search from start digit 1 to 9.",
+      "When k === 0 and n === 0, record path.",
+      "Prune if n < 0."
+    ]
+  },
+  {
+    "id": "ch_letter_case_permutation",
+    "title": "Letter Case Permutation",
+    "difficulty": "Medium",
+    "category": "Backtracking",
+    "description": "Given a string `s`, you can transform every letter individually to be lowercase or uppercase to create another string. Return a list of all possible strings we could create. Output on a single line space-separated.",
+    "inputFormat": "A single line containing string s.",
+    "outputFormat": "Space-separated permutations.",
+    "constraints": [
+      "1 <= s.length <= 12",
+      "s consists of lowercase English letters, uppercase English letters, and digits."
+    ],
+    "examples": [
+      {
+        "input": "a1b2",
+        "output": "a1b2 a1B2 A1b2 A1B2",
+        "explanation": "DFS at index i."
+      },
+      {
+        "input": "3z4",
+        "output": "3z4 3Z4",
+        "explanation": "If digit, recurse with digit."
+      }
+    ],
+    "hints": [
+      "For digits, keep as is. For letters, branch into lower and upper."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "a1b2",
+        "expectedOutput": "a1b2 a1B2 A1b2 A1B2",
+        "isHidden": false
+      },
+      {
+        "input": "3z4",
+        "expectedOutput": "3z4 3Z4",
+        "isHidden": false
+      },
+      {
+        "input": "12345",
+        "expectedOutput": "12345",
+        "isHidden": false
+      },
+      {
+        "input": "0",
+        "expectedOutput": "0",
+        "isHidden": true
+      },
+      {
+        "input": "C",
+        "expectedOutput": "c C",
+        "isHidden": true
+      },
+      {
+        "input": "ab",
+        "expectedOutput": "ab aB Ab AB",
+        "isHidden": true
+      },
+      {
+        "input": "q1W2",
+        "expectedOutput": "q1w2 q1W2 Q1w2 Q1W2",
+        "isHidden": true
+      },
+      {
+        "input": "xyz",
+        "expectedOutput": "xyz xyZ xYz xYZ Xyz XyZ XYz XYZ",
+        "isHidden": true
+      },
+      {
+        "input": "a1b1c1",
+        "expectedOutput": "a1b1c1 a1b1C1 a1B1c1 a1B1C1 A1b1c1 A1b1C1 A1B1c1 A1B1C1",
+        "isHidden": true
+      },
+      {
+        "input": "Test",
+        "expectedOutput": "test tesT teSt teST tEst tEsT tESt tEST Test TesT TeSt TeST TEst TEsT TESt TEST",
+        "isHidden": true
+      }
+    ],
+    "objective": "Generate all binary letter-case variants of a string.",
+    "conceptualExplanation": [
+      "DFS at index i.",
+      "If digit, recurse with digit.",
+      "If letter, branch with lowercase and branch with uppercase."
+    ]
+  },
+  {
+    "id": "ch_surrounded_regions",
+    "title": "Surrounded Regions Capture",
+    "difficulty": "Medium",
+    "category": "Graphs",
+    "description": "Given an m x n matrix board containing 'X' and 'O', capture all regions that are 4-directionally surrounded by 'X'. A region is captured by flipping all 'O's into 'X's in that surrounded region. An 'O' on the border cannot be captured.",
+    "inputFormat": "Line 1: m and n\nNext m lines: Space-separated 'X' and 'O' row values.",
+    "outputFormat": "m lines representing the captured board.",
+    "constraints": [
+      "m == board.length",
+      "n == board[i].length",
+      "1 <= m, n <= 200",
+      "board[i][j] is 'X' or 'O'."
+    ],
+    "examples": [
+      {
+        "input": "4 4\nX X X X\nX O O X\nX X O X\nX O X X",
+        "output": "X X X X\nX X X X\nX X X X\nX O X X",
+        "explanation": "DFS from all boundary 'O's, marking them 'S' (safe)."
+      },
+      {
+        "input": "1 1\nX",
+        "output": "X",
+        "explanation": "Iterate entire grid: if 'O', flip to 'X'; if 'S', revert to 'O'."
+      }
+    ],
+    "hints": [
+      "Start DFS from border 'O's and mark them safe.",
+      "Flip all unmarked 'O's to 'X'."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "4 4\nX X X X\nX O O X\nX X O X\nX O X X",
+        "expectedOutput": "X X X X\nX X X X\nX X X X\nX O X X",
+        "isHidden": false
+      },
+      {
+        "input": "1 1\nX",
+        "expectedOutput": "X",
+        "isHidden": false
+      },
+      {
+        "input": "2 2\nO O\nO O",
+        "expectedOutput": "O O\nO O",
+        "isHidden": false
+      },
+      {
+        "input": "3 3\nX X X\nX O X\nX X X",
+        "expectedOutput": "X X X\nX X X\nX X X",
+        "isHidden": true
+      },
+      {
+        "input": "3 3\nX O X\nX O X\nX O X",
+        "expectedOutput": "X O X\nX O X\nX O X",
+        "isHidden": true
+      },
+      {
+        "input": "4 4\nO X X O\nX O O X\nX O O X\nO X X O",
+        "expectedOutput": "O X X O\nX X X X\nX X X X\nO X X O",
+        "isHidden": true
+      },
+      {
+        "input": "1 3\nO X O",
+        "expectedOutput": "O X O",
+        "isHidden": true
+      },
+      {
+        "input": "3 1\nO\nX\nO",
+        "expectedOutput": "O\nX\nO",
+        "isHidden": true
+      },
+      {
+        "input": "4 3\nX X X\nX O X\nX O X\nX X X",
+        "expectedOutput": "X X X\nX X X\nX X X\nX X X",
+        "isHidden": true
+      },
+      {
+        "input": "3 4\nX X X X\nX O O X\nX X X X",
+        "expectedOutput": "X X X X\nX X X X\nX X X X",
+        "isHidden": true
+      }
+    ],
+    "objective": "Capture interior 'O' regions while sparing border-connected cells.",
+    "conceptualExplanation": [
+      "DFS from all boundary 'O's, marking them 'S' (safe).",
+      "Iterate entire grid: if 'O', flip to 'X'; if 'S', revert to 'O'."
+    ]
+  },
+  {
+    "id": "ch_course_schedule_ii",
+    "title": "Course Schedule II (Kahn's Topological Sort)",
+    "difficulty": "Medium",
+    "category": "Graphs",
+    "description": "There are a total of `numCourses` courses you have to take, labeled from 0 to `numCourses - 1`. You are given an array `prerequisites` where `prerequisites[i] = [ai, bi]` indicates that you must take course `bi` first if you want to take course `ai`. Return the valid ordering of courses you should take to finish all courses. If impossible due to cycles, return -1.",
+    "inputFormat": "Line 1: numCourses and m (number of prerequisites)\nNext m lines: ai bi (take bi before ai)",
+    "outputFormat": "Space-separated course ordering or -1.",
+    "constraints": [
+      "1 <= numCourses <= 2000",
+      "0 <= prerequisites.length <= numCourses * (numCourses - 1)",
+      "All pairs [ai, bi] are distinct."
+    ],
+    "examples": [
+      {
+        "input": "2 1\n1 0",
+        "output": "0 1",
+        "explanation": "Compute in-degree for all vertices."
+      },
+      {
+        "input": "4 4\n1 0\n2 0\n3 1\n3 2",
+        "output": "0 1 2 3",
+        "explanation": "Enqueue all nodes with in-degree 0."
+      }
+    ],
+    "hints": [
+      "Kahn's algorithm using in-degree array and queue."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "2 1\n1 0",
+        "expectedOutput": "0 1",
+        "isHidden": false
+      },
+      {
+        "input": "4 4\n1 0\n2 0\n3 1\n3 2",
+        "expectedOutput": "0 1 2 3",
+        "isHidden": false
+      },
+      {
+        "input": "1 0",
+        "expectedOutput": "0",
+        "isHidden": false
+      },
+      {
+        "input": "2 2\n0 1\n1 0",
+        "expectedOutput": "-1",
+        "isHidden": true
+      },
+      {
+        "input": "3 2\n1 0\n2 1",
+        "expectedOutput": "0 1 2",
+        "isHidden": true
+      },
+      {
+        "input": "3 3\n1 0\n2 1\n0 2",
+        "expectedOutput": "-1",
+        "isHidden": true
+      },
+      {
+        "input": "4 2\n1 0\n2 3",
+        "expectedOutput": "0 3 1 2",
+        "isHidden": true
+      },
+      {
+        "input": "5 4\n1 0\n2 1\n3 2\n4 3",
+        "expectedOutput": "0 1 2 3 4",
+        "isHidden": true
+      },
+      {
+        "input": "3 1\n2 0",
+        "expectedOutput": "0 1 2",
+        "isHidden": true
+      },
+      {
+        "input": "4 5\n1 0\n2 0\n3 1\n3 2\n2 3",
+        "expectedOutput": "-1",
+        "isHidden": true
+      }
+    ],
+    "objective": "Derive valid course completion sequence with topological sort.",
+    "conceptualExplanation": [
+      "Compute in-degree for all vertices.",
+      "Enqueue all nodes with in-degree 0.",
+      "Pop node, append to result, decrement neighbors.",
+      "If order.length === numCourses return order, else -1."
+    ]
+  },
+  {
+    "id": "ch_number_of_provinces",
+    "title": "Number of Connected Provinces",
+    "difficulty": "Medium",
+    "category": "Graphs",
+    "description": "There are `n` cities. Some of them are connected, while some are not. If city a is connected directly with city b, and city b is connected directly with city c, then city a is connected indirectly with city c. A province is a group of directly or indirectly connected cities and no other cities outside of the group. You are given an n x n matrix `isConnected` where `isConnected[i][j] = 1` if the i-th city and the j-th city are directly connected, and `isConnected[i][j] = 0` otherwise. Return the total number of provinces.",
+    "inputFormat": "Line 1: Integer n\nNext n lines: n space-separated 0s and 1s per row.",
+    "outputFormat": "Total count of provinces integer.",
+    "constraints": [
+      "1 <= n <= 200",
+      "n == isConnected.length == isConnected[i].length",
+      "isConnected[i][j] is 1 or 0."
+    ],
+    "examples": [
+      {
+        "input": "3\n1 1 0\n1 1 0\n0 0 1",
+        "output": "2",
+        "explanation": "Iterate through cities 0..n-1."
+      },
+      {
+        "input": "3\n1 0 0\n0 1 0\n0 0 1",
+        "output": "3",
+        "explanation": "If city not visited, start DFS/BFS visiting all reachable cities and increment province count."
+      }
+    ],
+    "hints": [
+      "Find connected components using DFS/BFS or Disjoint Set Union."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "3\n1 1 0\n1 1 0\n0 0 1",
+        "expectedOutput": "2",
+        "isHidden": false
+      },
+      {
+        "input": "3\n1 0 0\n0 1 0\n0 0 1",
+        "expectedOutput": "3",
+        "isHidden": false
+      },
+      {
+        "input": "1\n1",
+        "expectedOutput": "1",
+        "isHidden": false
+      },
+      {
+        "input": "2\n1 1\n1 1",
+        "expectedOutput": "1",
+        "isHidden": true
+      },
+      {
+        "input": "2\n1 0\n0 1",
+        "expectedOutput": "2",
+        "isHidden": true
+      },
+      {
+        "input": "4\n1 1 0 0\n1 1 0 0\n0 0 1 1\n0 0 1 1",
+        "expectedOutput": "2",
+        "isHidden": true
+      },
+      {
+        "input": "4\n1 0 0 1\n0 1 1 0\n0 1 1 0\n1 0 0 1",
+        "expectedOutput": "2",
+        "isHidden": true
+      },
+      {
+        "input": "3\n1 1 1\n1 1 1\n1 1 1",
+        "expectedOutput": "1",
+        "isHidden": true
+      },
+      {
+        "input": "5\n1 0 0 0 0\n0 1 0 0 0\n0 0 1 0 0\n0 0 0 1 0\n0 0 0 0 1",
+        "expectedOutput": "5",
+        "isHidden": true
+      },
+      {
+        "input": "4\n1 1 1 1\n1 1 1 1\n1 1 1 1\n1 1 1 1",
+        "expectedOutput": "1",
+        "isHidden": true
+      }
+    ],
+    "objective": "Count connected components in an undirected adjacency matrix.",
+    "conceptualExplanation": [
+      "Iterate through cities 0..n-1.",
+      "If city not visited, start DFS/BFS visiting all reachable cities and increment province count.",
+      "Return count."
+    ]
+  },
+  {
+    "id": "ch_redundant_connection",
+    "title": "Redundant Connection (Cycle in Undirected Graph)",
+    "difficulty": "Medium",
+    "category": "Graphs",
+    "description": "In this problem, a tree is an undirected graph that is connected and has no cycles. You are given a graph that started as a tree with n nodes labeled from 1 to n, with one additional edge added. Return an edge that can be removed so that the resulting graph is a tree of n nodes. If there are multiple answers, return the answer that occurs last in the input.",
+    "inputFormat": "Line 1: Integer n (number of edges)\nNext n lines: Two space-separated integers u and v per edge.",
+    "outputFormat": "Two space-separated integers representing the redundant edge.",
+    "constraints": [
+      "n == edges.length",
+      "3 <= n <= 1000",
+      "edges[i].length == 2",
+      "1 <= ai < bi <= edges.length"
+    ],
+    "examples": [
+      {
+        "input": "3\n1 2\n1 3\n2 3",
+        "output": "2 3",
+        "explanation": "Initialize Union-Find parent array."
+      },
+      {
+        "input": "5\n1 2\n2 3\n3 4\n1 4\n1 5",
+        "output": "1 4",
+        "explanation": "For each edge (u, v): if find(u) == find(v), return (u, v)."
+      }
+    ],
+    "hints": [
+      "Use Disjoint Set Union (Union-Find).",
+      "The edge connecting two already-connected vertices creates a cycle."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "3\n1 2\n1 3\n2 3",
+        "expectedOutput": "2 3",
+        "isHidden": false
+      },
+      {
+        "input": "5\n1 2\n2 3\n3 4\n1 4\n1 5",
+        "expectedOutput": "1 4",
+        "isHidden": false
+      },
+      {
+        "input": "4\n1 2\n2 3\n3 4\n4 1",
+        "expectedOutput": "4 1",
+        "isHidden": false
+      },
+      {
+        "input": "5\n1 2\n1 3\n1 4\n1 5\n2 3",
+        "expectedOutput": "2 3",
+        "isHidden": true
+      },
+      {
+        "input": "3\n1 2\n2 3\n3 1",
+        "expectedOutput": "3 1",
+        "isHidden": true
+      },
+      {
+        "input": "6\n1 2\n2 3\n3 4\n4 5\n5 6\n6 2",
+        "expectedOutput": "6 2",
+        "isHidden": true
+      },
+      {
+        "input": "4\n1 2\n1 3\n2 4\n3 4",
+        "expectedOutput": "3 4",
+        "isHidden": true
+      },
+      {
+        "input": "5\n2 3\n3 4\n4 5\n5 1\n1 2",
+        "expectedOutput": "1 2",
+        "isHidden": true
+      },
+      {
+        "input": "4\n1 4\n4 2\n2 3\n3 1",
+        "expectedOutput": "3 1",
+        "isHidden": true
+      },
+      {
+        "input": "5\n1 3\n3 4\n4 5\n5 2\n2 4",
+        "expectedOutput": "2 4",
+        "isHidden": true
+      }
+    ],
+    "objective": "Detect the cycle-forming edge in a tree graph using Disjoint Set Union.",
+    "conceptualExplanation": [
+      "Initialize Union-Find parent array.",
+      "For each edge (u, v): if find(u) == find(v), return (u, v).",
+      "Else union(u, v)."
+    ]
+  },
+  {
+    "id": "ch_network_delay_time",
+    "title": "Network Delay Time (Dijkstra's Shortest Path)",
+    "difficulty": "Medium",
+    "category": "Graphs",
+    "description": "You are given a network of `n` nodes, labeled from 1 to `n`. You are also given `times`, a list of travel times as directed edges `times[i] = (ui, vi, wi)`, where `ui` is the source node, `vi` is the target node, and `wi` is the time it takes for a signal to travel from source to target. We will send a signal from a given node `k`. Return the minimum time it takes for all the `n` nodes to receive the signal. If it is impossible for all the `n` nodes to receive the signal, return -1.",
+    "inputFormat": "Line 1: n (nodes), m (edges), k (start node)\nNext m lines: u v w",
+    "outputFormat": "Minimum signal travel time integer, or -1.",
+    "constraints": [
+      "1 <= k <= n <= 100",
+      "1 <= times.length <= 6000",
+      "times[i].length == 3",
+      "1 <= ui, vi <= n",
+      "0 <= wi <= 100"
+    ],
+    "examples": [
+      {
+        "input": "4 3 2\n2 1 1\n2 3 1\n3 4 1",
+        "output": "2",
+        "explanation": "Initialize dist array with Infinity, dist[k] = 0."
+      },
+      {
+        "input": "2 1 1\n1 2 1",
+        "output": "1",
+        "explanation": "Use priority queue to greedily expand shortest distance nodes."
+      }
+    ],
+    "hints": [
+      "Run Dijkstra's algorithm from node k.",
+      "Result is max distance across all nodes if all visited."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "4 3 2\n2 1 1\n2 3 1\n3 4 1",
+        "expectedOutput": "2",
+        "isHidden": false
+      },
+      {
+        "input": "2 1 1\n1 2 1",
+        "expectedOutput": "1",
+        "isHidden": false
+      },
+      {
+        "input": "2 1 2\n1 2 1",
+        "expectedOutput": "-1",
+        "isHidden": false
+      },
+      {
+        "input": "3 2 1\n1 2 5\n2 3 5",
+        "expectedOutput": "10",
+        "isHidden": true
+      },
+      {
+        "input": "3 3 1\n1 2 1\n2 3 2\n1 3 4",
+        "expectedOutput": "3",
+        "isHidden": true
+      },
+      {
+        "input": "4 4 1\n1 2 1\n2 3 2\n3 4 3\n1 4 10",
+        "expectedOutput": "6",
+        "isHidden": true
+      },
+      {
+        "input": "2 0 1",
+        "expectedOutput": "-1",
+        "isHidden": true
+      },
+      {
+        "input": "3 2 3\n1 2 1\n2 3 1",
+        "expectedOutput": "-1",
+        "isHidden": true
+      },
+      {
+        "input": "4 5 1\n1 2 2\n1 3 4\n2 3 1\n2 4 7\n3 4 1",
+        "expectedOutput": "4",
+        "isHidden": true
+      },
+      {
+        "input": "5 4 1\n1 2 1\n2 3 2\n3 4 3\n4 5 4",
+        "expectedOutput": "10",
+        "isHidden": true
+      }
+    ],
+    "objective": "Calculate broadcast arrival latency with Dijkstra's shortest path.",
+    "conceptualExplanation": [
+      "Initialize dist array with Infinity, dist[k] = 0.",
+      "Use priority queue to greedily expand shortest distance nodes.",
+      "If all nodes reached, return max(dist), else -1."
+    ]
+  },
+  {
+    "id": "ch_cheapest_flights_k_stops",
+    "title": "Cheapest Flights Within K Stops",
+    "difficulty": "Medium",
+    "category": "Graphs",
+    "description": "There are `n` cities connected by some number of flights. You are given an array `flights` where `flights[i] = [fromi, toi, pricei]` indicates that there is a flight from city `fromi` to city `toi` with cost `pricei`. You are also given three integers `src`, `dst`, and `k`, return the cheapest price from `src` to `dst` with at most `k` stops. If there is no such route, return -1.",
+    "inputFormat": "Line 1: n m src dst k\nNext m lines: u v price",
+    "outputFormat": "Minimum flight cost integer, or -1.",
+    "constraints": [
+      "1 <= n <= 100",
+      "0 <= flights.length <= (n * (n - 1) / 2)",
+      "0 <= k < n",
+      "0 <= src, dst < n",
+      "src != dst"
+    ],
+    "examples": [
+      {
+        "input": "4 5 0 3 1\n0 1 100\n1 2 100\n2 0 100\n1 3 600\n2 3 200",
+        "output": "700",
+        "explanation": "Initialize prices array with Infinity, prices[src] = 0."
+      },
+      {
+        "input": "3 3 0 2 1\n0 1 100\n1 2 100\n0 2 500",
+        "output": "200",
+        "explanation": "Relax edges k + 1 times using a clone of current prices."
+      }
+    ],
+    "hints": [
+      "Bellman-Ford algorithm with k + 1 iterations."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "4 5 0 3 1\n0 1 100\n1 2 100\n2 0 100\n1 3 600\n2 3 200",
+        "expectedOutput": "700",
+        "isHidden": false
+      },
+      {
+        "input": "3 3 0 2 1\n0 1 100\n1 2 100\n0 2 500",
+        "expectedOutput": "200",
+        "isHidden": false
+      },
+      {
+        "input": "3 3 0 2 0\n0 1 100\n1 2 100\n0 2 500",
+        "expectedOutput": "500",
+        "isHidden": false
+      },
+      {
+        "input": "2 1 0 1 0\n0 1 300",
+        "expectedOutput": "300",
+        "isHidden": true
+      },
+      {
+        "input": "4 4 0 3 1\n0 1 1\n1 2 1\n2 3 1\n0 3 10",
+        "expectedOutput": "10",
+        "isHidden": true
+      },
+      {
+        "input": "5 5 0 4 2\n0 1 10\n1 2 20\n2 3 30\n3 4 40\n0 4 150",
+        "expectedOutput": "150",
+        "isHidden": true
+      },
+      {
+        "input": "3 2 0 2 1\n0 1 50\n1 2 50",
+        "expectedOutput": "100",
+        "isHidden": true
+      },
+      {
+        "input": "4 3 0 3 1\n0 1 100\n1 2 100\n2 3 100",
+        "expectedOutput": "-1",
+        "isHidden": true
+      },
+      {
+        "input": "3 2 0 2 0\n0 1 10\n1 2 10",
+        "expectedOutput": "-1",
+        "isHidden": true
+      },
+      {
+        "input": "4 4 0 3 2\n0 1 10\n1 2 20\n2 3 30\n0 2 50",
+        "expectedOutput": "60",
+        "isHidden": true
+      }
+    ],
+    "objective": "Find shortest path constrained to at most k intermediate stops.",
+    "conceptualExplanation": [
+      "Initialize prices array with Infinity, prices[src] = 0.",
+      "Relax edges k + 1 times using a clone of current prices.",
+      "Return prices[dst] if reachable, else -1."
+    ]
+  },
+  {
+    "id": "ch_word_break",
+    "title": "Word Break Segmentation",
+    "difficulty": "Medium",
+    "category": "Dynamic Programming",
+    "description": "Given a string `s` and a dictionary of strings `wordDict`, return `true` if `s` can be segmented into a space-separated sequence of one or more dictionary words.",
+    "inputFormat": "Line 1: String s\nLine 2: Space-separated words in wordDict",
+    "outputFormat": "true or false",
+    "constraints": [
+      "1 <= s.length <= 300",
+      "1 <= wordDict.length <= 1000",
+      "1 <= wordDict[i].length <= 20",
+      "s and wordDict[i] consist of only lowercase English letters."
+    ],
+    "examples": [
+      {
+        "input": "leetcode\nleet code",
+        "output": "true",
+        "explanation": "dp[0] = true."
+      },
+      {
+        "input": "applepenapple\napple pen",
+        "output": "true",
+        "explanation": "For i from 1 to s.length, check all j < i."
+      }
+    ],
+    "hints": [
+      "dp[i] = true if s[0..i] can be segmented.",
+      "dp[i] = dp[j] && wordDict.has(s[j..i])."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "leetcode\nleet code",
+        "expectedOutput": "true",
+        "isHidden": false
+      },
+      {
+        "input": "applepenapple\napple pen",
+        "expectedOutput": "true",
+        "isHidden": false
+      },
+      {
+        "input": "catsandog\ncats dog sand and cat",
+        "expectedOutput": "false",
+        "isHidden": false
+      },
+      {
+        "input": "cars\ncar ca rs",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "a\na",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "goalspecial\ngo goal special",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "bb\na b bbb",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "abcd\na abc b cd",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "program\npro gram",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "catanddog\ncat and dog",
+        "expectedOutput": "true",
+        "isHidden": true
+      }
+    ],
+    "objective": "Determine if string can be decomposed into dictionary words.",
+    "conceptualExplanation": [
+      "dp[0] = true.",
+      "For i from 1 to s.length, check all j < i.",
+      "If dp[j] is true and s.slice(j, i) in dictionary, dp[i] = true."
+    ]
+  },
+  {
+    "id": "ch_longest_palindromic_subseq",
+    "title": "Longest Palindromic Subsequence",
+    "difficulty": "Medium",
+    "category": "Dynamic Programming",
+    "description": "Given a string `s`, find the longest palindromic subsequence's length in `s`. A subsequence is a sequence that can be derived from another sequence by deleting some or no elements without changing the order of the remaining elements.",
+    "inputFormat": "A single line containing string s.",
+    "outputFormat": "Length of longest palindromic subsequence integer.",
+    "constraints": [
+      "1 <= s.length <= 1000",
+      "s consists only of lowercase English letters."
+    ],
+    "examples": [
+      {
+        "input": "bbbab",
+        "output": "4",
+        "explanation": "Interval dynamic programming."
+      },
+      {
+        "input": "cbbd",
+        "output": "2",
+        "explanation": "Base cases: dp[i][i] = 1."
+      }
+    ],
+    "hints": [
+      "2D DP over interval [i, j].",
+      "If s[i] === s[j], dp[i][j] = 2 + dp[i+1][j-1]. Else max(dp[i+1][j], dp[i][j-1])."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "bbbab",
+        "expectedOutput": "4",
+        "isHidden": false
+      },
+      {
+        "input": "cbbd",
+        "expectedOutput": "2",
+        "isHidden": false
+      },
+      {
+        "input": "a",
+        "expectedOutput": "1",
+        "isHidden": false
+      },
+      {
+        "input": "ab",
+        "expectedOutput": "1",
+        "isHidden": true
+      },
+      {
+        "input": "racecar",
+        "expectedOutput": "7",
+        "isHidden": true
+      },
+      {
+        "input": "character",
+        "expectedOutput": "5",
+        "isHidden": true
+      },
+      {
+        "input": "agbdba",
+        "expectedOutput": "5",
+        "isHidden": true
+      },
+      {
+        "input": "leetcode",
+        "expectedOutput": "3",
+        "isHidden": true
+      },
+      {
+        "input": "abcdefedcba",
+        "expectedOutput": "11",
+        "isHidden": true
+      },
+      {
+        "input": "banana",
+        "expectedOutput": "5",
+        "isHidden": true
+      }
+    ],
+    "objective": "Find maximum length subsequence that reads identically forwards and backwards.",
+    "conceptualExplanation": [
+      "Interval dynamic programming.",
+      "Base cases: dp[i][i] = 1.",
+      "Iterate length from 2 to n, matching outer characters."
+    ]
+  },
+  {
+    "id": "ch_target_sum",
+    "title": "Target Sum (+ and - Assignments)",
+    "difficulty": "Medium",
+    "category": "Dynamic Programming",
+    "description": "You are given an integer array `nums` and an integer `target`. You want to build an expression out of nums by adding one of the symbols '+' and '-' before each integer in nums and then concatenate all the integers. Return the number of different expressions that you can build, which evaluates to `target`.",
+    "inputFormat": "Line 1: Space-separated integers representing nums.\nLine 2: Single integer target.",
+    "outputFormat": "Number of ways integer.",
+    "constraints": [
+      "1 <= nums.length <= 20",
+      "0 <= nums[i] <= 1000",
+      "0 <= sum(nums[i]) <= 1000",
+      "-1000 <= target <= 1000"
+    ],
+    "examples": [
+      {
+        "input": "1 1 1 1 1\n3",
+        "output": "5",
+        "explanation": "Let sum = total sum."
+      },
+      {
+        "input": "1\n1",
+        "output": "1",
+        "explanation": "If (sum + target) is negative or odd, return 0."
+      }
+    ],
+    "hints": [
+      "Transform to subset sum: P - N = target, P + N = sum => 2P = sum + target => P = (sum + target) / 2."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "1 1 1 1 1\n3",
+        "expectedOutput": "5",
+        "isHidden": false
+      },
+      {
+        "input": "1\n1",
+        "expectedOutput": "1",
+        "isHidden": false
+      },
+      {
+        "input": "1\n2",
+        "expectedOutput": "0",
+        "isHidden": false
+      },
+      {
+        "input": "1 2 3\n0",
+        "expectedOutput": "2",
+        "isHidden": true
+      },
+      {
+        "input": "2 2 2\n2",
+        "expectedOutput": "3",
+        "isHidden": true
+      },
+      {
+        "input": "1 2 1\n0",
+        "expectedOutput": "2",
+        "isHidden": true
+      },
+      {
+        "input": "0 0 0 0 1\n1",
+        "expectedOutput": "16",
+        "isHidden": true
+      },
+      {
+        "input": "2 5 7 8\n4",
+        "expectedOutput": "1",
+        "isHidden": true
+      },
+      {
+        "input": "1 2 3 4 5\n3",
+        "expectedOutput": "3",
+        "isHidden": true
+      },
+      {
+        "input": "10 20 30\n0",
+        "expectedOutput": "2",
+        "isHidden": true
+      }
+    ],
+    "objective": "Count sign assignments yielding target using knapsack dynamic programming.",
+    "conceptualExplanation": [
+      "Let sum = total sum.",
+      "If (sum + target) is negative or odd, return 0.",
+      "Target subset sum S = (sum + target) / 2.",
+      "Run 0/1 knapsack to count subsets summing to S."
+    ]
+  },
+  {
+    "id": "ch_partition_equal_subset_sum",
+    "title": "Partition Equal Subset Sum",
+    "difficulty": "Medium",
+    "category": "Dynamic Programming",
+    "description": "Given an integer array `nums`, return `true` if you can partition the array into two subsets such that the sum of the elements in both subsets is equal or `false` otherwise.",
+    "inputFormat": "Line 1: Space-separated integers representing nums.",
+    "outputFormat": "true or false",
+    "constraints": [
+      "1 <= nums.length <= 200",
+      "1 <= nums[i] <= 100"
+    ],
+    "examples": [
+      {
+        "input": "1 5 11 5",
+        "output": "true",
+        "explanation": "Total sum = sum(nums)."
+      },
+      {
+        "input": "1 2 3 5",
+        "output": "false",
+        "explanation": "If sum % 2 !== 0 return false."
+      }
+    ],
+    "hints": [
+      "If total sum is odd, cannot partition.",
+      "0/1 Knapsack to find subset with sum = totalSum / 2."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "1 5 11 5",
+        "expectedOutput": "true",
+        "isHidden": false
+      },
+      {
+        "input": "1 2 3 5",
+        "expectedOutput": "false",
+        "isHidden": false
+      },
+      {
+        "input": "1 2 3 4 5 6 7",
+        "expectedOutput": "true",
+        "isHidden": false
+      },
+      {
+        "input": "2 2",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "1 1 1 1",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "100",
+        "expectedOutput": "false",
+        "isHidden": true
+      },
+      {
+        "input": "1 2 5",
+        "expectedOutput": "false",
+        "isHidden": true
+      },
+      {
+        "input": "14 9 8 4 3 2",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "2 2 3 5",
+        "expectedOutput": "false",
+        "isHidden": true
+      },
+      {
+        "input": "10 20 30",
+        "expectedOutput": "true",
+        "isHidden": true
+      }
+    ],
+    "objective": "Determine if array can be partitioned into two equal-sum subsets.",
+    "conceptualExplanation": [
+      "Total sum = sum(nums).",
+      "If sum % 2 !== 0 return false.",
+      "Target = sum / 2.",
+      "1D boolean DP array: dp[j] = dp[j] || dp[j - num]."
+    ]
+  },
+  {
+    "id": "ch_edit_distance",
+    "title": "Edit Distance (Levenshtein Distance)",
+    "difficulty": "Medium",
+    "category": "Dynamic Programming",
+    "description": "Given two strings `word1` and `word2`, return the minimum number of operations required to convert `word1` to `word2`. You have the following three operations permitted on a word:\n• Insert a character\n• Delete a character\n• Replace a character",
+    "inputFormat": "Line 1: word1 (empty if empty string)\nLine 2: word2 (empty if empty string)",
+    "outputFormat": "Minimum operations integer.",
+    "constraints": [
+      "0 <= word1.length, word2.length <= 500",
+      "word1 and word2 consist of lowercase English letters."
+    ],
+    "examples": [
+      {
+        "input": "horse\nros",
+        "output": "3",
+        "explanation": "dp[i][j] = min operations to convert word1[0..i] to word2[0..j]."
+      },
+      {
+        "input": "intention\nexecution",
+        "output": "5",
+        "explanation": "Base cases: dp[i][0] = i, dp[0][j] = j."
+      }
+    ],
+    "hints": [
+      "Classical 2D DP Levenshtein table.",
+      "If w1[i] == w2[j], dp[i][j] = dp[i-1][j-1]. Else 1 + min(insert, delete, replace)."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "horse\nros",
+        "expectedOutput": "3",
+        "isHidden": false
+      },
+      {
+        "input": "intention\nexecution",
+        "expectedOutput": "5",
+        "isHidden": false
+      },
+      {
+        "input": "\na",
+        "expectedOutput": "1",
+        "isHidden": false
+      },
+      {
+        "input": "a\n",
+        "expectedOutput": "1",
+        "isHidden": true
+      },
+      {
+        "input": "abc\nabc",
+        "expectedOutput": "0",
+        "isHidden": true
+      },
+      {
+        "input": "kitten\nsitting",
+        "expectedOutput": "3",
+        "isHidden": true
+      },
+      {
+        "input": "saturday\nsunday",
+        "expectedOutput": "3",
+        "isHidden": true
+      },
+      {
+        "input": "flaw\nflower",
+        "expectedOutput": "3",
+        "isHidden": true
+      },
+      {
+        "input": "zoologico\nzoologia",
+        "expectedOutput": "2",
+        "isHidden": true
+      },
+      {
+        "input": "distance\nediting",
+        "expectedOutput": "5",
+        "isHidden": true
+      }
+    ],
+    "objective": "Compute minimum edit operations to transform one string into another.",
+    "conceptualExplanation": [
+      "dp[i][j] = min operations to convert word1[0..i] to word2[0..j].",
+      "Base cases: dp[i][0] = i, dp[0][j] = j.",
+      "Fill table bottom-up."
+    ]
+  },
+  {
+    "id": "ch_burst_balloons",
+    "title": "Burst Balloons Maximum Coins",
+    "difficulty": "Hard",
+    "category": "Dynamic Programming",
+    "description": "You are given `n` balloons, indexed from 0 to n - 1. Each balloon is painted with a number on it represented by an array `nums`. You are asked to burst all the balloons. If you burst the i-th balloon, you will get `nums[i - 1] * nums[i] * nums[i + 1]` coins. If `i - 1` or `i + 1` goes out of bounds, treat it as if there is a balloon with a 1 painted on it. Return the maximum coins you can collect by bursting the balloons wisely.",
+    "inputFormat": "Line 1: Space-separated integers representing balloon numbers.",
+    "outputFormat": "Maximum coins collected integer.",
+    "constraints": [
+      "n == nums.length",
+      "1 <= n <= 300",
+      "0 <= nums[i] <= 100"
+    ],
+    "examples": [
+      {
+        "input": "3 1 5 8",
+        "output": "167",
+        "explanation": "Pad array with 1 at both ends."
+      },
+      {
+        "input": "1 5",
+        "output": "10",
+        "explanation": "dp[i][j] = max coins bursting all balloons strictly between i and j."
+      }
+    ],
+    "hints": [
+      "Reverse thinking: think of which balloon is burst LAST in range [i, j]."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "3 1 5 8",
+        "expectedOutput": "167",
+        "isHidden": false
+      },
+      {
+        "input": "1 5",
+        "expectedOutput": "10",
+        "isHidden": false
+      },
+      {
+        "input": "7",
+        "expectedOutput": "7",
+        "isHidden": false
+      },
+      {
+        "input": "1 2 3",
+        "expectedOutput": "12",
+        "isHidden": true
+      },
+      {
+        "input": "9 76 64 21",
+        "expectedOutput": "116718",
+        "isHidden": true
+      },
+      {
+        "input": "3 2 5",
+        "expectedOutput": "50",
+        "isHidden": true
+      },
+      {
+        "input": "8 2 6 9 1",
+        "expectedOutput": "618",
+        "isHidden": true
+      },
+      {
+        "input": "1 1 1",
+        "expectedOutput": "3",
+        "isHidden": true
+      },
+      {
+        "input": "4 1 5",
+        "expectedOutput": "45",
+        "isHidden": true
+      },
+      {
+        "input": "2 3 7 9",
+        "expectedOutput": "270",
+        "isHidden": true
+      }
+    ],
+    "objective": "Maximize burst coins using interval dynamic programming.",
+    "conceptualExplanation": [
+      "Pad array with 1 at both ends.",
+      "dp[i][j] = max coins bursting all balloons strictly between i and j.",
+      "Iterate over last balloon k to burst: dp[i][j] = max(dp[i][k] + dp[k][j] + nums[i]*nums[k]*nums[j])."
+    ]
+  },
+  {
+    "id": "ch_lemonade_change",
+    "title": "Lemonade Change Simulator",
+    "difficulty": "Easy",
+    "category": "Greedy",
+    "description": "At a lemonade stand, each lemonade costs $5. Customers are standing in a queue to buy from you and order one at a time. Each customer will only buy one lemonade and pay with either a $5, $10, or $20 bill. You must provide the correct change to each customer so that the net transaction is that the customer pays $5. Return `true` if you can provide every customer with the correct change, or `false` otherwise.",
+    "inputFormat": "Line 1: Space-separated integers representing customer bills.",
+    "outputFormat": "true or false",
+    "constraints": [
+      "1 <= bills.length <= 10^5",
+      "bills[i] is either 5, 10, or 20."
+    ],
+    "examples": [
+      {
+        "input": "5 5 5 10 20",
+        "output": "true",
+        "explanation": "Track fiveCount and tenCount."
+      },
+      {
+        "input": "5 5 10 10 20",
+        "output": "false",
+        "explanation": "On 5: fiveCount++."
+      }
+    ],
+    "hints": [
+      "Greedy: always give $10 + $5 for a $20 bill before giving three $5 bills."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "5 5 5 10 20",
+        "expectedOutput": "true",
+        "isHidden": false
+      },
+      {
+        "input": "5 5 10 10 20",
+        "expectedOutput": "false",
+        "isHidden": false
+      },
+      {
+        "input": "5",
+        "expectedOutput": "true",
+        "isHidden": false
+      },
+      {
+        "input": "10",
+        "expectedOutput": "false",
+        "isHidden": true
+      },
+      {
+        "input": "5 5 5 5 20 20",
+        "expectedOutput": "false",
+        "isHidden": true
+      },
+      {
+        "input": "5 10 5 10 5 20",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "5 5 5 5 10 5 10 10 10 20",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "5 5 5 20",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "20",
+        "expectedOutput": "false",
+        "isHidden": true
+      },
+      {
+        "input": "5 10 20",
+        "expectedOutput": "false",
+        "isHidden": true
+      }
+    ],
+    "objective": "Simulate cash change distribution greedily.",
+    "conceptualExplanation": [
+      "Track fiveCount and tenCount.",
+      "On 5: fiveCount++.",
+      "On 10: if fiveCount == 0 return false; fiveCount--; tenCount++.",
+      "On 20: prefer 10+5, else 5+5+5."
+    ]
+  },
+  {
+    "id": "ch_gas_station_circuit",
+    "title": "Gas Station Circular Route",
+    "difficulty": "Medium",
+    "category": "Greedy",
+    "description": "There are n gas stations along a circular route, where the amount of gas at the i-th station is `gas[i]`. You have a car with an unlimited gas tank and it costs `cost[i]` of gas to travel from the i-th station to its next `(i + 1)`-th station. You begin the journey with an empty tank at one of the gas stations. Given two integer arrays `gas` and `cost`, return the starting gas station's index if you can travel around the circuit once in the clockwise direction, otherwise return -1. If there exists a solution, it is guaranteed to be unique.",
+    "inputFormat": "Line 1: Space-separated gas values\nLine 2: Space-separated cost values",
+    "outputFormat": "Starting station index integer, or -1.",
+    "constraints": [
+      "n == gas.length == cost.length",
+      "1 <= n <= 10^5",
+      "0 <= gas[i], cost[i] <= 10^4"
+    ],
+    "examples": [
+      {
+        "input": "1 2 3 4 5\n3 4 5 1 2",
+        "output": "3",
+        "explanation": "If sum(gas) < sum(cost), return -1."
+      },
+      {
+        "input": "2 3 4\n3 4 3",
+        "output": "-1",
+        "explanation": "Iterate stations accumulating tank."
+      }
+    ],
+    "hints": [
+      "If total gas < total cost, complete trip is impossible.",
+      "If current tank drops below 0 at station i, restart start station at i + 1."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "1 2 3 4 5\n3 4 5 1 2",
+        "expectedOutput": "3",
+        "isHidden": false
+      },
+      {
+        "input": "2 3 4\n3 4 3",
+        "expectedOutput": "-1",
+        "isHidden": false
+      },
+      {
+        "input": "5 1 2 3 4\n4 4 1 5 1",
+        "expectedOutput": "4",
+        "isHidden": false
+      },
+      {
+        "input": "3 1 1\n1 2 2",
+        "expectedOutput": "0",
+        "isHidden": true
+      },
+      {
+        "input": "4\n5",
+        "expectedOutput": "-1",
+        "isHidden": true
+      },
+      {
+        "input": "5\n4",
+        "expectedOutput": "0",
+        "isHidden": true
+      },
+      {
+        "input": "1 2 3 4 5\n1 2 3 4 5",
+        "expectedOutput": "0",
+        "isHidden": true
+      },
+      {
+        "input": "2 0 1 2 3 4 0\n0 1 0 0 0 0 11",
+        "expectedOutput": "0",
+        "isHidden": true
+      },
+      {
+        "input": "10 20 30\n15 15 15",
+        "expectedOutput": "1",
+        "isHidden": true
+      },
+      {
+        "input": "3 4 5\n4 5 3",
+        "expectedOutput": "2",
+        "isHidden": true
+      }
+    ],
+    "objective": "Find valid starting station to complete circular route in O(N) time.",
+    "conceptualExplanation": [
+      "If sum(gas) < sum(cost), return -1.",
+      "Iterate stations accumulating tank.",
+      "If tank < 0, reset start = i + 1, tank = 0.",
+      "Return start."
+    ]
+  },
+  {
+    "id": "ch_candy_distribution",
+    "title": "Candy Distribution (Two-Pass Greedy)",
+    "difficulty": "Hard",
+    "category": "Greedy",
+    "description": "There are `n` children standing in a line. Each child is assigned a rating value given in the integer array `ratings`. You are giving candies to these children subjected to the following requirements:\n1. Each child must have at least one candy.\n2. Children with a higher rating get more candies than their neighbors.\nReturn the minimum number of candies you need to have to distribute the candies to the children.",
+    "inputFormat": "Line 1: Space-separated integers representing ratings.",
+    "outputFormat": "Minimum candies integer.",
+    "constraints": [
+      "n == ratings.length",
+      "1 <= n <= 2 * 10^4",
+      "0 <= ratings[i] <= 2 * 10^4"
+    ],
+    "examples": [
+      {
+        "input": "1 0 2",
+        "output": "5",
+        "explanation": "Initialize candies = [1, ..., 1]."
+      },
+      {
+        "input": "1 2 2",
+        "output": "4",
+        "explanation": "Left-to-right: if ratings[i] > ratings[i-1], candies[i] = candies[i-1] + 1."
+      }
+    ],
+    "hints": [
+      "Pass left-to-right ensuring right neighbor with higher rating gets more.",
+      "Pass right-to-left ensuring left neighbor with higher rating gets more."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "1 0 2",
+        "expectedOutput": "5",
+        "isHidden": false
+      },
+      {
+        "input": "1 2 2",
+        "expectedOutput": "4",
+        "isHidden": false
+      },
+      {
+        "input": "1",
+        "expectedOutput": "1",
+        "isHidden": false
+      },
+      {
+        "input": "1 2 3 4 5",
+        "expectedOutput": "15",
+        "isHidden": true
+      },
+      {
+        "input": "5 4 3 2 1",
+        "expectedOutput": "15",
+        "isHidden": true
+      },
+      {
+        "input": "1 3 2 2 1",
+        "expectedOutput": "7",
+        "isHidden": true
+      },
+      {
+        "input": "1 2 87 87 87 2 1",
+        "expectedOutput": "13",
+        "isHidden": true
+      },
+      {
+        "input": "1 3 4 5 2",
+        "expectedOutput": "11",
+        "isHidden": true
+      },
+      {
+        "input": "1 6 10 8 7 3 2",
+        "expectedOutput": "18",
+        "isHidden": true
+      },
+      {
+        "input": "5 5 5 5 5",
+        "expectedOutput": "5",
+        "isHidden": true
+      }
+    ],
+    "objective": "Minimize total candies satisfying neighbor rating constraints in two passes.",
+    "conceptualExplanation": [
+      "Initialize candies = [1, ..., 1].",
+      "Left-to-right: if ratings[i] > ratings[i-1], candies[i] = candies[i-1] + 1.",
+      "Right-to-left: if ratings[i] > ratings[i+1], candies[i] = max(candies[i], candies[i+1] + 1).",
+      "Return sum."
+    ]
+  },
+  {
+    "id": "ch_jump_game_ii",
+    "title": "Jump Game II (Minimum Jumps)",
+    "difficulty": "Medium",
+    "category": "Greedy",
+    "description": "You are given a 0-indexed array of integers `nums` of length n. You are initially positioned at `nums[0]`. Each element `nums[i]` represents the maximum length of a forward jump from index `i`. Return the minimum number of jumps to reach `nums[n - 1]`.",
+    "inputFormat": "Line 1: Space-separated integers representing nums.",
+    "outputFormat": "Minimum jumps integer.",
+    "constraints": [
+      "1 <= nums.length <= 10^4",
+      "0 <= nums[i] <= 1000",
+      "It's guaranteed that you can reach nums[n - 1]."
+    ],
+    "examples": [
+      {
+        "input": "2 3 1 1 4",
+        "output": "2",
+        "explanation": "jumps = 0, currentEnd = 0, farthest = 0."
+      },
+      {
+        "input": "2 3 0 1 4",
+        "output": "2",
+        "explanation": "Iterate to n - 1: farthest = max(farthest, i + nums[i])."
+      }
+    ],
+    "hints": [
+      "Greedy BFS: maintain current jump boundary and farthest reachable index."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "2 3 1 1 4",
+        "expectedOutput": "2",
+        "isHidden": false
+      },
+      {
+        "input": "2 3 0 1 4",
+        "expectedOutput": "2",
+        "isHidden": false
+      },
+      {
+        "input": "1",
+        "expectedOutput": "0",
+        "isHidden": false
+      },
+      {
+        "input": "1 2",
+        "expectedOutput": "1",
+        "isHidden": true
+      },
+      {
+        "input": "1 1 1 1",
+        "expectedOutput": "3",
+        "isHidden": true
+      },
+      {
+        "input": "5 9 3 2 1 0 2 3 3 1 0 0",
+        "expectedOutput": "3",
+        "isHidden": true
+      },
+      {
+        "input": "2 1",
+        "expectedOutput": "1",
+        "isHidden": true
+      },
+      {
+        "input": "3 2 1 0 4",
+        "expectedOutput": "2",
+        "isHidden": true
+      },
+      {
+        "input": "10 9 8 7 6 5 4 3 2 1 1 0",
+        "expectedOutput": "2",
+        "isHidden": true
+      },
+      {
+        "input": "7 0 9 6 9 6 1 7 9 0 1 2 9 0 3",
+        "expectedOutput": "2",
+        "isHidden": true
+      }
+    ],
+    "objective": "Compute minimum jumps required to reach array end.",
+    "conceptualExplanation": [
+      "jumps = 0, currentEnd = 0, farthest = 0.",
+      "Iterate to n - 1: farthest = max(farthest, i + nums[i]).",
+      "When i === currentEnd: jumps++, currentEnd = farthest."
+    ]
+  },
+  {
+    "id": "ch_summary_ranges",
+    "title": "Summary Ranges Intervals",
+    "difficulty": "Easy",
+    "category": "Intervals",
+    "description": "You are given a sorted unique integer array `nums`. A range `[a,b]` is the set of all integers from a to b, inclusive. Return the smallest sorted list of ranges that cover all the numbers in the array exactly. Output ranges formatted as `a->b` (if a != b) or `a` (if a == b), space-separated.",
+    "inputFormat": "Line 1: Space-separated integers representing nums (empty if none).",
+    "outputFormat": "Space-separated range strings.",
+    "constraints": [
+      "0 <= nums.length <= 20",
+      "-2^31 <= nums[i] <= 2^31 - 1",
+      "All the values of nums are unique.",
+      "nums is sorted in ascending order."
+    ],
+    "examples": [
+      {
+        "input": "0 1 2 4 5 7",
+        "output": "0->2 4->5 7",
+        "explanation": "Scan array grouping adjacent differences === 1."
+      },
+      {
+        "input": "0 2 3 4 6 8 9",
+        "output": "0 2->4 6 8->9",
+        "explanation": "If start === end, record 'start'."
+      }
+    ],
+    "hints": [
+      "Two pointers or scan consecutive numbers."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "0 1 2 4 5 7",
+        "expectedOutput": "0->2 4->5 7",
+        "isHidden": false
+      },
+      {
+        "input": "0 2 3 4 6 8 9",
+        "expectedOutput": "0 2->4 6 8->9",
+        "isHidden": false
+      },
+      {
+        "input": "1",
+        "expectedOutput": "1",
+        "isHidden": false
+      },
+      {
+        "input": "",
+        "expectedOutput": "",
+        "isHidden": true
+      },
+      {
+        "input": "1 2 3 4 5",
+        "expectedOutput": "1->5",
+        "isHidden": true
+      },
+      {
+        "input": "1 3 5 7",
+        "expectedOutput": "1 3 5 7",
+        "isHidden": true
+      },
+      {
+        "input": "-5 -4 -3 0 2 3",
+        "expectedOutput": "-5->-3 0 2->3",
+        "isHidden": true
+      },
+      {
+        "input": "10 11 12 20 21 30",
+        "expectedOutput": "10->12 20->21 30",
+        "isHidden": true
+      },
+      {
+        "input": "0 1 2 3",
+        "expectedOutput": "0->3",
+        "isHidden": true
+      },
+      {
+        "input": "-10 -9 -8",
+        "expectedOutput": "-10->-8",
+        "isHidden": true
+      }
+    ],
+    "objective": "Compress contiguous number sequences into interval representations.",
+    "conceptualExplanation": [
+      "Scan array grouping adjacent differences === 1.",
+      "If start === end, record 'start'.",
+      "Else record 'start->end'."
+    ]
+  },
+  {
+    "id": "ch_single_number_iii",
+    "title": "Single Number III (Two Unique Elements)",
+    "difficulty": "Medium",
+    "category": "Bit Manipulation",
+    "description": "Given an integer array `nums`, in which exactly two elements appear only once and all the other elements appear exactly twice. Find the two elements that appear only once. You can return the answer in any order (output them sorted ascending, space-separated). You must write an algorithm that runs in linear runtime complexity and uses only constant extra space.",
+    "inputFormat": "Line 1: Space-separated integers representing nums.",
+    "outputFormat": "Two space-separated integers sorted ascending.",
+    "constraints": [
+      "2 <= nums.length <= 3 * 10^4",
+      "-2^31 <= nums[i] <= 2^31 - 1",
+      "Each integer in nums will appear twice, only two will appear once."
+    ],
+    "examples": [
+      {
+        "input": "1 2 1 3 2 5",
+        "output": "3 5",
+        "explanation": "XOR all numbers to get xorSum = a ^ b."
+      },
+      {
+        "input": "-1 0",
+        "output": "-1 0",
+        "explanation": "Find rightmost set bit: diff = xorSum & (-xorSum)."
+      }
+    ],
+    "hints": [
+      "XOR of all numbers = a ^ b.",
+      "Find any set bit in a ^ b (e.g. diff & (-diff)) to partition numbers into two groups."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "1 2 1 3 2 5",
+        "expectedOutput": "3 5",
+        "isHidden": false
+      },
+      {
+        "input": "-1 0",
+        "expectedOutput": "-1 0",
+        "isHidden": false
+      },
+      {
+        "input": "0 1",
+        "expectedOutput": "0 1",
+        "isHidden": false
+      },
+      {
+        "input": "1 1 2 3 4 4",
+        "expectedOutput": "2 3",
+        "isHidden": true
+      },
+      {
+        "input": "10 20 30 10 20 40",
+        "expectedOutput": "30 40",
+        "isHidden": true
+      },
+      {
+        "input": "7 8 9 9 8 11",
+        "expectedOutput": "7 11",
+        "isHidden": true
+      },
+      {
+        "input": "100 200 300 100 400 200",
+        "expectedOutput": "300 400",
+        "isHidden": true
+      },
+      {
+        "input": "-5 -5 10 20",
+        "expectedOutput": "10 20",
+        "isHidden": true
+      },
+      {
+        "input": "2 4 6 8 10 2 6 10",
+        "expectedOutput": "4 8",
+        "isHidden": true
+      },
+      {
+        "input": "42 99 42 101",
+        "expectedOutput": "99 101",
+        "isHidden": true
+      }
+    ],
+    "objective": "Identify two unique elements among duplicates using bit partitioning.",
+    "conceptualExplanation": [
+      "XOR all numbers to get xorSum = a ^ b.",
+      "Find rightmost set bit: diff = xorSum & (-xorSum).",
+      "Partition numbers into two groups based on that bit and XOR each group.",
+      "Sort and return the two results."
+    ]
+  },
+  {
+    "id": "ch_pascals_triangle",
+    "title": "Pascal's Triangle Row Generator",
+    "difficulty": "Easy",
+    "category": "Arrays",
+    "description": "Given an integer rowIndex (0-indexed), return the rowIndex-th row of Pascal's triangle.\n\nIn Pascal's triangle, each number is the sum of the two numbers directly above it.",
+    "inputFormat": "A single integer rowIndex.",
+    "outputFormat": "Space-separated integers representing the rowIndex-th row.",
+    "constraints": [
+      "0 <= rowIndex <= 30"
+    ],
+    "examples": [
+      {
+        "input": "0",
+        "output": "1",
+        "explanation": "Row 0 is [1]."
+      },
+      {
+        "input": "1",
+        "output": "1 1",
+        "explanation": "Row k has k + 1 elements, starting and ending with 1."
+      }
+    ],
+    "hints": [
+      "Use dynamic programming or combinations math.",
+      "Updating in-place from right to left avoids extra space."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "0",
+        "expectedOutput": "1",
+        "isHidden": false
+      },
+      {
+        "input": "1",
+        "expectedOutput": "1 1",
+        "isHidden": false
+      },
+      {
+        "input": "2",
+        "expectedOutput": "1 2 1",
+        "isHidden": false
+      },
+      {
+        "input": "3",
+        "expectedOutput": "1 3 3 1",
+        "isHidden": true
+      },
+      {
+        "input": "4",
+        "expectedOutput": "1 4 6 4 1",
+        "isHidden": true
+      },
+      {
+        "input": "5",
+        "expectedOutput": "1 5 10 10 5 1",
+        "isHidden": true
+      },
+      {
+        "input": "6",
+        "expectedOutput": "1 6 15 20 15 6 1",
+        "isHidden": true
+      },
+      {
+        "input": "10",
+        "expectedOutput": "1 10 45 120 210 252 210 120 45 10 1",
+        "isHidden": true
+      },
+      {
+        "input": "15",
+        "expectedOutput": "1 15 105 455 1365 3003 5005 6435 6435 5005 3003 1365 455 105 15 1",
+        "isHidden": true
+      },
+      {
+        "input": "20",
+        "expectedOutput": "1 20 190 1140 4845 15504 38760 77520 125970 167960 184756 167960 125970 77520 38760 15504 4845 1140 190 20 1",
+        "isHidden": true
+      }
+    ],
+    "objective": "Generate the k-th row of Pascal's triangle in O(k) auxiliary space.",
+    "conceptualExplanation": [
+      "Row 0 is [1].",
+      "Row k has k + 1 elements, starting and ending with 1.",
+      "Element j can be derived from previous element: C(n, k) = C(n, k-1) * (n - k + 1) / k."
+    ]
+  },
+  {
+    "id": "ch_longest_mountain",
+    "title": "Longest Mountain in Array",
+    "difficulty": "Medium",
+    "category": "Two Pointers",
+    "description": "Given an integer array arr, return the length of the longest subarray, which is a mountain. Return 0 if there is no mountain subarray.\n\nRecall that arr[i] is a mountain if arr[0] < arr[1] < ... < arr[i - 1] < arr[i] > arr[i + 1] > ... > arr[arr.length - 1] and length >= 3.",
+    "inputFormat": "Line 1: An integer n.\nLine 2: n space-separated integers representing arr.",
+    "outputFormat": "A single integer denoting the length of the longest mountain.",
+    "constraints": [
+      "1 <= n <= 10000",
+      "0 <= arr[i] <= 10^4"
+    ],
+    "examples": [
+      {
+        "input": "7\n2 1 4 7 3 2 5",
+        "output": "5",
+        "explanation": "A mountain peak requires arr[i-1] < arr[i] > arr[i+1]."
+      },
+      {
+        "input": "3\n2 2 2",
+        "output": "0",
+        "explanation": "For every peak, expand left while arr[l-1] < arr[l] and expand right while arr[r] > arr[r+1]."
+      }
+    ],
+    "hints": [
+      "Check condition arr[i] > arr[i-1] && arr[i] > arr[i+1] to find peaks.",
+      "Walk left and right pointers from each peak."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "7\n2 1 4 7 3 2 5",
+        "expectedOutput": "5",
+        "isHidden": false
+      },
+      {
+        "input": "3\n2 2 2",
+        "expectedOutput": "0",
+        "isHidden": false
+      },
+      {
+        "input": "5\n1 2 3 2 1",
+        "expectedOutput": "5",
+        "isHidden": false
+      },
+      {
+        "input": "4\n1 2 3 4",
+        "expectedOutput": "0",
+        "isHidden": true
+      },
+      {
+        "input": "4\n4 3 2 1",
+        "expectedOutput": "0",
+        "isHidden": true
+      },
+      {
+        "input": "6\n0 1 2 3 2 0",
+        "expectedOutput": "6",
+        "isHidden": true
+      },
+      {
+        "input": "8\n0 2 0 2 1 2 3 1",
+        "expectedOutput": "4",
+        "isHidden": true
+      },
+      {
+        "input": "2\n1 2",
+        "expectedOutput": "0",
+        "isHidden": true
+      },
+      {
+        "input": "9\n1 3 2 1 4 6 5 2 1",
+        "expectedOutput": "6",
+        "isHidden": true
+      },
+      {
+        "input": "5\n2 3 3 2 0",
+        "expectedOutput": "0",
+        "isHidden": true
+      }
+    ],
+    "objective": "Identify local peaks and expand outwards to calculate maximum mountain length.",
+    "conceptualExplanation": [
+      "A mountain peak requires arr[i-1] < arr[i] > arr[i+1].",
+      "For every peak, expand left while arr[l-1] < arr[l] and expand right while arr[r] > arr[r+1].",
+      "Length is r - l + 1. Keep the maximum."
+    ]
+  },
+  {
+    "id": "ch_container_max_consecutive_ones",
+    "title": "Max Consecutive Ones Count",
+    "difficulty": "Easy",
+    "category": "Arrays",
+    "description": "Given a binary array nums, return the maximum number of consecutive 1's in the array.",
+    "inputFormat": "Line 1: An integer n.\nLine 2: n space-separated binary digits (0 or 1).",
+    "outputFormat": "A single integer denoting the maximum count of consecutive 1s.",
+    "constraints": [
+      "1 <= n <= 100000",
+      "nums[i] is either 0 or 1"
+    ],
+    "examples": [
+      {
+        "input": "6\n1 1 0 1 1 1",
+        "output": "3",
+        "explanation": "Maintain a running counter for 1s."
+      },
+      {
+        "input": "6\n1 0 1 1 0 1",
+        "output": "2",
+        "explanation": "Increment counter when nums[i] == 1; reset counter to 0 on 0."
+      }
+    ],
+    "hints": [
+      "Keep count = 0 and maxCount = 0.",
+      "If num == 1, count++, else count = 0."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "6\n1 1 0 1 1 1",
+        "expectedOutput": "3",
+        "isHidden": false
+      },
+      {
+        "input": "6\n1 0 1 1 0 1",
+        "expectedOutput": "2",
+        "isHidden": false
+      },
+      {
+        "input": "1\n1",
+        "expectedOutput": "1",
+        "isHidden": false
+      },
+      {
+        "input": "1\n0",
+        "expectedOutput": "0",
+        "isHidden": true
+      },
+      {
+        "input": "5\n0 0 0 0 0",
+        "expectedOutput": "0",
+        "isHidden": true
+      },
+      {
+        "input": "5\n1 1 1 1 1",
+        "expectedOutput": "5",
+        "isHidden": true
+      },
+      {
+        "input": "8\n1 0 1 1 1 0 1 1",
+        "expectedOutput": "3",
+        "isHidden": true
+      },
+      {
+        "input": "4\n0 1 1 0",
+        "expectedOutput": "2",
+        "isHidden": true
+      },
+      {
+        "input": "7\n1 1 0 0 1 1 0",
+        "expectedOutput": "2",
+        "isHidden": true
+      },
+      {
+        "input": "10\n1 1 1 0 1 1 1 1 0 1",
+        "expectedOutput": "4",
+        "isHidden": true
+      }
+    ],
+    "objective": "Track consecutive sequences of 1s in a single pass.",
+    "conceptualExplanation": [
+      "Maintain a running counter for 1s.",
+      "Increment counter when nums[i] == 1; reset counter to 0 on 0.",
+      "Track global max."
+    ]
+  },
+  {
+    "id": "ch_valid_mountain_array",
+    "title": "Valid Mountain Array Verification",
+    "difficulty": "Easy",
+    "category": "Two Pointers",
+    "description": "Given an array of integers arr, return true if and only if it is a valid mountain array.\n\nRecall that arr is a mountain array if and only if:\n- arr.length >= 3\n- There exists some i with 0 < i < arr.length - 1 such that:\n  arr[0] < arr[1] < ... < arr[i - 1] < arr[i]\n  arr[i] > arr[i + 1] > ... > arr[arr.length - 1]",
+    "inputFormat": "Line 1: An integer n.\nLine 2: n space-separated integers.",
+    "outputFormat": "true or false.",
+    "constraints": [
+      "1 <= n <= 10000",
+      "0 <= arr[i] <= 10000"
+    ],
+    "examples": [
+      {
+        "input": "2\n2 1",
+        "output": "false",
+        "explanation": "Walk up from left while arr[i] < arr[i+1]."
+      },
+      {
+        "input": "3\n3 5 5",
+        "output": "false",
+        "explanation": "Walk down from right while arr[j] < arr[j-1]."
+      }
+    ],
+    "hints": [
+      "Walk up the hill as far as possible.",
+      "Check that the peak is not the first or last element.",
+      "Then walk down the hill to the end."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "2\n2 1",
+        "expectedOutput": "false",
+        "isHidden": false
+      },
+      {
+        "input": "3\n3 5 5",
+        "expectedOutput": "false",
+        "isHidden": false
+      },
+      {
+        "input": "4\n0 3 2 1",
+        "expectedOutput": "true",
+        "isHidden": false
+      },
+      {
+        "input": "3\n1 2 3",
+        "expectedOutput": "false",
+        "isHidden": true
+      },
+      {
+        "input": "3\n3 2 1",
+        "expectedOutput": "false",
+        "isHidden": true
+      },
+      {
+        "input": "5\n0 2 3 4 5",
+        "expectedOutput": "false",
+        "isHidden": true
+      },
+      {
+        "input": "5\n5 4 3 2 1",
+        "expectedOutput": "false",
+        "isHidden": true
+      },
+      {
+        "input": "5\n0 2 3 3 1",
+        "expectedOutput": "false",
+        "isHidden": true
+      },
+      {
+        "input": "6\n0 1 2 4 2 1",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "7\n1 2 3 4 3 2 1",
+        "expectedOutput": "true",
+        "isHidden": true
+      }
+    ],
+    "objective": "Use two pointer simulation to verify strictly increasing and then strictly decreasing order.",
+    "conceptualExplanation": [
+      "Walk up from left while arr[i] < arr[i+1].",
+      "Walk down from right while arr[j] < arr[j-1].",
+      "Peak must be the same index and cannot be the first or last element (0 < i == j < n - 1)."
+    ]
+  },
+  {
+    "id": "ch_boats_to_save_people",
+    "title": "Boats to Save People",
+    "difficulty": "Medium",
+    "category": "Two Pointers",
+    "description": "You are given an array people where people[i] is the weight of the ith person, and an infinite number of boats where each boat can carry a maximum weight of limit. Each boat carries at most two people at the same time, provided the sum of the weight of those people is at most limit.\n\nReturn the minimum number of boats to carry every given person.",
+    "inputFormat": "Line 1: Two integers n and limit.\nLine 2: n space-separated integers representing people weights.",
+    "outputFormat": "A single integer denoting the minimum number of boats.",
+    "constraints": [
+      "1 <= n <= 50000",
+      "1 <= people[i] <= limit <= 30000"
+    ],
+    "examples": [
+      {
+        "input": "2 3\n1 2",
+        "output": "1",
+        "explanation": "Sort people by weight."
+      },
+      {
+        "input": "4 5\n3 2 2 1",
+        "output": "2",
+        "explanation": "Use two pointers: left (lightest) and right (heaviest)."
+      }
+    ],
+    "hints": [
+      "Sort the array first.",
+      "Pair heaviest with lightest if possible."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "2 3\n1 2",
+        "expectedOutput": "1",
+        "isHidden": false
+      },
+      {
+        "input": "4 5\n3 2 2 1",
+        "expectedOutput": "2",
+        "isHidden": false
+      },
+      {
+        "input": "4 5\n3 5 3 4",
+        "expectedOutput": "4",
+        "isHidden": false
+      },
+      {
+        "input": "1 3\n3",
+        "expectedOutput": "1",
+        "isHidden": true
+      },
+      {
+        "input": "5 6\n1 2 2 3 5",
+        "expectedOutput": "3",
+        "isHidden": true
+      },
+      {
+        "input": "6 5\n1 1 1 1 1 1",
+        "expectedOutput": "3",
+        "isHidden": true
+      },
+      {
+        "input": "4 4\n2 2 2 2",
+        "expectedOutput": "2",
+        "isHidden": true
+      },
+      {
+        "input": "3 4\n4 4 4",
+        "expectedOutput": "3",
+        "isHidden": true
+      },
+      {
+        "input": "5 10\n5 1 4 2 9",
+        "expectedOutput": "3",
+        "isHidden": true
+      },
+      {
+        "input": "6 8\n2 3 5 6 7 8",
+        "expectedOutput": "4",
+        "isHidden": true
+      }
+    ],
+    "objective": "Greedily pair the heaviest available person with the lightest available person.",
+    "conceptualExplanation": [
+      "Sort people by weight.",
+      "Use two pointers: left (lightest) and right (heaviest).",
+      "If people[left] + people[right] <= limit, both take a boat (left++, right--).",
+      "Otherwise, the heaviest must take the boat alone (right--).",
+      "In either case, one boat is used."
+    ]
+  },
+  {
+    "id": "ch_string_to_integer_atoi",
+    "title": "String to Integer (atoi) Parser",
+    "difficulty": "Medium",
+    "category": "Strings",
+    "description": "Implement the myAtoi(string s) function, which converts a string to a 32-bit signed integer.\n\n1. Whitespace: Ignore any leading whitespace.\n2. Signedness: Determine the sign by checking if the next character is '-' or '+', assuming positivity if neither is present.\n3. Conversion: Read in next digits until next non-digit or end. Ignore remainder.\n4. Rounding: Clamp result to [-2^31, 2^31 - 1].",
+    "inputFormat": "A single line containing the string s.",
+    "outputFormat": "The parsed 32-bit integer.",
+    "constraints": [
+      "0 <= s.length <= 200",
+      "s consists of English letters, digits, ' ', '+', '-', and '.'"
+    ],
+    "examples": [
+      {
+        "input": "42",
+        "output": "42",
+        "explanation": "Trim leading spaces."
+      },
+      {
+        "input": "   -42",
+        "output": "-42",
+        "explanation": "Read optional '+' or '-' sign."
+      }
+    ],
+    "hints": [
+      "Use BigInt or 64-bit integer during accumulation to prevent premature overflow.",
+      "Stop parsing at first non-digit."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "42",
+        "expectedOutput": "42",
+        "isHidden": false
+      },
+      {
+        "input": "   -42",
+        "expectedOutput": "-42",
+        "isHidden": false
+      },
+      {
+        "input": "4193 with words",
+        "expectedOutput": "4193",
+        "isHidden": false
+      },
+      {
+        "input": "words and 987",
+        "expectedOutput": "0",
+        "isHidden": true
+      },
+      {
+        "input": "-91283472332",
+        "expectedOutput": "-2147483648",
+        "isHidden": true
+      },
+      {
+        "input": "+1",
+        "expectedOutput": "1",
+        "isHidden": true
+      },
+      {
+        "input": "+-12",
+        "expectedOutput": "0",
+        "isHidden": true
+      },
+      {
+        "input": "00000-42a1234",
+        "expectedOutput": "0",
+        "isHidden": true
+      },
+      {
+        "input": "2147483648",
+        "expectedOutput": "2147483647",
+        "isHidden": true
+      },
+      {
+        "input": "-2147483649",
+        "expectedOutput": "-2147483648",
+        "isHidden": true
+      }
+    ],
+    "objective": "Simulate standard C atoi string parser with overflow clamp.",
+    "conceptualExplanation": [
+      "Trim leading spaces.",
+      "Read optional '+' or '-' sign.",
+      "Iterate over consecutive digits and accumulate result.",
+      "Clamp between -2147483648 and 2147483647."
+    ]
+  },
+  {
+    "id": "ch_min_add_valid_parentheses",
+    "title": "Minimum Add to Make Parentheses Valid",
+    "difficulty": "Medium",
+    "category": "Stacks",
+    "description": "A parentheses string is valid if and only if:\n1. It is the empty string,\n2. It can be written as AB (A concatenated with B), where A and B are valid strings, or\n3. It can be written as (A), where A is a valid string.\n\nYou are given a parentheses string s. In one move, you can insert a parenthesis at any position of the string.\n\nReturn the minimum number of moves required to make s valid.",
+    "inputFormat": "A single line containing the string s.",
+    "outputFormat": "A single integer denoting the minimum moves.",
+    "constraints": [
+      "1 <= s.length <= 1000",
+      "s[i] is either '(' or ')'."
+    ],
+    "examples": [
+      {
+        "input": "())",
+        "output": "1",
+        "explanation": "Track openCount (unmatched '(') and addCount (missing '(' for ')')."
+      },
+      {
+        "input": "(((",
+        "output": "3",
+        "explanation": "For '(', openCount++."
+      }
+    ],
+    "hints": [
+      "Keep track of open balance.",
+      "If ')' has no matching '(', increment needed."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "())",
+        "expectedOutput": "1",
+        "isHidden": false
+      },
+      {
+        "input": "(((",
+        "expectedOutput": "3",
+        "isHidden": false
+      },
+      {
+        "input": "()",
+        "expectedOutput": "0",
+        "isHidden": false
+      },
+      {
+        "input": "()))((",
+        "expectedOutput": "4",
+        "isHidden": true
+      },
+      {
+        "input": "((((((",
+        "expectedOutput": "6",
+        "isHidden": true
+      },
+      {
+        "input": "))))))",
+        "expectedOutput": "6",
+        "isHidden": true
+      },
+      {
+        "input": "()()()",
+        "expectedOutput": "0",
+        "isHidden": true
+      },
+      {
+        "input": "(()())(",
+        "expectedOutput": "1",
+        "isHidden": true
+      },
+      {
+        "input": "((()(())))",
+        "expectedOutput": "0",
+        "isHidden": true
+      },
+      {
+        "input": ")(",
+        "expectedOutput": "2",
+        "isHidden": true
+      }
+    ],
+    "objective": "Count unmatched opening and closing parentheses.",
+    "conceptualExplanation": [
+      "Track openCount (unmatched '(') and addCount (missing '(' for ')').",
+      "For '(', openCount++.",
+      "For ')', if openCount > 0, openCount--; else addCount++.",
+      "Total minimum additions = addCount + openCount."
+    ]
+  },
+  {
+    "id": "ch_score_of_parentheses",
+    "title": "Score of Balanced Parentheses",
+    "difficulty": "Medium",
+    "category": "Stacks",
+    "description": "Given a balanced parentheses string s, return the score of the string.\n\nThe score of a balanced parentheses string is based on the following rule:\n- \"()\" has score 1.\n- AB has score A + B, where A and B are balanced parentheses strings.\n- (A) has score 2 * A, where A is a balanced parentheses string.",
+    "inputFormat": "A single line containing the balanced parentheses string s.",
+    "outputFormat": "A single integer denoting the score.",
+    "constraints": [
+      "2 <= s.length <= 50",
+      "s consists of only '(' and ')'.",
+      "s is a balanced parentheses string."
+    ],
+    "examples": [
+      {
+        "input": "()",
+        "output": "1",
+        "explanation": "Every \"()\" contributes 2^depth to the score where depth is current nesting level."
+      },
+      {
+        "input": "(())",
+        "output": "2",
+        "explanation": "Whenever s[i] == ')' and s[i-1] == '(', add 1 << depth to total score."
+      }
+    ],
+    "hints": [
+      "Track current depth (increments on '(', decrements on ')').",
+      "Add 1 << depth whenever you encounter \"()\"."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "()",
+        "expectedOutput": "1",
+        "isHidden": false
+      },
+      {
+        "input": "(())",
+        "expectedOutput": "2",
+        "isHidden": false
+      },
+      {
+        "input": "()()",
+        "expectedOutput": "2",
+        "isHidden": false
+      },
+      {
+        "input": "(()(()))",
+        "expectedOutput": "6",
+        "isHidden": true
+      },
+      {
+        "input": "((()))",
+        "expectedOutput": "4",
+        "isHidden": true
+      },
+      {
+        "input": "(())(())",
+        "expectedOutput": "4",
+        "isHidden": true
+      },
+      {
+        "input": "((())())",
+        "expectedOutput": "6",
+        "isHidden": true
+      },
+      {
+        "input": "(((())))",
+        "expectedOutput": "8",
+        "isHidden": true
+      },
+      {
+        "input": "()(())()",
+        "expectedOutput": "4",
+        "isHidden": true
+      },
+      {
+        "input": "((()())(()))",
+        "expectedOutput": "12",
+        "isHidden": true
+      }
+    ],
+    "objective": "Calculate recursive nested score using a stack or depth tracking.",
+    "conceptualExplanation": [
+      "Every \"()\" contributes 2^depth to the score where depth is current nesting level.",
+      "Whenever s[i] == ')' and s[i-1] == '(', add 1 << depth to total score."
+    ]
+  },
+  {
+    "id": "ch_crawler_log_folder",
+    "title": "Crawler Log Folder Operations",
+    "difficulty": "Easy",
+    "category": "Stacks",
+    "description": "The Leetcode file system keeps a log each time, some user performs a change folder operation.\n\nThe operations are described below:\n- \"../\" : Move to the parent folder of the current folder. (If you are already in the main folder, remain in the same folder).\n- \"./\" : Remain in the same folder.\n- \"x/\" : Move to the child folder named x.\n\nYou are given a list of strings logs where logs[i] is the operation performed by the user at the ith step. Return the minimum number of steps needed to go back to the main folder after all operations.",
+    "inputFormat": "Line 1: An integer n.\nLine 2: n space-separated operation strings.",
+    "outputFormat": "A single integer denoting depth from root folder.",
+    "constraints": [
+      "1 <= logs.length <= 10^4",
+      "2 <= logs[i].length <= 10"
+    ],
+    "examples": [
+      {
+        "input": "5\nd1/ d2/ ../ d21/ ./",
+        "output": "2",
+        "explanation": "Initialize depth = 0."
+      },
+      {
+        "input": "6\nd1/ d2/ ./ d3/ ../ d31/",
+        "output": "3",
+        "explanation": "If \"../\", depth = Math.max(0, depth - 1)."
+      }
+    ],
+    "hints": [
+      "Depth cannot go below 0.",
+      "Ignore \"./\"."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "5\nd1/ d2/ ../ d21/ ./",
+        "expectedOutput": "2",
+        "isHidden": false
+      },
+      {
+        "input": "6\nd1/ d2/ ./ d3/ ../ d31/",
+        "expectedOutput": "3",
+        "isHidden": false
+      },
+      {
+        "input": "4\nd1/ ../ ../ ../",
+        "expectedOutput": "0",
+        "isHidden": false
+      },
+      {
+        "input": "1\n./",
+        "expectedOutput": "0",
+        "isHidden": true
+      },
+      {
+        "input": "1\n../",
+        "expectedOutput": "0",
+        "isHidden": true
+      },
+      {
+        "input": "2\na/ b/",
+        "expectedOutput": "2",
+        "isHidden": true
+      },
+      {
+        "input": "5\na/ ../ a/ ../ a/",
+        "expectedOutput": "1",
+        "isHidden": true
+      },
+      {
+        "input": "6\nx/ y/ z/ ../ ../ ../",
+        "expectedOutput": "0",
+        "isHidden": true
+      },
+      {
+        "input": "4\nx/ ./ ./ ./",
+        "expectedOutput": "1",
+        "isHidden": true
+      },
+      {
+        "input": "7\na/ b/ c/ d/ ../ ../ ./",
+        "expectedOutput": "2",
+        "isHidden": true
+      }
+    ],
+    "objective": "Simulate stack directory depth.",
+    "conceptualExplanation": [
+      "Initialize depth = 0.",
+      "If \"../\", depth = Math.max(0, depth - 1).",
+      "If \"./\", do nothing.",
+      "Otherwise, depth++."
+    ]
+  },
+  {
+    "id": "ch_number_of_recent_calls",
+    "title": "Number of Recent Calls Ping Counter",
+    "difficulty": "Easy",
+    "category": "Queues",
+    "description": "You have a RecentCounter class which counts the number of recent requests within a certain time frame.\n\nGiven a sequence of ping timestamps t in strictly increasing order, for each ping, return the number of pings that have occurred in the past 3000 milliseconds inclusive (i.e., in the range [t - 3000, t]).",
+    "inputFormat": "Line 1: An integer n.\nLine 2: n space-separated strictly increasing timestamps.",
+    "outputFormat": "n space-separated integers representing return values for each ping.",
+    "constraints": [
+      "1 <= n <= 10000",
+      "1 <= t <= 10^9",
+      "Each t is strictly larger than the previous one."
+    ],
+    "examples": [
+      {
+        "input": "4\n1 100 3001 3002",
+        "output": "1 2 3 3",
+        "explanation": "Maintain a FIFO queue."
+      },
+      {
+        "input": "1\n1",
+        "output": "1",
+        "explanation": "For each timestamp t, push t into queue."
+      }
+    ],
+    "hints": [
+      "Use sliding window / queue eviction.",
+      "Amortized time is O(1) per ping."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "4\n1 100 3001 3002",
+        "expectedOutput": "1 2 3 3",
+        "isHidden": false
+      },
+      {
+        "input": "1\n1",
+        "expectedOutput": "1",
+        "isHidden": false
+      },
+      {
+        "input": "5\n10 20 30 40 50",
+        "expectedOutput": "1 2 3 4 5",
+        "isHidden": false
+      },
+      {
+        "input": "3\n1 3000 6000",
+        "expectedOutput": "1 2 2",
+        "isHidden": true
+      },
+      {
+        "input": "4\n1 3001 6001 9001",
+        "expectedOutput": "1 2 2 2",
+        "isHidden": true
+      },
+      {
+        "input": "5\n1000 2000 3000 4000 5000",
+        "expectedOutput": "1 2 3 4 4",
+        "isHidden": true
+      },
+      {
+        "input": "6\n1 2 3001 3002 6002 6003",
+        "expectedOutput": "1 2 3 3 2 2",
+        "isHidden": true
+      },
+      {
+        "input": "2\n100 3100",
+        "expectedOutput": "1 2",
+        "isHidden": true
+      },
+      {
+        "input": "3\n500 3500 3501",
+        "expectedOutput": "1 2 2",
+        "isHidden": true
+      },
+      {
+        "input": "5\n100 200 300 400 3500",
+        "expectedOutput": "1 2 3 4 1",
+        "isHidden": true
+      }
+    ],
+    "objective": "Evict elements older than t - 3000 from queue in amortized O(1).",
+    "conceptualExplanation": [
+      "Maintain a FIFO queue.",
+      "For each timestamp t, push t into queue.",
+      "While queue.front() < t - 3000, pop front.",
+      "Queue length is the answer for this ping."
+    ]
+  },
+  {
+    "id": "ch_swapping_nodes_linked_list",
+    "title": "Swapping Nodes in a Linked List",
+    "difficulty": "Medium",
+    "category": "Linked Lists",
+    "description": "You are given the head of a linked list, and an integer k.\n\nReturn the values of the list after swapping the values of the kth node from the beginning and the kth node from the end (the list is 1-indexed).",
+    "inputFormat": "Line 1: Two space-separated integers n and k.\nLine 2: n space-separated integers representing linked list node values.",
+    "outputFormat": "n space-separated integers representing the list after swapping.",
+    "constraints": [
+      "1 <= k <= n <= 10^5",
+      "0 <= Node.val <= 100"
+    ],
+    "examples": [
+      {
+        "input": "5 2\n1 2 3 4 5",
+        "output": "1 4 3 2 5",
+        "explanation": "Find k-th node from beginning (index k - 1)."
+      },
+      {
+        "input": "10 5\n7 9 6 6 7 8 3 0 9 5",
+        "output": "7 9 6 6 8 7 3 0 9 5",
+        "explanation": "Find k-th node from end (index n - k)."
+      }
+    ],
+    "hints": [
+      "First target is at index k-1.",
+      "Second target is at index n-k."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "5 2\n1 2 3 4 5",
+        "expectedOutput": "1 4 3 2 5",
+        "isHidden": false
+      },
+      {
+        "input": "10 5\n7 9 6 6 7 8 3 0 9 5",
+        "expectedOutput": "7 9 6 6 8 7 3 0 9 5",
+        "isHidden": false
+      },
+      {
+        "input": "1 1\n1",
+        "expectedOutput": "1",
+        "isHidden": false
+      },
+      {
+        "input": "2 1\n1 2",
+        "expectedOutput": "2 1",
+        "isHidden": true
+      },
+      {
+        "input": "2 2\n1 2",
+        "expectedOutput": "2 1",
+        "isHidden": true
+      },
+      {
+        "input": "3 2\n1 2 3",
+        "expectedOutput": "1 2 3",
+        "isHidden": true
+      },
+      {
+        "input": "4 1\n1 2 3 4",
+        "expectedOutput": "4 2 3 1",
+        "isHidden": true
+      },
+      {
+        "input": "4 4\n1 2 3 4",
+        "expectedOutput": "4 2 3 1",
+        "isHidden": true
+      },
+      {
+        "input": "5 3\n1 2 3 4 5",
+        "expectedOutput": "1 2 3 4 5",
+        "isHidden": true
+      },
+      {
+        "input": "6 3\n10 20 30 40 50 60",
+        "expectedOutput": "10 20 40 30 50 60",
+        "isHidden": true
+      }
+    ],
+    "objective": "Identify k-th from front and k-th from end in one pass and swap values.",
+    "conceptualExplanation": [
+      "Find k-th node from beginning (index k - 1).",
+      "Find k-th node from end (index n - k).",
+      "Swap their values."
+    ]
+  },
+  {
+    "id": "ch_split_linked_list_in_parts",
+    "title": "Split Linked List in Parts",
+    "difficulty": "Medium",
+    "category": "Linked Lists",
+    "description": "Given the head of a singly linked list and an integer k, split the linked list into k consecutive linked list parts.\n\nThe length of each part should be as equal as possible: no two parts should have a size differing by more than one. This may lead to some parts being null.\n\nThe parts should be in the order of occurrence in the input list, and parts occurring earlier should always have a size greater than or equal to parts occurring later.\n\nOutput the size of each part separated by space.",
+    "inputFormat": "Line 1: Two space-separated integers n and k.\nLine 2: n space-separated integers representing linked list (empty line if n == 0).",
+    "outputFormat": "k space-separated integers representing part lengths.",
+    "constraints": [
+      "0 <= n <= 1000",
+      "1 <= k <= 50"
+    ],
+    "examples": [
+      {
+        "input": "3 5\n1 2 3",
+        "output": "1 1 1 0 0",
+        "explanation": "Base size of each part = Math.floor(n / k)."
+      },
+      {
+        "input": "10 3\n1 2 3 4 5 6 7 8 9 10",
+        "output": "4 3 3",
+        "explanation": "Remainder extra = n % k."
+      }
+    ],
+    "hints": [
+      "Quotient gives baseline size.",
+      "Remainder gives number of buckets that receive one extra node."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "3 5\n1 2 3",
+        "expectedOutput": "1 1 1 0 0",
+        "isHidden": false
+      },
+      {
+        "input": "10 3\n1 2 3 4 5 6 7 8 9 10",
+        "expectedOutput": "4 3 3",
+        "isHidden": false
+      },
+      {
+        "input": "0 3\n",
+        "expectedOutput": "0 0 0",
+        "isHidden": false
+      },
+      {
+        "input": "5 1\n1 2 3 4 5",
+        "expectedOutput": "5",
+        "isHidden": true
+      },
+      {
+        "input": "4 4\n1 2 3 4",
+        "expectedOutput": "1 1 1 1",
+        "isHidden": true
+      },
+      {
+        "input": "7 3\n1 2 3 4 5 6 7",
+        "expectedOutput": "3 2 2",
+        "isHidden": true
+      },
+      {
+        "input": "6 4\n1 2 3 4 5 6",
+        "expectedOutput": "2 2 1 1",
+        "isHidden": true
+      },
+      {
+        "input": "1 2\n42",
+        "expectedOutput": "1 0",
+        "isHidden": true
+      },
+      {
+        "input": "8 4\n1 2 3 4 5 6 7 8",
+        "expectedOutput": "2 2 2 2",
+        "isHidden": true
+      },
+      {
+        "input": "11 3\n1 2 3 4 5 6 7 8 9 10 11",
+        "expectedOutput": "4 4 3",
+        "isHidden": true
+      }
+    ],
+    "objective": "Distribute elements into k equal buckets with extra remainder allocated to earlier buckets.",
+    "conceptualExplanation": [
+      "Base size of each part = Math.floor(n / k).",
+      "Remainder extra = n % k.",
+      "The first 'extra' parts have size base + 1, while the remaining parts have size base."
+    ]
+  },
+  {
+    "id": "ch_single_element_sorted_array",
+    "title": "Single Element in a Sorted Array (Log N)",
+    "difficulty": "Medium",
+    "category": "Binary Search",
+    "description": "You are given a sorted array consisting of only integers where every element appears exactly twice, except for one element which appears exactly once.\n\nReturn the single element that appears only once.\n\nYour solution must run in O(log n) time and O(1) space.",
+    "inputFormat": "Line 1: An integer n (always odd).\nLine 2: n space-separated integers in non-decreasing order.",
+    "outputFormat": "The single unique integer.",
+    "constraints": [
+      "1 <= n <= 10^5",
+      "0 <= nums[i] <= 10^5"
+    ],
+    "examples": [
+      {
+        "input": "9\n1 1 2 3 3 4 4 8 8",
+        "output": "2",
+        "explanation": "Before single element, first instance of duplicate is at even index, second at odd index."
+      },
+      {
+        "input": "7\n3 3 7 7 10 11 11",
+        "output": "10",
+        "explanation": "After single element, pattern shifts (first instance is at odd index)."
+      }
+    ],
+    "hints": [
+      "Compare nums[mid] with nums[mid ^ 1].",
+      "If they are equal, the single element is in the right half."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "9\n1 1 2 3 3 4 4 8 8",
+        "expectedOutput": "2",
+        "isHidden": false
+      },
+      {
+        "input": "7\n3 3 7 7 10 11 11",
+        "expectedOutput": "10",
+        "isHidden": false
+      },
+      {
+        "input": "1\n5",
+        "expectedOutput": "5",
+        "isHidden": false
+      },
+      {
+        "input": "3\n1 1 2",
+        "expectedOutput": "2",
+        "isHidden": true
+      },
+      {
+        "input": "3\n1 2 2",
+        "expectedOutput": "1",
+        "isHidden": true
+      },
+      {
+        "input": "5\n2 2 4 4 5",
+        "expectedOutput": "5",
+        "isHidden": true
+      },
+      {
+        "input": "5\n1 2 2 3 3",
+        "expectedOutput": "1",
+        "isHidden": true
+      },
+      {
+        "input": "7\n1 1 2 2 3 3 4",
+        "expectedOutput": "4",
+        "isHidden": true
+      },
+      {
+        "input": "9\n0 0 1 1 2 3 3 4 4",
+        "expectedOutput": "2",
+        "isHidden": true
+      },
+      {
+        "input": "11\n1 1 2 2 3 3 4 4 5 6 6",
+        "expectedOutput": "5",
+        "isHidden": true
+      }
+    ],
+    "objective": "Exploit even-odd index pairing invariant using binary search.",
+    "conceptualExplanation": [
+      "Before single element, first instance of duplicate is at even index, second at odd index.",
+      "After single element, pattern shifts (first instance is at odd index).",
+      "Binary search midpoint: ensure mid is even (if odd, mid--). If nums[mid] == nums[mid+1], unique is to the right; else left."
+    ]
+  },
+  {
+    "id": "ch_find_first_bad_version",
+    "title": "First Bad Version API Simulator",
+    "difficulty": "Easy",
+    "category": "Binary Search",
+    "description": "You are a product manager and currently leading a team to develop a new product. Unfortunately, the latest version of your product fails the quality check. Since each version is developed based on the previous version, all the versions after a bad version are also bad.\n\nSuppose you have n versions [1, 2, ..., n] and you are given the first bad version target. Return the first bad version using binary search.",
+    "inputFormat": "Line 1: Two integers n and firstBad (1 <= firstBad <= n).",
+    "outputFormat": "A single integer: the first bad version.",
+    "constraints": [
+      "1 <= firstBad <= n <= 2^31 - 1"
+    ],
+    "examples": [
+      {
+        "input": "5 4",
+        "output": "4",
+        "explanation": "Binary search range [1, n]."
+      },
+      {
+        "input": "1 1",
+        "output": "1",
+        "explanation": "If mid >= firstBad, then mid is bad; search left half [low, mid]."
+      }
+    ],
+    "hints": [
+      "Avoid integer overflow using low + Math.floor((high - low) / 2)."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "5 4",
+        "expectedOutput": "4",
+        "isHidden": false
+      },
+      {
+        "input": "1 1",
+        "expectedOutput": "1",
+        "isHidden": false
+      },
+      {
+        "input": "10 1",
+        "expectedOutput": "1",
+        "isHidden": false
+      },
+      {
+        "input": "10 10",
+        "expectedOutput": "10",
+        "isHidden": true
+      },
+      {
+        "input": "100 50",
+        "expectedOutput": "50",
+        "isHidden": true
+      },
+      {
+        "input": "2147483647 123456789",
+        "expectedOutput": "123456789",
+        "isHidden": true
+      },
+      {
+        "input": "3 2",
+        "expectedOutput": "2",
+        "isHidden": true
+      },
+      {
+        "input": "2 1",
+        "expectedOutput": "1",
+        "isHidden": true
+      },
+      {
+        "input": "2 2",
+        "expectedOutput": "2",
+        "isHidden": true
+      },
+      {
+        "input": "1000 999",
+        "expectedOutput": "999",
+        "isHidden": true
+      }
+    ],
+    "objective": "Implement lower-bound binary search on boolean predicate.",
+    "conceptualExplanation": [
+      "Binary search range [1, n].",
+      "If mid >= firstBad, then mid is bad; search left half [low, mid].",
+      "Else, search right half [mid + 1, high].",
+      "Terminate when low == high."
+    ]
+  },
+  {
+    "id": "ch_binary_tree_right_side_view",
+    "title": "Binary Tree Right Side View",
+    "difficulty": "Medium",
+    "category": "Trees",
+    "description": "Given the root of a binary tree (represented as level-order array with 'null' for missing nodes), imagine yourself standing on the right side of it, return the values of the nodes you can see ordered from top to bottom.",
+    "inputFormat": "Line 1: An integer n denoting number of tokens.\nLine 2: n space-separated tokens representing level-order binary tree.",
+    "outputFormat": "Space-separated values visible from the right side.",
+    "constraints": [
+      "0 <= n <= 1000"
+    ],
+    "examples": [
+      {
+        "input": "5\n1 2 3 null 5",
+        "output": "1 3 5",
+        "explanation": "Build binary tree from level order array."
+      },
+      {
+        "input": "3\n1 null 3",
+        "output": "1 3",
+        "explanation": "Perform BFS queue level-order traversal."
+      }
+    ],
+    "hints": [
+      "BFS level by level.",
+      "Add node.val of last element of each queue level."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "5\n1 2 3 null 5",
+        "expectedOutput": "1 3 5",
+        "isHidden": false
+      },
+      {
+        "input": "3\n1 null 3",
+        "expectedOutput": "1 3",
+        "isHidden": false
+      },
+      {
+        "input": "0\n",
+        "expectedOutput": "EMPTY",
+        "isHidden": false
+      },
+      {
+        "input": "1\n10",
+        "expectedOutput": "10",
+        "isHidden": true
+      },
+      {
+        "input": "7\n1 2 3 4 5 6 7",
+        "expectedOutput": "1 3 7",
+        "isHidden": true
+      },
+      {
+        "input": "4\n1 2 3 4",
+        "expectedOutput": "1 3 4",
+        "isHidden": true
+      },
+      {
+        "input": "6\n1 2 null 3 null 4",
+        "expectedOutput": "1 2 3 4",
+        "isHidden": true
+      },
+      {
+        "input": "5\n3 9 20 null 15",
+        "expectedOutput": "3 20 15",
+        "isHidden": true
+      },
+      {
+        "input": "6\n1 2 3 null null 4",
+        "expectedOutput": "1 3 4",
+        "isHidden": true
+      },
+      {
+        "input": "4\n1 2 3 null",
+        "expectedOutput": "1 3",
+        "isHidden": true
+      }
+    ],
+    "objective": "Use level-order BFS traversal to capture the last element of every depth level.",
+    "conceptualExplanation": [
+      "Build binary tree from level order array.",
+      "Perform BFS queue level-order traversal.",
+      "The last node processed in each level queue is visible from the right."
+    ]
+  },
+  {
+    "id": "ch_count_complete_tree_nodes",
+    "title": "Count Complete Tree Nodes in Sub-linear Time",
+    "difficulty": "Medium",
+    "category": "Trees",
+    "description": "Given the root of a complete binary tree, return the number of the nodes in the tree.\n\nAccording to Wikipedia, every level, except possibly the last, is completely filled in a complete binary tree, and all nodes in the last level are as far left as possible.",
+    "inputFormat": "Line 1: An integer n.\nLine 2: n space-separated tokens of level order traversal.",
+    "outputFormat": "A single integer denoting total node count.",
+    "constraints": [
+      "0 <= n <= 50000"
+    ],
+    "examples": [
+      {
+        "input": "6\n1 2 3 4 5 6",
+        "output": "6",
+        "explanation": "Compute left height and right height."
+      },
+      {
+        "input": "0\n",
+        "output": "0",
+        "explanation": "If left height == right height, tree is full: return (1 << height) - 1."
+      }
+    ],
+    "hints": [
+      "Check if left subtree height matches right subtree height."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "6\n1 2 3 4 5 6",
+        "expectedOutput": "6",
+        "isHidden": false
+      },
+      {
+        "input": "0\n",
+        "expectedOutput": "0",
+        "isHidden": false
+      },
+      {
+        "input": "1\n1",
+        "expectedOutput": "1",
+        "isHidden": false
+      },
+      {
+        "input": "3\n1 2 3",
+        "expectedOutput": "3",
+        "isHidden": true
+      },
+      {
+        "input": "4\n1 2 3 4",
+        "expectedOutput": "4",
+        "isHidden": true
+      },
+      {
+        "input": "7\n1 2 3 4 5 6 7",
+        "expectedOutput": "7",
+        "isHidden": true
+      },
+      {
+        "input": "5\n1 2 3 4 5",
+        "expectedOutput": "5",
+        "isHidden": true
+      },
+      {
+        "input": "2\n1 2",
+        "expectedOutput": "2",
+        "isHidden": true
+      },
+      {
+        "input": "8\n1 2 3 4 5 6 7 8",
+        "expectedOutput": "8",
+        "isHidden": true
+      },
+      {
+        "input": "10\n1 2 3 4 5 6 7 8 9 10",
+        "expectedOutput": "10",
+        "isHidden": true
+      }
+    ],
+    "objective": "Count nodes in complete binary tree in O(log^2 N).",
+    "conceptualExplanation": [
+      "Compute left height and right height.",
+      "If left height == right height, tree is full: return (1 << height) - 1.",
+      "Otherwise, 1 + count(left) + count(right)."
+    ]
+  },
+  {
+    "id": "ch_path_sum_ii",
+    "title": "Path Sum II All Root to Leaf Paths",
+    "difficulty": "Medium",
+    "category": "Trees",
+    "description": "Given the root of a binary tree and an integer targetSum, return the number of root-to-leaf paths where the sum of the node values in the path equals targetSum.",
+    "inputFormat": "Line 1: Two integers n and targetSum.\nLine 2: n space-separated tokens of tree level order.",
+    "outputFormat": "A single integer denoting the count of matching root-to-leaf paths.",
+    "constraints": [
+      "0 <= n <= 5000",
+      "-1000 <= targetSum <= 1000"
+    ],
+    "examples": [
+      {
+        "input": "10 22\n5 4 8 11 null 13 4 7 2 null",
+        "output": "1",
+        "explanation": "Traverse from root to leaves maintaining running path sum."
+      },
+      {
+        "input": "3 5\n1 2 3",
+        "output": "0",
+        "explanation": "When reaching leaf (left == null && right == null), check if currentSum == targetSum."
+      }
+    ],
+    "hints": [
+      "Only check sum at leaf nodes.",
+      "Subtract node value as you recurse down."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "10 22\n5 4 8 11 null 13 4 7 2 null",
+        "expectedOutput": "1",
+        "isHidden": false
+      },
+      {
+        "input": "3 5\n1 2 3",
+        "expectedOutput": "0",
+        "isHidden": false
+      },
+      {
+        "input": "2 0\n1 2",
+        "expectedOutput": "0",
+        "isHidden": false
+      },
+      {
+        "input": "1 5\n5",
+        "expectedOutput": "1",
+        "isHidden": true
+      },
+      {
+        "input": "0 10\n",
+        "expectedOutput": "0",
+        "isHidden": true
+      },
+      {
+        "input": "5 6\n1 2 3 3 2",
+        "expectedOutput": "1",
+        "isHidden": true
+      },
+      {
+        "input": "7 10\n5 2 2 3 null null 3",
+        "expectedOutput": "2",
+        "isHidden": true
+      },
+      {
+        "input": "4 4\n1 2 3 1",
+        "expectedOutput": "2",
+        "isHidden": true
+      },
+      {
+        "input": "3 4\n1 3 3",
+        "expectedOutput": "2",
+        "isHidden": true
+      },
+      {
+        "input": "5 18\n5 4 8 9 null",
+        "expectedOutput": "1",
+        "isHidden": true
+      }
+    ],
+    "objective": "DFS backtracking root-to-leaf path sum verification.",
+    "conceptualExplanation": [
+      "Traverse from root to leaves maintaining running path sum.",
+      "When reaching leaf (left == null && right == null), check if currentSum == targetSum.",
+      "Return total path count."
+    ]
+  },
+  {
+    "id": "ch_maximum_width_binary_tree",
+    "title": "Maximum Width of Binary Tree",
+    "difficulty": "Medium",
+    "category": "Trees",
+    "description": "Given the root of a binary tree, return the maximum width of the given tree.\n\nThe maximum width of a tree is the maximum width among all levels.\n\nThe width of one level is defined as the length between the end-nodes (the leftmost and rightmost non-null nodes), where the null nodes between the end-nodes that would be present in a complete binary tree extending down to that level are also counted into the length calculation.",
+    "inputFormat": "Line 1: An integer n.\nLine 2: n space-separated tokens of level-order tree.",
+    "outputFormat": "A single integer denoting the maximum width.",
+    "constraints": [
+      "1 <= n <= 3000"
+    ],
+    "examples": [
+      {
+        "input": "7\n1 3 2 5 3 null 9",
+        "output": "4",
+        "explanation": "Index nodes at root = 0n."
+      },
+      {
+        "input": "6\n1 3 2 5 null null 9",
+        "output": "4",
+        "explanation": "Left child = 2n * idx, right child = 2n * idx + 1n."
+      }
+    ],
+    "hints": [
+      "Use BFS with 0-indexed positions at each level.",
+      "Subtract first index of level to keep numbers small."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "7\n1 3 2 5 3 null 9",
+        "expectedOutput": "4",
+        "isHidden": false
+      },
+      {
+        "input": "6\n1 3 2 5 null null 9",
+        "expectedOutput": "4",
+        "isHidden": false
+      },
+      {
+        "input": "4\n1 3 2 5",
+        "expectedOutput": "2",
+        "isHidden": false
+      },
+      {
+        "input": "1\n1",
+        "expectedOutput": "1",
+        "isHidden": true
+      },
+      {
+        "input": "3\n1 2 3",
+        "expectedOutput": "2",
+        "isHidden": true
+      },
+      {
+        "input": "5\n1 3 2 5 null",
+        "expectedOutput": "2",
+        "isHidden": true
+      },
+      {
+        "input": "7\n1 1 1 1 1 1 1",
+        "expectedOutput": "4",
+        "isHidden": true
+      },
+      {
+        "input": "5\n1 2 null 3 null",
+        "expectedOutput": "1",
+        "isHidden": true
+      },
+      {
+        "input": "4\n1 null 2 null",
+        "expectedOutput": "1",
+        "isHidden": true
+      },
+      {
+        "input": "7\n1 2 3 null 4 5 null",
+        "expectedOutput": "2",
+        "isHidden": true
+      }
+    ],
+    "objective": "Assign 1-based indices to nodes (left = 2*i, right = 2*i + 1) to measure level width.",
+    "conceptualExplanation": [
+      "Index nodes at root = 0n.",
+      "Left child = 2n * idx, right child = 2n * idx + 1n.",
+      "At each BFS level, width = Number(lastIdx - firstIdx + 1n).",
+      "Normalize indices per level to avoid BigInt overflow."
+    ]
+  },
+  {
+    "id": "ch_minimum_genetic_mutation",
+    "title": "Minimum Genetic Mutation BFS",
+    "difficulty": "Medium",
+    "category": "Graphs",
+    "description": "A gene string can be represented by an 8-character long string, with choices from 'A', 'C', 'G', and 'T'.\n\nSuppose we need to investigate a mutation from a gene string startGene to a gene string endGene where one mutation is defined as one single character changed in the gene string.\n\nThere is also a gene bank bank that records all the valid gene mutations. A gene must be in bank to make it a valid mutation.\n\nReturn the minimum number of mutations needed to mutate from startGene to endGene. If there is no such a mutation, return -1.",
+    "inputFormat": "Line 1: startGene endGene\nLine 2: An integer b (size of bank).\nLine 3: b space-separated bank gene strings.",
+    "outputFormat": "A single integer denoting the minimum mutations or -1.",
+    "constraints": [
+      "startGene.length == endGene.length == bank[i].length == 8",
+      "startGene, endGene, and bank[i] consist of only 'A', 'C', 'G', 'T'.",
+      "0 <= b <= 10"
+    ],
+    "examples": [
+      {
+        "input": "AACCGGTT AACCGGTA\n1\nAACCGGTA",
+        "output": "1",
+        "explanation": "If endGene is not in bank, immediately return -1."
+      },
+      {
+        "input": "AACCGGTT AAACGGTA\n3\nAACCGGTA AACCGCTA AAACGGTA",
+        "output": "2",
+        "explanation": "BFS starting from startGene with distance 0."
+      }
+    ],
+    "hints": [
+      "BFS guarantees shortest mutation sequence.",
+      "Characters are restricted to A, C, G, T."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "AACCGGTT AACCGGTA\n1\nAACCGGTA",
+        "expectedOutput": "1",
+        "isHidden": false
+      },
+      {
+        "input": "AACCGGTT AAACGGTA\n3\nAACCGGTA AACCGCTA AAACGGTA",
+        "expectedOutput": "2",
+        "isHidden": false
+      },
+      {
+        "input": "AAAAACCC AACCCCCC\n3\nAAAACCCC AAACCCCC AACCCCCC",
+        "expectedOutput": "3",
+        "isHidden": false
+      },
+      {
+        "input": "AACCGGTT AACCGGTT\n1\nAACCGGTT",
+        "expectedOutput": "0",
+        "isHidden": true
+      },
+      {
+        "input": "AACCGGTT TTTTTTTT\n2\nAACCGGTA AACCGGTT",
+        "expectedOutput": "-1",
+        "isHidden": true
+      },
+      {
+        "input": "AAAAAAAA CCCCCCCC\n4\nAAAAAAAA CAAAAAAA CCAAACCC CCCCCCCC",
+        "expectedOutput": "-1",
+        "isHidden": true
+      },
+      {
+        "input": "GGTTAACC GGTTAACT\n1\nGGTTAACT",
+        "expectedOutput": "1",
+        "isHidden": true
+      },
+      {
+        "input": "AACCGGTT AACCGGTA\n0\n",
+        "expectedOutput": "-1",
+        "isHidden": true
+      },
+      {
+        "input": "AACCGGTT GGCCGGTT\n2\nAGCCGGTT GGCCGGTT",
+        "expectedOutput": "2",
+        "isHidden": true
+      },
+      {
+        "input": "AAAAAAAA AAAAAAAT\n1\nAAAAAAAT",
+        "expectedOutput": "1",
+        "isHidden": true
+      }
+    ],
+    "objective": "Model shortest path on unweighted graph of 8-character gene permutations using BFS.",
+    "conceptualExplanation": [
+      "If endGene is not in bank, immediately return -1.",
+      "BFS starting from startGene with distance 0.",
+      "For each gene, test changing each of the 8 positions to 'A', 'C', 'G', 'T'.",
+      "If the mutation is in bank and unvisited, add to queue and mark visited.",
+      "First time endGene is popped, return distance."
+    ]
+  },
+  {
+    "id": "ch_can_place_flowers",
+    "title": "Can Place Flowers Without Adjacent Conflict",
+    "difficulty": "Easy",
+    "category": "Greedy",
+    "description": "You have a long flowerbed in which some of the plots are planted, and some are not. However, flowers cannot be planted in adjacent plots.\n\nGiven an integer array flowerbed containing 0's and 1's, where 0 means empty and 1 means not empty, and an integer n, return true if n new flowers can be planted in the flowerbed without violating the no-adjacent-flowers rule and false otherwise.",
+    "inputFormat": "Line 1: Two integers len and n.\nLine 2: len space-separated 0s and 1s.",
+    "outputFormat": "true or false.",
+    "constraints": [
+      "1 <= len <= 20000",
+      "flowerbed[i] is 0 or 1",
+      "0 <= n <= len"
+    ],
+    "examples": [
+      {
+        "input": "5 1\n1 0 0 0 1",
+        "output": "true",
+        "explanation": "Iterate through flowerbed."
+      },
+      {
+        "input": "5 2\n1 0 0 0 1",
+        "output": "false",
+        "explanation": "If plot is 0 and both previous (or i==0) and next (or i==len-1) plots are 0, plant flower (set to 1) and decrement n."
+      }
+    ],
+    "hints": [
+      "Check left and right neighbors.",
+      "Plant as early as possible."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "5 1\n1 0 0 0 1",
+        "expectedOutput": "true",
+        "isHidden": false
+      },
+      {
+        "input": "5 2\n1 0 0 0 1",
+        "expectedOutput": "false",
+        "isHidden": false
+      },
+      {
+        "input": "1 1\n0",
+        "expectedOutput": "true",
+        "isHidden": false
+      },
+      {
+        "input": "1 0\n1",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "3 1\n0 0 0",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "3 2\n0 0 0",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "6 2\n0 0 0 0 0 0",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "4 2\n1 0 0 0",
+        "expectedOutput": "false",
+        "isHidden": true
+      },
+      {
+        "input": "5 1\n0 0 1 0 0",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "7 3\n0 0 0 0 0 0 0",
+        "expectedOutput": "true",
+        "isHidden": true
+      }
+    ],
+    "objective": "Greedily place flowers in available non-adjacent empty slots.",
+    "conceptualExplanation": [
+      "Iterate through flowerbed.",
+      "If plot is 0 and both previous (or i==0) and next (or i==len-1) plots are 0, plant flower (set to 1) and decrement n.",
+      "Return n <= 0."
+    ]
+  },
+  {
+    "id": "ch_contains_duplicate_ii",
+    "title": "Contains Duplicate II (Within K Distance)",
+    "difficulty": "Easy",
+    "category": "Arrays",
+    "description": "Given an integer array nums and an integer k, return true if there are two distinct indices i and j in the array such that nums[i] == nums[j] and abs(i - j) <= k.",
+    "inputFormat": "Line 1: Two integers n and k.\nLine 2: n space-separated integers.",
+    "outputFormat": "true or false.",
+    "constraints": [
+      "1 <= n <= 10^5",
+      "-10^9 <= nums[i] <= 10^9",
+      "0 <= k <= 10^5"
+    ],
+    "examples": [
+      {
+        "input": "4 3\n1 2 3 1",
+        "output": "true",
+        "explanation": "Maintain a hash map of lastSeenIndex for each element."
+      },
+      {
+        "input": "4 1\n1 0 1 1",
+        "output": "true",
+        "explanation": "If nums[i] was seen and i - lastSeen[nums[i]] <= k, return true."
+      }
+    ],
+    "hints": [
+      "Hash map from value to index.",
+      "Check difference between current index and stored index."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "4 3\n1 2 3 1",
+        "expectedOutput": "true",
+        "isHidden": false
+      },
+      {
+        "input": "4 1\n1 0 1 1",
+        "expectedOutput": "true",
+        "isHidden": false
+      },
+      {
+        "input": "6 2\n1 2 3 1 2 3",
+        "expectedOutput": "false",
+        "isHidden": false
+      },
+      {
+        "input": "1 1\n1",
+        "expectedOutput": "false",
+        "isHidden": true
+      },
+      {
+        "input": "3 0\n1 2 1",
+        "expectedOutput": "false",
+        "isHidden": true
+      },
+      {
+        "input": "5 2\n99 99 99 99 99",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "6 3\n1 2 3 4 5 1",
+        "expectedOutput": "false",
+        "isHidden": true
+      },
+      {
+        "input": "5 1\n1 2 3 4 5",
+        "expectedOutput": "false",
+        "isHidden": true
+      },
+      {
+        "input": "4 2\n1 2 1 2",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "5 4\n5 1 2 3 5",
+        "expectedOutput": "true",
+        "isHidden": true
+      }
+    ],
+    "objective": "Track seen element indices within a sliding window of size k using a hash map or hash set.",
+    "conceptualExplanation": [
+      "Maintain a hash map of lastSeenIndex for each element.",
+      "If nums[i] was seen and i - lastSeen[nums[i]] <= k, return true.",
+      "Update lastSeen[nums[i]] = i."
+    ]
+  },
+  {
+    "id": "ch_longest_harmonious_subseq",
+    "title": "Longest Harmonious Subsequence",
+    "difficulty": "Easy",
+    "category": "Arrays",
+    "description": "We define a harmonious array as an array where the difference between its maximum value and its minimum value is exactly 1.\n\nGiven an integer array nums, return the length of its longest harmonious subsequence among all its possible subsequences.",
+    "inputFormat": "Line 1: An integer n.\nLine 2: n space-separated integers.",
+    "outputFormat": "A single integer denoting the length of the longest harmonious subsequence.",
+    "constraints": [
+      "1 <= n <= 20000",
+      "-10^9 <= nums[i] <= 10^9"
+    ],
+    "examples": [
+      {
+        "input": "8\n1 3 2 2 5 2 3 7",
+        "output": "5",
+        "explanation": "Build a frequency count map of all numbers."
+      },
+      {
+        "input": "4\n1 2 3 4",
+        "output": "2",
+        "explanation": "For each key x, if x + 1 exists in the map, a harmonious subsequence of length freq[x] + freq[x+1] can be formed."
+      }
+    ],
+    "hints": [
+      "Harmonious subsequence only requires diff between min and max to be 1.",
+      "Order does not matter because it is a subsequence."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "8\n1 3 2 2 5 2 3 7",
+        "expectedOutput": "5",
+        "isHidden": false
+      },
+      {
+        "input": "4\n1 2 3 4",
+        "expectedOutput": "2",
+        "isHidden": false
+      },
+      {
+        "input": "4\n1 1 1 1",
+        "expectedOutput": "0",
+        "isHidden": false
+      },
+      {
+        "input": "1\n10",
+        "expectedOutput": "0",
+        "isHidden": true
+      },
+      {
+        "input": "5\n1 2 2 1 1",
+        "expectedOutput": "5",
+        "isHidden": true
+      },
+      {
+        "input": "6\n1 4 1 3 1 -14",
+        "expectedOutput": "2",
+        "isHidden": true
+      },
+      {
+        "input": "7\n2 2 2 3 3 4 5",
+        "expectedOutput": "5",
+        "isHidden": true
+      },
+      {
+        "input": "5\n0 1 0 1 0",
+        "expectedOutput": "5",
+        "isHidden": true
+      },
+      {
+        "input": "4\n10 20 30 40",
+        "expectedOutput": "0",
+        "isHidden": true
+      },
+      {
+        "input": "6\n-3 -2 -2 -3 5 6",
+        "expectedOutput": "4",
+        "isHidden": true
+      }
+    ],
+    "objective": "Count element frequencies and find max(freq[x] + freq[x+1]).",
+    "conceptualExplanation": [
+      "Build a frequency count map of all numbers.",
+      "For each key x, if x + 1 exists in the map, a harmonious subsequence of length freq[x] + freq[x+1] can be formed.",
+      "Track the maximum length."
+    ]
+  },
+  {
+    "id": "ch_find_difference_two_arrays",
+    "title": "Find the Difference of Two Distinct Arrays",
+    "difficulty": "Easy",
+    "category": "Arrays",
+    "description": "Given two 0-indexed integer arrays nums1 and nums2, return two lines:\n- Line 1: Space-separated distinct integers in nums1 which are not present in nums2 (sorted in ascending order, or EMPTY if none).\n- Line 2: Space-separated distinct integers in nums2 which are not present in nums1 (sorted in ascending order, or EMPTY if none).",
+    "inputFormat": "Line 1: Two integers n1 and n2.\nLine 2: n1 space-separated integers for nums1.\nLine 3: n2 space-separated integers for nums2.",
+    "outputFormat": "Two lines with space-separated sorted distinct integers or EMPTY.",
+    "constraints": [
+      "1 <= n1, n2 <= 1000",
+      "-1000 <= nums1[i], nums2[i] <= 1000"
+    ],
+    "examples": [
+      {
+        "input": "3 3\n1 2 3\n2 4 6",
+        "output": "1 3\n4 6",
+        "explanation": "Convert nums1 and nums2 into sets S1 and S2."
+      },
+      {
+        "input": "4 4\n1 2 3 3\n1 1 2 2",
+        "output": "3\nEMPTY",
+        "explanation": "Diff1 = elements in S1 not in S2, sorted."
+      }
+    ],
+    "hints": [
+      "Use HashSets to filter unique elements.",
+      "Sort output for deterministic comparison."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "3 3\n1 2 3\n2 4 6",
+        "expectedOutput": "1 3\n4 6",
+        "isHidden": false
+      },
+      {
+        "input": "4 4\n1 2 3 3\n1 1 2 2",
+        "expectedOutput": "3\nEMPTY",
+        "isHidden": false
+      },
+      {
+        "input": "1 1\n5\n5",
+        "expectedOutput": "EMPTY\nEMPTY",
+        "isHidden": false
+      },
+      {
+        "input": "2 2\n1 2\n3 4",
+        "expectedOutput": "1 2\n3 4",
+        "isHidden": true
+      },
+      {
+        "input": "3 1\n1 2 3\n1",
+        "expectedOutput": "2 3\nEMPTY",
+        "isHidden": true
+      },
+      {
+        "input": "1 3\n1\n1 2 3",
+        "expectedOutput": "EMPTY\n2 3",
+        "isHidden": true
+      },
+      {
+        "input": "4 2\n-1 -2 -3 -4\n-1 -2",
+        "expectedOutput": "-4 -3\nEMPTY",
+        "isHidden": true
+      },
+      {
+        "input": "3 3\n0 0 0\n0 1 2",
+        "expectedOutput": "EMPTY\n1 2",
+        "isHidden": true
+      },
+      {
+        "input": "2 2\n10 20\n20 10",
+        "expectedOutput": "EMPTY\nEMPTY",
+        "isHidden": true
+      },
+      {
+        "input": "4 4\n7 8 9 10\n1 2 3 4",
+        "expectedOutput": "7 8 9 10\n1 2 3 4",
+        "isHidden": true
+      }
+    ],
+    "objective": "Compute set difference between two collections.",
+    "conceptualExplanation": [
+      "Convert nums1 and nums2 into sets S1 and S2.",
+      "Diff1 = elements in S1 not in S2, sorted.",
+      "Diff2 = elements in S2 not in S1, sorted."
+    ]
+  },
+  {
+    "id": "ch_unique_number_of_occurrences",
+    "title": "Unique Number of Occurrences",
+    "difficulty": "Easy",
+    "category": "Arrays",
+    "description": "Given an array of integers arr, return true if the number of occurrences of each value in the array is unique or false otherwise.",
+    "inputFormat": "Line 1: An integer n.\nLine 2: n space-separated integers.",
+    "outputFormat": "true or false.",
+    "constraints": [
+      "1 <= arr.length <= 1000",
+      "-1000 <= arr[i] <= 1000"
+    ],
+    "examples": [
+      {
+        "input": "6\n1 2 2 1 1 3",
+        "output": "true",
+        "explanation": "Compute frequency map of each number in arr."
+      },
+      {
+        "input": "2\n1 2",
+        "output": "false",
+        "explanation": "Collect all frequency values."
+      }
+    ],
+    "hints": [
+      "Compare size of frequencies set to number of distinct elements."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "6\n1 2 2 1 1 3",
+        "expectedOutput": "true",
+        "isHidden": false
+      },
+      {
+        "input": "2\n1 2",
+        "expectedOutput": "false",
+        "isHidden": false
+      },
+      {
+        "input": "10\n-3 0 1 -3 1 1 1 -3 10 0",
+        "expectedOutput": "true",
+        "isHidden": false
+      },
+      {
+        "input": "1\n42",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "4\n1 1 2 2",
+        "expectedOutput": "false",
+        "isHidden": true
+      },
+      {
+        "input": "5\n5 5 5 5 5",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "6\n1 2 3 4 5 6",
+        "expectedOutput": "false",
+        "isHidden": true
+      },
+      {
+        "input": "7\n1 2 2 3 3 3 4",
+        "expectedOutput": "false",
+        "isHidden": true
+      },
+      {
+        "input": "3\n1 2 3",
+        "expectedOutput": "false",
+        "isHidden": true
+      },
+      {
+        "input": "8\n1 1 2 2 2 3 3 3",
+        "expectedOutput": "false",
+        "isHidden": true
+      }
+    ],
+    "objective": "Verify that all frequency counts in an array are pairwise distinct.",
+    "conceptualExplanation": [
+      "Compute frequency map of each number in arr.",
+      "Collect all frequency values.",
+      "Check if number of unique frequencies equals the number of unique elements."
+    ]
+  },
+  {
+    "id": "ch_minimum_recolors_k_consecutive",
+    "title": "Minimum Recolors to Get K Consecutive Black Blocks",
+    "difficulty": "Easy",
+    "category": "Sliding Window",
+    "description": "You are given a 0-indexed string blocks of length n, where blocks[i] is either 'W' (white) or 'B' (black), representing the color of the ith block. You are also given an integer k, which is the desired number of consecutive black blocks.\n\nIn one operation, you can recolor a white block such that it becomes a black block.\n\nReturn the minimum number of operations needed such that there is at least one occurrence of k consecutive black blocks.",
+    "inputFormat": "Line 1: Two integers n and k.\nLine 2: String blocks.",
+    "outputFormat": "A single integer denoting minimum recolors.",
+    "constraints": [
+      "1 <= n <= 100",
+      "1 <= k <= n",
+      "blocks[i] is either 'W' or 'B'."
+    ],
+    "examples": [
+      {
+        "input": "7 7\nWBBWWBB",
+        "output": "3",
+        "explanation": "Count 'W's in the first window of length k."
+      },
+      {
+        "input": "5 2\nWBWW",
+        "output": "1",
+        "explanation": "Slide the window across the string by adding blocks[i] and removing blocks[i - k]."
+      }
+    ],
+    "hints": [
+      "Fixed-size sliding window of length k.",
+      "Operations needed = count of 'W' in window."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "7 7\nWBBWWBB",
+        "expectedOutput": "3",
+        "isHidden": false
+      },
+      {
+        "input": "5 2\nWBWW",
+        "expectedOutput": "1",
+        "isHidden": false
+      },
+      {
+        "input": "5 1\nWWWWW",
+        "expectedOutput": "1",
+        "isHidden": false
+      },
+      {
+        "input": "5 1\nBBBBB",
+        "expectedOutput": "0",
+        "isHidden": true
+      },
+      {
+        "input": "6 3\nBWWWBB",
+        "expectedOutput": "1",
+        "isHidden": true
+      },
+      {
+        "input": "10 5\nWWBBBWBBWW",
+        "expectedOutput": "1",
+        "isHidden": true
+      },
+      {
+        "input": "8 4\nBWBBWBBB",
+        "expectedOutput": "1",
+        "isHidden": true
+      },
+      {
+        "input": "3 2\nBWB",
+        "expectedOutput": "1",
+        "isHidden": true
+      },
+      {
+        "input": "4 4\nWWWW",
+        "expectedOutput": "4",
+        "isHidden": true
+      },
+      {
+        "input": "7 3\nBBWWBBB",
+        "expectedOutput": "0",
+        "isHidden": true
+      }
+    ],
+    "objective": "Find the minimum count of 'W' inside any fixed sliding window of size k.",
+    "conceptualExplanation": [
+      "Count 'W's in the first window of length k.",
+      "Slide the window across the string by adding blocks[i] and removing blocks[i - k].",
+      "Return the minimum 'W' count seen."
+    ]
+  },
+  {
+    "id": "ch_defanging_ip_address",
+    "title": "Defanging an IPv4 Address",
+    "difficulty": "Easy",
+    "category": "Strings",
+    "description": "Given a valid (IPv4) IP address, return a defanged version of that IP address.\n\nA defanged IP address replaces every period '.' with '[.]'.",
+    "inputFormat": "A single line containing IPv4 address string.",
+    "outputFormat": "Defanged IPv4 address string.",
+    "constraints": [
+      "The given address is a valid IPv4 address."
+    ],
+    "examples": [
+      {
+        "input": "1.1.1.1",
+        "output": "1[.]1[.]1[.]1",
+        "explanation": "Split IP address on '.' and join with '[.]', or replace all '.' with '[.]'."
+      },
+      {
+        "input": "255.100.50.0",
+        "output": "255[.]100[.]50[.]0",
+        "explanation": "Additional verification case."
+      }
+    ],
+    "hints": [
+      "Replace all occurrences of '.' with '[.]'."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "1.1.1.1",
+        "expectedOutput": "1[.]1[.]1[.]1",
+        "isHidden": false
+      },
+      {
+        "input": "255.100.50.0",
+        "expectedOutput": "255[.]100[.]50[.]0",
+        "isHidden": false
+      },
+      {
+        "input": "192.168.1.1",
+        "expectedOutput": "192[.]168[.]1[.]1",
+        "isHidden": false
+      },
+      {
+        "input": "127.0.0.1",
+        "expectedOutput": "127[.]0[.]0[.]1",
+        "isHidden": true
+      },
+      {
+        "input": "10.0.0.1",
+        "expectedOutput": "10[.]0[.]0[.]1",
+        "isHidden": true
+      },
+      {
+        "input": "8.8.8.8",
+        "expectedOutput": "8[.]8[.]8[.]8",
+        "isHidden": true
+      },
+      {
+        "input": "8.8.4.4",
+        "expectedOutput": "8[.]8[.]4[.]4",
+        "isHidden": true
+      },
+      {
+        "input": "172.16.254.1",
+        "expectedOutput": "172[.]16[.]254[.]1",
+        "isHidden": true
+      },
+      {
+        "input": "0.0.0.0",
+        "expectedOutput": "0[.]0[.]0[.]0",
+        "isHidden": true
+      },
+      {
+        "input": "224.0.0.1",
+        "expectedOutput": "224[.]0[.]0[.]1",
+        "isHidden": true
+      }
+    ],
+    "objective": "Perform character substitution on IP periods.",
+    "conceptualExplanation": [
+      "Split IP address on '.' and join with '[.]', or replace all '.' with '[.]'."
+    ]
+  },
+  {
+    "id": "ch_merge_strings_alternately",
+    "title": "Merge Strings Alternately",
+    "difficulty": "Easy",
+    "category": "Strings",
+    "description": "You are given two strings word1 and word2. Merge the strings by adding letters in alternating order, starting with word1. If a string is longer than the other, append the additional letters onto the end of the merged string.\n\nReturn the merged string.",
+    "inputFormat": "Line 1: word1 word2 (two space-separated words).",
+    "outputFormat": "The merged alternating string.",
+    "constraints": [
+      "1 <= word1.length, word2.length <= 100",
+      "word1 and word2 consist of lowercase English letters."
+    ],
+    "examples": [
+      {
+        "input": "abc pqr",
+        "output": "apbqcr",
+        "explanation": "Use two pointers i and j initialized to 0."
+      },
+      {
+        "input": "ab pqrs",
+        "output": "apbqrs",
+        "explanation": "Alternately append word1[i++] and word2[j++] while characters remain."
+      }
+    ],
+    "hints": [
+      "Loop up to Math.max(word1.length, word2.length)."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "abc pqr",
+        "expectedOutput": "apbqcr",
+        "isHidden": false
+      },
+      {
+        "input": "ab pqrs",
+        "expectedOutput": "apbqrs",
+        "isHidden": false
+      },
+      {
+        "input": "abcd pq",
+        "expectedOutput": "apbqcd",
+        "isHidden": false
+      },
+      {
+        "input": "a b",
+        "expectedOutput": "ab",
+        "isHidden": true
+      },
+      {
+        "input": "hello world",
+        "expectedOutput": "hweolrllod",
+        "isHidden": true
+      },
+      {
+        "input": "x yz",
+        "expectedOutput": "xyz",
+        "isHidden": true
+      },
+      {
+        "input": "xy z",
+        "expectedOutput": "xzy",
+        "isHidden": true
+      },
+      {
+        "input": "short verylongword",
+        "expectedOutput": "svheorrytlongword",
+        "isHidden": true
+      },
+      {
+        "input": "coding challenge",
+        "expectedOutput": "ccohdailnlgenge",
+        "isHidden": true
+      },
+      {
+        "input": "alpha beta",
+        "expectedOutput": "ablepthaa",
+        "isHidden": true
+      }
+    ],
+    "objective": "Interleave characters from two strings with two pointers.",
+    "conceptualExplanation": [
+      "Use two pointers i and j initialized to 0.",
+      "Alternately append word1[i++] and word2[j++] while characters remain.",
+      "Append remainder of longer string."
+    ]
+  },
+  {
+    "id": "ch_greatest_common_divisor_strings",
+    "title": "Greatest Common Divisor of Strings",
+    "difficulty": "Easy",
+    "category": "Strings",
+    "description": "For two strings s and t, we say \"t divides s\" if and only if s = t + t + ... + t (i.e., t is concatenated with itself one or more times).\n\nGiven two strings str1 and str2, return the largest string x such that x divides both str1 and str2. If no such string exists, return \"EMPTY\".",
+    "inputFormat": "Line 1: str1\nLine 2: str2",
+    "outputFormat": "The GCD string or EMPTY.",
+    "constraints": [
+      "1 <= str1.length, str2.length <= 1000",
+      "str1 and str2 consist of English uppercase letters."
+    ],
+    "examples": [
+      {
+        "input": "ABCABC\nABC",
+        "output": "ABC",
+        "explanation": "If str1 + str2 !== str2 + str1, no common divisor string exists (return EMPTY)."
+      },
+      {
+        "input": "ABABAB\nABAB",
+        "output": "AB",
+        "explanation": "Otherwise, the length of the GCD string is gcd(len1, len2)."
+      }
+    ],
+    "hints": [
+      "Check if str1 + str2 == str2 + str1.",
+      "The length of the answer is GCD of lengths."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "ABCABC\nABC",
+        "expectedOutput": "ABC",
+        "isHidden": false
+      },
+      {
+        "input": "ABABAB\nABAB",
+        "expectedOutput": "AB",
+        "isHidden": false
+      },
+      {
+        "input": "LEET\nCODE",
+        "expectedOutput": "EMPTY",
+        "isHidden": false
+      },
+      {
+        "input": "A\nA",
+        "expectedOutput": "A",
+        "isHidden": true
+      },
+      {
+        "input": "AA\nAAA",
+        "expectedOutput": "A",
+        "isHidden": true
+      },
+      {
+        "input": "ABCDEF\nABC",
+        "expectedOutput": "EMPTY",
+        "isHidden": true
+      },
+      {
+        "input": "ABAB\nAB",
+        "expectedOutput": "AB",
+        "isHidden": true
+      },
+      {
+        "input": "AAAA\nAA",
+        "expectedOutput": "AA",
+        "isHidden": true
+      },
+      {
+        "input": "XYZXYZXYZ\nXYZ",
+        "expectedOutput": "XYZ",
+        "isHidden": true
+      },
+      {
+        "input": "HELLO\nWORLD",
+        "expectedOutput": "EMPTY",
+        "isHidden": true
+      }
+    ],
+    "objective": "Find largest common prefix repeating unit using Euclidean GCD algorithm.",
+    "conceptualExplanation": [
+      "If str1 + str2 !== str2 + str1, no common divisor string exists (return EMPTY).",
+      "Otherwise, the length of the GCD string is gcd(len1, len2).",
+      "Return str1.substring(0, gcd(len1, len2))."
+    ]
+  },
+  {
+    "id": "ch_kids_greatest_candies",
+    "title": "Kids With the Greatest Number of Candies",
+    "difficulty": "Easy",
+    "category": "Arrays",
+    "description": "There are n kids with candies. You are given an integer array candies, where each candies[i] represents the number of candies the ith kid has, and an integer extraCandies, denoting the number of extra candies that you have.\n\nReturn a boolean array result separated by spaces, where result[i] is true if, after giving the ith kid all the extraCandies, they will have the greatest number of candies among all the kids, or false otherwise.",
+    "inputFormat": "Line 1: Two integers n and extraCandies.\nLine 2: n space-separated integers representing candies.",
+    "outputFormat": "Space-separated boolean values (true or false).",
+    "constraints": [
+      "2 <= n <= 100",
+      "1 <= candies[i] <= 100",
+      "1 <= extraCandies <= 50"
+    ],
+    "examples": [
+      {
+        "input": "5 3\n2 3 5 1 3",
+        "output": "true true true false true",
+        "explanation": "Find maximum candies currently held by any kid."
+      },
+      {
+        "input": "5 1\n4 2 1 1 2",
+        "output": "true false false false false",
+        "explanation": "For each kid i, check if candies[i] + extraCandies >= maxCandies."
+      }
+    ],
+    "hints": [
+      "Find max element first.",
+      "Compare (candies[i] + extraCandies) >= max."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "5 3\n2 3 5 1 3",
+        "expectedOutput": "true true true false true",
+        "isHidden": false
+      },
+      {
+        "input": "5 1\n4 2 1 1 2",
+        "expectedOutput": "true false false false false",
+        "isHidden": false
+      },
+      {
+        "input": "3 10\n12 1 12",
+        "expectedOutput": "true false true",
+        "isHidden": false
+      },
+      {
+        "input": "2 1\n1 2",
+        "expectedOutput": "true true",
+        "isHidden": true
+      },
+      {
+        "input": "4 5\n5 5 5 5",
+        "expectedOutput": "true true true true",
+        "isHidden": true
+      },
+      {
+        "input": "4 2\n1 3 5 7",
+        "expectedOutput": "false false true true",
+        "isHidden": true
+      },
+      {
+        "input": "3 5\n10 2 8",
+        "expectedOutput": "true false true",
+        "isHidden": true
+      },
+      {
+        "input": "5 2\n2 8 4 1 9",
+        "expectedOutput": "false true false false true",
+        "isHidden": true
+      },
+      {
+        "input": "3 3\n3 3 1",
+        "expectedOutput": "true true true",
+        "isHidden": true
+      },
+      {
+        "input": "6 4\n1 4 2 6 3 5",
+        "expectedOutput": "false true true true true true",
+        "isHidden": true
+      }
+    ],
+    "objective": "Compare each kid's augmented candy count against global maximum.",
+    "conceptualExplanation": [
+      "Find maximum candies currently held by any kid.",
+      "For each kid i, check if candies[i] + extraCandies >= maxCandies.",
+      "Output true or false."
+    ]
+  },
+  {
+    "id": "ch_valid_perfect_square",
+    "title": "Valid Perfect Square (Binary Search)",
+    "difficulty": "Easy",
+    "category": "Binary Search",
+    "description": "Given a positive integer num, return true if num is a perfect square or false otherwise.\nA perfect square is an integer that is the square of an integer. In other words, it is the product of some integer with itself.\nYou must not use any built-in library function, such as sqrt.",
+    "inputFormat": "A single positive integer num.",
+    "outputFormat": "true or false.",
+    "constraints": [
+      "1 <= num <= 2^31 - 1"
+    ],
+    "examples": [
+      {
+        "input": "16",
+        "output": "true",
+        "explanation": "Binary search range [1, num]."
+      },
+      {
+        "input": "14",
+        "output": "false",
+        "explanation": "Compute mid = Math.floor((low + high) / 2)."
+      }
+    ],
+    "hints": [
+      "Use BigInt for mid * mid to prevent 32-bit overflow."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "16",
+        "expectedOutput": "true",
+        "isHidden": false
+      },
+      {
+        "input": "14",
+        "expectedOutput": "false",
+        "isHidden": false
+      },
+      {
+        "input": "1",
+        "expectedOutput": "true",
+        "isHidden": false
+      },
+      {
+        "input": "4",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "9",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "25",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "100",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "2147395600",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "2147483647",
+        "expectedOutput": "false",
+        "isHidden": true
+      },
+      {
+        "input": "100000000",
+        "expectedOutput": "true",
+        "isHidden": true
+      }
+    ],
+    "objective": "Determine if integer is a perfect square using integer binary search.",
+    "conceptualExplanation": [
+      "Binary search range [1, num].",
+      "Compute mid = Math.floor((low + high) / 2).",
+      "Check mid * mid against num (using BigInt to avoid overflow).",
+      "If mid * mid == num return true; else adjust search interval."
+    ]
+  },
+  {
+    "id": "ch_arranging_coins",
+    "title": "Arranging Coins Staircase Rows",
+    "difficulty": "Easy",
+    "category": "Binary Search",
+    "description": "You have n coins and you want to build a staircase with these coins. The staircase consists of k rows where the ith row has exactly i coins. The last row of the staircase may be incomplete.\n\nGiven the integer n, return the number of complete rows of the staircase you will build.",
+    "inputFormat": "A single integer n.",
+    "outputFormat": "A single integer denoting the number of complete rows.",
+    "constraints": [
+      "1 <= n <= 2^31 - 1"
+    ],
+    "examples": [
+      {
+        "input": "5",
+        "output": "2",
+        "explanation": "Sum of coins for k complete rows is k * (k + 1) / 2."
+      },
+      {
+        "input": "8",
+        "output": "3",
+        "explanation": "Binary search k in range [1, n]."
+      }
+    ],
+    "hints": [
+      "Binary search between 1 and n.",
+      "Check (mid * (mid + 1)) / 2 <= n."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "5",
+        "expectedOutput": "2",
+        "isHidden": false
+      },
+      {
+        "input": "8",
+        "expectedOutput": "3",
+        "isHidden": false
+      },
+      {
+        "input": "1",
+        "expectedOutput": "1",
+        "isHidden": false
+      },
+      {
+        "input": "3",
+        "expectedOutput": "2",
+        "isHidden": true
+      },
+      {
+        "input": "6",
+        "expectedOutput": "3",
+        "isHidden": true
+      },
+      {
+        "input": "10",
+        "expectedOutput": "4",
+        "isHidden": true
+      },
+      {
+        "input": "15",
+        "expectedOutput": "5",
+        "isHidden": true
+      },
+      {
+        "input": "2147483647",
+        "expectedOutput": "65535",
+        "isHidden": true
+      },
+      {
+        "input": "100",
+        "expectedOutput": "13",
+        "isHidden": true
+      },
+      {
+        "input": "1000",
+        "expectedOutput": "44",
+        "isHidden": true
+      }
+    ],
+    "objective": "Solve k*(k+1)/2 <= n for maximal integer k using binary search or quadratic formula.",
+    "conceptualExplanation": [
+      "Sum of coins for k complete rows is k * (k + 1) / 2.",
+      "Binary search k in range [1, n].",
+      "Return maximal k such that k * (k + 1) / 2 <= n."
+    ]
+  },
+  {
+    "id": "ch_cousins_in_binary_tree",
+    "title": "Cousins in Binary Tree Verification",
+    "difficulty": "Easy",
+    "category": "Trees",
+    "description": "Given the root of a binary tree with unique values and the values of two different nodes of the tree x and y, return true if the nodes corresponding to the values x and y in the tree are cousins, or false otherwise.\n\nTwo nodes of a binary tree are cousins if they have the same depth with different parents.",
+    "inputFormat": "Line 1: Two space-separated integers x and y.\nLine 2: An integer n.\nLine 3: n space-separated tokens of binary tree level-order traversal.",
+    "outputFormat": "true or false.",
+    "constraints": [
+      "2 <= n <= 100",
+      "All node values are unique."
+    ],
+    "examples": [
+      {
+        "input": "4 3\n4\n1 2 3 4",
+        "output": "false",
+        "explanation": "Run BFS tracking depth and parent value for each node."
+      },
+      {
+        "input": "5 4\n5\n1 2 3 null 4 null 5",
+        "output": "true",
+        "explanation": "When nodes x and y are found, verify that depth(x) == depth(y) and parent(x) != parent(y)."
+      }
+    ],
+    "hints": [
+      "Record (depth, parent) for both target nodes.",
+      "Return depth[x] == depth[y] && parent[x] != parent[y]."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "4 3\n4\n1 2 3 4",
+        "expectedOutput": "false",
+        "isHidden": false
+      },
+      {
+        "input": "5 4\n5\n1 2 3 null 4 null 5",
+        "expectedOutput": "true",
+        "isHidden": false
+      },
+      {
+        "input": "2 3\n3\n1 2 3",
+        "expectedOutput": "false",
+        "isHidden": false
+      },
+      {
+        "input": "4 5\n5\n1 2 3 4 5",
+        "expectedOutput": "false",
+        "isHidden": true
+      },
+      {
+        "input": "6 7\n7\n1 2 3 4 5 6 7",
+        "expectedOutput": "false",
+        "isHidden": true
+      },
+      {
+        "input": "4 6\n7\n1 2 3 4 5 6 7",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "2 4\n4\n1 2 3 4",
+        "expectedOutput": "false",
+        "isHidden": true
+      },
+      {
+        "input": "5 6\n6\n1 2 3 4 5 6",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "2 1\n2\n1 2",
+        "expectedOutput": "false",
+        "isHidden": true
+      },
+      {
+        "input": "7 8\n8\n1 2 3 4 5 6 7 8",
+        "expectedOutput": "false",
+        "isHidden": true
+      }
+    ],
+    "objective": "Verify identical tree depth with distinct parent nodes.",
+    "conceptualExplanation": [
+      "Run BFS tracking depth and parent value for each node.",
+      "When nodes x and y are found, verify that depth(x) == depth(y) and parent(x) != parent(y)."
+    ]
+  },
+  {
+    "id": "ch_univalued_binary_tree",
+    "title": "Univalued Binary Tree Check",
+    "difficulty": "Easy",
+    "category": "Trees",
+    "description": "A binary tree is uni-valued if every node in the tree has the same value.\n\nGiven the root of a binary tree, return true if the given tree is uni-valued, or false otherwise.",
+    "inputFormat": "Line 1: An integer n.\nLine 2: n space-separated tokens of binary tree level-order traversal.",
+    "outputFormat": "true or false.",
+    "constraints": [
+      "1 <= n <= 100",
+      "0 <= Node.val <= 99"
+    ],
+    "examples": [
+      {
+        "input": "6\n1 1 1 1 1 null 1",
+        "output": "true",
+        "explanation": "Extract root value."
+      },
+      {
+        "input": "5\n2 2 2 5 2",
+        "output": "false",
+        "explanation": "Traverse all non-null nodes in tree."
+      }
+    ],
+    "hints": [
+      "Compare every non-null token with tokens[0]."
+    ],
+    "starterCode": {
+      "cpp": "// Enter your code below\n",
+      "python": "# Enter your code below\n",
+      "javascript": "// Enter your code below\n",
+      "java": "// Enter your code below\n"
+    },
+    "testCases": [
+      {
+        "input": "6\n1 1 1 1 1 null 1",
+        "expectedOutput": "true",
+        "isHidden": false
+      },
+      {
+        "input": "5\n2 2 2 5 2",
+        "expectedOutput": "false",
+        "isHidden": false
+      },
+      {
+        "input": "1\n5",
+        "expectedOutput": "true",
+        "isHidden": false
+      },
+      {
+        "input": "3\n1 1 1",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "3\n1 2 1",
+        "expectedOutput": "false",
+        "isHidden": true
+      },
+      {
+        "input": "7\n9 9 9 9 9 9 9",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "4\n3 3 3 4",
+        "expectedOutput": "false",
+        "isHidden": true
+      },
+      {
+        "input": "2\n7 7",
+        "expectedOutput": "true",
+        "isHidden": true
+      },
+      {
+        "input": "5\n4 4 4 4 1",
+        "expectedOutput": "false",
+        "isHidden": true
+      },
+      {
+        "input": "6\n0 0 0 0 0 0",
+        "expectedOutput": "true",
+        "isHidden": true
+      }
+    ],
+    "objective": "DFS or BFS traversal to verify all node values match root.",
+    "conceptualExplanation": [
+      "Extract root value.",
+      "Traverse all non-null nodes in tree.",
+      "If any node's value != root value, return false; otherwise true."
     ]
   }
 ];
