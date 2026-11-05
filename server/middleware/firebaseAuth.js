@@ -1,9 +1,43 @@
 const admin = require('../firebaseConfig');
+const jwt = require('jsonwebtoken');
+const https = require('https');
+
+const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 's70-capstonestone-masteryzone';
+
+let publicKeysCache = { keys: null, expiresAt: 0 };
+
+async function getGooglePublicKeys() {
+  if (publicKeysCache.keys && Date.now() < publicKeysCache.expiresAt) {
+    return publicKeysCache.keys;
+  }
+  return new Promise((resolve, reject) => {
+    https
+      .get(
+        'https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com',
+        (res) => {
+          let data = '';
+          res.on('data', (c) => (data += c));
+          res.on('end', () => {
+            try {
+              const keys = JSON.parse(data);
+              publicKeysCache = { keys, expiresAt: Date.now() + 6 * 3600 * 1000 };
+              resolve(keys);
+            } catch (e) {
+              reject(e);
+            }
+          });
+        }
+      )
+      .on('error', reject);
+  });
+}
 
 /**
  * Middleware: verifyFirebaseToken
- * Strictly verifies Firebase ID tokens using the Firebase Admin SDK.
- * Rejects unverified JWT claims, missing tokens, and request body identity injection.
+ * Strictly verifies Firebase ID tokens cryptographically.
+ * Uses Firebase Admin SDK if service account is provided, or validates against Google's
+ * official public x509 certificates (RS256 signature, audience, issuer, expiration).
+ * Completely rejects unverified mock claims or request body identity injection.
  */
 const verifyFirebaseToken = async (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -20,71 +54,67 @@ const verifyFirebaseToken = async (req, res, next) => {
     });
   }
 
-  // Ensure Firebase Admin SDK is initialized
-  if (!admin.apps || admin.apps.length === 0) {
-    // In automated test environment only, verify if a test token verification stub is provided
-    if (process.env.NODE_ENV === 'test' && process.env.TEST_ALLOW_MOCK_AUTH === 'true') {
-      try {
-        const jwt = require('jsonwebtoken');
-        const decoded = jwt.decode(token);
-        if (decoded && decoded.email && decoded.uid) {
-          req.user = {
-            uid: decoded.uid,
-            email: decoded.email.toLowerCase().trim(),
-            name: decoded.name || decoded.email.split('@')[0],
-            authProvider: 'google',
-          };
-          return next();
-        }
-      } catch {}
+  // Method 1: If Firebase Admin SDK is initialized with a service account, verify via Admin SDK
+  if (admin.apps && admin.apps.length > 0) {
+    try {
+      const decodedToken = await admin.auth().verifyIdToken(token, true);
+      if (!decodedToken || !decodedToken.uid) {
+        return res.status(401).json({ success: false, message: 'Invalid Firebase token claims.' });
+      }
+      req.user = {
+        uid: decodedToken.uid,
+        email: (decodedToken.email || '').toLowerCase().trim(),
+        name: decodedToken.name || decodedToken.displayName || (decodedToken.email ? decodedToken.email.split('@')[0] : 'Google User'),
+        picture: decodedToken.picture || '',
+        emailVerified: !!decodedToken.email_verified,
+        authProvider: 'google',
+      };
+      return next();
+    } catch (adminError) {
+      console.warn('Firebase Admin verification error, trying Google public keys fallback:', adminError.message);
     }
-    return res.status(500).json({
-      success: false,
-      message: 'Firebase Admin authentication is not configured on the server.',
-    });
   }
 
+  // Method 2: Cryptographic verification using Google's authentic public x509 certificates
   try {
-    // Verify cryptographic signature, expiration, issuer, audience, and revocation status
-    const decodedToken = await admin.auth().verifyIdToken(token, true);
-
-    if (!decodedToken || !decodedToken.uid) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid Firebase ID token claims.',
-      });
+    const decodedHeader = jwt.decode(token, { complete: true });
+    if (!decodedHeader || !decodedHeader.header || !decodedHeader.header.kid) {
+      return res.status(401).json({ success: false, message: 'Malformed Firebase ID token header.' });
     }
 
-    if (!decodedToken.email) {
-      return res.status(400).json({
-        success: false,
-        message: 'Firebase account must have an associated email address.',
-      });
+    const publicKeys = await getGooglePublicKeys();
+    const cert = publicKeys[decodedHeader.header.kid];
+
+    if (!cert) {
+      return res.status(401).json({ success: false, message: 'Invalid Firebase ID token key ID.' });
     }
 
-    // Build the authenticated identity EXCLUSIVELY from verified claims
+    // Cryptographically verify RS256 signature, expiration, audience, and issuer
+    const decoded = jwt.verify(token, cert, {
+      algorithms: ['RS256'],
+      audience: FIREBASE_PROJECT_ID,
+      issuer: `https://securetoken.google.com/${FIREBASE_PROJECT_ID}`,
+    });
+
+    if (!decoded || !decoded.sub) {
+      return res.status(401).json({ success: false, message: 'Invalid Firebase ID token payload.' });
+    }
+
     req.user = {
-      uid: decodedToken.uid,
-      email: decodedToken.email.toLowerCase().trim(),
-      name: decodedToken.name || decodedToken.displayName || decodedToken.email.split('@')[0],
-      picture: decodedToken.picture || '',
-      emailVerified: !!decodedToken.email_verified,
+      uid: decoded.sub,
+      email: (decoded.email || '').toLowerCase().trim(),
+      name: decoded.name || decoded.displayName || (decoded.email ? decoded.email.split('@')[0] : 'Google User'),
+      picture: decoded.picture || '',
+      emailVerified: !!decoded.email_verified,
       authProvider: 'google',
     };
 
     return next();
-  } catch (error) {
-    console.error('Firebase token verification error:', error.code || error.message);
-    const isExpired = error.code === 'auth/id-token-expired';
-    const isRevoked = error.code === 'auth/id-token-revoked';
+  } catch (verifyErr) {
+    console.error('Firebase public cert verification error:', verifyErr.message);
     return res.status(401).json({
       success: false,
-      message: isExpired
-        ? 'Firebase authentication token has expired. Please sign in again.'
-        : isRevoked
-        ? 'Firebase authentication token has been revoked.'
-        : 'Firebase ID token verification failed.',
-      errorCode: error.code || 'AUTH_FAILED',
+      message: 'Cryptographic verification of Firebase token failed: ' + verifyErr.message,
     });
   }
 };
