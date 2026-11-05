@@ -1251,17 +1251,10 @@ export default function Coding() {
     window.open(`/certification-exam/${certId}`, "_blank", "noopener,noreferrer");
   };
 
-  const handleOpenPlayground = (langId, langName, starterCode) => {
+  const handleOpenPlayground = (langId) => {
     setShowSearchDropdown(false);
     const targetLang = (langId || "python").toLowerCase();
     const seed = Date.now();
-    if (starterCode) {
-      try {
-        const uKey = currentUser?._id || currentUser?.id || "guest";
-        localStorage.setItem(`mz_${uKey}_ch_draft_playground-${targetLang}-${seed}_${targetLang}`, starterCode);
-        localStorage.setItem(`mz_ch_draft_playground-${targetLang}-${seed}_${targetLang}`, starterCode);
-      } catch {}
-    }
     window.open(`/challenge-workspace/playground-${targetLang}-${seed}`, "_blank", "noopener,noreferrer");
   };
 
@@ -2229,11 +2222,7 @@ export default function Coding() {
                     type="button"
                     className="mz-c-link-btn"
                     onClick={() =>
-                      handleOpenPlayground(
-                        activeTrack.id || "python",
-                        activeTrack.title || "Python 3",
-                        `# ${activeTrack.title || "Python 3"} Sandboxed Environment\n# Real-time execution ready\n\ndef main():\n    print("Mastery Zone Live Coding Environment Ready!")\n\nif __name__ == "__main__":\n    main()\n`
-                      )
+                      handleOpenPlayground(activeTrack.id || "python")
                     }
                     style={{
                       display: "flex",
@@ -2348,11 +2337,7 @@ export default function Coding() {
                     type="button"
                     className="mz-c-link-btn"
                     onClick={() =>
-                      handleOpenPlayground(
-                        "python",
-                        "Python 3",
-                        `# Python 3 Sandboxed Runner\nimport sys\n\ndef solve():\n    input_text = sys.stdin.read().strip()\n    if input_text:\n        print(f"Input: {input_text}")\n    else:\n        print("Hello from Python 3 Runner!")\n\nif __name__ == "__main__":\n    solve()\n`
-                      )
+                      handleOpenPlayground("python")
                     }
                     style={{
                       display: "flex",
@@ -2387,11 +2372,7 @@ export default function Coding() {
                       type="button"
                       className="mz-c-playground-btn"
                       onClick={() =>
-                        handleOpenPlayground(
-                          "python",
-                          "Python 3",
-                          `# Python 3 Sandboxed Runner\nimport sys\n\ndef solve():\n    input_text = sys.stdin.read().strip()\n    if input_text:\n        print(f"Input: {input_text}")\n    else:\n        print("Hello from Python 3 Runner!")\n\nif __name__ == "__main__":\n    solve()\n`
-                        )
+                        handleOpenPlayground("python")
                       }
                     >
                       Start Coding <LuArrowRight size={13} />
@@ -2411,11 +2392,7 @@ export default function Coding() {
                       type="button"
                       className="mz-c-playground-btn"
                       onClick={() =>
-                        handleOpenPlayground(
-                          "javascript",
-                          "JavaScript",
-                          `// JavaScript Node.js Runtime\nconst fs = require('fs');\n\nfunction solve() {\n    let input = "";\n    try { input = fs.readFileSync(0, 'utf-8').trim(); } catch(e) {}\n    if (input) {\n        console.log(\`Input: \${input}\`);\n    } else {\n        console.log("Hello from JavaScript Node.js Runtime!");\n    }\n}\n\nsolve();\n`
-                        )
+                        handleOpenPlayground("javascript")
                       }
                     >
                       Start Coding <LuArrowRight size={13} />
@@ -2435,11 +2412,7 @@ export default function Coding() {
                       type="button"
                       className="mz-c-playground-btn"
                       onClick={() =>
-                        handleOpenPlayground(
-                          "java",
-                          "Java 26",
-                          `// Java 26 OpenJDK Compiler\nimport java.util.Scanner;\n\npublic class Solution {\n    public static void main(String[] args) {\n        Scanner scanner = new Scanner(System.in);\n        if (scanner.hasNextLine()) {\n            String line = scanner.nextLine().trim();\n            System.out.println("Input: " + line);\n        } else {\n            System.out.println("Hello from Java 26 OpenJDK!");\n        }\n    }\n}\n`
-                        )
+                        handleOpenPlayground("java")
                       }
                     >
                       Start Coding <LuArrowRight size={13} />
@@ -2459,11 +2432,7 @@ export default function Coding() {
                       type="button"
                       className="mz-c-playground-btn"
                       onClick={() =>
-                        handleOpenPlayground(
-                          "cpp",
-                          "Modern C++",
-                          `// Modern C++ (Clang / G++)\n#include <iostream>\n#include <string>\n\nint main() {\n    std::string line;\n    if (std::getline(std::cin, line) && !line.empty()) {\n        std::cout << "Input: " << line << std::endl;\n    } else {\n        std::cout << "Hello from Modern C++!" << std::endl;\n    }\n    return 0;\n}\n`
-                        )
+                        handleOpenPlayground("cpp")
                       }
                     >
                       Start Coding <LuArrowRight size={13} />

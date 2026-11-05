@@ -450,20 +450,20 @@ export default function MasteryZoneCompilerWorkspace({
       .catch(() => {});
   }, [historyUrl]);
 
-  // Actual test cases: exactly 10 test cases; for playground, all 10 are visible with real inputs and expected outputs
+  // Actual test cases: exactly 10 test cases; cases 1-3 visible, 4-10 hidden
   const effectiveTestCases = useMemo(() => {
     const list = (testCases && testCases.length > 0) ? testCases : (problemData?.testCases || []);
     return list.map((tc, idx) => ({
       index: idx + 1,
-      input: (!isPlayground && (tc.isHidden || idx >= 3)) ? `[Hidden Test Case #${idx + 1}]` : tc.input,
-      expectedOutput: (!isPlayground && (tc.isHidden || idx >= 3)) ? `[Hidden Output #${idx + 1}]` : tc.expectedOutput,
-      isHidden: isPlayground ? false : (!!tc.isHidden || idx >= 3),
+      input: (tc.isHidden || idx >= 3) ? `[Hidden Test Case #${idx + 1}]` : tc.input,
+      expectedOutput: (tc.isHidden || idx >= 3) ? `[Hidden Output #${idx + 1}]` : tc.expectedOutput,
+      isHidden: !!tc.isHidden || idx >= 3,
       passed: null,
       actualOutput: "",
       duration: 0,
       error: null,
     }));
-  }, [questionId, testCases, problemData, isPlayground]);
+  }, [questionId, testCases, problemData]);
 
   const [allTestCases, setAllTestCases] = useState(effectiveTestCases);
 
@@ -510,61 +510,6 @@ export default function MasteryZoneCompilerWorkspace({
   const isAllPassed = hasEvaluated && !isCodeModifiedAfterEval && allTestCases.length > 0 && (
     passedCount === allTestCases.length || allTestCases.every((tc) => tc.passed === true)
   );
-
-  // Real-time test cases validation in Interactive MZ-ASM Playground
-  useEffect(() => {
-    if (!isPlayground) return;
-    if (!code || code.trim().length < 10) return;
-    const timer = setTimeout(() => {
-      const qId = questionId || problemData?.id;
-      if (!qId) return;
-      const token = localStorage.getItem("token");
-      fetch(`${API_BASE}/api/coding/challenges/${qId}/test`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          language: selectedLang,
-          code,
-        }),
-      })
-        .then((res) => (res.ok ? res.json() : null))
-        .then((res) => {
-          if (res && Array.isArray(res.results) && res.results.length > 0) {
-            let pCount = 0;
-            setAllTestCases((prev) => {
-              const base = prev.length > 0 ? prev : (effectiveTestCases.length > 0 ? effectiveTestCases : Array.from({ length: res.results.length }));
-              const copy = [...base];
-              res.results.forEach((r, idx) => {
-                if (copy[idx]) {
-                  const isPassed = !!r.passed;
-                  if (isPassed) pCount++;
-                  copy[idx] = {
-                    ...(copy[idx] || {}),
-                    index: idx + 1,
-                    passed: isPassed,
-                    actualOutput: r.actual || r.actualOutput || (isPassed ? (r.expected || r.expectedOutput) : "[No Output]"),
-                    duration: r.duration || r.durationMs || 25,
-                    error: r.error || null,
-                    input: r.input || copy[idx].input,
-                    expectedOutput: r.expected || r.expectedOutput || copy[idx].expectedOutput,
-                    isHidden: false,
-                  };
-                }
-              });
-              return copy;
-            });
-            setPassedCount(pCount);
-            setHasEvaluated(true);
-          }
-        })
-        .catch(() => {});
-    }, 1200);
-
-    return () => clearTimeout(timer);
-  }, [code, selectedLang, isPlayground, questionId, problemData, effectiveTestCases]);
 
   // Trigger celebration party-popper confetti on 100% pass
   const confettiCanvasRef = useRef(null);
@@ -991,7 +936,7 @@ export default function MasteryZoneCompilerWorkspace({
 
   const effectiveSessionId = sessionId || routeSessionId || null;
   const [proctoringStage, setProctoringStage] = useState(
-    initialProctoringStage || (effectiveSessionId ? "active" : (isProctored && !isPlayground ? "gate" : "active"))
+    initialProctoringStage || (effectiveSessionId ? "active" : (isProctored ? "gate" : "active"))
   );
   const [proctoredSessionId, setProctoredSessionId] = useState(effectiveSessionId);
   const [candidateDetails, setCandidateDetails] = useState({
@@ -2374,7 +2319,7 @@ export default function MasteryZoneCompilerWorkspace({
                 error: r.error || null,
                 input: r.input || copy[idx].input,
                 expectedOutput: r.expected || r.expectedOutput || copy[idx].expectedOutput,
-                isHidden: isPlayground ? false : (copy[idx].isHidden !== undefined ? copy[idx].isHidden : idx >= 3),
+                isHidden: copy[idx].isHidden !== undefined ? copy[idx].isHidden : idx >= 3,
               };
             }
           });
@@ -2911,7 +2856,7 @@ export default function MasteryZoneCompilerWorkspace({
   // =========================================================================
   // PRE-ASSESSMENT SECURITY GATE ENFORCEMENT
   // =========================================================================
-  if (isProctored && !isPlayground && proctoringStage === "gate" && !routeSessionId) {
+  if (isProctored && proctoringStage === "gate" && !routeSessionId) {
     return (
       <AssessmentSecurityGate
         assessmentTitle={title || questionDetails.title}
