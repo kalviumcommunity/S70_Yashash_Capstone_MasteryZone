@@ -1546,8 +1546,7 @@ router.put("/modify-marks", async (req, res) => {
           console.warn("Proctoring in-app notification error:", notifErr.message);
         }
 
-        session.notificationEmailSent = true;
-        sendSubmissionEvaluationEmail({
+        const emailRes = await sendSubmissionEvaluationEmail({
           userEmail: studentUser.email,
           userName: studentUser.fullName || studentUser.username || session.candidateDetails?.fullName || "Candidate",
           assessmentTitle: session.assessmentTitle || "Proctored Examination",
@@ -1562,7 +1561,9 @@ router.put("/modify-marks", async (req, res) => {
           req,
         }).catch((emailErr) => {
           console.warn("Proctoring email notification error:", emailErr?.message);
+          return { success: false };
         });
+        session.notificationEmailSent = !!(emailRes && emailRes.success);
       }
       await session.save();
 

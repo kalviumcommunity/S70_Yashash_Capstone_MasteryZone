@@ -438,6 +438,15 @@ function dispatchMailBackground(mailPromiseFn, meta = {}) {
       }
     } catch (err) {
       console.error(`[Mailer Background Error] Unhandled exception in background email dispatch:`, err.message);
+      if (meta.recipient) {
+        recordEmailLog({
+          recipient: meta.recipient,
+          emailType: meta.type || 'background_job',
+          status: 'failed',
+          errorCode: 'BACKGROUND_EXCEPTION',
+          errorMessage: err.message,
+        });
+      }
     }
   });
 }
@@ -1300,6 +1309,10 @@ async function sendSubmissionEvaluationEmail({
       ? "Professional Certification Exam" 
       : assessmentType === "module" 
       ? "Curriculum Module Assessment" 
+      : assessmentType === "project"
+      ? "Full-Stack Project Evaluation"
+      : assessmentType === "proctoring"
+      ? "Proctored Examination"
       : "Coding Challenge Submission";
 
     const displayScore = percentage != null 

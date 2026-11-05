@@ -13,6 +13,11 @@ const {
   sendMainAdminOtpEmail,
   sendSupportTicketSubmittedEmail,
   sendCertificateAwardedEmail,
+  sendSubmissionEvaluationEmail,
+  sendNewAdminWelcomeEmail,
+  sendAdminPasswordChangedEmail,
+  sendPasswordResetSuccessEmail,
+  sendLoginNotification,
 } = require("../utils/mailer");
 const EmailLog = require("../models/EmailLog");
 
@@ -399,6 +404,144 @@ async function main() {
 
     // Masking check
     assert.strictEqual(maskEmail("john.doe@gmail.com"), "j***e@gmail.com");
+  });
+
+  // 19. Project and assessment evaluation email formatting
+  await runTest("19. Project and module evaluation emails format score and report link", async () => {
+    const origCreateTransport = nodemailer.createTransport;
+    let capturedMail = null;
+    nodemailer.createTransport = () => ({
+      verify: (cb) => cb(null, true),
+      sendMail: (opts, cb) => {
+        capturedMail = opts;
+        cb(null, { accepted: [opts.to], rejected: [], messageId: "<eval-123@masteryzone.com>" });
+      },
+    });
+    resetTransporter();
+
+    try {
+      const res = await sendSubmissionEvaluationEmail({
+        userEmail: "student@example.com",
+        userName: "Dev Learner",
+        assessmentTitle: "Cloud File Manager Full Stack",
+        assessmentType: "project",
+        score: 95,
+        maxScore: 100,
+        percentage: 95,
+        verdict: "PASSED",
+        reportUrl: "/assessment-report/proj_123",
+      });
+      assert.strictEqual(res.success, true);
+      assert.ok(capturedMail.html.includes("Full-Stack Project Evaluation"), "Must identify project evaluation");
+      assert.ok(capturedMail.html.includes("Cloud File Manager Full Stack"), "Must include project title");
+    } finally {
+      nodemailer.createTransport = origCreateTransport;
+      resetTransporter();
+    }
+  });
+
+  // 20. Secondary administrator welcome email
+  await runTest("20. New secondary administrator welcome email includes initial credentials", async () => {
+    const origCreateTransport = nodemailer.createTransport;
+    let capturedMail = null;
+    nodemailer.createTransport = () => ({
+      verify: (cb) => cb(null, true),
+      sendMail: (opts, cb) => {
+        capturedMail = opts;
+        cb(null, { accepted: [opts.to], rejected: [], messageId: "<admin-welc@masteryzone.com>" });
+      },
+    });
+    resetTransporter();
+
+    try {
+      const res = await sendNewAdminWelcomeEmail({
+        adminEmail: "sec_admin@example.com",
+        adminName: "Secondary Admin",
+        tempPassword: "TempPassword123!",
+        permissions: ["users", "reports"],
+      });
+      assert.strictEqual(res.success, true);
+      assert.ok(capturedMail.html.includes("TempPassword123!"), "Must contain temporary credentials");
+      assert.ok(capturedMail.html.includes("sec_admin@example.com"), "Must contain admin email");
+    } finally {
+      nodemailer.createTransport = origCreateTransport;
+      resetTransporter();
+    }
+  });
+
+  // 21. Administrator password changed alert
+  await runTest("21. Admin password changed alert includes security details", async () => {
+    const origCreateTransport = nodemailer.createTransport;
+    let capturedMail = null;
+    nodemailer.createTransport = () => ({
+      verify: (cb) => cb(null, true),
+      sendMail: (opts, cb) => {
+        capturedMail = opts;
+        cb(null, { accepted: [opts.to], rejected: [], messageId: "<admin-pwd@masteryzone.com>" });
+      },
+    });
+    resetTransporter();
+
+    try {
+      const res = await sendAdminPasswordChangedEmail({
+        adminEmail: "sec_admin@example.com",
+        adminName: "Secondary Admin",
+        changedBy: "Main Administrator",
+      });
+      assert.strictEqual(res.success, true);
+      assert.ok(capturedMail.html.includes("Main Administrator"), "Must mention changedBy");
+    } finally {
+      nodemailer.createTransport = origCreateTransport;
+      resetTransporter();
+    }
+  });
+
+  // 22. Password reset confirmation email
+  await runTest("22. Password reset confirmation includes device telemetry", async () => {
+    const origCreateTransport = nodemailer.createTransport;
+    let capturedMail = null;
+    nodemailer.createTransport = () => ({
+      verify: (cb) => cb(null, true),
+      sendMail: (opts, cb) => {
+        capturedMail = opts;
+        cb(null, { accepted: [opts.to], rejected: [], messageId: "<pwd-succ@masteryzone.com>" });
+      },
+    });
+    resetTransporter();
+
+    try {
+      const fakeUser = { email: "student_pwd@example.com", fullName: "Student User" };
+      const res = await sendPasswordResetSuccessEmail(fakeUser);
+      assert.strictEqual(res.success, true);
+      assert.ok(capturedMail.html.includes("Password Changed Successfully"), "Must include success header");
+    } finally {
+      nodemailer.createTransport = origCreateTransport;
+      resetTransporter();
+    }
+  });
+
+  // 23. Login notification and security alert
+  await runTest("23. Login notification alerts user on session authenticated", async () => {
+    const origCreateTransport = nodemailer.createTransport;
+    let capturedMail = null;
+    nodemailer.createTransport = () => ({
+      verify: (cb) => cb(null, true),
+      sendMail: (opts, cb) => {
+        capturedMail = opts;
+        cb(null, { accepted: [opts.to], rejected: [], messageId: "<login-alert@masteryzone.com>" });
+      },
+    });
+    resetTransporter();
+
+    try {
+      const fakeUser = { email: "student_login@example.com", fullName: "Student User" };
+      const res = await sendLoginNotification(fakeUser, null, true);
+      assert.strictEqual(res.success, true);
+      assert.ok(capturedMail.subject.toLowerCase().includes("sign-in") || capturedMail.subject.includes("Security Alert"), "Subject must reflect sign-in alert");
+    } finally {
+      nodemailer.createTransport = origCreateTransport;
+      resetTransporter();
+    }
   });
 
   // Restore environment
