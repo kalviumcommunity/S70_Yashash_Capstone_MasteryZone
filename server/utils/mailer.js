@@ -34,8 +34,8 @@ function resetTransporter() {
 function getSmtpConfig() {
   const host = (process.env.SMTP_HOST || 'smtp.gmail.com').trim();
   const rawPort = process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : null;
-  const isSecure = process.env.SMTP_SECURE === 'true' || (!rawPort && host.includes('gmail')) || rawPort === 465;
-  const port = rawPort || (isSecure ? 465 : 587);
+  const port = rawPort || (process.env.SMTP_SECURE === 'false' ? 587 : 465);
+  const isSecure = port === 465 ? true : (port === 587 ? false : process.env.SMTP_SECURE === 'true');
 
   const email = (process.env.SMTP_EMAIL || process.env.EMAIL_USER || '').trim();
   const password = (process.env.SMTP_PASSWORD || process.env.EMAIL_PASS || '').trim().replace(/\s+/g, '');
@@ -132,13 +132,14 @@ function getTransporter() {
           user: config.email,
           pass: config.password,
         },
+        family: 4, // Force IPv4 resolution to prevent cloud host IPv6 timeouts on Render/Docker
         pool: true,
         maxConnections: 5,
         maxMessages: 100,
         idleTimeout: 30000,
-        connectionTimeout: 10000,
-        greetingTimeout: 8000,
-        socketTimeout: 15000,
+        connectionTimeout: 15000,
+        greetingTimeout: 10000,
+        socketTimeout: 20000,
       };
 
       transporterInstance = nodemailer.createTransport(transportOptions);
@@ -188,6 +189,44 @@ async function verifySmtpConnection() {
       message: 'SMTP connection verified successfully and ready for dispatch.',
     };
   } catch (err) {
+    // If port 465 hit a network/socket error on cloud host, transparently try port 587 (STARTTLS, IPv4)
+    if ((err.code === 'ESOCKET' || err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT') && config.port === 465) {
+      try {
+        console.log(`ℹ️ [Mailer] Port 465 hit ${err.code} on cloud host; attempting fallback to Port 587 (STARTTLS, IPv4)...`);
+        const fallbackOptions = {
+          host: config.host,
+          port: 587,
+          secure: false,
+          auth: {
+            user: config.email,
+            pass: config.password,
+          },
+          family: 4,
+          pool: true,
+          connectionTimeout: 15000,
+          greetingTimeout: 10000,
+          socketTimeout: 20000,
+        };
+        const altTp = nodemailer.createTransport(fallbackOptions);
+        await altTp.verify();
+        transporterInstance = altTp;
+        console.log(`✅ [Mailer] Port 587 (STARTTLS) verified and established as active transporter.`);
+        return {
+          success: true,
+          configured: true,
+          connected: true,
+          host: config.host,
+          port: 587,
+          secure: false,
+          sender: config.from,
+          user: maskEmail(config.email),
+          message: 'SMTP connection verified successfully on port 587 (STARTTLS) and ready for dispatch.',
+        };
+      } catch (altErr) {
+        console.warn(`[Mailer] Fallback to port 587 also failed:`, altErr.message);
+      }
+    }
+
     resetTransporter();
     const diag = diagnoseSmtpError(err);
     return {
