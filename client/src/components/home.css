@@ -560,6 +560,10 @@
   font-size: 13.5px;
   font-weight: 600;
   color: #1e293b;
+  max-width: 165px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .mz-chevron {
@@ -576,7 +580,7 @@
   position: absolute;
   top: 48px;
   right: 0;
-  width: 215px;
+  width: 245px;
   background: #ffffff;
   border: 1px solid #edf2f7;
   border-radius: 14px;
@@ -609,6 +613,9 @@
 .mz-menu-header strong {
   font-size: 13px;
   color: #0f172a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .mz-menu-header span {
@@ -2787,24 +2794,25 @@
 
 .mz-proj-cover-hero {
   position: relative;
-  padding: 32px 36px;
-  color: #ffffff;
+  padding: 34px 38px;
+  color: #0f172a;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 32px;
+  gap: 36px;
   overflow: hidden;
-  min-height: 280px;
-  transition: background 0.5s ease;
+  min-height: 290px;
+  transition: background 0.4s ease, border-color 0.4s ease;
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .mz-proj-cover-hero::before {
   content: "";
   position: absolute;
   inset: 0;
-  background-image: radial-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px);
-  background-size: 24px 24px;
-  opacity: 0.25;
+  background-image: radial-gradient(rgba(148, 163, 184, 0.35) 1px, transparent 1px);
+  background-size: 20px 20px;
+  opacity: 0.4;
   pointer-events: none;
 }
 
@@ -2819,51 +2827,53 @@
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 
 .mz-proj-badge-domain {
-  background: rgba(255, 255, 255, 0.18);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  color: #ffffff;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 750;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  padding: 4px 10px;
+  letter-spacing: 0.05em;
+  padding: 4px 11px;
   border-radius: 9999px;
-  backdrop-filter: blur(8px);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
 }
 
 .mz-proj-badge-diff {
-  background: rgba(0, 0, 0, 0.25);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: #f8fafc;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #475569;
   font-size: 11px;
   font-weight: 600;
   padding: 4px 10px;
   border-radius: 9999px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
 .mz-proj-badge-container {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  background: rgba(16, 185, 129, 0.2);
-  border: 1px solid rgba(52, 211, 153, 0.4);
-  color: #a7f3d0;
+  gap: 6px;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
   font-size: 11px;
   font-weight: 700;
-  padding: 4px 10px;
+  padding: 4px 11px;
   border-radius: 9999px;
+  box-shadow: 0 1px 2px rgba(16, 185, 129, 0.08);
 }
 
 .mz-proj-pulse-dot {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: #34d399;
-  box-shadow: 0 0 8px #34d399;
+  background: #10b981;
+  box-shadow: 0 0 6px #10b981;
   animation: mzPulse 2s infinite;
 }
 
@@ -2875,20 +2885,18 @@
 
 .mz-proj-cover-title {
   font-size: 1.85rem;
-  font-weight: 800;
-  color: #ffffff;
+  font-weight: 850;
+  color: #0f172a;
   margin: 0 0 10px;
   line-height: 1.25;
-  letter-spacing: -0.02em;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  letter-spacing: -0.025em;
 }
 
 .mz-proj-cover-desc {
   font-size: 0.94rem;
-  color: #e2e8f0;
-  line-height: 1.6;
-  margin: 0 0 16px;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  color: #334155;
+  line-height: 1.62;
+  margin: 0 0 18px;
 }
 
 .mz-proj-tech-chips {
@@ -2899,39 +2907,44 @@
 }
 
 .mz-proj-tech-chip {
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  color: #f1f5f9;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #1e293b;
   font-size: 11.5px;
   font-weight: 600;
-  padding: 4px 10px;
+  padding: 4px 11px;
   border-radius: 8px;
-  backdrop-filter: blur(6px);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: all 0.15s ease;
+}
+
+.mz-proj-tech-chip:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
 }
 
 /* Embedded Terminal Code Window on Cover Page */
 .mz-proj-cover-right {
-  flex: 0 0 380px;
-  max-width: 45%;
+  flex: 0 0 390px;
+  max-width: 46%;
   z-index: 2;
 }
 
 .mz-proj-code-window {
-  background: rgba(10, 15, 29, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
   border-radius: 14px;
   overflow: hidden;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(12px);
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
 }
 
 .mz-proj-code-header {
-  background: rgba(15, 23, 42, 0.95);
-  padding: 8px 14px;
+  background: #f8fafc;
+  padding: 9px 15px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .mz-proj-code-dots {
@@ -2947,20 +2960,22 @@
 
 .mz-proj-code-file {
   font-size: 11.5px;
-  font-weight: 600;
-  color: #94a3b8;
-  font-family: monospace;
+  font-weight: 700;
+  color: #334155;
+  font-family: "JetBrains Mono", Monaco, Consolas, monospace;
 }
 
 .mz-proj-code-snippet {
   margin: 0;
-  padding: 14px 16px;
-  font-family: "Fira Code", Monaco, Consolas, monospace;
+  padding: 16px 18px;
+  font-family: "JetBrains Mono", "Fira Code", Monaco, Consolas, monospace;
   font-size: 12px;
-  line-height: 1.55;
-  color: #38bdf8;
+  line-height: 1.6;
+  color: #0f172a;
+  background: #ffffff;
   overflow-x: auto;
   white-space: pre;
+  border-left: 3px solid #2563eb;
 }
 
 /* Interactive Milestones & Action Bar */
@@ -3173,9 +3188,10 @@
 }
 
 .mz-proj-grid-cover {
-  padding: 18px 20px;
-  color: #ffffff;
+  padding: 20px 22px;
+  color: #0f172a;
   position: relative;
+  transition: background 0.3s ease;
 }
 
 .mz-proj-grid-body {

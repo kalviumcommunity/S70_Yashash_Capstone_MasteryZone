@@ -1748,9 +1748,13 @@ export default function Coding() {
 
             {showUserDropdown && (
               <div className="mz-c-user-dropdown">
-                <div className="mz-c-dropdown-item mz-c-dropdown-header-item">
-                  <strong>{currentUser?.name || "Learner"}</strong>
-                  <span className="mz-c-dropdown-sub">{currentUser?.email || "learner@masteryzone.com"}</span>
+                <div className="mz-c-dropdown-header-card">
+                  <div className="mz-c-dropdown-header-info">
+                    <strong className="mz-c-dropdown-name">{currentUser?.name || "Learner"}</strong>
+                    <span className="mz-c-dropdown-sub" title={currentUser?.email || "learner@masteryzone.com"}>
+                      {currentUser?.email || "learner@masteryzone.com"}
+                    </span>
+                  </div>
                 </div>
                 <div className="mz-c-dropdown-divider" />
                 <div
@@ -1760,7 +1764,8 @@ export default function Coding() {
                     setShowUserDropdown(false);
                   }}
                 >
-                  <LuUser size={15} /> Profile Settings
+                  <span className="mz-c-dropdown-item-icon"><LuUser size={15} /></span>
+                  <span>Profile Settings</span>
                 </div>
                 <div
                   className="mz-c-dropdown-item"
@@ -1769,7 +1774,8 @@ export default function Coding() {
                     setShowUserDropdown(false);
                   }}
                 >
-                  <LuTrendingUp size={15} /> My Learning Progress
+                  <span className="mz-c-dropdown-item-icon"><LuTrendingUp size={15} /></span>
+                  <span>My Learning Progress</span>
                 </div>
                 <div
                   className="mz-c-dropdown-item"
@@ -1778,11 +1784,16 @@ export default function Coding() {
                     setShowUserDropdown(false);
                   }}
                 >
-                  <LuAward size={15} /> My Earned Certificates ({earnedCertificates.length})
+                  <span className="mz-c-dropdown-item-icon"><LuAward size={15} /></span>
+                  <span className="mz-c-dropdown-item-text">
+                    <span>My Earned Certificates</span>
+                    <span className="mz-c-cert-count-pill">{earnedCertificates.length}</span>
+                  </span>
                 </div>
                 <div className="mz-c-dropdown-divider" />
                 <div className="mz-c-dropdown-item mz-c-item-danger" onClick={handleLogout}>
-                  <LuLogOut size={15} /> Sign Out
+                  <span className="mz-c-dropdown-item-icon"><LuLogOut size={15} /></span>
+                  <span>Sign Out</span>
                 </div>
               </div>
             )}
@@ -1842,7 +1853,7 @@ export default function Coding() {
               window.scrollTo({ top: 0, behavior: "smooth" });
             }}
           >
-            <LuCode size={16} /> Challenges ({challenges.length || 135})
+            <LuCode size={16} /> Challenges ({challenges.length || 235})
           </button>
           <button
             className={`mz-c-tab-btn ${activeTab === "projects" ? "active" : ""}`}
@@ -2432,7 +2443,7 @@ export default function Coding() {
         {/* ── TAB 2: CHALLENGES TAB (Curated Algorithmic Problems with Question Numbers) ── */}
         {activeTab === "challenges" && (
           <div className="mz-c-challenges-tab-view mz-c-grid-anim">
-            {/* Top 135 Challenges Showcase Cover Card */}
+            {/* Top 235 Challenges Showcase Cover Card */}
             <div className="mz-c-challenges-showcase-cover">
               <div style={{ position: "relative", zIndex: 1, maxWidth: "660px" }}>
                 <div className="mz-c-challenges-cover-badge">
@@ -2440,7 +2451,7 @@ export default function Coding() {
                   <span>Official LeetCode & FAANG Problem Catalog</span>
                 </div>
                 <h2 className="mz-c-challenges-cover-title">
-                  135 Curated Algorithmic Coding Challenges
+                  {challenges.length || 235} Curated Algorithmic Coding Challenges
                 </h2>
                 <p className="mz-c-challenges-cover-desc">
                   Practice essential data structures and algorithms across Python, Modern C++, Java, and JavaScript. Every problem features automated multi-test execution, edge-case evaluation, and sub-millisecond benchmarking.
@@ -2451,24 +2462,24 @@ export default function Coding() {
               <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", position: "relative", zIndex: 1 }}>
                 <div className="mz-c-challenges-metric-box">
                   <div style={{ fontSize: "10.5px", color: "#64748b", textTransform: "uppercase", fontWeight: 800 }}>Total</div>
-                  <div style={{ fontSize: "19px", fontWeight: 900, color: "#0f172a", marginTop: "2px" }}>{challenges.length || 135}</div>
+                  <div style={{ fontSize: "19px", fontWeight: 900, color: "#0f172a", marginTop: "2px" }}>{challenges.length || 235}</div>
                 </div>
                 <div className="mz-c-challenges-metric-box">
                   <div style={{ fontSize: "10.5px", color: "#16a34a", textTransform: "uppercase", fontWeight: 800 }}>Easy</div>
                   <div style={{ fontSize: "19px", fontWeight: 900, color: "#16a34a", marginTop: "2px" }}>
-                    {challenges.filter((c) => c.difficulty?.toLowerCase() === "easy").length || 45}
+                    {challenges.filter((c) => c.difficulty?.toLowerCase() === "easy").length || 90}
                   </div>
                 </div>
                 <div className="mz-c-challenges-metric-box">
                   <div style={{ fontSize: "10.5px", color: "#d97706", textTransform: "uppercase", fontWeight: 800 }}>Medium</div>
                   <div style={{ fontSize: "19px", fontWeight: 900, color: "#d97706", marginTop: "2px" }}>
-                    {challenges.filter((c) => c.difficulty?.toLowerCase() === "medium").length || 65}
+                    {challenges.filter((c) => c.difficulty?.toLowerCase() === "medium").length || 133}
                   </div>
                 </div>
                 <div className="mz-c-challenges-metric-box">
                   <div style={{ fontSize: "10.5px", color: "#dc2626", textTransform: "uppercase", fontWeight: 800 }}>Hard</div>
                   <div style={{ fontSize: "19px", fontWeight: 900, color: "#dc2626", marginTop: "2px" }}>
-                    {challenges.filter((c) => c.difficulty?.toLowerCase() === "hard").length || 25}
+                    {challenges.filter((c) => c.difficulty?.toLowerCase() === "hard").length || 12}
                   </div>
                 </div>
               </div>
