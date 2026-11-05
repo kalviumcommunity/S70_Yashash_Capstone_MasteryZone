@@ -545,7 +545,7 @@ router.post("/admin/tickets/:ticketId/reply", verifyAdmin, async (req, res) => {
       adminResponse: message.trim(),
       status: newStatus,
       respondedBy: adminName,
-      ticketUrl: `http://localhost:5174/help?ticket=${ticket.ticketId}`,
+      req,
     }).catch((e) => console.warn("Admin response email warning:", e.message));
 
     // Real-time broadcast

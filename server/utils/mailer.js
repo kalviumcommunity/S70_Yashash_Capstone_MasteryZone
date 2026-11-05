@@ -241,105 +241,164 @@ function formatEmailDateTime(date = new Date()) {
   return d.toLocaleString('en-US', options);
 }
 
-// ── 4. BRANDED HTML TEMPLATES ──
+// ── 4. CLIENT URL RESOLVER & BRANDED MOBILE-FIRST TEMPLATES ──
 
-// Standard Mastery Zone Base Layout Wrapper
+/**
+ * Resolves the absolute base URL for links in emails.
+ * Mobile devices can never open 'http://localhost:...'.
+ * This prioritizes:
+ * 1. process.env.CLIENT_URL (e.g. production domain when deployed)
+ * 2. Incoming request's non-localhost origin/referer
+ * 3. Local machine's real IPv4 LAN address (e.g. http://172.22.128.136:5174) for local Wi-Fi mobile testing
+ * 4. Fallback to http://localhost:5174
+ */
+function getClientBaseUrl(req = null, overrideOrigin = null) {
+  if (overrideOrigin && typeof overrideOrigin === 'string' && overrideOrigin.trim()) {
+    const clean = overrideOrigin.trim().replace(/\/+$/, '');
+    if (!clean.includes('localhost') && !clean.includes('127.0.0.1')) {
+      return clean;
+    }
+  }
+
+  if (process.env.CLIENT_URL && typeof process.env.CLIENT_URL === 'string' && process.env.CLIENT_URL.trim()) {
+    const envUrl = process.env.CLIENT_URL.trim().replace(/\/+$/, '');
+    if (!envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
+      return envUrl;
+    }
+  }
+
+  if (req) {
+    const reqOrigin =
+      req.body?.clientOrigin ||
+      (typeof req.get === 'function' ? req.get('origin') : null) ||
+      req.headers?.origin ||
+      req.headers?.referer ||
+      '';
+    if (reqOrigin && typeof reqOrigin === 'string') {
+      try {
+        const u = new URL(reqOrigin);
+        if (u.hostname && u.hostname !== 'localhost' && u.hostname !== '127.0.0.1') {
+          return `${u.protocol}//${u.host}`.replace(/\/+$/, '');
+        }
+      } catch {}
+    }
+  }
+
+  const lanIp = getLanIpAddress();
+  if (lanIp && lanIp !== '127.0.0.1') {
+    return `http://${lanIp}:5174`;
+  }
+
+  return 'http://localhost:5174';
+}
+
+/**
+ * Renders an interactive, touch-friendly bulletproof email button.
+ * Conforms to Apple and Android tap targets (min 48px height) and expands cleanly on mobile screens.
+ */
+function renderBulletproofButton({
+  url,
+  label,
+  secondaryUrl = null,
+  secondaryLabel = null,
+  gradient = 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+  bgColor = '#4f46e5',
+  showDirectLink = true,
+}) {
+  return `
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 26px 0 16px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" border="0" cellpadding="0" cellspacing="0" class="mobile-btn-container" style="margin: 0 auto; max-width: 100%;">
+            <tr>
+              <td align="center" style="border-radius: 12px; background: ${bgColor}; box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);">
+                <a href="${url}" target="_blank" class="mobile-action-btn" style="display: inline-block; min-height: 48px; line-height: 48px; padding: 0 32px; background: ${gradient}; color: #ffffff !important; text-decoration: none !important; font-size: 15px; font-weight: 800; border-radius: 12px; text-align: center; letter-spacing: 0.3px; -webkit-text-size-adjust: none;">
+                  ${label} →
+                </a>
+              </td>
+            </tr>
+          </table>
+          ${
+            secondaryUrl && secondaryLabel
+              ? `
+            <div style="margin-top: 14px;">
+              <a href="${secondaryUrl}" target="_blank" style="color: #4f46e5; font-size: 13.5px; font-weight: 700; text-decoration: underline; display: inline-block; padding: 6px 12px;">
+                ${secondaryLabel}
+              </a>
+            </div>
+          `
+              : ''
+          }
+          ${
+            showDirectLink
+              ? `
+            <div style="margin-top: 14px; padding: 10px 14px; background: #f8fafc; border-radius: 8px; border: 1px dashed #cbd5e1; max-width: 520px; margin-left: auto; margin-right: auto; text-align: left;">
+              <span style="font-size: 11px; color: #64748b; display: block; margin-bottom: 4px; font-weight: 700; text-transform: uppercase;">Direct Link (Mobile & Desktop):</span>
+              <a href="${url}" target="_blank" style="font-size: 12.5px; color: #4338ca; font-weight: 700; word-break: break-all; text-decoration: underline; font-family: monospace;">
+                ${url}
+              </a>
+            </div>
+          `
+              : ''
+          }
+        </td>
+      </tr>
+    </table>
+  `;
+}
+
+// Standard Mastery Zone Base Layout Wrapper (Fully Responsive Mobile-First Architecture)
 function wrapHtmlEmail({ title, preheader, badgeText, badgeColor = '#4f46e5', badgeBg = '#eef2ff', contentHtml }) {
   return `
-<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="x-apple-disable-message-reformatting" />
+  <meta name="format-detection" content="telephone=no,date=no,address=no,email=no,url=no" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="supported-color-schemes" content="light dark" />
   <title>${title}</title>
-  <style>
-    body {
-      margin: 0;
-      padding: 0;
-      background-color: #f1f5f9;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      color: #0f172a;
-      -webkit-font-smoothing: antialiased;
+  <style type="text/css">
+    html, body {
+      margin: 0 !important;
+      padding: 0 !important;
       width: 100% !important;
-      min-height: 100% !important;
+      min-width: 100% !important;
+      background-color: #0f172a !important;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
+      -webkit-font-smoothing: antialiased !important;
+      -webkit-text-size-adjust: 100% !important;
+      -ms-text-size-adjust: 100% !important;
     }
-    .wrapper {
-      width: 100% !important;
-      min-height: 100vh;
-      background-color: #f1f5f9;
-      padding: 32px 16px;
-      box-sizing: border-box;
+    table {
+      border-collapse: collapse !important;
+      mso-table-lspace: 0pt !important;
+      mso-table-rspace: 0pt !important;
     }
-    .container {
-      width: 100% !important;
-      max-width: 680px;
-      margin: 0 auto;
-      background: #ffffff;
-      border-radius: 18px;
-      overflow: hidden;
-      box-shadow: 0 12px 36px rgba(15, 23, 42, 0.08);
-      border: 1px solid #e2e8f0;
+    img {
+      border: 0 !important;
+      outline: none !important;
+      text-decoration: none !important;
+      -ms-interpolation-mode: bicubic !important;
     }
-    .header {
-      background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%);
-      padding: 36px 36px 30px;
-      text-align: center;
-      position: relative;
-    }
-    .brand-title {
-      color: #ffffff;
-      font-size: 26px;
-      font-weight: 800;
-      letter-spacing: -0.5px;
-      margin: 0 0 6px;
-    }
-    .brand-tagline {
-      color: #c7d2fe;
-      font-size: 13px;
-      font-weight: 600;
-      letter-spacing: 0.8px;
-      text-transform: uppercase;
-      margin: 0;
-    }
-    .badge {
-      display: inline-block;
-      margin-top: 16px;
-      padding: 6px 16px;
-      border-radius: 30px;
-      font-size: 12px;
-      font-weight: 700;
-      color: ${badgeColor};
-      background-color: ${badgeBg};
-      letter-spacing: 0.3px;
-    }
-    .body {
-      padding: 36px 36px 30px;
-      background: #ffffff;
-    }
-    .footer {
-      background: #f8fafc;
-      padding: 26px 36px;
-      text-align: center;
-      border-top: 1px solid #e2e8f0;
-    }
-    .footer-text {
-      font-size: 12px;
-      color: #64748b;
-      line-height: 1.6;
-      margin: 0 0 8px;
+    a {
+      text-decoration: none;
     }
     .data-table {
       width: 100%;
       border-collapse: separate;
       border-spacing: 0;
-      margin: 20px 0;
+      margin: 18px 0;
       border: 1px solid #e2e8f0;
       border-radius: 12px;
       overflow: hidden;
     }
     .data-table td {
-      padding: 12px 16px;
-      font-size: 13px;
+      padding: 11px 15px;
+      font-size: 13.5px;
       border-bottom: 1px solid #f1f5f9;
     }
     .data-table tr:last-child td {
@@ -355,23 +414,11 @@ function wrapHtmlEmail({ title, preheader, badgeText, badgeColor = '#4f46e5', ba
       color: #0f172a;
       font-weight: 600;
     }
-    .btn-primary {
-      display: inline-block;
-      background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-      color: #ffffff !important;
-      text-decoration: none;
-      padding: 14px 32px;
-      border-radius: 12px;
-      font-size: 14px;
-      font-weight: 700;
-      box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
-      margin: 16px 0;
-    }
     .alert-box {
       border-radius: 12px;
       padding: 16px 18px;
       margin: 20px 0;
-      font-size: 13px;
+      font-size: 13.5px;
       line-height: 1.5;
     }
     .alert-warning {
@@ -389,52 +436,123 @@ function wrapHtmlEmail({ title, preheader, badgeText, badgeColor = '#4f46e5', ba
       border: 1px solid #bfdbfe;
       color: #1e40af;
     }
-    @media screen and (max-width: 640px) {
-      .wrapper {
-        padding: 0 !important;
-      }
-      .container {
+
+    /* Mobile media query overrides */
+    @media only screen and (max-width: 600px) {
+      .email-container {
+        width: 100% !important;
+        max-width: 100% !important;
         border-radius: 0 !important;
         border: none !important;
-        max-width: 100% !important;
       }
-      .header {
-        padding: 28px 20px !important;
+      .mobile-padding {
+        padding: 24px 16px !important;
       }
-      .body {
-        padding: 24px 20px !important;
+      .mobile-header-padding {
+        padding: 28px 18px !important;
       }
-      .footer {
-        padding: 20px 20px !important;
+      .mobile-action-btn {
+        display: block !important;
+        width: 100% !important;
+        min-height: 52px !important;
+        line-height: 52px !important;
+        padding: 0 16px !important;
+        box-sizing: border-box !important;
+        font-size: 16px !important;
+      }
+      .mobile-btn-container {
+        width: 100% !important;
+      }
+      .data-table td {
+        display: block !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+        padding: 9px 12px !important;
+      }
+      .data-table td.label {
+        background: #f1f5f9 !important;
+        font-weight: 700 !important;
+        border-bottom: none !important;
+      }
+      .mobile-title {
+        font-size: 20px !important;
+      }
+      .otp-digit-box {
+        font-size: 28px !important;
+        letter-spacing: 5px !important;
+        padding: 14px 16px !important;
       }
     }
   </style>
 </head>
-<body>
-  <div style="display:none;font-size:1px;color:#333;line-height:1px;max-height:0px;max-width:0px;opacity:0;overflow:hidden;">
+<body style="margin: 0; padding: 0; background-color: #0f172a; width: 100% !important; -webkit-text-size-adjust: 100%;">
+  <div style="display:none;font-size:1px;color:#0f172a;line-height:1px;max-height:0px;max-width:0px;opacity:0;overflow:hidden;mso-hide:all;">
     ${preheader || title}
   </div>
-  <div class="wrapper">
-    <div class="container">
-      <div class="header">
-        <h1 class="brand-title">Mastery Zone</h1>
-        <p class="brand-tagline">Learn · Grow · Succeed</p>
-        ${badgeText ? `<div class="badge">${badgeText}</div>` : ''}
-      </div>
-      <div class="body">
-        ${contentHtml}
-      </div>
-      <div class="footer">
-        <p class="footer-text">
-          <strong>Mastery Zone Academic & Accreditation Security</strong><br>
-          Automated identity verification, proctored audit trails, and multi-factor notifications.
-        </p>
-        <p class="footer-text" style="font-size: 11px; color: #94a3b8; margin: 0;">
-          This is an automated transmission for account security. To adjust email preferences, visit Settings on Mastery Zone.
-        </p>
-      </div>
-    </div>
-  </div>
+
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #0f172a; margin: 0; padding: 24px 0;">
+    <tr>
+      <td align="center" style="padding: 0 8px;">
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" class="email-container" style="max-width: 600px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35); border: 1px solid #1e293b;">
+          
+          <!-- Header Banner -->
+          <tr>
+            <td class="mobile-header-padding" align="center" style="background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #312e81 100%); padding: 34px 28px 28px; text-align: center; border-bottom: 2px solid #4338ca;">
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td align="center">
+                    <div style="display: inline-block; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 12px; padding: 8px 16px; margin-bottom: 12px;">
+                      <span style="color: #67e8f9; font-weight: 900; font-size: 16px; letter-spacing: 1px;">⚡ MASTERY ZONE</span>
+                    </div>
+                    <div style="color: #ffffff; font-size: 24px; font-weight: 900; letter-spacing: -0.5px; margin: 0 0 4px;">
+                      Engineering & Accreditation
+                    </div>
+                    <div style="color: #c7d2fe; font-size: 12.5px; font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase;">
+                      Proctored Assessment & Career Excellence
+                    </div>
+                    ${
+                      badgeText
+                        ? `
+                      <div style="margin-top: 14px;">
+                        <span style="display: inline-block; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 800; color: ${badgeColor}; background-color: ${badgeBg}; letter-spacing: 0.3px; border: 1px solid rgba(0,0,0,0.06);">
+                          ${badgeText}
+                        </span>
+                      </div>
+                    `
+                        : ''
+                    }
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Main Email Body -->
+          <tr>
+            <td class="mobile-padding" style="padding: 32px 30px; background-color: #ffffff; color: #0f172a; font-size: 14.5px; line-height: 1.6;">
+              ${contentHtml}
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td class="mobile-padding" style="background-color: #f8fafc; padding: 24px 28px; text-align: center; border-top: 1px solid #e2e8f0;">
+              <p style="margin: 0 0 8px; font-size: 12px; color: #475569; font-weight: 700;">
+                Mastery Zone Academic & Accreditation Platform
+              </p>
+              <p style="margin: 0 0 10px; font-size: 11.5px; color: #64748b; line-height: 1.5;">
+                Automated identity telemetry, proctored audit tracking, and verified career credentials.
+              </p>
+              <p style="margin: 0; font-size: 11px; color: #94a3b8;">
+                This message was dispatched securely to your registered email. To update preferences, visit Candidate Settings.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>
   `.trim();
@@ -461,16 +579,25 @@ async function sendLoginNotification(user, req, isNewDevice = false) {
     const candidateName = user.fullName || user.username || 'Candidate';
     const loginTimeStr = formatEmailDateTime(new Date());
 
-    const clientOrigin =
-      (req && typeof req.get === 'function' && req.get('origin')) ||
-      (req && req.headers && req.headers.origin) ||
-      process.env.CLIENT_URL ||
-      'http://localhost:5174';
-    const resetUrl = `${clientOrigin}/forgot-password`;
+    const clientUrl = getClientBaseUrl(req);
+    const resetUrl = `${clientUrl}/forgot-password`;
+    const dashboardUrl = `${clientUrl}/home`;
 
     const badgeText = isNewDevice ? '⚠️ New Device Sign-In' : '🛡️ Successful Login';
     const badgeColor = isNewDevice ? '#b45309' : '#15803d';
     const badgeBg = isNewDevice ? '#fef3c7' : '#dcfce7';
+
+    const buttonHtml = renderBulletproofButton({
+      url: resetUrl,
+      label: isNewDevice ? 'Not You? Secure Your Account' : 'Manage Account Security',
+      secondaryUrl: dashboardUrl,
+      secondaryLabel: 'Go to Candidate Dashboard',
+      gradient: isNewDevice
+        ? 'linear-gradient(135deg, #d97706 0%, #b45309 100%)'
+        : 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+      bgColor: isNewDevice ? '#d97706' : '#4f46e5',
+      showDirectLink: isNewDevice,
+    });
 
     const contentHtml = `
       <h2 style="font-size: 20px; font-weight: 800; color: #0f172a; margin: 0 0 10px;">
@@ -521,11 +648,7 @@ async function sendLoginNotification(user, req, isNewDevice = false) {
           `
       }
 
-      <div style="text-align: center; margin: 24px 0 10px;">
-        <a href="${resetUrl}" class="btn-primary" style="background: ${isNewDevice ? 'linear-gradient(135deg, #d97706 0%, #b45309 100%)' : 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)'};">
-          ${isNewDevice ? 'Not You? Secure Your Account' : 'Manage Account Security'}
-        </a>
-      </div>
+      ${buttonHtml}
     `;
 
     const html = wrapHtmlEmail({
@@ -564,15 +687,19 @@ async function sendPasswordResetEmail(user, resetToken, req, clientOriginOverrid
     }
 
     const candidateName = user.fullName || user.username || 'Candidate';
-    const lanIp = getLanIpAddress();
-    const networkResetUrl = `http://${lanIp}:5174/reset-password/${resetToken}`;
+    const clientUrl = getClientBaseUrl(req, clientOriginOverride);
+    const universalResetUrl = `${clientUrl}/reset-password/${resetToken}`;
     const localResetUrl = `http://localhost:5174/reset-password/${resetToken}`;
 
-    // Prefer universal network URL so mobile phones, laptops, and desktops can all reach the page
-    let universalResetUrl = networkResetUrl;
-    if (clientOriginOverride && !clientOriginOverride.includes('localhost') && !clientOriginOverride.includes('127.0.0.1')) {
-      universalResetUrl = `${clientOriginOverride.replace(/\/+$/, '')}/reset-password/${resetToken}`;
-    }
+    const buttonHtml = renderBulletproofButton({
+      url: universalResetUrl,
+      label: 'Reset Your Password (Phone / PC)',
+      secondaryUrl: localResetUrl !== universalResetUrl ? localResetUrl : null,
+      secondaryLabel: localResetUrl !== universalResetUrl ? 'Or Open on Localhost' : null,
+      gradient: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+      bgColor: '#4f46e5',
+      showDirectLink: true,
+    });
 
     const contentHtml = `
       <h2 style="font-size: 22px; font-weight: 800; color: #0f172a; margin: 0 0 12px;">
@@ -586,24 +713,7 @@ async function sendPasswordResetEmail(user, resetToken, req, clientOriginOverrid
         ⏱️ <strong>Security Expiration:</strong> This reset link is single-use and will expire in <strong>60 minutes</strong>.
       </div>
 
-      <div style="text-align: center; margin: 28px 0 14px;">
-        <a href="${universalResetUrl}" class="btn-primary" style="padding: 15px 36px; font-size: 15px; display: inline-block;">
-          Reset Your Password (Phone / PC) →
-        </a>
-      </div>
-
-      <div style="text-align: center; margin-bottom: 24px;">
-        <a href="${localResetUrl}" style="color: #4f46e5; font-size: 13px; font-weight: 600; text-decoration: underline;">
-          Or open on this computer (Localhost link)
-        </a>
-      </div>
-
-      <p style="font-size: 13px; color: #64748b; line-height: 1.5; margin: 20px 0 6px;">
-        Direct Link for all devices (Mobile & Desktop):
-      </p>
-      <div style="background: #f8fafc; padding: 14px 18px; border-radius: 10px; word-break: break-all; font-family: monospace; font-size: 13px; color: #1e293b; border: 1.5px solid #cbd5e1;">
-        <a href="${universalResetUrl}" style="color: #4f46e5; font-weight: 700; text-decoration: underline;">${universalResetUrl}</a>
-      </div>
+      ${buttonHtml}
 
       <div style="margin-top: 16px; padding: 14px 18px; background: #e0e7ff; border-radius: 12px; font-size: 13px; color: #3730a3;">
         🔑 <strong>Reset Security Token:</strong><br>
@@ -655,18 +765,23 @@ async function sendSignupNotification(user, req) {
     const candidateName = user.fullName || user.username || 'Candidate';
     const createdAtStr = formatEmailDateTime(user.createdAt || new Date());
 
-    let clientOrigin =
-      (req && req.body && req.body.clientOrigin) ||
-      (req && typeof req.get === 'function' && req.get('origin')) ||
-      (req && req.headers && req.headers.origin) ||
-      process.env.CLIENT_URL ||
-      'http://localhost:5174';
-    clientOrigin = clientOrigin.replace(/\/+$/, '');
-    const loginUrl = `${clientOrigin}/login`;
+    const clientUrl = getClientBaseUrl(req);
+    const loginUrl = `${clientUrl}/login`;
+    const exploreUrl = `${clientUrl}/home`;
 
     const badgeText = '🎉 Welcome to Mastery Zone';
     const badgeColor = '#059669';
     const badgeBg = '#d1fae5';
+
+    const buttonHtml = renderBulletproofButton({
+      url: loginUrl,
+      label: 'Log In & Start Learning',
+      secondaryUrl: exploreUrl,
+      secondaryLabel: 'Explore Platform Catalog',
+      gradient: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+      bgColor: '#059669',
+      showDirectLink: true,
+    });
 
     const contentHtml = `
       <h2 style="font-size: 22px; font-weight: 800; color: #0f172a; margin: 0 0 12px;">
@@ -703,11 +818,7 @@ async function sendSignupNotification(user, req) {
         🛡️ <strong>Strict Account Isolation:</strong> All progress, reports, certificates, and recordings belong exclusively to your individual registered account (${user.email}). Every sign-in and security event sends real-time notifications to this inbox.
       </div>
 
-      <div style="text-align: center; margin: 28px 0 16px;">
-        <a href="${loginUrl}" class="btn-primary" style="padding: 14px 34px; font-size: 15px;">
-          Log In & Start Learning →
-        </a>
-      </div>
+      ${buttonHtml}
     `;
 
     const html = wrapHtmlEmail({
@@ -747,13 +858,19 @@ async function sendPasswordResetSuccessEmail(user, req) {
     const candidateName = user.fullName || user.username || 'Candidate';
     const changeTimeStr = formatEmailDateTime(new Date());
 
-    const clientOrigin =
-      (req && typeof req.get === 'function' && req.get('origin')) ||
-      (req && req.headers && req.headers.origin) ||
-      process.env.CLIENT_URL ||
-      'http://localhost:5174';
-    const loginUrl = `${clientOrigin}/login`;
-    const forgotUrl = `${clientOrigin}/forgot-password`;
+    const clientUrl = getClientBaseUrl(req);
+    const loginUrl = `${clientUrl}/login`;
+    const forgotUrl = `${clientUrl}/forgot-password`;
+
+    const buttonHtml = renderBulletproofButton({
+      url: loginUrl,
+      label: 'Sign In with New Password',
+      secondaryUrl: `${clientUrl}/settings`,
+      secondaryLabel: 'Review Security Settings',
+      gradient: 'linear-gradient(135deg, #15803d 0%, #166534 100%)',
+      bgColor: '#15803d',
+      showDirectLink: true,
+    });
 
     const contentHtml = `
       <h2 style="font-size: 20px; font-weight: 800; color: #0f172a; margin: 0 0 10px;">
@@ -790,11 +907,7 @@ async function sendPasswordResetSuccessEmail(user, req) {
         <strong>Did not change your password?</strong> If you did not make this change, your account may have been compromised. <a href="${forgotUrl}" style="color: #92400e; font-weight: 700; text-decoration: underline;">Reset your password immediately</a> or reach out to our security team.
       </div>
 
-      <div style="text-align: center; margin: 24px 0 10px;">
-        <a href="${loginUrl}" class="btn-primary">
-          Sign In with New Password
-        </a>
-      </div>
+      ${buttonHtml}
     `;
 
     const html = wrapHtmlEmail({
@@ -822,10 +935,21 @@ async function sendPasswordResetSuccessEmail(user, req) {
 /**
  * Send OTP verification email
  */
-async function sendOtpEmail(userEmail, otp) {
+async function sendOtpEmail(userEmail, otp, req = null) {
   try {
     if (!userEmail) return;
     if (isGuestAccount(userEmail)) return;
+
+    const clientUrl = getClientBaseUrl(req);
+    const loginUrl = `${clientUrl}/login`;
+
+    const buttonHtml = renderBulletproofButton({
+      url: loginUrl,
+      label: 'Enter Code in Sign-In',
+      gradient: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+      bgColor: '#4f46e5',
+      showDirectLink: false,
+    });
 
     const contentHtml = `
       <h2 style="font-size: 20px; font-weight: 800; color: #0f172a; margin: 0 0 10px;">
@@ -835,13 +959,15 @@ async function sendOtpEmail(userEmail, otp) {
         Use the verification code below to sign in or confirm your identity. This code is valid for <strong>10 minutes</strong>.
       </p>
 
-      <div style="text-align: center; padding: 20px; background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 12px; margin: 20px 0;">
-        <span style="font-size: 32px; font-weight: 900; letter-spacing: 8px; color: #4f46e5; font-family: monospace;">
+      <div style="text-align: center; padding: 22px; background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 12px; margin: 20px 0;">
+        <span style="font-size: 34px; font-weight: 900; letter-spacing: 8px; color: #4f46e5; font-family: monospace;">
           ${otp}
         </span>
       </div>
 
-      <p style="font-size: 12px; color: #64748b; line-height: 1.5; margin: 16px 0 0;">
+      ${buttonHtml}
+
+      <p style="font-size: 12px; color: #64748b; line-height: 1.5; margin: 16px 0 0; text-align: center;">
         Never share this verification code with anyone. Mastery Zone representatives will never ask you for your code.
       </p>
     `;
@@ -883,6 +1009,7 @@ async function sendSubmissionEvaluationEmail({
   adminComment = "",
   reviewedAt = new Date(),
   reportUrl = "",
+  req = null,
 }) {
   try {
     if (!userEmail) return { success: false, error: "No user email provided" };
@@ -902,8 +1029,25 @@ async function sendSubmissionEvaluationEmail({
       ? `${score}/${maxScore} (${percentage}%)` 
       : `${score}/${maxScore}`;
 
-    const clientUrl = process.env.CLIENT_URL || "http://localhost:5174";
-    const resolvedLink = reportUrl ? `${clientUrl}${reportUrl}` : `${clientUrl}/home`;
+    const clientUrl = getClientBaseUrl(req);
+    let resolvedLink = `${clientUrl}/home`;
+    if (reportUrl) {
+      resolvedLink = reportUrl.startsWith('http')
+        ? reportUrl
+        : `${clientUrl}${reportUrl.startsWith('/') ? '' : '/'}${reportUrl}`;
+    }
+
+    const buttonHtml = renderBulletproofButton({
+      url: resolvedLink,
+      label: 'View Verified Assessment Report',
+      secondaryUrl: `${clientUrl}/home`,
+      secondaryLabel: 'Return to Platform Home',
+      gradient: isPassed
+        ? 'linear-gradient(135deg, #059669 0%, #047857 100%)'
+        : 'linear-gradient(135deg, #d97706 0%, #b45309 100%)',
+      bgColor: isPassed ? '#059669' : '#d97706',
+      showDirectLink: true,
+    });
 
     const contentHtml = `
       <div style="padding: 18px 0 16px;">
@@ -960,12 +1104,7 @@ async function sendSubmissionEvaluationEmail({
           </div>
         ` : ''}
 
-        <div style="text-align: center; margin: 26px 0 12px;">
-          <a href="${resolvedLink}" 
-             style="display: inline-block; background: #4f46e5; color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 10px; font-weight: 700; font-size: 14px; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);">
-            View Verified Assessment Report →
-          </a>
-        </div>
+        ${buttonHtml}
       </div>
     `;
 
@@ -995,8 +1134,19 @@ async function sendSubmissionEvaluationEmail({
 /**
  * Dispatches 6-digit verification OTP to Main Admin for Admin Management access
  */
-async function sendMainAdminOtpEmail({ toEmail, otp, expiresMinutes = 10 }) {
+async function sendMainAdminOtpEmail({ toEmail, otp, expiresMinutes = 10, req = null }) {
   try {
+    const clientUrl = getClientBaseUrl(req);
+    const adminUrl = `${clientUrl}/admin`;
+
+    const buttonHtml = renderBulletproofButton({
+      url: adminUrl,
+      label: 'Open Admin Verification Portal',
+      gradient: 'linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)',
+      bgColor: '#7c3aed',
+      showDirectLink: false,
+    });
+
     const contentHtml = `
       <div style="padding: 16px 0;">
         <h2 style="margin: 0 0 12px; font-size: 20px; font-weight: 800; color: #0f172a;">
@@ -1016,6 +1166,8 @@ async function sendMainAdminOtpEmail({ toEmail, otp, expiresMinutes = 10 }) {
         <div style="padding: 12px 16px; background: #fffbeb; border-radius: 8px; border: 1px solid #fef3c7; color: #92400e; font-size: 12.5px; margin-bottom: 20px;">
           ⏱️ <strong>Security Notice:</strong> This OTP is strictly confidential, single-use, and expires in <strong>${expiresMinutes} minutes</strong>. If you did not initiate this request, your account may be under reconnaissance — change your password immediately.
         </div>
+
+        ${buttonHtml}
       </div>
     `;
 
@@ -1045,11 +1197,22 @@ async function sendMainAdminOtpEmail({ toEmail, otp, expiresMinutes = 10 }) {
 /**
  * Dispatches welcome email with initial temporary credentials to newly created Administrator
  */
-async function sendNewAdminWelcomeEmail({ adminEmail, adminName, tempPassword, permissions = [], loginUrl = "http://localhost:5174/login" }) {
+async function sendNewAdminWelcomeEmail({ adminEmail, adminName, tempPassword, permissions = [], loginUrl = null, req = null }) {
   try {
+    const clientUrl = getClientBaseUrl(req);
+    const resolvedLoginUrl = loginUrl || `${clientUrl}/login`;
+
     const permsList = permissions.includes("*")
       ? "Full Administrative Access"
       : permissions.join(", ");
+
+    const buttonHtml = renderBulletproofButton({
+      url: resolvedLoginUrl,
+      label: 'Access MasteryZone Admin Portal',
+      gradient: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+      bgColor: '#4f46e5',
+      showDirectLink: true,
+    });
 
     const contentHtml = `
       <div style="padding: 16px 0;">
@@ -1088,12 +1251,7 @@ async function sendNewAdminWelcomeEmail({ adminEmail, adminName, tempPassword, p
           ⚠️ <strong>Mandatory Security Action:</strong> For platform compliance and account integrity, you will be required to change your password upon your first sign in.
         </div>
 
-        <div style="text-align: center; margin: 26px 0 12px;">
-          <a href="${loginUrl}" 
-             style="display: inline-block; background: #4f46e5; color: #ffffff; text-decoration: none; padding: 13px 32px; border-radius: 10px; font-weight: 700; font-size: 14px; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);">
-            Access MasteryZone Admin Portal →
-          </a>
-        </div>
+        ${buttonHtml}
       </div>
     `;
 
@@ -1123,8 +1281,19 @@ async function sendNewAdminWelcomeEmail({ adminEmail, adminName, tempPassword, p
 /**
  * Dispatches confirmation notification when an administrator's credentials are reset/updated
  */
-async function sendAdminPasswordChangedEmail({ adminEmail, adminName, changedBy = "Main Administrator" }) {
+async function sendAdminPasswordChangedEmail({ adminEmail, adminName, changedBy = "Main Administrator", req = null }) {
   try {
+    const clientUrl = getClientBaseUrl(req);
+    const adminUrl = `${clientUrl}/admin`;
+
+    const buttonHtml = renderBulletproofButton({
+      url: adminUrl,
+      label: 'Sign In to Admin Portal',
+      gradient: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+      bgColor: '#059669',
+      showDirectLink: true,
+    });
+
     const contentHtml = `
       <div style="padding: 16px 0;">
         <h2 style="margin: 0 0 12px; font-size: 20px; font-weight: 800; color: #0f172a;">
@@ -1138,6 +1307,8 @@ async function sendAdminPasswordChangedEmail({ adminEmail, adminName, changedBy 
         <div style="padding: 12px 16px; background: #ecfdf5; border-radius: 8px; border: 1px solid #a7f3d0; color: #065f46; font-size: 13px; margin-bottom: 20px;">
           ✅ <strong>Security Status:</strong> If you requested this update, no further action is necessary. You may now sign in using your updated credentials.
         </div>
+
+        ${buttonHtml}
       </div>
     `;
 
@@ -1175,9 +1346,21 @@ async function sendSupportTicketSubmittedEmail({
   subject,
   description,
   priority = "Medium",
-  ticketUrl = "http://localhost:5174/help",
+  ticketUrl = null,
+  req = null,
 }) {
   try {
+    const clientUrl = getClientBaseUrl(req);
+    const resolvedTicketUrl = ticketUrl || `${clientUrl}/help?ticket=${ticketId}`;
+
+    const buttonHtml = renderBulletproofButton({
+      url: resolvedTicketUrl,
+      label: 'View Ticket & Live Status',
+      gradient: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+      bgColor: '#4f46e5',
+      showDirectLink: true,
+    });
+
     const contentHtml = `
       <div style="padding: 16px 0;">
         <h2 style="margin: 0 0 12px; font-size: 20px; font-weight: 800; color: #0f172a;">
@@ -1217,11 +1400,7 @@ async function sendSupportTicketSubmittedEmail({
           </div>
         </div>
 
-        <div style="text-align: center; margin: 24px 0 10px;">
-          <a href="${ticketUrl}" style="display: inline-block; background: #4f46e5; color: #ffffff; text-decoration: none; font-weight: 700; font-size: 14px; padding: 12px 28px; border-radius: 8px; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);">
-            View Ticket & Live Status
-          </a>
-        </div>
+        ${buttonHtml}
       </div>
     `;
 
@@ -1260,12 +1439,26 @@ async function sendSupportTicketResponseEmail({
   adminResponse,
   status = "In Progress",
   respondedBy = "MasteryZone Support Team",
-  ticketUrl = "http://localhost:5174/help",
+  ticketUrl = null,
+  req = null,
 }) {
   try {
     const isResolved = status === "Resolved";
     const statusColor = isResolved ? "#059669" : "#2563eb";
     const statusBg = isResolved ? "#ecfdf5" : "#eff6ff";
+
+    const clientUrl = getClientBaseUrl(req);
+    const resolvedTicketUrl = ticketUrl || `${clientUrl}/help?ticket=${ticketId}`;
+
+    const buttonHtml = renderBulletproofButton({
+      url: resolvedTicketUrl,
+      label: isResolved ? 'Review Resolved Ticket' : 'Open Ticket & Reply',
+      gradient: isResolved
+        ? 'linear-gradient(135deg, #059669 0%, #047857 100%)'
+        : 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+      bgColor: isResolved ? '#059669' : '#4f46e5',
+      showDirectLink: true,
+    });
 
     const contentHtml = `
       <div style="padding: 16px 0;">
@@ -1311,11 +1504,7 @@ async function sendSupportTicketResponseEmail({
           </div>
         </div>
 
-        <div style="text-align: center; margin: 24px 0 10px;">
-          <a href="${ticketUrl}" style="display: inline-block; background: #4f46e5; color: #ffffff; text-decoration: none; font-weight: 700; font-size: 14px; padding: 12px 28px; border-radius: 8px; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);">
-            Open Support Ticket in MasteryZone
-          </a>
-        </div>
+        ${buttonHtml}
       </div>
     `;
 
@@ -1353,20 +1542,25 @@ async function sendCertificateAwardedEmail({
   score = 100,
   verificationUrl = "",
   issuedAt = new Date(),
+  req = null,
 }) {
   try {
     if (!candidateEmail) return { success: false, error: "No candidate email provided" };
     if (isGuestAccount(candidateEmail)) return { success: true, isGuest: true };
 
-    const clientOrigin = (
-      process.env.CLIENT_URL ||
-      (typeof process.env.VITE_API_URL === "string" && process.env.VITE_API_URL.startsWith("http")
-        ? process.env.VITE_API_URL
-        : null) ||
-      "http://localhost:5174"
-    ).replace(/\/+$/, "");
+    const clientUrl = getClientBaseUrl(req);
+    const resolvedVerifyUrl = verificationUrl || `${clientUrl}/verify/${certificateId}`;
+    const certificatesUrl = `${clientUrl}/certificates`;
 
-    const resolvedVerifyUrl = verificationUrl || `${clientOrigin}/verify/${certificateId}`;
+    const buttonHtml = renderBulletproofButton({
+      url: resolvedVerifyUrl,
+      label: 'View & Verify Official Credential',
+      secondaryUrl: certificatesUrl,
+      secondaryLabel: 'View All My Certificates',
+      gradient: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+      bgColor: '#059669',
+      showDirectLink: true,
+    });
 
     const contentHtml = `
       <div style="padding: 18px 0 16px;">
@@ -1408,11 +1602,7 @@ async function sendCertificateAwardedEmail({
           </table>
         </div>
 
-        <div style="text-align: center; margin: 28px 0 20px;">
-          <a href="${resolvedVerifyUrl}" target="_blank" style="display: inline-block; background: #4f46e5; color: #ffffff; text-decoration: none; font-weight: 700; font-size: 14px; padding: 12px 28px; border-radius: 8px; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);">
-            View & Verify Official Credential →
-          </a>
-        </div>
+        ${buttonHtml}
       </div>
     `;
 
@@ -1441,6 +1631,9 @@ async function sendCertificateAwardedEmail({
 module.exports = {
   getTransporter,
   parseDeviceAndBrowser,
+  getClientBaseUrl,
+  renderBulletproofButton,
+  wrapHtmlEmail,
   sendSignupNotification,
   sendLoginNotification,
   sendPasswordResetEmail,

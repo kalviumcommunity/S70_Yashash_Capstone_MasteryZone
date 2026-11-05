@@ -1202,6 +1202,7 @@ router.put("/modify-marks", async (req, res) => {
           adminComment: adminNote,
           reviewedAt: attempt.adminModifiedAt,
           reportUrl: `/assessment-report/${attempt.attemptId}`,
+          req,
         }).catch((emailErr) => {
           console.warn("Certification email notification error:", emailErr?.message);
         });
@@ -1324,6 +1325,7 @@ router.put("/modify-marks", async (req, res) => {
           adminComment: adminNote,
           reviewedAt: attempt.adminModifiedAt,
           reportUrl: repUrl,
+          req,
         }).catch((emailErr) => {
           console.warn("Module email notification error:", emailErr?.message);
         });
@@ -1423,6 +1425,7 @@ router.put("/modify-marks", async (req, res) => {
           adminComment: adminNote,
           reviewedAt: sub.adminModifiedAt,
           reportUrl: `/coding`,
+          req,
         }).catch((emailErr) => {
           console.warn("Coding email notification error:", emailErr?.message);
         });
@@ -1551,6 +1554,7 @@ router.put("/modify-marks", async (req, res) => {
           adminComment: adminNote,
           reviewedAt: session.adminModifiedAt,
           reportUrl: repUrl,
+          req,
         }).catch((emailErr) => {
           console.warn("Proctoring email notification error:", emailErr?.message);
         });
@@ -3228,6 +3232,7 @@ router.post("/main-admin/verify-password", async (req, res) => {
       toEmail: MAIN_ADMIN_EMAIL,
       otp,
       expiresMinutes: 10,
+      req,
     });
 
     await recordAdminAudit({
@@ -3453,6 +3458,7 @@ router.post("/admins/create", async (req, res) => {
       adminName: targetUser.fullName || "Administrator",
       tempPassword: initialPassword,
       permissions: targetUser.adminPermissions,
+      req,
     });
 
     await recordAdminAudit({
@@ -3553,6 +3559,7 @@ router.patch("/admins/:id/password", async (req, res) => {
       adminEmail: target.email,
       adminName: target.fullName || "Administrator",
       changedBy: "Main Administrator",
+      req,
     });
 
     await recordAdminAudit({
