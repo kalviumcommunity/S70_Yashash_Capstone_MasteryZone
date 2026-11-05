@@ -154,16 +154,24 @@ async function sendViaHttpApi(mailOptions, provider) {
       headers: {
         'api-key': provider.apiKey,
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
       },
       body: JSON.stringify({
         sender: {
-          name: 'Mastery Zone',
-          email: process.env.SMTP_EMAIL || 'support@masteryzone.com',
+          name: (() => {
+            if (mailOptions.from) {
+              const match = String(mailOptions.from).match(/"?([^"<]+)"?\s*<[^>]+>/);
+              if (match && match[1].trim()) return match[1].trim();
+            }
+            return 'Mastery Zone';
+          })(),
+          email: process.env.BREVO_SENDER_EMAIL || process.env.SMTP_EMAIL || 'support@masteryzone.com',
         },
         to: cleanTo.map((e) => ({ email: e })),
         subject: mailOptions.subject,
         htmlContent: mailOptions.html,
-        textContent: mailOptions.text,
+        ...(mailOptions.text ? { textContent: mailOptions.text } : {}),
+        ...(process.env.SMTP_EMAIL ? { replyTo: { email: process.env.SMTP_EMAIL, name: 'Mastery Zone' } } : {}),
       }),
     });
 
