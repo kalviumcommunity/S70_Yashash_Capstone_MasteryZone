@@ -71,10 +71,17 @@ function getSmtpConfig() {
  */
 function getHttpEmailProvider() {
   if (process.env.RESEND_API_KEY && process.env.RESEND_API_KEY.trim()) {
+    // If a custom verified domain is provided via RESEND_FROM, use it.
+    // Otherwise, default strictly to Resend's free test sender 'Mastery Zone <onboarding@resend.dev>'
+    // NEVER default to SMTP_FROM or SMTP_EMAIL (@gmail.com) because Resend rejects unverified domains with HTTP 403!
+    let from = 'Mastery Zone <onboarding@resend.dev>';
+    if (process.env.RESEND_FROM && process.env.RESEND_FROM.trim()) {
+      from = process.env.RESEND_FROM.trim();
+    }
     return {
       type: 'resend',
       apiKey: process.env.RESEND_API_KEY.trim(),
-      from: process.env.RESEND_FROM || process.env.SMTP_FROM || 'Mastery Zone <onboarding@resend.dev>',
+      from,
     };
   }
   if (process.env.BREVO_API_KEY && process.env.BREVO_API_KEY.trim()) {
@@ -92,19 +99,32 @@ async function sendViaHttpApi(mailOptions, provider) {
   const cleanTo = to.map((e) => String(e).trim().toLowerCase());
 
   if (provider.type === 'resend') {
+    // When using Resend without a custom verified domain, any 'from' address using
+    // @gmail.com, @yahoo.com, etc. will be rejected by Resend with HTTP 403 (domain not verified).
+    // Always enforce provider.from ('onboarding@resend.dev') unless RESEND_FROM was explicitly configured.
+    let sender = provider.from;
+    if (process.env.RESEND_FROM && mailOptions.from && !/@(gmail|googlemail|yahoo|hotmail|outlook)\.com/i.test(mailOptions.from)) {
+      sender = mailOptions.from;
+    }
+
+    const payload = {
+      from: sender,
+      to: cleanTo,
+      subject: mailOptions.subject,
+      html: mailOptions.html,
+      text: mailOptions.text,
+    };
+    if (process.env.SMTP_EMAIL) {
+      payload.reply_to = process.env.SMTP_EMAIL;
+    }
+
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${provider.apiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        from: mailOptions.from || provider.from,
-        to: cleanTo,
-        subject: mailOptions.subject,
-        html: mailOptions.html,
-        text: mailOptions.text,
-      }),
+      body: JSON.stringify(payload),
     });
 
     const data = await res.json().catch(() => ({}));
@@ -118,9 +138,13 @@ async function sendViaHttpApi(mailOptions, provider) {
         providerResponse: `250 Resend API ID ${data.id}`,
       };
     }
-    const errMsg = data.message || `Resend API returned status ${res.status}`;
-    const err = new Error(errMsg);
-    err.code = res.status === 401 || res.status === 403 ? 'EAUTH' : 'API_ERROR';
+
+    const rawMsg = data.message || `Resend API returned status ${res.status}`;
+    console.error('[Mailer Resend Error]', res.status, data);
+    const err = new Error(rawMsg);
+    err.code = res.status === 401 ? 'EAUTH' : 'ERESEND';
+    err.providerMessage = rawMsg;
+    err.status = res.status;
     throw err;
   }
 
@@ -156,7 +180,8 @@ async function sendViaHttpApi(mailOptions, provider) {
     }
     const errMsg = data.message || `Brevo API returned status ${res.status}`;
     const err = new Error(errMsg);
-    err.code = res.status === 401 || res.status === 403 ? 'EAUTH' : 'API_ERROR';
+    err.code = res.status === 401 ? 'EAUTH' : 'API_ERROR';
+    err.providerMessage = errMsg;
     throw err;
   }
 
@@ -172,8 +197,23 @@ function maskEmail(email) {
 
 function diagnoseSmtpError(err) {
   if (!err) return { code: 'UNKNOWN', message: 'Unknown mailer error' };
-  const rawMsg = err.message || '';
+  const rawMsg = err.providerMessage || err.message || '';
   const lowerMsg = rawMsg.toLowerCase();
+
+  // If the error originated from an HTTPS API provider (Resend, Brevo, etc.)
+  if (err.code === 'ERESEND' || err.code === 'API_ERROR' || lowerMsg.includes('resend') || lowerMsg.includes('brevo')) {
+    if (err.code === 'EAUTH' || lowerMsg.includes('api key') || lowerMsg.includes('unauthorized') || lowerMsg.includes('forbidden') || lowerMsg.includes('401')) {
+      return {
+        code: 'EAUTH',
+        message: 'Resend API authentication failed. Verify that your RESEND_API_KEY in Render Environment is active and valid.',
+      };
+    }
+    return {
+      code: err.code || 'API_ERROR',
+      message: `Email delivery provider notice: ${rawMsg}`,
+    };
+  }
+
   const code = err.code || 
     (lowerMsg.includes('timed out') || lowerMsg.includes('timeout') ? 'ETIMEDOUT' :
      lowerMsg.includes('535') || lowerMsg.includes('auth') ? 'EAUTH' : 'SMTP_ERROR');
