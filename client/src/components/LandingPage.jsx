@@ -610,7 +610,11 @@ const LandingPage = () => {
                   <LuMail size={18} color="#4f46e5" />
                   <div>
                     <strong>Email Support</strong>
-                    <p>support@masteryzone.com</p>
+                    <p>
+                      <a href="mailto:yashashyashash1@gmail.com" style={{ color: "inherit", textDecoration: "none" }}>
+                        yashashyashash1@gmail.com
+                      </a>
+                    </p>
                   </div>
                 </div>
                 <div className="mz-support-row">
