@@ -926,6 +926,7 @@ router.post("/attempt/:attemptId/finalize", authenticateToken, async (req, res) 
         certTitle: attempt.certTitle,
         certificateId: certificate.certificateId,
         score: finalPercentage,
+        req,
       }).catch((emailErr) => {
         console.warn("Certificate email notification note:", emailErr?.message);
       });
