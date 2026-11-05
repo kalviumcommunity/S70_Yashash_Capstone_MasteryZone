@@ -745,7 +745,9 @@ def _mz_auto_runner():
     lines = [l for l in raw_str.split("\\n") if l.strip() != ""]
     args = []
 
-    if param_count == 1:
+    if param_count == 0:
+        args = []
+    elif param_count == 1:
         if len(lines) == 1:
             args = [parse_token(lines[0])]
         elif len(lines) > 1:
@@ -754,7 +756,7 @@ def _mz_auto_runner():
             except Exception:
                 args = [parse_token(lines[0])]
         else:
-            args = [parse_token(raw_str)]
+            args = [parse_token(raw_str)] if raw_str else []
     elif param_count > 1 and len(lines) >= param_count:
         args = [parse_token(lines[i]) for i in range(param_count)]
     elif param_count > 1 and len(lines) == 1:
@@ -892,16 +894,18 @@ async function evaluateSingleTestCase(language, code, input, expectedOutput) {
   }
 
   const lines = rawStr.split("\\n").map(l => l.trim()).filter(Boolean);
-  const paramCount = targetFn.length || 1;
+  const paramCount = typeof targetFn.length === "number" ? targetFn.length : 1;
   let args = [];
 
-  if (paramCount === 1) {
+  if (paramCount === 0) {
+    args = [];
+  } else if (paramCount === 1) {
     if (lines.length === 1) {
       args = [parseToken(lines[0])];
     } else if (lines.length > 1) {
       try { args = [JSON.parse(rawStr)]; } catch(e) { args = [parseToken(lines[0])]; }
     } else {
-      args = [parseToken(rawStr)];
+      args = rawStr ? [parseToken(rawStr)] : [];
     }
   } else if (paramCount > 1 && lines.length >= paramCount) {
     args = lines.slice(0, paramCount).map(parseToken);
@@ -1064,7 +1068,16 @@ public class Main {
 
       let cppFullCode = safeCode;
       if (!hasMain && /class\s+Solution/.test(codeNoComments)) {
-        // Inject generic C++ driver for class Solution
+        // Intelligently inject C++ driver for class Solution
+        let callStatement = "Solution sol; sol.solve();";
+        if (/twoSum/.test(codeNoComments)) {
+          callStatement = "Solution sol; int target = nums.empty() ? 0 : nums.back(); if (!nums.empty()) nums.pop_back(); std::vector<int> res = sol.twoSum(nums, target); for(size_t i = 0; i < res.size(); i++) std::cout << res[i] << (i + 1 < res.size() ? \" \" : \"\"); std::cout << std::endl;";
+        } else if (/findPeakElement/.test(codeNoComments)) {
+          callStatement = "Solution sol; std::cout << sol.findPeakElement(nums) << std::endl;";
+        } else if (/lengthOfLongestSubstring/.test(codeNoComments)) {
+          callStatement = "Solution sol; std::cout << sol.lengthOfLongestSubstring(rawAll) << std::endl;";
+        }
+
         cppFullCode = `${safeCode}
 
 #include <sstream>
@@ -1082,8 +1095,7 @@ int main() {
         int val;
         while (ss >> val) nums.push_back(val);
     }
-    Solution sol;
-    std::cout << sol.findPeakElement(nums) << std::endl;
+    ${callStatement}
     return 0;
 }
 `;
@@ -1129,106 +1141,211 @@ int main() {
   }
 }
 
+// Structured configurations for dedicated language coding compilers
+const PLAYGROUND_COMPILER_CONFIGS = {
+  python: {
+    title: "Python 3 Sandboxed Compiler",
+    category: "Python 3 Execution Engine",
+    difficulty: "All Levels",
+    description: "Welcome to the Mastery Zone Python 3 Sandboxed Compiler!\n\nWrite, execute, and test Python 3 code in real-time with full standard library support. Read from standard input (sys.stdin) and write to standard output (stdout).\n\nClick 'Run' to execute with standard input or custom test data, and click 'Run Tests' to validate your code against the integrated compiler test suite.",
+    inputFormat: "Standard Input (stdin) stream or interactive custom input.",
+    outputFormat: "Standard Output (stdout) stream.",
+    constraints: [
+      "Execution time limit: 4000ms",
+      "Memory limit: 256MB",
+      "Python 3.10+ native runtime"
+    ],
+    examples: [
+      {
+        input: "",
+        output: "Hello from Python 3 Runner!",
+        explanation: "Default greeting printed when no input is provided."
+      },
+      {
+        input: "MasteryZone",
+        output: "Input: MasteryZone",
+        explanation: "Echoes received input back to stdout."
+      }
+    ],
+    hints: [
+      "Use sys.stdin.read().strip() to capture full input from standard input.",
+      "Use print() to write outputs to standard output."
+    ],
+    starterCode: {
+      python: "# Enter your code below\n",
+    },
+    testCases: [
+      { index: 1, input: "", expectedOutput: "Hello from Python 3 Runner!", isHidden: false },
+      { index: 2, input: "MasteryZone", expectedOutput: "Input: MasteryZone", isHidden: false },
+      { index: 3, input: "42", expectedOutput: "Input: 42", isHidden: false },
+      { index: 4, input: "Hello World", expectedOutput: "Input: Hello World", isHidden: false },
+      { index: 5, input: "System Ready", expectedOutput: "Input: System Ready", isHidden: false },
+      { index: 6, input: "Data Stream 6", expectedOutput: "Input: Data Stream 6", isHidden: false },
+      { index: 7, input: "Algorithm Alpha", expectedOutput: "Input: Algorithm Alpha", isHidden: false },
+      { index: 8, input: "Compiler Benchmark", expectedOutput: "Input: Compiler Benchmark", isHidden: false },
+      { index: 9, input: "Test Case 9", expectedOutput: "Input: Test Case 9", isHidden: false },
+      { index: 10, input: "Verification 10", expectedOutput: "Input: Verification 10", isHidden: false },
+    ],
+  },
+  javascript: {
+    title: "JavaScript Node.js Runtime",
+    category: "JavaScript (V8 / Node.js Engine)",
+    difficulty: "All Levels",
+    description: "Welcome to the Mastery Zone JavaScript (Node.js) Sandboxed Compiler!\n\nWrite, execute, and test JavaScript code in real-time on modern Node.js engine. Read from standard input using fs.readFileSync(0) and write to standard output using console.log.\n\nClick 'Run' to execute with standard input or custom test data, and click 'Run Tests' to validate your code against the integrated compiler test suite.",
+    inputFormat: "Standard Input (stdin) stream or interactive custom input.",
+    outputFormat: "Standard Output (stdout) stream.",
+    constraints: [
+      "Execution time limit: 4000ms",
+      "Memory limit: 256MB",
+      "Node.js V8 execution engine"
+    ],
+    examples: [
+      {
+        input: "",
+        output: "Hello from JavaScript Node.js Runtime!",
+        explanation: "Default greeting printed when no input is provided."
+      },
+      {
+        input: "MasteryZone",
+        output: "Input: MasteryZone",
+        explanation: "Echoes received input back to stdout."
+      }
+    ],
+    hints: [
+      "Use fs.readFileSync(0, 'utf-8').trim() to capture input from stdin.",
+      "Use console.log() to print outputs."
+    ],
+    starterCode: {
+      javascript: "// Enter your code below\n",
+    },
+    testCases: [
+      { index: 1, input: "", expectedOutput: "Hello from JavaScript Node.js Runtime!", isHidden: false },
+      { index: 2, input: "MasteryZone", expectedOutput: "Input: MasteryZone", isHidden: false },
+      { index: 3, input: "42", expectedOutput: "Input: 42", isHidden: false },
+      { index: 4, input: "Hello World", expectedOutput: "Input: Hello World", isHidden: false },
+      { index: 5, input: "System Ready", expectedOutput: "Input: System Ready", isHidden: false },
+      { index: 6, input: "Data Stream 6", expectedOutput: "Input: Data Stream 6", isHidden: false },
+      { index: 7, input: "Algorithm Alpha", expectedOutput: "Input: Algorithm Alpha", isHidden: false },
+      { index: 8, input: "Compiler Benchmark", expectedOutput: "Input: Compiler Benchmark", isHidden: false },
+      { index: 9, input: "Test Case 9", expectedOutput: "Input: Test Case 9", isHidden: false },
+      { index: 10, input: "Verification 10", expectedOutput: "Input: Verification 10", isHidden: false },
+    ],
+  },
+  java: {
+    title: "Java 26 OpenJDK Compiler",
+    category: "Java Enterprise & Algorithms (OpenJDK)",
+    difficulty: "All Levels",
+    description: "Welcome to the Mastery Zone Java 26 OpenJDK Compiler!\n\nWrite, compile, and execute Java solutions with standard input/output streaming. Read from standard input using java.util.Scanner and write to standard output using System.out.println.\n\nClick 'Run' to execute with standard input or custom test data, and click 'Run Tests' to validate your code against the integrated compiler test suite.",
+    inputFormat: "Standard Input (stdin) stream or interactive custom input.",
+    outputFormat: "Standard Output (stdout) stream.",
+    constraints: [
+      "Execution time limit: 5000ms",
+      "Memory limit: 256MB",
+      "OpenJDK JVM 64-Bit Server"
+    ],
+    examples: [
+      {
+        input: "",
+        output: "Hello from Java 26 OpenJDK!",
+        explanation: "Default greeting printed when no input is provided."
+      },
+      {
+        input: "MasteryZone",
+        output: "Input: MasteryZone",
+        explanation: "Echoes received input back to stdout."
+      }
+    ],
+    hints: [
+      "Use new Scanner(System.in) to read input.",
+      "Use System.out.println() to print results."
+    ],
+    starterCode: {
+      java: "// Enter your code below\n",
+    },
+    testCases: [
+      { index: 1, input: "", expectedOutput: "Hello from Java 26 OpenJDK!", isHidden: false },
+      { index: 2, input: "MasteryZone", expectedOutput: "Input: MasteryZone", isHidden: false },
+      { index: 3, input: "42", expectedOutput: "Input: 42", isHidden: false },
+      { index: 4, input: "Hello World", expectedOutput: "Input: Hello World", isHidden: false },
+      { index: 5, input: "System Ready", expectedOutput: "Input: System Ready", isHidden: false },
+      { index: 6, input: "Data Stream 6", expectedOutput: "Input: Data Stream 6", isHidden: false },
+      { index: 7, input: "Algorithm Alpha", expectedOutput: "Input: Algorithm Alpha", isHidden: false },
+      { index: 8, input: "Compiler Benchmark", expectedOutput: "Input: Compiler Benchmark", isHidden: false },
+      { index: 9, input: "Test Case 9", expectedOutput: "Input: Test Case 9", isHidden: false },
+      { index: 10, input: "Verification 10", expectedOutput: "Input: Verification 10", isHidden: false },
+    ],
+  },
+  cpp: {
+    title: "Modern C++ Clang / G++ Compiler",
+    category: "C++ Systems & Memory Management",
+    difficulty: "All Levels",
+    description: "Welcome to the Mastery Zone Modern C++ (Clang / G++) Compiler!\n\nWrite, compile, and execute C++ programs with standard streams (std::cin, std::cout) and STL algorithms.\n\nClick 'Run' to execute with standard input or custom test data, and click 'Run Tests' to validate your code against the integrated compiler test suite.",
+    inputFormat: "Standard Input (stdin) stream or interactive custom input.",
+    outputFormat: "Standard Output (stdout) stream.",
+    constraints: [
+      "Execution time limit: 5000ms",
+      "Memory limit: 256MB",
+      "GCC / G++ 11+ with -O2 optimization"
+    ],
+    examples: [
+      {
+        input: "",
+        output: "Hello from Modern C++!",
+        explanation: "Default greeting printed when no input is provided."
+      },
+      {
+        input: "MasteryZone",
+        output: "Input: MasteryZone",
+        explanation: "Echoes received input back to stdout."
+      }
+    ],
+    hints: [
+      "Use std::cin or std::getline(std::cin, line) to read input.",
+      "Use std::cout to print results."
+    ],
+    starterCode: {
+      cpp: "// Enter your code below\n",
+    },
+    testCases: [
+      { index: 1, input: "", expectedOutput: "Hello from Modern C++!", isHidden: false },
+      { index: 2, input: "MasteryZone", expectedOutput: "Input: MasteryZone", isHidden: false },
+      { index: 3, input: "42", expectedOutput: "Input: 42", isHidden: false },
+      { index: 4, input: "Hello World", expectedOutput: "Input: Hello World", isHidden: false },
+      { index: 5, input: "System Ready", expectedOutput: "Input: System Ready", isHidden: false },
+      { index: 6, input: "Data Stream 6", expectedOutput: "Input: Data Stream 6", isHidden: false },
+      { index: 7, input: "Algorithm Alpha", expectedOutput: "Input: Algorithm Alpha", isHidden: false },
+      { index: 8, input: "Compiler Benchmark", expectedOutput: "Input: Compiler Benchmark", isHidden: false },
+      { index: 9, input: "Test Case 9", expectedOutput: "Input: Test Case 9", isHidden: false },
+      { index: 10, input: "Verification 10", expectedOutput: "Input: Verification 10", isHidden: false },
+    ],
+  },
+};
+
 // Helper: Retrieve structured coding challenge for interactive playground
 function getPlaygroundChallenge(id) {
   const raw = id.replace(/^playground-/, "");
   const parts = raw.split("-");
-  const targetLang = (parts[0] || "python").toLowerCase();
-  let seed = 0;
-  if (parts.length > 1 && parts[1]) {
-    const parsed = parseInt(parts[1], 10);
-    if (!isNaN(parsed)) {
-      seed = parsed;
-    } else {
-      for (let i = 0; i < parts[1].length; i++) {
-        seed = (seed * 31 + parts[1].charCodeAt(i)) & 0x7fffffff;
-      }
-    }
-  } else {
-    seed = Math.floor(Date.now() / 60000);
-  }
-  const idx = Math.abs(seed) % CHALLENGES_CATALOG.length;
-  const base = CHALLENGES_CATALOG[idx] || CHALLENGES_CATALOG[0];
+  let targetLang = (parts[0] || "python").toLowerCase();
+  if (targetLang === "js" || targetLang === "node") targetLang = "javascript";
+  if (targetLang === "c++") targetLang = "cpp";
+  if (targetLang === "py") targetLang = "python";
 
-  // Exactly 10 test cases with real inputs and expected outputs visible in Playground
-  const testCases = (base.testCases || []).map((tc, tIdx) => ({
-    ...tc,
-    index: tIdx + 1,
-    isHidden: false,
-  }));
+  const cfg = PLAYGROUND_COMPILER_CONFIGS[targetLang] || PLAYGROUND_COMPILER_CONFIGS.python;
 
   const starterCodeMap = {
-    python: `# MZ-ASM Playground: ${base.title}
-# Read input from standard input (stdin) and print output to standard output (stdout)
-import sys
-
-def solve():
-    input_text = sys.stdin.read().strip()
-    if not input_text:
-        return
-    # Write your solution below
-    
-if __name__ == "__main__":
-    solve()
-`,
-    javascript: `// MZ-ASM Playground: ${base.title}
-// Read input from standard input (stdin) and print output to standard output (stdout)
-const fs = require('fs');
-
-function solve() {
-    const input = fs.readFileSync(0, 'utf-8').trim();
-    if (!input) return;
-    // Write your solution below
-    
-}
-
-solve();
-`,
-    java: `// MZ-ASM Playground: ${base.title}
-import java.util.Scanner;
-
-public class Solution {
-    public static void main(String[] args) {
-        Scanner scanner = new Scanner(System.in);
-        // Write your solution below
-        
-    }
-}
-`,
-    cpp: `// MZ-ASM Playground: ${base.title}
-#include <iostream>
-#include <vector>
-#include <string>
-
-using namespace std;
-
-int main() {
-    ios_base::sync_with_stdio(false);
-    cin.tie(NULL);
-    // Write your solution below
-    
-    return 0;
-}
-`,
-    c: `// MZ-ASM Playground: ${base.title}
-#include <stdio.h>
-#include <stdlib.h>
-
-int main() {
-    // Write your solution below
-    
-    return 0;
-}
-`,
+    python: PLAYGROUND_COMPILER_CONFIGS.python.starterCode.python,
+    javascript: PLAYGROUND_COMPILER_CONFIGS.javascript.starterCode.javascript,
+    java: PLAYGROUND_COMPILER_CONFIGS.java.starterCode.java,
+    cpp: PLAYGROUND_COMPILER_CONFIGS.cpp.starterCode.cpp,
   };
 
   return {
-    ...base,
+    ...cfg,
     id,
-    questionNumber: idx + 1,
+    questionNumber: 1,
     starterLanguage: targetLang,
     starterCode: starterCodeMap,
-    testCases,
+    testCases: cfg.testCases,
   };
 }
 
@@ -3069,10 +3186,11 @@ router.get("/data", authenticateToken, async (req, res) => {
     const { PROJECTS_CATALOG, getPublicProjectSpec } = require("../data/projectsCatalog");
     const ProjectWorkspaceState = require("../models/ProjectWorkspaceState");
     const mongoose = require("mongoose");
-    const userObjId = mongoose.Types.ObjectId.isValid(userId) ? new mongoose.Types.ObjectId(userId) : userId;
-    const userProjectStates = await ProjectWorkspaceState.find({
-      $or: [{ userId }, { userId: userObjId }, { userId: String(userId) }],
-    }).lean();
+    const isValidUser = userId && mongoose.Types.ObjectId.isValid(String(userId));
+    const userObjId = isValidUser ? new mongoose.Types.ObjectId(String(userId)) : null;
+    const userProjectStates = userObjId
+      ? await ProjectWorkspaceState.find({ userId: userObjId }).lean()
+      : [];
     const projStateMap = new Map(userProjectStates.map((s) => [s.projectId, s]));
 
     const projects = PROJECTS_CATALOG.map((proj) => {
@@ -3081,9 +3199,10 @@ router.get("/data", authenticateToken, async (req, res) => {
       const totalMilestones = (proj.milestones || []).length || 3;
       const checkedCount = st?.checkedTasks?.length || 0;
       const taskProgressPct = Math.min(100, Math.round((checkedCount / totalMilestones) * 100));
-      const status = String(st?.status || "NOT_STARTED").toUpperCase();
+      const isPassed = Boolean(st?.passed && st?.badgeAwarded);
+      const status = isPassed ? "PASSED" : String(st?.status || "NOT_STARTED").toUpperCase();
       const progressPercent =
-        status === "PASSED" || st?.passed
+        isPassed
           ? 100
           : status === "NEEDS_IMPROVEMENT"
           ? Math.max(taskProgressPct, Math.min(95, st?.bestScore || 50))
@@ -3095,8 +3214,8 @@ router.get("/data", authenticateToken, async (req, res) => {
         ...spec,
         userState: {
           status,
-          passed: Boolean(st?.passed),
-          badgeAwarded: Boolean(st?.badgeAwarded),
+          passed: isPassed,
+          badgeAwarded: isPassed,
           attemptsCount: st?.attemptsCount || 0,
           bestScore: st?.bestScore || 0,
           bestPercentage: st?.bestPercentage || 0,
