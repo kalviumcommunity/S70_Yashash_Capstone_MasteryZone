@@ -63,6 +63,106 @@ function getSmtpConfig() {
   };
 }
 
+/**
+ * Detects whether an HTTPS transactional email provider is configured.
+ * Cloud platforms (specifically Render Free Tier) completely block outbound
+ * TCP traffic on SMTP ports 25, 465, and 587. Using an HTTPS API (Port 443)
+ * bypasses cloud firewall restrictions without requiring paid infrastructure.
+ */
+function getHttpEmailProvider() {
+  if (process.env.RESEND_API_KEY && process.env.RESEND_API_KEY.trim()) {
+    return {
+      type: 'resend',
+      apiKey: process.env.RESEND_API_KEY.trim(),
+      from: process.env.RESEND_FROM || process.env.SMTP_FROM || 'Mastery Zone <onboarding@resend.dev>',
+    };
+  }
+  if (process.env.BREVO_API_KEY && process.env.BREVO_API_KEY.trim()) {
+    return {
+      type: 'brevo',
+      apiKey: process.env.BREVO_API_KEY.trim(),
+      from: process.env.SMTP_FROM || process.env.SMTP_EMAIL || 'notifications@masteryzone.com',
+    };
+  }
+  return null;
+}
+
+async function sendViaHttpApi(mailOptions, provider) {
+  const to = Array.isArray(mailOptions.to) ? mailOptions.to : [mailOptions.to];
+  const cleanTo = to.map((e) => String(e).trim().toLowerCase());
+
+  if (provider.type === 'resend') {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${provider.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: mailOptions.from || provider.from,
+        to: cleanTo,
+        subject: mailOptions.subject,
+        html: mailOptions.html,
+        text: mailOptions.text,
+      }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.id) {
+      return {
+        success: true,
+        status: 'accepted',
+        messageId: data.id,
+        accepted: cleanTo,
+        rejected: [],
+        providerResponse: `250 Resend API ID ${data.id}`,
+      };
+    }
+    const errMsg = data.message || `Resend API returned status ${res.status}`;
+    const err = new Error(errMsg);
+    err.code = res.status === 401 || res.status === 403 ? 'EAUTH' : 'API_ERROR';
+    throw err;
+  }
+
+  if (provider.type === 'brevo') {
+    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'api-key': provider.apiKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        sender: {
+          name: 'Mastery Zone',
+          email: process.env.SMTP_EMAIL || 'support@masteryzone.com',
+        },
+        to: cleanTo.map((e) => ({ email: e })),
+        subject: mailOptions.subject,
+        htmlContent: mailOptions.html,
+        textContent: mailOptions.text,
+      }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && (data.messageId || data.messageIds)) {
+      return {
+        success: true,
+        status: 'accepted',
+        messageId: data.messageId || (data.messageIds && data.messageIds[0]) || 'brevo-msg',
+        accepted: cleanTo,
+        rejected: [],
+        providerResponse: '250 Brevo API Accepted',
+      };
+    }
+    const errMsg = data.message || `Brevo API returned status ${res.status}`;
+    const err = new Error(errMsg);
+    err.code = res.status === 401 || res.status === 403 ? 'EAUTH' : 'API_ERROR';
+    throw err;
+  }
+
+  throw new Error('Unsupported HTTP email provider');
+}
+
 function maskEmail(email) {
   if (!email || !email.includes('@')) return '***';
   const [user, domain] = email.split('@');
@@ -89,7 +189,7 @@ function diagnoseSmtpError(err) {
   } else if (code === 'ETIMEDOUT') {
     safeMessage = 'Connection to SMTP server timed out. Check network connectivity and port settings.';
   } else if (code === 'ECONNECTION' || code === 'ESOCKET') {
-    safeMessage = 'Failed to establish a network connection to the SMTP server. Check SMTP_HOST and SMTP_PORT.';
+    safeMessage = 'Failed to establish an outbound network connection to the SMTP server. Note: Cloud providers like Render Free Tier block outbound SMTP ports 25, 465, and 587. To send emails on Render Free Tier, add RESEND_API_KEY (HTTPS Port 443) in your Environment variables, or upgrade Render to lift the port restriction.';
   } else if (code === 'ETLS') {
     safeMessage = 'TLS negotiation failed. Verify port and security settings (port 465 for SSL/TLS or 587 for STARTTLS).';
   } else {
@@ -158,6 +258,49 @@ function getTransporter() {
  * Explicit health check verifying live SMTP connection and authentication
  */
 async function verifySmtpConnection() {
+  const httpProvider = getHttpEmailProvider();
+  if (httpProvider) {
+    try {
+      if (httpProvider.type === 'resend') {
+        const res = await fetch('https://api.resend.com/api-keys', {
+          headers: { Authorization: `Bearer ${httpProvider.apiKey}` },
+        });
+        if (res.ok) {
+          return {
+            success: true,
+            configured: true,
+            connected: true,
+            host: 'api.resend.com (HTTPS Port 443)',
+            port: 443,
+            secure: true,
+            sender: httpProvider.from,
+            user: 'Resend API Key',
+            message: 'Resend HTTPS API connection verified and ready for dispatch.',
+          };
+        }
+      } else if (httpProvider.type === 'brevo') {
+        const res = await fetch('https://api.brevo.com/v3/account', {
+          headers: { 'api-key': httpProvider.apiKey },
+        });
+        if (res.ok) {
+          return {
+            success: true,
+            configured: true,
+            connected: true,
+            host: 'api.brevo.com (HTTPS Port 443)',
+            port: 443,
+            secure: true,
+            sender: httpProvider.from,
+            user: 'Brevo API Key',
+            message: 'Brevo HTTPS API connection verified and ready for dispatch.',
+          };
+        }
+      }
+    } catch (e) {
+      console.warn('[Mailer] HTTP Provider connection check error:', e.message);
+    }
+  }
+
   const config = getSmtpConfig();
   if (!config.isConfigured) {
     return {
@@ -304,6 +447,45 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
         }
       }
     } catch {}
+  }
+
+  // 1. If an HTTPS transactional provider is configured, dispatch via Port 443 (ideal for Render Free Tier)
+  const httpProvider = getHttpEmailProvider();
+  if (httpProvider) {
+    try {
+      const res = await sendViaHttpApi(mailOptions, httpProvider);
+      recordEmailLog({
+        recipient: to,
+        emailType,
+        subject: mailOptions.subject || '',
+        relatedUserId: userId,
+        relatedRecordId: recordId,
+        status: 'accepted',
+        messageId: res.messageId,
+        providerResponse: res.providerResponse,
+        attemptCount: 1,
+      });
+      return res;
+    } catch (apiErr) {
+      const diag = diagnoseSmtpError(apiErr);
+      recordEmailLog({
+        recipient: to,
+        emailType,
+        subject: mailOptions.subject || '',
+        relatedUserId: userId,
+        relatedRecordId: recordId,
+        status: 'failed',
+        errorCode: diag.code,
+        errorMessage: diag.message,
+        attemptCount: 1,
+      });
+      return {
+        success: false,
+        status: 'failed',
+        errorCode: diag.code,
+        message: diag.message,
+      };
+    }
   }
 
   let tp;
