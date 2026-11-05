@@ -295,15 +295,13 @@ const LandingPage = () => {
                 <LuArrowRight size={15} />
               </button>
 
-              {/* Explore Platform Button */}
+              {/* Explore Platform Button: Video symbol icon on button */}
               <button
                 type="button"
                 className="mz-btn-explore-platform"
                 onClick={() => setTourModalOpen(true)}
               >
-                <span style={{ fontSize: 14, fontWeight: 800, fontFamily: "monospace", display: "inline-flex", alignItems: "center", color: "#4f46e5" }}>
-                  &lt;&gt;
-                </span>
+                <LuCirclePlay size={18} className="mz-video-btn-icon" />
                 <span>Explore Platform</span>
               </button>
             </div>
