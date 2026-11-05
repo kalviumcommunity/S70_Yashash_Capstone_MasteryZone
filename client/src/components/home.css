@@ -2331,6 +2331,130 @@
   }
 }
 
+/* Dashboard Entrance & Loading Animations */
+@keyframes mzDashboardPageFade {
+  0% {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes mzUserCardReveal {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.96);
+    filter: blur(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes mzWelcomeSlide {
+  0% {
+    opacity: 0;
+    transform: translateX(-14px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes mzWaveHand {
+  0% { transform: rotate(0deg); }
+  15% { transform: rotate(14deg); }
+  30% { transform: rotate(-8deg); }
+  45% { transform: rotate(14deg); }
+  60% { transform: rotate(-4deg); }
+  75% { transform: rotate(10deg); }
+  100% { transform: rotate(0deg); }
+}
+
+@keyframes mzTileFadeUp {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes mzStatusPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(34, 197, 94, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+  }
+}
+
+.mz-dashboard-entrance {
+  animation: mzDashboardPageFade 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.mz-welcome-entrance {
+  animation: mzWelcomeSlide 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both;
+}
+
+.mz-user-entrance {
+  animation: mzUserCardReveal 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.12s both;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.mz-user-entrance:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px -4px rgba(37, 99, 235, 0.16);
+  border-color: #93c5fd;
+}
+
+.mz-live-status-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #22c55e;
+  animation: mzStatusPulse 2s infinite cubic-bezier(0.4, 0, 0.6, 1);
+  flex-shrink: 0;
+}
+
+.mz-wave-hand {
+  display: inline-block;
+  transform-origin: 70% 70%;
+  animation: mzWaveHand 1.6s ease-in-out 0.4s;
+}
+
+.mz-tile-anim-1 { animation: mzTileFadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.14s both; }
+.mz-tile-anim-2 { animation: mzTileFadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.22s both; }
+.mz-tile-anim-3 { animation: mzTileFadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.30s both; }
+.mz-tile-anim-4 { animation: mzTileFadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.38s both; }
+
+.mz-telemetry-badge-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.mz-telemetry-tile:hover .mz-telemetry-badge-icon {
+  transform: scale(1.15);
+}
+
 .mz-fade-in-up {
   animation: mzFadeInUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
@@ -2363,9 +2487,11 @@
 
 /* Hero Section */
 .mz-hero-banner-glass {
-  background: radial-gradient(circle at 85% 20%, rgba(99, 102, 241, 0.25) 0%, transparent 60%),
-              linear-gradient(135deg, #090d16 0%, #0f172a 50%, #1e1b4b 100%);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: 
+    radial-gradient(circle at 92% 18%, rgba(99, 102, 241, 0.12) 0%, transparent 48%),
+    radial-gradient(circle at 8% 85%, rgba(59, 130, 246, 0.09) 0%, transparent 44%),
+    linear-gradient(135deg, #f8faff 0%, #ffffff 42%, #eff6ff 100%);
+  border: 1px solid #e2e8f0;
   border-radius: 24px;
   padding: 38px 44px;
   display: flex;
@@ -2373,39 +2499,36 @@
   justify-content: space-between;
   gap: 32px;
   margin-bottom: 32px;
-  box-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  box-shadow: 0 4px 24px -2px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(0, 0, 0, 0.03);
   position: relative;
   overflow: hidden;
+}
+
+.mz-hero-banner-glass::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #3b82f6 0%, #6366f1 50%, #8b5cf6 100%);
+  border-radius: 24px 24px 0 0;
+}
+
+.mz-hero-laptop-img {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), filter 0.3s ease;
+}
+
+.mz-hero-laptop-img:hover {
+  transform: translateY(-4px) scale(1.02);
+  filter: drop-shadow(0 18px 36px rgba(59, 130, 246, 0.18)) !important;
 }
 
 .mz-hero-btn-primary {
   background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   color: #ffffff;
   border: 1px solid rgba(255, 255, 255, 0.2);
-  padding: 12px 26px;
-  border-radius: 12px;
-  font-weight: 700;
-  font-size: 0.93rem;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.mz-hero-btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.5);
-  background: linear-gradient(135deg, #60a5fa 0%, #2563eb 100%);
-}
-
-.mz-hero-btn-glass {
-  background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(12px);
-  color: #f1f5f9;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  padding: 12px 22px;
+  padding: 12px 24px;
   border-radius: 12px;
   font-weight: 700;
   font-size: 0.92rem;
@@ -2413,14 +2536,46 @@
   align-items: center;
   gap: 8px;
   cursor: pointer;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.28);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.mz-hero-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.42);
+  background: linear-gradient(135deg, #60a5fa 0%, #2563eb 100%);
+}
+
+.mz-hero-btn-glass {
+  background: #ffffff;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 0.92rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .mz-hero-btn-glass:hover {
-  background: rgba(255, 255, 255, 0.16);
-  border-color: rgba(255, 255, 255, 0.3);
+  background: #f8fafc;
+  border-color: #93c5fd;
   transform: translateY(-2px);
-  color: #ffffff;
+  color: #1d4ed8;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.12);
+}
+
+@media (max-width: 960px) {
+  .mz-hero-banner-glass {
+    flex-direction: column-reverse;
+    padding: 28px 24px;
+    text-align: center;
+  }
 }
 
 /* Interactive Cards */

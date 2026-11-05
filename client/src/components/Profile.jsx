@@ -553,6 +553,17 @@ const Profile = () => {
             <span className="mz-sidebar-item-label">Dashboard</span>
           </button>
 
+          {/* 2. Coding */}
+          <button
+            type="button"
+            className="mz-sidebar-item"
+            onClick={() => navigate("/coding")}
+            title="Coding"
+          >
+            <LuCodeXml className="mz-sidebar-item-icon" />
+            <span className="mz-sidebar-item-label">Coding</span>
+          </button>
+
           {/* 2. Practice & DSA */}
           <button
             type="button"
