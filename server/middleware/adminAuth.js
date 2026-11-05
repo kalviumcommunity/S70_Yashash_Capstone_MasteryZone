@@ -1,6 +1,7 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const AdminActivityLog = require("../models/AdminActSchema");
+const { getJwtSecret } = require("../config/jwtConfig");
 
 const MAIN_ADMIN_EMAIL = (
   process.env.MAIN_ADMIN_EMAIL ||
@@ -10,7 +11,7 @@ const MAIN_ADMIN_EMAIL = (
   .toLowerCase()
   .trim();
 
-const JWT_SECRET = process.env.JWT_SECRET || "supersecretkey";
+const JWT_SECRET = getJwtSecret();
 
 /**
  * Verifies any authorized administrator (Main Admin or Secondary Admin with assigned permissions)

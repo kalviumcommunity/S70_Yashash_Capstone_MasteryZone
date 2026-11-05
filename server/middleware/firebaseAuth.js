@@ -1,77 +1,91 @@
 const admin = require('../firebaseConfig');
-const jwt = require('jsonwebtoken');
 
+/**
+ * Middleware: verifyFirebaseToken
+ * Strictly verifies Firebase ID tokens using the Firebase Admin SDK.
+ * Rejects unverified JWT claims, missing tokens, and request body identity injection.
+ */
 const verifyFirebaseToken = async (req, res, next) => {
   const authHeader = req.headers.authorization;
   let token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
 
-  if (!token && req.body && (req.body.token || req.body.idToken)) {
-    token = req.body.token || req.body.idToken;
+  if (!token && req.body && (req.body.idToken || req.body.token)) {
+    token = req.body.idToken || req.body.token;
   }
 
-  // If no token is provided, check if client sent direct user info (fallback for dev/offline)
-  if (!token && req.body && req.body.email) {
-    req.user = {
-      email: req.body.email.toLowerCase().trim(),
-      name: req.body.name || req.body.displayName || req.body.email.split('@')[0],
-      uid: req.body.uid || `user-${Date.now()}`
-    };
-    return next();
+  if (!token || typeof token !== 'string') {
+    return res.status(401).json({
+      success: false,
+      message: 'Access denied. A valid Firebase ID token is required.',
+    });
   }
 
-  if (!token) {
-    return res.status(401).json({ message: 'Access denied. No Firebase token provided.' });
-  }
-
-  // If Firebase Admin has initialized credentials, verify with Admin SDK
-  if (admin.apps && admin.apps.length > 0) {
-    try {
-      const decodedToken = await admin.auth().verifyIdToken(token);
-      req.user = {
-        ...decodedToken,
-        email: decodedToken.email || req.body?.email,
-        name: decodedToken.name || req.body?.name || req.body?.displayName,
-        uid: decodedToken.uid || decodedToken.sub || decodedToken.user_id || req.body?.uid
-      };
-      return next();
-    } catch (adminError) {
-      console.warn('⚠️ Firebase token verification with Admin SDK failed:', adminError.message);
+  // Ensure Firebase Admin SDK is initialized
+  if (!admin.apps || admin.apps.length === 0) {
+    // In automated test environment only, verify if a test token verification stub is provided
+    if (process.env.NODE_ENV === 'test' && process.env.TEST_ALLOW_MOCK_AUTH === 'true') {
+      try {
+        const jwt = require('jsonwebtoken');
+        const decoded = jwt.decode(token);
+        if (decoded && decoded.email && decoded.uid) {
+          req.user = {
+            uid: decoded.uid,
+            email: decoded.email.toLowerCase().trim(),
+            name: decoded.name || decoded.email.split('@')[0],
+            authProvider: 'google',
+          };
+          return next();
+        }
+      } catch {}
     }
+    return res.status(500).json({
+      success: false,
+      message: 'Firebase Admin authentication is not configured on the server.',
+    });
   }
 
-  // Graceful fallback: decode JWT token claims directly
   try {
-    const decoded = jwt.decode(token);
-    const email = decoded?.email || req.body?.email;
-    const name = decoded?.name || req.body?.name || req.body?.displayName;
-    const uid = decoded?.sub || decoded?.user_id || req.body?.uid;
+    // Verify cryptographic signature, expiration, issuer, audience, and revocation status
+    const decodedToken = await admin.auth().verifyIdToken(token, true);
 
-    if (email) {
-      req.user = {
-        email: email.toLowerCase().trim(),
-        name: name || "Google User",
-        uid: uid || "mock-firebase-uid"
-      };
-      return next();
-    } else {
-      req.user = {
-        email: (req.body?.email || "mock.user@gmail.com").toLowerCase().trim(),
-        name: req.body?.name || "Mock Firebase User",
-        uid: req.body?.uid || "mock-firebase-uid-12345"
-      };
-      return next();
+    if (!decodedToken || !decodedToken.uid) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid Firebase ID token claims.',
+      });
     }
-  } catch (decodeErr) {
-    console.error("⚠️ Failed to decode raw token:", decodeErr);
-    if (req.body && req.body.email) {
-      req.user = {
-        email: req.body.email.toLowerCase().trim(),
-        name: req.body.name || "Google User",
-        uid: req.body.uid || "mock-firebase-uid"
-      };
-      return next();
+
+    if (!decodedToken.email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Firebase account must have an associated email address.',
+      });
     }
-    return res.status(400).json({ message: 'Invalid Firebase token format.' });
+
+    // Build the authenticated identity EXCLUSIVELY from verified claims
+    req.user = {
+      uid: decodedToken.uid,
+      email: decodedToken.email.toLowerCase().trim(),
+      name: decodedToken.name || decodedToken.displayName || decodedToken.email.split('@')[0],
+      picture: decodedToken.picture || '',
+      emailVerified: !!decodedToken.email_verified,
+      authProvider: 'google',
+    };
+
+    return next();
+  } catch (error) {
+    console.error('Firebase token verification error:', error.code || error.message);
+    const isExpired = error.code === 'auth/id-token-expired';
+    const isRevoked = error.code === 'auth/id-token-revoked';
+    return res.status(401).json({
+      success: false,
+      message: isExpired
+        ? 'Firebase authentication token has expired. Please sign in again.'
+        : isRevoked
+        ? 'Firebase authentication token has been revoked.'
+        : 'Firebase ID token verification failed.',
+      errorCode: error.code || 'AUTH_FAILED',
+    });
   }
 };
 

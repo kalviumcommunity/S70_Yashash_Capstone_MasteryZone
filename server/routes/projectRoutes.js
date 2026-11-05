@@ -990,6 +990,16 @@ router.get("/submissions/:sessionId/report", optionalAuthenticateToken, async (r
     if (!sub) {
       return res.status(404).json({ error: "Project assessment report not found" });
     }
+
+    const userId = resolveUserId(req);
+    const isPrivileged = req.user?.role === "admin" || req.user?.role === "SUPER_ADMIN";
+    const subUid = String(sub.userId || "");
+    if (subUid && !subUid.startsWith("guest_") && subUid !== "guest") {
+      if (!userId || (!isPrivileged && String(userId) !== subUid)) {
+        return res.status(403).json({ error: "Access denied. You do not have permission to view this project report." });
+      }
+    }
+
     const project = getProjectById(sub.projectId);
     return res.json({
       success: true,

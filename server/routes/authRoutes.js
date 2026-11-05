@@ -14,9 +14,10 @@ const {
 } = require('../utils/mailer');
 const { pushNotification } = require('../utils/notificationService');
 const { pushAdminNotification } = require('../utils/adminNotificationService');
+const { getJwtSecret } = require('../config/jwtConfig');
 const router = express.Router();
 
-const JWT_SECRET = process.env.JWT_SECRET || "supersecretkey";
+const JWT_SECRET = getJwtSecret();
 
 const normalizeIndianPhone = (phone) => {
   if (!phone) return null;
@@ -441,13 +442,13 @@ router.put('/change-password', verifyToken, async (req, res) => {
 // Firebase Login Route
 router.post('/firebase-login', verifyFirebaseToken, async (req, res) => {
   try {
-    const rawEmail = req.user?.email || req.body?.email;
+    const rawEmail = req.user?.email;
     if (!rawEmail) {
-      return res.status(400).json({ message: 'No email found in Firebase credentials or request' });
+      return res.status(400).json({ message: 'No verified email found in Firebase credentials' });
     }
     const email = rawEmail.toLowerCase().trim();
-    const name = req.user?.name || req.body?.name || req.body?.displayName || email.split('@')[0];
-    const uid = req.user?.uid || req.user?.user_id || req.body?.uid || 'google-uid';
+    const name = req.user?.name || email.split('@')[0];
+    const uid = req.user?.uid;
     
     // Check if user exists in our DB
     let user = await User.findOne({ email });

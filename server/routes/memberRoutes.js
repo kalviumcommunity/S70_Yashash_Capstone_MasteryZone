@@ -3,6 +3,7 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const Membership = require('../models/Membership');
 const { pushNotification } = require('../utils/notificationService');
+const { getJwtSecret } = require('../config/jwtConfig');
 
 // Middleware to verify JWT token
 const verifyToken = (req, res, next) => {
@@ -10,7 +11,7 @@ const verifyToken = (req, res, next) => {
   if (!token) return res.status(401).json({ error: "Access denied. No token provided." });
 
   try {
-    const verified = jwt.verify(token, process.env.JWT_SECRET || 'supersecretkey');
+    const verified = jwt.verify(token, getJwtSecret());
     req.user = verified;
     next();
   } catch (err) {

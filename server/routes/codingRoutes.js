@@ -55,6 +55,24 @@ const NODE_BIN = fs.existsSync("/usr/local/bin/node") ? "/usr/local/bin/node" : 
 // -------------------------------------------------------------
 // SECURE CODE RUNNER HELPER WITH STDIN, TIMEOUT & BUFFER LIMITS
 // -------------------------------------------------------------
+const executionRateLimits = new Map();
+function checkExecutionRateLimit(identifier) {
+  const now = Date.now();
+  const windowMs = 60 * 1000;
+  const maxRequests = 40;
+  let entry = executionRateLimits.get(identifier);
+  if (!entry || now - entry.resetTime > windowMs) {
+    entry = { count: 1, resetTime: now };
+    executionRateLimits.set(identifier, entry);
+    return true;
+  }
+  if (entry.count >= maxRequests) {
+    return false;
+  }
+  entry.count += 1;
+  return true;
+}
+
 function runSandboxedProcess(command, args, stdinInput = "", timeoutMs = 5000, cwd = os.tmpdir()) {
   return new Promise((resolve) => {
     const startTime = Date.now();
@@ -66,7 +84,12 @@ function runSandboxedProcess(command, args, stdinInput = "", timeoutMs = 5000, c
     try {
       proc = spawn(command, args, {
         cwd,
-        env: { PATH: process.env.PATH, HOME: os.tmpdir() },
+        env: {
+          PATH: process.env.PATH,
+          HOME: cwd,
+          TMPDIR: cwd,
+          LANG: "en_US.UTF-8",
+        },
         stdio: ["pipe", "pipe", "pipe"],
       });
     } catch (err) {
@@ -105,13 +128,13 @@ function runSandboxedProcess(command, args, stdinInput = "", timeoutMs = 5000, c
     }
 
     proc.stdout.on("data", (chunk) => {
-      if (stdout.length < 1024 * 512) {
+      if (stdout.length < 1024 * 128) {
         stdout += chunk.toString();
       }
     });
 
     proc.stderr.on("data", (chunk) => {
-      if (stderr.length < 1024 * 512) {
+      if (stderr.length < 1024 * 128) {
         stderr += chunk.toString();
       }
     });
@@ -150,13 +173,34 @@ function runSandboxedProcess(command, args, stdinInput = "", timeoutMs = 5000, c
 // With optional Judge0 remote execution when configured
 // -------------------------------------------------------------
 router.post("/execute", async (req, res) => {
+  const clientIp = req.ip || req.connection.remoteAddress || "client";
+  if (!checkExecutionRateLimit(clientIp)) {
+    return res.status(429).json({ error: "Execution rate limit exceeded. Please wait a moment before running more code." });
+  }
+
   const { language, code, stdin = "" } = req.body;
+
+  const MAX_CODE_LENGTH = 100 * 1024;
+  const MAX_STDIN_LENGTH = 50 * 1024;
 
   if (!code || typeof code !== "string") {
     return res.status(400).json({ error: "Code string is required" });
   }
 
+  if (code.length > MAX_CODE_LENGTH) {
+    return res.status(400).json({ error: "Code length exceeds maximum allowed limit (100 KB)." });
+  }
+
+  if (typeof stdin === "string" && stdin.length > MAX_STDIN_LENGTH) {
+    return res.status(400).json({ error: "Standard input exceeds maximum allowed limit (50 KB)." });
+  }
+
+  const ALLOWED_LANGUAGES = ["python", "py", "javascript", "js", "node", "cpp", "c++", "c", "java"];
   const lang = (language || "").toLowerCase().trim();
+  if (!ALLOWED_LANGUAGES.includes(lang)) {
+    return res.status(400).json({ error: `Unsupported execution language: ${language}. Supported languages are Python, JavaScript, Java, C, and C++.` });
+  }
+
   const startTime = Date.now();
   const TIMEOUT_MS = 5000;
 
@@ -4920,11 +4964,16 @@ router.get("/proctored-session/:sessionId/report", optionalAuthenticateToken, as
     const userId = req.user ? (req.user.userId || req.user.id || req.user._id) : null;
     const { sessionId } = req.params;
 
-    let session = userId
-      ? await ProctoredCodingSession.findOne({ sessionId, userId })
-      : await ProctoredCodingSession.findOne({ sessionId });
-    if (!session) {
-      session = await ProctoredCodingSession.findOne({ sessionId });
+    let session = await ProctoredCodingSession.findOne({ sessionId });
+    const isPrivileged = req.user?.role === "admin" || req.user?.role === "SUPER_ADMIN";
+
+    if (session) {
+      const sessUid = String(session.userId || "");
+      if (sessUid && !sessUid.startsWith("guest_") && sessUid !== "guest") {
+        if (!userId || (!isPrivileged && String(userId) !== sessUid)) {
+          return res.status(403).json({ error: "Access denied. You do not have permission to view this assessment report." });
+        }
+      }
     }
 
     // If not a coding session, check if this is an MCQ attempt
@@ -4949,6 +4998,12 @@ router.get("/proctored-session/:sessionId/report", optionalAuthenticateToken, as
       }
 
       if (attempt) {
+        const attUid = String(attempt.userId || "");
+        if (attUid && !attUid.startsWith("guest_") && attUid !== "guest") {
+          if (!userId || (!isPrivileged && String(userId) !== attUid)) {
+            return res.status(403).json({ error: "Access denied. You do not have permission to view this assessment report." });
+          }
+        }
         const User = require("../models/User");
         const { getSubjectModule } = require("../data/curriculumRegistry");
         const user = await User.findById(attempt.userId || userId).lean();
