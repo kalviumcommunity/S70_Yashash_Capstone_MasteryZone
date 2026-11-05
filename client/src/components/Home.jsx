@@ -49,6 +49,7 @@ import {
   LuCodeXml,
   LuFolderGit2,
   LuSparkles,
+  LuTrendingUp,
   LuFlame,
   LuTrophy,
   LuZap,
@@ -1516,82 +1517,129 @@ const Home = () => {
               )}
 
               {isDropdownOpen && (
-                <div className="mz-profile-menu">
-                  <div className="mz-menu-header">
-                    <strong>{user?.fullName || displayName}</strong>
-                    <span>{user?.email || localStorage.getItem("userEmail") || "user@masteryzone.com"}</span>
+                <div className="mz-c-user-dropdown" role="menu">
+                  <div className="mz-c-dropdown-header-card">
+                    <div className="mz-c-dropdown-avatar-wrap">
+                      <div className="mz-c-dropdown-avatar">
+                        {user?.avatarUrl ? (
+                          <img src={user.avatarUrl} alt="User" />
+                        ) : (
+                          (user?.fullName || displayName || "U").charAt(0).toUpperCase()
+                        )}
+                      </div>
+                      <span className="mz-c-dropdown-status-dot" title="Active session" />
+                    </div>
+                    <div className="mz-c-dropdown-header-info">
+                      <div className="mz-c-dropdown-name-row">
+                        <strong className="mz-c-dropdown-name" title={user?.fullName || displayName || "Learner"}>
+                          {user?.fullName || displayName || "Learner"}
+                        </strong>
+                        <span className="mz-c-role-badge">
+                          {String(user?.fullName || displayName || "").toLowerCase().includes("guest")
+                            ? "Guest Session"
+                            : (user?.role === "SUPER_ADMIN" ? "Super Admin" : "Learner")}
+                        </span>
+                      </div>
+                      <span className="mz-c-dropdown-sub" title={user?.email || localStorage.getItem("userEmail") || "learner@masteryzone.com"}>
+                        {user?.email || localStorage.getItem("userEmail") || "learner@masteryzone.com"}
+                      </span>
+                    </div>
                   </div>
-                  <div className="mz-menu-divider" />
-                  <button
-                    type="button"
-                    className="mz-menu-item"
+
+                  <div className="mz-c-dropdown-divider" />
+
+                  <div
+                    className="mz-c-dropdown-item"
                     onClick={() => {
                       setIsDropdownOpen(false);
                       navigate("/profile");
                     }}
                   >
-                    View Profile
-                  </button>
-                  <button
-                    type="button"
-                    className="mz-menu-item"
-                    onClick={handlePhotoUploadClick}
+                    <span className="mz-c-dropdown-item-icon"><LuUser size={16} /></span>
+                    <div className="mz-c-dropdown-item-content">
+                      <span className="mz-c-dropdown-item-title">Profile Settings</span>
+                      <span className="mz-c-dropdown-item-desc">Account details & preferences</span>
+                    </div>
+                  </div>
+
+                  <div
+                    className="mz-c-dropdown-item"
+                    onClick={() => {
+                      setIsDropdownOpen(false);
+                      navigate("/progress");
+                    }}
                   >
-                    Update Photo
-                  </button>
-                  {user?.avatarUrl && (
-                    <button
-                      type="button"
-                      className="mz-menu-item mz-text-danger"
-                      onClick={handleRemovePhoto}
-                    >
-                      Remove Photo
-                    </button>
-                  )}
+                    <span className="mz-c-dropdown-item-icon"><LuTrendingUp size={16} /></span>
+                    <div className="mz-c-dropdown-item-content">
+                      <span className="mz-c-dropdown-item-title">My Learning Progress</span>
+                      <span className="mz-c-dropdown-item-desc">XP, streaks & completion stats</span>
+                    </div>
+                  </div>
+
+                  <div
+                    className="mz-c-dropdown-item"
+                    onClick={() => {
+                      setIsDropdownOpen(false);
+                      setActiveNavTab("certificates");
+                    }}
+                  >
+                    <span className="mz-c-dropdown-item-icon"><LuAward size={16} /></span>
+                    <div className="mz-c-dropdown-item-content">
+                      <div className="mz-c-dropdown-item-title-row">
+                        <span className="mz-c-dropdown-item-title">My Earned Certificates</span>
+                        <span className="mz-c-cert-count-pill">{certHistory.certificates?.length || 0}</span>
+                      </div>
+                      <span className="mz-c-dropdown-item-desc">Accredited credentials</span>
+                    </div>
+                  </div>
+
                   {((user?.role === "SUPER_ADMIN" || user?.role === "admin") || user?.email === "yashashyash1@gmail.com") && (
-                    <button
-                      type="button"
-                      className="mz-menu-item"
-                      style={{ color: "#6366f1", fontWeight: 700 }}
+                    <div
+                      className="mz-c-dropdown-item"
                       onClick={() => {
                         setIsDropdownOpen(false);
                         navigate("/admin/overview");
                       }}
                     >
-                      🛡️ Super Admin Portal
-                    </button>
+                      <span className="mz-c-dropdown-item-icon" style={{ background: "#eef2ff", color: "#6366f1" }}>
+                        <LuShieldCheck size={16} />
+                      </span>
+                      <div className="mz-c-dropdown-item-content">
+                        <span className="mz-c-dropdown-item-title" style={{ color: "#4f46e5" }}>Super Admin Portal</span>
+                        <span className="mz-c-dropdown-item-desc">System moderation & control</span>
+                      </div>
+                    </div>
                   )}
-                  <button
-                    type="button"
-                    className="mz-menu-item"
+
+                  <div
+                    className="mz-c-dropdown-item"
                     onClick={() => {
                       setIsSettingsModalOpen(true);
                       setIsDropdownOpen(false);
                     }}
                   >
-                    App Settings
-                  </button>
-                  <button
-                    type="button"
-                    className="mz-menu-item mz-text-danger"
+                    <span className="mz-c-dropdown-item-icon"><LuSettings size={16} /></span>
+                    <div className="mz-c-dropdown-item-content">
+                      <span className="mz-c-dropdown-item-title">App Settings</span>
+                      <span className="mz-c-dropdown-item-desc">Theme, preferences & security</span>
+                    </div>
+                  </div>
+
+                  <div className="mz-c-dropdown-divider" />
+
+                  <div
+                    className="mz-c-dropdown-item mz-c-item-danger"
                     onClick={() => {
                       setIsDropdownOpen(false);
-                      handleDeleteAccount();
-                    }}
-                  >
-                    Delete Account
-                  </button>
-                  <div className="mz-menu-divider" />
-                  <button
-                    type="button"
-                    className="mz-menu-item"
-                    onClick={() => {
                       setIsLogoutModalOpen(true);
-                      setIsDropdownOpen(false);
                     }}
                   >
-                    Log Out
-                  </button>
+                    <span className="mz-c-dropdown-item-icon"><LuLogOut size={16} /></span>
+                    <div className="mz-c-dropdown-item-content">
+                      <span className="mz-c-dropdown-item-title">Sign Out</span>
+                      <span className="mz-c-dropdown-item-desc">End current active session</span>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
