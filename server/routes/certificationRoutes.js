@@ -12,7 +12,7 @@ const authenticateToken = require("../middleware/authMiddleware");
 const { optionalAuthenticateToken } = require("../middleware/authMiddleware");
 const { pushNotification } = require("../utils/notificationService");
 const { pushAdminNotification } = require("../utils/adminNotificationService");
-const { sendCertificateAwardedEmail } = require("../utils/mailer");
+const { sendCertificateAwardedEmail, sendSubmissionEvaluationEmail, dispatchMailBackground } = require("../utils/mailer");
 const { DSA_MCQ_BANK } = require("../data/dsaQuestionsBank");
 const CHALLENGES_CATALOG = require("../data/challengesCatalog");
 const { CURRICULUM } = require("../data/codingCurriculum");
@@ -989,6 +989,31 @@ router.post("/attempt/:attemptId/finalize", authenticateToken, async (req, res) 
         });
       } catch (userErr) {
         console.warn("User lookup note for email:", userErr.message);
+      }
+    } else {
+      // Certification completed but score below passing threshold: dispatch evaluation result email
+      try {
+        const userObj = await User.findById(userId).select("fullName username email").lean();
+        const recipientEmail = attempt.candidateEmail || userObj?.email || req.user?.email;
+        const recipientName = attempt.candidateName || userObj?.fullName || userObj?.username || "Candidate";
+        if (recipientEmail) {
+          dispatchMailBackground(async () => {
+            return await sendSubmissionEvaluationEmail({
+              userEmail: recipientEmail,
+              userName: recipientName,
+              assessmentTitle: attempt.certTitle,
+              assessmentType: "certification",
+              score: totalMarksObtained,
+              maxScore: totalMaxMarks,
+              percentage: finalScorePercentage,
+              verdict: finalVerdict,
+              reportUrl: `/assessment-report/${attempt.attemptId}`,
+              req,
+            });
+          }, { type: "certification_evaluated", recipient: recipientEmail });
+        }
+      } catch (userErr) {
+        console.warn("User lookup note for non-passing certification email:", userErr.message);
       }
     }
 

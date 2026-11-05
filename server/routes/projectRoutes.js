@@ -19,6 +19,7 @@ const Progress = require("../models/ProgressSchema");
 const CodingProgress = require("../models/CodingProgress");
 const User = require("../models/User");
 const { pushNotification } = require("../utils/notificationService");
+const { sendSubmissionEvaluationEmail, dispatchMailBackground } = require("../utils/mailer");
 
 const JAVAC_BIN = fs.existsSync("/opt/homebrew/Cellar/openjdk/26.0.2.1/bin/javac")
   ? "/opt/homebrew/Cellar/openjdk/26.0.2.1/bin/javac"
@@ -1391,6 +1392,29 @@ router.post("/:projectId/submit", authenticateToken, async (req, res) => {
         badgeAwarded: evaluation.passed,
       },
     });
+
+    try {
+      const recipientEmail = user?.email || submissionDoc?.candidateDetails?.email;
+      const recipientName = user?.fullName || user?.username || submissionDoc?.candidateDetails?.fullName || "Candidate";
+      if (recipientEmail && !recipientEmail.includes("candidate@masteryzone.com")) {
+        dispatchMailBackground(async () => {
+          return await sendSubmissionEvaluationEmail({
+            userEmail: recipientEmail,
+            userName: recipientName,
+            assessmentTitle: project.title,
+            assessmentType: "project",
+            score: evaluation.marksObtained,
+            maxScore: 100,
+            percentage: evaluation.marksObtained,
+            verdict: evaluation.passed ? "PASSED" : "FAILED",
+            reportUrl: `/assessment-report/${sessionId}`,
+            req,
+          });
+        }, { type: "project_evaluated", recipient: recipientEmail });
+      }
+    } catch (mailDispatchErr) {
+      console.warn("Project evaluation email dispatch warning:", mailDispatchErr.message);
+    }
 
     res.status(201).json({
       success: true,

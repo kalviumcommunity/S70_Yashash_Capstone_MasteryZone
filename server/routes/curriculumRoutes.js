@@ -10,6 +10,7 @@ const ProctoredCodingSession = require("../models/ProctoredCodingSession");
 const Progress = require("../models/ProgressSchema");
 const User = require("../models/User");
 const { pushNotification } = require("../utils/notificationService");
+const { sendSubmissionEvaluationEmail, dispatchMailBackground } = require("../utils/mailer");
 const { spawn } = require("child_process");
 const fs = require("fs");
 const path = require("path");
@@ -1547,6 +1548,28 @@ router.post("/assessment/submit", authenticateToken, async (req, res) => {
       actionUrl: `/assessment-report/attempt_${attemptDoc._id}`,
       actionLabel: "View Grade Report",
     });
+
+    try {
+      const candidateUser = await User.findById(userId).select("fullName username email role").lean();
+      if (candidateUser && candidateUser.email) {
+        dispatchMailBackground(async () => {
+          return await sendSubmissionEvaluationEmail({
+            userEmail: candidateUser.email,
+            userName: candidateUser.fullName || candidateUser.username || "Candidate",
+            assessmentTitle: module.title,
+            assessmentType: "module",
+            score: marksObtained,
+            maxScore: totalMarks,
+            percentage,
+            verdict: passed ? "PASSED" : "FAILED",
+            reportUrl: `/assessment-report/attempt_${attemptDoc._id}`,
+            req,
+          });
+        }, { type: "module_assessment_completed", recipient: candidateUser.email });
+      }
+    } catch (mailDispatchErr) {
+      console.warn("Module assessment email dispatch warning:", mailDispatchErr.message);
+    }
 
     res.json({
       success: true,

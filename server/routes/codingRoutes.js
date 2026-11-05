@@ -22,6 +22,7 @@ const User = require("../models/User");
 const ProctoredCodingSession = require("../models/ProctoredCodingSession");
 const { pushNotification } = require("../utils/notificationService");
 const { pushAdminNotification } = require("../utils/adminNotificationService");
+const { sendSubmissionEvaluationEmail, dispatchMailBackground } = require("../utils/mailer");
 const SubjectProgress = require("../models/SubjectProgress");
 const crypto = require("crypto");
 const { CURRICULUM } = require("../data/codingCurriculum");
@@ -2944,6 +2945,28 @@ router.post("/curriculum/assessment/submit", authenticateToken, async (req, res)
       actionLabel: "View Grade Report",
     });
 
+    try {
+      const candidateUser = await User.findById(userId).select("fullName username email role").lean();
+      if (candidateUser && candidateUser.email) {
+        dispatchMailBackground(async () => {
+          return await sendSubmissionEvaluationEmail({
+            userEmail: candidateUser.email,
+            userName: candidateUser.fullName || candidateUser.username || "Candidate",
+            assessmentTitle: module.title,
+            assessmentType: "module",
+            score: marksObtained,
+            maxScore: totalMarks,
+            percentage,
+            verdict: passed ? "PASSED" : "FAILED",
+            reportUrl: `/assessment-report/attempt_${attemptDoc._id}`,
+            req,
+          });
+        }, { type: "module_assessment_completed", recipient: candidateUser.email });
+      }
+    } catch (mailDispatchErr) {
+      console.warn("Coding module assessment email dispatch warning:", mailDispatchErr.message);
+    }
+
     res.json({
       success: true,
       passed,
@@ -4938,6 +4961,30 @@ router.post(["/proctored-session/:sessionId/submit", "/proctored-session/submit"
       actionUrl: `/assessment-report/${session.sessionId}`,
       actionLabel: "View Coding Report",
     });
+
+    try {
+      const candidateUser = await User.findById(userId).select("fullName username email role").lean();
+      const recipientEmail = candidateUser?.email || session.candidateDetails?.email;
+      const recipientName = candidateUser?.fullName || candidateUser?.username || session.candidateDetails?.fullName || "Candidate";
+      if (recipientEmail) {
+        dispatchMailBackground(async () => {
+          return await sendSubmissionEvaluationEmail({
+            userEmail: recipientEmail,
+            userName: recipientName,
+            assessmentTitle: session.assessmentTitle || "Proctored Coding Assessment",
+            assessmentType: "coding",
+            score: overallPercentage,
+            maxScore: 100,
+            percentage: overallPercentage,
+            verdict: isAccepted ? "PASSED" : "FAILED",
+            reportUrl: `/assessment-report/${session.sessionId}`,
+            req,
+          });
+        }, { type: "coding_assessment_completed", recipient: recipientEmail });
+      }
+    } catch (mailDispatchErr) {
+      console.warn("Proctored coding assessment email dispatch warning:", mailDispatchErr.message);
+    }
 
     res.json({
       success: true,
