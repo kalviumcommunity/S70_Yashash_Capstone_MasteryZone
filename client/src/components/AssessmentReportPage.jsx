@@ -125,6 +125,16 @@ export default function AssessmentReportPage() {
     fetchImmutableReport();
   }, [sessionId]);
 
+  // Security guard against back navigation/gesture swiping into completed assessment
+  useEffect(() => {
+    window.history.pushState(null, "", window.location.href);
+    const handlePopState = () => {
+      navigate("/coding", { replace: true });
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [navigate]);
+
   useEffect(() => {
     if (!report) return;
     let frameId;
@@ -240,32 +250,48 @@ export default function AssessmentReportPage() {
           const matched = localReports.find((r) => r.sessionId === rawId || r.sessionId === cleanId || r.id === rawId || r.id === cleanId);
           if (matched) {
             data = {
-              report: {
-                sessionId: matched.sessionId || rawId,
-                assessmentTitle: matched.assessmentTitle || matched.questionTitle || "Coding Assessment",
-                candidateDetails: matched.candidateDetails || {
-                  fullName: uObj?.fullName || uObj?.username || "Verified Candidate",
-                  email: uObj?.email || "candidate@masteryzone.com",
-                  candidateId: `CAND-${(uId || rawId).slice(-6).toUpperCase()}`,
-                  organization: "Mastery Zone Academic Accreditation",
-                },
-                scorecard: {
-                  totalQuestions: 1,
-                  questionsAttempted: 1,
-                  questionsUnanswered: 0,
-                  totalMarks: 100,
-                  marksObtained: matched.score || 100,
-                  overallPercentage: matched.score || 100,
-                  accuracy: matched.accuracy || 100,
-                  totalTestCases: matched.totalTests || 10,
-                  totalPassedTests: matched.passedTests || 10,
-                  failedTestCases: Math.max(0, (matched.totalTests || 10) - (matched.passedTests || 10)),
-                  durationSeconds: matched.durationSeconds || 60,
-                  grade: matched.grade || "A+",
-                  passed: matched.passed !== false,
-                  telemetryAvailable: true,
-                  integrityStatus: "Verified Flawless",
-                },
+              report: (matched.scorecard && (matched.reviewBreakdown || matched.questions))
+                ? {
+                    ...matched,
+                    sessionId: matched.sessionId || rawId,
+                    candidateDetails: matched.candidateDetails || {
+                      fullName: uObj?.fullName || uObj?.username || "Verified Candidate",
+                      email: uObj?.email || "candidate@masteryzone.com",
+                      candidateId: `CAND-${(uId || rawId).slice(-6).toUpperCase()}`,
+                      organization: "Mastery Zone Academic Accreditation",
+                    },
+                    scorecard: {
+                      ...matched.scorecard,
+                      marksObtained: matched.scorecard?.marksObtained !== undefined ? matched.scorecard.marksObtained : (matched.score || 0),
+                      overallPercentage: matched.scorecard?.overallPercentage !== undefined ? matched.scorecard.overallPercentage : (matched.percentage || 0),
+                    },
+                  }
+                : {
+                    sessionId: matched.sessionId || rawId,
+                    assessmentTitle: matched.assessmentTitle || matched.questionTitle || "Coding Assessment",
+                    candidateDetails: matched.candidateDetails || {
+                      fullName: uObj?.fullName || uObj?.username || "Verified Candidate",
+                      email: uObj?.email || "candidate@masteryzone.com",
+                      candidateId: `CAND-${(uId || rawId).slice(-6).toUpperCase()}`,
+                      organization: "Mastery Zone Academic Accreditation",
+                    },
+                    scorecard: {
+                      totalQuestions: matched.totalQuestions || 1,
+                      questionsAttempted: matched.questionsAttempted || 1,
+                      questionsUnanswered: matched.questionsUnanswered || 0,
+                      totalMarks: matched.totalMarks || 100,
+                      marksObtained: matched.marksObtained !== undefined ? matched.marksObtained : (matched.score || 0),
+                      overallPercentage: matched.percentage !== undefined ? matched.percentage : (matched.score || 0),
+                      accuracy: matched.accuracy || 100,
+                      totalTestCases: matched.totalTests || 10,
+                      totalPassedTests: matched.passedTests || 10,
+                      failedTestCases: Math.max(0, (matched.totalTests || 10) - (matched.passedTests || 10)),
+                      durationSeconds: matched.durationSeconds || 60,
+                      grade: matched.grade || "A+",
+                      passed: matched.passed !== false,
+                      telemetryAvailable: true,
+                      integrityStatus: "Verified Flawless",
+                    },
                 questions: [
                   {
                     questionId: matched.questionId || "q_1",

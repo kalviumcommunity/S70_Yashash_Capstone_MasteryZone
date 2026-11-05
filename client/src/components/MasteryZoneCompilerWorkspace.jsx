@@ -408,10 +408,11 @@ export default function MasteryZoneCompilerWorkspace({
       const rawUser = localStorage.getItem("user");
       if (rawUser) {
         const u = JSON.parse(rawUser);
-        return u._id || u.id || u.userId || "guest";
+        const uid = u._id || u.id || u.userId || "";
+        return uid !== "guest" ? uid : "";
       }
     } catch {}
-    return "guest";
+    return "";
   }, []);
 
   // Load history if historyUrl provided
@@ -467,16 +468,25 @@ export default function MasteryZoneCompilerWorkspace({
   const [allTestCases, setAllTestCases] = useState(effectiveTestCases);
 
   const lastQuestionIdRef = useRef(questionId);
+  const prevEffectiveTcRef = useRef(effectiveTestCases);
+
   useEffect(() => {
-    if (lastQuestionIdRef.current !== questionId) {
+    const isNewQuestion = lastQuestionIdRef.current !== questionId;
+    const tcChanged =
+      effectiveTestCases.length !== prevEffectiveTcRef.current.length ||
+      (effectiveTestCases.length > 0 &&
+        effectiveTestCases[0]?.input !== prevEffectiveTcRef.current[0]?.input);
+
+    if (isNewQuestion || tcChanged || (allTestCases.length === 0 && effectiveTestCases.length > 0)) {
       lastQuestionIdRef.current = questionId;
+      prevEffectiveTcRef.current = effectiveTestCases;
       setAllTestCases(effectiveTestCases);
-      setPassedCount(0);
-      setHasEvaluated(false);
-      setIsCodeModifiedAfterEval(false);
-      setCode(initialDraft || getStarterPlaceholder(selectedLang));
-    } else if (allTestCases.length === 0 && effectiveTestCases.length > 0) {
-      setAllTestCases(effectiveTestCases);
+      if (isNewQuestion) {
+        setPassedCount(0);
+        setHasEvaluated(false);
+        setIsCodeModifiedAfterEval(false);
+        setCode(initialDraft || getStarterPlaceholder(selectedLang));
+      }
     }
   }, [questionId, effectiveTestCases, selectedLang, initialDraft, allTestCases.length]);
 
@@ -632,7 +642,7 @@ export default function MasteryZoneCompilerWorkspace({
       const sid = proctoredSessionId || routeSessionId;
       if (newVal) {
         try {
-          if (currentUserId && currentUserId !== "guest") {
+          if (currentUserId) {
             localStorage.setItem(`mz_${currentUserId}_recent_submitted_code`, newVal);
             if (sid) {
               localStorage.setItem(`mz_${currentUserId}_draft_${sid}`, newVal);
@@ -640,13 +650,6 @@ export default function MasteryZoneCompilerWorkspace({
             if (questionId) {
               localStorage.setItem(`mz_${currentUserId}_draft_${questionId}`, newVal);
             }
-          }
-          localStorage.setItem("mz_recent_submitted_code", newVal);
-          if (sid) {
-            localStorage.setItem(`mz_draft_${sid}`, newVal);
-          }
-          if (questionId) {
-            localStorage.setItem(`mz_draft_${questionId}`, newVal);
           }
         } catch {}
       }
@@ -1011,7 +1014,7 @@ export default function MasteryZoneCompilerWorkspace({
   const isReverifyingRef = useRef(false);
   const lastResumeTimeRef = useRef(0);
   const isInitializingMediaRef = useRef(false);
-  const immunityUntilRef = useRef(Date.now() + 15000);
+  const immunityUntilRef = useRef(Date.now() + 1500);
   const needsMediaInitRef = useRef(false);
 
   useEffect(() => {
@@ -1113,16 +1116,13 @@ export default function MasteryZoneCompilerWorkspace({
       if (targetSid) {
         // Restore saved draft code and compiler state seamlessly strictly scoped to user
         const savedDraft =
-          (currentUserId && currentUserId !== "guest" && localStorage.getItem(`mz_${currentUserId}_draft_${targetSid}`)) ||
-          localStorage.getItem(`mz_draft_${targetSid}`);
+          currentUserId ? localStorage.getItem(`mz_${currentUserId}_draft_${targetSid}`) : null;
         if (savedDraft) setCode(savedDraft);
         const savedLang =
-          (currentUserId && currentUserId !== "guest" && localStorage.getItem(`mz_${currentUserId}_lang_${targetSid}`)) ||
-          localStorage.getItem(`mz_lang_${targetSid}`);
+          currentUserId ? localStorage.getItem(`mz_${currentUserId}_lang_${targetSid}`) : null;
         if (savedLang) setSelectedLang(savedLang);
         const savedTime =
-          (currentUserId && currentUserId !== "guest" && localStorage.getItem(`mz_${currentUserId}_time_${targetSid}`)) ||
-          localStorage.getItem(`mz_time_${targetSid}`);
+          currentUserId ? localStorage.getItem(`mz_${currentUserId}_time_${targetSid}`) : null;
         if (savedTime && !isNaN(Number(savedTime))) setSecondsRemaining(Number(savedTime));
       }
       sessionStorage.removeItem("mz_pending_refresh_violation");
@@ -1163,14 +1163,11 @@ export default function MasteryZoneCompilerWorkspace({
       const sid = proctoredSessionId || routeSessionId;
       if (sid) {
         try {
-          if (currentUserId && currentUserId !== "guest") {
+          if (currentUserId) {
             localStorage.setItem(`mz_${currentUserId}_draft_${sid}`, code);
             localStorage.setItem(`mz_${currentUserId}_lang_${sid}`, selectedLang);
             localStorage.setItem(`mz_${currentUserId}_time_${sid}`, String(secondsRemaining));
           }
-          localStorage.setItem(`mz_draft_${sid}`, code);
-          localStorage.setItem(`mz_lang_${sid}`, selectedLang);
-          localStorage.setItem(`mz_time_${sid}`, String(secondsRemaining));
         } catch {}
       }
     };
@@ -1526,7 +1523,7 @@ export default function MasteryZoneCompilerWorkspace({
   const handleInitStandaloneMedia = async () => {
     try {
       isInitializingMediaRef.current = true;
-      immunityUntilRef.current = Date.now() + 30000;
+      immunityUntilRef.current = Date.now() + 1500;
 
       // 1. Camera & Mic first (does not cause window blur / screen picker drops)
       const cStream = await navigator.mediaDevices.getUserMedia({
@@ -1593,7 +1590,7 @@ export default function MasteryZoneCompilerWorkspace({
       isRecoveryModalOpenRef.current = false;
       setIsTimerRunning(true);
       lastResumeTimeRef.current = Date.now();
-      immunityUntilRef.current = Date.now() + 10000;
+      immunityUntilRef.current = Date.now() + 1500;
       toast.success("All proctoring feeds connected successfully!");
     } catch (err) {
       toast.error("Telemetry access failed: " + err.message);
@@ -1605,7 +1602,7 @@ export default function MasteryZoneCompilerWorkspace({
   // Called when Pre-Assessment Security Gate checks pass (modal flow)
   const handleProctoringVerified = async (gateData) => {
     isInitializingMediaRef.current = true;
-    immunityUntilRef.current = Date.now() + 15000;
+    immunityUntilRef.current = Date.now() + 1500;
 
     setCameraStream(gateData.cameraStream);
     setMicStream(gateData.micStream);
@@ -1655,7 +1652,7 @@ export default function MasteryZoneCompilerWorkspace({
 
     activeMountTimeRef.current = Date.now();
     lastResumeTimeRef.current = Date.now();
-    immunityUntilRef.current = Date.now() + 10000;
+    immunityUntilRef.current = Date.now() + 1500;
     isInitializingMediaRef.current = false;
 
     try {
@@ -1710,7 +1707,7 @@ export default function MasteryZoneCompilerWorkspace({
     violationCooldownRef.current = true;
     setTimeout(() => {
       violationCooldownRef.current = false;
-    }, 6000);
+    }, 2000);
 
     // Prevent re-trigger while interruption modal is active
     isRecoveryModalOpenRef.current = true;
@@ -1720,10 +1717,23 @@ export default function MasteryZoneCompilerWorkspace({
     setRecoveryTimestamp(now);
     setIsTimerRunning(false);
 
+    // Immediately surface the interruption popup with ZERO delay
+    setViolationsCount((p) => p + 1);
+    setRecoveryChancesRemaining((prev) => {
+      const nextRem = Math.max(0, prev - 1);
+      if (nextRem <= 0) {
+        setIsTerminated(true);
+        toast.error("All 5 recovery chances exhausted! Submitting and grading exam now...", {
+          toastId: "coding_proc_term_toast",
+          autoClose: 2000,
+        });
+      }
+      return nextRem;
+    });
+    setIsRecoveryModalOpen(true);
+
     const sid = proctoredSessionId || routeSessionId;
     if (!sid) {
-      setViolationsCount((p) => p + 1);
-      setIsRecoveryModalOpen(true);
       return;
     }
 
@@ -1753,9 +1763,13 @@ export default function MasteryZoneCompilerWorkspace({
           isSubmittedRef.current = true;
           setIsTerminated(true);
           setIsSubmittedReadOnly(true);
-          setIsRecoveryModalOpen(true);
           cleanupAllMediaAndProctoring();
           broadcastSessionSubmitted(sid);
+
+          toast.error("All 5 recovery chances exhausted! Exam auto-submitted.", {
+            toastId: "coding_auto_term_toast",
+            autoClose: 2000,
+          });
 
           // Auto-submit current code
           try {
@@ -1771,18 +1785,14 @@ export default function MasteryZoneCompilerWorkspace({
                 language: selectedLang,
               }),
             });
+            setTimeout(() => {
+              navigate(`/assessment-report/${sid}`, { replace: true });
+            }, 1500);
           } catch {}
-        } else {
-          setIsRecoveryModalOpen(true);
         }
-      } else {
-        setRecoveryChancesRemaining((prev) => Math.max(0, prev - 1));
-        setIsRecoveryModalOpen(true);
       }
     } catch (err) {
       console.error("Failed to post proctoring interruption:", err);
-      setRecoveryChancesRemaining((prev) => Math.max(0, prev - 1));
-      setIsRecoveryModalOpen(true);
     }
   };
 
@@ -1791,7 +1801,7 @@ export default function MasteryZoneCompilerWorkspace({
     setIsReverifying(true);
     isReverifyingRef.current = true;
     violationCooldownRef.current = true;
-    immunityUntilRef.current = Date.now() + 30000;
+    immunityUntilRef.current = Date.now() + 1500;
     try {
       // 1. Camera + Mic: Only re-request if active tracks do not exist
       let cStream = cameraStreamRef.current || cameraStream;
@@ -1895,14 +1905,14 @@ export default function MasteryZoneCompilerWorkspace({
       setNeedsMediaInit(false);
       needsMediaInitRef.current = false;
 
-      // Reset grace periods to give 10 seconds of immunity after successful resume
+      // Reset grace periods to give 1.5 seconds of settle time after successful resume
       lastResumeTimeRef.current = Date.now();
       activeMountTimeRef.current = Date.now();
-      immunityUntilRef.current = Date.now() + 10000;
+      immunityUntilRef.current = Date.now() + 1500;
       violationCooldownRef.current = true;
       setTimeout(() => {
         violationCooldownRef.current = false;
-      }, 8000);
+      }, 2000);
 
       toast.success(`Assessment Resumed! Remaining chances: ${recoveryChancesRemaining}/5`);
     } catch (err) {
@@ -2047,6 +2057,26 @@ export default function MasteryZoneCompilerWorkspace({
     };
     document.addEventListener("visibilitychange", onVisibilityChange);
 
+    const onWindowBlur = () => {
+      if (
+        isSubmittedRef.current ||
+        isTerminated ||
+        isSubmittedReadOnly ||
+        isRecoveryModalOpenRef.current ||
+        isReverifyingRef.current ||
+        isInitializingMediaRef.current ||
+        needsMediaInitRef.current ||
+        Date.now() < immunityUntilRef.current
+      ) return;
+
+      logProctoringAnomaly(
+        "TAB_SWITCH",
+        "Screen switch or window blur detected. Navigating away from the proctored test environment is prohibited.",
+        "focus"
+      );
+    };
+    window.addEventListener("blur", onWindowBlur);
+
     const screenTrack = screenStream?.getVideoTracks?.()[0];
     if (screenTrack) {
       screenTrack.onended = () => {
@@ -2121,6 +2151,7 @@ export default function MasteryZoneCompilerWorkspace({
       document.removeEventListener("fullscreenchange", onFsChange);
       document.removeEventListener("webkitfullscreenchange", onFsChange);
       document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("blur", onWindowBlur);
       if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
     };
   }, [isProctored, proctoringStage, isTerminated, isSubmittedReadOnly, screenStream, cameraStream, proctoredSessionId, batteryInfo]);
@@ -4800,9 +4831,9 @@ export default function MasteryZoneCompilerWorkspace({
             onClick={() => {
               const sid = proctoredSessionId || routeSessionId || submissionSuccessData?.sessionId;
               if (sid) {
-                navigate(`/assessment-report/${sid}`);
+                navigate(`/assessment-report/${sid}`, { replace: true });
               } else if (submissionSuccessData?.reportUrl) {
-                navigate(submissionSuccessData.reportUrl);
+                navigate(submissionSuccessData.reportUrl, { replace: true });
               }
             }}
           >
@@ -5000,14 +5031,11 @@ export default function MasteryZoneCompilerWorkspace({
                           timestamp: Date.now(),
                         })
                       );
-                      if (currentUserId && currentUserId !== "guest") {
+                      if (currentUserId) {
                         localStorage.setItem(`mz_${currentUserId}_draft_${sid}`, code);
                         localStorage.setItem(`mz_${currentUserId}_lang_${sid}`, selectedLang);
                         localStorage.setItem(`mz_${currentUserId}_time_${sid}`, String(secondsRemaining));
                       }
-                      localStorage.setItem(`mz_draft_${sid}`, code);
-                      localStorage.setItem(`mz_lang_${sid}`, selectedLang);
-                      localStorage.setItem(`mz_time_${sid}`, String(secondsRemaining));
                     } catch {}
                   }
                   setIsRefreshConfirmOpen(false);
@@ -5124,7 +5152,7 @@ export default function MasteryZoneCompilerWorkspace({
                   } catch {}
                   cleanupAllMediaAndProctoring();
                   if (onClose) onClose();
-                  else navigate("/coding");
+                  else navigate("/coding", { replace: true });
                 }}
               >
                 Exit to Coding Challenges
@@ -5215,7 +5243,7 @@ export default function MasteryZoneCompilerWorkspace({
                       } catch {}
                       cleanupAllMediaAndProctoring();
                       if (onClose) onClose();
-                      else navigate("/coding");
+                      else navigate("/coding", { replace: true });
                     }}
                   >
                     Exit Assessment & Return to Challenges
@@ -5228,7 +5256,7 @@ export default function MasteryZoneCompilerWorkspace({
                 className="mz-proc-btn-report"
                 onClick={() => {
                   const sid = proctoredSessionId || routeSessionId;
-                  navigate(`/assessment-report/${sid}`);
+                  navigate(`/assessment-report/${sid}`, { replace: true });
                 }}
               >
                 <LuAward size={18} />
@@ -5270,7 +5298,7 @@ export default function MasteryZoneCompilerWorkspace({
                 type="button"
                 className="mz-proc-btn-report"
                 onClick={() => {
-                  navigate(submissionSuccessData.reportUrl);
+                  navigate(submissionSuccessData.reportUrl, { replace: true });
                 }}
               >
                 <LuAward size={18} />
@@ -5285,7 +5313,7 @@ export default function MasteryZoneCompilerWorkspace({
                   if (onClose) {
                     onClose();
                   } else {
-                    navigate("/coding");
+                    navigate("/coding", { replace: true });
                   }
                 }}
               >
