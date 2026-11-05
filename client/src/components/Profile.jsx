@@ -6,6 +6,7 @@ import NotificationBell from "./NotificationBell.jsx";
 import IndiaLocationPicker from "./IndiaLocationPicker";
 import logoIcon from "../assets/logo_icon_transparent.png";
 import { getExploredTracks, isTrackExplored } from "../utils/trackExploration";
+import { performGlobalLogout } from "../utils/sessionAuth.js";
 
 import {
   LuHouse,
@@ -472,10 +473,9 @@ const Profile = () => {
 
   // Logout confirm
   const handleLogoutConfirm = () => {
-    localStorage.clear();
-    sessionStorage.clear();
+    performGlobalLogout();
     toast.info("Logged out successfully.");
-    navigate("/login");
+    navigate("/login", { replace: true });
   };
 
   // Real formatted display name

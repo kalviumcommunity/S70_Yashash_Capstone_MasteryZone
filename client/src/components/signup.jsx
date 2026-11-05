@@ -224,9 +224,12 @@ const Signup = () => {
       localStorage.clear();
       sessionStorage.clear();
       sessionStorage.setItem("mz_session_active", "true");
+      sessionStorage.setItem("token", data.token);
 
       localStorage.setItem("token", data.token);
       if (data.user) {
+        sessionStorage.setItem("user", JSON.stringify(data.user));
+        sessionStorage.setItem("mz_user", JSON.stringify(data.user));
         localStorage.setItem("user", JSON.stringify(data.user));
         localStorage.setItem("mz_user", JSON.stringify(data.user));
         localStorage.setItem("userName", data.user.fullName || data.user.username || data.user.email);

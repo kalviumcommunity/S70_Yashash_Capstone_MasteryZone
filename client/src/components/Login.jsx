@@ -25,7 +25,6 @@ const Login = () => {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true);
   const [touched, setTouched] = useState({});
   const [validationErrors, setValidationErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -34,6 +33,14 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const redirectTarget = location.state?.from?.pathname || "/home";
+
+  // Enforce zero credential retention: reset fields on mount
+  useEffect(() => {
+    setIdentifier("");
+    setPassword("");
+    setTouched({});
+    setValidationErrors({});
+  }, []);
 
   useEffect(() => {
     const errors = {};
@@ -93,9 +100,12 @@ const Login = () => {
           localStorage.clear();
           sessionStorage.clear();
           sessionStorage.setItem("mz_session_active", "true");
+          sessionStorage.setItem("token", data.token);
 
           localStorage.setItem("token", data.token);
           if (data.user) {
+            sessionStorage.setItem("user", JSON.stringify(data.user));
+            sessionStorage.setItem("mz_user", JSON.stringify(data.user));
             localStorage.setItem("user", JSON.stringify(data.user));
             localStorage.setItem("mz_user", JSON.stringify(data.user));
             localStorage.setItem("userName", data.user.fullName || data.user.username || data.user.email);
@@ -134,9 +144,12 @@ const Login = () => {
       localStorage.clear();
       sessionStorage.clear();
       sessionStorage.setItem("mz_session_active", "true");
+      sessionStorage.setItem("token", data.token);
 
       localStorage.setItem("token", data.token);
       if (data.user) {
+        sessionStorage.setItem("user", JSON.stringify(data.user));
+        sessionStorage.setItem("mz_user", JSON.stringify(data.user));
         localStorage.setItem("user", JSON.stringify(data.user));
         localStorage.setItem("mz_user", JSON.stringify(data.user));
         localStorage.setItem("userName", data.user.fullName || data.user.username || data.user.email);
@@ -199,9 +212,12 @@ const Login = () => {
       localStorage.clear();
       sessionStorage.clear();
       sessionStorage.setItem("mz_session_active", "true");
+      sessionStorage.setItem("token", data.token);
 
       localStorage.setItem("token", data.token);
       if (data.user) {
+        sessionStorage.setItem("user", JSON.stringify(data.user));
+        sessionStorage.setItem("mz_user", JSON.stringify(data.user));
         localStorage.setItem("user", JSON.stringify(data.user));
         localStorage.setItem("mz_user", JSON.stringify(data.user));
         localStorage.setItem("userName", data.user.fullName || data.user.username || data.user.email);
@@ -255,9 +271,12 @@ const Login = () => {
       localStorage.clear();
       sessionStorage.clear();
       sessionStorage.setItem("mz_session_active", "true");
+      sessionStorage.setItem("token", data.token);
 
       localStorage.setItem("token", data.token);
       if (data.user) {
+        sessionStorage.setItem("user", JSON.stringify(data.user));
+        sessionStorage.setItem("mz_user", JSON.stringify(data.user));
         localStorage.setItem("user", JSON.stringify(data.user));
         localStorage.setItem("mz_user", JSON.stringify(data.user));
         localStorage.setItem("userName", data.user.fullName || data.user.username || data.user.email);
@@ -361,16 +380,7 @@ const Login = () => {
                 <p className="mz-error-text">{validationErrors.password}</p>
               )}
 
-              <div className="mz-options-row li-anim-6">
-                <label className="mz-remember-label">
-                  <input
-                    type="checkbox"
-                    className="mz-checkbox"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                  />
-                  <span>Remember me</span>
-                </label>
+              <div className="mz-options-row li-anim-6" style={{ justifyContent: "flex-end" }}>
                 <Link to="/forgot-password" className="mz-forgot-link">
                   Forgot password?
                 </Link>

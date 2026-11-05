@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate, Outlet } from "react-router-dom";
 import "./Admin.css";
 import AdminNotificationDropdown from "./AdminNotificationDropdown.jsx";
+import { performGlobalLogout } from "../../utils/sessionAuth.js";
 import {
   LuLayoutGrid,
   LuUsers,
@@ -84,8 +85,7 @@ const AdminLayout = () => {
   }, []);
 
   const handleLogout = () => {
-    localStorage.clear();
-    sessionStorage.clear();
+    performGlobalLogout();
     navigate("/login", { replace: true });
   };
 

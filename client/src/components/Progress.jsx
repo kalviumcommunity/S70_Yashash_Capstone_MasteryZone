@@ -5,6 +5,7 @@ import "./progress.css";
 import NotificationBell from "./NotificationBell.jsx";
 import logoIcon from "../assets/logo_icon_transparent.png";
 import heroIllustration from "../assets/interests_hero_illustration.png";
+import { performGlobalLogout } from "../utils/sessionAuth.js";
 
 import {
   LuHouse,
@@ -339,10 +340,9 @@ const Progress = () => {
 
   // Logout handler
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+    performGlobalLogout();
     toast.success("Successfully logged out");
-    navigate("/login");
+    navigate("/login", { replace: true });
   };
 
   // Data helpers
