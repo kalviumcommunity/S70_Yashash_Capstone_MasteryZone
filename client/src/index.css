@@ -17,9 +17,7 @@ body {
   width: 100%;
   min-height: 100%;
   background-color: #f8fafc;
-  overflow-x: hidden;
-  /* Prevent trackpad horizontal two-finger gesture history navigation across browser engines */
-  overscroll-behavior-x: none;
+  overflow-x: clip;
   font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -33,7 +31,6 @@ body {
   min-height: 100%;
   display: flex;
   flex-direction: column;
-  overscroll-behavior-x: none;
 }
 
 /* Examination & live meeting viewports: completely trap swipe-back bounce */
