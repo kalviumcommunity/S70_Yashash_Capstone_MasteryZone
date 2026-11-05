@@ -22,7 +22,7 @@ let transporter = null;
 let transporterInitPromise = null;
 let isEtherealAccount = false;
 
-// ── 1. INITIALIZE TRANSPORTER (REAL SMTP OR ETHEREAL FALLBACK) ──
+// ── 1. INITIALIZE TRANSPORTER (REAL SMTP WITH CONNECTION POOLING OR FALLBACK) ──
 function getTransporter() {
   if (transporter) return Promise.resolve(transporter);
   if (transporterInitPromise) return transporterInitPromise;
@@ -31,7 +31,7 @@ function getTransporter() {
     const smtpEmail = (process.env.SMTP_EMAIL || process.env.EMAIL_USER || "").trim();
     const smtpPassword = (process.env.SMTP_PASSWORD || process.env.EMAIL_PASS || "").trim().replace(/\s+/g, "");
     const smtpHost = process.env.SMTP_HOST;
-    const smtpPort = process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : 587;
+    const smtpPort = process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : (smtpHost ? 587 : 465);
 
     const hasRealCredentials =
       smtpEmail &&
@@ -40,27 +40,41 @@ function getTransporter() {
       !smtpPassword.includes('your_app_password');
 
     if (hasRealCredentials) {
-      const config = smtpHost
-        ? {
-            host: smtpHost,
-            port: smtpPort,
-            secure: smtpPort === 465,
-            auth: { user: smtpEmail, pass: smtpPassword },
-          }
-        : {
-            service: 'gmail',
-            auth: { user: smtpEmail, pass: smtpPassword },
-          };
+      const isGmail = !smtpHost || smtpHost.includes('gmail');
+      const host = smtpHost || 'smtp.gmail.com';
+      const port = smtpHost ? smtpPort : 465;
+      const secure = port === 465;
+
+      const config = {
+        host,
+        port,
+        secure,
+        pool: true,
+        maxConnections: 5,
+        maxMessages: 100,
+        idleTimeout: 30000,
+        connectionTimeout: 8000,
+        greetingTimeout: 6000,
+        socketTimeout: 15000,
+        rateDelta: 1000,
+        rateLimit: 10,
+        auth: { user: smtpEmail, pass: smtpPassword },
+        tls: {
+          rejectUnauthorized: false,
+        },
+      };
 
       transporter = nodemailer.createTransport(config);
       isEtherealAccount = false;
-      console.log(`📧 [Mailer] Production SMTP transporter initialized for ${smtpEmail}`);
-      try {
-        await transporter.verify();
-        console.log(`✅ [Mailer] Production SMTP connection verified successfully.`);
-      } catch (verifyErr) {
-        console.warn(`⚠️ [Mailer] SMTP verification failed (${verifyErr.message}). Transporter will attempt on-demand send.`);
-      }
+      console.log(`📧 [Mailer] Production SMTP pooled transporter initialized for ${smtpEmail} (${host}:${port})`);
+
+      // Verify connection asynchronously in background without blocking server boot
+      transporter.verify().then(() => {
+        console.log(`✅ [Mailer] Production SMTP connection verified and warm.`);
+      }).catch((verifyErr) => {
+        console.warn(`⚠️ [Mailer] SMTP pre-verification note: ${verifyErr.message}. Transporter will connect on demand.`);
+      });
+
       return transporter;
     }
 
@@ -71,6 +85,7 @@ function getTransporter() {
         host: account.smtp.host,
         port: account.smtp.port,
         secure: account.smtp.secure,
+        pool: true,
         auth: {
           user: account.user,
           pass: account.pass,
@@ -134,15 +149,29 @@ function parseDeviceAndBrowser(req) {
   };
 }
 
-// ── 3. SEND MAIL WITH RETRIES AND AUDIT LOGGING ──
-async function sendMailWithRetry(mailOptions, maxRetries = 2) {
-  const tp = await getTransporter();
+// ── 3. SEND MAIL WITH TIMEOUT PROTECTION, RETRIES AND AUDIT LOGGING ──
+async function sendMailWithRetry(mailOptions, maxRetries = 1) {
+  let tp;
+  try {
+    tp = await getTransporter();
+  } catch (initErr) {
+    console.error(`❌ [Mailer] Transporter initialization failed:`, initErr.message);
+    return { success: false, error: initErr.message };
+  }
+
   let attempt = 0;
   let lastErr = null;
 
   while (attempt <= maxRetries) {
     try {
-      const info = await tp.sendMail(mailOptions);
+      // Guard each send with a 12s timeout to ensure it never hangs
+      const info = await Promise.race([
+        tp.sendMail(mailOptions),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("SMTP send timeout after 12000ms")), 12000)
+        ),
+      ]);
+
       const previewUrl = nodemailer.getTestMessageUrl(info);
 
       console.log(`\n======================================================`);
@@ -166,13 +195,26 @@ async function sendMailWithRetry(mailOptions, maxRetries = 2) {
       lastErr = err;
       console.warn(`[Mailer] Delivery attempt ${attempt} failed for ${mailOptions.to}: ${err.message}`);
       if (attempt <= maxRetries) {
-        await new Promise((r) => setTimeout(r, 600 * attempt));
+        await new Promise((r) => setTimeout(r, 350 * attempt));
       }
     }
   }
 
-  console.error(`❌ [Mailer] Permanent email delivery failure for ${mailOptions.to}:`, lastErr?.message);
+  console.error(`❌ [Mailer] Email delivery failure for ${mailOptions.to}:`, lastErr?.message);
   return { success: false, error: lastErr?.message };
+}
+
+/**
+ * Dispatches an email action in the background immediately without blocking the caller HTTP thread.
+ */
+function dispatchMailBackground(mailPromiseFn) {
+  setImmediate(() => {
+    Promise.resolve()
+      .then(() => (typeof mailPromiseFn === "function" ? mailPromiseFn() : mailPromiseFn))
+      .catch((err) => {
+        console.warn(`[Mailer Background Dispatch Warning]:`, err?.message || err);
+      });
+  });
 }
 
 // Helper: Check if account is a guest account to preserve isolation
@@ -409,6 +451,10 @@ async function sendLoginNotification(user, req, isNewDevice = false) {
     if (isGuestAccount(user.email, user.role)) {
       console.log(`ℹ️ [Mailer] Guest login (${user.email}) — skipped external email delivery.`);
       return;
+    }
+    if (user.preferences && user.preferences.notifications === false && !isNewDevice) {
+      console.log(`ℹ️ [Mailer] Login notification skipped per candidate preferences (${user.email}).`);
+      return { success: true, skippedByPreference: true };
     }
 
     const { browser, os, clientIp, deviceSummary } = parseDeviceAndBrowser(req);
@@ -1296,6 +1342,102 @@ async function sendSupportTicketResponseEmail({
   }
 }
 
+/**
+ * Send official Certificate Awarded notification email
+ */
+async function sendCertificateAwardedEmail({
+  candidateEmail,
+  candidateName = "Candidate",
+  certTitle = "Official Certification",
+  certificateId,
+  score = 100,
+  verificationUrl = "",
+  issuedAt = new Date(),
+}) {
+  try {
+    if (!candidateEmail) return { success: false, error: "No candidate email provided" };
+    if (isGuestAccount(candidateEmail)) return { success: true, isGuest: true };
+
+    const clientOrigin = (
+      process.env.CLIENT_URL ||
+      (typeof process.env.VITE_API_URL === "string" && process.env.VITE_API_URL.startsWith("http")
+        ? process.env.VITE_API_URL
+        : null) ||
+      "http://localhost:5174"
+    ).replace(/\/+$/, "");
+
+    const resolvedVerifyUrl = verificationUrl || `${clientOrigin}/verify/${certificateId}`;
+
+    const contentHtml = `
+      <div style="padding: 18px 0 16px;">
+        <div style="text-align: center; margin-bottom: 24px;">
+          <div style="display: inline-block; background: #ecfdf5; border: 2px solid #10b981; border-radius: 50%; width: 68px; height: 68px; line-height: 68px; font-size: 32px; text-align: center; margin-bottom: 12px;">
+            🎓
+          </div>
+          <h2 style="margin: 0 0 6px; font-size: 24px; font-weight: 800; color: #0f172a;">
+            Certification Successfully Awarded!
+          </h2>
+          <p style="margin: 0; font-size: 14px; color: #059669; font-weight: 600;">
+            Verified Professional Credential Issued
+          </p>
+        </div>
+
+        <p style="margin: 0 0 18px; font-size: 14px; line-height: 1.6; color: #334155;">
+          Dear <strong>${candidateName}</strong>,<br/>
+          Congratulations! You have satisfied all proctoring criteria, passed the comprehensive examination with an overall score of <strong>${score}%</strong>, and officially earned your <strong>${certTitle}</strong> credential.
+        </p>
+
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+            <tr>
+              <td style="padding: 6px 0; color: #64748b; font-weight: 600;">Certificate Title:</td>
+              <td style="padding: 6px 0; color: #0f172a; font-weight: 800; text-align: right;">${certTitle}</td>
+            </tr>
+            <tr>
+              <td style="padding: 6px 0; color: #64748b; font-weight: 600;">Credential ID:</td>
+              <td style="padding: 6px 0; color: #4338ca; font-weight: 800; font-family: monospace; font-size: 14px; text-align: right;">${certificateId}</td>
+            </tr>
+            <tr>
+              <td style="padding: 6px 0; color: #64748b; font-weight: 600;">Overall Score:</td>
+              <td style="padding: 6px 0; color: #059669; font-weight: 800; font-size: 15px; text-align: right;">${score}% (PASSED)</td>
+            </tr>
+            <tr>
+              <td style="padding: 6px 0; color: #64748b; font-weight: 600;">Issue Date:</td>
+              <td style="padding: 6px 0; color: #64748b; text-align: right;">${formatEmailDateTime(issuedAt)}</td>
+            </tr>
+          </table>
+        </div>
+
+        <div style="text-align: center; margin: 28px 0 20px;">
+          <a href="${resolvedVerifyUrl}" target="_blank" style="display: inline-block; background: #4f46e5; color: #ffffff; text-decoration: none; font-weight: 700; font-size: 14px; padding: 12px 28px; border-radius: 8px; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);">
+            View & Verify Official Credential →
+          </a>
+        </div>
+      </div>
+    `;
+
+    const html = wrapHtmlEmail({
+      title: `Official Credential Awarded: ${certTitle}`,
+      preheader: `Congratulations ${candidateName}! Your official ${certTitle} certificate #${certificateId} is now live and verified.`,
+      badgeText: "🏆 Certified Professional",
+      badgeColor: "#059669",
+      badgeBg: "#ecfdf5",
+      contentHtml,
+    });
+
+    const smtpEmail = (process.env.SMTP_EMAIL || process.env.EMAIL_USER || "").trim();
+    return await sendMailWithRetry({
+      from: `"Mastery Zone Certifications" <${smtpEmail}>`,
+      to: candidateEmail,
+      subject: `🏆 Certificate Awarded: ${certTitle} [ID: ${certificateId}]`,
+      html,
+    });
+  } catch (err) {
+    console.error("sendCertificateAwardedEmail error:", err.message);
+    return { success: false, error: err.message };
+  }
+}
+
 module.exports = {
   getTransporter,
   parseDeviceAndBrowser,
@@ -1310,4 +1452,6 @@ module.exports = {
   sendAdminPasswordChangedEmail,
   sendSupportTicketSubmittedEmail,
   sendSupportTicketResponseEmail,
+  sendCertificateAwardedEmail,
+  dispatchMailBackground,
 };

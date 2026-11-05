@@ -514,8 +514,7 @@
   background: transparent;
 }
 
-.mz-ref-landing .mz-features-grid,
-.mz-features-grid {
+.mz-ref-landing .mz-features-grid {
   max-width: 1320px !important;
   margin: 0 auto !important;
   padding: 0 40px !important;
@@ -525,8 +524,7 @@
   box-sizing: border-box !important;
 }
 
-.mz-ref-landing .mz-feature-card,
-.mz-feature-card {
+.mz-ref-landing .mz-feature-card {
   background: #ffffff !important;
   border-radius: 18px !important;
   border: 1px solid #eef2f6 !important;
@@ -541,19 +539,19 @@
   user-select: none !important;
 }
 
-.mz-features-grid .mz-feature-card:nth-child(1) { animation: lpSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both; }
-.mz-features-grid .mz-feature-card:nth-child(2) { animation: lpSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.36s both; }
-.mz-features-grid .mz-feature-card:nth-child(3) { animation: lpSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.42s both; }
-.mz-features-grid .mz-feature-card:nth-child(4) { animation: lpSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.48s both; }
-.mz-features-grid .mz-feature-card:nth-child(5) { animation: lpSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.54s both; }
+.mz-ref-landing .mz-features-grid .mz-feature-card:nth-child(1) { animation: lpSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both; }
+.mz-ref-landing .mz-features-grid .mz-feature-card:nth-child(2) { animation: lpSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.36s both; }
+.mz-ref-landing .mz-features-grid .mz-feature-card:nth-child(3) { animation: lpSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.42s both; }
+.mz-ref-landing .mz-features-grid .mz-feature-card:nth-child(4) { animation: lpSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.48s both; }
+.mz-ref-landing .mz-features-grid .mz-feature-card:nth-child(5) { animation: lpSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.54s both; }
 
-.mz-feature-card:hover {
+.mz-ref-landing .mz-feature-card:hover {
   transform: translateY(-5px);
   border-color: #c7d2fe;
   box-shadow: 0 14px 32px rgba(99, 102, 241, 0.12);
 }
 
-.mz-feature-icon-box {
+.mz-ref-landing .mz-feature-icon-box {
   width: 44px;
   height: 44px;
   border-radius: 12px;
@@ -564,7 +562,7 @@
   transition: transform 0.2s ease;
 }
 
-.mz-feature-card:hover .mz-feature-icon-box {
+.mz-ref-landing .mz-feature-card:hover .mz-feature-icon-box {
   transform: scale(1.08);
 }
 

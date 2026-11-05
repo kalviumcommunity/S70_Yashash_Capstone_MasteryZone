@@ -1189,26 +1189,22 @@ router.put("/modify-marks", async (req, res) => {
           console.warn("Certification in-app notification error:", notifErr.message);
         }
 
-        try {
-          emailResult = await sendSubmissionEvaluationEmail({
-            userEmail: studentUser.email,
-            userName: studentUser.fullName || studentUser.username || "Student",
-            assessmentTitle: attempt.certTitle,
-            assessmentType: "certification",
-            score: parsedPct,
-            maxScore: 100,
-            percentage: parsedPct,
-            verdict: statusVerdict,
-            adminComment: adminNote,
-            reviewedAt: attempt.adminModifiedAt,
-            reportUrl: `/assessment-report/${attempt.attemptId}`,
-          });
-          if (emailResult?.success) {
-            attempt.notificationEmailSent = true;
-          }
-        } catch (emailErr) {
-          console.warn("Certification email notification error:", emailErr.message);
-        }
+        attempt.notificationEmailSent = true;
+        sendSubmissionEvaluationEmail({
+          userEmail: studentUser.email,
+          userName: studentUser.fullName || studentUser.username || "Student",
+          assessmentTitle: attempt.certTitle,
+          assessmentType: "certification",
+          score: parsedPct,
+          maxScore: 100,
+          percentage: parsedPct,
+          verdict: statusVerdict,
+          adminComment: adminNote,
+          reviewedAt: attempt.adminModifiedAt,
+          reportUrl: `/assessment-report/${attempt.attemptId}`,
+        }).catch((emailErr) => {
+          console.warn("Certification email notification error:", emailErr?.message);
+        });
       }
 
       await attempt.save();
@@ -1315,26 +1311,22 @@ router.put("/modify-marks", async (req, res) => {
           console.warn("Module in-app notification error:", notifErr.message);
         }
 
-        try {
-          emailResult = await sendSubmissionEvaluationEmail({
-            userEmail: studentUser.email,
-            userName: studentUser.fullName || studentUser.username || "Student",
-            assessmentTitle: attempt.assessmentTitle || attempt.moduleTitle,
-            assessmentType: "module",
-            score: parsedScore,
-            maxScore: totalQ,
-            percentage: parsedPct,
-            verdict: passed ? "PASSED" : "FAILED",
-            adminComment: adminNote,
-            reviewedAt: attempt.adminModifiedAt,
-            reportUrl: repUrl,
-          });
-          if (emailResult?.success) {
-            attempt.notificationEmailSent = true;
-          }
-        } catch (emailErr) {
-          console.warn("Module email notification error:", emailErr.message);
-        }
+        attempt.notificationEmailSent = true;
+        sendSubmissionEvaluationEmail({
+          userEmail: studentUser.email,
+          userName: studentUser.fullName || studentUser.username || "Student",
+          assessmentTitle: attempt.assessmentTitle || attempt.moduleTitle,
+          assessmentType: "module",
+          score: parsedScore,
+          maxScore: totalQ,
+          percentage: parsedPct,
+          verdict: passed ? "PASSED" : "FAILED",
+          adminComment: adminNote,
+          reviewedAt: attempt.adminModifiedAt,
+          reportUrl: repUrl,
+        }).catch((emailErr) => {
+          console.warn("Module email notification error:", emailErr?.message);
+        });
       }
 
       await attempt.save();
@@ -1418,26 +1410,22 @@ router.put("/modify-marks", async (req, res) => {
           console.warn("Coding in-app notification error:", notifErr.message);
         }
 
-        try {
-          emailResult = await sendSubmissionEvaluationEmail({
-            userEmail: studentUser.email,
-            userName: studentUser.fullName || studentUser.username || "Student",
-            challengeTitle: sub.challengeTitle || sub.challengeId || "Coding Challenge",
-            assessmentType: "coding",
-            language: sub.language || "python",
-            score: parsedScore,
-            maxScore: 100,
-            verdict: sub.status,
-            adminComment: adminNote,
-            reviewedAt: sub.adminModifiedAt,
-            reportUrl: `/coding`,
-          });
-          if (emailResult?.success) {
-            sub.notificationEmailSent = true;
-          }
-        } catch (emailErr) {
-          console.warn("Coding email notification error:", emailErr.message);
-        }
+        sub.notificationEmailSent = true;
+        sendSubmissionEvaluationEmail({
+          userEmail: studentUser.email,
+          userName: studentUser.fullName || studentUser.username || "Student",
+          challengeTitle: sub.challengeTitle || sub.challengeId || "Coding Challenge",
+          assessmentType: "coding",
+          language: sub.language || "python",
+          score: parsedScore,
+          maxScore: 100,
+          verdict: sub.status,
+          adminComment: adminNote,
+          reviewedAt: sub.adminModifiedAt,
+          reportUrl: `/coding`,
+        }).catch((emailErr) => {
+          console.warn("Coding email notification error:", emailErr?.message);
+        });
       }
 
       await sub.save();
@@ -1550,26 +1538,22 @@ router.put("/modify-marks", async (req, res) => {
           console.warn("Proctoring in-app notification error:", notifErr.message);
         }
 
-        try {
-          emailResult = await sendSubmissionEvaluationEmail({
-            userEmail: studentUser.email,
-            userName: studentUser.fullName || studentUser.username || session.candidateDetails?.fullName || "Candidate",
-            assessmentTitle: session.assessmentTitle || "Proctored Examination",
-            assessmentType: "proctoring",
-            score: parsedScore,
-            maxScore,
-            percentage: parsedPct,
-            verdict: passed ? "PASSED" : "FAILED",
-            adminComment: adminNote,
-            reviewedAt: session.adminModifiedAt,
-            reportUrl: repUrl,
-          });
-          if (emailResult?.success) {
-            session.notificationEmailSent = true;
-          }
-        } catch (emailErr) {
-          console.warn("Proctoring email notification error:", emailErr.message);
-        }
+        session.notificationEmailSent = true;
+        sendSubmissionEvaluationEmail({
+          userEmail: studentUser.email,
+          userName: studentUser.fullName || studentUser.username || session.candidateDetails?.fullName || "Candidate",
+          assessmentTitle: session.assessmentTitle || "Proctored Examination",
+          assessmentType: "proctoring",
+          score: parsedScore,
+          maxScore,
+          percentage: parsedPct,
+          verdict: passed ? "PASSED" : "FAILED",
+          adminComment: adminNote,
+          reviewedAt: session.adminModifiedAt,
+          reportUrl: repUrl,
+        }).catch((emailErr) => {
+          console.warn("Proctoring email notification error:", emailErr?.message);
+        });
       }
       await session.save();
 

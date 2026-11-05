@@ -94,12 +94,18 @@ const AdminNotificationDropdown = () => {
     // Connect to Socket.IO for real-time admin notifications
     let socket = null;
     try {
-      socket = io(window.location.origin, {
+      const socketTarget = API_BASE || window.location.origin;
+      socket = io(socketTarget, {
         auth: { token: localStorage.getItem("token") },
+        transports: ["websocket", "polling"],
+        reconnection: true,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
       });
 
       socket.on("connect", () => {
         socket.emit("join_admin_monitoring");
+        fetchNotifications();
       });
 
       socket.on("admin_notification_received", (notif) => {

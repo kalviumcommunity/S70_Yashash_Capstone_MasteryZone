@@ -22,7 +22,8 @@ const { bootstrapSuperAdmin } = require("./bootstrap/adminBootstrap");
 const Meeting = require("./models/Meeting");
 const jwt = require("jsonwebtoken");
 const User = require("./models/User");
-const { pushNotification } = require("./utils/notificationService");
+const { pushNotification, setGlobalIo } = require("./utils/notificationService");
+const { setGlobalAdminIo } = require("./utils/adminNotificationService");
 const http = require('http');
 const { Server } = require('socket.io');
 dotenv.config(); // Load environment variables from .env file
@@ -32,13 +33,23 @@ const PORT = process.env.PORT || 5012; // Use environment variable or fallback t
 // Create HTTP Server
 const server = http.createServer(app);
 
-// Initialize Socket.io
+// Initialize Socket.io with production-ready options
 const io = new Server(server, {
   cors: {
     origin: "*",
-    methods: ["GET", "POST"]
-  }
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    credentials: true,
+  },
+  transports: ["websocket", "polling"],
+  pingTimeout: 30000,
+  pingInterval: 25000,
+  allowEIO3: true,
+  maxHttpBufferSize: 1e8,
 });
+
+// Wire Socket.IO globally for instantaneous notification dispatch
+setGlobalIo(io);
+setGlobalAdminIo(io);
 
 // Make io accessible throughout Express app routes
 app.set("io", io);

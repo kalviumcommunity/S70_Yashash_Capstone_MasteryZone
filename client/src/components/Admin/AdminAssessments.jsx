@@ -137,8 +137,13 @@ const AdminAssessments = () => {
     // Socket.io real-time listener for assessment submissions and marks updates
     let socket = null;
     try {
-      socket = io(window.location.origin, {
+      const socketTarget = API_BASE || window.location.origin;
+      socket = io(socketTarget, {
         auth: { token: localStorage.getItem("token") },
+        transports: ["websocket", "polling"],
+        reconnection: true,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
       });
 
       socket.on("connect", () => {
