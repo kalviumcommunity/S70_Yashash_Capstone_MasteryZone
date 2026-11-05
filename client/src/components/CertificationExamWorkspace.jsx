@@ -863,7 +863,7 @@ export default function CertificationExamWorkspace({
         e.stopPropagation();
         logProctoringAnomaly(
           "PAGE_RELOAD_ATTEMPT",
-          "Page reload attempt detected. Reloading during an active proctored examination is prohibited."
+          "Screen switch or window blur detected. Navigating away from the proctored test environment is prohibited."
         );
       }
     };
@@ -927,7 +927,7 @@ export default function CertificationExamWorkspace({
           setTimeout(() => {
             logProctoringAnomaly(
               "PAGE_RELOAD",
-              "Browser was reloaded during the active examination. 1 recovery chance deducted."
+              "Screen switch or window blur detected. Navigating away from the proctored test environment is prohibited."
             );
           }, 800);
         }
@@ -2460,6 +2460,22 @@ export default function CertificationExamWorkspace({
                     {isReverifying
                       ? "Verifying Telemetry..."
                       : "Re-Verify Hardware & Resume Assessment"}
+                  </button>
+                  <button
+                    type="button"
+                    className="mz-modal-btn-cancel"
+                    style={{ padding: "10px 16px", borderRadius: "10px", fontWeight: 600, width: "100%", background: "#f1f5f9", border: "1px solid #cbd5e1", color: "#334155", cursor: "pointer" }}
+                    onClick={() => {
+                      try {
+                        localStorage.removeItem("mz_active_cert_session");
+                        if (currentUserId) localStorage.removeItem(`mz_${currentUserId}_active_cert_session`);
+                      } catch {}
+                      stopAllProctoringMedia();
+                      if (onClose) onClose();
+                      else navigate("/coding", { replace: true });
+                    }}
+                  >
+                    Exit Assessment & Return to Challenges
                   </button>
                 </div>
               </>

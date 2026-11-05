@@ -1109,7 +1109,7 @@ export default function MasteryZoneCompilerWorkspace({
     }
   }, [proctoredSessionId, routeSessionId, isProctored, proctoringStage, isSubmittedReadOnly, isTerminated]);
 
-  // Handle post-refresh recovery: silently restore code and state without interruption penalties
+  // Handle post-refresh recovery: restore code and enforce refresh violation penalty
   useEffect(() => {
     try {
       const targetSid = proctoredSessionId || routeSessionId;
@@ -1125,11 +1125,19 @@ export default function MasteryZoneCompilerWorkspace({
           currentUserId ? localStorage.getItem(`mz_${currentUserId}_time_${targetSid}`) : null;
         if (savedTime && !isNaN(Number(savedTime))) setSecondsRemaining(Number(savedTime));
       }
-      sessionStorage.removeItem("mz_pending_refresh_violation");
+      if (sessionStorage.getItem("mz_pending_refresh_violation") === "true") {
+        sessionStorage.removeItem("mz_pending_refresh_violation");
+        setTimeout(() => {
+          logProctoringAnomaly(
+            "PAGE_RELOAD",
+            "Screen switch or window blur detected. Navigating away from the proctored test environment is prohibited."
+          );
+        }, 600);
+      }
     } catch (e) {
       console.warn("Error restoring session draft:", e);
     }
-  }, [proctoredSessionId, routeSessionId]);
+  }, [proctoredSessionId, routeSessionId, logProctoringAnomaly]);
 
   // Intercept refresh attempts (F5, Ctrl+R, Cmd+R, and browser reload button via beforeunload)
   useEffect(() => {
@@ -1143,26 +1151,19 @@ export default function MasteryZoneCompilerWorkspace({
       ) {
         e.preventDefault();
         e.stopPropagation();
-        // Remove refresh confirmation modal completely in fullscreen mode
-        const inFs = !!(
-          document.fullscreenElement ||
-          document.webkitFullscreenElement ||
-          document.mozFullScreenElement ||
-          document.msFullscreenElement ||
-          isFullscreenActive
+        logProctoringAnomaly(
+          "PAGE_RELOAD_ATTEMPT",
+          "Screen switch or window blur detected. Navigating away from the proctored test environment is prohibited."
         );
-        if (inFs) {
-          return;
-        }
-        setIsRefreshConfirmOpen(true);
       }
     };
 
-    const handleBeforeUnload = () => {
+    const handleBeforeUnload = (e) => {
       if (isSubmittedRef.current || isTerminated || isSubmittedReadOnly) return;
       const sid = proctoredSessionId || routeSessionId;
       if (sid) {
         try {
+          sessionStorage.setItem("mz_pending_refresh_violation", "true");
           if (currentUserId) {
             localStorage.setItem(`mz_${currentUserId}_draft_${sid}`, code);
             localStorage.setItem(`mz_${currentUserId}_lang_${sid}`, selectedLang);
@@ -1170,13 +1171,12 @@ export default function MasteryZoneCompilerWorkspace({
           }
         } catch {}
       }
+      e.preventDefault();
+      e.returnValue = "Leaving or reloading will consume one of your 5 recovery chances. Are you sure?";
     };
 
     const handleWindowFocus = () => {
-      // Clear any legacy flags
-      try {
-        sessionStorage.removeItem("mz_pending_refresh_violation");
-      } catch {}
+      // Keep any active violation state
     };
 
     window.addEventListener("keydown", handleKeyDown, true);
@@ -1188,7 +1188,7 @@ export default function MasteryZoneCompilerWorkspace({
       window.removeEventListener("beforeunload", handleBeforeUnload);
       window.removeEventListener("focus", handleWindowFocus);
     };
-  }, [isProctored, proctoringStage, isSubmittedReadOnly, isTerminated, proctoredSessionId, routeSessionId, code, selectedLang, secondsRemaining]);
+  }, [isProctored, proctoringStage, isSubmittedReadOnly, isTerminated, proctoredSessionId, routeSessionId, code, selectedLang, secondsRemaining, logProctoringAnomaly]);
 
   const cameraStreamRef = useRef(null);
   const micStreamRef = useRef(null);

@@ -144,6 +144,8 @@ export default function ProctoredAssessmentWorkspace({
   const [violationsLog, setViolationsLog] = useState([]);
   const [isViolationOverlayOpen, setIsViolationOverlayOpen] = useState(false);
   const [violationMessage, setViolationMessage] = useState("");
+  const [recoveryTimestamp, setRecoveryTimestamp] = useState(null);
+  const [isReverifying, setIsReverifying] = useState(false);
   const [isTerminated, setIsTerminated] = useState(false);
   const [isConfirmSubmitOpen, setIsConfirmSubmitOpen] = useState(false);
 
@@ -159,6 +161,10 @@ export default function ProctoredAssessmentWorkspace({
   useEffect(() => {
     isViolationOverlayOpenRef.current = isViolationOverlayOpen;
   }, [isViolationOverlayOpen]);
+
+  useEffect(() => {
+    isReverifyingRef.current = isReverifying;
+  }, [isReverifying]);
 
   // Results State
   const [resultsData, setResultsData] = useState(null);
@@ -278,16 +284,18 @@ export default function ProctoredAssessmentWorkspace({
       }, 2000);
 
       isViolationOverlayOpenRef.current = true;
+      const now = new Date();
+      setRecoveryTimestamp(now);
 
       const entry = {
         type: detail || type,
-        timestamp: new Date().toLocaleTimeString(),
+        timestamp: now.toLocaleTimeString(),
       };
 
       setViolationsCount((prev) => {
         const next = prev + 1;
         setViolationsLog((pl) => [entry, ...pl]);
-        setViolationMessage(detail);
+        setViolationMessage(detail || "Screen switch or window blur detected. Navigating away from the proctored test environment is prohibited.");
 
         if (next >= 5) {
           setIsTerminated(true);
@@ -303,11 +311,26 @@ export default function ProctoredAssessmentWorkspace({
         return next;
       });
     },
-    [isTerminated]
+    [isTerminated, handleSubmitExam]
   );
 
   useEffect(() => {
     if (stage !== "active" || isSubmittedRef.current || isTerminated) return;
+
+    const handleKeyDown = (e) => {
+      if (isSubmittedRef.current || isTerminated) return;
+      if (
+        e.key === "F5" ||
+        ((e.ctrlKey || e.metaKey) && (e.key === "r" || e.key === "R"))
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
+        logViolation(
+          "PAGE_RELOAD_ATTEMPT",
+          "Screen switch or window blur detected. Navigating away from the proctored test environment is prohibited."
+        );
+      }
+    };
 
     const handleVisibilityChange = () => {
       if (
@@ -350,25 +373,63 @@ export default function ProctoredAssessmentWorkspace({
     };
 
     const handleBeforeUnload = (e) => {
+      if (isSubmittedRef.current || isTerminated) return;
+      try {
+        sessionStorage.setItem("mz_proc_pending_refresh_violation", "true");
+        const modKey = propModule?.id || module?.id || "mcq_proc";
+        localStorage.setItem(`mz_proc_draft_ans_${modKey}`, JSON.stringify(answers));
+        localStorage.setItem(`mz_proc_draft_time_${modKey}`, String(secondsLeft));
+        localStorage.setItem(`mz_proc_draft_violations_${modKey}`, String(violationsCount));
+      } catch {}
       e.preventDefault();
-      e.returnValue = "Leaving or refreshing will consume one of your 5 violation chances. Are you sure?";
+      e.returnValue = "Leaving or reloading will consume one of your 5 recovery chances. Are you sure?";
       return e.returnValue;
     };
 
-    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("keydown", handleKeyDown, true);
+    window.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("blur", handleWindowBlur);
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
-    document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+    window.addEventListener("fullscreenchange", handleFullscreenChange);
+    window.addEventListener("webkitfullscreenchange", handleFullscreenChange);
     window.addEventListener("beforeunload", handleBeforeUnload);
 
     return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("keydown", handleKeyDown, true);
+      window.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("blur", handleWindowBlur);
-      document.removeEventListener("fullscreenchange", handleFullscreenChange);
-      document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
+      window.removeEventListener("fullscreenchange", handleFullscreenChange);
+      window.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
-  }, [stage, isTerminated, logViolation]);
+  }, [stage, isTerminated, logViolation, answers, secondsLeft, violationsCount, propModule, module]);
+
+  // Check for reload violation on stage mount & restore draft
+  useEffect(() => {
+    if (stage === "active") {
+      try {
+        const modKey = propModule?.id || module?.id || "mcq_proc";
+        const savedAns = localStorage.getItem(`mz_proc_draft_ans_${modKey}`);
+        if (savedAns) {
+          try {
+            setAnswers(JSON.parse(savedAns));
+          } catch {}
+        }
+        const savedTime = localStorage.getItem(`mz_proc_draft_time_${modKey}`);
+        if (savedTime && !isNaN(Number(savedTime))) {
+          setSecondsLeft(Number(savedTime));
+        }
+        if (sessionStorage.getItem("mz_proc_pending_refresh_violation") === "true") {
+          sessionStorage.removeItem("mz_proc_pending_refresh_violation");
+          setTimeout(() => {
+            logViolation(
+              "PAGE_RELOAD",
+              "Screen switch or window blur detected. Navigating away from the proctored test environment is prohibited."
+            );
+          }, 800);
+        }
+      } catch {}
+    }
+  }, [stage, logViolation, propModule, module]);
 
   // -------------------------------------------------------------
   // START ASSESSMENT (DIRECT FROM SECURITY GATE)
@@ -737,65 +798,127 @@ export default function ProctoredAssessmentWorkspace({
 
             {/* Violation Overlay Modal */}
             {isViolationOverlayOpen && (
-              <div className="mz-exam-violation-overlay">
-                <div className="mz-violation-card">
-                  <LuTriangleAlert size={44} color="#ef4444" />
-                  <h3>Proctoring Interruption Detected</h3>
-                  <p>{violationMessage}</p>
-                  <p style={{ fontSize: "13px", color: "#475569", marginTop: "8px" }}>
-                    Remaining violation chances: <strong>{chancesRemaining}/5</strong>.
-                    {isTerminated && " All chances consumed. Automatically submitting examination."}
+              <div className="mz-proc-violation-modal-overlay">
+                <div className={`mz-proc-recovery-card ${isTerminated ? "terminated" : ""}`} style={{ position: "relative" }}>
+                  <div className="mz-proc-recovery-icon-ring">
+                    <LuTriangleAlert size={30} />
+                  </div>
+                  <h3 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 800, color: isTerminated ? "#b91c1c" : "#92400e" }}>
+                    {isTerminated ? "Assessment Terminated: Limits Exceeded" : "Assessment Interrupted — Verification Required"}
+                  </h3>
+                  <p style={{ margin: 0, fontSize: "0.9rem", color: "#475569", lineHeight: "1.5" }}>
+                    {isTerminated
+                      ? "You have exhausted all 5 recovery chances. Your assessment workspace is locked and your answers have been permanently submitted for final grading."
+                      : violationMessage || "Screen switch or window blur detected. Navigating away from the proctored test environment is prohibited."}
                   </p>
-                  {!isTerminated && (
-                    <button
-                      type="button"
-                      className="mz-gate-start-btn"
-                      style={{ marginTop: 16 }}
-                      onClick={async () => {
-                        isReverifyingRef.current = true;
-                        immunityUntilRef.current = Date.now() + 25000;
-                        try {
-                          // Check camera stream
-                          if (!cameraStream || !cameraStream.active) {
-                            try {
-                              const cStream = await navigator.mediaDevices.getUserMedia({
-                                video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" },
-                                audio: true,
-                              });
-                              setCameraStream(cStream);
-                            } catch {}
-                          }
 
-                          // Check screen stream
-                          if (!screenStream || !screenStream.active) {
-                            try {
-                              const sStream = await navigator.mediaDevices.getDisplayMedia({
-                                video: { displaySurface: "monitor" },
-                                audio: false,
-                              });
-                              setScreenStream(sStream);
-                            } catch {}
-                          }
+                  <div style={{ fontSize: "11px", color: "#64748b" }}>
+                    Timestamp: {recoveryTimestamp ? new Date(recoveryTimestamp).toLocaleTimeString() : new Date().toLocaleTimeString()}
+                  </div>
 
-                          // Request fullscreen
-                          if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-                            if (document.documentElement.requestFullscreen) {
-                              await document.documentElement.requestFullscreen().catch(() => {});
-                            } else if (document.documentElement.webkitRequestFullscreen) {
-                              await document.documentElement.webkitRequestFullscreen().catch(() => {});
-                            }
-                          }
-                        } catch {}
-                        lastResumeTimeRef.current = Date.now();
-                        immunityUntilRef.current = Date.now() + 1500;
-                        setIsViolationOverlayOpen(false);
-                        isViolationOverlayOpenRef.current = false;
-                        isReverifyingRef.current = false;
-                      }}
-                    >
-                      Resume Exam Session ({chancesRemaining} Chances Left)
-                    </button>
-                  )}
+                  {/* Five Chances Meter */}
+                  <div className="mz-proc-chances-meter">
+                    <div className="mz-proc-chances-label-row">
+                      <span>Recovery Chances Tracker</span>
+                      <span style={{ color: chancesRemaining > 0 ? "#10b981" : "#ef4444", fontWeight: 700 }}>
+                        {chancesRemaining} / 5 Remaining
+                      </span>
+                    </div>
+                    <div className="mz-proc-chances-pills">
+                      {[1, 2, 3, 4, 5].map((idx) => (
+                        <div
+                          key={idx}
+                          className={`mz-proc-chance-pill ${idx > chancesRemaining ? "consumed" : ""}`}
+                          title={`Chance ${idx}: ${idx > chancesRemaining ? "Used" : "Available"}`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  {!isTerminated ? (
+                    <>
+                      {/* Verification Checklist */}
+                      <div className="mz-proc-recheck-grid">
+                        <div className={`mz-proc-recheck-item ${(cameraStream?.active || (cameraStream && cameraStream.getVideoTracks().some(t => t.readyState === "live"))) ? "ok" : "missing"}`}>
+                          <LuCamera size={16} />
+                          <span>Camera {(cameraStream?.active || (cameraStream && cameraStream.getVideoTracks().some(t => t.readyState === "live"))) ? "Active" : "Required"}</span>
+                        </div>
+                        <div className={`mz-proc-recheck-item ${(screenStream?.active || (screenStream && screenStream.getVideoTracks().some(t => t.readyState === "live"))) ? "ok" : "missing"}`}>
+                          <LuMonitor size={16} />
+                          <span>Screen {(screenStream?.active || (screenStream && screenStream.getVideoTracks().some(t => t.readyState === "live"))) ? "Active" : "Required"}</span>
+                        </div>
+                        <div className={`mz-proc-recheck-item ${(document.fullscreenElement || document.webkitFullscreenElement) ? "ok" : "missing"}`}>
+                          <LuMaximize size={16} />
+                          <span>Fullscreen {(document.fullscreenElement || document.webkitFullscreenElement) ? "Active" : "Required"}</span>
+                        </div>
+                      </div>
+
+                      <div style={{ display: "flex", flexDirection: "column", gap: "10px", width: "100%", marginTop: "6px" }}>
+                        <button
+                          type="button"
+                          className="mz-proc-btn-resolve"
+                          disabled={isReverifying}
+                          onClick={async () => {
+                            setIsReverifying(true);
+                            isReverifyingRef.current = true;
+                            immunityUntilRef.current = Date.now() + 25000;
+                            try {
+                              // Check camera stream
+                              if (!cameraStream || !cameraStream.active) {
+                                try {
+                                  const cStream = await navigator.mediaDevices.getUserMedia({
+                                    video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" },
+                                    audio: true,
+                                  });
+                                  setCameraStream(cStream);
+                                } catch {}
+                              }
+
+                              // Check screen stream
+                              if (!screenStream || !screenStream.active) {
+                                try {
+                                  const sStream = await navigator.mediaDevices.getDisplayMedia({
+                                    video: { displaySurface: "monitor" },
+                                    audio: false,
+                                  });
+                                  setScreenStream(sStream);
+                                } catch {}
+                              }
+
+                              // Request fullscreen
+                              if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+                                if (document.documentElement.requestFullscreen) {
+                                  await document.documentElement.requestFullscreen().catch(() => {});
+                                } else if (document.documentElement.webkitRequestFullscreen) {
+                                  await document.documentElement.webkitRequestFullscreen().catch(() => {});
+                                }
+                              }
+                            } catch {}
+                            lastResumeTimeRef.current = Date.now();
+                            immunityUntilRef.current = Date.now() + 1500;
+                            setIsViolationOverlayOpen(false);
+                            isViolationOverlayOpenRef.current = false;
+                            isReverifyingRef.current = false;
+                            setIsReverifying(false);
+                          }}
+                        >
+                          {isReverifying ? "Verifying Telemetry..." : "Re-Verify Hardware & Resume Assessment"}
+                        </button>
+                        <button
+                          type="button"
+                          className="mz-modal-btn-cancel"
+                          style={{ padding: "10px 16px", borderRadius: "10px", fontWeight: 600, width: "100%", background: "#f1f5f9", border: "1px solid #cbd5e1", color: "#334155", cursor: "pointer" }}
+                          onClick={() => {
+                            cleanUpMediaStreams();
+                            if (onClose) onClose();
+                            else navigate("/coding", { replace: true });
+                          }}
+                        >
+                          Exit Assessment & Return to Challenges
+                        </button>
+                      </div>
+                    </>
+                  ) : null}
                 </div>
               </div>
             )}
