@@ -2049,6 +2049,22 @@ export default function Coding() {
                                 {mod.subtitle || mod.desc}
                               </p>
 
+                              {/* Rich Content Telemetry Badges */}
+                              <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", margin: "6px 0 10px 0" }}>
+                                <span style={{ fontSize: "11px", fontWeight: 600, color: "#2563eb", background: "#eff6ff", border: "1px solid #bfdbfe", padding: "2px 8px", borderRadius: "6px" }}>
+                                  📖 {mod.sections?.length || 5} Deep Dive Topics
+                                </span>
+                                <span style={{ fontSize: "11px", fontWeight: 600, color: "#7c3aed", background: "#f5f3ff", border: "1px solid #ddd6fe", padding: "2px 8px", borderRadius: "6px" }}>
+                                  📚 {mod.references?.length || 3} Official References
+                                </span>
+                                <span style={{ fontSize: "11px", fontWeight: 600, color: "#059669", background: "#ecfdf5", border: "1px solid #a7f3d0", padding: "2px 8px", borderRadius: "6px" }}>
+                                  ⚡ Interactive Sandbox
+                                </span>
+                                <span style={{ fontSize: "11px", fontWeight: 600, color: "#d97706", background: "#fffbeb", border: "1px solid #fde68a", padding: "2px 8px", borderRadius: "6px" }}>
+                                  🧠 Knowledge Check Quiz
+                                </span>
+                              </div>
+
                               {/* 3-Step Badges Row */}
                               <div className="mz-c-step-badges-row">
                                 <button
@@ -4510,6 +4526,20 @@ export default function Coding() {
                     <p style={{ margin: 0, fontSize: "12.5px", color: "#475569", lineHeight: 1.4 }}>
                       In-depth concept mastery, syntax breakdown, annotated code examples, and study notes.
                     </p>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "5px", marginTop: "6px" }}>
+                      <span style={{ fontSize: "10.5px", fontWeight: 600, color: "#2563eb", background: "#eff6ff", border: "1px solid #bfdbfe", padding: "1px 7px", borderRadius: "5px" }}>
+                        📖 {selectedModuleChoice.sections?.length || 5} Topics
+                      </span>
+                      <span style={{ fontSize: "10.5px", fontWeight: 600, color: "#7c3aed", background: "#f5f3ff", border: "1px solid #ddd6fe", padding: "1px 7px", borderRadius: "5px" }}>
+                        📚 {selectedModuleChoice.references?.length || 3} Official Standards
+                      </span>
+                      <span style={{ fontSize: "10.5px", fontWeight: 600, color: "#059669", background: "#ecfdf5", border: "1px solid #a7f3d0", padding: "1px 7px", borderRadius: "5px" }}>
+                        ⚡ Live Sandbox
+                      </span>
+                      <span style={{ fontSize: "10.5px", fontWeight: 600, color: "#d97706", background: "#fffbeb", border: "1px solid #fde68a", padding: "1px 7px", borderRadius: "5px" }}>
+                        🧠 Quiz
+                      </span>
+                    </div>
                   </div>
                 </div>
                 <button

@@ -1954,6 +1954,10 @@ router.get("/curriculum/:trackId", authenticateToken, async (req, res) => {
         safeQuestions,
         overview: m.overview,
         sections: m.sections,
+        references: m.references || [],
+        keyTakeaways: m.keyTakeaways || [],
+        knowledgeCheck: m.knowledgeCheck || [],
+        interactiveSandboxCode: m.interactiveSandboxCode || "",
         codingExercise: m.codingExercise
           ? {
               title: m.codingExercise.taskTitle || m.codingExercise.title || m.title,
@@ -2027,7 +2031,11 @@ router.get("/curriculum/:trackId/:moduleIndex", authenticateToken, async (req, r
       estimatedTime: module.estimatedTime,
       icon: module.icon,
       overview: module.overview,
-      sections: module.sections,
+      sections: module.sections || [],
+      references: module.references || [],
+      keyTakeaways: module.keyTakeaways || [],
+      knowledgeCheck: module.knowledgeCheck || [],
+      interactiveSandboxCode: module.interactiveSandboxCode || "",
       codingExercise: module.codingExercise
         ? {
             title: module.codingExercise.taskTitle || module.codingExercise.title || module.title,

@@ -1,8 +1,4 @@
-// Curated Mastery Zone Coding Track Curriculum
-// Full ordered modules for Python, JavaScript, Java, C++, Web Development, and DSA
-// Enriched with LeetCode-grade descriptions, step-by-step conceptual explanations,
-// blank commented starter templates, and 10 real-time test cases (3 visible, 7 hidden).
-
+// Comprehensive Coding Track Curriculum Data
 const CURRICULUM = {
   "python": [
     {
@@ -10,20 +6,35 @@ const CURRICULUM = {
       "trackId": "python",
       "moduleIndex": 0,
       "title": "Python Basics & Core",
-      "subtitle": "Variables, control flow, functions, OOP, and data structures.",
-      "estimatedTime": "30 mins",
+      "subtitle": "Variables, Object References, CPython Memory Layout, Mutability, and Control Flow.",
+      "estimatedTime": "45 mins",
       "icon": "python",
-      "overview": "Understand Python's object model, memory references, immutable vs mutable types, and structured control flow. Everything in Python is an object, and variables are names bound to memory locations rather than typed memory slots.",
+      "overview": "Deep dive into CPython's execution engine, object representation, private heap allocation, reference counting, variable binding mechanics, and optimized control flow constructs. In Python, variables are named pointers to objects rather than typed storage cells.",
       "sections": [
         {
-          "title": "1. The Python Object Model & References",
-          "content": "In Python, variables do not store values directly; they store references to objects allocated on the private heap.\nWhen you write `x = 42`, an integer object representing 42 is created, and `x` points to it.\nImmutable types include: `int`, `float`, `str`, `tuple`, `bool`, and `frozenset`.\nMutable types include: `list`, `dict`, `set`, and custom class instances.\n\nKey takeaway: Reassigning an immutable variable changes the reference to a new object; modifying a mutable object changes it in place.",
-          "codeExample": "# Reference demonstration\na = [1, 2, 3]\nb = a          # b references the exact same list in memory\nb.append(4)\nprint(a)       # Outputs [1, 2, 3, 4]\nprint(a is b)  # True: identity check confirms identical memory address"
+          "title": "1. The CPython Object Model & Heap Architecture",
+          "content": "Every entity in Python—integers, strings, functions, classes, and modules—is a first-class heap-allocated C struct (`PyObject` or `PyVarObject`). A `PyObject` contains at minimum two fields: `ob_refcnt` (reference count for deterministic deallocation) and `ob_type` (a pointer to the type object determining its capabilities and method resolution).\n\nWhen executing `x = 42`, CPython does not allocate a 32-bit register for `x`. Instead, it allocates a `PyLongObject` on the private heap and binds the symbol `x` in the local frame namespace (`f_locals` dictionary) to that object's memory address. Small integers between -5 and 256 are pre-allocated and interned in a global array during interpreter startup to maximize cache locality and eliminate allocation overhead.",
+          "codeExample": "import sys\n\n# Memory identity and small integer caching (interning)\na = 256\nb = 256\nprint(f\"a is b: {a is b}\")       # True: both reference pre-allocated singleton\nprint(f\"id(a): {hex(id(a))}\")     # Exact virtual memory address\nprint(f\"Refcount: {sys.getrefcount(a)}\")\n\nc = 999999\nd = 999999\nprint(f\"c is d: {c is d}\")       # False: allocated as distinct PyLongObject instances\nprint(f\"c == d: {c == d}\")       # True: structural value equality"
         },
         {
-          "title": "2. Control Flow: Conditionals, Loops, & Comprehensions",
-          "content": "Python uses indentation to define scope rather than curly braces.\nList comprehensions provide a concise way to create lists without boilerplate loops.\nThey are executed in C-speed within the CPython interpreter, making them both more readable and faster than traditional for-loops.",
-          "codeExample": "# List comprehension with conditional filtering\nnumbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]\nevens_squared = [x**2 for x in numbers if x % 2 == 0]\nprint(evens_squared)  # [4, 16, 36, 64, 100]"
+          "title": "2. Mutability vs Immutability: In-Place Mutations & Aliasing Hazards",
+          "content": "Types in Python fall into two strict behavioral categories:\n• Immutable Types: int, float, complex, str, bytes, tuple, frozenset. Once allocated, their payload bytes can never change. Any modification produces a brand-new object.\n• Mutable Types: list, dict, set, bytearray, and custom class instances. Their internal buffer can be resized and modified in place without changing the object's identity (`id`).\n\nA critical source of production defects is unexpected aliasing: when multiple identifiers point to the same mutable container, in-place operations (`.append()`, `+=`) modify the shared state globally. Tuples provide shallow immutability: the tuple's references cannot change, but mutable objects contained inside the tuple can still be mutated in place.",
+          "codeExample": "# Aliasing hazard vs defensive cloning\noriginal = [1, [2, 3], 4]\naliased = original            # Shared reference\nshallow_copy = list(original) # New outer list, shared inner lists\nimport copy\ndeep_copy = copy.deepcopy(original) # Recursively cloned heap tree\n\noriginal[1].append(99)\nprint(f\"Aliased:      {aliased[1]}\")      # [2, 3, 99] (MUTATED)\nprint(f\"Shallow Copy: {shallow_copy[1]}\") # [2, 3, 99] (MUTATED! Shared inner reference)\nprint(f\"Deep Copy:    {deep_copy[1]}\")    # [2, 3]     (ISOLATED)"
+        },
+        {
+          "title": "3. Advanced Control Flow: Match-Case, Iterators & Comprehensions",
+          "content": "Python 3.10 introduced Structural Pattern Matching (`match ... case`), offering expressive destructuring of sequences, dictionaries, and class patterns with guard clauses (`if`). Unlike C/C++ switch statements, `match` evaluates structural shape and binds sub-patterns into local variables.\n\nList and dictionary comprehensions are compiled directly into bytecode loops executed in C within the CPython virtual machine. They bypass the overhead of repeatedly looking up `.append()` in the global or module scope, resulting in up to 35% faster execution compared to standard Python `for` loops.",
+          "codeExample": "def parse_api_event(event: dict) -> str:\n    match event:\n        case {\"type\": \"auth\", \"status\": 200, \"user\": {\"role\": \"admin\", \"name\": name}}:\n            return f\"Superadmin session authorized for: {name}\"\n        case {\"type\": \"auth\", \"status\": code} if code >= 400:\n            return f\"Security alert: Authentication rejected (HTTP {code})\"\n        case {\"type\": \"payment\", \"amount\": amt, \"currency\": curr} if amt > 10000:\n            return f\"High-value wire audit flag: {amt} {curr}\"\n        case _:\n            return \"Standard operational telemetry logged\"\n\nprint(parse_api_event({\"type\": \"auth\", \"status\": 200, \"user\": {\"role\": \"admin\", \"name\": \"Sarah\"}}))"
+        },
+        {
+          "title": "4. Memory Complexity, Big-O Profiles & Garbage Collection (GC)",
+          "content": "CPython employs a dual-strategy memory management engine:\n1. Reference Counting: Immediate deterministic deallocation when an object's reference counter drops to 0.\n2. Generational Cyclical Garbage Collector (GC): Handles self-referential cycles across three generations (Gen 0, Gen 1, Gen 2). Gen 0 runs frequently; objects surviving collection are promoted to older generations.\n\nMemory Profiling Table:\n• Integer: 28 bytes base (16 bytes PyObject header + 8 bytes digit count + 4 bytes value)\n• Float: 24 bytes\n• Empty List: 56 bytes (overallocates by factor of 1.125 upon growth)\n• Empty Dict: 64 bytes (compact hash table with separate index array)",
+          "codeExample": "import sys, gc\n\nclass Node:\n    def __init__(self, val):\n        self.val = val\n        self.next = None\n\nn1 = Node(1)\nn2 = Node(2)\nn1.next = n2\nn2.next = n1 # Cyclical pointer loop\n\ndel n1\ndel n2 # Reference count never drops to 0 due to mutual references!\nunreachable = gc.collect()\nprint(f\"Unreachable cyclical objects reclaimed by GC: {unreachable}\")"
+        },
+        {
+          "title": "5. Production Pitfalls & Anti-Patterns to Avoid",
+          "content": "• Mutable Default Arguments: Defs like `def add_item(item, items=[])` bind `items` once at module import time, sharing the list across all invocations. Always default to `items=None` and initialize inside.\n• Unchecked `is` for Equality: Never use `is` to compare string or numeric equality (`if x is 500:`). Use `==` for structural equality.\n• Inefficient String Concatenation in Loops: Using `s += char` generates O(N^2) memory reallocations. Use `''.join(list_of_strings)` for strict O(N) linear time.",
+          "codeExample": "# ANTI-PATTERN:\ndef append_to_cache(key, val, cache={}):\n    cache[key] = val\n    return cache\n\n# PRODUCTION RECOMMENDED PATTERN:\ndef append_to_cache_safe(key, val, cache=None):\n    if cache is None:\n        cache = {}\n    cache[key] = val\n    return cache"
         }
       ],
       "codingExercise": {
@@ -245,27 +256,99 @@ const CURRICULUM = {
             "explanation": "dict.get(key, default) avoids KeyError by returning the provided default value (or None if omitted) when the key is not found."
           }
         ]
-      }
+      },
+      "references": [
+        {
+          "title": "Official Python 3 Documentation — Data Model & Execution Model",
+          "url": "https://docs.python.org/3/reference/datamodel.html",
+          "source": "Python Software Foundation",
+          "category": "Official Standard Spec",
+          "description": "Definitive specification of objects, values, types, attribute lookups, and Python bytecode mechanics."
+        },
+        {
+          "title": "PEP 634 — Structural Pattern Matching Specification",
+          "url": "https://peps.python.org/pep-0634/",
+          "source": "Python Enhancement Proposals (PEPs)",
+          "category": "Language Architecture Proposal",
+          "description": "Formal specification and grammar rules for match/case statement syntax and destructuring patterns."
+        },
+        {
+          "title": "Fluent Python (2nd Edition) — Luciano Ramalho",
+          "url": "https://www.oreilly.com/library/view/fluent-python-2nd/9781492056348/",
+          "source": "O'Reilly Media",
+          "category": "Authoritative Literature",
+          "description": "Industry gold-standard reference covering the Python data model, descriptors, memory management, and idioms."
+        }
+      ],
+      "keyTakeaways": [
+        "In Python, variables are names bound to heap objects, not typed memory boxes.",
+        "Immutable types (int, float, str, tuple) cannot be mutated in place; mutable containers (list, dict, set) can be mutated across shared references.",
+        "List comprehensions execute in C-speed within CPython and run faster than equivalent for-loops.",
+        "Always use `items=None` for default arguments to avoid the shared mutable default argument hazard.",
+        "CPython memory cleanup combines deterministic reference counting with a generational cyclic garbage collector."
+      ],
+      "knowledgeCheck": [
+        {
+          "id": "kc_py0_1",
+          "question": "Why does Python pre-allocate integers from -5 to 256 during interpreter startup?",
+          "options": [
+            "Because 32-bit registers can only store numbers up to 256",
+            "To optimize cache locality and eliminate allocation overhead for frequently used numbers",
+            "Because Python does not support numbers larger than 256 without external libraries",
+            "To enforce immutable type restrictions on small values"
+          ],
+          "correctIndex": 1,
+          "explanation": "Small integers (-5 through 256) are used heavily in loops, indexing, and counters. Pre-allocating them as permanent singletons avoids thousands of heap allocation calls."
+        },
+        {
+          "id": "kc_py0_2",
+          "question": "What is the primary danger of using `def process(data, cache=[])` in production?",
+          "options": [
+            "It triggers a SyntaxError in Python 3.10+",
+            "The list is created once at function definition time, making the cache persist and leak state across all callers",
+            "The list becomes read-only and will raise an AttributeError on .append()",
+            "It prevents garbage collection of the entire module"
+          ],
+          "correctIndex": 1,
+          "explanation": "Default parameter expressions are evaluated once when the function definition is executed at module load time. Subsequent calls share that exact same list object."
+        }
+      ],
+      "interactiveSandboxCode": "import sys\nx = [10, 20, 30]\ny = x\nprint(f\"x is y: {x is y}\")\ny.append(40)\nprint(f\"x after y.append(40): {x}\")\n"
     },
     {
       "id": "py_mod_1",
       "trackId": "python",
       "moduleIndex": 1,
       "title": "Functions, Scopes & Lambda Expressions",
-      "subtitle": "First-class functions, closures, decorators, *args, **kwargs, and lambda syntax.",
+      "subtitle": "First-Class Functions, Closures, Decorators, *args/**kwargs, and Variable Scope Hierarchy.",
       "estimatedTime": "35 mins",
       "icon": "python",
-      "overview": "Deep dive into Python's functional capabilities. Learn LEGB variable resolution, how closures encapsulate state, crafting custom decorators, and leveraging anonymous lambda expressions.",
+      "overview": "Deep architectural survey of Python's execution frames, lexical scoping rules (LEGB), first-class callable objects, closures with cell variables, function decorators, and meta-programming techniques used across modern frameworks like FastAPI, Flask, and PyTorch.",
       "sections": [
         {
-          "title": "1. The LEGB Scope Rule & Closures",
-          "content": "Python resolves variable names using the LEGB rule:\n1. Local: inside current function\n2. Enclosing: inside enclosing functions (closures)\n3. Global: module level\n4. Built-in: Python standard built-ins\n\nWhen an inner function accesses variables from its enclosing scope, it forms a closure, preserving that state even after the outer function terminates.",
-          "codeExample": "def make_multiplier(factor):\n    def multiply(n):\n        return n * factor  # factor captured from enclosing scope\n    return multiply\n\ndouble = make_multiplier(2)\nprint(double(5))  # 10"
+          "title": "1. The LEGB Scope Resolution Hierarchy & Frame Objects",
+          "content": "When resolving any identifier in Python, the interpreter checks four scopes in strict hierarchical order (LEGB):\n1. Local (L): Defined inside current function via assignment.\n2. Enclosing (E): Defined in the local scope of enclosing functions (closures).\n3. Global (G): Defined at top level of the module (`globals()`).\n4. Built-in (B): Pre-loaded built-ins like `len`, `range` (`builtins`).\n\nIf you assign to a variable anywhere inside a function without `global` or `nonlocal`, Python flags it as strictly Local at compilation time. Referencing it before assignment raises `UnboundLocalError`.",
+          "codeExample": "counter = 0\ndef increment():\n    global counter\n    counter += 1\n    return counter\n\ndef outer_closure(initial_value):\n    val = initial_value\n    def inner_step(delta):\n        nonlocal val\n        val += delta\n        return val\n    return inner_step\n\nstepper = outer_closure(100)\nprint(stepper(15))  # 115\nprint(stepper(25))  # 140"
         },
         {
-          "title": "2. Variable Arguments (*args, **kwargs) & Decorators",
-          "content": "Functions can accept arbitrary positional arguments with `*args` (tuple) and keyword arguments with `**kwargs` (dictionary).\nDecorators wrap functions to dynamically modify or audit their behavior.",
-          "codeExample": "def log_call(func):\n    def wrapper(*args, **kwargs):\n        print(f\"Calling {func.__name__}\")\n        return func(*args, **kwargs)\n    return wrapper\n\n@log_call\ndef greet(name):\n    return f\"Hello, {name}\""
+          "title": "2. Closures & Free Variables: Under the Hood with __closure__",
+          "content": "A closure is a function that retains access to variables from its lexical enclosing scope even after the outer function has returned. CPython achieves this by creating special `cell` objects on the heap that store pointers to the free variables.",
+          "codeExample": "def make_rate_limiter(max_calls: int):\n    calls = 0\n    def allow() -> bool:\n        nonlocal calls\n        calls += 1\n        return calls <= max_calls\n    return allow\n\nlimiter = make_rate_limiter(2)\nprint([c.cell_contents for c in limiter.__closure__]) # [0, 2]\nprint(limiter(), limiter(), limiter()) # True, True, False"
+        },
+        {
+          "title": "3. Advanced Decorators: Syntactic Sugar, Wrappers & functools.wraps",
+          "content": "A decorator is a callable that wraps another callable. Without `@functools.wraps(func)`, the wrapper overwrites the decorated function's `__name__` and docstring, breaking logging and framework introspection.",
+          "codeExample": "from functools import wraps\nimport time\n\ndef benchmark(func):\n    @wraps(func)\n    def wrapper(*args, **kwargs):\n        t0 = time.perf_counter()\n        res = func(*args, **kwargs)\n        print(f\"{func.__name__} took {(time.perf_counter() - t0)*1000:.2f}ms\")\n        return res\n    return wrapper\n\n@benchmark\ndef calculate(): return sum(i for i in range(100000))\ncalculate()"
+        },
+        {
+          "title": "4. Variadic Arguments (*args, **kwargs) & Keyword-Only Enforcement",
+          "content": "Python provides flexible argument packing: `*args` packs extra positional arguments into a tuple, while `**kwargs` packs named arguments into a dict. A bare `*` enforces keyword-only arguments for bulletproof APIs.",
+          "codeExample": "def connect(host: str, *, port: int = 5432, ssl: bool = True):\n    return f\"{host}:{port}?ssl={ssl}\"\n\nprint(connect(\"db.internal\", port=5433, ssl=False))"
+        },
+        {
+          "title": "5. Production Pitfall: Late Binding in Loop Closures",
+          "content": "Closures in Python bind variables by reference at execution time, not at definition time. Defining lambdas inside a loop results in all lambdas reading the final loop counter.",
+          "codeExample": "# Buggy: funcs = [lambda: i for i in range(3)] -> [2, 2, 2]\n# Fix: funcs = [lambda val=i: val for i in range(3)] -> [0, 1, 2]"
         }
       ],
       "codingExercise": {
@@ -484,27 +567,98 @@ const CURRICULUM = {
             "explanation": "Non-default arguments cannot follow default arguments; Python raises SyntaxError."
           }
         ]
-      }
+      },
+      "references": [
+        {
+          "title": "PEP 3102 — Keyword-Only Arguments",
+          "url": "https://peps.python.org/pep-3102/",
+          "source": "Python Enhancement Proposals",
+          "category": "Official Standard Spec",
+          "description": "Specification for named parameters that can only be supplied by keyword syntax."
+        },
+        {
+          "title": "Python functools Module Documentation",
+          "url": "https://docs.python.org/3/library/functools.html",
+          "source": "Python Software Foundation",
+          "category": "Official Standard Library",
+          "description": "Technical reference for wraps, lru_cache, and higher-order function utilities."
+        },
+        {
+          "title": "PEP 3102 — Keyword-Only Arguments & API Design",
+          "url": "https://peps.python.org/pep-3102/",
+          "source": "Python Software Foundation",
+          "category": "Official PEP Specification",
+          "description": "Standard specification for syntactic enforcement of keyword-only arguments in clean library design."
+        }
+      ],
+      "keyTakeaways": [
+        "LEGB resolution governs variable lookup across Python scopes.",
+        "Closures capture state on the heap using cell objects.",
+        "Always decorate wrappers with `@functools.wraps`.",
+        "Use bare `*` to enforce keyword-only parameters in APIs."
+      ],
+      "knowledgeCheck": [
+        {
+          "id": "kc_py1_1",
+          "question": "What does @functools.wraps do?",
+          "options": [
+            "Accelerates function bytecode execution in C",
+            "Preserves the original function's __name__, docstrings, and signature on the wrapper",
+            "Forces asynchronous thread execution",
+            "Locks the function against monkey-patching"
+          ],
+          "correctIndex": 1,
+          "explanation": "wraps copies metadata from the original function to the wrapper function."
+        },
+        {
+          "id": "kc_py1_2",
+          "question": "What is the primary architectural benefit of using keyword-only parameters (`def func(*, timeout=30)`)?",
+          "options": [
+            "It enables automatic multi-threading",
+            "It prevents silent argument ordering bugs when callers invoke APIs with multiple optional parameters",
+            "It restricts the function to only accept dictionary arguments",
+            "It forces compilation to native C extensions"
+          ],
+          "correctIndex": 1,
+          "explanation": "Keyword-only parameters eliminate confusing positional calls like connect('db', True, False, 10, True) where boolean flags are easily transposed."
+        }
+      ],
+      "interactiveSandboxCode": "def make_multiplier(factor):\n    return lambda x: x * factor\ndouble = make_multiplier(2)\ntriple = make_multiplier(3)\nprint(double(5), triple(5))\n"
     },
     {
       "id": "py_mod_2",
       "trackId": "python",
       "moduleIndex": 2,
       "title": "Object-Oriented Architecture & Dunder Methods",
-      "subtitle": "Classes, inheritance, encapsulation, magic methods, and clean design.",
-      "estimatedTime": "40 mins",
+      "subtitle": "Classes, Metaclasses, C3 Linearization (MRO), __slots__ Optimization, and Descriptors.",
+      "estimatedTime": "55 mins",
       "icon": "python",
-      "overview": "Deepen your Python mastery with object-oriented paradigms. Explore classes, instance vs class attributes, encapsulation with property getters/setters, inheritance hierarchies, and special double-underscore (dunder) methods.",
+      "overview": "Industrial object-oriented programming in Python. Master dynamic type creation, C3 superclass linearization, method resolution order (MRO), memory-saving `__slots__` arrays, the descriptor protocol (`__get__`, `__set__`), and abstract base classes (ABCs).",
       "sections": [
         {
-          "title": "1. Classes, Attributes, & The `self` Parameter",
-          "content": "In Python, class definitions are executable blocks. When a class is created, a class object is constructed.\nInstance attributes belong to specific objects, whereas class attributes are shared across all instances.\nThe `__init__` method is the initializer, while `__new__` is the actual object constructor.",
-          "codeExample": "class Account:\n    bank_name = \"Mastery Bank\"  # Class attribute\n\n    def __init__(self, owner: str, balance: float = 0.0):\n        self.owner = owner      # Instance attribute\n        self._balance = balance # Protected attribute by convention"
+          "title": "1. Class Instantiation: __new__ vs __init__ and Object Lifecycle",
+          "content": "`__new__` is the static allocator that creates and returns a new instance of the class. `__init__` is the initializer that populates attributes on the created instance. Customizing `__new__` is required when subclassing immutable types (like int, str, tuple) or implementing the Singleton pattern.",
+          "codeExample": "class Singleton:\n    _inst = None\n    def __new__(cls):\n        if cls._inst is None:\n            cls._inst = super().__new__(cls)\n        return cls._inst\na, b = Singleton(), Singleton()\nprint(a is b) # True"
         },
         {
-          "title": "2. Dunder (Magic) Methods & Operator Overloading",
-          "content": "Special methods surrounded by double underscores (e.g. `__str__`, `__repr__`, `__eq__`, `__add__`) let custom classes integrate seamlessly with Python's operators and built-in functions.",
-          "codeExample": "class Vector:\n    def __init__(self, x: int, y: int):\n        self.x = x\n        self.y = y\n\n    def __add__(self, other):\n        return Vector(self.x + other.x, self.y + other.y)\n\n    def __repr__(self):\n        return f\"Vector({self.x}, {self.y})\""
+          "title": "2. Memory Optimization via __slots__",
+          "content": "By default, every Python instance stores attributes in a dynamic `__dict__` taking ~104 bytes minimum. Declaring `__slots__ = ('name', 'id')` replaces the dictionary with a compact C pointer array, reducing memory usage by 60-70% and accelerating attribute lookups.",
+          "codeExample": "class FastUser:\n    __slots__ = ('uid', 'email')\n    def __init__(self, uid, email):\n        self.uid = uid; self.email = email\nu = FastUser(1, 'dev@corp.com')\nprint(hasattr(u, '__dict__')) # False"
+        },
+        {
+          "title": "3. Multiple Inheritance & C3 Linearization (MRO)",
+          "content": "Python resolves multiple inheritance using the C3 Linearization Algorithm to construct `cls.__mro__`. It ensures children precede parents and listed parent order is preserved. Always use cooperative `super().__init__()` with kwargs.",
+          "codeExample": "class Base: pass\nclass A(Base): pass\nclass B(Base): pass\nclass C(A, B): pass\nprint([cls.__name__ for cls in C.__mro__])"
+        },
+        {
+          "title": "4. The Descriptor Protocol: __get__ and __set__",
+          "content": "Descriptors power Python properties, methods, and ORMs. A descriptor implements `__get__`, `__set__`, or `__delete__`. Data descriptors implement `__set__` and take precedence over instance dictionaries.",
+          "codeExample": "class PositiveNumber:\n    def __set_name__(self, owner, name): self.name = f'_{name}'\n    def __get__(self, inst, owner): return getattr(inst, self.name, 0)\n    def __set__(self, inst, val):\n        if val <= 0: raise ValueError('Must be positive')\n        setattr(inst, self.name, val)\n\nclass Item:\n    price = PositiveNumber()"
+        },
+        {
+          "title": "5. Best Practice: Composition over Inheritance",
+          "content": "Avoid deep class hierarchies. Prefer composing small, testable collaborator objects (has-a) rather than rigid multi-tier subclass trees (is-a).",
+          "codeExample": "class Engine: pass\nclass Car:\n    def __init__(self, engine: Engine): self.engine = engine"
         }
       ],
       "codingExercise": {
@@ -723,27 +877,98 @@ const CURRICULUM = {
             "explanation": "Implementing `__call__` makes an instance callable like a standard function."
           }
         ]
-      }
+      },
+      "references": [
+        {
+          "title": "Python Descriptor HowTo Guide — Raymond Hettinger",
+          "url": "https://docs.python.org/3/howto/descriptor.html",
+          "source": "PSF",
+          "category": "Official Guide",
+          "description": "Authoritative guide on descriptors, properties, and method binding."
+        },
+        {
+          "title": "Fluent Python Chapters 11-14: Object-Oriented Idioms",
+          "url": "https://www.oreilly.com/library/view/fluent-python-2nd/9781492056348/",
+          "source": "O'Reilly",
+          "category": "Authoritative Literature",
+          "description": "Deep dive into special methods and descriptors."
+        },
+        {
+          "title": "Fluent Python: Clear, Concise, and Effective Programming (2nd Edition)",
+          "url": "https://www.oreilly.com/library/view/fluent-python-2nd/9781492056348/",
+          "source": "Luciano Ramalho / O'Reilly",
+          "category": "Recommended Engineering Literature",
+          "description": "Authoritative treatise on Python data models, descriptors, metaclasses, and memory management."
+        }
+      ],
+      "keyTakeaways": [
+        "`__new__` allocates the object; `__init__` initializes attributes.",
+        "`__slots__` reduces per-instance memory by up to 70% by eliminating `__dict__`.",
+        "Descriptors intercept attribute lookup via `__get__` and `__set__`.",
+        "Prefer composition over inheritance for extensible software architecture."
+      ],
+      "knowledgeCheck": [
+        {
+          "id": "kc_py2_1",
+          "question": "What does __slots__ eliminate on Python class instances?",
+          "options": [
+            "Method lookup tables",
+            "The dynamic __dict__ attribute dictionary",
+            "The garbage collector reference count",
+            "Inheritance capabilities"
+          ],
+          "correctIndex": 1,
+          "explanation": "__slots__ eliminates the per-instance dictionary, replacing it with a fixed C array."
+        },
+        {
+          "id": "kc_py2_2",
+          "question": "How does defining `__slots__` on a Python class reduce memory consumption?",
+          "options": [
+            "It forces Python to store attributes on the GPU",
+            "It replaces the dynamic per-instance `__dict__` hash table with a fixed-size C array of descriptor pointers",
+            "It compresses all string attributes with gzip",
+            "It prevents subclasses from being instantiated"
+          ],
+          "correctIndex": 1,
+          "explanation": "Standard Python instances allocate an internal dict (~100+ bytes) per instance. `__slots__` eliminates `__dict__`, reducing per-instance memory by up to 70%."
+        }
+      ],
+      "interactiveSandboxCode": "class Slotted:\n    __slots__ = ('x', 'y')\n    def __init__(self, x, y): self.x = x; self.y = y\n\ns = Slotted(10, 20)\nprint(s.x, s.y)\n"
     },
     {
       "id": "py_mod_3",
       "trackId": "python",
       "moduleIndex": 3,
       "title": "File I/O, Serialization & Error Handling",
-      "subtitle": "Context managers, file streams, JSON parsing, custom exceptions, and try/except/finally.",
-      "estimatedTime": "40 mins",
+      "subtitle": "Context Managers, Streaming Buffer I/O, JSON/Protobuf Serialization, and Exception Chains.",
+      "estimatedTime": "50 mins",
       "icon": "python",
-      "overview": "Master robust real-world I/O and defensive programming. Learn deterministic resource cleanup with context managers, stream processing, parsing structured JSON, and architecting custom exception hierarchies.",
+      "overview": "Production-grade input/output architecture in Python. Master streaming buffered I/O, file descriptor safety with context managers (`with`), modern serialization (JSON, Protocol Buffers, avoiding insecure pickle), robust custom exception hierarchies, and exception chaining (`raise ... from`).",
       "sections": [
         {
-          "title": "1. Deterministic Resource Management with `with`",
-          "content": "Files and network sockets require deterministic cleanup. The `with` statement employs the context management protocol (`__enter__` and `__exit__`).\nEven if an unhandled exception occurs inside the block, `__exit__` is guaranteed to run, closing descriptors.",
-          "codeExample": "with open(\"data.json\", \"w\", encoding=\"utf-8\") as f:\n    f.write('{\"status\": \"ok\"}')\n# File automatically closed here"
+          "title": "1. The Context Manager Protocol: __enter__ & __exit__ Mechanics",
+          "content": "The `with` statement guarantees deterministic resource cleanup. `__enter__` acquires resources and returns the bound target; `__exit__(self, exc_type, exc_val, exc_tb)` cleanups. Returning True from `__exit__` suppresses exceptions.",
+          "codeExample": "class SafeFile:\n    def __init__(self, path): self.path = path\n    def __enter__(self): self.f = open(self.path, 'w', encoding='utf-8'); return self.f\n    def __exit__(self, t, v, tb): self.f.close(); return False"
         },
         {
-          "title": "2. Exception Hierarchies & Custom Exceptions",
-          "content": "All exceptions must inherit from `BaseException`, typically subclassing `Exception`.\nThe `finally` block runs regardless of whether an exception was raised or handled.",
-          "codeExample": "class InsufficientFundsError(Exception):\n    \"\"\"Raised when withdrawal exceeds account balance.\"\"\"\n    pass\n\ntry:\n    raise InsufficientFundsError(\"Balance is below required threshold\")\nexcept InsufficientFundsError as err:\n    print(f\"Error caught: {err}\")\nfinally:\n    print(\"Cleanup completed\")"
+          "title": "2. Streaming Large Files: Generator Pipelines",
+          "content": "Reading large multi-gigabyte files into memory causes Out-Of-Memory (OOM) failures. Python file objects are generators that yield line by line in O(1) constant memory.",
+          "codeExample": "def stream_errors(log_path):\n    with open(log_path, 'r', encoding='utf-8') as f:\n        for line in f:\n            if 'ERROR' in line: yield line.strip()"
+        },
+        {
+          "title": "3. Safe Serialization: JSON vs Insecure Pickle",
+          "content": "Never deserialize pickle payloads from untrusted network clients because pickle can execute arbitrary bytecode via `__reduce__`. Use JSON, MessagePack, or Protocol Buffers.",
+          "codeExample": "import json\ndata = {'service': 'auth', 'active': True}\njson_str = json.dumps(data)\nparsed = json.loads(json_str)"
+        },
+        {
+          "title": "4. Exception Chaining: raise ... from original_exc",
+          "content": "Use `raise NewException(...) from orig_exc` to preserve the underlying cause in `__cause__` while presenting high-level domain errors to callers.",
+          "codeExample": "try: int('invalid')\nexcept ValueError as err:\n    raise RuntimeError('Data parsing failed') from err"
+        },
+        {
+          "title": "5. Atomic File Writes with os.replace",
+          "content": "Never overwrite live production files directly. Write to a temporary file (`file.tmp`) and atomically replace it using `os.replace` to prevent corrupted partial reads.",
+          "codeExample": "import os\ndef atomic_write(path, data):\n    tmp = f'{path}.tmp'\n    with open(tmp, 'w', encoding='utf-8') as f: f.write(data)\n    os.replace(tmp, path)"
         }
       ],
       "codingExercise": {
@@ -962,27 +1187,98 @@ const CURRICULUM = {
             "explanation": "load() takes a readable stream/file object; loads() takes a string or byte string."
           }
         ]
-      }
+      },
+      "references": [
+        {
+          "title": "PEP 343 — The 'with' Statement",
+          "url": "https://peps.python.org/pep-0343/",
+          "source": "PSF",
+          "category": "Official Standard Spec",
+          "description": "Specification for context managers."
+        },
+        {
+          "title": "PEP 3134 — Exception Chaining",
+          "url": "https://peps.python.org/pep-3134/",
+          "source": "PSF",
+          "category": "Official Standard Spec",
+          "description": "Specification for raise ... from and __cause__."
+        },
+        {
+          "title": "PEP 342 — Coroutines via Enhanced Generators",
+          "url": "https://peps.python.org/pep-0342/",
+          "source": "Python Software Foundation",
+          "category": "Official PEP Specification",
+          "description": "Core specification introducing two-way communication (.send, .throw) via Python generators."
+        }
+      ],
+      "keyTakeaways": [
+        "Always use context managers (`with`) for deterministic file and socket closure.",
+        "Stream large files line by line to keep memory consumption constant O(1).",
+        "Avoid pickle for untrusted network input; use JSON or Protocol Buffers.",
+        "Use `raise ... from` to preserve diagnostic tracebacks across architecture layers."
+      ],
+      "knowledgeCheck": [
+        {
+          "id": "kc_py3_1",
+          "question": "Why is pickle considered dangerous for untrusted input?",
+          "options": [
+            "It causes stack overflows",
+            "It can execute arbitrary system commands via __reduce__ during deserialization",
+            "It does not support strings",
+            "It is slower than XML"
+          ],
+          "correctIndex": 1,
+          "explanation": "Pickle can construct arbitrary objects and execute system functions during unpickling."
+        },
+        {
+          "id": "kc_py3_2",
+          "question": "Why are generator pipelines (`(x for x in stream)`) preferred over list comprehensions for processing large log files?",
+          "options": [
+            "Generators bypass the Global Interpreter Lock (GIL)",
+            "Generators yield elements lazily one at a time, maintaining O(1) memory consumption regardless of stream size",
+            "Generators are automatically compiled to assembly",
+            "Generators write logs directly to NVMe SSDs"
+          ],
+          "correctIndex": 1,
+          "explanation": "A list comprehension materializes the entire file in RAM simultaneously, causing Out-Of-Memory crashes. Generators evaluate lazily in constant memory."
+        }
+      ],
+      "interactiveSandboxCode": "import json\npayload = {'status': 'healthy', 'uptime_sec': 3600}\nprint(json.dumps(payload, indent=2))\n"
     },
     {
       "id": "py_mod_4",
       "trackId": "python",
       "moduleIndex": 4,
       "title": "Advanced Collections & Pythonic Design Patterns",
-      "subtitle": "Comprehensions, generators (yield), itertools, defaultdict, and dataclasses.",
-      "estimatedTime": "45 mins",
+      "subtitle": "Collections Module, Itertools, Functools (LRU Cache), Protocol Types, and GIL Implications.",
+      "estimatedTime": "55 mins",
       "icon": "python",
-      "overview": "Write idiomatic, high-performance Python. Understand lazy generator pipelines that handle infinite data streams with constant memory, exploit specialized `collections` data structures, and use `dataclasses` for clean data models.",
+      "overview": "High-performance data structures and idiomatic Python patterns. Master the `collections` module (deque, Counter, defaultdict), infinite combinatoric iterators (`itertools`), memoization with `@lru_cache`, structural subtyping (`typing.Protocol`), and understanding the Global Interpreter Lock (GIL).",
       "sections": [
         {
-          "title": "1. Generators & Lazy Evaluation (`yield`)",
-          "content": "A generator function contains the `yield` keyword. Unlike regular functions that return a single value and terminate, generators pause execution, preserving local frame state.\nGenerators use O(1) memory regardless of whether they process 10 items or 10 billion items.",
-          "codeExample": "def fibonacci_sequence(limit):\n    a, b = 0, 1\n    for _ in range(limit):\n        yield a\n        a, b = b, a + b\n\n# Memory-efficient iteration\nfor num in fibonacci_sequence(5):\n    print(num)  # 0, 1, 1, 2, 3"
+          "title": "1. The collections Module: Deque, Counter & DefaultDict",
+          "content": "`collections.deque` provides O(1) appends and pops from both ends, unlike lists where `pop(0)` is O(N). `Counter` simplifies frequency analysis. `defaultdict` eliminates missing-key checks.",
+          "codeExample": "from collections import deque, Counter, defaultdict\nq = deque([1, 2, 3])\nq.appendleft(0)\nprint(list(q)) # [0, 1, 2, 3] in O(1) time"
         },
         {
-          "title": "2. The `collections` Module & `dataclasses`",
-          "content": "Python's `collections` provides high-performance alternatives to standard types:\n- `defaultdict`: never raises KeyError\n- `Counter`: multiset frequency counter\n- `deque`: O(1) double-ended queue\n`dataclasses` auto-generates `__init__`, `__repr__`, and `__eq__` boilerplate.",
-          "codeExample": "from dataclasses import dataclass\nfrom collections import Counter\n\n@dataclass\nclass Transaction:\n    user_id: str\n    amount: float\n\ncounts = Counter([\"apple\", \"banana\", \"apple\"])\nprint(counts[\"apple\"])  # 2"
+          "title": "2. The itertools Module: High-Speed Generator Pipelines",
+          "content": "`itertools` provides C-accelerated iterator combinators like `chain`, `islice`, and `combinations` that stream infinite or large datasets in O(1) memory.",
+          "codeExample": "import itertools\ncombos = list(itertools.combinations(['A', 'B', 'C'], 2))\nprint(combos) # [('A', 'B'), ('A', 'C'), ('B', 'C')]"
+        },
+        {
+          "title": "3. Memoization with functools.lru_cache",
+          "content": "Decorating pure functions with `@functools.lru_cache` stores computed results in an in-memory hash table, collapsing recursive exponential time to linear O(N).",
+          "codeExample": "from functools import lru_cache\n@lru_cache(maxsize=128)\ndef fib(n): return n if n < 2 else fib(n-1) + fib(n-2)\nprint(fib(50))"
+        },
+        {
+          "title": "4. Static Duck Typing with typing.Protocol",
+          "content": "Python 3.8+ Protocol enables structural subtyping: any class implementing required methods matches the type without inheriting from a base class.",
+          "codeExample": "from typing import Protocol\nclass Greeter(Protocol):\n    def greet(self) -> str: ...\nclass Robot:\n    def greet(self) -> str: return 'Beep Boop'\n# Robot matches Greeter automatically!"
+        },
+        {
+          "title": "5. Concurrency & The Global Interpreter Lock (GIL)",
+          "content": "The GIL prevents multiple native OS threads from running Python bytecode concurrently. Use `threading`/`asyncio` for I/O-bound tasks and `multiprocessing` for CPU-bound tasks.",
+          "codeExample": "from concurrent.futures import ProcessPoolExecutor\n# Scales CPU bound work across multiple processor cores"
         }
       ],
       "codingExercise": {
@@ -1201,7 +1497,63 @@ const CURRICULUM = {
             "explanation": "@dataclass(frozen=True) generates a class where setting attributes raises FrozenInstanceError."
           }
         ]
-      }
+      },
+      "references": [
+        {
+          "title": "Python collections Documentation",
+          "url": "https://docs.python.org/3/library/collections.html",
+          "source": "PSF",
+          "category": "Official Standard Library",
+          "description": "Full specification of deque, Counter, and defaultdict."
+        },
+        {
+          "title": "PEP 544 — Protocols: Structural Subtyping",
+          "url": "https://peps.python.org/pep-0544/",
+          "source": "PSF",
+          "category": "Official Standard Spec",
+          "description": "Specification for typing.Protocol."
+        },
+        {
+          "title": "PEP 492 — Coroutines with async and await syntax",
+          "url": "https://peps.python.org/pep-0492/",
+          "source": "Python Software Foundation",
+          "category": "Official PEP Specification",
+          "description": "Foundational Python asynchronous language standard introducing native coroutine semantics."
+        }
+      ],
+      "keyTakeaways": [
+        "Use `deque` for O(1) double-ended queue operations instead of list.pop(0).",
+        "`itertools` offers zero-overhead streaming combinators.",
+        "`@lru_cache` memoizes pure recursive computations.",
+        "The GIL requires multiprocessing for CPU-bound performance."
+      ],
+      "knowledgeCheck": [
+        {
+          "id": "kc_py4_1",
+          "question": "What is the time complexity of popping an element from the front of a list vs a deque?",
+          "options": [
+            "Both are O(1)",
+            "list is O(N), deque is O(1)",
+            "list is O(1), deque is O(N)",
+            "Both are O(log N)"
+          ],
+          "correctIndex": 1,
+          "explanation": "list.pop(0) shifts all elements in memory, while deque simply unlinks the node in O(1)."
+        },
+        {
+          "id": "kc_py4_2",
+          "question": "What is the primary pitfall of running CPU-bound numerical tasks with `asyncio`?",
+          "options": [
+            "Asyncio will raise a TypeError on float calculations",
+            "CPU-bound tasks block the single-threaded event loop, preventing all concurrent I/O coroutines from progressing",
+            "Asyncio requires 64-bit ARM architecture",
+            "Coroutines cannot return integer values"
+          ],
+          "correctIndex": 1,
+          "explanation": "Asyncio uses cooperative multitasking on a single thread. A long CPU computation never yields execution, freezing all other network/HTTP handlers unless offloaded to a ProcessPoolExecutor."
+        }
+      ],
+      "interactiveSandboxCode": "from collections import Counter\ncounts = Counter('abracadabra')\nprint(counts.most_common(3))\n"
     }
   ],
   "javascript": [
@@ -1210,20 +1562,35 @@ const CURRICULUM = {
       "trackId": "javascript",
       "moduleIndex": 0,
       "title": "JavaScript Essentials",
-      "subtitle": "DOM manipulation, async/await, closures, and ES6+ features.",
-      "estimatedTime": "30 mins",
+      "subtitle": "V8 Engine Architecture, Call Stack, Memory Heap, Hoisting, TDZ, and Type Coercion.",
+      "estimatedTime": "50 mins",
       "icon": "javascript",
-      "overview": "Understand how the JavaScript V8 engine parses, compiles, and executes code. Master the creation and execution phases of Execution Contexts, the call stack, lexical environments, variable hoisting, and how primitives vs reference objects reside in memory.",
+      "overview": "A comprehensive deep dive into JavaScript's execution environment. Understand how the V8 engine compiles code via Ignition (bytecode interpreter) and TurboFan (JIT compiler), lexical environments, variable hoisting, the Temporal Dead Zone (TDZ), and strict equality.",
       "sections": [
         {
-          "title": "1. The Two-Phase Execution Lifecycle",
-          "content": "Before executing a single line of JavaScript, the V8 engine runs a Creation Phase:\n1. Global Object creation (window or global)\n2. 'this' keyword binding\n3. Memory allocation for variables and function declarations (Hoisting)\n- `var` variables are initialized with `undefined`.\n- `let` and `const` are allocated in the Temporal Dead Zone (TDZ) and cannot be accessed before declaration.\n- Function declarations are placed in memory fully intact.",
-          "codeExample": "// Hoisting behavior demonstration\nconsole.log(myVar); // Outputs undefined (not ReferenceError)\nvar myVar = 10;\n\n// console.log(myLet); // Uncaught ReferenceError: Cannot access 'myLet' before initialization\nlet myLet = 20;"
+          "title": "1. V8 Engine Architecture: Ignition, TurboFan & The Call Stack",
+          "content": "Modern JavaScript engines like Google V8 parse source code into an Abstract Syntax Tree (AST), which the Ignition interpreter converts into bytecode. Frequently executed functions ('hot code') are analyzed by TurboFan and optimized directly into machine code. The Call Stack manages execution frames synchronously using LIFO order.",
+          "codeExample": "function multiply(a, b) { return a * b; }\nfunction computeTotal(x) { return multiply(x, 1.2); }\nconsole.log(computeTotal(100)); // 120"
         },
         {
-          "title": "2. The Call Stack & Primitive vs Reference Storage",
-          "content": "Primitives (Number, String, Boolean, null, undefined, Symbol, BigInt) are stored directly on the Stack (or inlined for performance).\nObjects (Arrays, Functions, Object literals) are stored on the Heap, while variables hold memory addresses pointing to those heap blocks.",
-          "codeExample": "let objA = { score: 100 };\nlet objB = objA; // Copies memory address reference\nobjB.score = 250;\nconsole.log(objA.score); // 250 (mutated through shared reference)"
+          "title": "2. Execution Contexts, Hoisting & The Temporal Dead Zone (TDZ)",
+          "content": "Every execution context consists of a Variable Environment and a Lexical Environment. `var` declarations are hoisted and initialized to `undefined`. `let` and `const` declarations are hoisted into the lexical scope but remain uninitialized in the Temporal Dead Zone (TDZ) until their declaration line is executed.",
+          "codeExample": "// console.log(x); // ReferenceError: Cannot access 'x' before initialization (TDZ)\nlet x = 10;\nconsole.log(x); // 10\n\nconsole.log(legacyVar); // undefined (hoisted and initialized)\nvar legacyVar = 20;"
+        },
+        {
+          "title": "3. Type Coercion Rules & Strict Equality (Object.is)",
+          "content": "JavaScript features implicit type coercion in comparisons (`==`). The strict equality operator (`===`) checks both value and type without coercion. `Object.is()` resolves special edge cases: `Object.is(NaN, NaN)` is `true`, and `Object.is(-0, +0)` is `false`.",
+          "codeExample": "console.log([] == 0);          // true: [] coerces to '' then to 0\nconsole.log([] === 0);         // false: object vs number\nconsole.log(NaN === NaN);      // false: IEEE 754 standard\nconsole.log(Object.is(NaN, NaN)); // true"
+        },
+        {
+          "title": "4. Memory Allocation & Garbage Collection (Mark-and-Sweep)",
+          "content": "Primitive values (numbers, booleans, symbols) are stored on the execution stack, while non-primitives (objects, arrays, functions) reside in the Memory Heap. V8 collects garbage via a Generational Mark-and-Sweep collector: Young Generation (Scavenger Cheney algorithm) and Old Generation (Mark-Sweep-Compact).",
+          "codeExample": "let user = { name: 'Alice' }; // Heap allocated\nuser = null; // Unreachable: marked for sweep by V8 collector"
+        },
+        {
+          "title": "5. Production Best Practices & Pitfalls",
+          "content": "• Never use `var`: Always use `const` by default and `let` only for reassigned identifiers.\n• Beware of implicit NaN: Arithmetic on undefined returns `NaN` which silently propagates through business logic.\n• Enable Strict Mode: Always use `'use strict';` or ES Modules to disallow accidental global leaks.",
+          "codeExample": "'use strict';\nfunction safeCalculate(price, taxRate = 0.05) {\n    if (typeof price !== 'number' || isNaN(price)) throw new TypeError('Price must be a valid number');\n    return price * (1 + taxRate);\n}"
         }
       ],
       "codingExercise": {
@@ -1436,27 +1803,98 @@ const CURRICULUM = {
             "explanation": "Reassigning a constant variable throws a TypeError: Assignment to constant variable."
           }
         ]
-      }
+      },
+      "references": [
+        {
+          "title": "MDN Web Docs — JavaScript Guide: Memory Management",
+          "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Memory_Management",
+          "source": "Mozilla Developer Network",
+          "category": "Authoritative Web Spec",
+          "description": "Comprehensive documentation on JavaScript heap memory, reference cycles, and mark-and-sweep garbage collection."
+        },
+        {
+          "title": "ECMAScript 2024 Language Specification (ECMA-262)",
+          "url": "https://tc39.es/ecma262/",
+          "source": "Ecma International / TC39",
+          "category": "Official Standard Spec",
+          "description": "The official standard specification for JavaScript language grammar, runtime execution contexts, and types."
+        },
+        {
+          "title": "V8 JavaScript Engine Architecture — Google Developers",
+          "url": "https://v8.dev/",
+          "source": "Google V8 Team",
+          "category": "Engine Engineering Reference",
+          "description": "Technical articles explaining Ignition bytecode compiler, TurboFan JIT optimizations, and hidden classes."
+        }
+      ],
+      "keyTakeaways": [
+        "V8 combines Ignition (bytecode interpreter) and TurboFan (JIT compiler) for maximum execution speed.",
+        "`let` and `const` are hoisted into the Temporal Dead Zone (TDZ) and cannot be read before initialization.",
+        "Always use strict equality (`===`) or `Object.is()` to avoid unexpected coercion bugs.",
+        "Primitives live on the stack; objects, functions, and arrays live on the heap."
+      ],
+      "knowledgeCheck": [
+        {
+          "id": "kc_js0_1",
+          "question": "What causes a ReferenceError when reading a `let` variable before its declaration line?",
+          "options": [
+            "The variable was never compiled",
+            "The variable exists in the Temporal Dead Zone (TDZ)",
+            "Variables in JavaScript cannot be accessed outside functions",
+            "let variables are stored on disk"
+          ],
+          "correctIndex": 1,
+          "explanation": "let and const are hoisted into the scope but are kept in the Temporal Dead Zone until their definition is evaluated."
+        },
+        {
+          "id": "kc_js0_2",
+          "question": "Why is `Object.is(NaN, NaN)` true while `NaN === NaN` is false?",
+          "options": [
+            "Object.is converts NaN to 0",
+            "NaN === NaN follows IEEE-754 semantics where NaN is not equal to itself, whereas Object.is tests exact value identity",
+            "Strict equality only works on numbers below 100",
+            "Object.is runs in WebAssembly"
+          ],
+          "correctIndex": 1,
+          "explanation": "IEEE-754 defines NaN as unequal to any value including itself. Object.is accurately tests same-value identity."
+        }
+      ],
+      "interactiveSandboxCode": "console.log('Object.is(NaN, NaN):', Object.is(NaN, NaN));\nconsole.log('NaN === NaN:', NaN === NaN);\nconsole.log('Object.is(+0, -0):', Object.is(+0, -0));\n"
     },
     {
       "id": "js_mod_1",
       "trackId": "javascript",
       "moduleIndex": 1,
       "title": "Closures, Scope Chains & Prototypal Inheritance",
-      "subtitle": "Lexical scoping, closure memory retention, prototype chain, and ES6 classes.",
-      "estimatedTime": "35 mins",
+      "subtitle": "Lexical Scoping, Scope Chain, Mark-and-Sweep, Prototypes, __proto__, and Private Class Fields.",
+      "estimatedTime": "55 mins",
       "icon": "javascript",
-      "overview": "Delve into closures and prototypes—the foundational pillars of JavaScript's object system. Learn how closures preserve lexical environments for private encapsulation and how prototypes enable dynamic method sharing.",
+      "overview": "Master JavaScript's closure mechanics, memory retention, prototype delegation, and modern encapsulation. Understand how lexical scope chains retain state, how prototype lookups traverse the chain, and how to implement clean module patterns and `#private` class fields.",
       "sections": [
         {
-          "title": "1. Lexical Scope & Closures in Depth",
-          "content": "A closure is the combination of a function bundled together with references to its surrounding state (the lexical environment).\nEvery execution context has a reference to its outer lexical environment. Closures allow functions to maintain state across invocations without polluting global scope.",
-          "codeExample": "function createCounter() {\n  let count = 0; // Private state encapsulated by closure\n  return {\n    increment: () => ++count,\n    get: () => count\n  };\n}\nconst counter = createCounter();\nconsole.log(counter.increment()); // 1"
+          "title": "1. Lexical Scope & Closure Architecture",
+          "content": "A closure is the combination of a function bundled together with references to its surrounding lexical environment. Functions in JavaScript retain their scope chain even when invoked outside their original lexical context.",
+          "codeExample": "function createBankVault(initialBalance) {\n    let balance = initialBalance; // Private enclosed state\n    return {\n        deposit: (amount) => { balance += amount; return balance; },\n        withdraw: (amount) => {\n            if (amount > balance) throw new Error('Insufficient funds');\n            balance -= amount;\n            return balance;\n        },\n        getBalance: () => balance\n    };\n}\nconst vault = createBankVault(1000);\nconsole.log(vault.deposit(500)); // 1500"
         },
         {
-          "title": "2. The Prototype Chain & ES6 Classes",
-          "content": "In JavaScript, objects have an internal `[[Prototype]]` link accessed via `Object.getPrototypeOf()`.\nWhen a property is requested on an object, JavaScript searches the object itself, then its prototype, up to `Object.prototype`.\nES6 `class` syntax is syntactic sugar over prototype delegation.",
-          "codeExample": "class Animal {\n  constructor(name) { this.name = name; }\n  speak() { return `${this.name} makes a noise.`; }\n}\nclass Dog extends Animal {\n  speak() { return `${this.name} barks.`; }\n}\nconst d = new Dog(\"Rex\");\nconsole.log(d.speak()); // \"Rex barks.\""
+          "title": "2. The Prototype Chain & Property Delegation",
+          "content": "Every JavaScript object has an internal `[[Prototype]]` link. When accessing a property, the engine inspects the object; if missing, it traverses up the prototype chain until finding it or reaching `null` (`Object.prototype.__proto__ === null`).",
+          "codeExample": "const animal = { eats: true };\nconst rabbit = Object.create(animal);\nrabbit.jumps = true;\nconsole.log(rabbit.eats); // true (delegated up prototype chain)\nconsole.log(Object.getPrototypeOf(rabbit) === animal); // true"
+        },
+        {
+          "title": "3. Modern Class Syntax & Private Fields (#)",
+          "content": "ES2022 introduced native private fields and methods prefixed with `#`. Unlike closure-based private variables or convention underscores (`_private`), `#fields` are enforced at the language syntax level by the V8 runtime and cannot be inspected via `Object.keys()`.",
+          "codeExample": "class SecureApiKeyManager {\n    #secretKey; // True runtime private field\n    constructor(key) { this.#secretKey = key; }\n    validate(input) { return this.#hash(input) === this.#secretKey; }\n    #hash(val) { return `hashed_${val}`; }\n}"
+        },
+        {
+          "title": "4. Currying & Functional Composition",
+          "content": "Currying transforms a function accepting multiple arguments into a sequence of unary functions. It enables partial application, creating reusable utility functions in modern pipelines.",
+          "codeExample": "const multiply = a => b => a * b;\nconst double = multiply(2);\nconst triple = multiply(3);\nconsole.log([1, 2, 3].map(double)); // [2, 4, 6]"
+        },
+        {
+          "title": "5. Production Anti-Pattern: Accidental Memory Leaks in Closures",
+          "content": "Holding long-lived references to large objects inside closures attached to DOM event listeners or global caches prevents V8's garbage collector from sweeping the allocated heap memory.",
+          "codeExample": "function setupListener() {\n    const largeData = new Array(1000000).fill('leak');\n    window.addEventListener('resize', () => {\n        // If this listener references largeData, the 1M array is pinned in memory forever!\n    });\n}"
         }
       ],
       "codingExercise": {
@@ -1668,27 +2106,98 @@ const CURRICULUM = {
             "explanation": "`a instanceof B` checks if B.prototype exists anywhere in the prototype chain of a."
           }
         ]
-      }
+      },
+      "references": [
+        {
+          "title": "MDN Web Docs — Closures",
+          "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Closures",
+          "source": "Mozilla",
+          "category": "Authoritative Guide",
+          "description": "Comprehensive guide to lexical environments and closures."
+        },
+        {
+          "title": "MDN Web Docs — Inheritance and the prototype chain",
+          "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Inheritance_and_the_prototype_chain",
+          "source": "Mozilla",
+          "category": "Authoritative Guide",
+          "description": "Deep dive into prototype lookups and performance implications."
+        },
+        {
+          "title": "HTML Standard: Event loops and Task Queues (WHATWG)",
+          "url": "https://html.spec.whatwg.org/multipage/webappapis.html#event-loops",
+          "source": "WHATWG Standards Committee",
+          "category": "Web Standard Specification",
+          "description": "The authoritative normative standard defining microtask draining, macrotasks, and rendering pipeline phases."
+        }
+      ],
+      "keyTakeaways": [
+        "Closures capture outer lexical scopes, preserving private state.",
+        "JavaScript objects delegate property lookups up the prototype chain.",
+        "Native `#private` fields enforce runtime privacy without memory overhead.",
+        "Remove event listeners when unmounting components to avoid closure memory leaks."
+      ],
+      "knowledgeCheck": [
+        {
+          "id": "kc_js1_1",
+          "question": "What happens when an object does not have an accessed property?",
+          "options": [
+            "It throws a TypeError",
+            "The engine looks up its [[Prototype]] chain until finding it or reaching null",
+            "It creates the property as undefined on the current object",
+            "It checks the global window object"
+          ],
+          "correctIndex": 1,
+          "explanation": "JavaScript traverses the prototype chain until it finds the property or reaches null."
+        },
+        {
+          "id": "kc_js1_2",
+          "question": "In what order are Promise microtasks executed relative to Macrotasks (e.g. `setTimeout`) in the V8 Event Loop?",
+          "options": [
+            "Macrotasks execute first, followed by microtasks at the end of the day",
+            "The microtask queue is completely drained after each execution turn before the next macrotask is dequeued",
+            "They execute in random order depending on CPU cache lines",
+            "Promises and timeouts execute simultaneously on separate OS threads"
+          ],
+          "correctIndex": 1,
+          "explanation": "After synchronous JavaScript completes or after each macrotask completes, the event loop drains the entire microtask queue (Promise.then, queueMicrotask) before moving to the next macrotask."
+        }
+      ],
+      "interactiveSandboxCode": "function counter() {\n    let count = 0;\n    return () => ++count;\n}\nconst c = counter();\nconsole.log(c(), c(), c());\n"
     },
     {
       "id": "js_mod_2",
       "trackId": "javascript",
       "moduleIndex": 2,
       "title": "Asynchronous JavaScript, Promises & Event Loop",
-      "subtitle": "Event loop, microtasks vs macrotasks, Promise chaining, async/await, and concurrency.",
-      "estimatedTime": "40 mins",
+      "subtitle": "Event Loop, Microtasks vs Macrotasks, Promise Internals, and Async/Await Mechanics.",
+      "estimatedTime": "55 mins",
       "icon": "javascript",
-      "overview": "Master JavaScript's non-blocking single-threaded concurrency model. Understand the call stack, Web APIs, Task Queue, Microtask Queue, Promise lifecycle states, and writing resilient asynchronous code with async/await.",
+      "overview": "The definitive architectural breakdown of JavaScript's asynchronous concurrency model. Understand the Call Stack, Libuv event loop, Macrotasks queue (setTimeout, I/O) vs Microtasks queue (Promise.then, MutationObserver), Promise state transitions, and async/await desugaring.",
       "sections": [
         {
-          "title": "1. The Event Loop: Microtasks vs Macrotasks",
-          "content": "JavaScript executes on a single thread. Asynchronous operations run as follows:\n1. Synchronous code executes on the Call Stack.\n2. Microtask Queue (Promise callbacks, `queueMicrotask`) is drained completely between every macrotask.\n3. Macrotask Queue (`setTimeout`, `setInterval`, I/O) executes one task per tick.",
-          "codeExample": "console.log(\"1 - Sync\");\nsetTimeout(() => console.log(\"4 - Macrotask\"), 0);\nPromise.resolve().then(() => console.log(\"3 - Microtask\"));\nconsole.log(\"2 - Sync\");\n// Order: 1, 2, 3, 4"
+          "title": "1. The Event Loop Architecture: Call Stack & Task Queues",
+          "content": "JavaScript is single-threaded. Concurrency is orchestrated by the Event Loop. When asynchronous work (fetch, timers, disk I/O) is dispatched, the browser or Node.js background thread pool executes it and schedules callbacks onto queues:\n• Microtasks Queue: High-priority queue (Promise callbacks, `queueMicrotask`). Emptied completely before the next task runs.\n• Macrotasks Queue: Standard task queue (setTimeout, setInterval, setImmediate, I/O events).",
+          "codeExample": "console.log('1. Synchronous Start');\nsetTimeout(() => console.log('4. Macrotask (setTimeout)'), 0);\nPromise.resolve().then(() => console.log('2. Microtask (Promise 1)'))\n                 .then(() => console.log('3. Microtask (Promise 2)'));\nconsole.log('5. Synchronous End');\n// Output order: 1 -> 5 -> 2 -> 3 -> 4"
         },
         {
-          "title": "2. Promises & Concurrent Composition",
-          "content": "A Promise has three states: Pending, Fulfilled, Rejected.\n- `Promise.all()`: Fails fast if any promise rejects.\n- `Promise.allSettled()`: Waits for all to finish, returning status for each.\n- `Promise.race()`: Resolves/rejects with the first settled promise.",
-          "codeExample": "async function fetchUserData(userId) {\n  try {\n    const res = await fetch(`/api/users/${userId}`);\n    if (!res.ok) throw new Error(\"HTTP error \" + res.status);\n    return await res.json();\n  } catch (err) {\n    console.error(\"Fetch failed:\", err);\n    throw err;\n  }\n}"
+          "title": "2. Promise States & Internal Invariants",
+          "content": "A Promise is an object representing eventual completion or failure of an asynchronous operation. It resides in one of three mutually exclusive states:\n1. Pending: Initial state, neither fulfilled nor rejected.\n2. Fulfilled: Completed successfully with a resolved value.\n3. Rejected: Failed with an error reason.\nOnce settled, a Promise's state and value are permanently immutable.",
+          "codeExample": "const fetchWithTimeout = (url, timeoutMs) => {\n    const timeoutPromise = new Promise((_, reject) =>\n        setTimeout(() => reject(new Error('Request timed out')), timeoutMs)\n    );\n    return Promise.race([fetch(url), timeoutPromise]);\n};"
+        },
+        {
+          "title": "3. Promise Combinators: all, allSettled, race & any",
+          "content": "• `Promise.all`: Rejects immediately if ANY promise rejects (fail-fast).\n• `Promise.allSettled`: Waits for all promises to finish and returns an array of `{status, value|reason}`.\n• `Promise.race`: Resolves or rejects as soon as the first promise settles.\n• `Promise.any`: Resolves as soon as the first promise fulfills (ignores rejections unless all fail).",
+          "codeExample": "const p1 = Promise.resolve('Success');\nconst p2 = Promise.reject('Minor telemetry error');\nPromise.allSettled([p1, p2]).then(results => {\n    results.forEach(r => console.log(r.status, r.value || r.reason));\n});"
+        },
+        {
+          "title": "4. Async/Await: Syntactic Sugar for Coroutines & Generators",
+          "content": "`async` functions always return a Promise. The `await` keyword pauses execution of the async function, yields control back to the Event Loop, and resumes when the promise settles via microtask scheduling.",
+          "codeExample": "async function loadDashboardData() {\n    try {\n        const [user, stats] = await Promise.all([fetchUser(), fetchStats()]);\n        return { user, stats };\n    } catch (err) {\n        console.error('Failed to load dashboard:', err);\n        throw err;\n    }\n}"
+        },
+        {
+          "title": "5. Production Anti-Pattern: Sequential Awaits in Loops",
+          "content": "Using `await` inside a standard `for` loop causes sequential execution (waterfall latency). When tasks are independent, execute them concurrently using `Promise.all`.",
+          "codeExample": "// BAD: Sequential (3x latency)\n// for (const id of ids) { await fetchItem(id); }\n// GOOD: Concurrent\n// await Promise.all(ids.map(id => fetchItem(id)));"
         }
       ],
       "codingExercise": {
@@ -1901,27 +2410,98 @@ const CURRICULUM = {
             "explanation": "Modern Node.js crashes or emits unhandledRejection events for unhandled promise rejections."
           }
         ]
-      }
+      },
+      "references": [
+        {
+          "title": "MDN Web Docs — JavaScript Event Loop",
+          "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Event_loop",
+          "source": "Mozilla",
+          "category": "Authoritative Guide",
+          "description": "Comprehensive documentation on task queues, microtasks, and the runtime event loop."
+        },
+        {
+          "title": "TC39 Promise Specification",
+          "url": "https://tc39.es/ecma262/#sec-promise-objects",
+          "source": "Ecma TC39",
+          "category": "Official Standard Spec",
+          "description": "Formal specification of Promise objects, internal slots, and reaction jobs."
+        },
+        {
+          "title": "You Don't Know JS Yet: Objects & Classes",
+          "url": "https://github.com/getify/You-Dont-Know-JS",
+          "source": "Kyle Simpson / O'Reilly",
+          "category": "Authoritative Reference",
+          "description": "In-depth breakdown of prototype delegation, behavior delegation, and JavaScript lexical binding."
+        }
+      ],
+      "keyTakeaways": [
+        "Microtasks (Promises) always run before the next Macrotask (setTimeout).",
+        "Promises are permanently immutable once settled.",
+        "Use `Promise.allSettled` when individual failures should not cancel remaining jobs.",
+        "Avoid sequential `await` in loops for independent operations."
+      ],
+      "knowledgeCheck": [
+        {
+          "id": "kc_js2_1",
+          "question": "Which task queue takes priority when the call stack clears?",
+          "options": [
+            "The Macrotask queue (setTimeout)",
+            "The Microtask queue (Promises)",
+            "The Rendering pipeline",
+            "File I/O callbacks"
+          ],
+          "correctIndex": 1,
+          "explanation": "The engine completely drains the Microtask queue after every task before processing the next macrotask."
+        },
+        {
+          "id": "kc_js2_2",
+          "question": "How does `Object.create(proto)` differ from object literal instantiation `{}`?",
+          "options": [
+            "Object.create allocates memory on the stack instead of heap",
+            "Object.create explicitly sets the internal `[[Prototype]]` link to the passed prototype without invoking a constructor",
+            "Object.create makes the resulting object permanently immutable",
+            "Object.create only works with TypeScript"
+          ],
+          "correctIndex": 1,
+          "explanation": "Object.create directly binds the `[[Prototype]]` delegation link, facilitating clean prototype inheritance without constructor side effects."
+        }
+      ],
+      "interactiveSandboxCode": "console.log('Start');\nPromise.resolve().then(() => console.log('Promise Microtask'));\nsetTimeout(() => console.log('Timeout Macrotask'), 0);\nconsole.log('End');\n"
     },
     {
       "id": "js_mod_3",
       "trackId": "javascript",
       "moduleIndex": 3,
       "title": "DOM Architecture, Events & Browser Web APIs",
-      "subtitle": "DOM tree manipulation, event bubbling & capturing, delegation, Fetch API, and Storage.",
-      "estimatedTime": "40 mins",
+      "subtitle": "DOM Tree Architecture, Event Bubbling & Capturing, Reflow vs Repaint, and Observer APIs.",
+      "estimatedTime": "50 mins",
       "icon": "javascript",
-      "overview": "Bridge JavaScript logic with the browser runtime. Understand the Document Object Model (DOM), how events propagate through capture and bubble phases, high-performance event delegation, and browser persistence APIs.",
+      "overview": "Browser rendering engine internals and high-performance DOM manipulation. Understand how HTML is parsed into the DOM Tree and CSSOM, the Render Tree, Layout (Reflow), Paint, Compositing, Event Delegation, and modern Observer APIs (IntersectionObserver, ResizeObserver).",
       "sections": [
         {
-          "title": "1. Event Propagation: Capturing, Target, & Bubbling",
-          "content": "When an event fires in the browser, it travels in 3 phases:\n1. Capturing Phase: Down from the Window through ancestor nodes to the target.\n2. Target Phase: Fired on the target element itself.\n3. Bubbling Phase: Bubbles back up the DOM tree to the Window.\n`event.stopPropagation()` prevents further upward or downward propagation.",
-          "codeExample": "// Event delegation: single listener on parent\ndocument.querySelector(\"#list\").addEventListener(\"click\", (e) => {\n  if (e.target.matches(\"li.item\")) {\n    console.log(\"Item clicked:\", e.target.textContent);\n  }\n});"
+          "title": "1. The Browser Rendering Pipeline: Reflow vs Repaint",
+          "content": "When the DOM or CSSOM changes, the browser updates pixels through the rendering pipeline:\n1. Layout (Reflow): Calculates exact geometric dimensions and screen positions.\n2. Paint: Fills pixels with colors, borders, and shadows.\n3. Composite: Combines GPU layers.\nTriggering reflow on layout-sensitive properties (`offsetHeight`, `clientWidth`) inside loops causes layout thrashing and frame drops below 60fps.",
+          "codeExample": "// BATCH DOM updates using DocumentFragment\nconst fragment = document.createDocumentFragment();\nfor (let i = 0; i < 100; i++) {\n    const div = document.createElement('div');\n    div.textContent = `Item ${i}`;\n    fragment.appendChild(div); // Zero reflows\n}\ndocument.body.appendChild(fragment); // Single reflow!"
         },
         {
-          "title": "2. Modern Storage: LocalStorage vs SessionStorage vs Cookies",
-          "content": "- `localStorage`: Persists until explicitly cleared (5-10MB limit per origin).\n- `sessionStorage`: Scoped to the browser tab lifecycle.\n- `IndexedDB`: Asynchronous transactional NoSQL database for large data.",
-          "codeExample": "// Storing and retrieving structured data\nlocalStorage.setItem(\"user_pref\", JSON.stringify({ theme: \"dark\" }));\nconst pref = JSON.parse(localStorage.getItem(\"user_pref\"));\nconsole.log(pref.theme); // \"dark\""
+          "title": "2. Event Propagation: Capturing, Target, and Bubbling",
+          "content": "Events propagate in three phases:\n1. Capturing Phase: Travels down from `window` to the target element.\n2. Target Phase: Fires directly on the target element.\n3. Bubbling Phase: Bubbles up from target back to `window`.\nEvent Delegation leverages bubbling by attaching a single listener to a common ancestor, saving memory.",
+          "codeExample": "document.getElementById('list-container').addEventListener('click', (e) => {\n    const item = e.target.closest('.list-item');\n    if (!item) return;\n    console.log('Clicked item ID:', item.dataset.id);\n});"
+        },
+        {
+          "title": "3. High-Performance APIs: IntersectionObserver & MutationObserver",
+          "content": "Rather than binding scroll listeners with CPU-heavy `getBoundingClientRect()`, `IntersectionObserver` informs you asynchronously off the main thread when elements enter the viewport.",
+          "codeExample": "const lazyObserver = new IntersectionObserver((entries) => {\n    entries.forEach(entry => {\n        if (entry.isIntersecting) {\n            const img = entry.target;\n            img.src = img.dataset.src;\n            lazyObserver.unobserve(img);\n        }\n    });\n});"
+        },
+        {
+          "title": "4. Debouncing vs Throttling",
+          "content": "• Debounce: Delays execution until a period of silence has elapsed (ideal for search autocomplete inputs).\n• Throttle: Enforces a maximum execution frequency (e.g. at most once every 100ms for window resize or scroll tracking).",
+          "codeExample": "const debounce = (fn, delayMs) => {\n    let timer;\n    return (...args) => {\n        clearTimeout(timer);\n        timer = setTimeout(() => fn(...args), delayMs);\n    };\n};"
+        },
+        {
+          "title": "5. Production Best Practices",
+          "content": "• Use `requestAnimationFrame` for smooth 60fps/120fps visual animations.\n• Always clean up event listeners when elements or components unmount to prevent leaks.\n• Favor CSS transforms (`translate3d`, `scale`) over animating `top`, `left`, `width` to stay on the GPU compositor thread without triggering CPU reflows.",
+          "codeExample": "// Animate with transform (GPU compositor layer only, 0 reflow)\nelement.style.transform = 'translate3d(100px, 0, 0)';"
         }
       ],
       "codingExercise": {
@@ -2135,27 +2715,98 @@ const CURRICULUM = {
             "explanation": "HttpOnly cookies are inaccessible to client-side scripts, protecting session tokens from XSS."
           }
         ]
-      }
+      },
+      "references": [
+        {
+          "title": "MDN Web Docs — Introduction to the DOM",
+          "url": "https://developer.mozilla.org/en-US/docs/Web/API/Document_Object_Model/Introduction",
+          "source": "Mozilla",
+          "category": "Authoritative Guide",
+          "description": "Comprehensive guide to DOM nodes, attributes, and APIs."
+        },
+        {
+          "title": "Google Web Fundamentals — Avoid Large, Complex Layouts and Layout Thrashing",
+          "url": "https://web.dev/avoid-large-complex-layouts-and-layout-thrashing/",
+          "source": "Google Chrome Team",
+          "category": "Performance Guide",
+          "description": "Engineering guide to layout thrashing and rendering optimization."
+        },
+        {
+          "title": "Functional-Light JavaScript: Pragmatic, Balanced FP in JavaScript",
+          "url": "https://github.com/getify/Functional-Light-JS",
+          "source": "Kyle Simpson",
+          "category": "Recommended Engineering Literature",
+          "description": "Pragmatic guide to pure functions, immutable structures, and functional algorithmic efficiency."
+        }
+      ],
+      "keyTakeaways": [
+        "Reflow recalculates geometry; repaint fills pixels; compositing blends GPU layers.",
+        "Event delegation attaches one listener to a parent, minimizing memory footprint.",
+        "Use `IntersectionObserver` for lazy loading without scroll lag.",
+        "Animate CSS `transform` and `opacity` to avoid triggering layout reflows."
+      ],
+      "knowledgeCheck": [
+        {
+          "id": "kc_js3_1",
+          "question": "Why is animating CSS `transform` faster than animating `left` or `top`?",
+          "options": [
+            "Transforms run in Web Workers",
+            "Transforms are processed on the GPU composite layer without triggering layout reflows",
+            "Transforms don't support colors",
+            "Transforms are cached by the browser DNS"
+          ],
+          "correctIndex": 1,
+          "explanation": "Transforms and opacity bypass the Layout and Paint stages, operating entirely on the GPU compositor."
+        },
+        {
+          "id": "kc_js3_2",
+          "question": "Why is `reduce()` with object spread `{ ...acc, [k]: v }` considered an O(N^2) anti-pattern for large arrays?",
+          "options": [
+            "V8 throws a stack overflow error on object keys",
+            "Every spread operation copies all existing keys into a brand-new object, creating N object allocations and quadratic time",
+            "JavaScript objects cannot store more than 100 properties",
+            "Object spread mutates the original prototype"
+          ],
+          "correctIndex": 1,
+          "explanation": "Copying an object of size K takes O(K) time. Across N iterations, spreading produces 1 + 2 + ... + N = O(N^2) work. Mutating a local accumulator `acc[k] = v` preserves O(N) linear performance."
+        }
+      ],
+      "interactiveSandboxCode": "const debounce = (fn, delay) => {\n  let t;\n  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), delay); };\n};\nconst log = debounce((val) => console.log('Executed:', val), 200);\nlog('A'); log('B'); log('C'); // Only 'C' logs after 200ms\n"
     },
     {
       "id": "js_mod_4",
       "trackId": "javascript",
       "moduleIndex": 4,
       "title": "Modern ES6+, Modular Architecture & Functional Patterns",
-      "subtitle": "ES modules, destructuring, rest/spread, higher-order array methods, and immutability.",
-      "estimatedTime": "35 mins",
+      "subtitle": "ES Modules (ESM), Destructuring, Generators, Iterators, and WeakMap/WeakSet.",
+      "estimatedTime": "55 mins",
       "icon": "javascript",
-      "overview": "Adopt modern software engineering patterns with ECMAScript standards. Leverage ES Modules, object/array destructuring, rest/spread mechanics, pure functions, and immutability for scalable applications.",
+      "overview": "Modern enterprise JavaScript standards. Deeply understand ES Modules (live bindings vs CommonJS), advanced destructuring, generator functions (`function*`) and the iterator protocol (`Symbol.iterator`), `WeakMap` and `WeakSet` for zero-leak memory management, and structured cloning.",
       "sections": [
         {
-          "title": "1. Higher-Order Functions: map, filter, & reduce",
-          "content": "Functional programming avoids shared mutable state.\n- `map`: Transforms each item into a new array of identical length.\n- `filter`: Retains items that satisfy a predicate.\n- `reduce`: Accumulates values into an arbitrary data structure (number, object, map).",
-          "codeExample": "const transactions = [100, -20, 50, -10];\nconst totalIncome = transactions\n  .filter((t) => t > 0)\n  .reduce((acc, t) => acc + t, 0);\nconsole.log(totalIncome); // 150"
+          "title": "1. ES Modules (ESM) vs CommonJS (CJS)",
+          "content": "ES Modules (`import`/`export`) are statically analyzable at compile time, enabling tree-shaking (dead code elimination). ESM exports live bindings to variables, whereas CommonJS (`require`/`module.exports`) copies values at runtime.",
+          "codeExample": "// ESM (Live Binding)\n// counter.js: export let count = 0; export const inc = () => count++;\n// main.js: import { count, inc } from './counter.js'; inc(); console.log(count); // 1"
         },
         {
-          "title": "2. ES Modules: Named vs Default Exports",
-          "content": "ES Modules (`import` / `export`) are statically analyzed at compile time.\nThis enables tree-shaking (dead code elimination) by modern bundlers like Vite and Rollup.",
-          "codeExample": "// math.js\nexport const add = (a, b) => a + b;\nexport default function multiply(a, b) { return a * b; }\n\n// main.js\nimport multiply, { add } from './math.js';"
+          "title": "2. The Iterator and Generator Protocol (Symbol.iterator)",
+          "content": "Any object implementing `[Symbol.iterator]()` that returns an object with a `.next()` method can be consumed by `for...of` loops and spread operators (`...`). Generators (`function*`) yield control lazily, streaming sequence items in O(1) memory.",
+          "codeExample": "function* infiniteSequence(start = 0, step = 1) {\n    let val = start;\n    while (true) {\n        yield val;\n        val += step;\n    }\n}\nconst nums = infiniteSequence(10, 5);\nconsole.log(nums.next().value); // 10\nconsole.log(nums.next().value); // 15"
+        },
+        {
+          "title": "3. WeakMap & WeakSet for Zero-Leak Memory Management",
+          "content": "Standard `Map` and `Set` hold strong references to keys, preventing garbage collection. `WeakMap` holds weak references: if no other reference to an object exists, the engine reclaims it automatically. WeakMap keys must strictly be objects.",
+          "codeExample": "const metadataStore = new WeakMap();\nlet userObj = { id: 42 };\nmetadataStore.set(userObj, { lastAccessed: Date.now() });\nuserObj = null; // metadataStore entry is automatically garbage-collected!"
+        },
+        {
+          "title": "4. Native Deep Copying with structuredClone()",
+          "content": "Historically, deep cloning required `JSON.parse(JSON.stringify(obj))` which drops dates, maps, sets, and circular references. Modern browsers and Node 17+ provide native `structuredClone()`, which handles cyclical graphs and typed arrays natively.",
+          "codeExample": "const original = { date: new Date(), map: new Map([['key', 'val']]) };\noriginal.self = original; // Circular reference!\nconst copy = structuredClone(original);\nconsole.log(copy.date instanceof Date); // true\nconsole.log(copy.self === copy);         // true"
+        },
+        {
+          "title": "5. Production Best Practices",
+          "content": "• Use Object.freeze() with TypeScript `as const` for immutable configuration objects.\n• Leverage optional chaining (`?.`) and nullish coalescing (`??`) to avoid `Cannot read properties of undefined` runtime crashes.",
+          "codeExample": "const config = Object.freeze({ apiBase: 'https://api.domain.com', timeout: 5000 });"
         }
       ],
       "codingExercise": {
@@ -2368,7 +3019,63 @@ const CURRICULUM = {
             "explanation": "`??` only falls back on null or undefined, unlike `||` which falls back on any falsey value."
           }
         ]
-      }
+      },
+      "references": [
+        {
+          "title": "MDN Web Docs — Iterators and Generators",
+          "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Iterators_and_generators",
+          "source": "Mozilla",
+          "category": "Authoritative Guide",
+          "description": "Guide to custom iterables and generator functions."
+        },
+        {
+          "title": "MDN Web Docs — structuredClone()",
+          "url": "https://developer.mozilla.org/en-US/docs/Web/API/Window/structuredClone",
+          "source": "Mozilla",
+          "category": "Authoritative Guide",
+          "description": "Documentation on the structured clone algorithm."
+        },
+        {
+          "title": "ECMAScript 2024 Language Specification (ECMA-262): WeakMap Objects",
+          "url": "https://tc39.es/ecma262/#sec-weakmap-objects",
+          "source": "Ecma International",
+          "category": "Official Language Specification",
+          "description": "Standard specification of weak references, garbage collection eligibility, and non-enumerable key mechanics."
+        }
+      ],
+      "keyTakeaways": [
+        "ES Modules provide static analysis, tree shaking, and live variable bindings.",
+        "Generators yield values lazily, enabling infinite sequences in O(1) memory.",
+        "`WeakMap` prevents memory leaks by allowing keys to be garbage-collected.",
+        "`structuredClone` handles circular references and complex types natively."
+      ],
+      "knowledgeCheck": [
+        {
+          "id": "kc_js4_1",
+          "question": "What makes WeakMap different from Map regarding garbage collection?",
+          "options": [
+            "WeakMap holds weak references to keys, allowing keys to be collected when no other references exist",
+            "WeakMap stores values on disk",
+            "WeakMap is asynchronous",
+            "WeakMap allows string keys only"
+          ],
+          "correctIndex": 0,
+          "explanation": "WeakMap does not prevent garbage collection of its object keys."
+        },
+        {
+          "id": "kc_js4_2",
+          "question": "What is the memory management advantage of using `WeakMap` for caching metadata associated with DOM elements or objects?",
+          "options": [
+            "WeakMap stores data on disk instead of RAM",
+            "Keys in WeakMap are held weakly; when the object key is dereferenced elsewhere, the entry is automatically garbage-collected without memory leaks",
+            "WeakMap compresses keys using Brotli compression",
+            "WeakMap allows primitive strings as keys"
+          ],
+          "correctIndex": 1,
+          "explanation": "Standard Map maintains strong references to keys, preventing garbage collection even if the DOM element is removed from the document. WeakMap prevents memory leaks automatically."
+        }
+      ],
+      "interactiveSandboxCode": "function* idMaker() {\n  let id = 1;\n  while (id <= 3) yield id++;\n}\nfor (const id of idMaker()) console.log('ID:', id);\n"
     }
   ],
   "java": [
@@ -2377,20 +3084,35 @@ const CURRICULUM = {
       "trackId": "java",
       "moduleIndex": 0,
       "title": "Java Programming",
-      "subtitle": "OOP principles, collections, multithreading, and enterprise design.",
-      "estimatedTime": "40 mins",
+      "subtitle": "JVM Architecture, ClassLoader, JIT Tiered Compilation, Stack vs Heap, and Primitive Types.",
+      "estimatedTime": "50 mins",
       "icon": "java",
-      "overview": "Understand enterprise Java execution. Learn the lifecycle of a Java application from .java source to .class bytecode executed by the JVM. Master Heap vs Stack memory allocation, Garbage Collection algorithms (G1, ZGC), and Just-In-Time (JIT) HotSpot compilation.",
+      "overview": "Master Java Virtual Machine (JVM) internals. Understand the ClassLoader subsystem (Bootstrap, Extension, Application), memory layout (Method Area, Heap, JVM Stack, PC Registers, Native Stack), JIT tiered compilation (C1 Client vs C2 Server compilers), and escape analysis.",
       "sections": [
         {
-          "title": "1. The Java Virtual Machine (JVM) Memory Model",
-          "content": "The JVM divides runtime memory into specific zones:\n1. Heap: Stores all class instances and arrays. Shared across all threads; managed by Garbage Collection.\n2. Stack: Each thread has its own call stack storing primitive local variables and object reference pointers.\n3. Metaspace: Stores class metadata, bytecode, static variables, and runtime constant pool.",
-          "codeExample": "public class MemoryDemo {\n    public static void main(String[] args) {\n        int primitiveVar = 42; // Allocated on the Thread Stack\n        String text = new String(\"Mastery Zone\"); // Object on Heap, reference on Stack\n    }\n}"
+          "title": "1. JVM Runtime Memory Layout & Subsystems",
+          "content": "The JVM memory model partitions memory into five runtime data areas:\n• Heap Area: Shared across all threads; stores all object instances and arrays.\n• Method Area (Metaspace): Stores class metadata, bytecode, and runtime constant pool.\n• JVM Stack: Per-thread stack frames storing local variables, operand stacks, and frame data.\n• PC Registers: Tracks the current bytecode instruction address for each thread.\n• Native Method Stack: Supports native C/C++ JNI calls.",
+          "codeExample": "public class MemoryModel {\n    // Allocated in Heap (Instance field)\n    private int id = 100;\n    \n    public void compute() {\n        // Allocated in current thread's Stack Frame (Local primitive)\n        int localVal = 42;\n        // 'user' pointer on Stack, User object allocated in Heap\n        User user = new User(\"Alice\");\n    }\n}"
         },
         {
-          "title": "2. Garbage Collection & Generational Hypothesis",
-          "content": "Most objects die young. Modern JVM GC (such as G1GC) divides the heap into generations:\n- Young Generation (Eden + Survivor Spaces S0/S1)\n- Old (Tenured) Generation\nMinor GCs collect the Young generation with minimal pause; surviving objects promote to Old Generation.",
-          "codeExample": "// Requesting explicit GC hint (not guaranteed)\nSystem.gc();"
+          "title": "2. The ClassLoader Subsystem & Delegation Model",
+          "content": "Classes are loaded dynamically via three ClassLoaders in a hierarchical Parent Delegation Model:\n1. Bootstrap ClassLoader: Loads core classes (`java.lang.*`, `rt.jar`).\n2. Extension (Platform) ClassLoader: Loads platform extensions (`jre/lib/ext`).\n3. Application (System) ClassLoader: Loads classpath user classes.",
+          "codeExample": "ClassLoader cl = MemoryModel.class.getClassLoader();\nSystem.out.println(\"App ClassLoader: \" + cl);\nSystem.out.println(\"Parent (Platform): \" + cl.getParent());\nSystem.out.println(\"Bootstrap: \" + cl.getParent().getParent()); // null (C++ root)"
+        },
+        {
+          "title": "3. JIT Tiered Compilation & Escape Analysis",
+          "content": "HotSpot JVM starts by interpreting bytecode. Hot methods are identified via invocation counters and compiled by Tier 1 (C1 - quick optimization) and Tier 2 (C2 - aggressive optimization: loop unrolling, inlining, branch prediction).\n\nEscape Analysis detects if an allocated object escapes the declaring method scope. If it does not escape, the JVM can perform Scalar Replacement (allocating fields directly on the CPU stack instead of the heap) and Lock Elision.",
+          "codeExample": "// Non-escaping object: JVM can optimize to stack allocation\npublic int getPointDistance(int x, int y) {\n    Point p = new Point(x, y); // Does not escape method\n    return p.x + p.y;          // HotSpot optimizes away heap allocation!\n}"
+        },
+        {
+          "title": "4. Primitive Types vs Wrapper Objects & Auto-Boxing Overhead",
+          "content": "Java primitives (`int`, `double`, `boolean`) are 4-8 bytes of unboxed raw bits on the stack. Wrapper objects (`Integer`, `Double`) add a 12-16 byte object header plus 4-byte reference pointer, consuming 4x more memory and introducing cache misses. Avoid autoboxing inside tight loops.",
+          "codeExample": "// BAD: Autoboxing allocates 1,000,000 Integer objects on the heap\nLong sum = 0L;\nfor (long i = 0; i < 1_000_000; i++) sum += i;\n\n// GOOD: Zero heap allocations\nlong fastSum = 0L;\nfor (long i = 0; i < 1_000_000; i++) fastSum += i;"
+        },
+        {
+          "title": "5. Production Best Practices",
+          "content": "• Configure explicit heap bounds in production (`-Xms4g -Xmx4g`) to avoid dynamic heap resizing pauses.\n• Enable GC logging (`-Xlog:gc*`) to diagnose latency spikes and heap occupancy.",
+          "codeExample": "// JVM flags for low-latency production microservices:\n// java -Xms4g -Xmx4g -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -jar app.jar"
         }
       ],
       "codingExercise": {
@@ -2602,27 +3324,98 @@ const CURRICULUM = {
             "explanation": "STW pauses briefly halt application worker threads to ensure memory consistency during critical collection phases."
           }
         ]
-      }
+      },
+      "references": [
+        {
+          "title": "The Java Virtual Machine Specification (Java SE 17)",
+          "url": "https://docs.oracle.com/javase/specs/jvms/se17/html/",
+          "source": "Oracle",
+          "category": "Official Standard Spec",
+          "description": "Definitive specification of JVM class format, bytecode instructions, and memory layout."
+        },
+        {
+          "title": "Effective Java (3rd Edition) — Joshua Bloch",
+          "url": "https://www.oreilly.com/library/view/effective-java-3rd/9780134686097/",
+          "source": "Addison-Wesley",
+          "category": "Authoritative Literature",
+          "description": "The industry gold-standard guide to Java programming best practices."
+        },
+        {
+          "title": "JEP 395: Records (Java Standard Enhancement Proposal)",
+          "url": "https://openjdk.org/jeps/395",
+          "source": "OpenJDK / Oracle",
+          "category": "Official JDK Specification",
+          "description": "Specification establishing record classes as transparent, shallowly immutable data carriers in Java."
+        }
+      ],
+      "keyTakeaways": [
+        "JVM separates memory into Heap (shared objects) and Stack (per-thread frames).",
+        "Parent delegation model prevents duplicate class definitions.",
+        "JIT tiered compilation optimizes hot bytecode paths directly into machine code.",
+        "Avoid autoboxing in performance-critical loops."
+      ],
+      "knowledgeCheck": [
+        {
+          "id": "kc_java0_1",
+          "question": "Where are local primitive variables stored in Java?",
+          "options": [
+            "In the Metaspace",
+            "On the current thread's JVM Stack frame",
+            "In the shared Heap area",
+            "On the GPU"
+          ],
+          "correctIndex": 1,
+          "explanation": "Local primitives reside directly on the stack frame of the executing thread."
+        },
+        {
+          "id": "kc_java0_2",
+          "question": "Why are `record` classes in Java 16+ preferred for Data Transfer Objects (DTOs)?",
+          "options": [
+            "Records run without JVM bytecode interpretation",
+            "Records provide immutable transparent carrier semantics with compiler-generated equals, hashCode, toString, and private final fields",
+            "Records bypass all garbage collection cycles",
+            "Records can extend multiple abstract classes"
+          ],
+          "correctIndex": 1,
+          "explanation": "Java records represent shallowly immutable data carriers, eliminating boilerplate while guaranteeing thread-safe value semantics and correct equals/hashCode contracts."
+        }
+      ],
+      "interactiveSandboxCode": "public class Demo {\n  public static void main(String[] args) {\n    System.out.println(\"Java JVM Architecture Verified\");\n  }\n}\n"
     },
     {
       "id": "java_mod_1",
       "trackId": "java",
       "moduleIndex": 1,
       "title": "Object-Oriented Architecture, Inheritance & Interfaces",
-      "subtitle": "Classes, abstract classes, interfaces, polymorphism, access modifiers, and SOLID.",
-      "estimatedTime": "40 mins",
+      "subtitle": "Encapsulation, Polymorphism, vtable Dispatch, Records, Sealed Classes, and Interfaces.",
+      "estimatedTime": "55 mins",
       "icon": "java",
-      "overview": "Architect clean, extensible enterprise software. Master the four pillars of OOP (Encapsulation, Abstraction, Inheritance, Polymorphism), interface contracts vs abstract classes, default methods, and dynamic method dispatch.",
+      "overview": "Enterprise object-oriented design in modern Java. Understand method overriding, virtual method table (vtable) dispatch, default interface methods, immutable Records (Java 16+), Sealed Classes (Java 17+), and the SOLID architectural principles.",
       "sections": [
         {
-          "title": "1. Interfaces vs Abstract Classes",
-          "content": "In modern Java:\n- An `interface` defines a capability contract. A class can implement multiple interfaces.\n- Interfaces can contain default and static methods (since Java 8) and private helper methods (since Java 9).\n- An `abstract class` represents an 'is-a' core identity and can maintain instance state (fields and constructors).",
-          "codeExample": "public interface PaymentProcessor {\n    boolean processPayment(double amount);\n    default void logTransaction(double amount) {\n        System.out.println(\"Payment logged: $\" + amount);\n    }\n}"
+          "title": "1. Virtual Method Table (vtable) & Dynamic Dispatch",
+          "content": "In Java, all non-static, non-final, non-private methods are virtual by default. The JVM resolves overrides at runtime using a Virtual Method Table (`vtable`). Each class has a vtable pointing to its concrete method implementations, achieving dynamic polymorphism with O(1) table lookup.",
+          "codeExample": "public interface PaymentProcessor {\n    void processPayment(double amount);\n}\npublic class StripeProcessor implements PaymentProcessor {\n    @Override public void processPayment(double amount) {\n        System.out.println(\"Processing via Stripe: $\" + amount);\n    }\n}"
         },
         {
-          "title": "2. Polymorphism & Dynamic Method Dispatch",
-          "content": "Polymorphism allows treating derived classes through their common base interface.\nDynamic method dispatch resolves the overridden method at runtime based on the actual object instance on the heap, not the reference type.",
-          "codeExample": "PaymentProcessor processor = new StripeProcessor();\nprocessor.processPayment(99.0); // Dispatches to StripeProcessor implementation"
+          "title": "2. Modern Java: Records for Immutable Data Carriers",
+          "content": "Java 16 introduced `record`, an immutable data class where the compiler automatically generates the private final fields, constructor, getters, `equals()`, `hashCode()`, and `toString()` with zero boilerplate.",
+          "codeExample": "public record UserCredential(String username, String role, boolean active) {\n    // Compact constructor for validation\n    public UserCredential {\n        if (username == null || username.isBlank())\n            throw new IllegalArgumentException(\"Username cannot be empty\");\n    }\n}\nUserCredential cred = new UserCredential(\"admin\", \"SUPERUSER\", true);\nSystem.out.println(cred.username()); // Getter method"
+        },
+        {
+          "title": "3. Sealed Classes & Exhaustive Pattern Matching (Java 17+)",
+          "content": "Sealed classes (`sealed ... permits`) restrict which subclasses can extend them. This enables compile-time exhaustive checks in switch expressions without requiring default branches.",
+          "codeExample": "public sealed interface Result permits Success, Failure {}\npublic record Success(String data) implements Result {}\npublic record Failure(String error) implements Result {}\n\npublic String handle(Result r) {\n    return switch (r) {\n        case Success s -> \"Data: \" + s.data();\n        case Failure f -> \"Error: \" + f.error();\n    }; // Compiler guarantees all subtypes are covered!\n}"
+        },
+        {
+          "title": "4. Interfaces: Default & Static Methods vs Abstract Classes",
+          "content": "Java 8+ allows interfaces to define `default` methods (providing backwards-compatible implementations) and `static` utility methods. Abstract classes maintain instance state (`protected fields`), while interfaces define capabilities.",
+          "codeExample": "public interface Auditable {\n    long getTimestamp();\n    default String getFormattedAuditLog() {\n        return \"Audit Entry created at: \" + new java.util.Date(getTimestamp());\n    }\n}"
+        },
+        {
+          "title": "5. SOLID Best Practice: Dependency Inversion",
+          "content": "High-level modules should not depend on low-level modules; both should depend on abstractions. Inject interfaces via constructors to enable test mocking.",
+          "codeExample": "public class OrderService {\n    private final PaymentProcessor paymentProcessor;\n    public OrderService(PaymentProcessor paymentProcessor) {\n        this.paymentProcessor = paymentProcessor;\n    }\n}"
         }
       ],
       "codingExercise": {
@@ -2834,27 +3627,98 @@ const CURRICULUM = {
             "explanation": "Dynamic method dispatch enables runtime polymorphism by selecting the overridden method at runtime."
           }
         ]
-      }
+      },
+      "references": [
+        {
+          "title": "JEP 395: Records (Java SE 16)",
+          "url": "https://openjdk.org/jeps/395",
+          "source": "OpenJDK",
+          "category": "Official Standard Spec",
+          "description": "Specification for Java records."
+        },
+        {
+          "title": "JEP 409: Sealed Classes (Java SE 17)",
+          "url": "https://openjdk.org/jeps/409",
+          "source": "OpenJDK",
+          "category": "Official Standard Spec",
+          "description": "Specification for sealed classes and interfaces."
+        },
+        {
+          "title": "Effective Java (3rd Edition) — Item 11: Adhere to hashCode & equals contract",
+          "url": "https://www.oreilly.com/library/view/effective-java-3rd/9780134686097/",
+          "source": "Joshua Bloch / Addison-Wesley",
+          "category": "Recommended Engineering Literature",
+          "description": "The seminal industry reference on Java collection performance, defensive copies, and concurrency."
+        }
+      ],
+      "keyTakeaways": [
+        "vtable lookups provide O(1) dynamic method dispatch in the JVM.",
+        "Java Records eliminate boilerplate for immutable data objects.",
+        "Sealed classes allow exhaustive compile-time pattern matching.",
+        "Always code against interfaces to satisfy the Dependency Inversion Principle."
+      ],
+      "knowledgeCheck": [
+        {
+          "id": "kc_java1_1",
+          "question": "What does declaring a class as `sealed` achieve in Java 17?",
+          "options": [
+            "It locks the class into Metaspace permanently",
+            "It restricts which classes or interfaces may extend or implement it",
+            "It disables serialization",
+            "It forces all fields to be public static"
+          ],
+          "correctIndex": 1,
+          "explanation": "Sealed classes explicitly declare which subclasses are permitted to extend them."
+        },
+        {
+          "id": "kc_java1_2",
+          "question": "What happens when a `HashMap` encounters a high collision count on a single bucket in Java 8+?",
+          "options": [
+            "It throws a ConcurrentModificationException",
+            "Once bucket length reaches TREEIFY_THRESHOLD (8), the linked list converts into a balanced Red-Black Tree, improving lookup from O(N) to O(log N)",
+            "It halves the table size and drops colliding entries",
+            "It swaps the table to disk memory"
+          ],
+          "correctIndex": 1,
+          "explanation": "Java 8 transforms heavily collided linked-list bins into Red-Black TreeNode structures, preventing worst-case Hash-DoS algorithmic degradation."
+        }
+      ],
+      "interactiveSandboxCode": "record Point(int x, int y) {}\nPoint p = new Point(10, 20);\nSystem.out.println(p.x() + \", \" + p.y());\n"
     },
     {
       "id": "java_mod_2",
       "trackId": "java",
       "moduleIndex": 2,
       "title": "Java Collections Framework & Generics",
-      "subtitle": "List, Set, Map, HashMap internals, ArrayList vs LinkedList, and generic type bounds.",
-      "estimatedTime": "45 mins",
+      "subtitle": "Collections Hierarchy, HashMap Buckets & Treeification, ConcurrentHashMap, and Generics PECS.",
+      "estimatedTime": "55 mins",
       "icon": "java",
-      "overview": "Deeply understand Java's standard data structures. Compare ArrayList vs LinkedList, explore HashMap collision resolution (buckets, linked lists, red-black tree bins), and master compile-time type safety with Generics and Wildcards.",
+      "overview": "Deep technical tour of the Java Collections Framework. Master ArrayList vs LinkedList performance, HashMap internal bucketing and Red-Black tree conversion (`TREEIFY_THRESHOLD = 8`), thread-safe `ConcurrentHashMap` with CAS, Generics type erasure, and bounded wildcards (`<? extends T>` and `<? super T>`).",
       "sections": [
         {
-          "title": "1. The Collections Architecture: List, Set, & Queue",
-          "content": "- `List` (ArrayList, LinkedList): Ordered, allows duplicates.\n  - `ArrayList`: Resizable array, O(1) random access, amortized O(1) append.\n  - `LinkedList`: Doubly linked nodes, O(1) insert at ends, O(N) index access.\n- `Set` (HashSet, TreeSet): Unique elements.\n  - `HashSet`: O(1) hash table lookup.\n  - `TreeSet`: O(log N) Red-Black tree sorted order.",
-          "codeExample": "List<String> names = new ArrayList<>();\nnames.add(\"Java\");\nSet<Integer> unique = new HashSet<>(Arrays.asList(1, 2, 2, 3));\nSystem.out.println(unique.size()); // 3"
+          "title": "1. HashMap Architecture: Hash Buckets & Red-Black Treeification",
+          "content": "A `HashMap` stores key-value pairs in an internal array of nodes (`Node<K,V>[]`). When multiple keys hash to the same bucket (collision), they form a linked list. In Java 8+, if a single bucket reaches 8 elements (`TREEIFY_THRESHOLD = 8`) and capacity >= 64, the linked list transforms into a Red-Black Tree, improving worst-case search time from O(N) to O(log N).",
+          "codeExample": "import java.util.HashMap;\nHashMap<String, Integer> map = new HashMap<>(64, 0.75f);\nmap.put(\"metrics\", 42);\n// Hash calculation: (h = key.hashCode()) ^ (h >>> 16) distributes entropy"
         },
         {
-          "title": "2. HashMap Internals & Collision Resolution",
-          "content": "A HashMap stores entries in an array of buckets indexed by `hash(key) & (n - 1)`.\nWhen multiple keys hash to the same bucket (collision):\n- Java 8+ chains entries in a singly linked list.\n- If a bucket exceeds 8 nodes (`TREEIFY_THRESHOLD`), the linked list converts into a Red-Black Tree, reducing worst-case lookup from O(N) to O(log N).",
-          "codeExample": "Map<String, Integer> map = new HashMap<>();\nmap.put(\"Key\", 42); // Invokes hashCode() and equals()"
+          "title": "2. Thread Safety: ConcurrentHashMap vs Collections.synchronizedMap",
+          "content": "`Collections.synchronizedMap` synchronizes the entire map with a single global mutex lock, bottlenecking concurrent threads. `ConcurrentHashMap` uses lock-free Compare-And-Swap (CAS) on empty bucket heads and synchronizes only on the specific bucket node when inserting, achieving high-concurrency throughput.",
+          "codeExample": "import java.util.concurrent.ConcurrentHashMap;\nConcurrentHashMap<String, Long> metrics = new ConcurrentHashMap<>();\nmetrics.compute(\"request_count\", (k, v) -> (v == null) ? 1L : v + 1L);"
+        },
+        {
+          "title": "3. Generics & Type Erasure",
+          "content": "Java generics exist at compile time for static type safety; they are eliminated at runtime via Type Erasure. `List<String>` and `List<Integer>` compile down to raw `List` in bytecode, with the compiler inserting automatic casts. Because of erasure, you cannot instantiate generic arrays (`new T[10]`) or check generic types (`obj instanceof List<String>`).",
+          "codeExample": "// Type erasure: both share the exact same runtime Class\nList<String> sList = new ArrayList<>();\nList<Integer> iList = new ArrayList<>();\nSystem.out.println(sList.getClass() == iList.getClass()); // true!"
+        },
+        {
+          "title": "4. Bounded Wildcards & The PECS Principle",
+          "content": "PECS stands for: Producer Extends, Consumer Super:\n• Producer (`<? extends T>`): If your method reads data from a collection, use `extends` (covariance).\n• Consumer (`<? super T>`): If your method writes data into a collection, use `super` (contravariance).",
+          "codeExample": "public static <T> void copy(List<? super T> dest, List<? extends T> src) {\n    for (T item : src) dest.add(item);\n}"
+        },
+        {
+          "title": "5. Production Pitfall: Mutable HashMap Keys",
+          "content": "If an object's fields used in its `hashCode()` method are modified after insertion into a `HashMap`, its bucket location changes, making the entry permanently lost and unretrievable. Always use immutable types (String, UUID, Integer, Record) as map keys.",
+          "codeExample": "// NEVER modify an object's fields after using it as a HashMap key!"
         }
       ],
       "codingExercise": {
@@ -3071,27 +3935,98 @@ const CURRICULUM = {
             "explanation": "TreeMap keys must implement Comparable<T> unless an explicit Comparator is supplied."
           }
         ]
-      }
+      },
+      "references": [
+        {
+          "title": "Oracle Java SE Collections Framework Overview",
+          "url": "https://docs.oracle.com/javase/8/docs/technotes/guides/collections/overview.html",
+          "source": "Oracle",
+          "category": "Official Documentation",
+          "description": "Detailed architectural specification of the Java Collections hierarchy."
+        },
+        {
+          "title": "Effective Java Item 31: Use bounded wildcards to increase API flexibility",
+          "url": "https://www.oreilly.com/library/view/effective-java-3rd/9780134686097/",
+          "source": "Addison-Wesley",
+          "category": "Authoritative Literature",
+          "description": "Definitive guide on PECS and Java generics."
+        },
+        {
+          "title": "Java Concurrency in Practice",
+          "url": "https://jcip.net/",
+          "source": "Brian Goetz et al. / Addison-Wesley",
+          "category": "Authoritative Engineering Reference",
+          "description": "Definitive guide to the Java Memory Model, lock-free algorithms, and thread-safe architecture."
+        }
+      ],
+      "keyTakeaways": [
+        "HashMap converts collided linked lists into Red-Black trees at 8 nodes.",
+        "ConcurrentHashMap uses CAS and bucket-level locking for lock-free scaling.",
+        "Java Generics use compile-time Type Erasure.",
+        "PECS: Producer Extends, Consumer Super."
+      ],
+      "knowledgeCheck": [
+        {
+          "id": "kc_java2_1",
+          "question": "What occurs in a Java 8+ HashMap when a single hash bucket contains 8 elements?",
+          "options": [
+            "The map throws an OutOfMemoryError",
+            "The bucket linked list transforms into a Red-Black tree to guarantee O(log N) search",
+            "The entire map is cleared",
+            "The capacity doubles without re-hashing"
+          ],
+          "correctIndex": 1,
+          "explanation": "When bucket size hits TREEIFY_THRESHOLD (8), it treeifies into a Red-Black tree."
+        },
+        {
+          "id": "kc_java2_2",
+          "question": "Why is double-checked locking without `volatile` broken in Java multithreading?",
+          "options": [
+            "Volatile increases thread priority to real-time",
+            "Without volatile, compiler and CPU instruction reordering can publish a reference to the instance before its fields are fully constructed",
+            "Double-checked locking is blocked by the JVM security manager",
+            "Threads cannot read null pointers in Java"
+          ],
+          "correctIndex": 1,
+          "explanation": "The volatile keyword establishes a happens-before memory barrier, preventing instruction reordering that could expose a partially constructed object to another thread."
+        }
+      ],
+      "interactiveSandboxCode": "java.util.List<String> list = new java.util.ArrayList<>();\nlist.add(\"Java\"); list.add(\"Collections\");\nSystem.out.println(list.size());\n"
     },
     {
       "id": "java_mod_3",
       "trackId": "java",
       "moduleIndex": 3,
       "title": "Robust Exception Handling & Resource Management",
-      "subtitle": "Checked vs unchecked exceptions, try-with-resources, AutoCloseable, and custom errors.",
-      "estimatedTime": "35 mins",
+      "subtitle": "Checked vs Unchecked Exceptions, Try-with-Resources, AutoCloseable, and Java NIO.2 Channels.",
+      "estimatedTime": "50 mins",
       "icon": "java",
-      "overview": "Design fault-tolerant backend applications. Understand the Java Throwable hierarchy, checked exceptions (compile-time verified) vs unchecked RuntimeExceptions, deterministic cleanup with try-with-resources, and building custom exceptions.",
+      "overview": "Resilient error handling and modern asynchronous I/O in Java. Master checked vs unchecked exception philosophy, deterministic cleanup with Try-with-Resources (`AutoCloseable`), JVM exception table bytecode mechanics, and non-blocking Java NIO.2 Channels and ByteBuffers.",
       "sections": [
         {
-          "title": "1. The Throwable Hierarchy: Checked vs Unchecked",
-          "content": "- `Throwable`: Root of all errors and exceptions.\n  - `Error`: Catastrophic JVM conditions (OutOfMemoryError, StackOverflowError) that applications should not attempt to catch.\n  - `Exception`:\n    - Checked Exceptions (subclasses of `Exception` excluding `RuntimeException`): Compiler mandates handling with `try-catch` or `throws` (e.g. `IOException`, `SQLException`).\n    - Unchecked Exceptions (`RuntimeException` and subclasses): Programming flaws (e.g. `NullPointerException`, `IllegalArgumentException`).",
-          "codeExample": "// Checked exception declaration\npublic void readFile(String path) throws IOException {\n    FileReader fr = new FileReader(path);\n}"
+          "title": "1. Exception Hierarchy: Checked vs Unchecked",
+          "content": "`Throwable` splits into `Error` (JVM-level unrecoverable failures like `OutOfMemoryError`) and `Exception`. `Exception` splits into:\n• Checked Exceptions (`Exception` subclasses): Enforced at compile time (`IOException`, `SQLException`). Must be caught or declared.\n• Unchecked Exceptions (`RuntimeException` subclasses): Indicate programming bugs (`NullPointerException`, `IllegalArgumentException`).",
+          "codeExample": "public void readFile(String path) throws IOException { // Checked\n    if (path == null) throw new IllegalArgumentException(\"Path cannot be null\"); // Unchecked\n}"
         },
         {
-          "title": "2. The `try-with-resources` Statement",
-          "content": "Introduced in Java 7, `try-with-resources` ensures every resource declared in parentheses is closed automatically at block end, eliminating tedious `finally` boilerplate.\nAny class implementing `java.lang.AutoCloseable` can be managed by `try-with-resources`.",
-          "codeExample": "try (BufferedReader br = new BufferedReader(new FileReader(\"data.txt\"))) {\n    String line = br.readLine();\n} // br.close() is automatically invoked here, even on exception"
+          "title": "2. Try-with-Resources & The AutoCloseable Interface",
+          "content": "Introduced in Java 7, Try-with-Resources automatically invokes `.close()` on all declared resources implementing `java.lang.AutoCloseable`, even when exceptions are thrown, eliminating `finally` block memory leaks.",
+          "codeExample": "import java.io.*;\npublic void copyFile(String src, String dest) throws IOException {\n    try (InputStream in = new FileInputStream(src);\n         OutputStream out = new FileOutputStream(dest)) {\n        in.transferTo(out);\n    } // Both streams closed automatically in reverse order\n}"
+        },
+        {
+          "title": "3. JVM Exception Table Bytecode Mechanics",
+          "content": "The JVM does not use costly runtime overhead during normal execution. It compiles `try-catch` blocks into an Exception Table specifying start PC, end PC, handler PC, and catch type. If an exception occurs, the JVM looks up the current instruction counter in the table in O(1).",
+          "codeExample": "// Bytecode Exception Table:\n// from    to  target type\n//    0     8    11   Class java/io/IOException"
+        },
+        {
+          "title": "4. Java NIO.2: Asynchronous Channels & ByteBuffers",
+          "content": "Java NIO replaces traditional blocking stream I/O with high-throughput non-blocking Channels and ByteBuffers. `Files.newByteChannel` and `FileChannel.map` allow direct memory-mapped file access (mmap) for zero-copy I/O.",
+          "codeExample": "import java.nio.file.*;\nimport java.nio.ByteBuffer;\nimport java.nio.channels.FileChannel;\n\npublic void readNio(Path path) throws Exception {\n    try (FileChannel channel = FileChannel.open(path, StandardOpenOption.READ)) {\n        ByteBuffer buffer = ByteBuffer.allocateDirect(1024); // Native off-heap memory\n        int bytesRead = channel.read(buffer);\n    }\n}"
+        },
+        {
+          "title": "5. Production Anti-Pattern: Swallowing Exceptions",
+          "content": "Never write `catch (Exception e) {}`. Always log the full stack trace or wrap and re-throw with the original exception preserved as the cause.",
+          "codeExample": "try { doWork(); }\ncatch (SQLException e) {\n    throw new ServiceException(\"Database operation failed\", e); // Preserves cause\n}"
         }
       ],
       "codingExercise": {
@@ -3307,27 +4242,98 @@ const CURRICULUM = {
             "explanation": "Errors indicate serious problems that reasonable applications should not try to catch."
           }
         ]
-      }
+      },
+      "references": [
+        {
+          "title": "Oracle Java Tutorial — The try-with-resources Statement",
+          "url": "https://docs.oracle.com/javase/tutorial/essential/exceptions/tryResourceClose.html",
+          "source": "Oracle",
+          "category": "Official Tutorial",
+          "description": "Official guide on AutoCloseable and resource management."
+        },
+        {
+          "title": "Java NIO.2 Documentation",
+          "url": "https://docs.oracle.com/javase/8/docs/technotes/guides/io/index.html",
+          "source": "Oracle",
+          "category": "Official Guide",
+          "description": "Technical documentation on Channels, Buffers, and Paths."
+        },
+        {
+          "title": "Java 8 Streams API Specification & Pipelines",
+          "url": "https://docs.oracle.com/javase/8/docs/api/java/util/stream/package-summary.html",
+          "source": "Oracle Corporation",
+          "category": "Official Standard Spec",
+          "description": "Comprehensive specification of functional stream operations, spliterators, and parallel pipeline evaluation."
+        }
+      ],
+      "keyTakeaways": [
+        "Use unchecked exceptions for recoverable programming bugs and checked for external failures.",
+        "Try-with-resources closes all AutoCloseable objects deterministically.",
+        "Exception tables provide zero runtime cost when no exceptions are thrown.",
+        "Java NIO.2 direct buffers leverage off-heap memory for zero-copy I/O."
+      ],
+      "knowledgeCheck": [
+        {
+          "id": "kc_java3_1",
+          "question": "What interface must an object implement to be utilized within a Try-with-Resources statement?",
+          "options": [
+            "java.io.Serializable",
+            "java.lang.AutoCloseable",
+            "java.lang.Runnable",
+            "java.util.Iterator"
+          ],
+          "correctIndex": 1,
+          "explanation": "Try-with-resources requires the object to implement AutoCloseable or Closeable."
+        },
+        {
+          "id": "kc_java3_2",
+          "question": "Why should you never store an `Optional` in a class field or pass it as a method parameter in enterprise Java?",
+          "options": [
+            "Optional is not serializable and creates unnecessary heap object wrapper allocations",
+            "Optional triggers memory leaks in the young generation",
+            "Optional causes deadlock when accessed by streams",
+            "The compiler forbids Optional fields in Java 17"
+          ],
+          "correctIndex": 0,
+          "explanation": "Optional was strictly designed as a method return type to clearly signify 'no result'. Using it as a field wastes heap memory (~16-24 bytes) and breaks Java serialization."
+        }
+      ],
+      "interactiveSandboxCode": "try (var s = new java.util.Scanner(\"Hello Java NIO\")) {\n  System.out.println(s.nextLine());\n}\n"
     },
     {
       "id": "java_mod_4",
       "trackId": "java",
       "moduleIndex": 4,
       "title": "Multithreading, Concurrency & Modern Java Streams",
-      "subtitle": "Threads, synchronized, ExecutorService, CompletableFuture, Lambdas, and Streams API.",
-      "estimatedTime": "50 mins",
+      "subtitle": "Java Memory Model (JMM), volatile, ReentrantLock, Virtual Threads, and Parallel Streams.",
+      "estimatedTime": "55 mins",
       "icon": "java",
-      "overview": "Harness multi-core CPU power with modern Java concurrency. Master the Java Memory Model, synchronization primitives, thread pools with `ExecutorService`, asynchronous composition with `CompletableFuture`, and declarative data processing using the Java Streams API.",
+      "overview": "Concurrent programming in modern Java. Understand the Java Memory Model (JMM), the happens-before relationship, `volatile` memory fences, `synchronized` vs `ReentrantLock`, thread pool executor sizing, and Java 21 Virtual Threads (Project Loom).",
       "sections": [
         {
-          "title": "1. Thread Safety, Volatile & Synchronization",
-          "content": "Multiple threads sharing mutable memory lead to race conditions.\n- `synchronized` keyword: Acquires an intrinsic monitor lock on an object, providing mutual exclusion.\n- `volatile` keyword: Guarantees memory visibility across CPU cores by preventing hardware cache stale reads.\n- `java.util.concurrent.atomic`: Lock-free CAS (Compare-And-Swap) operations (e.g. `AtomicInteger`).",
-          "codeExample": "AtomicInteger counter = new AtomicInteger(0);\ncounter.incrementAndGet(); // Thread-safe atomic increment"
+          "title": "1. The Java Memory Model (JMM) & volatile Semantics",
+          "content": "Modern multi-core CPUs use L1/L2 caches, causing threads to read stale data from CPU registers. The JMM defines the `happens-before` relationship. Declaring a field `volatile` ensures:\n1. Visibility: Reads and writes bypass CPU caches and go directly to main memory.\n2. Reordering Prevention: Inserts memory fences preventing instructions from being reordered across the read/write.",
+          "codeExample": "public class SharedFlag {\n    private volatile boolean running = true;\n    public void stop() { running = false; } // Visible to all threads immediately\n    public void run() { while (running) { /* CPU cache will not hide 'running' */ } }\n}"
         },
         {
-          "title": "2. Modern Streams API & Functional Pipelines",
-          "content": "Java 8 introduced functional pipelines:\n- Intermediate operations: `filter`, `map`, `sorted` (lazy evaluation).\n- Terminal operations: `collect`, `reduce`, `forEach` (triggers execution).",
-          "codeExample": "List<String> names = Arrays.asList(\"Alice\", \"Bob\", \"Charlie\", \"David\");\nList<String> result = names.stream()\n    .filter(n -> n.length() > 3)\n    .map(String::toUpperCase)\n    .collect(Collectors.toList());"
+          "title": "2. Synchronized vs ReentrantLock & Atomic Variables",
+          "content": "• `synchronized`: Built-in JVM intrinsic lock with biased locking, lightweight locking (spin locks), and heavyweight OS mutex fallback.\n• `ReentrantLock`: Flexible lock offering fairness policies, timeouts (`tryLock`), and condition variables.\n• `AtomicInteger` / `AtomicReference`: Non-blocking lock-free counters utilizing CPU hardware CAS instructions.",
+          "codeExample": "import java.util.concurrent.atomic.AtomicInteger;\nimport java.util.concurrent.locks.ReentrantLock;\n\nAtomicInteger counter = new AtomicInteger(0);\ncounter.incrementAndGet(); // Lock-free atomic increment via CPU CAS"
+        },
+        {
+          "title": "3. ThreadPoolExecutor Sizing & ForkJoinPool",
+          "content": "Never create raw threads (`new Thread()`) in production because OS thread stacks cost ~1MB each. Use `ThreadPoolExecutor`:\n• CPU-bound tasks: Pool size = `Runtime.getRuntime().availableProcessors()`\n• I/O-bound tasks: Pool size = `CPU_cores * (1 + Wait_Time / Compute_Time)`",
+          "codeExample": "import java.util.concurrent.*;\nExecutorService pool = Executors.newFixedThreadPool(8);\npool.submit(() -> System.out.println(\"Executed in worker thread\"));\npool.shutdown();"
+        },
+        {
+          "title": "4. Java 21 Project Loom: Virtual Threads",
+          "content": "Java 21 introduced Virtual Threads (Project Loom). Unlike heavyweight OS platform threads, virtual threads are lightweight user-space threads managed directly by the JVM. Millions of virtual threads can run concurrently; when a virtual thread blocks on I/O, the JVM unmounts it from the carrier OS thread.",
+          "codeExample": "// Spawns 10,000 lightweight virtual threads without exhausting OS memory\ntry (var executor = Executors.newVirtualThreadPerTaskExecutor()) {\n    for (int i = 0; i < 10_000; i++) {\n        executor.submit(() -> {\n            Thread.sleep(100); // Does NOT block the OS thread!\n            return \"Done\";\n        });\n    }\n}"
+        },
+        {
+          "title": "5. Java Parallel Streams & ForkJoinPool Pitfalls",
+          "content": "Parallel streams (`list.parallelStream()`) execute tasks concurrently across the common `ForkJoinPool`. Avoid running blocking I/O calls inside parallel streams as they starve the shared JVM common pool.",
+          "codeExample": "long sum = java.util.stream.LongStream.rangeClosed(1, 1_000_000)\n    .parallel().filter(x -> x % 2 == 0).sum();"
         }
       ],
       "codingExercise": {
@@ -3539,7 +4545,63 @@ const CURRICULUM = {
             "explanation": "Predicate<T> defines `boolean test(T t)`."
           }
         ]
-      }
+      },
+      "references": [
+        {
+          "title": "JSR 133: Java Memory Model and Thread Specification",
+          "url": "https://jcp.org/en/jsr/detail?id=133",
+          "source": "JCP",
+          "category": "Official Standard Spec",
+          "description": "The formal specification of the Java Memory Model and happens-before guarantees."
+        },
+        {
+          "title": "JEP 444: Virtual Threads (Java SE 21)",
+          "url": "https://openjdk.org/jeps/444",
+          "source": "OpenJDK",
+          "category": "Official Standard Spec",
+          "description": "Specification for lightweight virtual threads in Java 21."
+        },
+        {
+          "title": "JEP 444: Virtual Threads (JDK 21 Standard)",
+          "url": "https://openjdk.org/jeps/444",
+          "source": "OpenJDK / Oracle",
+          "category": "Official JDK Specification",
+          "description": "Normative specification introducing lightweight virtual threads to high-throughput Java enterprise services."
+        }
+      ],
+      "keyTakeaways": [
+        "`volatile` guarantees visibility and prevents instruction reordering.",
+        "Atomic variables use CPU hardware CAS instructions for lock-free scaling.",
+        "Virtual Threads (Java 21) allow millions of concurrent tasks with minimal memory.",
+        "Never run blocking I/O inside the common ForkJoinPool."
+      ],
+      "knowledgeCheck": [
+        {
+          "id": "kc_java4_1",
+          "question": "What does the `volatile` keyword guarantee in Java?",
+          "options": [
+            "Atomic increment operations on variables",
+            "Visibility across threads by bypassing CPU cache and preventing instruction reordering",
+            "Automatic thread creation",
+            "Encryption of data in memory"
+          ],
+          "correctIndex": 1,
+          "explanation": "volatile ensures that any read reads the most recent write from main memory across all threads."
+        },
+        {
+          "id": "kc_java4_2",
+          "question": "What is the primary operational advantage of Virtual Threads (Project Loom) over traditional platform threads in Java 21?",
+          "options": [
+            "Virtual threads make CPU-bound matrix multiplication 100x faster",
+            "Virtual threads are cheap user-mode threads managed by the JVM (~1KB RAM vs ~1MB OS stack), enabling millions of concurrent I/O operations without reactive complexity",
+            "Virtual threads eliminate all try-catch blocks",
+            "Virtual threads do not require garbage collection"
+          ],
+          "correctIndex": 1,
+          "explanation": "Virtual threads decouple Java threads from OS kernel threads. When a virtual thread blocks on socket I/O, the JVM unmounts it from the carrier thread, allowing millions of concurrent tasks."
+        }
+      ],
+      "interactiveSandboxCode": "java.util.concurrent.atomic.AtomicInteger ai = new java.util.concurrent.atomic.AtomicInteger(10);\nSystem.out.println(ai.addAndGet(5));\n"
     }
   ],
   "cpp": [
@@ -3548,20 +4610,35 @@ const CURRICULUM = {
       "trackId": "cpp",
       "moduleIndex": 0,
       "title": "Modern C++ Systems",
-      "subtitle": "Pointers, memory management, STL containers, and performance.",
-      "estimatedTime": "40 mins",
+      "subtitle": "Virtual Memory Models, Pointer Arithmetic, References, Cache Lines, and Undefined Behavior.",
+      "estimatedTime": "50 mins",
       "icon": "cpp",
-      "overview": "Master low-level systems programming in C++. Understand how variables are mapped in process memory (Text, Data, BSS, Heap, Stack), pointer manipulation, pointer arithmetic, const-correctness, and references.",
+      "overview": "Low-level system architecture with Modern C++20. Master the process virtual memory layout (Stack, Heap, Data, BSS, Text), raw pointer mechanics, pointer arithmetic, lvalue vs rvalue references, cache line alignment (`alignas`), false sharing, and Undefined Behavior (UB) prevention.",
       "sections": [
         {
-          "title": "1. The Process Memory Map & Stack Allocation",
-          "content": "A running C++ process contains distinct segments:\n- Stack: Fast, automatic storage for local variables and function call frames. Managed by CPU stack pointer.\n- Heap: Dynamically allocated memory via `new` or `malloc`. Must be explicitly freed.\n- Data/BSS: Global and static variables.\n- Text: Read-only executable machine code.",
-          "codeExample": "#include <iostream>\nint main() {\n    int val = 100; // Stack allocation\n    int* ptr = &val; // Pointer holds address of val\n    *ptr = 200; // Dereference and write\n    std::cout << val << \"\\n\"; // 200\n}"
+          "title": "1. Process Virtual Memory Architecture",
+          "content": "A C++ process operates within a virtual address space managed by the OS kernel and MMU:\n• Stack: Fast LIFO contiguous memory allocated by moving the stack pointer register (`RSP`). Holds local variables and return addresses.\n• Heap: Dynamic memory allocated via `malloc`/`new`, managed by runtime heap allocators (glibc ptmalloc, jemalloc).\n• Data & BSS: Global and static variables (initialized vs uninitialized).\n• Text: Read-only machine bytecode.",
+          "codeExample": "#include <iostream>\nint global_data = 100;\nint main() {\n    int stack_var = 42;\n    int* heap_var = new int(99);\n    std::cout << \"Stack: \" << &stack_var << \" | Heap: \" << heap_var << std::endl;\n    delete heap_var;\n}"
         },
         {
-          "title": "2. Pointer Arithmetic & References",
-          "content": "Pointer arithmetic operates in units of the pointee type size (`sizeof(T)`).\nA reference (`int&`) is an alias for an existing object and cannot be null or rebound.",
-          "codeExample": "int arr[3] = {10, 20, 30};\nint* p = arr;\nstd::cout << *(p + 1) << \"\\n\"; // 20"
+          "title": "2. Pointer Arithmetic & Memory Alignment",
+          "content": "Pointers store virtual memory addresses. Pointer arithmetic advances by multiples of `sizeof(*ptr)`. CPU architectures require data to be aligned to natural boundaries (e.g. 64-bit doubles aligned to 8-byte addresses) to avoid unaligned access penalties.",
+          "codeExample": "#include <iostream>\nint arr[4] = {10, 20, 30, 40};\nint* ptr = arr;\nstd::cout << *(ptr + 2); // 30 (advances 2 * sizeof(int) = 8 bytes)"
+        },
+        {
+          "title": "3. Cache Lines & False Sharing Prevention",
+          "content": "CPUs load memory into cache hierarchies in 64-byte chunks called Cache Lines. When two threads on separate cores modify independent variables located on the exact same 64-byte cache line, CPU cache coherency protocols (MESI) invalidate caches repeatedly, causing False Sharing.\n\nUse `alignas(std::hardware_destructive_interference_size)` to align thread-local state onto distinct cache lines.",
+          "codeExample": "#include <new>\nstruct alignas(64) ThreadCounter {\n    uint64_t count{0}; // Isolated onto its own 64-byte cache line\n};"
+        },
+        {
+          "title": "4. Undefined Behavior (UB) & Sanitizers",
+          "content": "Undefined Behavior allows the compiler optimizer to assume conditions can never occur, leading to deleted security checks or phantom branches. Common UB triggers:\n• Dereferencing null or dangling pointers\n• Array out-of-bounds indexing\n• Signed integer overflow\nAlways compile with AddressSanitizer (`-fsanitize=address,undefined`) in CI/CD pipelines.",
+          "codeExample": "// NEVER invoke Undefined Behavior:\n// int* p = nullptr; *p = 10; // Crash or corrupted optimization"
+        },
+        {
+          "title": "5. References vs Pointers",
+          "content": "References are syntactically non-null aliases that cannot be reseated. Pointers can be null, reseated, and manipulated with pointer arithmetic. Favor references for parameter passing.",
+          "codeExample": "void increment(int& val) { val++; }\nint x = 5; increment(x); // x is now 6"
         }
       ],
       "codingExercise": {
@@ -3773,27 +4850,98 @@ const CURRICULUM = {
             "explanation": "nullptr is strongly typed as `std::nullptr_t`, eliminating integer overload ambiguities caused by NULL (0)."
           }
         ]
-      }
+      },
+      "references": [
+        {
+          "title": "cppreference.com — C++ Memory Model",
+          "url": "https://en.cppreference.com/w/cpp/language/memory_model",
+          "source": "cppreference",
+          "category": "Authoritative Reference",
+          "description": "Detailed technical specification of C++ memory locations and threads."
+        },
+        {
+          "title": "ISO/IEC 14882:2020 — Programming Language C++",
+          "url": "https://isocpp.org/std/the-standard",
+          "source": "ISO Standard",
+          "category": "Official Standard Spec",
+          "description": "The official ISO standard specification for C++20."
+        },
+        {
+          "title": "Effective Modern C++: 42 Specific Ways to Improve Your Use of C++11 and C++14",
+          "url": "https://www.oreilly.com/library/view/effective-modern-c/9781491908419/",
+          "source": "Scott Meyers / O'Reilly",
+          "category": "Recommended Engineering Literature",
+          "description": "Essential guidance on move semantics, smart pointers, lambda captures, and modern C++ idiomatic design."
+        }
+      ],
+      "keyTakeaways": [
+        "Process memory is partitioned into Stack, Heap, Data, BSS, and Text segments.",
+        "False sharing occurs when independent variables share a 64-byte cache line.",
+        "Undefined Behavior permits aggressive compiler optimizations that break unverified code.",
+        "Prefer non-null references over raw pointers for function arguments."
+      ],
+      "knowledgeCheck": [
+        {
+          "id": "kc_cpp0_1",
+          "question": "What is the typical size of a CPU cache line on modern x86-64 architectures?",
+          "options": [
+            "8 bytes",
+            "64 bytes",
+            "512 bytes",
+            "4096 bytes"
+          ],
+          "correctIndex": 1,
+          "explanation": "Modern x86-64 CPUs load memory in 64-byte aligned chunks called cache lines."
+        },
+        {
+          "id": "kc_cpp0_2",
+          "question": "Why must every base class intended for polymorphic deletion have a `virtual` destructor?",
+          "options": [
+            "To ensure the compiler allocates memory in the BSS segment",
+            "Deleting a derived class object through a pointer to base without a virtual destructor triggers undefined behavior and resource leaks",
+            "To prevent static variables from being modified",
+            "To enable C++20 module compilation"
+          ],
+          "correctIndex": 1,
+          "explanation": "Without a virtual destructor, delete basePtr invokes only the Base destructor, skipping the Derived destructor and leaking any resources held by the derived class."
+        }
+      ],
+      "interactiveSandboxCode": "#include <iostream>\nint main() {\n  std::cout << \"C++ Systems Model Verified\" << std::endl;\n  return 0;\n}\n"
     },
     {
       "id": "cpp_mod_1",
       "trackId": "cpp",
       "moduleIndex": 1,
       "title": "RAII, Object Lifecycle & Resource Management",
-      "subtitle": "Resource Acquisition Is Initialization, constructors, destructors, and Rule of 3/5/0.",
-      "estimatedTime": "40 mins",
+      "subtitle": "Resource Acquisition Is Initialization, Stack Unwinding, Rule of 3/5/0, and Mutex Guards.",
+      "estimatedTime": "55 mins",
       "icon": "cpp",
-      "overview": "Embrace RAII—the single most important idiom in C++. Tie resource lifecycles (heap memory, file handles, mutex locks) to object lifetimes. Master deterministic destructors and implement the Rule of Three, Five, and Zero.",
+      "overview": "The foundational idiom of C++: Resource Acquisition Is Initialization (RAII). Master deterministic stack-based resource lifetime management, exception safety guarantees, stack unwinding, the Rule of Three, Five, and Zero, and scoped locking guards (`std::lock_guard`, `std::unique_lock`).",
       "sections": [
         {
-          "title": "1. The RAII Paradigm (Resource Acquisition Is Initialization)",
-          "content": "Resources must be acquired in a constructor and released in the destructor.\nWhen an object goes out of scope (normal exit or via exception stack unwinding), its destructor is guaranteed to execute deterministically.",
-          "codeExample": "class FileHandle {\n    FILE* file;\npublic:\n    FileHandle(const char* path) { file = fopen(path, \"r\"); }\n    ~FileHandle() { if (file) fclose(file); } // Deterministic cleanup\n};"
+          "title": "1. The RAII Idiom: Deterministic Lifetime Management",
+          "content": "RAII binds the lifecycle of a resource (heap memory, file descriptors, network sockets, mutex locks) to the lifetime of a stack-allocated object. When the object leaves its lexical scope, its destructor is guaranteed to execute, releasing the resource deterministically even in the presence of exceptions.",
+          "codeExample": "#include <fstream>\n#include <string>\nvoid writeReport(const std::string& path, const std::string& data) {\n    std::ofstream file(path); // Resource acquired in constructor\n    file << data;\n} // file closed automatically in destructor upon scope exit"
         },
         {
-          "title": "2. The Rule of Three & Rule of Five",
-          "content": "If a class manages raw resources, you must explicitly declare or delete:\n- Rule of 3 (C++98): Destructor, Copy Constructor, Copy Assignment.\n- Rule of 5 (C++11): Add Move Constructor and Move Assignment.\n- Rule of 0: Prefer using classes (like `std::vector` or `std::string`) that manage resources automatically, requiring no custom special member functions.",
-          "codeExample": "class Buffer {\n    int* data;\n    size_t size;\npublic:\n    Buffer(size_t s) : size(s), data(new int[s]) {}\n    ~Buffer() { delete[] data; }\n    // Rule of 5: define copy & move operations\n};"
+          "title": "2. Stack Unwinding & Exception Safety Guarantees",
+          "content": "When an exception is thrown, the C++ runtime walks down the Call Stack in reverse order, executing destructors for all fully constructed local objects (Stack Unwinding).\n• Basic Guarantee: Invariants preserved, no resource leaks.\n• Strong Guarantee: Commit-or-rollback semantics (operation succeeds or state unchanged).\n• Nothrow Guarantee (`noexcept`): Operation is guaranteed never to throw.",
+          "codeExample": "#include <mutex>\nstd::mutex mtx;\nvoid threadSafeOperation() {\n    std::lock_guard<std::mutex> lock(mtx); // Exception-safe RAII mutex lock\n    // If any exception throws here, 'lock' destructor releases 'mtx'!\n}"
+        },
+        {
+          "title": "3. The Rule of Five & Rule of Zero",
+          "content": "If a class directly manages a raw resource, you must explicitly implement or delete the Rule of Five:\n1. Destructor\n2. Copy Constructor\n3. Copy Assignment Operator\n4. Move Constructor\n5. Move Assignment Operator\n\nRule of Zero: Design classes that use standard RAII types (`std::vector`, `std::string`, `std::unique_ptr`) so you don't need to define any custom destructors or copy/move operations.",
+          "codeExample": "class RawBuffer {\n    int* data;\n    size_t size;\npublic:\n    RawBuffer(size_t sz) : data(new int[sz]), size(sz) {}\n    ~RawBuffer() { delete[] data; }\n    RawBuffer(const RawBuffer& other) : data(new int[other.size]), size(other.size) {\n        std::copy(other.data, other.data + size, data);\n    }\n    RawBuffer(RawBuffer&& other) noexcept : data(other.data), size(other.size) {\n        other.data = nullptr; other.size = 0;\n    }\n};"
+        },
+        {
+          "title": "4. Scoped Locking with std::scoped_lock (Deadlock Prevention)",
+          "content": "Acquiring multiple mutexes across threads can cause circular deadlocks. C++17 `std::scoped_lock` uses a deadlock-avoidance algorithm (equivalent to Peterson's or Chandy-Misra) to acquire multiple locks simultaneously.",
+          "codeExample": "#include <mutex>\nstd::mutex m1, m2;\nvoid transfer(int from, int to) {\n    std::scoped_lock lock(m1, m2); // Deadlock-free multi-lock acquisition\n}"
+        },
+        {
+          "title": "5. Production Anti-Pattern: Throwing from Destructors",
+          "content": "Never throw an exception from a destructor. If a destructor throws during stack unwinding while another exception is active, `std::terminate` is immediately called, aborting the process.",
+          "codeExample": "// Destructors are implicitly noexcept in modern C++!\n// ~MyClass() noexcept { /* Never throw here! */ }"
         }
       ],
       "codingExercise": {
@@ -4004,27 +5152,98 @@ const CURRICULUM = {
             "explanation": "std::lock_guard acquires a mutex in its constructor and releases it deterministically in its destructor."
           }
         ]
-      }
+      },
+      "references": [
+        {
+          "title": "C++ Core Guidelines — Resource Management (R.1 - R.37)",
+          "url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#r-resource-management",
+          "source": "Bjarne Stroustrup & Herb Sutter",
+          "category": "Authoritative Engineering Guidelines",
+          "description": "Official C++ Core Guidelines covering RAII, ownership, and smart pointers."
+        },
+        {
+          "title": "Effective Modern C++ — Scott Meyers",
+          "url": "https://www.oreilly.com/library/view/effective-modern-c/9781491903988/",
+          "source": "O'Reilly",
+          "category": "Authoritative Literature",
+          "description": "Definitive guide on modern C++ idioms, move semantics, and smart pointer usage."
+        },
+        {
+          "title": "C++ Core Guidelines — Resource Management Rules (R.1 - R.37)",
+          "url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#r-resource-management",
+          "source": "Bjarne Stroustrup & Herb Sutter",
+          "category": "Official Engineering Standard",
+          "description": "Standard guidelines for lifetime management, smart pointers, RAII, and memory safety in production C++."
+        }
+      ],
+      "keyTakeaways": [
+        "RAII guarantees deterministic resource cleanup upon leaving scope.",
+        "Stack unwinding invokes destructors automatically during exceptions.",
+        "Follow the Rule of Five for raw resources, or Rule of Zero with standard RAII wrappers.",
+        "Never throw exceptions from destructors."
+      ],
+      "knowledgeCheck": [
+        {
+          "id": "kc_cpp1_1",
+          "question": "What occurs if a destructor throws an exception while stack unwinding is already in progress?",
+          "options": [
+            "The second exception is queued",
+            "std::terminate is immediately called, aborting the application",
+            "The first exception is overwritten",
+            "The program resumes"
+          ],
+          "correctIndex": 1,
+          "explanation": "Throwing during active stack unwinding calls std::terminate to prevent unmanageable concurrent exceptions."
+        },
+        {
+          "id": "kc_cpp1_2",
+          "question": "What is the runtime overhead of a `std::unique_ptr` compared to a raw pointer?",
+          "options": [
+            "16 bytes per dereference",
+            "Zero overhead — with the default deleter, it compiles to the exact same assembly instructions and machine size as a raw pointer",
+            "It requires a mutex lock on every access",
+            "It doubles memory usage due to virtual method tables"
+          ],
+          "correctIndex": 1,
+          "explanation": "std::unique_ptr adheres to the C++ zero-overhead principle: you pay only for what you use. Its size is exactly 1 pointer (8 bytes on 64-bit systems)."
+        }
+      ],
+      "interactiveSandboxCode": "#include <iostream>\nstruct Guard {\n  Guard() { std::cout << \"Acquired\\n\"; }\n  ~Guard() { std::cout << \"Released\\n\"; }\n};\nint main() { Guard g; return 0; }\n"
     },
     {
       "id": "cpp_mod_2",
       "trackId": "cpp",
       "moduleIndex": 2,
       "title": "Smart Pointers, Move Semantics & Memory Safety",
-      "subtitle": "std::unique_ptr, std::shared_ptr, std::weak_ptr, rvalue references, and std::move.",
-      "estimatedTime": "45 mins",
+      "subtitle": "Lvalues vs Rvalues, Move Semantics, std::move, std::unique_ptr, and std::shared_ptr.",
+      "estimatedTime": "55 mins",
       "icon": "cpp",
-      "overview": "Eliminate raw pointer bugs. Learn Modern C++ smart pointers: exclusive ownership with `std::unique_ptr`, shared reference-counted ownership with `std::shared_ptr`, cycle-breaking with `std::weak_ptr`, and zero-copy performance via move semantics (`std::move`).",
+      "overview": "Modern memory safety in C++11/14/17/20. Master value categories (lvalue, prvalue, xvalue), rvalue references (`T&&`), zero-cost resource transfers with `std::move`, perfect forwarding with `std::forward`, and modern smart pointers (`std::unique_ptr`, `std::shared_ptr`, `std::weak_ptr`).",
       "sections": [
         {
-          "title": "1. Modern Smart Pointers: unique_ptr & shared_ptr",
-          "content": "- `std::unique_ptr`: Zero-overhead exclusive ownership. Cannot be copied, only moved.\n- `std::shared_ptr`: Shared ownership using atomic reference counting.\n- `std::weak_ptr`: Non-owning observer that prevents circular reference memory leaks.",
-          "codeExample": "#include <memory>\nauto ptr = std::make_unique<int>(42); // Zero overhead over raw pointer\n// auto copy = ptr; // Error: cannot copy unique_ptr!\nauto moved = std::move(ptr); // Ownership transferred; ptr is now nullptr"
+          "title": "1. Value Categories & Rvalue References (T&&)",
+          "content": "Every C++ expression has a type and a value category:\n• lvalue: An identity with a persistent memory location that can be placed on the left side of an assignment (`int x = 10;`).\n• rvalue: A temporary value without a persistent identity (`10`, `x + 5`, temporary function return).\nRvalue references (`T&&`) bind to temporary rvalues, allowing you to steal their internal resources rather than making deep copies.",
+          "codeExample": "#include <string>\n#include <iostream>\nstd::string a = \"Large Payload\";\nstd::string b = std::move(a); // Steals pointer buffer! 'a' is now empty\nstd::cout << \"b: \" << b << \" | a empty? \" << a.empty() << std::endl;"
         },
         {
-          "title": "2. Rvalue References & Move Semantics (`&&`)",
-          "content": "Move semantics allow 'stealing' internal resources (such as heap buffer pointers) from temporary rvalues without expensive deep copies.\n`std::move` casts an lvalue to an rvalue reference, signaling that its resources can be pilfered.",
-          "codeExample": "std::vector<int> v1(1000000, 42);\nstd::vector<int> v2 = std::move(v1); // O(1) pointer swap, zero copies!"
+          "title": "2. std::unique_ptr: Zero-Overhead Exclusive Ownership",
+          "content": "`std::unique_ptr<T>` maintains exclusive ownership of a heap resource. It has zero runtime memory or speed overhead compared to a raw pointer (`sizeof(unique_ptr) == sizeof(void*)`). It cannot be copied, only moved.",
+          "codeExample": "#include <memory>\nstd::unique_ptr<int> p1 = std::make_unique<int>(42);\n// std::unique_ptr<int> p2 = p1; // Compile error! Cannot copy unique_ptr\nstd::unique_ptr<int> p2 = std::move(p1); // Transfers ownership; p1 is null"
+        },
+        {
+          "title": "3. std::shared_ptr & Control Block Architecture",
+          "content": "`std::shared_ptr<T>` enables shared ownership using atomic reference counting. It allocates a separate Control Block containing the strong reference count, weak reference count, and custom deleter. Always use `std::make_shared` to allocate the object and control block in a single contiguous memory chunk.",
+          "codeExample": "#include <memory>\nauto s1 = std::make_shared<std::string>(\"Shared Resource\");\nauto s2 = s1; // Refcount incremented to 2 (thread-safe atomic)\nstd::cout << \"Use count: \" << s1.use_count() << std::endl; // 2"
+        },
+        {
+          "title": "4. std::weak_ptr & Cyclic Dependency Leaks",
+          "content": "Circular `std::shared_ptr` references (Node A -> Node B and Node B -> Node A) prevent reference counts from ever reaching 0, causing permanent memory leaks. `std::weak_ptr` observes a `shared_ptr` without incrementing its strong reference count.",
+          "codeExample": "#include <memory>\nstruct Node {\n    std::weak_ptr<Node> next; // Breaks cyclical memory leak\n};"
+        },
+        {
+          "title": "5. Perfect Forwarding with std::forward",
+          "content": "Universal references (`T&&` in a template deduction context) combined with `std::forward<T>` forward arguments to another function preserving their exact value category (lvalue vs rvalue).",
+          "codeExample": "template <typename T>\nvoid forwardPayload(T&& arg) {\n    process(std::forward<T>(arg)); // Forwards rvalue as rvalue, lvalue as lvalue\n}"
         }
       ],
       "codingExercise": {
@@ -4235,27 +5454,98 @@ const CURRICULUM = {
             "explanation": "make_shared performs a single combined allocation for object and control block, improving cache locality and performance."
           }
         ]
-      }
+      },
+      "references": [
+        {
+          "title": "Effective Modern C++ Items 18-22: Smart Pointers",
+          "url": "https://www.oreilly.com/library/view/effective-modern-c/9781491903988/",
+          "source": "Scott Meyers",
+          "category": "Authoritative Literature",
+          "description": "Definitive guide on unique_ptr, shared_ptr, and weak_ptr."
+        },
+        {
+          "title": "cppreference.com — std::unique_ptr",
+          "url": "https://en.cppreference.com/w/cpp/memory/unique_ptr",
+          "source": "cppreference",
+          "category": "Technical Reference",
+          "description": "Complete API reference for std::unique_ptr."
+        },
+        {
+          "title": "The C++ Programming Language (4th Edition)",
+          "url": "https://www.stroustrup.com/4th.html",
+          "source": "Bjarne Stroustrup / Addison-Wesley",
+          "category": "Authoritative Reference",
+          "description": "Comprehensive reference by the creator of C++ detailing STL algorithms, allocators, and container performance."
+        }
+      ],
+      "keyTakeaways": [
+        "Move semantics allow transferring heap pointers from temporaries without deep copies.",
+        "`std::unique_ptr` has zero overhead and enforces exclusive ownership.",
+        "Always use `std::make_shared` to allocate object and control block together.",
+        "Use `std::weak_ptr` to break circular reference memory leaks."
+      ],
+      "knowledgeCheck": [
+        {
+          "id": "kc_cpp2_1",
+          "question": "What is the memory size overhead of a std::unique_ptr compared to a raw pointer?",
+          "options": [
+            "16 bytes for reference count",
+            "Zero overhead (same size as raw pointer)",
+            "64 bytes for control block",
+            "Depends on OS thread count"
+          ],
+          "correctIndex": 1,
+          "explanation": "std::unique_ptr with a default deleter has zero overhead and compiles into the exact same assembly as a raw pointer."
+        },
+        {
+          "id": "kc_cpp2_2",
+          "question": "Why should you prefer `std::vector::emplace_back` over `push_back` when inserting newly constructed objects?",
+          "options": [
+            "emplace_back automatically sorts the vector",
+            "emplace_back forwards constructor arguments directly to construct the object in-place in vector memory, avoiding temporary copy/move operations",
+            "emplace_back runs asynchronously on a worker thread",
+            "emplace_back guarantees O(1) worst-case time without reallocation"
+          ],
+          "correctIndex": 1,
+          "explanation": "emplace_back uses perfect forwarding (std::forward) to construct the instance directly within the contiguous buffer, eliminating redundant temporary allocations."
+        }
+      ],
+      "interactiveSandboxCode": "#include <memory>\n#include <iostream>\nint main() {\n  auto p = std::make_unique<int>(100);\n  std::cout << *p << std::endl;\n  return 0;\n}\n"
     },
     {
       "id": "cpp_mod_3",
       "trackId": "cpp",
       "moduleIndex": 3,
       "title": "Standard Template Library (STL) Containers & Algorithms",
-      "subtitle": "vector, map, unordered_map, iterators, std::sort, std::transform, and lambdas.",
-      "estimatedTime": "40 mins",
+      "subtitle": "Vector Amortized Growth, Deque Buffers, Unordered Maps, and Custom Lambdas.",
+      "estimatedTime": "50 mins",
       "icon": "cpp",
-      "overview": "Leverage the full power of the C++ Standard Template Library. Compare sequential containers (`vector`, `deque`, `list`) with associative containers (`map`, `unordered_map`). Master STL iterators, algorithms (`std::sort`, `std::accumulate`), and C++ lambdas.",
+      "overview": "Master the Standard Template Library (STL). Understand vector contiguous memory allocation and geometric capacity growth (amortized O(1)), deque chunked buffers, associative containers (`std::map` Red-Black tree vs `std::unordered_map` hash table), algorithms, custom sort lambdas, and `std::span`.",
       "sections": [
         {
-          "title": "1. STL Container Performance Trade-offs",
-          "content": "- `std::vector`: Contiguous memory. O(1) random access, cache-friendly iteration. The default choice.\n- `std::map`: Ordered Red-Black tree. O(log N) lookup and insertion.\n- `std::unordered_map`: Hash table. Average O(1) lookup.",
-          "codeExample": "#include <vector>\n#include <algorithm>\nstd::vector<int> nums = {5, 2, 8, 1};\nstd::sort(nums.begin(), nums.end()); // O(N log N) IntroSort"
+          "title": "1. std::vector: Contiguous Memory & Amortized O(1) Growth",
+          "content": "`std::vector` stores elements in a contiguous heap array. When capacity is exceeded, it allocates a new array of 1.5x (MSVC) or 2.0x (GCC) capacity, copies/moves elements, and frees the old buffer. Use `vec.reserve(N)` upfront to eliminate reallocations.",
+          "codeExample": "#include <vector>\nstd::vector<int> v;\nv.reserve(1000); // Pre-allocates memory for 1000 elements\nfor (int i = 0; i < 1000; i++) v.push_back(i); // 0 reallocations!"
         },
         {
-          "title": "2. STL Algorithms & Lambda Closures",
-          "content": "C++ algorithms operate on iterator ranges (`begin()`, `end()`).\nLambdas capture variables by value `[=]` or reference `[&]`.",
-          "codeExample": "#include <numeric>\nint threshold = 3;\nauto count = std::count_if(nums.begin(), nums.end(), [threshold](int x) {\n    return x > threshold;\n});"
+          "title": "2. std::map (Red-Black Tree) vs std::unordered_map (Hash Table)",
+          "content": "• `std::map`: Implemented as a self-balancing Red-Black Tree. Keys are strictly ordered; search/insert is guaranteed O(log N).\n• `std::unordered_map`: Implemented as a bucketed hash table. Average search/insert is O(1), but worst-case is O(N) during high hash collisions.",
+          "codeExample": "#include <map>\n#include <unordered_map>\nstd::map<std::string, int> ordered; // Keys sorted alphabetically\nstd::unordered_map<std::string, int> hashed; // O(1) lookup"
+        },
+        {
+          "title": "3. STL Algorithms & Custom Sort Lambdas",
+          "content": "STL algorithms (`std::sort`, `std::find_if`, `std::transform`) operate on iterator ranges `[begin, end)`. Modern C++ lambdas can capture by value `[=]` or reference `[&]`.",
+          "codeExample": "#include <algorithm>\n#include <vector>\nstruct Task { int priority; std::string name; };\nstd::vector<Task> tasks = {{2, \"B\"}, {1, \"A\"}, {3, \"C\"}};\nstd::sort(tasks.begin(), tasks.end(), [](const Task& a, const Task& b) {\n    return a.priority < b.priority; // Ascending priority sort\n});"
+        },
+        {
+          "title": "4. Zero-Copy Views with std::string_view & std::span (C++20)",
+          "content": "`std::string_view` and `std::span` (C++20) provide non-owning pointer-and-length views over contiguous data, eliminating deep string and vector copies during function calls.",
+          "codeExample": "#include <string_view>\nvoid printPrefix(std::string_view sv) {\n    // Bypasses std::string heap allocation entirely\n    std::cout << sv.substr(0, 4) << std::endl;\n}"
+        },
+        {
+          "title": "5. Production Pitfall: Iterator Invalidation",
+          "content": "Inserting into a vector can trigger memory reallocation, invalidating all existing pointers and iterators to its elements. Never dereference an iterator after pushing to a vector.",
+          "codeExample": "// BAD: iter invalidated if push_back triggers reallocation\n// for (auto it = v.begin(); it != v.end(); ++it) { v.push_back(*it); }"
         }
       ],
       "codingExercise": {
@@ -4466,7 +5756,63 @@ const CURRICULUM = {
             "explanation": "emplace_back() forwards constructor arguments to construct the object directly in container memory."
           }
         ]
-      }
+      },
+      "references": [
+        {
+          "title": "cppreference.com — std::vector",
+          "url": "https://en.cppreference.com/w/cpp/container/vector",
+          "source": "cppreference",
+          "category": "Technical Reference",
+          "description": "Comprehensive documentation on vector capacity and reallocation mechanics."
+        },
+        {
+          "title": "The C++ Standard Library (2nd Edition) — Nicolai Josuttis",
+          "url": "https://www.josuttis.com/libbook/",
+          "source": "Addison-Wesley",
+          "category": "Authoritative Literature",
+          "description": "The definitive encyclopedia of the C++ Standard Template Library."
+        },
+        {
+          "title": "ISO/IEC 14882:2020 — Programming Languages: C++20",
+          "url": "https://www.iso.org/standard/79358.html",
+          "source": "International Organization for Standardization",
+          "category": "Official International Standard",
+          "description": "The definitive international standard specification for C++20 language features, concepts, ranges, and coroutines."
+        }
+      ],
+      "keyTakeaways": [
+        "`std::vector` provides contiguous memory; call `reserve()` to prevent reallocations.",
+        "`std::map` is ordered O(log N); `std::unordered_map` is hashed O(1).",
+        "`std::span` and `std::string_view` provide zero-copy memory views.",
+        "Modifying vectors can invalidate existing iterators."
+      ],
+      "knowledgeCheck": [
+        {
+          "id": "kc_cpp3_1",
+          "question": "Why should you call vector.reserve(N) before inserting N items?",
+          "options": [
+            "It locks the vector from modification",
+            "It pre-allocates memory to eliminate repeated reallocations and buffer copying",
+            "It sorts the vector automatically",
+            "It enables multithreading"
+          ],
+          "correctIndex": 1,
+          "explanation": "reserve pre-allocates heap capacity so push_back executes without triggering array reallocations."
+        },
+        {
+          "id": "kc_cpp3_2",
+          "question": "How do C++20 Concepts improve template metaprogramming compared to legacy SFINAE / `std::enable_if`?",
+          "options": [
+            "Concepts eliminate all template compilation entirely",
+            "Concepts provide concise, readable compile-time constraints with precise compiler error messages and faster compile times",
+            "Concepts allow templates to run on the GPU",
+            "Concepts make all template arguments dynamically typed"
+          ],
+          "correctIndex": 1,
+          "explanation": "Concepts replace cryptic compiler errors and template metaprogramming hacks with explicit constraint declarations validated directly by the compiler."
+        }
+      ],
+      "interactiveSandboxCode": "#include <vector>\n#include <algorithm>\n#include <iostream>\nint main() {\n  std::vector<int> v = {3, 1, 4};\n  std::sort(v.begin(), v.end());\n  std::cout << v[0] << std::endl;\n  return 0;\n}\n"
     }
   ],
   "webdev": [
@@ -4475,20 +5821,34 @@ const CURRICULUM = {
       "trackId": "webdev",
       "moduleIndex": 0,
       "title": "Full-Stack Web Development",
-      "subtitle": "HTML5 semantic markup, CSS3 Flex/Grid, React, and REST APIs.",
-      "estimatedTime": "35 mins",
+      "subtitle": "Client-Server Architecture, HTTP/2/3 Protocols, Semantic HTML5, and Core Web Vitals.",
+      "estimatedTime": "50 mins",
       "icon": "webdev",
-      "overview": "Build a rock-solid foundation for modern web engineering. Understand semantic HTML5 accessibility (a11y), the CSS Box Model (content, padding, border, margin), Flexbox vs CSS Grid, and HTTP protocol foundations (verbs, status codes, and headers).",
+      "overview": "Full-stack web architecture foundations. Understand HTTP/1.1 vs HTTP/2 multiplexing vs HTTP/3 QUIC (UDP), DNS resolution, TLS 1.3 handshakes, semantic HTML5 for SEO and WCAG 2.1 accessibility, and Google Core Web Vitals (LCP, INP, CLS).",
       "sections": [
         {
-          "title": "1. Semantic HTML5 & Accessibility (a11y)",
-          "content": "Semantic tags (`<header>`, `<nav>`, `<main>`, `<article>`, `<section>`, `<footer>`) convey structure and meaning to screen readers and search engines.\nAvoid generic `<div>` soup for interactive landmarks.",
-          "codeExample": "<main role=\"main\">\n  <article>\n    <header><h1>Mastery Zone Architecture</h1></header>\n    <p>Semantic tags improve accessibility and SEO.</p>\n  </article>\n</main>"
+          "title": "1. Full-Stack Web Architecture & Protocols (HTTP/1 vs HTTP/2 vs HTTP/3)",
+          "content": "Web architecture relies on the client-server model over TCP/IP:\n• HTTP/1.1: Suffers from Head-of-Line (HoL) blocking; browsers limit connections to 6 per domain.\n• HTTP/2: Binary protocol supporting bidirectional multiplexing over a single TCP connection.\n• HTTP/3: Operates over QUIC (UDP) eliminating TCP packet-level HoL blocking and accelerating TLS 1.3 0-RTT handshakes.",
+          "codeExample": "// HTTP/2 Multiplexing allows hundreds of assets to stream concurrently over 1 TCP socket"
         },
         {
-          "title": "2. The CSS Box Model & Modern Flexbox/Grid",
-          "content": "Always set `box-sizing: border-box` so padding and borders do not expand declared dimensions.\n- Flexbox: 1-dimensional layout (row or column alignment).\n- CSS Grid: 2-dimensional layout (rows and columns simultaneously).",
-          "codeExample": "* { box-sizing: border-box; }\n.dashboard-grid {\n  display: grid;\n  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));\n  gap: 1.5rem;\n}"
+          "title": "2. The DOM, Accessibility (WCAG 2.1) & Semantic HTML5",
+          "content": "Semantic elements (`<main>`, `<article>`, `<nav>`, `<aside>`, `<header>`) provide meaningful accessibility trees for screen readers and SEO crawlers. Non-semantic `<div>` soup degrades accessibility and search rankings.",
+          "codeExample": "<main role=\"main\">\n  <article aria-labelledby=\"post-title\">\n    <h1 id=\"post-title\">Production Web Architecture</h1>\n    <p>Semantic document layout ensures accessible navigation.</p>\n  </article>\n</main>"
+        },
+        {
+          "title": "3. Google Core Web Vitals Optimization",
+          "content": "Core Web Vitals quantify real-world user experience:\n1. Largest Contentful Paint (LCP): Measures load performance (target <= 2.5s).\n2. Interaction to Next Paint (INP): Measures responsiveness (target <= 200ms).\n3. Cumulative Layout Shift (CLS): Measures visual stability (target <= 0.1).",
+          "codeExample": "<!-- Prevent Layout Shift (CLS) by specifying aspect-ratio or explicit dimensions -->\n<img src=\"hero.webp\" width=\"800\" height=\"450\" alt=\"Platform Dashboard\" style=\"aspect-ratio: 16/9;\">"
+        },
+        {
+          "title": "4. Critical Rendering Path & Resource Hints",
+          "content": "Accelerate page delivery using resource hints:\n• `dns-prefetch`: Resolves third-party DNS early.\n• `preconnect`: Performs DNS + TLS handshake in advance.\n• `preload`: Forces high-priority download of critical fonts and LCP images.",
+          "codeExample": "<link rel=\"preconnect\" href=\"https://fonts.googleapis.com\">\n<link rel=\"preload\" href=\"/fonts/inter.woff2\" as=\"font\" type=\"font/woff2\" crossorigin>"
+        },
+        {
+          "title": "5. Production Best Practices",
+          "content": "• Use modern image formats (`AVIF`, `WebP`) with responsive `srcset`.\n• Minify HTML/CSS/JS and serve with Gzip or Brotli compression."
         }
       ],
       "codingExercise": {
@@ -4701,27 +6061,98 @@ const CURRICULUM = {
             "explanation": "4xx status codes indicate client-side errors (such as 400 Bad Request, 401 Unauthorized, 404 Not Found)."
           }
         ]
-      }
+      },
+      "references": [
+        {
+          "title": "MDN Web Docs — How the Web works",
+          "url": "https://developer.mozilla.org/en-US/docs/Learn/Getting_started_with_the_web/How_the_Web_works",
+          "source": "Mozilla",
+          "category": "Authoritative Guide",
+          "description": "Foundational guide to DNS, TCP, and HTTP protocols."
+        },
+        {
+          "title": "web.dev — Core Web Vitals Guide",
+          "url": "https://web.dev/vitals/",
+          "source": "Google Chrome Team",
+          "category": "Performance Standard",
+          "description": "Official metrics and optimization strategies for LCP, INP, and CLS."
+        },
+        {
+          "title": "Web Performance Fundamentals & CSS Triggers",
+          "url": "https://web.dev/rendering-performance/",
+          "source": "Google Chrome Developers",
+          "category": "Official Engineering Standard",
+          "description": "In-depth guide to browser layout engines, compositing layers, frame budgets, and 60fps rendering."
+        }
+      ],
+      "keyTakeaways": [
+        "HTTP/2 multiplexes streams over one TCP connection; HTTP/3 uses QUIC over UDP.",
+        "Semantic HTML improves SEO and accessibility compliance (WCAG 2.1).",
+        "Core Web Vitals measure loading speed (LCP), responsiveness (INP), and visual stability (CLS).",
+        "Always reserve space for images to prevent Cumulative Layout Shift (CLS)."
+      ],
+      "knowledgeCheck": [
+        {
+          "id": "kc_web0_1",
+          "question": "What does Cumulative Layout Shift (CLS) measure?",
+          "options": [
+            "Server response latency",
+            "Unexpected movement of page content during loading",
+            "JavaScript download time",
+            "Database query execution speed"
+          ],
+          "correctIndex": 1,
+          "explanation": "CLS measures visual stability by tracking sudden layout shifts as fonts or images load."
+        },
+        {
+          "id": "kc_web0_2",
+          "question": "What is the primary browser rendering pipeline difference between modifying `transform: translate()` vs `top / left`?",
+          "options": [
+            "transform requires an HTTP request to recalculate",
+            "transform is handled entirely on the GPU compositor thread without triggering expensive Layout or Paint recalculations",
+            "top and left are faster on mobile devices",
+            "There is no performance difference in modern browsers"
+          ],
+          "correctIndex": 1,
+          "explanation": "Changes to top/left invalidate geometry, forcing Layout (reflow) and Paint across the DOM tree. transform bypasses layout and paint, executing directly on the GPU compositor at 60/120fps."
+        }
+      ],
+      "interactiveSandboxCode": "<!-- Semantic HTML structure -->\n<header><nav><a href=\"#\">Home</a></nav></header>\n<main><h1>Welcome</h1></main>\n"
     },
     {
       "id": "web_mod_1",
       "trackId": "webdev",
       "moduleIndex": 1,
       "title": "Responsive Design, CSS Systems & Accessibility",
-      "subtitle": "Media queries, mobile-first design, CSS custom properties (variables), and animations.",
-      "estimatedTime": "40 mins",
+      "subtitle": "CSS Box Model, BFC, Flexbox Alignment, CSS Grid 2D Systems, and Container Queries.",
+      "estimatedTime": "50 mins",
       "icon": "webdev",
-      "overview": "Craft adaptable, beautiful interfaces. Implement fluid typography, CSS custom properties for dynamic design tokens (theming), mobile-first media queries, hardware-accelerated CSS animations (`transform`, `opacity`), and WCAG accessibility standards.",
+      "overview": "Professional CSS layout engineering. Master the CSS Box Model (`border-box`), Block Formatting Context (BFC), Flexbox 1D layout mechanics, CSS Grid 2D layout systems with `minmax()` and `auto-fit`, fluid clamp typography, and modern Container Queries.",
       "sections": [
         {
-          "title": "1. Mobile-First Media Queries & Breakpoints",
-          "content": "Design starting from small mobile viewports and use `min-width` queries to progressively enhance the layout on larger screens.\nCommon breakpoints:\n- Mobile: base styles (< 640px)\n- Tablet: `@media (min-width: 768px)`\n- Desktop: `@media (min-width: 1024px)`\n- Wide: `@media (min-width: 1280px)`",
-          "codeExample": "/* Mobile default */\n.container { padding: 1rem; }\n\n/* Desktop enhancement */\n@media (min-width: 768px) {\n  .container { padding: 2.5rem; }\n}"
+          "title": "1. The CSS Box Model & box-sizing: border-box",
+          "content": "By default (`content-box`), padding and borders add to an element's specified width, breaking layouts. Applying `box-sizing: border-box` globally ensures `width` includes content, padding, and border.",
+          "codeExample": "*, *::before, *::after {\n  box-sizing: border-box;\n  margin: 0;\n  padding: 0;\n}"
         },
         {
-          "title": "2. CSS Custom Properties & GPU Acceleration",
-          "content": "CSS variables (`--primary-color: #6366f1`) enable runtime theming without rebuilding styles.\nFor smooth 60fps animations, animate only compositor properties: `transform` and `opacity`.",
-          "codeExample": ":root {\n  --primary-accent: #6366f1;\n}\n.btn-animate {\n  transition: transform 0.2s ease, opacity 0.2s ease;\n}\n.btn-animate:hover {\n  transform: translateY(-2px);\n}"
+          "title": "2. Modern Flexbox 1D Architecture",
+          "content": "Flexbox manages alignment and distribution along a single axis (row or column). Master `justify-content` (main axis), `align-items` (cross axis), `flex-grow`, `flex-shrink`, and `flex-basis`.",
+          "codeExample": ".navbar {\n  display: flex;\n  justify-content: space-between;\n  align-items: center;\n  gap: 16px;\n}"
+        },
+        {
+          "title": "3. CSS Grid 2D Systems: auto-fit & minmax()",
+          "content": "CSS Grid handles two-dimensional layouts simultaneously. Using `repeat(auto-fit, minmax(280px, 1fr))` creates a fully responsive card grid that wraps automatically without requiring media queries.",
+          "codeExample": ".card-grid {\n  display: grid;\n  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));\n  gap: 24px;\n}"
+        },
+        {
+          "title": "4. Fluid Typography with clamp()",
+          "content": "CSS `clamp(min, preferred, max)` scales font sizes and spacing smoothly across viewport widths without abrupt breakpoint jumps.",
+          "codeExample": "h1 {\n  font-size: clamp(1.75rem, 4vw + 1rem, 3.25rem);\n}"
+        },
+        {
+          "title": "5. Modern CSS: Container Queries (@container)",
+          "content": "Media queries respond to the whole screen width. Container Queries respond to the size of the parent card, enabling truly modular, reusable responsive components.",
+          "codeExample": ".card-container { container-type: inline-size; }\n@container (min-width: 400px) {\n  .card { display: flex; }\n}"
         }
       ],
       "codingExercise": {
@@ -4937,27 +6368,98 @@ const CURRICULUM = {
             "explanation": "em compounds relative to inherited parent font size; rem remains anchored to root font size."
           }
         ]
-      }
+      },
+      "references": [
+        {
+          "title": "MDN Web Docs — CSS Grid Layout",
+          "url": "https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Grid_Layout",
+          "source": "Mozilla",
+          "category": "Authoritative Guide",
+          "description": "Comprehensive documentation on 2D grid layout systems."
+        },
+        {
+          "title": "CSS-Tricks — A Complete Guide to Flexbox",
+          "url": "https://css-tricks.com/snippets/css/a-guide-to-flexbox/",
+          "source": "CSS-Tricks",
+          "category": "Industry Guide",
+          "description": "The definitive visual guide to flexbox properties and alignment."
+        },
+        {
+          "title": "React Architecture: Reconciliation & Diffing Algorithm",
+          "url": "https://react.dev/learn/preserving-and-resetting-state",
+          "source": "Meta / React Core Team",
+          "category": "Official Framework Documentation",
+          "description": "Official documentation detailing component identity, state preservation, and fiber reconciliation."
+        }
+      ],
+      "keyTakeaways": [
+        "Apply `box-sizing: border-box` globally to keep dimension calculations predictable.",
+        "Use `repeat(auto-fit, minmax(px, 1fr))` for zero-media-query responsive grids.",
+        "Use `clamp()` for fluid responsive typography.",
+        "Container queries adapt components based on parent container width."
+      ],
+      "knowledgeCheck": [
+        {
+          "id": "kc_web1_1",
+          "question": "What does `box-sizing: border-box` do?",
+          "options": [
+            "Hides element borders",
+            "Includes padding and border within the element's total specified width and height",
+            "Centers text automatically",
+            "Forces elements into CSS Grid mode"
+          ],
+          "correctIndex": 1,
+          "explanation": "border-box ensures that padding and borders do not expand the element beyond its defined width."
+        },
+        {
+          "id": "kc_web1_2",
+          "question": "Why is relying on array index as React `key` prop (`key={index}`) an anti-pattern when rendering dynamic lists?",
+          "options": [
+            "React throws an immediate Uncaught TypeError",
+            "When items are inserted, deleted, or reordered, index keys corrupt component local state and cause incorrect reconciliation",
+            "Index keys disable CSS styling",
+            "Index keys increase network packet size"
+          ],
+          "correctIndex": 1,
+          "explanation": "React uses keys to identify DOM identity across renders. When reordering items, index keys falsely map unchanged indices to different data, causing inputs and animation states to desync."
+        }
+      ],
+      "interactiveSandboxCode": "/* Responsive Auto-Fitting Grid */\n.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }\n"
     },
     {
       "id": "web_mod_2",
       "trackId": "webdev",
       "moduleIndex": 2,
       "title": "Modern React Architecture, Hooks & Component Lifecycle",
-      "subtitle": "Virtual DOM, JSX, useState, useEffect, useCallback, useMemo, and clean component patterns.",
-      "estimatedTime": "45 mins",
+      "subtitle": "Virtual DOM, Fiber Reconciliation, Hooks Dependency Hygiene, and Component Lifecycle.",
+      "estimatedTime": "55 mins",
       "icon": "webdev",
-      "overview": "Master modern component architecture in React 19. Understand Virtual DOM reconciliation (Fiber engine), pure functional components, hook dependency graphs, performance optimization with `useMemo` and `useCallback`, and clean state management.",
+      "overview": "React 19 engineering architecture. Master Virtual DOM diffing, Fiber reconciliation and concurrent scheduling, `useState` and `useEffect` dependency hygiene, memoization trade-offs (`useMemo`, `useCallback`), custom hook design, and state management.",
       "sections": [
         {
-          "title": "1. The React Render Lifecycle & Hook Rules",
-          "content": "React components re-render when state or props change.\nHook rules:\n1. Only call hooks at the top level (never inside loops, conditions, or nested functions).\n2. Only call hooks from React function components or custom hooks.\nUse `useEffect` strictly for synchronization with external systems (APIs, timers, subscriptions).",
-          "codeExample": "import { useState, useEffect } from 'react';\n\nexport function UserStatus({ userId }) {\n  const [online, setOnline] = useState(false);\n\n  useEffect(() => {\n    const unsub = subscribeStatus(userId, setOnline);\n    return () => unsub(); // Cleanup on unmount or userId change\n  }, [userId]);\n\n  return <span>{online ? \"Online\" : \"Offline\"}</span>;\n}"
+          "title": "1. Virtual DOM & Fiber Reconciliation Engine",
+          "content": "React maintains an in-memory Virtual DOM tree. When state changes, React's Fiber reconciler breaks rendering work into incremental units (fibers) that can be paused, aborted, or prioritized, computing a minimal set of DOM mutations.",
+          "codeExample": "// React Fiber processes work units with interruptible scheduling"
         },
         {
-          "title": "2. Performance Optimization: memo, useMemo & useCallback",
-          "content": "- `React.memo`: Prevents re-rendering if props are shallowly identical.\n- `useMemo`: Caches the result of an expensive calculation.\n- `useCallback`: Caches a function reference to prevent child re-renders.",
-          "codeExample": "const cachedData = useMemo(() => computeHeavyStats(items), [items]);\nconst handleClick = useCallback(() => onItemSelect(id), [id]);"
+          "title": "2. The Rules of Hooks & Dependency Hygiene",
+          "content": "• Call hooks only at top level of React functions (never inside loops, conditions, or nested functions).\n• Always include all reactive values read by an effect in its dependency array to prevent stale closure bugs.",
+          "codeExample": "import { useState, useEffect } from 'react';\nfunction UserProfile({ userId }) {\n  const [user, setUser] = useState(null);\n  useEffect(() => {\n    let active = true;\n    fetch(`/api/users/${userId}`)\n      .then(res => res.json())\n      .then(data => { if (active) setUser(data); });\n    return () => { active = false; }; // Cleanup flag prevents race conditions\n  }, [userId]); // Dependency hygiene\n}"
+        },
+        {
+          "title": "3. Performance Optimization: useMemo, useCallback & React.memo",
+          "content": "Premature memoization adds memory overhead. Use `useMemo` for computationally expensive transforms (>10ms) and `useCallback` when passing callbacks to memoized children (`React.memo`).",
+          "codeExample": "import { useMemo, useCallback } from 'react';\nconst filteredList = useMemo(() => items.filter(i => i.score > threshold), [items, threshold]);\nconst handleClick = useCallback(() => onSelect(id), [id]);"
+        },
+        {
+          "title": "4. Custom Hooks for Encapsulated Business Logic",
+          "content": "Extract reusable stateful logic into custom hooks starting with `use`. They compose standard hooks without adding wrapper DOM nodes.",
+          "codeExample": "function useWindowWidth() {\n  const [width, setWidth] = useState(window.innerWidth);\n  useEffect(() => {\n    const handler = () => setWidth(window.innerWidth);\n    window.addEventListener('resize', handler);\n    return () => window.removeEventListener('resize', handler);\n  }, []);\n  return width;\n}"
+        },
+        {
+          "title": "5. Production Anti-Pattern: Prop Drilling & State Placement",
+          "content": "Avoid passing props down 5+ levels. Use Component Composition (passing children) or React Context for global state like themes, authentication, or notifications.",
+          "codeExample": "// Prefer composition: <Page><Sidebar user={user} /></Page>"
         }
       ],
       "codingExercise": {
@@ -5169,27 +6671,98 @@ const CURRICULUM = {
             "explanation": "useMemo returns a memoized value; useCallback returns a memoized function."
           }
         ]
-      }
+      },
+      "references": [
+        {
+          "title": "React Official Documentation (react.dev)",
+          "url": "https://react.dev/",
+          "source": "React Core Team (Meta)",
+          "category": "Official Documentation",
+          "description": "Official documentation covering hooks, components, and reconciliation."
+        },
+        {
+          "title": "Overreacted — A Complete Guide to useEffect by Dan Abramov",
+          "url": "https://overreacted.io/a-complete-guide-to-useeffect/",
+          "source": "Dan Abramov",
+          "category": "Engineering Guide",
+          "description": "The definitive deep dive into React effects and closures."
+        },
+        {
+          "title": "Synchronizing with Effects: Official React Documentation",
+          "url": "https://react.dev/learn/synchronizing-with-effects",
+          "source": "Meta / React Core Team",
+          "category": "Official Framework Documentation",
+          "description": "Best practices for lifecycle synchronization, connection lifecycles, and avoiding effect race conditions."
+        }
+      ],
+      "keyTakeaways": [
+        "React Fiber enables interruptible, prioritized concurrent rendering.",
+        "Always maintain complete dependency arrays in `useEffect`.",
+        "Use cleanup functions in effects to cancel pending async requests.",
+        "Custom hooks encapsulate reusable stateful logic cleanly."
+      ],
+      "knowledgeCheck": [
+        {
+          "id": "kc_web2_1",
+          "question": "Why must you return a cleanup function from an effect that subscribes to an event?",
+          "options": [
+            "To speed up JavaScript execution",
+            "To prevent memory leaks and duplicate listeners when the component unmounts or dependencies change",
+            "React will throw an error without it",
+            "To clear the browser history"
+          ],
+          "correctIndex": 1,
+          "explanation": "Cleanup functions unsubscribe listeners and cancel pending async actions when components unmount."
+        },
+        {
+          "id": "kc_web2_2",
+          "question": "What is the consequence of failing to provide a cleanup function in a `useEffect` that establishes a WebSocket connection?",
+          "options": [
+            "The browser closes the active tab automatically",
+            "Every component re-render creates another open socket connection, causing ghost message processing and memory leaks",
+            "The WebSocket converts into an HTTP GET request",
+            "React switches to server-side rendering"
+          ],
+          "correctIndex": 1,
+          "explanation": "Without returning a cleanup function (return () => socket.close()), unmounted components leave active network listeners open in memory, causing connection leaks."
+        }
+      ],
+      "interactiveSandboxCode": "import { useState } from 'react';\nfunction Counter() {\n  const [c, setC] = useState(0);\n  return <button onClick={() => setC(c + 1)}>Count: {c}</button>;\n}\n"
     },
     {
       "id": "web_mod_3",
       "trackId": "webdev",
       "moduleIndex": 3,
       "title": "Full-Stack REST API Integration & Secure Authentication",
-      "subtitle": "REST API design, JSON communication, JWT tokens, CORS, and defensive backend integration.",
-      "estimatedTime": "40 mins",
+      "subtitle": "REST Constraints vs GraphQL, Stateless JWT vs HttpOnly Cookies, and CORS/CSRF Security.",
+      "estimatedTime": "55 mins",
       "icon": "webdev",
-      "overview": "Integrate client and server into a cohesive, secure full-stack system. Understand RESTful endpoint conventions, JSON serialization, stateful vs stateless sessions, JSON Web Tokens (JWT: header, payload, signature), CORS configuration, and defensive error propagation.",
+      "overview": "Full-stack integration, API contracts, and security architecture. Master REST constraints vs GraphQL trade-offs, stateless JWT authentication vs secure HttpOnly SameSite session cookies, CORS preflight handshakes, and defenses against XSS and CSRF attacks.",
       "sections": [
         {
-          "title": "1. RESTful Conventions & HTTP Verbs",
-          "content": "REST APIs use standardized verbs on resource endpoints:\n- `GET /api/users`: Read collection (idempotent, safe)\n- `POST /api/users`: Create new resource\n- `PUT /api/users/:id`: Full replace\n- `PATCH /api/users/:id`: Partial update\n- `DELETE /api/users/:id`: Remove resource",
-          "codeExample": "// Express REST controller\napp.get('/api/users/:id', async (req, res) => {\n  const user = await User.findById(req.params.id);\n  if (!user) return res.status(404).json({ error: \"User not found\" });\n  res.json(user);\n});"
+          "title": "1. REST Architectural Constraints & HTTP Methods",
+          "content": "REST (Representational State Transfer) requires:\n• Statelessness: Every request contains all context needed for processing.\n• Proper HTTP Semantics: GET (safe/idempotent), POST (create non-idempotent), PUT (replace idempotent), PATCH (partial modify), DELETE (idempotent).",
+          "codeExample": "// RESTful Resource Endpoints\n// GET    /api/v1/tickets      (List)\n// POST   /api/v1/tickets      (Create)\n// GET    /api/v1/tickets/:id  (Retrieve)\n// PATCH  /api/v1/tickets/:id  (Update status)\n// DELETE /api/v1/tickets/:id  (Archive/Remove)"
         },
         {
-          "title": "2. Stateless Authentication with JWTs",
-          "content": "A JSON Web Token consists of 3 dot-separated Base64Url segments:\n1. Header: Algorithm & token type (e.g. HS256)\n2. Payload: Claims (userId, role, exp)\n3. Signature: Cryptographic hash of header + payload using secret key.",
-          "codeExample": "// Verification middleware\nconst authGuard = (req, res, next) => {\n  const token = req.headers.authorization?.split(\" \")[1];\n  if (!token) return res.status(401).json({ error: \"Missing token\" });\n  try {\n    req.user = jwt.verify(token, process.env.JWT_SECRET);\n    next();\n  } catch {\n    res.status(403).json({ error: \"Invalid token\" });\n  }\n};"
+          "title": "2. Secure Authentication: JWT vs HttpOnly Cookies",
+          "content": "Storing JWT tokens in `localStorage` exposes them to theft via Cross-Site Scripting (XSS). In production, store authentication tokens in `HttpOnly`, `Secure`, `SameSite=Strict` cookies that JavaScript cannot read.",
+          "codeExample": "// Express secure cookie response:\nres.cookie('token', jwtToken, {\n  httpOnly: true, // Inaccessible to document.cookie (XSS immune)\n  secure: true,   // HTTPS only\n  sameSite: 'strict', // CSRF defense\n  maxAge: 3600000 // 1 hour\n});"
+        },
+        {
+          "title": "3. Cross-Origin Resource Sharing (CORS) Mechanics",
+          "content": "CORS is a browser security mechanism that restricts cross-origin HTTP requests. For mutating requests, browsers send an `OPTIONS` preflight request verifying allowed origins, headers, and methods.",
+          "codeExample": "// Express CORS configuration\nconst cors = require('cors');\napp.use(cors({\n  origin: ['https://masteryzone.com'],\n  credentials: true,\n  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH']\n}));"
+        },
+        {
+          "title": "4. Defending Against OWASP Top Vulnerabilities (XSS & CSRF)",
+          "content": "• XSS (Cross-Site Scripting): Sanitize untrusted input and avoid `dangerouslySetInnerHTML`.\n• CSRF (Cross-Site Request Forgery): Defended via `SameSite=Strict` cookies and anti-CSRF token verification on state-changing requests.",
+          "codeExample": "// Helmet middleware sets security headers (CSP, HSTS, X-Content-Type-Options)\nconst helmet = require('helmet');\napp.use(helmet());"
+        },
+        {
+          "title": "5. Optimistic UI Updates & Cache Invalidation",
+          "content": "Update the UI immediately upon user action before server confirmation, rolling back only if the network request fails, delivering instant perceived performance.",
+          "codeExample": "// Optimistic UI update pattern\nsetTodos(prev => [...prev, newTodo]);\napi.createTodo(newTodo).catch(() => setTodos(prev => prev.filter(t => t.id !== newTodo.id)));"
         }
       ],
       "codingExercise": {
@@ -5402,7 +6975,63 @@ const CURRICULUM = {
             "explanation": "HttpOnly cookies cannot be read by JavaScript, protecting tokens from Cross-Site Scripting (XSS) extraction."
           }
         ]
-      }
+      },
+      "references": [
+        {
+          "title": "OWASP Top 10 Web Application Security Risks",
+          "url": "https://owasp.org/www-project-top-ten/",
+          "source": "OWASP Foundation",
+          "category": "Security Standard",
+          "description": "The authoritative global standard for web application security vulnerabilities."
+        },
+        {
+          "title": "MDN Web Docs — Cross-Origin Resource Sharing (CORS)",
+          "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS",
+          "source": "Mozilla",
+          "category": "Authoritative Guide",
+          "description": "Comprehensive guide to CORS preflight handshakes and headers."
+        },
+        {
+          "title": "RFC 6265bis: Cookies — HTTP State Management Mechanism",
+          "url": "https://datatracker.ietf.org/doc/html/draft-ietf-httpbis-rfc6265bis",
+          "source": "Internet Engineering Task Force (IETF)",
+          "category": "Internet RFC Standard",
+          "description": "Standard defining cookie flags: HttpOnly, Secure, SameSite, and cross-site privacy protections."
+        }
+      ],
+      "keyTakeaways": [
+        "Store sensitive authentication tokens in HttpOnly, Secure, SameSite cookies to mitigate XSS theft.",
+        "REST APIs require proper HTTP verbs and stateless request lifecycles.",
+        "CORS is enforced by browsers using OPTIONS preflight handshakes.",
+        "Optimistic UI updates improve perceived performance on interactive apps."
+      ],
+      "knowledgeCheck": [
+        {
+          "id": "kc_web3_1",
+          "question": "Why should authentication tokens be stored in HttpOnly cookies instead of localStorage?",
+          "options": [
+            "Cookies are faster than localStorage",
+            "HttpOnly cookies cannot be read by JavaScript, protecting them from XSS theft",
+            "localStorage only stores numbers",
+            "Browsers will delete localStorage after 1 hour"
+          ],
+          "correctIndex": 1,
+          "explanation": "HttpOnly cookies cannot be accessed via client-side JavaScript, rendering them immune to XSS token theft."
+        },
+        {
+          "id": "kc_web3_2",
+          "question": "What security risk does setting `SameSite=None` on a session cookie introduce if `Secure` is omitted?",
+          "options": [
+            "The browser prevents JavaScript execution",
+            "The cookie will be rejected by modern browsers and is vulnerable to Cross-Site Request Forgery (CSRF) over unencrypted connections",
+            "The cookie exceeds maximum header size",
+            "It enables automatic SQL injection"
+          ],
+          "correctIndex": 1,
+          "explanation": "Modern browsers strictly mandate that cookies with SameSite=None must also have the Secure attribute to protect user sessions from man-in-the-middle attacks and cross-origin CSRF exploits."
+        }
+      ],
+      "interactiveSandboxCode": "// REST API request example\nfetch('/api/v1/health')\n  .then(res => res.json())\n  .then(data => console.log('API Status:', data));\n"
     }
   ],
   "dsa": [
@@ -5411,20 +7040,35 @@ const CURRICULUM = {
       "trackId": "dsa",
       "moduleIndex": 0,
       "title": "Data Structures & Algorithms",
-      "subtitle": "Arrays, stacks, queues, trees, graphs, and dynamic programming.",
-      "estimatedTime": "35 mins",
+      "subtitle": "Asymptotic Notation, Master Theorem, Amortized Analysis, and Memory Cache Locality.",
+      "estimatedTime": "50 mins",
       "icon": "dsa",
-      "overview": "Master the mathematical foundations of computer science. Analyze runtime and space growth rates using Big-O, Big-Omega, and Big-Theta notation. Understand the physical trade-offs of contiguous arrays vs linked memory and hash table load factors.",
+      "overview": "Rigorous algorithmic complexity analysis. Master Big-O (upper bound), Big-Omega (lower bound), and Big-Theta (tight bound), solving divide-and-conquer recurrences with the Master Theorem, amortized analysis via the accounting method, and hardware cache locality.",
       "sections": [
         {
-          "title": "1. Asymptotic Analysis: Big-O, Big-Omega, & Big-Theta",
-          "content": "Big-O notation describes the upper bound of an algorithm's runtime growth relative to input size N.\nCommon complexity classes:\n- O(1): Constant time (Hash map lookup)\n- O(log N): Logarithmic time (Binary search)\n- O(N): Linear time (Single loop over array)\n- O(N log N): Linearithmic time (Merge sort, Quicksort)\n- O(N²): Quadratic time (Nested loops, Bubble sort)",
-          "codeExample": "// Binary Search: O(log N)\nfunction binarySearch(arr, target) {\n  let left = 0, right = arr.length - 1;\n  while (left <= right) {\n    const mid = Math.floor((left + right) / 2);\n    if (arr[mid] === target) return mid;\n    if (arr[mid] < target) left = mid + 1;\n    else right = mid - 1;\n  }\n  return -1;\n}"
+          "title": "1. Asymptotic Notations: Big-O, Big-Omega & Big-Theta",
+          "content": "Asymptotic analysis quantifies how algorithm time/space requirements scale as input size N tends toward infinity:\n• Big-O ($O(g(N))$): Formal upper bound ($T(N) \\le c \\cdot g(N)$ for $N \\ge N_0$).\n• Big-Omega ($\\Omega(g(N))$): Formal lower bound ($T(N) \\ge c \\cdot g(N)$).\n• Big-Theta ($\\Theta(g(N))$): Tight bound satisfying both upper and lower bounds simultaneously.",
+          "codeExample": "// Complexity Hierarchy:\n// O(1) < O(log N) < O(N) < O(N log N) < O(N^2) < O(2^N) < O(N!)"
         },
         {
-          "title": "2. Hash Tables & Dynamic Arrays Internals",
-          "content": "Dynamic arrays double capacity when full, achieving amortized O(1) appends.\nHash tables achieve average O(1) operations, degrading to O(N) when high collision clusters form without rehashing.",
-          "codeExample": "// Amortized O(1) insertion\nconst list = [];\nlist.push(42); // Amortized constant time"
+          "title": "2. Master Theorem for Divide-and-Conquer Recurrences",
+          "content": "For recurrence relations of the form $T(N) = a \\cdot T(N/b) + f(N)$:\n• Case 1: If $f(N) = O(N^{\\log_b a - \\epsilon})$, then $T(N) = \\Theta(N^{\\log_b a})$\n• Case 2: If $f(N) = \\Theta(N^{\\log_b a})$, then $T(N) = \\Theta(N^{\\log_b a} \\log N)$ (e.g. MergeSort: $2T(N/2) + O(N) \\rightarrow \\Theta(N \\log N)$)\n• Case 3: If $f(N) = \\Omega(N^{\\log_b a + \\epsilon})$, then $T(N) = \\Theta(f(N))$",
+          "codeExample": "// MergeSort recurrence: T(N) = 2T(N/2) + O(N)\n// a=2, b=2, log2(2) = 1. f(N) = N^1. Case 2 applies: O(N log N)."
+        },
+        {
+          "title": "3. Amortized Analysis & Geometric Array Expansion",
+          "content": "An individual operation may occasionally be expensive, but its average cost over a sequence of operations can be strictly O(1). Dynamic arrays (Python lists, C++ vectors) double their capacity when full. Doubling costs O(N), but happens so infrequently that the amortized cost per append is $O(1)$.",
+          "codeExample": "// Amortized Proof: N insertions require 1 + 2 + 4 + ... + N = 2N total copies.\n// 2N copies / N insertions = 2 operations per insertion = O(1) amortized."
+        },
+        {
+          "title": "4. Hardware Cache Locality: Spatial & Temporal",
+          "content": "Contiguous arrays outperform linked node structures because modern CPUs load memory in 64-byte cache lines. Iterating over an array yields a cache hit rate near 100%, whereas node pointers trigger random memory lookups and cache misses.",
+          "codeExample": "// Iterating array: Cache hits O(1)\n// Traversing linked list: Frequent CPU cache misses"
+        },
+        {
+          "title": "5. Space Complexity: Auxiliary Space vs Total Space",
+          "content": "Total space includes both the input size and any additional memory allocated. Auxiliary space measures only the extra temporary storage created by the algorithm (excluding input).",
+          "codeExample": "// In-place QuickSort auxiliary space: O(log N) stack frames\n// MergeSort auxiliary space: O(N) temporary array"
         }
       ],
       "codingExercise": {
@@ -5642,27 +7286,97 @@ const CURRICULUM = {
             "explanation": "By adjusting left and right pointers based on whether current sum is less or greater than target, the array is scanned in O(N) time."
           }
         ]
-      }
+      },
+      "references": [
+        {
+          "title": "Introduction to Algorithms (CLRS) — Chapter 3: Growth of Functions",
+          "url": "https://mitpress.mit.edu/9780262046305/introduction-to-algorithms/",
+          "source": "MIT Press",
+          "category": "Authoritative Textbook",
+          "description": "The gold-standard reference for asymptotic proofs and Master Theorem."
+        },
+        {
+          "title": "MIT OpenCourseWare — 6.006 Introduction to Algorithms",
+          "url": "https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/",
+          "source": "MIT",
+          "category": "Academic Curriculum",
+          "description": "Free lecture series on Big-O analysis and amortized cost."
+        },
+        {
+          "title": "Introduction to Algorithms (CLRS 4th Edition) — Chapter 7: Quicksort",
+          "url": "https://mitpress.mit.edu/9780262046305/introduction-to-algorithms/",
+          "source": "Cormen, Leiserson, Rivest, Stein / MIT Press",
+          "category": "Academic Standard Textbook",
+          "description": "Rigorous mathematical proof of Quicksort partition invariants, indicator random variables, and average-case O(N log N) bounds."
+        }
+      ],
+      "keyTakeaways": [
+        "Big-O gives an asymptotic upper bound; Big-Theta gives a tight bound.",
+        "Master Theorem solves recurrences like MergeSort in $O(N \\log N)$.",
+        "Dynamic array resizing has an amortized cost of $O(1)$ per append.",
+        "Contiguous memory layouts benefit from hardware spatial cache locality."
+      ],
+      "knowledgeCheck": [
+        {
+          "id": "kc_dsa0_1",
+          "question": "What is the time complexity of MergeSort derived via Master Theorem?",
+          "options": [
+            "O(N)",
+            "O(N log N)",
+            "O(N^2)",
+            "O(log N)"
+          ],
+          "correctIndex": 1,
+          "explanation": "T(N) = 2T(N/2) + O(N) matches Case 2 of Master Theorem, yielding O(N log N)."
+        },
+        {
+          "id": "kc_dsa0_2",
+          "question": "Why is QuickSort's worst-case time complexity O(N^2), and how does Randomized Pivot selection prevent it?",
+          "options": [
+            "QuickSort requires O(N) extra disk memory",
+            "If the pivot is always the minimum or maximum element (e.g. sorted input with first element pivot), partitions become skewed (size 1 and N-1); randomizing pivots guarantees O(N log N) expected time",
+            "QuickSort fails on negative numbers",
+            "QuickSort cannot run on arrays larger than 1024 elements"
+          ],
+          "correctIndex": 1,
+          "explanation": "Pathological inputs (already sorted arrays) cause standard QuickSort to recurse N times with N comparisons each. Choosing a random pivot prevents adversarial inputs from forcing worst-case splits."
+        }
+      ],
+      "interactiveSandboxCode": "function measure(n) {\n  let ops = 0;\n  for (let i = 0; i < n; i++) ops++;\n  return ops;\n}\nconsole.log('Operations for N=100:', measure(100));\n"
     },
     {
       "id": "dsa_mod_1",
       "trackId": "dsa",
       "moduleIndex": 1,
       "title": "Arrays, Strings & Two-Pointer Techniques",
-      "subtitle": "Two pointers, sliding window, prefix sums, and in-place array manipulation.",
-      "estimatedTime": "40 mins",
+      "subtitle": "Contiguous Memory, In-Place Converging Pointers, Dynamic Sliding Windows, and Prefix Sums.",
+      "estimatedTime": "55 mins",
       "icon": "dsa",
-      "overview": "Transform brute-force O(N²) quadratic loops into high-speed O(N) linear solutions. Master converging two-pointer patterns, fast/slow runners, fixed and dynamic sliding windows, and cumulative prefix sums.",
+      "overview": "Fundamental linear data structures and optimization patterns. Master Two-Pointer convergence (left/right bounds, slow/fast runner), sliding window technique (fixed vs dynamic size), prefix sum arrays for O(1) range queries, and cyclic sort.",
       "sections": [
         {
-          "title": "1. The Sliding Window Paradigm",
-          "content": "Sliding window maintains a running window across a sequence:\n- Fixed Window: Useful for sub-arrays of size K (e.g. maximum sum of K consecutive elements).\n- Dynamic Window: Expands right pointer until a condition is violated, then contracts left pointer.",
-          "codeExample": "// Maximum sum subarray of size K\nfunction maxSubArraySum(arr, k) {\n  let maxSum = 0, windowSum = 0;\n  for (let i = 0; i < k; i++) windowSum += arr[i];\n  maxSum = windowSum;\n  for (let i = k; i < arr.length; i++) {\n    windowSum += arr[i] - arr[i - k]; // Slide window in O(1)\n    maxSum = Math.max(maxSum, windowSum);\n  }\n  return maxSum;\n}"
+          "title": "1. The Two-Pointer Technique: Converging Bounds & Partitioning",
+          "content": "Two-pointer techniques reduce $O(N^2)$ brute-force nested loops down to optimal $O(N)$ linear time by leveraging sorted invariants. Pointers start at opposite ends and converge toward the center based on comparisons.",
+          "codeExample": "// Two Sum on Sorted Array in O(N) time and O(1) space\nfunction twoSumSorted(arr, target) {\n    let left = 0, right = arr.length - 1;\n    while (left < right) {\n        const sum = arr[left] + arr[right];\n        if (sum === target) return [left, right];\n        if (sum < target) left++;\n        else right--;\n    }\n    return [];\n}"
         },
         {
-          "title": "2. In-Place Array Manipulation",
-          "content": "Modify arrays without allocating O(N) extra space.\nExamples: In-place array reversal, removing duplicates from sorted arrays, and Dutch National Flag three-way partitioning.",
-          "codeExample": "// Remove duplicates in-place from sorted array\nfunction removeDuplicates(nums) {\n  if (nums.length === 0) return 0;\n  let write = 1;\n  for (let read = 1; read < nums.length; read++) {\n    if (nums[read] !== nums[read - 1]) {\n      nums[write++] = nums[read];\n    }\n  }\n  return write;\n}"
+          "title": "2. Sliding Window: Fixed vs Dynamic Windows",
+          "content": "• Fixed-Size Window: Maintain a window of length K, sliding right by adding the incoming element and subtracting the outgoing element in O(1).\n• Dynamic-Size Window: Expand the right pointer to satisfy a condition; shrink the left pointer to restore validity (e.g. longest substring without repeating characters).",
+          "codeExample": "// Longest Substring Without Repeating Characters in O(N)\nfunction lengthOfLongestSubstring(s) {\n    const lastSeen = new Map();\n    let maxLen = 0, left = 0;\n    for (let right = 0; right < s.length; right++) {\n        if (lastSeen.has(s[right])) {\n            left = Math.max(left, lastSeen.get(s[right]) + 1);\n        }\n        lastSeen.set(s[right], right);\n        maxLen = Math.max(maxLen, right - left + 1);\n    }\n    return maxLen;\n}"
+        },
+        {
+          "title": "3. Prefix Sum Arrays for O(1) Range Queries",
+          "content": "Pre-computing cumulative sums ($P[i] = P[i-1] + arr[i]$) allows querying the sum of any subarray from index $L$ to $R$ in strict $O(1)$ constant time via $P[R] - P[L-1]$, replacing $O(N)$ repeated loops.",
+          "codeExample": "class PrefixSum {\n    constructor(nums) {\n        this.prefix = [0];\n        for (const n of nums) this.prefix.push(this.prefix[this.prefix.length - 1] + n);\n    }\n    queryRange(L, R) { return this.prefix[R + 1] - this.prefix[L]; }\n}"
+        },
+        {
+          "title": "4. Slow and Fast Pointer (Floyd's Tortoise & Hare)",
+          "content": "A slow pointer moves 1 step while a fast pointer moves 2 steps. Used to detect cycles in linked lists, find the middle node of a sequence in a single pass, or detect duplicate numbers.",
+          "codeExample": "function findMiddleNode(head) {\n    let slow = head, fast = head;\n    while (fast && fast.next) {\n        slow = slow.next;\n        fast = fast.next.next;\n    }\n    return slow; // Points to middle element\n}"
+        },
+        {
+          "title": "5. Production Pitfall: Off-by-One Boundary Errors",
+          "content": "Always define whether your interval is inclusive `[left, right]` or half-open `[left, right)`. Mixing conventions causes infinite loops or array out-of-bounds index exceptions."
         }
       ],
       "codingExercise": {
@@ -5879,27 +7593,97 @@ const CURRICULUM = {
             "explanation": "Storing N cumulative prefix sums requires O(N) auxiliary space."
           }
         ]
-      }
+      },
+      "references": [
+        {
+          "title": "LeetCode Explore — Array and String Techniques",
+          "url": "https://leetcode.com/explore/learn/card/array-and-string/",
+          "source": "LeetCode",
+          "category": "Interactive Practice",
+          "description": "Curated algorithmic problem set covering two pointers and sliding window."
+        },
+        {
+          "title": "GeeksforGeeks — Window Sliding Technique",
+          "url": "https://www.geeksforgeeks.org/window-sliding-technique/",
+          "source": "GeeksforGeeks",
+          "category": "Technical Tutorial",
+          "description": "Clear visual explanations of sliding window optimization."
+        },
+        {
+          "title": "The Art of Computer Programming, Volume 2: Seminumerical Algorithms",
+          "url": "https://www-cs-faculty.stanford.edu/~knuth/taocp.html",
+          "source": "Donald E. Knuth / Addison-Wesley",
+          "category": "Foundational Computer Science Literature",
+          "description": "Seminal mathematical treatment of cycle detection algorithms and pseudo-random sequence properties."
+        }
+      ],
+      "keyTakeaways": [
+        "Two-pointer techniques reduce $O(N^2)$ checks to $O(N)$ on sorted inputs.",
+        "Sliding window maintains state incrementally as boundaries shift.",
+        "Prefix sums allow $O(1)$ range sum lookups after $O(N)$ preprocessing.",
+        "Slow/fast pointer finds middle elements and cycles in a single pass."
+      ],
+      "knowledgeCheck": [
+        {
+          "id": "kc_dsa1_1",
+          "question": "What is the time complexity of querying a range sum using a precomputed prefix sum array?",
+          "options": [
+            "O(N)",
+            "O(1)",
+            "O(log N)",
+            "O(N^2)"
+          ],
+          "correctIndex": 1,
+          "explanation": "Prefix sum queries require only a single subtraction (P[R] - P[L-1]) in O(1) time."
+        },
+        {
+          "id": "kc_dsa1_2",
+          "question": "How does Floyd's Tortoise and Hare algorithm detect a cycle in a singly linked list in O(1) auxiliary space?",
+          "options": [
+            "It reverses the pointers in place",
+            "Slow pointer advances 1 step while fast advances 2 steps; if a cycle exists, the distance between them decreases by 1 each step until they meet inside the loop",
+            "It computes cryptographic SHA-256 hashes of every node address",
+            "It counts total nodes and checks if count exceeds 1,000,000"
+          ],
+          "correctIndex": 1,
+          "explanation": "In modular arithmetic, moving at relative speed 1 inside a loop of length L guarantees the fast pointer laps the slow pointer in at most L steps without any hash table allocations."
+        }
+      ],
+      "interactiveSandboxCode": "const nums = [1, 2, 3, 4, 5];\nconst prefix = [0];\nnums.forEach(n => prefix.push(prefix[prefix.length - 1] + n));\nconsole.log('Sum index 1 to 3:', prefix[4] - prefix[1]); // 2 + 3 + 4 = 9\n"
     },
     {
       "id": "dsa_mod_2",
       "trackId": "dsa",
       "moduleIndex": 2,
       "title": "Stacks, Queues & Linked List Architectures",
-      "subtitle": "LIFO vs FIFO, singly & doubly linked lists, monotonic stacks, and cycle detection.",
-      "estimatedTime": "45 mins",
+      "subtitle": "Monotonic Stacks, Ring Buffers, Singly/Doubly Linked Lists, and LRU Cache Architecture.",
+      "estimatedTime": "55 mins",
       "icon": "dsa",
-      "overview": "Master linear node and buffer structures. Implement singly and doubly linked lists, reverse linked lists in O(N) time and O(1) space, exploit Monotonic Stacks to solve 'Next Greater Element' in O(N), and build FIFO Queues using two stacks.",
+      "overview": "Master linear data structure mechanics. Understand Stacks (LIFO) and Monotonic Stacks for Next Greater Element problems in O(N), Queues (FIFO) with circular ring buffers, Doubly Linked Lists with sentinel nodes, and implementing a production-grade Least Recently Used (LRU) Cache in O(1).",
       "sections": [
         {
-          "title": "1. Singly Linked List Inversion",
-          "content": "Reversing a linked list in-place requires three pointers: `prev`, `curr`, and `next`.\nWe traverse once, redirecting each node's pointer backward.",
-          "codeExample": "function reverseList(head) {\n  let prev = null, curr = head;\n  while (curr !== null) {\n    const next = curr.next;\n    curr.next = prev; // Reverse pointer\n    prev = curr;\n    curr = next;\n  }\n  return prev; // New head\n}"
+          "title": "1. Monotonic Stacks: Next Greater Element in O(N)",
+          "content": "A Monotonic Stack maintains elements in strictly increasing or decreasing order. When encountering an element that violates the monotonic order, we pop and resolve answers for all smaller elements, reducing $O(N^2)$ lookups to $O(N)$ linear time.",
+          "codeExample": "function nextGreaterElements(nums) {\n    const res = new Array(nums.length).fill(-1);\n    const stack = []; // Monotonic decreasing stack of indices\n    for (let i = 0; i < nums.length; i++) {\n        while (stack.length && nums[stack[stack.length - 1]] < nums[i]) {\n            const idx = stack.pop();\n            res[idx] = nums[i];\n        }\n        stack.push(i);\n    }\n    return res;\n}\nconsole.log(nextGreaterElements([2, 1, 2, 4, 3])); // [4, 2, 4, -1, -1]"
         },
         {
-          "title": "2. The Monotonic Stack Pattern",
-          "content": "A monotonic stack maintains elements in strictly increasing or decreasing order.\nIt solves nearest greater/smaller element queries across an array in single-pass O(N) time instead of O(N²).",
-          "codeExample": "// Next Greater Element using Monotonic Decreasing Stack\nfunction nextGreater(nums) {\n  const res = new Array(nums.length).fill(-1);\n  const stack = []; // Stores indices\n  for (let i = 0; i < nums.length; i++) {\n    while (stack.length > 0 && nums[stack[stack.length - 1]] < nums[i]) {\n      res[stack.pop()] = nums[i];\n    }\n    stack.push(i);\n  }\n  return res;\n}"
+          "title": "2. Circular Queues & Lock-Free Ring Buffers",
+          "content": "A Circular Queue uses a fixed-size array with `head` and `tail` pointers that wrap around using modulo arithmetic (`(tail + 1) % capacity`). This eliminates shifting elements in memory and supports lock-free single-producer single-consumer (SPSC) concurrency.",
+          "codeExample": "class RingBuffer {\n    constructor(size) {\n        this.buf = new Array(size);\n        this.head = 0; this.tail = 0; this.size = size;\n    }\n    enqueue(val) {\n        this.buf[this.tail] = val;\n        this.tail = (this.tail + 1) % this.size;\n    }\n}"
+        },
+        {
+          "title": "3. Doubly Linked Lists & Sentinel Nodes",
+          "content": "Sentinel dummy nodes (`head` and `tail`) eliminate edge cases when inserting or deleting nodes at boundaries, removing null-check branching logic.",
+          "codeExample": "class Node { constructor(k, v) { this.k = k; this.v = v; this.prev = null; this.next = null; } }\nclass DoublyLinkedList {\n    constructor() {\n        this.head = new Node(0, 0); this.tail = new Node(0, 0);\n        this.head.next = this.tail; this.tail.prev = this.head;\n    }\n    remove(node) { node.prev.next = node.next; node.next.prev = node.prev; }\n    addToFront(node) {\n        node.next = this.head.next; node.prev = this.head;\n        this.head.next.prev = node; this.head.next = node;\n    }\n}"
+        },
+        {
+          "title": "4. LRU Cache Implementation in O(1) Time",
+          "content": "An LRU Cache combines a Hash Map (for O(1) key lookups) and a Doubly Linked List (for O(1) node reordering and eviction of the least recently used item).",
+          "codeExample": "class LRUCache {\n    constructor(capacity) {\n        this.cap = capacity; this.map = new Map();\n        this.dll = new DoublyLinkedList();\n    }\n    get(key) {\n        if (!this.map.has(key)) return -1;\n        const node = this.map.get(key);\n        this.dll.remove(node); this.dll.addToFront(node); // Mark recently used\n        return node.v;\n    }\n}"
+        },
+        {
+          "title": "5. Production Trade-Offs",
+          "content": "Linked lists have significant pointer overhead (16 bytes per node on 64-bit) and poor cache locality. Use arrays or deques unless constant O(1) splicing and reordering is strictly required."
         }
       ],
       "codingExercise": {
@@ -6117,27 +7901,97 @@ const CURRICULUM = {
             "explanation": "A Stack's LIFO property naturally models visiting and unwinding page history."
           }
         ]
-      }
+      },
+      "references": [
+        {
+          "title": "LeetCode 146 — LRU Cache",
+          "url": "https://leetcode.com/problems/lru-cache/",
+          "source": "LeetCode",
+          "category": "Benchmark Problem",
+          "description": "Classic industry problem implementing O(1) get and put operations."
+        },
+        {
+          "title": "GeeksforGeeks — Monotonic Stack",
+          "url": "https://www.geeksforgeeks.org/introduction-to-monotonic-stack-2/",
+          "source": "GeeksforGeeks",
+          "category": "Technical Tutorial",
+          "description": "Complete analysis of monotonic stack patterns."
+        },
+        {
+          "title": "Algorithms (4th Edition) — Balanced Search Trees",
+          "url": "https://algs4.cs.princeton.edu/33balanced/",
+          "source": "Robert Sedgewick & Kevin Wayne / Princeton University",
+          "category": "Academic Reference",
+          "description": "Clear algorithmic visualization of red-black trees, AVL trees, and 2-3 search tree transformations."
+        }
+      ],
+      "keyTakeaways": [
+        "Monotonic stacks resolve Next Greater / Smaller element problems in $O(N)$ time.",
+        "Circular ring buffers support O(1) queue operations without memory reallocations.",
+        "Sentinel dummy nodes eliminate null-check edge cases in linked lists.",
+        "An LRU cache achieves O(1) lookups and evictions by combining a Hash Map and a Doubly Linked List."
+      ],
+      "knowledgeCheck": [
+        {
+          "id": "kc_dsa2_1",
+          "question": "What data structures combine to build an LRU Cache with O(1) get and put operations?",
+          "options": [
+            "Array and Stack",
+            "Hash Map and Doubly Linked List",
+            "Binary Search Tree and Queue",
+            "Trie and Heap"
+          ],
+          "correctIndex": 1,
+          "explanation": "A Hash Map provides O(1) lookups, while a Doubly Linked List provides O(1) node reordering and tail eviction."
+        },
+        {
+          "id": "kc_dsa2_2",
+          "question": "What is the defining invariant of an AVL tree compared to a standard Binary Search Tree?",
+          "options": [
+            "All keys must be prime numbers",
+            "For every node, the height difference between left and right subtrees (balance factor) cannot exceed 1, guaranteeing strictly O(log N) operations",
+            "Nodes cannot have more than 1 child",
+            "Leaves must all be colored red"
+          ],
+          "correctIndex": 1,
+          "explanation": "By maintaining |height(left) - height(right)| <= 1 using tree rotations on insertion/deletion, AVL trees prevent tree degeneration into O(N) linked lists."
+        }
+      ],
+      "interactiveSandboxCode": "const stack = [];\nstack.push(10); stack.push(20);\nconsole.log('Popped:', stack.pop()); // 20\n"
     },
     {
       "id": "dsa_mod_3",
       "trackId": "dsa",
       "moduleIndex": 3,
       "title": "Binary Trees, Binary Search Trees & Tree Traversals",
-      "subtitle": "Tree properties, DFS traversals (pre/in/post-order), BFS level-order, and BST invariants.",
-      "estimatedTime": "45 mins",
+      "subtitle": "Tree Traversals (DFS/BFS), Binary Search Tree Invariants, Graph Representations, and Dijkstra.",
+      "estimatedTime": "55 mins",
       "icon": "dsa",
-      "overview": "Master hierarchical tree algorithms. Understand binary tree properties, DFS recursive traversals (In-order, Pre-order, Post-order), BFS Level-Order traversal using a Queue, Binary Search Tree (BST) invariants, and calculating tree depth/diameter.",
+      "overview": "Hierarchical and network data structures. Master tree traversals (DFS Pre/In/Post-order recursive and iterative, BFS level-order), Binary Search Tree (BST) invariants, Graph representations (Adjacency List vs Matrix), topological sorting (Kahn's algorithm), and Dijkstra's shortest path algorithm.",
       "sections": [
         {
-          "title": "1. DFS Traversals & BST Invariants",
-          "content": "A Binary Search Tree (BST) enforces that for any node:\n- All keys in left subtree are strictly less (< node.val).\n- All keys in right subtree are strictly greater (> node.val).\nIn-order traversal (Left, Root, Right) of a BST visits nodes in strictly ascending sorted order!",
-          "codeExample": "// In-order traversal yields sorted sequence\nfunction inOrder(root, res = []) {\n  if (!root) return res;\n  inOrder(root.left, res);\n  res.push(root.val);\n  inOrder(root.right, res);\n  return res;\n}"
+          "title": "1. Binary Tree Traversals: DFS vs BFS",
+          "content": "• Depth-First Search (DFS):\n  - Pre-order (Node -> Left -> Right): Cloning trees, serialization.\n  - In-order (Left -> Node -> Right): Yields elements of a BST in sorted ascending order.\n  - Post-order (Left -> Right -> Node): Deleting nodes, evaluating postfix expressions.\n• Breadth-First Search (BFS): Traverses level by level using a FIFO queue.",
+          "codeExample": "function inorderTraversal(root) {\n    const res = [];\n    function dfs(node) {\n        if (!node) return;\n        dfs(node.left);\n        res.push(node.val); // In-order visitor\n        dfs(node.right);\n    }\n    dfs(root);\n    return res;\n}"
         },
         {
-          "title": "2. BFS Level-Order Traversal with Queue",
-          "content": "Breadth-First Search (BFS) processes trees level by level using a FIFO Queue.\nIt is the standard algorithm for shortest-path unweighted graph searches and calculating tree width.",
-          "codeExample": "function levelOrder(root) {\n  if (!root) return [];\n  const queue = [root];\n  const result = [];\n  while (queue.length > 0) {\n    const node = queue.shift();\n    result.push(node.val);\n    if (node.left) queue.push(node.left);\n    if (node.right) queue.push(node.right);\n  }\n  return result;\n}"
+          "title": "2. Binary Search Tree (BST) Invariants & Validation",
+          "content": "A valid BST requires that for EVERY node, all values in its left subtree are strictly less than node.val, and all values in its right subtree are strictly greater. Validating requires passing down valid `(min, max)` ranges.",
+          "codeExample": "function isValidBST(root, min = -Infinity, max = Infinity) {\n    if (!root) return true;\n    if (root.val <= min || root.val >= max) return false;\n    return isValidBST(root.left, min, root.val) && isValidBST(root.right, root.val, max);\n}"
+        },
+        {
+          "title": "3. Graph Representations: Adjacency List vs Adjacency Matrix",
+          "content": "• Adjacency List: Array or map of neighbor lists. Space complexity: $O(V + E)$. Ideal for sparse graphs.\n• Adjacency Matrix: 2D boolean array $V \\times V$. Space complexity: $O(V^2)$. Allows O(1) edge existence queries, but wastes memory on sparse graphs.",
+          "codeExample": "// Adjacency List Representation\nconst graph = new Map();\nfunction addEdge(u, v) {\n    if (!graph.has(u)) graph.set(u, []);\n    graph.get(u).push(v);\n}"
+        },
+        {
+          "title": "4. Dijkstra's Shortest Path Algorithm",
+          "content": "Finds the shortest path from a starting node to all other nodes in a weighted graph with non-negative edge weights. Operates greedily using a Min-Heap (Priority Queue) in $O((V + E) \\log V)$ time.",
+          "codeExample": "// Dijkstra prioritizes processing the closest unvisited vertex using a min-heap"
+        },
+        {
+          "title": "5. Topological Sort (Kahn's Algorithm for DAGs)",
+          "content": "Computes a linear ordering of tasks matching prerequisite dependencies. Calculates in-degrees for all vertices and iteratively enqueues nodes with in-degree 0. If processed count < V, a cycle exists."
         }
       ],
       "codingExercise": {
@@ -6354,27 +8208,97 @@ const CURRICULUM = {
             "explanation": "AVL trees perform single or double tree rotations in O(1) time to restore the balance factor."
           }
         ]
-      }
+      },
+      "references": [
+        {
+          "title": "MIT OpenCourseWare — Graph Algorithms: BFS, DFS, Shortest Paths",
+          "url": "https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/",
+          "source": "MIT",
+          "category": "Academic Curriculum",
+          "description": "Deep conceptual lectures on graph algorithms."
+        },
+        {
+          "title": "LeetCode Explore — Binary Search Tree",
+          "url": "https://leetcode.com/explore/learn/card/introduction-to-data-structure-binary-search-tree/",
+          "source": "LeetCode",
+          "category": "Interactive Practice",
+          "description": "Curated problem card covering BST search, insertion, and validation."
+        },
+        {
+          "title": "Network Flows: Theory, Algorithms, and Applications",
+          "url": "https://openlibrary.org/books/OL1402279M/Network_flows",
+          "source": "Ahuja, Magnanti, Orlin / Prentice Hall",
+          "category": "Academic Reference",
+          "description": "Standard treatise on shortest-path algorithms, min-cost flows, and graph optimization."
+        }
+      ],
+      "keyTakeaways": [
+        "In-order traversal of a valid BST always produces values in sorted order.",
+        "Always validate BSTs by passing down strict `(min, max)` bounds.",
+        "Adjacency lists use $O(V + E)$ space, outperforming $O(V^2)$ matrices on sparse graphs.",
+        "Dijkstra's algorithm finds shortest paths in $O((V + E) \\log V)$ using a Min-Heap."
+      ],
+      "knowledgeCheck": [
+        {
+          "id": "kc_dsa3_1",
+          "question": "What traversal order produces sorted elements when run on a valid Binary Search Tree?",
+          "options": [
+            "Pre-order",
+            "In-order",
+            "Post-order",
+            "Level-order (BFS)"
+          ],
+          "correctIndex": 1,
+          "explanation": "In-order traversal visits (Left, Root, Right), which traverses a BST in strictly sorted numerical order."
+        },
+        {
+          "id": "kc_dsa3_2",
+          "question": "Why does Dijkstra's algorithm fail to find the shortest path on graphs containing negative edge weights?",
+          "options": [
+            "Dijkstra uses too much heap memory",
+            "Dijkstra greedily assumes once a vertex is marked finalized/visited with minimum distance, its distance cannot decrease; negative edges invalidate this greedy assumption",
+            "Priority queues in computer science cannot accept negative numbers",
+            "Dijkstra only works on directed trees"
+          ],
+          "correctIndex": 1,
+          "explanation": "Dijkstra is a greedy algorithm based on non-decreasing path lengths. A negative edge can retroactively make an already-finalized path shorter. For negative weights, the Bellman-Ford algorithm must be used."
+        }
+      ],
+      "interactiveSandboxCode": "const bst = { val: 2, left: { val: 1 }, right: { val: 3 } };\nconsole.log('Root:', bst.val, 'Left:', bst.left.val, 'Right:', bst.right.val);\n"
     },
     {
       "id": "dsa_mod_4",
       "trackId": "dsa",
       "moduleIndex": 4,
       "title": "Sorting Algorithms, Binary Search & Divide and Conquer",
-      "subtitle": "Merge sort, Quick sort, lower/upper bounds, and divide-and-conquer recurrences.",
-      "estimatedTime": "45 mins",
+      "subtitle": "MergeSort, QuickSort, Timsort, Binary Search on Monotonic Predicates, and Dynamic Programming.",
+      "estimatedTime": "55 mins",
       "icon": "dsa",
-      "overview": "Master the quintessential divide-and-conquer algorithms. Compare Merge Sort (stable, guaranteed O(N log N), O(N) space) with Quick Sort (in-place, cache-friendly, average O(N log N)), binary search bound variations (bisect_left/right), and recurrence relations.",
+      "overview": "High-efficiency sorting, searching, and optimization. Master QuickSort partitioning (Lomuto vs Hoare), MergeSort divide-and-conquer, Python/Java Timsort hybrid mechanics, Binary Search on monotonic condition spaces, and Dynamic Programming (memoization vs tabulation).",
       "sections": [
         {
-          "title": "1. Merge Sort: Divide and Conquer",
-          "content": "Merge Sort splits the array into two halves, recursively sorts them, and merges the sorted halves in linear O(N) time.\n- Time Complexity: O(N log N) in all cases (worst, best, average).\n- Space Complexity: O(N) auxiliary memory for buffer merging.\n- Stability: Stable (preserves relative order of duplicate elements).",
-          "codeExample": "function mergeSort(arr) {\n  if (arr.length <= 1) return arr;\n  const mid = Math.floor(arr.length / 2);\n  const left = mergeSort(arr.slice(0, mid));\n  const right = mergeSort(arr.slice(mid));\n  return merge(left, right);\n}"
+          "title": "1. QuickSort vs MergeSort: Mechanics & Space-Time Trade-offs",
+          "content": "• MergeSort: Divides array in half, recursively sorts, and merges in linear time. Time: Guaranteed $\\Theta(N \\log N)$, Auxiliary Space: $O(N)$ for merge buffer. Stable.\n• QuickSort: Picks a pivot, partitions elements into `< pivot` and `> pivot`. Time: Average $O(N \\log N)$, Worst-case $O(N^2)$ (sorted input with bad pivot). Auxiliary Space: $O(\\log N)$ in-place stack. Unstable.",
+          "codeExample": "function mergeSort(arr) {\n    if (arr.length <= 1) return arr;\n    const mid = Math.floor(arr.length / 2);\n    const left = mergeSort(arr.slice(0, mid));\n    const right = mergeSort(arr.slice(mid));\n    return merge(left, right);\n}\nfunction merge(left, right) {\n    let res = [], i = 0, j = 0;\n    while (i < left.length && j < right.length) {\n        if (left[i] <= right[j]) res.push(left[i++]);\n        else res.push(right[j++]);\n    }\n    return res.concat(left.slice(i)).concat(right.slice(j));\n}"
         },
         {
-          "title": "2. Binary Search: Finding Search Bounds",
-          "content": "Binary search solves more than exact matches. It finds transition boundaries:\n- Lower Bound: First index where `arr[i] >= target`.\n- Upper Bound: First index where `arr[i] > target`.",
-          "codeExample": "function lowerBound(arr, target) {\n  let left = 0, right = arr.length;\n  while (left < right) {\n    const mid = Math.floor((left + right) / 2);\n    if (arr[mid] >= target) right = mid;\n    else left = mid + 1;\n  }\n  return left;\n}"
+          "title": "2. Timsort: The Production Standard (Python & Java)",
+          "content": "Timsort is a hybrid adaptive sorting algorithm combining MergeSort and InsertionSort. It detects already-sorted runs in the input data. Small runs (< 32 elements) are sorted via InsertionSort (benefiting from CPU cache locality), and merged using a balanced stack, achieving $O(N)$ best-case time on real-world partially sorted datasets.",
+          "codeExample": "// Timsort achieves O(N) on partially sorted data and O(N log N) worst-case."
+        },
+        {
+          "title": "3. Binary Search on Answer Spaces (Monotonic Predicates)",
+          "content": "Binary Search is not limited to sorted arrays. Any problem with a monotonic boolean predicate (`false, false, false, true, true, true`) can be solved in $O(\\log(\\text{range}))$ time by testing the midpoint and halving the search space.",
+          "codeExample": "// Binary Search Template\nfunction binarySearchFirstTrue(low, high, checkFn) {\n    while (low < high) {\n        const mid = Math.floor(low + (high - low) / 2);\n        if (checkFn(mid)) high = mid; // Answer is mid or to the left\n        else low = mid + 1;           // Answer is strictly to the right\n    }\n    return low;\n}"
+        },
+        {
+          "title": "4. Dynamic Programming: Memoization vs Tabulation",
+          "content": "DP applies when a problem exhibits Optimal Substructure and Overlapping Subproblems:\n• Top-Down Memoization: Recursive approach that caches computed subproblem results in a hash map or array.\n• Bottom-Up Tabulation: Iterative approach that fills a DP table from base cases up, often allowing space optimization from $O(N)$ to $O(1)$.",
+          "codeExample": "// 0/1 Knapsack & Fibonacci tabulation in O(N) time and O(1) space\nfunction fibOptimized(n) {\n    if (n < 2) return n;\n    let prev2 = 0, prev1 = 1;\n    for (let i = 2; i <= n; i++) {\n        const curr = prev1 + prev2;\n        prev2 = prev1;\n        prev1 = curr;\n    }\n    return prev1;\n}"
+        },
+        {
+          "title": "5. Production Best Practices",
+          "content": "• Always compute midpoints using `low + Math.floor((high - low) / 2)` to prevent 32-bit integer overflow bugs (`(low + high) / 2` can overflow in C++/Java).\n• Identify whether an algorithm requires stability (preserving equal-key ordering) before choosing between QuickSort and MergeSort."
         }
       ],
       "codingExercise": {
@@ -6589,9 +8513,67 @@ const CURRICULUM = {
             "explanation": "HeapSort builds a max-heap in-place and extracts elements, achieving guaranteed O(N log N) in O(1) space."
           }
         ]
-      }
+      },
+      "references": [
+        {
+          "title": "Tim Peters — Original Description of Timsort",
+          "url": "https://github.com/python/cpython/blob/main/Objects/listsort.txt",
+          "source": "CPython Source Code",
+          "category": "Engineering Specification",
+          "description": "The original design document detailing Timsort's adaptive runs and Galloping mode."
+        },
+        {
+          "title": "TopCoder — Dynamic Programming from Novice to Advanced",
+          "url": "https://www.topcoder.com/thrive/articles/Dynamic%20Programming:%20From%20Novice%20to%20Advanced",
+          "source": "TopCoder",
+          "category": "Authoritative Tutorial",
+          "description": "Comprehensive guide to identifying state transitions in DP."
+        },
+        {
+          "title": "Dynamic Programming (Richard Bellman)",
+          "url": "https://press.princeton.edu/books/paperback/9780691146683/dynamic-programming",
+          "source": "Princeton University Press",
+          "category": "Foundational Academic Literature",
+          "description": "The original work formalizing the Principle of Optimality and multi-stage decision processes."
+        }
+      ],
+      "keyTakeaways": [
+        "MergeSort provides guaranteed $O(N \\log N)$ time with $O(N)$ space; QuickSort operates in-place.",
+        "Timsort achieves $O(N)$ on real-world partially sorted data by detecting natural runs.",
+        "Binary Search applies to any monotonic predicate space, not just arrays.",
+        "Calculate midpoints as `low + (high - low) / 2` to prevent integer overflow."
+      ],
+      "knowledgeCheck": [
+        {
+          "id": "kc_dsa4_1",
+          "question": "Why is `low + (high - low) / 2` preferred over `(low + high) / 2` in Binary Search?",
+          "options": [
+            "It executes faster on the CPU",
+            "It prevents integer overflow when low + high exceeds maximum integer limits",
+            "It handles negative numbers automatically",
+            "It is required by the JavaScript engine"
+          ],
+          "correctIndex": 1,
+          "explanation": "When low and high are large positive integers, their sum can exceed 2^31 - 1, causing signed integer overflow."
+        },
+        {
+          "id": "kc_dsa4_2",
+          "question": "What makes a problem solvable by Dynamic Programming rather than standard Divide-and-Conquer?",
+          "options": [
+            "The problem must only take floating point inputs",
+            "The problem must exhibit Optimal Substructure AND Overlapping Subproblems",
+            "The problem must execute in constant O(1) time",
+            "The problem cannot be solved recursively"
+          ],
+          "correctIndex": 1,
+          "explanation": "Divide-and-conquer solves independent subproblems (like MergeSort). Dynamic programming is essential when subproblems overlap heavily, allowing memoization or bottom-up tabulation to avoid redundant exponential recalculation."
+        }
+      ],
+      "interactiveSandboxCode": "const arr = [5, 2, 8, 1, 9];\narr.sort((a, b) => a - b);\nconsole.log('Sorted:', arr); // [1, 2, 5, 8, 9]\n"
     }
   ]
 };
 
-module.exports = { CURRICULUM };
+module.exports = {
+  CURRICULUM,
+};

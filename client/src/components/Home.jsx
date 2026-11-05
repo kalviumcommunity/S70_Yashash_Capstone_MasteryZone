@@ -22,6 +22,8 @@ import {
   LuLogOut,
   LuSearch,
   LuChevronDown,
+  LuChevronLeft,
+  LuChevronRight,
   LuCheck,
   LuX,
   LuArrowRight,
@@ -185,39 +187,132 @@ const PROGRAMMING_COURSES = [
   },
 ];
 
-// Software Engineering Projects
+// Software Engineering Projects with Cover Page Blueprints & Interactive Milestones
 const SOFTWARE_PROJECTS = [
   {
-    id: "proj_min_stack",
-    title: "Min Stack Operations Simulator",
-    tech: "Python / Data Structures",
-    badge: "Stack Architecture",
-    description: "Build an O(1) space/time-optimized stack simulator with constant retrieval and memory telemetry.",
-    route: "/coding?tab=projects",
-  },
-  {
-    id: "proj_tight_bound",
-    title: "Tight Bound Proof Challenge",
-    tech: "Algorithms & Math",
-    badge: "Asymptotic Analysis",
-    description: "Formalize asymptotic bounds Big-O, Big-Omega, and Big-Theta with automated test verification.",
-    route: "/coding?tab=projects",
-  },
-  {
-    id: "proj_collab_editor",
-    title: "Real-Time Collaborative Code Editor",
-    tech: "Node.js / WebSockets",
+    id: "proj_task_queue",
+    title: "Distributed Task Queue & Job Scheduler",
+    domain: "Distributed Systems",
+    tech: "Node.js • Redis • TypeScript • Docker",
     badge: "Distributed Systems",
-    description: "Implement operational transformations, room synchronization, and sandboxed code execution.",
-    route: "/live",
+    badgeColor: "#059669",
+    badgeBg: "#ecfdf5",
+    themeGradient: "linear-gradient(135deg, #022c22 0%, #064e3b 50%, #047857 100%)",
+    accentColor: "#10b981",
+    fileTab: "queue.worker.ts",
+    description: "Architect a resilient background job queue with concurrency limits, exponential backoff retries, and dead-letter queues.",
+    route: "/coding?tab=projects",
+    technologies: ["Node.js", "Redis", "TypeScript", "Docker"],
+    milestones: [
+      { id: "m1", name: "Worker Daemon & IPC Engine", state: "done" },
+      { id: "m2", name: "Priority Queue Concurrency Lock", state: "active" },
+      { id: "m3", name: "Exponential Backoff & Dead-Letter Queue", state: "upcoming" },
+    ],
+    codePreview: `const worker = new JobQueueWorker({\n  concurrency: 16,\n  backoff: 'exponential'\n});\nawait worker.process('RESIZE_4K_IMAGE');`,
+    xpReward: "+350 XP",
+    estTime: "4-6 Hours",
+    difficulty: "Advanced",
+    containerStatus: "Isolated Docker Sandbox",
+  },
+  {
+    id: "proj_collab_canvas",
+    title: "Real-Time Collaborative Code Canvas",
+    domain: "Real-Time Systems",
+    tech: "React • WebSockets • Monaco • Node.js",
+    badge: "Real-Time WebSockets",
+    badgeColor: "#2563eb",
+    badgeBg: "#eff6ff",
+    themeGradient: "linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 50%, #2563eb 100%)",
+    accentColor: "#3b82f6",
+    fileTab: "socket.engine.js",
+    description: "Build an interactive multi-cursor live code editor powered by WebSockets, Operational Transformation (OT), and presence tracking.",
+    route: "/coding?tab=projects",
+    technologies: ["React", "WebSockets", "Monaco", "Express"],
+    milestones: [
+      { id: "m1", name: "WebSocket Protocol & Auth Handshake", state: "done" },
+      { id: "m2", name: "Multi-Cursor Presence Broadcasting", state: "active" },
+      { id: "m3", name: "Operational Transformation (OT) Conflict Engine", state: "upcoming" },
+    ],
+    codePreview: `socket.on('USER_SELECTION', (payload) => {\n  broadcastCursorTransform(payload);\n  syncTextBuffer(payload.diff);\n});`,
+    xpReward: "+300 XP",
+    estTime: "3-5 Hours",
+    difficulty: "Intermediate",
+    containerStatus: "WebSocket Node Engine",
+  },
+  {
+    id: "proj_algo_trading",
+    title: "Algorithmic Order Matching Engine",
+    domain: "Financial Systems",
+    tech: "Modern C++20 • STL • Memory Pools • CMake",
+    badge: "Low-Latency C++",
+    badgeColor: "#7c3aed",
+    badgeBg: "#f5f3ff",
+    themeGradient: "linear-gradient(135deg, #4c1d95 0%, #5b21b6 50%, #6d28d9 100%)",
+    accentColor: "#8b5cf6",
+    fileTab: "order_book.cpp",
+    description: "Construct a high-throughput Limit Order Book (LOB) in Modern C++ processing bid/ask orders with sub-microsecond matching latency.",
+    route: "/coding?tab=projects",
+    technologies: ["C++20", "STL", "Memory Pools", "CMake"],
+    milestones: [
+      { id: "m1", name: "Price-Time Priority Limit Book", state: "done" },
+      { id: "m2", name: "Atomic Trade Matching & Crossing", state: "active" },
+      { id: "m3", name: "Zero-Allocation Cache Benchmark", state: "upcoming" },
+    ],
+    codePreview: `OrderBook<AllocPolicy::ZeroCopy> lob;\nlob.insertLimitOrder(Side::BUY, 104.25, 1000);\nlob.matchCrossedOrders();`,
+    xpReward: "+400 XP",
+    estTime: "6-8 Hours",
+    difficulty: "Hard",
+    containerStatus: "Native C++20 Compiler",
   },
   {
     id: "proj_compiler_telemetry",
     title: "Compiler Telemetry & Profiler Hub",
-    tech: "Full-Stack System",
+    domain: "Developer Tooling",
+    tech: "Python • Docker • Linux cgroups • FastAPI",
     badge: "Compiler Design",
-    description: "Process execution runtime, memory benchmarks, and automated test case assertions.",
-    route: "/coding",
+    badgeColor: "#d97706",
+    badgeBg: "#fffbeb",
+    themeGradient: "linear-gradient(135deg, #78350f 0%, #92400e 50%, #b45309 100%)",
+    accentColor: "#f59e0b",
+    fileTab: "profiler.py",
+    description: "Process execution runtimes, sandbox memory cgroups, and evaluate automated test assertions in secure Linux execution environments.",
+    route: "/coding?tab=projects",
+    technologies: ["Python", "Docker", "cgroups", "FastAPI"],
+    milestones: [
+      { id: "m1", name: "Containerized Sandbox Lifecycle", state: "done" },
+      { id: "m2", name: "stdout/stderr Stream Multiplexer", state: "active" },
+      { id: "m3", name: "Peak RSS & CPU Instruction Profiler", state: "upcoming" },
+    ],
+    codePreview: `result = await sandbox.run_isolated(\n    code=candidate_code,\n    memory_limit_mb=128,\n    timeout_sec=1.5\n)`,
+    xpReward: "+380 XP",
+    estTime: "4-6 Hours",
+    difficulty: "Advanced",
+    containerStatus: "Linux cgroups Sandbox",
+  },
+  {
+    id: "proj_ecommerce_api",
+    title: "Enterprise E-Commerce Microservices",
+    domain: "Full-Stack Architecture",
+    tech: "FastAPI • PostgreSQL • Redis • Stripe Webhooks",
+    badge: "Microservices",
+    badgeColor: "#0284c7",
+    badgeBg: "#f0f9ff",
+    themeGradient: "linear-gradient(135deg, #0c4a6e 0%, #0369a1 50%, #0284c7 100%)",
+    accentColor: "#38bdf8",
+    fileTab: "inventory.service.py",
+    description: "Design production-ready REST microservices for product catalogs, cart state, payment webhook gateways, and inventory concurrency locks.",
+    route: "/coding?tab=projects",
+    technologies: ["FastAPI", "PostgreSQL", "Redis", "Docker"],
+    milestones: [
+      { id: "m1", name: "PostgreSQL Schema & Migrations", state: "done" },
+      { id: "m2", name: "Stripe Webhook Gateway & Idempotency", state: "active" },
+      { id: "m3", name: "Redis Distributed Inventory Lock", state: "upcoming" },
+    ],
+    codePreview: `async with redis.lock("inv:sku_9921", timeout=5):\n    await inventory.decrement_stock(item_id, qty=1);\n    await orders.commit_transaction();`,
+    xpReward: "+320 XP",
+    estTime: "3-5 Hours",
+    difficulty: "Intermediate",
+    containerStatus: "PostgreSQL & Redis Services",
   },
 ];
 
@@ -368,6 +463,9 @@ const Home = () => {
   const [recentCodingSubmissions, setRecentCodingSubmissions] = useState([]);
   const [isLoadingCodingData, setIsLoadingCodingData] = useState(false);
   const [showPodHint, setShowPodHint] = useState(false);
+  const [activeProjSlide, setActiveProjSlide] = useState(0);
+  const [projViewMode, setProjViewMode] = useState("slider"); // 'slider' | 'grid'
+  const [activeMilestoneHover, setActiveMilestoneHover] = useState(null);
 
   // Fetch real-time coding statistics and submissions
   const fetchCodingPlatformData = async () => {
@@ -3570,7 +3668,7 @@ const Home = () => {
                 </div>
               </div>
 
-              {/* 7. Industry Software Projects */}
+              {/* 7. Industry Software Projects — Interactive Slide Showcase & Cover Blueprints */}
               <div style={{ marginBottom: 38 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18, flexWrap: "wrap", gap: 12 }}>
                   <div>
@@ -3581,61 +3679,306 @@ const Home = () => {
                       Hands-on multi-file workspaces with step-by-step milestones, code review, and automated testing.
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => navigate("/coding?tab=projects", { state: { tab: "projects" } })}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "#059669",
-                      fontSize: "0.88rem",
-                      fontWeight: 700,
-                      cursor: "pointer",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 4,
-                    }}
-                  >
-                    Open Projects Workspace <LuArrowRight size={14} />
-                  </button>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    {/* View Mode Toggle */}
+                    <div style={{ display: "flex", background: "#f1f5f9", padding: "3px", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
+                      <button
+                        type="button"
+                        onClick={() => setProjViewMode("slider")}
+                        style={{
+                          background: projViewMode === "slider" ? "#ffffff" : "transparent",
+                          color: projViewMode === "slider" ? "#2563eb" : "#64748b",
+                          border: "none",
+                          fontSize: "12px",
+                          fontWeight: 700,
+                          padding: "5px 12px",
+                          borderRadius: "7px",
+                          cursor: "pointer",
+                          boxShadow: projViewMode === "slider" ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+                          transition: "all 0.15s ease",
+                        }}
+                      >
+                        Slide Showcase
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setProjViewMode("grid")}
+                        style={{
+                          background: projViewMode === "grid" ? "#ffffff" : "transparent",
+                          color: projViewMode === "grid" ? "#2563eb" : "#64748b",
+                          border: "none",
+                          fontSize: "12px",
+                          fontWeight: 700,
+                          padding: "5px 12px",
+                          borderRadius: "7px",
+                          cursor: "pointer",
+                          boxShadow: projViewMode === "grid" ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+                          transition: "all 0.15s ease",
+                        }}
+                      >
+                        Browse All (5)
+                      </button>
+                    </div>
+
+                    {/* Slide Prev/Next Arrows (in slider mode) */}
+                    {projViewMode === "slider" && (
+                      <div className="mz-proj-controls">
+                        <button
+                          type="button"
+                          className="mz-proj-nav-arrow"
+                          onClick={() =>
+                            setActiveProjSlide((prev) =>
+                              prev === 0 ? SOFTWARE_PROJECTS.length - 1 : prev - 1
+                            )
+                          }
+                          title="Previous Project Slide"
+                        >
+                          <LuChevronLeft size={16} />
+                        </button>
+                        <button
+                          type="button"
+                          className="mz-proj-nav-arrow"
+                          onClick={() =>
+                            setActiveProjSlide((prev) =>
+                              (prev + 1) % SOFTWARE_PROJECTS.length
+                            )
+                          }
+                          title="Next Project Slide"
+                        >
+                          <LuChevronRight size={16} />
+                        </button>
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => navigate("/coding?tab=projects", { state: { tab: "projects" } })}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: "#059669",
+                        fontSize: "0.88rem",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                    >
+                      Open Projects Workspace <LuArrowRight size={14} />
+                    </button>
+                  </div>
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 18 }}>
-                  {SOFTWARE_PROJECTS.map((proj) => (
-                    <div
-                      key={proj.id}
-                      className="mz-interactive-card"
-                      onClick={() => navigate(proj.route, { state: { tab: "projects", project: proj.id } })}
-                      title={`Open ${proj.title}`}
-                    >
-                      <div>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-                          <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#059669", background: "#ecfdf5", padding: "3px 9px", borderRadius: 6 }}>
-                            {proj.badge}
-                          </span>
-                          <span style={{ fontSize: "0.78rem", color: "#64748b", fontWeight: 600 }}>
+                {/* ── MODE 1: SLIDE SHOWCASE WITH INTERACTIVE COVER HERO ── */}
+                {projViewMode === "slider" && (() => {
+                  const currentProj = SOFTWARE_PROJECTS[activeProjSlide] || SOFTWARE_PROJECTS[0];
+
+                  return (
+                    <div className="mz-proj-showcase-box">
+                      {/* Top Cover Page Hero */}
+                      <div
+                        className="mz-proj-cover-hero"
+                        style={{ background: currentProj.themeGradient }}
+                      >
+                        <div className="mz-proj-cover-left">
+                          <div className="mz-proj-cover-badges">
+                            <span className="mz-proj-badge-domain">
+                              {currentProj.domain}
+                            </span>
+                            <span className="mz-proj-badge-diff">
+                              {currentProj.difficulty} • {currentProj.xpReward}
+                            </span>
+                            <span className="mz-proj-badge-container">
+                              <span className="mz-proj-pulse-dot" />
+                              {currentProj.containerStatus}
+                            </span>
+                          </div>
+
+                          <h2 className="mz-proj-cover-title">
+                            {currentProj.title}
+                          </h2>
+                          <p className="mz-proj-cover-desc">
+                            {currentProj.description}
+                          </p>
+
+                          <div className="mz-proj-tech-chips">
+                            {currentProj.technologies.map((t) => (
+                              <span key={t} className="mz-proj-tech-chip">
+                                {t}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Interactive Code Blueprint Window on Cover Page */}
+                        <div className="mz-proj-cover-right">
+                          <div className="mz-proj-code-window">
+                            <div className="mz-proj-code-header">
+                              <div className="mz-proj-code-dots">
+                                <span className="mz-proj-code-dot" style={{ background: "#ef4444" }} />
+                                <span className="mz-proj-code-dot" style={{ background: "#f59e0b" }} />
+                                <span className="mz-proj-code-dot" style={{ background: "#10b981" }} />
+                              </div>
+                              <span className="mz-proj-code-file">{currentProj.fileTab}</span>
+                              <span style={{ fontSize: "10.5px", color: currentProj.accentColor, fontWeight: 700 }}>
+                                ACTIVE
+                              </span>
+                            </div>
+                            <pre className="mz-proj-code-snippet">
+                              {currentProj.codePreview}
+                            </pre>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Bottom Interactive Milestones & Action Bar */}
+                      <div className="mz-proj-interactive-bar">
+                        <div className="mz-proj-milestones-list">
+                          <span className="mz-proj-ms-label">Milestones:</span>
+                          {currentProj.milestones.map((ms, mIdx) => (
+                            <div
+                              key={ms.id || mIdx}
+                              className={`mz-proj-ms-item ${ms.state}`}
+                              title={`Milestone ${mIdx + 1}: ${ms.name}`}
+                            >
+                              {ms.state === "done" && <LuCircleCheck size={13} color="#059669" />}
+                              {ms.state === "active" && <LuZap size={13} color="#2563eb" />}
+                              {ms.state === "upcoming" && <LuLock size={13} color="#94a3b8" />}
+                              <span>M{mIdx + 1}: {ms.name}</span>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="mz-proj-cta-group">
+                          <div className="mz-proj-time-info">
+                            <LuClock size={14} color="#64748b" />
+                            <span>{currentProj.estTime}</span>
+                          </div>
+
+                          <button
+                            type="button"
+                            className="mz-proj-btn-launch"
+                            style={{ background: currentProj.accentColor }}
+                            onClick={() =>
+                              navigate(currentProj.route, {
+                                state: { tab: "projects", project: currentProj.id },
+                              })
+                            }
+                          >
+                            <span>Launch Project Workspace</span>
+                            <LuArrowRight size={15} />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Interactive Thumbnails Navigation Strip */}
+                      <div style={{ padding: "0 24px 20px" }}>
+                        <div className="mz-proj-thumbs-strip">
+                          {SOFTWARE_PROJECTS.map((proj, idx) => {
+                            const isActive = idx === activeProjSlide;
+                            return (
+                              <button
+                                key={proj.id}
+                                type="button"
+                                className={`mz-proj-thumb ${isActive ? "active" : ""}`}
+                                onClick={() => setActiveProjSlide(idx)}
+                              >
+                                <span
+                                  className="mz-proj-thumb-tag"
+                                  style={{ color: proj.badgeColor }}
+                                >
+                                  {proj.badge}
+                                </span>
+                                <span className="mz-proj-thumb-title">
+                                  {proj.title}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* ── MODE 2: BROWSE ALL GRID VIEW WITH COVER PAGES ── */}
+                {projViewMode === "grid" && (
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 18 }}>
+                    {SOFTWARE_PROJECTS.map((proj) => (
+                      <div
+                        key={proj.id}
+                        className="mz-proj-grid-card"
+                        onClick={() =>
+                          navigate(proj.route, {
+                            state: { tab: "projects", project: proj.id },
+                          })
+                        }
+                        title={`Open ${proj.title}`}
+                        style={{ cursor: "pointer" }}
+                      >
+                        {/* Card Cover Header */}
+                        <div
+                          className="mz-proj-grid-cover"
+                          style={{ background: proj.themeGradient }}
+                        >
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                            <span style={{ fontSize: "11px", fontWeight: 700, background: "rgba(255,255,255,0.2)", padding: "2px 8px", borderRadius: "9999px", color: "#ffffff" }}>
+                              {proj.domain}
+                            </span>
+                            <span style={{ fontSize: "11px", fontWeight: 700, color: "#a7f3d0" }}>
+                              {proj.xpReward}
+                            </span>
+                          </div>
+                          <h4 style={{ fontSize: "1.1rem", fontWeight: 800, color: "#ffffff", margin: "0 0 6px" }}>
+                            {proj.title}
+                          </h4>
+                          <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.8)" }}>
                             {proj.tech}
                           </span>
                         </div>
-                        <h4 style={{ fontSize: "1.08rem", fontWeight: 700, color: "#0f172a", margin: "0 0 8px" }}>
-                          {proj.title}
-                        </h4>
-                        <p style={{ fontSize: "0.84rem", color: "#64748b", lineHeight: 1.5, margin: "0 0 14px" }}>
-                          {proj.description}
-                        </p>
-                      </div>
 
-                      <div style={{ borderTop: "1px solid #f1f5f9", paddingTop: 12, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <span style={{ fontSize: "0.78rem", fontWeight: 600, color: "#94a3b8" }}>
-                          Milestone Architecture
-                        </span>
-                        <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "#059669", display: "inline-flex", alignItems: "center", gap: 4 }}>
-                          Launch Workspace <LuArrowRight size={13} className="mz-card-arrow-icon" />
-                        </span>
+                        {/* Card Body */}
+                        <div className="mz-proj-grid-body">
+                          <p style={{ fontSize: "0.85rem", color: "#475569", lineHeight: 1.5, margin: "0 0 14px" }}>
+                            {proj.description}
+                          </p>
+
+                          <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginBottom: "16px" }}>
+                            {proj.milestones.map((m, mIdx) => (
+                              <div
+                                key={mIdx}
+                                style={{
+                                  fontSize: "11.5px",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "6px",
+                                  color: m.state === "done" ? "#065f46" : m.state === "active" ? "#1d4ed8" : "#64748b",
+                                  background: m.state === "done" ? "#ecfdf5" : m.state === "active" ? "#eff6ff" : "#f8fafc",
+                                  padding: "4px 8px",
+                                  borderRadius: "6px",
+                                }}
+                              >
+                                {m.state === "done" ? <LuCircleCheck size={12} /> : <LuZap size={12} />}
+                                <span>Milestone {mIdx + 1}: {m.name}</span>
+                              </div>
+                            ))}
+                          </div>
+
+                          <div style={{ borderTop: "1px solid #f1f5f9", paddingTop: 12, display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "auto" }}>
+                            <span style={{ fontSize: "0.78rem", fontWeight: 600, color: "#94a3b8" }}>
+                              {proj.estTime}
+                            </span>
+                            <span style={{ fontSize: "0.82rem", fontWeight: 700, color: proj.badgeColor, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                              Launch Workspace <LuArrowRight size={13} className="mz-card-arrow-icon" />
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* 8. Recent Coding Submissions Log (Genuine Database Data) */}
