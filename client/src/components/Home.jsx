@@ -57,6 +57,7 @@ import {
   LuGitBranch,
   LuLifeBuoy,
   LuLock,
+  LuLightbulb,
 } from "react-icons/lu";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
@@ -3312,100 +3313,76 @@ const Home = () => {
               <div className="mz-pod-card">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 20 }}>
                   <div style={{ maxWidth: 760 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
-                      <span style={{ fontSize: "0.75rem", fontWeight: 800, color: "#ea580c", background: "#fff7ed", border: "1px solid #ffedd5", padding: "4px 12px", borderRadius: 20, display: "inline-flex", alignItems: "center", gap: 5 }}>
-                        <LuFlame size={14} className="mz-pulse-flame" /> Problem of the Day
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+                      <span style={{ fontSize: "0.76rem", fontWeight: 800, color: "#4338ca", background: "#eef2ff", border: "1px solid #c7d2fe", padding: "4px 12px", borderRadius: 20, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                        <LuFlame size={13} color="#ea580c" className="mz-pulse-flame" /> Problem of the Day
                       </span>
-                      <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#d97706", background: "#fef3c7", padding: "3px 9px", borderRadius: 6 }}>
+                      <span style={{ fontSize: "0.74rem", fontWeight: 700, color: "#b45309", background: "#fffbeb", border: "1px solid #fef3c7", padding: "3px 10px", borderRadius: 20, display: "inline-flex", alignItems: "center", gap: 5 }}>
+                        <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#f59e0b" }} />
                         Medium
                       </span>
-                      <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "#334155", background: "#f1f5f9", padding: "3px 9px", borderRadius: 6 }}>
-                        Arrays & Prefix Sum
+                      <span style={{ fontSize: "0.74rem", fontWeight: 600, color: "#334155", background: "#f1f5f9", border: "1px solid #e2e8f0", padding: "3px 10px", borderRadius: 20 }}>
+                        Arrays &amp; Prefix Sum
                       </span>
-                      <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#16a34a", background: "#ecfdf5", padding: "3px 9px", borderRadius: 6 }}>
-                        +50 XP Reward
+                      <span style={{ fontSize: "0.74rem", fontWeight: 700, color: "#047857", background: "#ecfdf5", border: "1px solid #a7f3d0", padding: "3px 10px", borderRadius: 20, display: "inline-flex", alignItems: "center", gap: 5 }}>
+                        <LuSparkles size={12} color="#059669" /> +50 XP Reward
                       </span>
                     </div>
 
-                    <h3 style={{ fontSize: "1.35rem", fontWeight: 800, color: "#0f172a", margin: "0 0 8px" }}>
+                    <h3 style={{ fontSize: "1.45rem", fontWeight: 800, color: "#0f172a", margin: "0 0 10px", letterSpacing: "-0.02em" }}>
                       Subarray Sum Equals K
                     </h3>
-                    <p style={{ fontSize: "0.9rem", color: "#475569", lineHeight: 1.6, margin: "0 0 12px" }}>
-                      Given an array of integers <code>nums</code> and an integer <code>k</code>, return the total number of continuous subarrays whose sum equals to <code>k</code>. Implement an optimal O(N) solution using a prefix sum frequency hash map.
+                    <p style={{ fontSize: "0.92rem", color: "#475569", lineHeight: 1.65, margin: "0 0 14px", maxWidth: 720 }}>
+                      Given an array of integers <code className="mz-pod-code-inline">nums</code> and an integer <code className="mz-pod-code-inline">k</code>, return the total number of continuous subarrays whose sum equals to <code className="mz-pod-code-inline">k</code>. Implement an optimal O(N) solution using a prefix sum frequency hash map.
                     </p>
 
                     {/* Test Case Preview */}
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
-                      <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "#64748b" }}>Sample Input:</span>
-                      <code style={{ fontSize: "0.78rem", background: "#f8fafc", border: "1px solid #e2e8f0", padding: "2px 8px", borderRadius: 6, color: "#0f172a" }}>
-                        nums = [1, 1, 1], k = 2
-                      </code>
-                      <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "#64748b" }}>Output:</span>
-                      <code style={{ fontSize: "0.78rem", background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "2px 8px", borderRadius: 6, color: "#16a34a", fontWeight: 700 }}>
-                        2
-                      </code>
+                    <div className="mz-pod-io-box">
+                      <div className="mz-pod-io-item">
+                        <span className="mz-pod-io-label">Sample Input:</span>
+                        <code className="mz-pod-io-code">nums = [1, 1, 1], k = 2</code>
+                      </div>
+                      <div className="mz-pod-io-divider" />
+                      <div className="mz-pod-io-item">
+                        <span className="mz-pod-io-label">Expected Output:</span>
+                        <code className="mz-pod-io-code mz-pod-io-success">2</code>
+                      </div>
                     </div>
 
-                    <div style={{ fontSize: "0.78rem", color: "#64748b", display: "flex", gap: 14 }}>
-                      <span>Acceptance: <strong>44.2%</strong></span>
+                    <div className="mz-pod-meta-row">
+                      <span className="mz-pod-meta-pill">
+                        <LuCircleCheck size={14} color="#16a34a" /> Acceptance: <strong>44.2%</strong>
+                      </span>
                       <span>•</span>
-                      <span>Time Limit: <strong>1000ms</strong></span>
+                      <span className="mz-pod-meta-pill">
+                        <LuClock size={14} color="#6366f1" /> Time Limit: <strong>1000ms</strong>
+                      </span>
                       <span>•</span>
-                      <span>Languages: <strong>Python, Java, C++, JS</strong></span>
+                      <span className="mz-pod-meta-pill">
+                        <LuTerminal size={14} color="#0284c7" /> Languages: <strong>Python, Java, C++, JS</strong>
+                      </span>
                     </div>
                   </div>
 
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 200 }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 200, alignSelf: "center" }}>
                     <button
                       type="button"
+                      className="mz-pod-btn-solve"
                       onClick={() => {
                         navigate("/coding?tab=challenges", { state: { tab: "challenges" } });
                         window.scrollTo({ top: 0, behavior: "smooth" });
                       }}
-                      style={{
-                        background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
-                        color: "#ffffff",
-                        border: "none",
-                        padding: "12px 24px",
-                        borderRadius: 12,
-                        fontWeight: 700,
-                        fontSize: "0.92rem",
-                        cursor: "pointer",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: 8,
-                        boxShadow: "0 4px 14px rgba(37, 99, 235, 0.3)",
-                        transition: "all 0.15s ease",
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-1px)")}
-                      onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}
                     >
                       Solve Challenge <LuArrowRight size={16} />
                     </button>
 
                     <button
                       type="button"
+                      className="mz-pod-btn-hint"
                       onClick={() => setShowPodHint((prev) => !prev)}
-                      style={{
-                        background: "#ffffff",
-                        color: "#475569",
-                        border: "1px solid #cbd5e1",
-                        padding: "9px 18px",
-                        borderRadius: 10,
-                        fontWeight: 600,
-                        fontSize: "0.82rem",
-                        cursor: "pointer",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: 6,
-                        transition: "all 0.15s ease",
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = "#f8fafc")}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = "#ffffff")}
                     >
-                      {showPodHint ? "Hide Solution Hint" : "💡 View Solution Hint"}
+                      <LuLightbulb size={15} color="#d97706" />
+                      {showPodHint ? "Hide Solution Hint" : "View Solution Hint"}
                     </button>
                   </div>
                 </div>
@@ -3415,19 +3392,21 @@ const Home = () => {
                   <div
                     style={{
                       marginTop: 18,
-                      padding: "16px 20px",
-                      background: "#fffbeb",
-                      border: "1px solid #fef3c7",
+                      padding: "16px 22px",
+                      background: "linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)",
+                      border: "1px solid #fde68a",
                       borderRadius: 14,
+                      boxShadow: "0 2px 8px rgba(245, 158, 11, 0.08)",
                       animation: "mzFadeInUp 0.25s ease-out forwards",
                     }}
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                      <LuLightbulb size={16} color="#b45309" />
                       <span style={{ fontSize: "0.88rem", fontWeight: 700, color: "#92400e" }}>
-                        💡 Algorithmic Intuition & Optimal Approach
+                        Algorithmic Intuition &amp; Optimal Approach
                       </span>
                     </div>
-                    <p style={{ fontSize: "0.85rem", color: "#78350f", lineHeight: 1.6, margin: 0 }}>
+                    <p style={{ fontSize: "0.86rem", color: "#78350f", lineHeight: 1.6, margin: 0 }}>
                       Maintain a running prefix sum <code>currSum</code> and a hash map tracking how often each prefix sum occurs. For each element, check if <code>currSum - k</code> exists in your map. If so, add its frequency to your answer. This reduces the brute-force O(N²) solution down to an optimal <strong>O(N) Time and O(N) Space</strong> algorithm.
                     </p>
                   </div>
