@@ -6,10 +6,10 @@ import {
   LuCircleCheck,
 } from "react-icons/lu";
 import "./FeaturedLearningCarousel.css";
-import coverLearningClean from "../assets/slide_cover_learning_clean.jpg";
-import coverChallengesPro from "../assets/slide_cover_challenges_pro.jpg";
-import coverProjectsPro from "../assets/slide_cover_projects_pro.jpg";
-import coverCertClean from "../assets/slide_cover_certification.jpg";
+import coverLearningClean from "../assets/slide_cover_learning_4k.jpg";
+import coverChallengesPro from "../assets/slide_cover_challenges_4k.jpg";
+import coverProjectsPro from "../assets/slide_cover_projects_4k.jpg";
+import coverCertClean from "../assets/slide_cover_certification_4k.jpg";
 
 export default function FeaturedLearningCarousel({
   onNavigateTab,
@@ -138,7 +138,7 @@ export default function FeaturedLearningCarousel({
       category: "Practical Engineering",
       primaryCtaText: "View Projects",
       primaryAction: () => onNavigateTab?.("projects"),
-      theme: "theme-blue-mastery",
+      theme: "theme-projects-mastery",
       coverImage: coverProjectsPro,
       isCompleted: computedPassedProjects > 0,
       stats: [

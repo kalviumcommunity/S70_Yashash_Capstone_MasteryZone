@@ -105,6 +105,27 @@
               linear-gradient(135deg, #06112a 0%, #0c2356 45%, #173b88 75%, #0b1a3d 100%);
 }
 
+.mzc-slide-card.theme-projects-mastery {
+  background: radial-gradient(circle at 80% 45%, rgba(5, 150, 105, 0.45) 0%, transparent 60%),
+              radial-gradient(circle at 20% 25%, rgba(16, 185, 129, 0.35) 0%, transparent 50%),
+              linear-gradient(135deg, #022c22 0%, #064e3b 45%, #065f46 75%, #022c22 100%);
+}
+
+.mzc-slide-card.theme-projects-mastery .mzc-tag-pill {
+  color: #34d399;
+  background: rgba(52, 211, 153, 0.16);
+  border-color: rgba(52, 211, 153, 0.4);
+}
+
+.mzc-slide-card.theme-projects-mastery .mzc-primary-cta {
+  color: #065f46;
+}
+
+.mzc-slide-card.theme-projects-mastery .mzc-primary-cta:hover {
+  color: #047857;
+  box-shadow: 0 8px 24px rgba(52, 211, 153, 0.35);
+}
+
 /* Top-Right Completed Badge on Slide Cover Page */
 .mzc-cover-completed-badge {
   position: absolute;

@@ -2758,3 +2758,434 @@
   color: #1d4ed8;
   transform: translateY(-1px);
 }
+
+/* =========================================================================
+   REAL-WORLD SOFTWARE ENGINEERING PROJECTS INTERACTIVE SHOWCASE
+   High-definition cover pages, interactive milestones, and sliding track
+   ========================================================================= */
+
+.mz-proj-showcase-box {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
+  margin-bottom: 24px;
+  transition: all 0.3s ease;
+}
+
+.mz-proj-cover-hero {
+  position: relative;
+  padding: 32px 36px;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 32px;
+  overflow: hidden;
+  min-height: 280px;
+  transition: background 0.5s ease;
+}
+
+.mz-proj-cover-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+  background-size: 24px 24px;
+  opacity: 0.25;
+  pointer-events: none;
+}
+
+.mz-proj-cover-left {
+  flex: 1;
+  max-width: 580px;
+  z-index: 2;
+}
+
+.mz-proj-cover-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.mz-proj-badge-domain {
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  backdrop-filter: blur(8px);
+}
+
+.mz-proj-badge-diff {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #f8fafc;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 9999px;
+}
+
+.mz-proj-badge-container {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(16, 185, 129, 0.2);
+  border: 1px solid rgba(52, 211, 153, 0.4);
+  color: #a7f3d0;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 9999px;
+}
+
+.mz-proj-pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #34d399;
+  box-shadow: 0 0 8px #34d399;
+  animation: mzPulse 2s infinite;
+}
+
+@keyframes mzPulse {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.3); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0.8; }
+}
+
+.mz-proj-cover-title {
+  font-size: 1.85rem;
+  font-weight: 800;
+  color: #ffffff;
+  margin: 0 0 10px;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.mz-proj-cover-desc {
+  font-size: 0.94rem;
+  color: #e2e8f0;
+  line-height: 1.6;
+  margin: 0 0 16px;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+.mz-proj-tech-chips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mz-proj-tech-chip {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #f1f5f9;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 8px;
+  backdrop-filter: blur(6px);
+}
+
+/* Embedded Terminal Code Window on Cover Page */
+.mz-proj-cover-right {
+  flex: 0 0 380px;
+  max-width: 45%;
+  z-index: 2;
+}
+
+.mz-proj-code-window {
+  background: rgba(10, 15, 29, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(12px);
+}
+
+.mz-proj-code-header {
+  background: rgba(15, 23, 42, 0.95);
+  padding: 8px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.mz-proj-code-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.mz-proj-code-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.mz-proj-code-file {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #94a3b8;
+  font-family: monospace;
+}
+
+.mz-proj-code-snippet {
+  margin: 0;
+  padding: 14px 16px;
+  font-family: "Fira Code", Monaco, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.55;
+  color: #38bdf8;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+/* Interactive Milestones & Action Bar */
+.mz-proj-interactive-bar {
+  background: #ffffff;
+  padding: 20px 36px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+  border-top: 1px solid #e2e8f0;
+}
+
+.mz-proj-milestones-list {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.mz-proj-ms-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-right: 4px;
+}
+
+.mz-proj-ms-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.mz-proj-ms-item.done {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.mz-proj-ms-item.active {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  box-shadow: 0 0 0 1px #3b82f6;
+}
+
+.mz-proj-ms-item.upcoming {
+  background: #f8fafc;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+
+.mz-proj-ms-item:hover {
+  transform: translateY(-1px);
+}
+
+.mz-proj-cta-group {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.mz-proj-time-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.mz-proj-btn-launch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #ffffff;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+  transition: all 0.2s ease;
+}
+
+.mz-proj-btn-launch:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.45);
+}
+
+/* Project Thumbnails Carousel Navigation */
+.mz-proj-thumbs-strip {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.mz-proj-thumb {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: relative;
+  overflow: hidden;
+}
+
+.mz-proj-thumb::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: transparent;
+  transition: background 0.2s ease;
+}
+
+.mz-proj-thumb:hover {
+  border-color: #cbd5e1;
+  transform: translateY(-2px);
+}
+
+.mz-proj-thumb.active {
+  border-color: #3b82f6;
+  background: #f8faff;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
+}
+
+.mz-proj-thumb.active::before {
+  background: #2563eb;
+}
+
+.mz-proj-thumb-tag {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.mz-proj-thumb-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Controls in Header */
+.mz-proj-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mz-proj-nav-arrow {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mz-proj-nav-arrow:hover {
+  background: #eff6ff;
+  border-color: #3b82f6;
+  color: #2563eb;
+}
+
+/* Grid View Mode */
+.mz-proj-grid-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.mz-proj-grid-card:hover {
+  transform: translateY(-4px);
+  border-color: #93c5fd;
+  box-shadow: 0 12px 28px -4px rgba(37, 99, 235, 0.12);
+}
+
+.mz-proj-grid-cover {
+  padding: 18px 20px;
+  color: #ffffff;
+  position: relative;
+}
+
+.mz-proj-grid-body {
+  padding: 20px 22px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 900px) {
+  .mz-proj-cover-hero {
+    flex-direction: column;
+    padding: 24px 20px;
+  }
+  .mz-proj-cover-right {
+    max-width: 100%;
+    width: 100%;
+    flex: none;
+  }
+  .mz-proj-thumbs-strip {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
