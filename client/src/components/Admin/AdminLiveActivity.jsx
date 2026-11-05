@@ -49,9 +49,13 @@ const AdminLiveActivity = () => {
 
     // Connect to Socket.IO for real-time live events
     try {
-      const socketUrl = window.location.origin;
+      const socketUrl = API_BASE || window.location.origin;
       socket = io(socketUrl, {
         auth: { token: localStorage.getItem("token") },
+        transports: ["websocket", "polling"],
+        reconnection: true,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
       });
 
       socket.on("connect", () => {

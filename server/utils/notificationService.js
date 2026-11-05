@@ -2,15 +2,25 @@ const mongoose = require("mongoose");
 const Notification = require("../models/NotificationSchema");
 const User = require("../models/User");
 
+let globalIo = null;
+
+function setGlobalIo(ioInstance) {
+  if (ioInstance) {
+    globalIo = ioInstance;
+  }
+}
+
 function resolveIo(ioOrApp) {
-  if (!ioOrApp) return null;
-  if (typeof ioOrApp.emit === "function" && typeof ioOrApp.to === "function") {
-    return ioOrApp;
+  if (ioOrApp) {
+    if (typeof ioOrApp.emit === "function" && typeof ioOrApp.to === "function") {
+      return ioOrApp;
+    }
+    if (typeof ioOrApp.get === "function") {
+      const resolved = ioOrApp.get("io");
+      if (resolved) return resolved;
+    }
   }
-  if (typeof ioOrApp.get === "function") {
-    return ioOrApp.get("io");
-  }
-  return null;
+  return globalIo;
 }
 
 function normalizeUserId(rawUserId) {
@@ -200,4 +210,5 @@ module.exports = {
   pushNotification,
   emitNotificationsSync,
   ensureInitialUserNotifications,
+  setGlobalIo,
 };

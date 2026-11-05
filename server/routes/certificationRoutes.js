@@ -12,6 +12,7 @@ const authenticateToken = require("../middleware/authMiddleware");
 const { optionalAuthenticateToken } = require("../middleware/authMiddleware");
 const { pushNotification } = require("../utils/notificationService");
 const { pushAdminNotification } = require("../utils/adminNotificationService");
+const { sendCertificateAwardedEmail } = require("../utils/mailer");
 const { DSA_MCQ_BANK } = require("../data/dsaQuestionsBank");
 const CHALLENGES_CATALOG = require("../data/challengesCatalog");
 const { CURRICULUM } = require("../data/codingCurriculum");
@@ -916,6 +917,17 @@ router.post("/attempt/:attemptId/finalize", authenticateToken, async (req, res) 
         actionUrl: `/verify/${certificate.certificateId}`,
         actionLabel: "View Verified Certificate",
         meta: { certificateId: certificate.certificateId },
+      });
+
+      // Dispatch Official Certificate Email in background without delaying finalization response
+      sendCertificateAwardedEmail({
+        candidateEmail: attempt.candidateEmail || user?.email,
+        candidateName: attempt.candidateName || user?.fullName || "Candidate",
+        certTitle: attempt.certTitle,
+        certificateId: certificate.certificateId,
+        score: finalPercentage,
+      }).catch((emailErr) => {
+        console.warn("Certificate email notification note:", emailErr?.message);
       });
     }
 
