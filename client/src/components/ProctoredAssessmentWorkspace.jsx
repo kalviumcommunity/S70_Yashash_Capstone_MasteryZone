@@ -157,6 +157,7 @@ export default function ProctoredAssessmentWorkspace({
   const immunityUntilRef = useRef(Date.now() + 1500);
   const isReverifyingRef = useRef(false);
   const isViolationOverlayOpenRef = useRef(false);
+  const handleSubmitExamRef = useRef(null);
 
   useEffect(() => {
     isViolationOverlayOpenRef.current = isViolationOverlayOpen;
@@ -302,8 +303,10 @@ export default function ProctoredAssessmentWorkspace({
           setIsViolationOverlayOpen(true);
           toast.error("All 5 proctoring violation chances exhausted! Submitting exam now...");
           setTimeout(() => {
-            handleSubmitExam();
-          }, 2500);
+            if (handleSubmitExamRef.current) {
+              handleSubmitExamRef.current();
+            }
+          }, 1500);
         } else {
           setIsViolationOverlayOpen(true);
           toast.warn(`Proctoring alert: ${detail} (Violation ${next}/5)`);
@@ -311,7 +314,7 @@ export default function ProctoredAssessmentWorkspace({
         return next;
       });
     },
-    [isTerminated, handleSubmitExam]
+    [isTerminated]
   );
 
   useEffect(() => {
@@ -378,7 +381,7 @@ export default function ProctoredAssessmentWorkspace({
         sessionStorage.setItem("mz_proc_pending_refresh_violation", "true");
         const modKey = propModule?.id || module?.id || "mcq_proc";
         localStorage.setItem(`mz_proc_draft_ans_${modKey}`, JSON.stringify(answers));
-        localStorage.setItem(`mz_proc_draft_time_${modKey}`, String(secondsLeft));
+        localStorage.setItem(`mz_proc_draft_time_${modKey}`, String(timeRemaining));
         localStorage.setItem(`mz_proc_draft_violations_${modKey}`, String(violationsCount));
       } catch {}
       e.preventDefault();
@@ -401,7 +404,7 @@ export default function ProctoredAssessmentWorkspace({
       window.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
-  }, [stage, isTerminated, logViolation, answers, secondsLeft, violationsCount, propModule, module]);
+  }, [stage, isTerminated, logViolation, answers, timeRemaining, violationsCount, propModule, module]);
 
   // Check for reload violation on stage mount & restore draft
   useEffect(() => {
@@ -686,6 +689,8 @@ export default function ProctoredAssessmentWorkspace({
       setIsSubmitting(false);
     }
   };
+
+  handleSubmitExamRef.current = handleSubmitExam;
 
   // Format MM:SS
   const formatTime = (secs) => {
