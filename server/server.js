@@ -1,5 +1,6 @@
 
 const express = require("express")
+const fs = require("fs")
 const path = require("path")
 const mongoose = require("mongoose")
 const dotenv = require("dotenv")
@@ -21,6 +22,7 @@ const supportRoutes = require("./routes/supportRoutes");
 const { bootstrapSuperAdmin } = require("./bootstrap/adminBootstrap");
 const Meeting = require("./models/Meeting");
 const jwt = require("jsonwebtoken");
+const { getJwtSecret } = require("./config/jwtConfig");
 const User = require("./models/User");
 const { pushNotification, setGlobalIo } = require("./utils/notificationService");
 const { setGlobalAdminIo } = require("./utils/adminNotificationService");
@@ -73,15 +75,19 @@ io.on("connection", (socket) => {
     if (!rawToken || typeof rawToken !== "string") return null;
     try {
       const cleanToken = rawToken.startsWith("Bearer ") ? rawToken.slice(7) : rawToken;
-      const decoded = jwt.verify(cleanToken, process.env.JWT_SECRET || "supersecretkey");
+      const decoded = jwt.verify(cleanToken, getJwtSecret());
       const uid = String(decoded.userId || decoded.id || decoded._id || "").trim();
       if (uid) {
         socket.data.userId = uid;
+        socket.data.userRole = decoded.role || "user";
+        socket.data.userEmail = decoded.email || "";
         socket.join(`user_${uid}`);
         console.log(`📡 Socket ${socket.id} authenticated into room user_${uid}`);
         return uid;
       }
-    } catch {}
+    } catch (err) {
+      console.warn(`Socket auth failed for ${socket.id}:`, err.message);
+    }
     return null;
   };
 
@@ -94,22 +100,16 @@ io.on("connection", (socket) => {
   socket.on("register_user_session", (payload) => {
     if (!payload) return;
     if (typeof payload === "object") {
-      if (payload.token) joinUserRoomFromToken(payload.token);
-      if (payload.userId) {
-        const uid = String(payload.userId).trim();
-        socket.data.userId = uid;
-        socket.join(`user_${uid}`);
-        console.log(`📡 Socket ${socket.id} joined personal room user_${uid}`);
+      if (payload.token) {
+        joinUserRoomFromToken(payload.token);
+      } else if (payload.userId && socket.data.userId && String(payload.userId).trim() === socket.data.userId) {
+        socket.join(`user_${socket.data.userId}`);
       }
       return;
     }
     const str = String(payload).trim();
     if (str.split(".").length === 3) {
       joinUserRoomFromToken(str);
-    } else if (str) {
-      socket.data.userId = str;
-      socket.join(`user_${str}`);
-      console.log(`📡 Socket ${socket.id} joined personal room user_${str}`);
     }
   });
 
@@ -188,8 +188,31 @@ io.on("connection", (socket) => {
     io.to("super_admin_room").emit("live_session_update", sessionObj);
   });
 
-  // Super Admin joins real-time live monitoring room
-  socket.on("join_admin_monitoring", () => {
+  // Super Admin joins real-time live monitoring room (Restricted to verified administrators)
+  socket.on("join_admin_monitoring", async (payload) => {
+    let isAdmin = socket.data.userRole === "admin" || socket.data.userRole === "SUPER_ADMIN";
+    
+    // Check if a token was sent with the event or handshake
+    const candidateToken = (payload && typeof payload === "object" ? payload.token : payload) || socket.handshake?.auth?.token;
+    if (!isAdmin && candidateToken && typeof candidateToken === "string") {
+      try {
+        const clean = candidateToken.startsWith("Bearer ") ? candidateToken.slice(7) : candidateToken;
+        const decoded = jwt.verify(clean, getJwtSecret());
+        const u = await User.findById(decoded.userId || decoded.id || decoded._id).select("role isMainAdmin email").lean();
+        if (u && (u.role === "admin" || u.role === "SUPER_ADMIN" || u.isMainAdmin)) {
+          isAdmin = true;
+          socket.data.userId = String(u._id);
+          socket.data.userRole = u.role;
+        }
+      } catch {}
+    }
+
+    if (!isAdmin) {
+      console.warn(`🚨 Unauthorized socket ${socket.id} attempted to join super_admin_room`);
+      socket.emit("admin_auth_error", { message: "Access denied. Administrator privileges required." });
+      return;
+    }
+
     socket.join("super_admin_room");
     // Filter snapshot to ensure only valid registered student accounts are transmitted
     const validSessions = Array.from(activeUserSessions.values()).filter(
@@ -861,21 +884,38 @@ io.on("connection", (socket) => {
     });
   });
 
-  // Host Controls (mute / kick / end)
+  // Host Controls (mute / kick / end) - Authorized to Meeting Host or Admin
   socket.on("meeting_host_action", async ({ meetingId, action, targetSocketId }) => {
     if (!meetingId) return;
-    if (action === "end_meeting") {
-      io.to(`meeting_${meetingId}`).emit("meeting_ended_by_host");
-      try {
+    try {
+      const meeting = await Meeting.findOne({ meetingId }).select("hostUserId hostName").lean();
+      if (!meeting) return;
+
+      const isHost =
+        (socket.data.userId && String(meeting.hostUserId) === String(socket.data.userId)) ||
+        socket.data.userRole === "admin" ||
+        socket.data.userRole === "SUPER_ADMIN" ||
+        (socket.data.meetingUser?.fullName && socket.data.meetingUser.fullName === meeting.hostName);
+
+      if (!isHost) {
+        console.warn(`🚨 Unauthorized socket ${socket.id} attempted host action ${action} on meeting ${meetingId}`);
+        socket.emit("meeting_error", { message: "Only the meeting host can perform this action." });
+        return;
+      }
+
+      if (action === "end_meeting") {
+        io.to(`meeting_${meetingId}`).emit("meeting_ended_by_host");
         await Meeting.updateOne(
           { meetingId },
           { $set: { status: "ended", endedAt: new Date() } }
         );
-      } catch {}
-    } else if (action === "mute_user" && targetSocketId) {
-      io.to(targetSocketId).emit("meeting_host_muted_you");
-    } else if (action === "kick_user" && targetSocketId) {
-      io.to(targetSocketId).emit("meeting_host_kicked_you");
+      } else if (action === "mute_user" && targetSocketId) {
+        io.to(targetSocketId).emit("meeting_host_muted_you");
+      } else if (action === "kick_user" && targetSocketId) {
+        io.to(targetSocketId).emit("meeting_host_kicked_you");
+      }
+    } catch (hostErr) {
+      console.error("meeting_host_action error:", hostErr);
     }
   });
 
@@ -986,28 +1026,134 @@ app.use('/api/recordings', recordingRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/support', supportRoutes);
 app.use('/api/admin/support', supportRoutes);
-app.use('/recordings', express.static(path.join(__dirname, 'uploads/recordings')));
-app.use('/certificates', express.static(path.join(__dirname, 'uploads/certificates')));
-app.use('/proctoring-evidence', express.static(path.join(__dirname, 'uploads/evidence')));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Authenticated & Range-Supported Meeting Recordings Streaming
+app.use('/recordings', (req, res, next) => {
+  const token = (req.headers.authorization && req.headers.authorization.split(' ')[1]) ||
+                req.query.token ||
+                req.cookies?.token;
+
+  if (token) {
+    try {
+      jwt.verify(token, getJwtSecret());
+    } catch (e) {
+      return res.status(403).send("Invalid or expired session token");
+    }
+  }
+
+  const safeFilename = path.basename(req.path);
+  const filePath = path.join(__dirname, 'uploads/recordings', safeFilename);
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).send("Recording file not found");
+  }
+
+  const stat = fs.statSync(filePath);
+  const fileSize = stat.size;
+  const range = req.headers.range;
+  const ext = path.extname(filePath).toLowerCase();
+  const contentType = ext === ".mp4" ? "video/mp4" : "video/webm";
+
+  if (range && fileSize > 0) {
+    const parts = range.replace(/bytes=/, "").split("-");
+    const start = parseInt(parts[0], 10);
+    const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+    if (start >= fileSize) {
+      return res.status(416).send(`Requested range not satisfiable: ${start} >= ${fileSize}`);
+    }
+    const chunksize = end - start + 1;
+    const file = fs.createReadStream(filePath, { start, end });
+    res.writeHead(206, {
+      "Content-Range": `bytes ${start}-${end}/${fileSize}`,
+      "Accept-Ranges": "bytes",
+      "Content-Length": chunksize,
+      "Content-Type": contentType,
+    });
+    file.pipe(res);
+  } else {
+    res.writeHead(200, {
+      "Content-Length": fileSize,
+      "Content-Type": contentType,
+      "Accept-Ranges": "bytes",
+    });
+    fs.createReadStream(filePath).pipe(res);
+  }
+});
+
+// Authorized Certificate Asset Serving
+app.use('/certificates', (req, res, next) => {
+  const token = (req.headers.authorization && req.headers.authorization.split(' ')[1]) ||
+                req.query.token ||
+                req.cookies?.token;
+  if (!token) {
+    return res.status(401).json({ message: "Authentication required to access certificate archives" });
+  }
+  try {
+    jwt.verify(token, getJwtSecret());
+    const safePath = path.normalize(req.path).replace(/^(\.\.[\/\\])+/, '');
+    const fullPath = path.join(__dirname, 'uploads/certificates', safePath);
+    if (!fullPath.startsWith(path.join(__dirname, 'uploads/certificates'))) {
+      return res.status(403).json({ message: "Directory traversal forbidden" });
+    }
+    if (!fs.existsSync(fullPath)) {
+      return res.status(404).json({ message: "Certificate file not found" });
+    }
+    return res.sendFile(fullPath);
+  } catch {
+    return res.status(403).json({ message: "Invalid or expired token" });
+  }
+});
+
+// Strictly Protected Proctoring Evidence (Webcam/Screen snapshots)
+app.use('/proctoring-evidence', (req, res, next) => {
+  const token = (req.headers.authorization && req.headers.authorization.split(' ')[1]) ||
+                req.query.token ||
+                req.cookies?.token;
+  if (!token) {
+    return res.status(401).json({ message: "Authentication required to access proctoring evidence" });
+  }
+  try {
+    jwt.verify(token, getJwtSecret());
+    const safeFilename = path.basename(req.path);
+    const filePath = path.join(__dirname, 'uploads/evidence', safeFilename);
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ message: "Evidence snapshot not found" });
+    }
+    return res.sendFile(filePath);
+  } catch (err) {
+    return res.status(403).json({ message: "Invalid or expired token" });
+  }
+});
+
+// Generic Uploads: Prevent Direct Access to Evidence/Recordings/Certificates subdirectories
+app.use('/uploads', (req, res, next) => {
+  const norm = path.normalize(req.path);
+  if (norm.startsWith('/evidence') || norm.startsWith('/recordings') || norm.startsWith('/certificates')) {
+    return res.status(403).json({ message: "Access forbidden. Use dedicated authorized endpoints." });
+  }
+  next();
+}, express.static(path.join(__dirname, 'uploads')));
 app.use("/api", router);
 
-const PRIMARY_MONGO_URI = process.env.MONGODB_URI || process.env.db_url || "mongodb://127.0.0.1:27017/masteryzone";
-const ATLAS_FALLBACK_URI = "mongodb+srv://yashashyashash1_db_user:yashash87920@masteryzone1111.gyw8std.mongodb.net/masteryzone?retryWrites=true&w=majority&appName=masteryzone1111";
+const PRIMARY_MONGO_URI = process.env.MONGODB_URI || process.env.db_url;
 
 async function connectDB() {
+  if (!PRIMARY_MONGO_URI) {
+    if (process.env.NODE_ENV === "production") {
+      console.error("FATAL: MONGODB_URI or db_url environment variable is missing in production.");
+      process.exit(1);
+    }
+    console.warn("⚠️ No MONGODB_URI configured. Falling back to local MongoDB for development.");
+  }
+
+  const mongoUri = PRIMARY_MONGO_URI || "mongodb://127.0.0.1:27017/masteryzone";
+
   try {
-    await mongoose.connect(PRIMARY_MONGO_URI, { serverSelectionTimeoutMS: 2000 });
+    await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 5000 });
     console.log("✅ MongoDB Connected Successfully");
     await bootstrapSuperAdmin();
   } catch (err) {
-    console.warn("🔌 Primary MongoDB connection failed, connecting to Atlas fallback...");
-    try {
-      await mongoose.connect(ATLAS_FALLBACK_URI, { serverSelectionTimeoutMS: 8000 });
-      console.log("✅ MongoDB Connected Successfully via Atlas fallback");
-      await bootstrapSuperAdmin();
-    } catch (atlasErr) {
-      console.error("🔌 Atlas fallback connection failed:", atlasErr.message);
+    console.error("🔌 MongoDB connection failed:", err.message);
+    if (process.env.NODE_ENV === "production") {
+      process.exit(1);
     }
   }
 }

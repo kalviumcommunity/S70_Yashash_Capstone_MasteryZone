@@ -3170,7 +3170,8 @@ const AdminOtp = require("../models/AdminOtp");
 const {
   MAIN_ADMIN_EMAIL = "yashashyashash1@gmail.com",
 } = require("../middleware/adminAuth");
-const JWT_SECRET = process.env.JWT_SECRET || "supersecretkey";
+const { getJwtSecret } = require("../config/jwtConfig");
+const JWT_SECRET = getJwtSecret();
 const {
   sendMainAdminOtpEmail,
   sendNewAdminWelcomeEmail,
