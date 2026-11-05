@@ -63,6 +63,12 @@ function getSmtpConfig() {
   };
 }
 
+function getSenderAddress(department = 'Mastery Zone') {
+  const config = getSmtpConfig();
+  const senderEmail = config.email || 'notifications@masteryzone.com';
+  return `"${department}" <${senderEmail}>`;
+}
+
 /**
  * Detects whether an HTTPS transactional email provider is configured.
  * Cloud platforms (specifically Render Free Tier) completely block outbound
@@ -515,24 +521,29 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
       });
       return res;
     } catch (apiErr) {
-      const diag = diagnoseSmtpError(apiErr);
-      recordEmailLog({
-        recipient: to,
-        emailType,
-        subject: mailOptions.subject || '',
-        relatedUserId: userId,
-        relatedRecordId: recordId,
-        status: 'failed',
-        errorCode: diag.code,
-        errorMessage: diag.message,
-        attemptCount: 1,
-      });
-      return {
-        success: false,
-        status: 'failed',
-        errorCode: diag.code,
-        message: diag.message,
-      };
+      console.warn(`⚠️ [Mailer] HTTP provider (${httpProvider.type}) failed for "${to}": ${apiErr.message}`);
+      if (config.isConfigured) {
+        console.log(`ℹ️ [Mailer] Automatically falling back to primary SMTP transport (${config.host}:${config.port})...`);
+      } else {
+        const diag = diagnoseSmtpError(apiErr);
+        recordEmailLog({
+          recipient: to,
+          emailType,
+          subject: mailOptions.subject || '',
+          relatedUserId: userId,
+          relatedRecordId: recordId,
+          status: 'failed',
+          errorCode: diag.code,
+          errorMessage: diag.message,
+          attemptCount: 1,
+        });
+        return {
+          success: false,
+          status: 'failed',
+          errorCode: diag.code,
+          message: diag.message,
+        };
+      }
     }
   }
 
@@ -559,9 +570,12 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
     };
   }
 
+  const plainText = mailOptions.text || (mailOptions.html ? mailOptions.html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : '');
+
   const finalOptions = {
     ...mailOptions,
     from: mailOptions.from || config.from,
+    text: plainText,
   };
 
   const isTransient = (code) => {
@@ -1110,10 +1124,10 @@ function wrapHtmlEmail({ title, preheader, badgeText, badgeColor = '#4f46e5', ba
  */
 async function sendLoginNotification(user, req, isNewDevice = false) {
   try {
-    if (!user || !user.email) return;
+    if (!user || !user.email) return { success: false, status: 'rejected', errorCode: 'EENVELOPE', message: 'No recipient email provided' };
     if (isGuestAccount(user.email, user.role)) {
       console.log(`ℹ️ [Mailer] Guest login (${user.email}) — skipped external email delivery.`);
-      return;
+      return { success: true, status: 'skipped_guest' };
     }
     if (user.preferences && user.preferences.notifications === false && !isNewDevice) {
       console.log(`ℹ️ [Mailer] Login notification skipped per candidate preferences (${user.email}).`);
@@ -1567,7 +1581,8 @@ async function sendSubmissionEvaluationEmail({
   req = null,
 }) {
   try {
-    if (!userEmail) return { success: false, error: "No user email provided" };
+    if (!userEmail) return { success: false, status: 'rejected', errorCode: 'EENVELOPE', message: 'No user email provided' };
+    if (isGuestAccount(userEmail)) return { success: true, status: 'skipped_guest' };
 
     const resolvedTitle = assessmentTitle || challengeTitle;
     const isPassed = verdict === "ACCEPTED" || verdict === "PASSED" || verdict === "Passed" || Number(percentage || score) >= 70;
@@ -1913,6 +1928,8 @@ async function sendSupportTicketSubmittedEmail({
   req = null,
 }) {
   try {
+    if (!userEmail) return { success: false, status: 'rejected', errorCode: 'EENVELOPE', message: 'No recipient email provided' };
+    if (isGuestAccount(userEmail)) return { success: true, status: 'skipped_guest' };
     const clientUrl = getClientBaseUrl(req);
     const resolvedTicketUrl = ticketUrl || `${clientUrl}/help?ticket=${ticketId}`;
 
@@ -2007,6 +2024,8 @@ async function sendSupportTicketResponseEmail({
   req = null,
 }) {
   try {
+    if (!userEmail) return { success: false, status: 'rejected', errorCode: 'EENVELOPE', message: 'No recipient email provided' };
+    if (isGuestAccount(userEmail)) return { success: true, status: 'skipped_guest' };
     const isResolved = status === "Resolved";
     const statusColor = isResolved ? "#059669" : "#2563eb";
     const statusBg = isResolved ? "#ecfdf5" : "#eff6ff";
@@ -2110,8 +2129,8 @@ async function sendCertificateAwardedEmail({
   req = null,
 }) {
   try {
-    if (!candidateEmail) return { success: false, error: "No candidate email provided" };
-    if (isGuestAccount(candidateEmail)) return { success: true, isGuest: true };
+    if (!candidateEmail) return { success: false, status: 'rejected', errorCode: 'EENVELOPE', message: 'No candidate email provided' };
+    if (isGuestAccount(candidateEmail)) return { success: true, status: 'skipped_guest' };
 
     const clientUrl = getClientBaseUrl(req);
     const resolvedVerifyUrl = verificationUrl || `${clientUrl}/verify/${certificateId}`;
@@ -2304,4 +2323,6 @@ module.exports = {
   sendCertificateAwardedEmail,
   sendTestEmail,
   dispatchMailBackground,
+  isGuestAccount,
+  getSenderAddress,
 };

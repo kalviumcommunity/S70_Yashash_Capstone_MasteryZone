@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import Editor from "@monaco-editor/react";
 import {
   FiShield as ShieldCheck,
@@ -100,9 +100,12 @@ function GoldenLaurelEmblem({ variant = "pass" }) {
 export default function AssessmentReportPage() {
   const { sessionId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const [report, setReport] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // Instant 0ms load if report was passed directly via navigation state
+  const initialPassedReport = location.state?.report || location.state?.reportData || null;
+  const [report, setReport] = useState(initialPassedReport);
+  const [loading, setLoading] = useState(!initialPassedReport);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("analysis"); // 'analysis' | 'code_execution' | 'audit' | 'insights'
   const [copiedId, setCopiedId] = useState(false);
@@ -119,7 +122,7 @@ export default function AssessmentReportPage() {
   const [fullscreenCodeModal, setFullscreenCodeModal] = useState(null); // { title, code, language, filename }
 
   // Smooth animated counter progress (0 -> 1 on load)
-  const [animFactor, setAnimFactor] = useState(0);
+  const [animFactor, setAnimFactor] = useState(initialPassedReport ? 1 : 0);
 
   useEffect(() => {
     fetchImmutableReport();
@@ -163,392 +166,203 @@ export default function AssessmentReportPage() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [fullscreenCodeModal]);
 
+// Format locally persisted report record into standard rich report schema
+function formatLocalReport(matched, uObj, rawId) {
+  if (!matched) return null;
+  const isMcq = Boolean(
+    matched.type === "mcq_exam" ||
+    (Array.isArray(matched.reviewBreakdown) && matched.reviewBreakdown.length > 0) ||
+    String(rawId).startsWith("attempt_") ||
+    String(matched.sessionId).startsWith("attempt_")
+  );
+  const isProject = Boolean(
+    matched.type === "project_assessment" ||
+    matched.projectId ||
+    String(rawId).startsWith("proj_") ||
+    String(matched.sessionId).startsWith("proj_")
+  );
+
+  const totalQuestions = matched.totalQuestions || (Array.isArray(matched.reviewBreakdown) ? matched.reviewBreakdown.length : (matched.questions?.length || 1));
+  const questionsAttempted = matched.questionsAttempted !== undefined ? matched.questionsAttempted : totalQuestions;
+  const questionsUnanswered = matched.questionsUnanswered !== undefined ? matched.questionsUnanswered : Math.max(0, totalQuestions - questionsAttempted);
+  const totalMarks = matched.totalMarks || (isMcq ? totalQuestions : 100);
+  const marksObtained = matched.marksObtained !== undefined ? matched.marksObtained : (matched.score || 0);
+  const overallPercentage = matched.percentage !== undefined ? matched.percentage : (totalMarks > 0 ? Math.round((marksObtained / totalMarks) * 100) : 0);
+  const accuracy = matched.accuracy !== undefined ? matched.accuracy : overallPercentage;
+  const durationSeconds = matched.durationSeconds || matched.timeSpentSeconds || 60;
+  const grade = matched.grade || (overallPercentage >= 90 ? "A+" : overallPercentage >= 80 ? "A" : overallPercentage >= 70 ? "B" : overallPercentage >= 60 ? "C" : "F");
+  const passed = matched.passed !== undefined ? Boolean(matched.passed) : overallPercentage >= 80;
+
+  const candidateFullName = matched.candidateDetails?.fullName || uObj?.fullName || uObj?.username || uObj?.name || "Verified Candidate";
+  const candidateEmail = matched.candidateDetails?.email || uObj?.email || "candidate@masteryzone.com";
+  const candidateId = matched.candidateDetails?.candidateId || `CAND-${String(uObj?._id || uObj?.id || rawId).slice(-6).toUpperCase()}`;
+
+  return {
+    ...matched,
+    sessionId: matched.sessionId || rawId,
+    attemptId: matched.attemptId || matched.sessionId || rawId,
+    assessmentTitle: matched.assessmentTitle || matched.questionTitle || (isMcq ? "Accreditation MCQ Examination" : isProject ? "Project Assessment" : "Coding Assessment"),
+    isMcq,
+    isProjectReport: isProject,
+    subjectKey: matched.subjectKey || "coding",
+    trackId: matched.trackId,
+    moduleIndex: matched.moduleIndex,
+    candidateDetails: {
+      fullName: candidateFullName,
+      email: candidateEmail,
+      candidateId,
+      organization: matched.candidateDetails?.organization || "Mastery Zone Academic Accreditation",
+    },
+    scorecard: {
+      totalQuestions,
+      questionsAttempted,
+      questionsUnanswered,
+      totalMarks,
+      marksObtained,
+      overallPercentage,
+      accuracy,
+      totalTestCases: matched.totalTests || (isMcq ? totalQuestions : 10),
+      totalPassedTests: matched.passedTests !== undefined ? matched.passedTests : (isMcq ? marksObtained : 10),
+      failedTestCases: Math.max(0, (matched.totalTests || (isMcq ? totalQuestions : 10)) - (matched.passedTests !== undefined ? matched.passedTests : (isMcq ? marksObtained : 10))),
+      durationSeconds,
+      grade,
+      passed,
+      violationsCount: matched.violationsCount || 0,
+      telemetryAvailable: true,
+      integrityStatus: "Verified Flawless",
+    },
+    questions: matched.questions || (matched.submittedCode ? [
+      {
+        questionId: matched.questionId || "q_1",
+        title: matched.questionTitle || matched.assessmentTitle || "Technical Challenge",
+        difficulty: matched.difficulty || "Medium",
+        status: passed ? "passed" : "failed",
+        score: overallPercentage,
+        marksObtained,
+        totalMarks,
+        passedTests: matched.passedTests || 10,
+        totalTests: matched.totalTests || 10,
+        language: matched.language || "python",
+        submittedCode: matched.submittedCode || "",
+        testResults: matched.testResults || [],
+      }
+    ] : []),
+    reviewBreakdown: matched.reviewBreakdown || [],
+    performance: {
+      score: overallPercentage,
+      marksObtained,
+      totalMarks,
+      grade,
+      accuracy,
+      passedTests: matched.passedTests || 0,
+      totalTests: matched.totalTests || totalQuestions,
+      passed,
+    },
+    proctoringAudit: {
+      cameraGranted: true,
+      micGranted: true,
+      screenShareGranted: true,
+      chancesUsed: matched.violationsCount || 0,
+      maxChances: 5,
+      violationsCount: matched.violationsCount || 0,
+      events: matched.violationsLog || [],
+    },
+    status: "submitted",
+    submittedAt: matched.submittedAt || new Date().toISOString(),
+  };
+}
+
   const fetchImmutableReport = async () => {
     try {
-      setLoading(true);
+      if (!initialPassedReport && !report) {
+        setLoading(true);
+      }
       setError(null);
       const token = localStorage.getItem("Step2Dev_token") || localStorage.getItem("token");
       const rawId = (sessionId || "").trim();
       const isCertAttemptId = rawId.startsWith("cert_att_") || rawId.startsWith("cert_");
       const isAttemptId = rawId.startsWith("attempt_");
-      const isProjectSubId = rawId.startsWith("proj_sub_");
+      const isProjectSubId = rawId.startsWith("proj_sub_") || rawId.startsWith("proj_");
       const cleanId = isAttemptId ? rawId.replace("attempt_", "") : rawId;
-
-      let res = null;
-      let data = null;
 
       const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
 
-      // 0. Try Certification Attempt Report first if cert_att_ prefix or cert attempt
-      if (isCertAttemptId || rawId.startsWith("cert_")) {
-        try {
-          res = await fetch(`${API_BASE}/api/certifications/attempt/${rawId}/report`, {
-            headers: authHeaders,
-          });
-          data = await res.json().catch(() => ({}));
-        } catch {}
-      }
-
-      // 1. Try Project Submission report endpoint first if proj_sub_ prefix
-      if (isProjectSubId) {
-        res = await fetch(`${API_BASE}/api/projects/submissions/${rawId}/report`, {
-          headers: authHeaders,
-        });
-        data = await res.json().catch(() => ({}));
-      }
-
-      // 2. Try curriculum MCQ attempt endpoint if attempt_ prefix
-      if ((!res || !res.ok || !data?.report) && isAttemptId) {
-        res = await fetch(`${API_BASE}/api/curriculum/assessment-attempt/${cleanId}`, {
-          headers: authHeaders,
-        });
-        data = await res.json().catch(() => ({}));
-      }
-
-      // 3. Try proctored coding session report endpoint
-      if (!res || !res.ok || !data?.report) {
-        res = await fetch(`${API_BASE}/api/coding/proctored-session/${rawId}/report`, {
-          headers: authHeaders,
-        });
-        data = await res.json().catch(() => ({}));
-      }
-
-      // 4. Fallback to curriculum assessment attempt endpoint for raw ObjectId
-      if (!res || !res.ok || !data?.report) {
-        res = await fetch(`${API_BASE}/api/curriculum/assessment-attempt/${cleanId}`, {
-          headers: authHeaders,
-        });
-        data = await res.json().catch(() => ({}));
-      }
-
-      // 5. Fallback to project submission report endpoint
-      if (!res || !res.ok || !data?.report) {
-        res = await fetch(`${API_BASE}/api/projects/submissions/${cleanId}/report`, {
-          headers: authHeaders,
-        });
-        data = await res.json().catch(() => ({}));
-      }
-
-      // 6. Fallback to certification attempt report endpoint
-      if (!res || !res.ok || !data?.report) {
-        try {
-          res = await fetch(`${API_BASE}/api/certifications/attempt/${rawId}/report`, {
-            headers: authHeaders,
-          });
-          data = await res.json().catch(() => ({}));
-        } catch {}
-      }
-
-      // 7. Fallback to locally stored reports in case of offline/direct link
-      if (!res || !res.ok || !data?.report) {
-        try {
-          const rawUser = localStorage.getItem("user");
-          const uObj = rawUser ? JSON.parse(rawUser) : null;
-          const uId = uObj?._id || uObj?.id || uObj?.userId || "";
-          const reportsKey = uId ? `mz_${uId}_assessment_reports` : "mz_assessment_reports";
-          const localReports = JSON.parse(localStorage.getItem(reportsKey) || localStorage.getItem("mz_assessment_reports") || "[]");
-          const matched = localReports.find((r) => r.sessionId === rawId || r.sessionId === cleanId || r.id === rawId || r.id === cleanId);
-          if (matched) {
-            data = {
-              report: (matched.scorecard && (matched.reviewBreakdown || matched.questions))
-                ? {
-                    ...matched,
-                    sessionId: matched.sessionId || rawId,
-                    candidateDetails: matched.candidateDetails || {
-                      fullName: uObj?.fullName || uObj?.username || "Verified Candidate",
-                      email: uObj?.email || "candidate@masteryzone.com",
-                      candidateId: `CAND-${(uId || rawId).slice(-6).toUpperCase()}`,
-                      organization: "Mastery Zone Academic Accreditation",
-                    },
-                    scorecard: {
-                      ...matched.scorecard,
-                      marksObtained: matched.scorecard?.marksObtained !== undefined ? matched.scorecard.marksObtained : (matched.score || 0),
-                      overallPercentage: matched.scorecard?.overallPercentage !== undefined ? matched.scorecard.overallPercentage : (matched.percentage || 0),
-                    },
-                  }
-                : {
-                    sessionId: matched.sessionId || rawId,
-                    assessmentTitle: matched.assessmentTitle || matched.questionTitle || "Coding Assessment",
-                    candidateDetails: matched.candidateDetails || {
-                      fullName: uObj?.fullName || uObj?.username || "Verified Candidate",
-                      email: uObj?.email || "candidate@masteryzone.com",
-                      candidateId: `CAND-${(uId || rawId).slice(-6).toUpperCase()}`,
-                      organization: "Mastery Zone Academic Accreditation",
-                    },
-                    scorecard: {
-                      totalQuestions: matched.totalQuestions || 1,
-                      questionsAttempted: matched.questionsAttempted || 1,
-                      questionsUnanswered: matched.questionsUnanswered || 0,
-                      totalMarks: matched.totalMarks || 100,
-                      marksObtained: matched.marksObtained !== undefined ? matched.marksObtained : (matched.score || 0),
-                      overallPercentage: matched.percentage !== undefined ? matched.percentage : (matched.score || 0),
-                      accuracy: matched.accuracy || 100,
-                      totalTestCases: matched.totalTests || 10,
-                      totalPassedTests: matched.passedTests || 10,
-                      failedTestCases: Math.max(0, (matched.totalTests || 10) - (matched.passedTests || 10)),
-                      durationSeconds: matched.durationSeconds || 60,
-                      grade: matched.grade || "A+",
-                      passed: matched.passed !== false,
-                      telemetryAvailable: true,
-                      integrityStatus: "Verified Flawless",
-                    },
-                questions: [
-                  {
-                    questionId: matched.questionId || "q_1",
-                    title: matched.questionTitle || matched.assessmentTitle || "Algorithmic Challenge",
-                    difficulty: matched.difficulty || "Medium",
-                    status: matched.passed !== false ? "passed" : "failed",
-                    score: matched.score || 100,
-                    marksObtained: matched.score || 100,
-                    totalMarks: 100,
-                    passedTests: matched.passedTests || 10,
-                    totalTests: matched.totalTests || 10,
-                    language: matched.language || "python",
-                    submittedCode: matched.submittedCode || "# Evaluated algorithmic implementation",
-                    testResults: Array.from({ length: matched.totalTests || 10 }).map((_, i) => ({
-                      testIndex: i + 1,
-                      testNumber: i + 1,
-                      passed: i < (matched.passedTests || 10),
-                      input: `Test Case #${i + 1}`,
-                      expected: "Expected Output",
-                      actual: "[Passed]",
-                    })),
-                  },
-                ],
-                performance: {
-                  score: matched.score || 100,
-                  marksObtained: matched.score || 100,
-                  totalMarks: 100,
-                  grade: matched.grade || "A+",
-                  accuracy: matched.accuracy || 100,
-                  passedTests: matched.passedTests || 10,
-                  totalTests: matched.totalTests || 10,
-                  passed: matched.passed !== false,
-                },
-                proctoringAudit: {
-                  cameraGranted: true,
-                  micGranted: true,
-                  screenShareGranted: true,
-                  chancesUsed: 0,
-                  maxChances: 5,
-                  events: [],
-                },
-                status: "submitted",
-                submittedAt: matched.submittedAt || new Date().toISOString(),
-              },
-            };
-          }
-        } catch (localErr) {
-          console.warn("Could not load local report fallback:", localErr);
-        }
-      }
-
-      if (!data?.report) {
-        // Fallback: If sessionId has a proctored, attempt, or session format, construct a verified accredited report
-        const rawUser = localStorage.getItem("user");
-        let parsedUser = null;
-        try {
-          parsedUser = rawUser ? JSON.parse(rawUser) : null;
-        } catch {}
-        const uName = parsedUser?.fullName || parsedUser?.username || parsedUser?.name || "Verified Candidate";
-        const uEmail = parsedUser?.email || "candidate@masteryzone.com";
-        const uId = parsedUser?._id || parsedUser?.id || "GUEST";
-
-        data = {
-          report: {
-            sessionId: rawId,
-            attemptId: rawId,
-            assessmentTitle: "MZ-ASM Comprehensive Engineering Assessment",
-            candidateDetails: {
-              fullName: uName,
-              email: uEmail,
-              candidateId: `CAND-${String(uId || rawId).slice(-6).toUpperCase()}`,
-              organization: "Mastery Zone Academic Accreditation",
-            },
-            scorecard: {
-              totalQuestions: 10,
-              questionsAttempted: 10,
-              questionsUnanswered: 0,
-              totalMarks: 100,
-              marksObtained: 100,
-              overallPercentage: 100,
-              accuracy: 100,
-              totalTestCases: 10,
-              totalPassedTests: 10,
-              failedTestCases: 0,
-              durationSeconds: 120,
-              grade: "A+",
-              passed: true,
-              telemetryAvailable: true,
-              integrityStatus: "Verified Flawless",
-            },
-            questions: [
-              {
-                questionId: "q_algo_1",
-                title: "Algorithmic Implementation & Problem Solving",
-                difficulty: "Medium",
-                status: "passed",
-                score: 100,
-                marksObtained: 100,
-                totalMarks: 100,
-                passedTests: 10,
-                totalTests: 10,
-                language: "python",
-                submittedCode: "# Algorithmic Solution Evaluated and Verified\ndef solve():\n    return True\n",
-                testResults: Array.from({ length: 10 }).map((_, i) => ({
-                  testIndex: i + 1,
-                  testNumber: i + 1,
-                  passed: true,
-                  input: `Test Case #${i + 1}`,
-                  expected: "Expected Output",
-                  actual: "[Passed]",
-                  durationMs: 30,
-                  isHidden: i >= 3,
-                })),
-              },
-            ],
-            performance: {
-              score: 100,
-              marksObtained: 100,
-              totalMarks: 100,
-              grade: "A+",
-              accuracy: 100,
-              passedTests: 10,
-              totalTests: 10,
-              passed: true,
-            },
-            proctoringAudit: {
-              cameraGranted: true,
-              micGranted: true,
-              screenShareGranted: true,
-              chancesUsed: 0,
-              maxChances: 5,
-              events: [],
-            },
-            status: "submitted",
-            submittedAt: new Date().toISOString(),
-          },
-        };
-      }
-
-      let finalReport = data.report;
-      // Enrich with logged in user profile on this device if report candidate details are generic
-      try {
-        const storedUser = localStorage.getItem("user");
-        if (storedUser) {
-          const parsed = JSON.parse(storedUser);
-          const currentName = parsed.fullName || parsed.username || parsed.name;
-          const currentEmail = parsed.email;
-          const currentId = parsed._id || parsed.id;
-          if (finalReport && finalReport.candidateDetails) {
-            if (
-              !finalReport.candidateDetails.fullName ||
-              finalReport.candidateDetails.fullName === "Candidate" ||
-              finalReport.candidateDetails.fullName === "Verified Candidate"
-            ) {
-              if (currentName) finalReport.candidateDetails.fullName = currentName;
-            }
-            if (!finalReport.candidateDetails.email && currentEmail) {
-              finalReport.candidateDetails.email = currentEmail;
-            }
-            if (!finalReport.candidateDetails.candidateId && currentId) {
-              finalReport.candidateDetails.candidateId = `CAND-${currentId.toString().slice(-6).toUpperCase()}`;
-            }
-          }
-        }
-      } catch {}
-
-      setReport(finalReport);
-
-      // Expand first MCQ and first coding question by default so report looks rich immediately
-      const initialExpanded = { 0: true };
-      if (Array.isArray(finalReport?.reviewBreakdown) && finalReport.reviewBreakdown.length > 0) {
-        initialExpanded[finalReport.reviewBreakdown.length] = true;
-      }
-      setExpandedQuestions(initialExpanded);
-    } catch (err) {
-      console.warn("Report error caught, generating fallback report:", err);
+      // 1. Check local cache first for instant zero-latency report rendering
       const rawUser = localStorage.getItem("user");
-      let parsedUser = null;
+      let uObj = null;
+      let uId = "";
+      if (rawUser) {
+        try {
+          uObj = JSON.parse(rawUser);
+          uId = uObj?._id || uObj?.id || uObj?.userId || "";
+        } catch {}
+      }
+      const reportsKey = uId ? `mz_${uId}_assessment_reports` : "mz_assessment_reports";
+      const localReports = JSON.parse(localStorage.getItem(reportsKey) || localStorage.getItem("mz_assessment_reports") || "[]");
+      const matchedLocal = localReports.find(
+        (r) => r.sessionId === rawId || r.sessionId === cleanId || r.id === rawId || r.id === cleanId || r.attemptId === rawId || r.attemptId === cleanId
+      );
+
+      let foundReport = Boolean(initialPassedReport || report);
+      if (matchedLocal && !foundReport) {
+        const initialReport = (matchedLocal.scorecard && (matchedLocal.reviewBreakdown || matchedLocal.questions))
+          ? { ...matchedLocal }
+          : formatLocalReport(matchedLocal, uObj, rawId);
+        setReport(initialReport);
+        setLoading(false);
+        foundReport = true;
+      }
+
+      // 2. Direct targeted query without slow 7-step waterfall
+      let targetUrl = null;
+      if (isCertAttemptId || rawId.startsWith("cert_")) {
+        targetUrl = `${API_BASE}/api/certifications/attempt/${rawId}/report`;
+      } else if (isProjectSubId) {
+        targetUrl = `${API_BASE}/api/projects/submissions/${cleanId}/report`;
+      } else if (isAttemptId) {
+        targetUrl = `${API_BASE}/api/curriculum/assessment-attempt/${cleanId}`;
+      } else if (rawId.startsWith("mz_proc_") || rawId.startsWith("session_") || rawId.startsWith("psess_")) {
+        targetUrl = `${API_BASE}/api/coding/proctored-session/${rawId}/report`;
+      } else {
+        targetUrl = `${API_BASE}/api/curriculum/assessment-attempt/${cleanId}`;
+      }
+
+      let serverReport = null;
       try {
-        parsedUser = rawUser ? JSON.parse(rawUser) : null;
-      } catch {}
-      const rawId = (sessionId || "").trim();
-      setReport({
-        sessionId: rawId || "session_verified",
-        attemptId: rawId || "session_verified",
-        assessmentTitle: "MZ-ASM Comprehensive Engineering Assessment",
-        candidateDetails: {
-          fullName: parsedUser?.fullName || parsedUser?.username || "Verified Candidate",
-          email: parsedUser?.email || "candidate@masteryzone.com",
-          candidateId: `CAND-${String(parsedUser?._id || rawId || "MZ").slice(-6).toUpperCase()}`,
-          organization: "Mastery Zone Academic Accreditation",
-        },
-        scorecard: {
-          totalQuestions: 10,
-          questionsAttempted: 10,
-          questionsUnanswered: 0,
-          totalMarks: 100,
-          marksObtained: 100,
-          overallPercentage: 100,
-          accuracy: 100,
-          totalTestCases: 10,
-          totalPassedTests: 10,
-          failedTestCases: 0,
-          durationSeconds: 120,
-          grade: "A+",
-          passed: true,
-          telemetryAvailable: true,
-          integrityStatus: "Verified Flawless",
-        },
-        questions: [
-          {
-            questionId: "q_algo_1",
-            title: "Algorithmic Implementation & Problem Solving",
-            difficulty: "Medium",
-            status: "passed",
-            score: 100,
-            marksObtained: 100,
-            totalMarks: 100,
-            passedTests: 10,
-            totalTests: 10,
-            language: "python",
-            submittedCode: "# Algorithmic Solution Evaluated and Verified\ndef solve():\n    return True\n",
-            testResults: Array.from({ length: 10 }).map((_, i) => ({
-              testIndex: i + 1,
-              testNumber: i + 1,
-              passed: true,
-              input: `Test Case #${i + 1}`,
-              expected: "Expected Output",
-              actual: "[Passed]",
-              durationMs: 30,
-              isHidden: i >= 3,
-            })),
-          },
-        ],
-        performance: {
-          score: 100,
-          marksObtained: 100,
-          totalMarks: 100,
-          grade: "A+",
-          accuracy: 100,
-          passedTests: 10,
-          totalTests: 10,
-          passed: true,
-        },
-        proctoringAudit: {
-          cameraGranted: true,
-          micGranted: true,
-          screenShareGranted: true,
-          chancesUsed: 0,
-          maxChances: 5,
-          events: [],
-        },
-        status: "submitted",
-        submittedAt: new Date().toISOString(),
-      });
-      setError(null);
-    } finally {
+        const res = await fetch(targetUrl, { headers: authHeaders });
+        if (res.ok) {
+          const data = await res.json().catch(() => ({}));
+          if (data?.report) {
+            serverReport = data.report;
+          }
+        } else if (!isCertAttemptId && !isProjectSubId && !isAttemptId) {
+          const codingRes = await fetch(`${API_BASE}/api/coding/proctored-session/${rawId}/report`, { headers: authHeaders });
+          if (codingRes.ok) {
+            const codingData = await codingRes.json().catch(() => ({}));
+            if (codingData?.report) {
+              serverReport = codingData.report;
+            }
+          }
+        }
+      } catch (netErr) {
+        console.warn("Direct fetch note:", netErr.message);
+      }
+
+      if (serverReport) {
+        setReport(serverReport);
+        setLoading(false);
+        const initialExpanded = { 0: true };
+        if (Array.isArray(serverReport.reviewBreakdown) && serverReport.reviewBreakdown.length > 0) {
+          initialExpanded[serverReport.reviewBreakdown.length] = true;
+        }
+        setExpandedQuestions(initialExpanded);
+      } else if (!foundReport) {
+        setError("This assessment session does not exist or could not be found.");
+        setLoading(false);
+      }
+    } catch (err) {
+      console.warn("Report loading error:", err);
+      setError("Unable to load assessment report.");
       setLoading(false);
     }
   };
@@ -624,6 +438,43 @@ export default function AssessmentReportPage() {
     setTimeout(() => {
       window.print();
     }, 180);
+  };
+
+  const handleRetakeAssessment = () => {
+    const tId = report?.trackId || report?.category || "python";
+    const mIdx = report?.moduleIndex !== undefined ? report.moduleIndex : 0;
+    const subKey = report?.subjectKey || "coding";
+
+    const rawUser = localStorage.getItem("user");
+    let uId = "";
+    if (rawUser) {
+      try {
+        const u = JSON.parse(rawUser);
+        uId = u._id || u.id || u.userId || "";
+      } catch {}
+    }
+    const userSubmittedKey = uId ? `mz_${uId}_exam_${subKey}_${tId}_${mIdx}_submitted` : `mz_exam_${mIdx}_submitted`;
+    localStorage.removeItem(userSubmittedKey);
+    localStorage.removeItem(`${userSubmittedKey}_report_url`);
+    localStorage.removeItem(`mz_proc_draft_ans_${subKey}_${tId}_${mIdx}`);
+    localStorage.removeItem(`mz_proc_draft_ans_${tId}_${mIdx}`);
+    localStorage.removeItem(`mz_proc_draft_time_${subKey}_${tId}_${mIdx}`);
+    localStorage.removeItem(`mz_proc_draft_time_${tId}_${mIdx}`);
+    localStorage.removeItem(`mz_proc_draft_violations_${subKey}_${tId}_${mIdx}`);
+    localStorage.removeItem(`mz_proc_draft_violations_${tId}_${mIdx}`);
+    localStorage.removeItem(`mz_proc_order_${subKey}_${tId}_${mIdx}`);
+    localStorage.removeItem(`mz_proc_order_${tId}_${mIdx}`);
+    sessionStorage.removeItem("mz_proc_pending_refresh_violation");
+
+    if (report?.assessmentType === "certification" || sessionId?.startsWith("cert_")) {
+      navigate(`/coding?tab=certification&retake=true`);
+    } else if (report?.type === "project_assessment" || sessionId?.startsWith("proj_") || report?.projectId) {
+      navigate(`/coding?tab=projects&project=${report.projectId || ""}&retake=true`);
+    } else if (report?.questionId && !report?.questions?.length && report?.assessmentType !== "mcq" && report?.type !== "mcq_exam") {
+      navigate(`/coding/${report.questionId}`);
+    } else {
+      navigate(`/proctored-assessment/${tId}/${mIdx}?retake=true`);
+    }
   };
 
   // Normalize questions across Coding, Project, and MCQ reports
@@ -1181,6 +1032,14 @@ export default function AssessmentReportPage() {
           {/* RIGHT HERO CARD: Action Buttons + Circular Score Ring + Grade Stack */}
           <div className="mz-report-score-card">
             <div className="mz-score-card-top-actions">
+              <button
+                type="button"
+                className="mz-report-btn mz-report-btn-secondary"
+                onClick={handleRetakeAssessment}
+                title="Start a fresh assessment attempt"
+              >
+                <RefreshCw size={15} /> Retake Assessment
+              </button>
               <button
                 type="button"
                 className="mz-report-btn mz-report-btn-secondary"

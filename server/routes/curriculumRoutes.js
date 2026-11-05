@@ -10,7 +10,7 @@ const ProctoredCodingSession = require("../models/ProctoredCodingSession");
 const Progress = require("../models/ProgressSchema");
 const User = require("../models/User");
 const { pushNotification } = require("../utils/notificationService");
-const { sendSubmissionEvaluationEmail, dispatchMailBackground } = require("../utils/mailer");
+const { sendSubmissionEvaluationEmail, dispatchMailBackground, isGuestAccount } = require("../utils/mailer");
 const { spawn } = require("child_process");
 const fs = require("fs");
 const path = require("path");
@@ -1551,7 +1551,7 @@ router.post("/assessment/submit", authenticateToken, async (req, res) => {
 
     try {
       const candidateUser = await User.findById(userId).select("fullName username email role").lean();
-      if (candidateUser && candidateUser.email) {
+      if (candidateUser && candidateUser.email && !isGuestAccount(candidateUser.email, candidateUser.role)) {
         dispatchMailBackground(async () => {
           return await sendSubmissionEvaluationEmail({
             userEmail: candidateUser.email,

@@ -11,6 +11,8 @@ const { pushAdminNotification } = require("../utils/adminNotificationService");
 const {
   sendSupportTicketSubmittedEmail,
   sendSupportTicketResponseEmail,
+  dispatchMailBackground,
+  isGuestAccount,
 } = require("../utils/mailer");
 
 const router = express.Router();
@@ -93,6 +95,19 @@ router.post("/upload", authenticateToken, async (req, res) => {
   }
 });
 
+/**
+ * GET /api/support/attachments/:filename
+ * Securely stream support attachment files
+ */
+router.get("/attachments/:filename", (req, res) => {
+  const safeFilename = path.basename(req.params.filename);
+  const filePath = path.join(__dirname, "../uploads/support_attachments", safeFilename);
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ success: false, message: "Attachment not found" });
+  }
+  res.sendFile(filePath);
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 // USER SUPPORT ROUTES (AUTHENTICATED USER)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -162,16 +177,20 @@ router.post("/tickets", authenticateToken, async (req, res) => {
     const io = req.app.get("io");
 
     // Send confirmation email asynchronously
-    sendSupportTicketSubmittedEmail({
-      userEmail,
-      userName,
-      ticketId,
-      category,
-      subject,
-      description,
-      priority,
-      req,
-    }).catch((e) => console.warn("Ticket submission email warning:", e.message));
+    if (userEmail && !isGuestAccount(userEmail)) {
+      dispatchMailBackground(async () => {
+        return await sendSupportTicketSubmittedEmail({
+          userEmail,
+          userName,
+          ticketId,
+          category,
+          subject,
+          description,
+          priority,
+          req,
+        });
+      }, { type: "ticket_submitted", recipient: userEmail });
+    }
 
     // Send Admin event notification & broadcast
     pushAdminNotification({
@@ -437,17 +456,21 @@ router.put("/admin/tickets/:ticketId/status", verifyAdmin, async (req, res) => {
     }).catch(() => {});
 
     // Send email notification on status resolution or update
-    sendSupportTicketResponseEmail({
-      userEmail: ticket.userEmail,
-      userName: ticket.userName,
-      ticketId: ticket.ticketId,
-      category: ticket.category,
-      subject: ticket.subject,
-      adminResponse: `Status updated to ${status}. ${adminNotes ? `Admin Note: ${adminNotes}` : ""}`,
-      status,
-      respondedBy: req.user?.fullName || "MasteryZone Administrator",
-      req,
-    }).catch((e) => console.warn("Status change email warning:", e.message));
+    if (ticket.userEmail && !isGuestAccount(ticket.userEmail)) {
+      dispatchMailBackground(async () => {
+        return await sendSupportTicketResponseEmail({
+          userEmail: ticket.userEmail,
+          userName: ticket.userName,
+          ticketId: ticket.ticketId,
+          category: ticket.category,
+          subject: ticket.subject,
+          adminResponse: `Status updated to ${status}. ${adminNotes ? `Admin Note: ${adminNotes}` : ""}`,
+          status,
+          respondedBy: req.user?.fullName || "MasteryZone Administrator",
+          req,
+        });
+      }, { type: "ticket_response", recipient: ticket.userEmail });
+    }
 
     // Broadcast real-time update
     if (io) {
@@ -536,17 +559,21 @@ router.post("/admin/tickets/:ticketId/reply", verifyAdmin, async (req, res) => {
     }).catch(() => {});
 
     // Send personalized response email to user's registered email
-    sendSupportTicketResponseEmail({
-      userEmail: ticket.userEmail,
-      userName: ticket.userName,
-      ticketId: ticket.ticketId,
-      category: ticket.category,
-      subject: ticket.subject,
-      adminResponse: message.trim(),
-      status: newStatus,
-      respondedBy: adminName,
-      req,
-    }).catch((e) => console.warn("Admin response email warning:", e.message));
+    if (ticket.userEmail && !isGuestAccount(ticket.userEmail)) {
+      dispatchMailBackground(async () => {
+        return await sendSupportTicketResponseEmail({
+          userEmail: ticket.userEmail,
+          userName: ticket.userName,
+          ticketId: ticket.ticketId,
+          category: ticket.category,
+          subject: ticket.subject,
+          adminResponse: message.trim(),
+          status: newStatus,
+          respondedBy: adminName,
+          req,
+        });
+      }, { type: "ticket_response", recipient: ticket.userEmail });
+    }
 
     // Real-time broadcast
     if (io) {

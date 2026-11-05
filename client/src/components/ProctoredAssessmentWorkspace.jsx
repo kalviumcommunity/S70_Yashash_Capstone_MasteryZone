@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import AssessmentSecurityGate from "./AssessmentSecurityGate";
 import useNavigationLock from "../hooks/useNavigationLock";
@@ -44,12 +44,16 @@ export default function ProctoredAssessmentWorkspace({
 }) {
   const navigate = useNavigate();
   const { trackId: paramTrackId, moduleId: paramModuleId } = useParams();
+  const [searchParams] = useSearchParams();
+  const isRetakeQuery = searchParams.get("retake") === "true";
 
   const [module, setModule] = useState(propModule || null);
   const [loadingModule, setLoadingModule] = useState(!propModule);
 
   const tId = propTrackId || paramTrackId || module?.trackId || "python";
   const mIdx = module?.moduleIndex ?? (paramModuleId !== undefined ? parseInt(paramModuleId, 10) : 0);
+  const modKey = `${subjectKey}_${tId}_${mIdx}`;
+  const orderStorageKey = `mz_proc_order_${modKey}`;
 
   // Fetch module if standalone / not supplied via prop
   useEffect(() => {
@@ -74,20 +78,7 @@ export default function ProctoredAssessmentWorkspace({
       .finally(() => setLoadingModule(false));
   }, [propModule, tId, mIdx]);
 
-  // Clear any legacy submission lock so re-attempts are always ready for the user
-  useEffect(() => {
-    const rawUser = localStorage.getItem("user");
-    let uId = "";
-    if (rawUser) {
-      try {
-        const u = JSON.parse(rawUser);
-        uId = u._id || u.id || u.userId || "";
-      } catch {}
-    }
-    const userSubmittedKey = uId ? `mz_${uId}_exam_${subjectKey}_${tId}_${mIdx}_submitted` : `mz_exam_${mIdx}_submitted`;
-    localStorage.removeItem(userSubmittedKey);
-    localStorage.removeItem(`${userSubmittedKey}_report_url`);
-  }, [subjectKey, tId, mIdx]);
+
 
   // Assessment workflow stages: "gate", "active", "results"
   const [stage, setStage] = useState("gate");
@@ -158,8 +149,8 @@ export default function ProctoredAssessmentWorkspace({
 
   const sessionStorageKey = `mz_exam_session_${subjectKey}_${tId}_${mIdx}`;
 
-  // Shuffled questions preparation for every new attempt
-  const initShuffledQuestions = useCallback((sourceModule) => {
+  // Shuffled questions preparation for every new attempt, persisting order per attempt
+  const initShuffledQuestions = useCallback((sourceModule, forceNewShuffle = false) => {
     const rawQuestions =
       sourceModule?.assessment?.questions ||
       sourceModule?.questions ||
@@ -175,20 +166,105 @@ export default function ProctoredAssessmentWorkspace({
       originalIndex: typeof q.originalIndex === "number" ? q.originalIndex : idx,
       id: q.id || `q_${idx + 1}`,
     }));
-    // Fisher-Yates array shuffle for randomized question order on every attempt
+
+    if (!forceNewShuffle) {
+      try {
+        const savedOrderJson = localStorage.getItem(orderStorageKey);
+        if (savedOrderJson) {
+          const parsed = JSON.parse(savedOrderJson);
+          if (Array.isArray(parsed) && parsed.length === indexed.length) {
+            setQuestions(parsed);
+            return;
+          }
+        }
+      } catch {}
+    }
+
+    // Fisher-Yates array shuffle for randomized question order on every fresh attempt
     const shuffled = [...indexed];
     for (let i = shuffled.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
+    try {
+      localStorage.setItem(orderStorageKey, JSON.stringify(shuffled));
+    } catch {}
     setQuestions(shuffled);
-  }, []);
+  }, [orderStorageKey]);
+
+  // Reset attempt state, temporary test data, timer, answers and submission locks
+  const resetAttemptData = useCallback(
+    (forceShuffle = true) => {
+      try {
+        const rawUser = localStorage.getItem("user");
+        let uId = "";
+        if (rawUser) {
+          try {
+            const u = JSON.parse(rawUser);
+            uId = u._id || u.id || u.userId || "";
+          } catch {}
+        }
+        const userSubmittedKey = uId
+          ? `mz_${uId}_exam_${subjectKey}_${tId}_${mIdx}_submitted`
+          : `mz_exam_${mIdx}_submitted`;
+        localStorage.removeItem(userSubmittedKey);
+        localStorage.removeItem(`${userSubmittedKey}_report_url`);
+        localStorage.removeItem(`mz_proc_draft_ans_${modKey}`);
+        localStorage.removeItem(`mz_proc_draft_time_${modKey}`);
+        localStorage.removeItem(`mz_proc_draft_violations_${modKey}`);
+        sessionStorage.removeItem("mz_proc_pending_refresh_violation");
+        if (forceShuffle) {
+          localStorage.removeItem(orderStorageKey);
+        }
+      } catch {}
+
+      setAnswers({});
+      setMarkedForReview({});
+      setVisitedQuestions({ 0: true });
+      setCurrentQIndex(0);
+      setTimeRemaining(EXAM_DURATION_SECONDS);
+      setViolationsCount(0);
+      setViolationsLog([]);
+      setIsTerminated(false);
+      setIsViolationOverlayOpen(false);
+      setResultsData(null);
+      setIsSubmitting(false);
+      isSubmittedRef.current = false;
+      setStage("gate");
+
+      if (forceShuffle && module) {
+        initShuffledQuestions(module, true);
+      }
+    },
+    [subjectKey, tId, mIdx, modKey, orderStorageKey, module, initShuffledQuestions]
+  );
+
+  // Clear any legacy submission lock so re-attempts are always fresh for the candidate
+  useEffect(() => {
+    if (isRetakeQuery) {
+      resetAttemptData(true);
+    } else {
+      const rawUser = localStorage.getItem("user");
+      let uId = "";
+      if (rawUser) {
+        try {
+          const u = JSON.parse(rawUser);
+          uId = u._id || u.id || u.userId || "";
+        } catch {}
+      }
+      const userSubmittedKey = uId
+        ? `mz_${uId}_exam_${subjectKey}_${tId}_${mIdx}_submitted`
+        : `mz_exam_${mIdx}_submitted`;
+      localStorage.removeItem(userSubmittedKey);
+      localStorage.removeItem(`${userSubmittedKey}_report_url`);
+    }
+  }, [isRetakeQuery, resetAttemptData, subjectKey, tId, mIdx]);
 
   useEffect(() => {
     if (module) {
-      initShuffledQuestions(module);
+      initShuffledQuestions(module, isRetakeQuery);
     }
-  }, [module, initShuffledQuestions]);
+  }, [module, isRetakeQuery, initShuffledQuestions]);
 
   // Clean up all streams, audio contexts, and exit fullscreen immediately
   const cleanUpMediaStreams = useCallback(() => {
@@ -418,7 +494,6 @@ export default function ProctoredAssessmentWorkspace({
   useEffect(() => {
     if (stage === "active") {
       try {
-        const modKey = propModule?.id || module?.id || "mcq_proc";
         const savedAns = localStorage.getItem(`mz_proc_draft_ans_${modKey}`);
         if (savedAns) {
           try {
@@ -427,7 +502,7 @@ export default function ProctoredAssessmentWorkspace({
         }
         const savedTime = localStorage.getItem(`mz_proc_draft_time_${modKey}`);
         if (savedTime && !isNaN(Number(savedTime))) {
-          setSecondsLeft(Number(savedTime));
+          setTimeRemaining(Number(savedTime));
         }
         if (sessionStorage.getItem("mz_proc_pending_refresh_violation") === "true") {
           sessionStorage.removeItem("mz_proc_pending_refresh_violation");
@@ -440,7 +515,7 @@ export default function ProctoredAssessmentWorkspace({
         }
       } catch {}
     }
-  }, [stage, logViolation, propModule, module]);
+  }, [stage, logViolation, modKey]);
 
   // -------------------------------------------------------------
   // START ASSESSMENT (DIRECT FROM SECURITY GATE)
@@ -451,7 +526,7 @@ export default function ProctoredAssessmentWorkspace({
 
     try {
       if (token) {
-        await fetch(`${API_BASE}/api/curriculum/proctoring/start`, {
+        fetch(`${API_BASE}/api/curriculum/proctoring/start`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -471,7 +546,7 @@ export default function ProctoredAssessmentWorkspace({
       }
 
       setStage("active");
-      initShuffledQuestions(module);
+      initShuffledQuestions(module, false);
       setCurrentQIndex(0);
       setAnswers({});
       setMarkedForReview({});
@@ -666,10 +741,15 @@ export default function ProctoredAssessmentWorkspace({
         const updated = [newRecord, ...existing.filter((r) => r.sessionId !== resolvedSessionId && r.attemptId !== data.attemptId)];
         localStorage.setItem(reportsKey, JSON.stringify(updated.slice(0, 30)));
 
-        // Remove any old locks so user is completely free to re-attempt anytime
+        // Clean up current attempt temporary data and locks so retakes are 100% fresh
         const userSubmittedKey = uId ? `mz_${uId}_exam_${subjectKey}_${tId}_${mIdx}_submitted` : `mz_exam_${mIdx}_submitted`;
         localStorage.removeItem(userSubmittedKey);
         localStorage.removeItem(`${userSubmittedKey}_report_url`);
+        localStorage.removeItem(`mz_proc_draft_ans_${modKey}`);
+        localStorage.removeItem(`mz_proc_draft_time_${modKey}`);
+        localStorage.removeItem(`mz_proc_draft_violations_${modKey}`);
+        localStorage.removeItem(orderStorageKey);
+        sessionStorage.removeItem("mz_proc_pending_refresh_violation");
       } catch (e) {
         console.warn("Could not cache report locally:", e);
       }
@@ -693,7 +773,10 @@ export default function ProctoredAssessmentWorkspace({
 
       // Directly show the report page instantly
       const targetReportUrl = `/assessment-report/${resolvedSessionId}`;
-      navigate(targetReportUrl, { replace: true });
+      navigate(targetReportUrl, {
+        replace: true,
+        state: { report: data.report || newRecord, reportData: data.report || newRecord },
+      });
       return;
 
       if (data.passed) {
@@ -1387,17 +1470,7 @@ export default function ProctoredAssessmentWorkspace({
                   <button
                     type="button"
                     className="mz-exam-nav-btn"
-                    onClick={() => {
-                      initShuffledQuestions(module);
-                      setCurrentQIndex(0);
-                      setStage("gate");
-                      setAnswers({});
-                      setMarkedForReview({});
-                      setResultsData(null);
-                      setViolationsCount(0);
-                      setViolationsLog([]);
-                      setTimeRemaining(EXAM_DURATION_SECONDS);
-                    }}
+                    onClick={() => resetAttemptData(true)}
                   >
                     <LuRotateCcw size={16} /> Retake Assessment
                   </button>

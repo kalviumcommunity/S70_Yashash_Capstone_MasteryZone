@@ -1015,6 +1015,7 @@ export default function MasteryZoneCompilerWorkspace({
   const [isFullscreenActive, setIsFullscreenActive] = useState(() => !!document.fullscreenElement);
   const [isRefreshConfirmOpen, setIsRefreshConfirmOpen] = useState(false);
   const isSubmittedRef = useRef(false);
+  const isSubmittingRef = useRef(false);
   const logProctoringAnomalyRef = useRef(null);
   const logProctoringAnomaly = useCallback((...args) => {
     if (typeof logProctoringAnomalyRef.current === "function") {
@@ -2474,6 +2475,8 @@ export default function MasteryZoneCompilerWorkspace({
 
   // Final submission execution (called from Confirmation Modal)
   const executeSubmit = async () => {
+    if (isSubmittingRef.current || isSubmitting) return;
+    isSubmittingRef.current = true;
     // 1. Mark submitted immediately to block anomaly triggers
     isSubmittedRef.current = true;
     setIsSubmittedReadOnly(true);
@@ -2687,17 +2690,6 @@ export default function MasteryZoneCompilerWorkspace({
         console.warn("Could not save report to localStorage:", e);
       }
 
-      toast.dismiss();
-      if (!isEmbedded) {
-        if (finalPassed === totalTestsCount) {
-          toast.success(`🎉 Perfect Score! All test cases passed (100%). Assignment Accepted and Graded!`, { toastId: "mz-submit-result", position: "top-right", autoClose: 2000 });
-        } else if (isAccepted) {
-          toast.success(`🎉 Submission Accepted! Score: ${calculatedScore}%.`, { toastId: "mz-submit-result", position: "top-right", autoClose: 2000 });
-        } else {
-          toast.error(`Submission Evaluated: ${finalPassed}/${totalTestsCount} tests passed. Pass mark is 80%.`, { toastId: "mz-submit-result", position: "top-right", autoClose: 2000 });
-        }
-      }
-
       // Record permanently in ProctoredCodingSession database
       if (sid) {
         try {
@@ -2758,16 +2750,40 @@ export default function MasteryZoneCompilerWorkspace({
               sessionStorage.removeItem("mz_active_proctored_session");
             } catch {}
             const reportTarget = pData.reportUrl || `/assessment-report/${sid}`;
+            const targetReport = pData.report || reportItem;
             toast.dismiss();
-            toast.success("Assessment Graded! Opening your official report card...", {
-              toastId: "mz-compiler-graded",
-              autoClose: 1800,
+            toast.success(
+              finalPassed === totalTestsCount
+                ? "🎉 Perfect Score! All test cases passed (100%). Opening report card..."
+                : isAccepted
+                ? `🎉 Submission Accepted! Score: ${calculatedScore}%. Opening report card...`
+                : `Submission Evaluated (${finalPassed}/${totalTestsCount} passed). Opening report card...`,
+              {
+                toastId: "mz-submit-result",
+                position: "top-right",
+                autoClose: 1800,
+              }
+            );
+            navigate(reportTarget, {
+              replace: true,
+              state: { report: targetReport, reportData: targetReport },
             });
-            navigate(reportTarget, { replace: true });
             return;
           }
         } catch (err) {
           console.error("Proctoring submit sync note:", err);
+        }
+      }
+
+      // Standalone practice / non-redirecting submission: show single confirmation toast
+      toast.dismiss();
+      if (!isEmbedded) {
+        if (finalPassed === totalTestsCount) {
+          toast.success(`🎉 Perfect Score! All test cases passed (100%). Assignment Accepted and Graded!`, { toastId: "mz-submit-result", position: "top-right", autoClose: 2000 });
+        } else if (isAccepted) {
+          toast.success(`🎉 Submission Accepted! Score: ${calculatedScore}%.`, { toastId: "mz-submit-result", position: "top-right", autoClose: 2000 });
+        } else {
+          toast.error(`Submission Evaluated: ${finalPassed}/${totalTestsCount} tests passed. Pass mark is 80%.`, { toastId: "mz-submit-result", position: "top-right", autoClose: 2000 });
         }
       }
 
@@ -2791,6 +2807,7 @@ export default function MasteryZoneCompilerWorkspace({
     } catch (err) {
       toast.error(`Submission failed: ${err.message}`);
     } finally {
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
   };

@@ -59,6 +59,15 @@ const isImageAttachment = (att) => {
   );
 };
 
+const getAttachmentUrl = (fileUrl) => {
+  if (!fileUrl) return "";
+  if (fileUrl.startsWith("data:") || fileUrl.startsWith("blob:") || fileUrl.startsWith("http://") || fileUrl.startsWith("https://")) {
+    return fileUrl;
+  }
+  const clean = fileUrl.startsWith("/") ? fileUrl : `/${fileUrl}`;
+  return `${API_BASE}${clean}`;
+};
+
 const CATEGORIES = [
   "All Categories",
   "Login and Authentication",
@@ -439,11 +448,12 @@ const AdminHelpSupport = () => {
       <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 10 }}>
         {attachments.map((att, idx) => {
           const isImg = isImageAttachment(att);
+          const attUrl = getAttachmentUrl(att.previewUrl || att.fileUrl);
           if (isImg) {
             return (
               <div
                 key={att._id || idx}
-                onClick={() => setLightboxAttachment(att)}
+                onClick={() => setLightboxAttachment({ ...att, fileUrl: attUrl })}
                 style={{
                   position: "relative",
                   cursor: "pointer",
@@ -461,9 +471,15 @@ const AdminHelpSupport = () => {
                 title="Click to inspect high-resolution evidence"
               >
                 <img
-                  src={att.fileUrl}
+                  src={attUrl}
                   alt={att.originalName}
                   style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  onError={(e) => {
+                    const fname = att.fileName || (att.fileUrl ? att.fileUrl.split("/").pop() : "");
+                    if (fname && !e.currentTarget.src.includes(`/api/support/attachments/${fname}`)) {
+                      e.currentTarget.src = `${API_BASE}/api/support/attachments/${fname}`;
+                    }
+                  }}
                 />
                 <div
                   style={{
@@ -488,7 +504,7 @@ const AdminHelpSupport = () => {
           return (
             <a
               key={att._id || idx}
-              href={att.fileUrl}
+              href={attUrl}
               target="_blank"
               rel="noreferrer"
               download={att.originalName}
@@ -1510,7 +1526,7 @@ const AdminHelpSupport = () => {
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <a
-                  href={lightboxAttachment.fileUrl}
+                  href={getAttachmentUrl(lightboxAttachment.fileUrl)}
                   download={lightboxAttachment.originalName || "attachment"}
                   target="_blank"
                   rel="noreferrer"
@@ -1552,7 +1568,7 @@ const AdminHelpSupport = () => {
 
             {/* Main Preview Image */}
             <img
-              src={lightboxAttachment.fileUrl}
+              src={getAttachmentUrl(lightboxAttachment.fileUrl)}
               alt={lightboxAttachment.originalName || "Attachment"}
               style={{
                 maxWidth: "100%",
@@ -1561,6 +1577,12 @@ const AdminHelpSupport = () => {
                 borderRadius: 12,
                 boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
                 border: "1px solid rgba(255, 255, 255, 0.15)",
+              }}
+              onError={(e) => {
+                const fname = lightboxAttachment.fileName || (lightboxAttachment.fileUrl ? lightboxAttachment.fileUrl.split("/").pop() : "");
+                if (fname && !e.currentTarget.src.includes(`/api/support/attachments/${fname}`)) {
+                  e.currentTarget.src = `${API_BASE}/api/support/attachments/${fname}`;
+                }
               }}
             />
           </div>

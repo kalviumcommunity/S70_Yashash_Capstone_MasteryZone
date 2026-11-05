@@ -11,6 +11,8 @@ const {
   sendPasswordResetEmail,
   sendPasswordResetSuccessEmail,
   parseDeviceAndBrowser,
+  dispatchMailBackground,
+  isGuestAccount,
 } = require('../utils/mailer');
 const { pushNotification } = require('../utils/notificationService');
 const { pushAdminNotification } = require('../utils/adminNotificationService');
@@ -89,9 +91,11 @@ router.post(['/signup', '/register'], async (req, res) => {
     const newUser = await User.create({ ...userData, notificationsInitialized: true });
 
     // Send real-time welcome email notification to the newly registered account
-    sendSignupNotification(newUser, req).catch((mailErr) => {
-      console.warn("⚠️ [Auth Mailer] Signup notification warning:", mailErr.message);
-    });
+    if (!isGuestAccount(newUser.email, newUser.role)) {
+      dispatchMailBackground(async () => {
+        return await sendSignupNotification(newUser, req);
+      }, { type: 'signup_welcome', recipient: newUser.email });
+    }
 
     await pushNotification(req.app, {
       userId: newUser._id,
@@ -172,9 +176,11 @@ router.post('/login', async (req, res) => {
     const now = new Date();
 
     // Send login notification immediately to user's registered email on every login
-    sendLoginNotification(user, req, isNewDevice).catch((mailErr) => {
-      console.warn("Mailer notification warning:", mailErr.message);
-    });
+    if (!isGuestAccount(user.email, user.role)) {
+      dispatchMailBackground(async () => {
+        return await sendLoginNotification(user, req, isNewDevice);
+      }, { type: 'login_notification', recipient: user.email });
+    }
     user.lastLoginNotificationSentAt = now;
 
     // In-app real-time notification
@@ -375,9 +381,11 @@ router.post(['/reset-password', '/reset-password/:token'], async (req, res) => {
     await user.save();
 
     // Immediately dispatch password reset confirmation email
-    sendPasswordResetSuccessEmail(user, req).catch((err) => {
-      console.warn('[Auth Mailer] Confirmation email warning:', err.message);
-    });
+    if (!isGuestAccount(user.email, user.role)) {
+      dispatchMailBackground(async () => {
+        return await sendPasswordResetSuccessEmail(user, req);
+      }, { type: 'password_reset_success', recipient: user.email });
+    }
 
     // In-app notification
     pushNotification(req.app, {
@@ -422,9 +430,11 @@ router.put('/change-password', verifyToken, async (req, res) => {
     await user.save();
 
     // Dispatch confirmation email
-    sendPasswordResetSuccessEmail(user, req).catch((err) => {
-      console.warn('[Auth Mailer] Password change email warning:', err.message);
-    });
+    if (!isGuestAccount(user.email, user.role)) {
+      dispatchMailBackground(async () => {
+        return await sendPasswordResetSuccessEmail(user, req);
+      }, { type: 'password_reset_success', recipient: user.email });
+    }
 
     // In-app notification
     pushNotification(req.app, {
@@ -492,9 +502,11 @@ router.post('/firebase-login', verifyFirebaseToken, async (req, res) => {
       });
 
       // Dispatch welcome email notification for new account
-      sendSignupNotification(user, req).catch((mailErr) => {
-        console.warn("Firebase signup mailer warning:", mailErr.message);
-      });
+      if (!isGuestAccount(user.email, user.role)) {
+        dispatchMailBackground(async () => {
+          return await sendSignupNotification(user, req);
+        }, { type: 'signup_welcome', recipient: user.email });
+      }
     }
 
     // ── Device & Telemetry Detection ──
@@ -506,9 +518,11 @@ router.post('/firebase-login', verifyFirebaseToken, async (req, res) => {
     const now = new Date();
 
     // Send login notification immediately on every login
-    sendLoginNotification(user, req, isNewDevice).catch((mailErr) => {
-      console.warn("Firebase login mailer warning:", mailErr.message);
-    });
+    if (!isGuestAccount(user.email, user.role)) {
+      dispatchMailBackground(async () => {
+        return await sendLoginNotification(user, req, isNewDevice);
+      }, { type: 'login_notification', recipient: user.email });
+    }
     user.lastLoginNotificationSentAt = now;
 
     // In-app real-time notification

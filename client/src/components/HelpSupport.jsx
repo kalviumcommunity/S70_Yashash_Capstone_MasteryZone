@@ -65,6 +65,15 @@ const isImageAttachment = (att) => {
   );
 };
 
+const getAttachmentUrl = (fileUrl) => {
+  if (!fileUrl) return "";
+  if (fileUrl.startsWith("data:") || fileUrl.startsWith("blob:") || fileUrl.startsWith("http://") || fileUrl.startsWith("https://")) {
+    return fileUrl;
+  }
+  const clean = fileUrl.startsWith("/") ? fileUrl : `/${fileUrl}`;
+  return `${API_BASE}${clean}`;
+};
+
 const CATEGORIES = [
   {
     id: "Login and Authentication",
@@ -181,6 +190,7 @@ const HelpSupport = () => {
 
   // Image Lightbox Viewer
   const [lightboxAttachment, setLightboxAttachment] = useState(null);
+  const isSubmittingRef = useRef(false);
 
   const user = (() => {
     try {
@@ -192,6 +202,7 @@ const HelpSupport = () => {
 
   // Upload helper using base64 payload to ensure 100% native stability
   const uploadAttachmentFile = async (file) => {
+    const previewBlobUrl = file.type && file.type.startsWith("image/") ? URL.createObjectURL(file) : null;
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = async () => {
@@ -212,7 +223,10 @@ const HelpSupport = () => {
           });
           const data = await res.json();
           if (res.ok && data.success && data.attachment) {
-            resolve(data.attachment);
+            resolve({
+              ...data.attachment,
+              previewUrl: previewBlobUrl || data.attachment.fileUrl,
+            });
           } else {
             reject(new Error(data.message || "Upload failed"));
           }
@@ -234,7 +248,7 @@ const HelpSupport = () => {
     try {
       for (const file of fileList) {
         if (file.size > 15 * 1024 * 1024) {
-          toast.error(`File "${file.name}" exceeds 15MB limit.`);
+          toast.error(`File "${file.name}" exceeds 15MB limit.`, { toastId: `err-size-${file.name}` });
           continue;
         }
         const uploaded = await uploadAttachmentFile(file);
@@ -243,11 +257,11 @@ const HelpSupport = () => {
         } else {
           setReplyAttachments((prev) => [...prev, uploaded]);
         }
-        toast.success(`Attached: ${file.name}`);
+        toast.success(`Attached: ${file.name}`, { toastId: `att-${file.name}`, autoClose: 2000 });
       }
     } catch (err) {
       console.error("Upload error:", err);
-      toast.error(err.message || "Failed to upload attachment");
+      toast.error(err.message || "Failed to upload attachment", { toastId: "upload-error" });
     } finally {
       if (target === "new") setUploadingNew(false);
       else setUploadingReply(false);
@@ -387,15 +401,18 @@ const HelpSupport = () => {
 
   const handleSubmitTicket = async (e) => {
     e.preventDefault();
+    if (isSubmittingRef.current || submitting) return;
+
     if (!subject.trim()) {
-      toast.error("Please enter a brief subject for your issue.");
+      toast.error("Please enter a brief subject for your issue.", { toastId: "err-sub" });
       return;
     }
     if (!description.trim()) {
-      toast.error("Please provide a detailed problem description.");
+      toast.error("Please provide a detailed problem description.", { toastId: "err-desc" });
       return;
     }
 
+    isSubmittingRef.current = true;
     setSubmitting(true);
     try {
       const token = localStorage.getItem("token");
@@ -410,28 +427,39 @@ const HelpSupport = () => {
           subject: subject.trim(),
           description: description.trim(),
           priority,
-          attachments: newAttachments,
+          attachments: newAttachments.map((a) => ({
+            fileName: a.fileName,
+            originalName: a.originalName,
+            fileUrl: a.fileUrl,
+            mimeType: a.mimeType,
+            fileSize: a.fileSize,
+          })),
         }),
       });
 
       const data = await res.json();
       if (res.ok && data.success) {
-        toast.success(`🎉 Ticket ${data.ticket.ticketId} submitted! Confirmation email sent.`);
+        toast.dismiss();
+        toast.success(`🎉 Ticket ${data.ticket.ticketId} submitted! Confirmation email sent.`, {
+          toastId: "ticket_submit_success",
+          autoClose: 3500,
+        });
         setSubject("");
         setDescription("");
         setPriority("Medium");
         setNewAttachments([]);
-        setMyTickets((prev) => [data.ticket, ...prev]);
+        setMyTickets((prev) => [data.ticket, ...prev.filter((t) => t.ticketId !== data.ticket.ticketId)]);
         setActiveTicket(data.ticket);
         setActiveTab("tickets");
         setSearchParams({ ticket: data.ticket.ticketId });
       } else {
-        toast.error(data.message || "Failed to submit support ticket.");
+        toast.error(data.message || "Failed to submit support ticket.", { toastId: "ticket_submit_error" });
       }
     } catch (err) {
       console.error("Submit ticket error:", err);
-      toast.error("Network error while submitting ticket.");
+      toast.error("Network error while submitting ticket.", { toastId: "ticket_submit_net_error" });
     } finally {
+      isSubmittingRef.current = false;
       setSubmitting(false);
     }
   };
@@ -533,11 +561,12 @@ const HelpSupport = () => {
       <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 10 }}>
         {attachments.map((att, idx) => {
           const isImg = isImageAttachment(att);
+          const attUrl = getAttachmentUrl(att.previewUrl || att.fileUrl);
           if (isImg) {
             return (
               <div
                 key={att._id || idx}
-                onClick={() => setLightboxAttachment(att)}
+                onClick={() => setLightboxAttachment({ ...att, fileUrl: attUrl })}
                 style={{
                   position: "relative",
                   cursor: "pointer",
@@ -555,9 +584,15 @@ const HelpSupport = () => {
                 title="Click to inspect high-resolution image"
               >
                 <img
-                  src={att.fileUrl}
+                  src={attUrl}
                   alt={att.originalName}
                   style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  onError={(e) => {
+                    const fname = att.fileName || (att.fileUrl ? att.fileUrl.split("/").pop() : "");
+                    if (fname && !e.currentTarget.src.includes(`/api/support/attachments/${fname}`)) {
+                      e.currentTarget.src = `${API_BASE}/api/support/attachments/${fname}`;
+                    }
+                  }}
                 />
                 <div
                   style={{
@@ -582,7 +617,7 @@ const HelpSupport = () => {
           return (
             <a
               key={att._id || idx}
-              href={att.fileUrl}
+              href={attUrl}
               target="_blank"
               rel="noreferrer"
               download={att.originalName}
@@ -1080,45 +1115,108 @@ const HelpSupport = () => {
             {/* Reply Input Box with File Attachment capability */}
             <div style={{ background: "#ffffff", borderTop: "1px solid #e2e8f0" }}>
               {replyAttachments.length > 0 && (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: "12px 20px 0" }}>
-                  {replyAttachments.map((att, idx) => (
-                    <div
-                      key={att.fileName || idx}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 6,
-                        padding: "4px 10px",
-                        background: "#eff6ff",
-                        border: "1px solid #bfdbfe",
-                        borderRadius: 6,
-                        fontSize: 12,
-                        color: "#1e40af",
-                        fontWeight: 600,
-                      }}
-                    >
-                      {isImageAttachment(att) ? <LuImage size={13} /> : <LuFileText size={13} />}
-                      <span style={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {att.originalName}
-                      </span>
-                      <span style={{ fontSize: 10.5, opacity: 0.75 }}>({formatFileSize(att.fileSize)})</span>
-                      <button
-                        type="button"
-                        onClick={() => setReplyAttachments((prev) => prev.filter((_, i) => i !== idx))}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 10, padding: "12px 20px 0" }}>
+                  {replyAttachments.map((att, idx) => {
+                    const isImg = isImageAttachment(att);
+                    const displayUrl = getAttachmentUrl(att.previewUrl || att.fileUrl);
+                    if (isImg) {
+                      return (
+                        <div
+                          key={att.fileName || idx}
+                          style={{
+                            position: "relative",
+                            width: 80,
+                            height: 60,
+                            borderRadius: 6,
+                            overflow: "hidden",
+                            border: "1px solid #bfdbfe",
+                            background: "#eff6ff",
+                            boxShadow: "0 2px 4px rgba(0,0,0,0.06)",
+                            cursor: "pointer",
+                          }}
+                          onClick={() => setLightboxAttachment({ ...att, fileUrl: displayUrl })}
+                          title="Click to view full image"
+                        >
+                          <img
+                            src={displayUrl}
+                            alt={att.originalName}
+                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                            onError={(e) => {
+                              const fname = att.fileName || (att.fileUrl ? att.fileUrl.split("/").pop() : "");
+                              if (fname && !e.currentTarget.src.includes(`/api/support/attachments/${fname}`)) {
+                                e.currentTarget.src = `${API_BASE}/api/support/attachments/${fname}`;
+                              }
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setReplyAttachments((prev) => prev.filter((_, i) => i !== idx));
+                            }}
+                            style={{
+                              position: "absolute",
+                              top: 2,
+                              right: 2,
+                              width: 18,
+                              height: 18,
+                              borderRadius: "50%",
+                              background: "rgba(220, 38, 38, 0.9)",
+                              border: "none",
+                              color: "#ffffff",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              cursor: "pointer",
+                              padding: 0,
+                              zIndex: 2,
+                            }}
+                            title="Remove attachment"
+                          >
+                            <LuX size={12} />
+                          </button>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div
+                        key={att.fileName || idx}
                         style={{
-                          background: "none",
-                          border: "none",
-                          color: "#ef4444",
-                          cursor: "pointer",
-                          padding: 0,
                           display: "flex",
                           alignItems: "center",
+                          gap: 6,
+                          padding: "4px 10px",
+                          background: "#eff6ff",
+                          border: "1px solid #bfdbfe",
+                          borderRadius: 6,
+                          fontSize: 12,
+                          color: "#1e40af",
+                          fontWeight: 600,
                         }}
                       >
-                        <LuX size={14} />
-                      </button>
-                    </div>
-                  ))}
+                        <LuFileText size={13} />
+                        <span style={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {att.originalName}
+                        </span>
+                        <span style={{ fontSize: 10.5, opacity: 0.75 }}>({formatFileSize(att.fileSize)})</span>
+                        <button
+                          type="button"
+                          onClick={() => setReplyAttachments((prev) => prev.filter((_, i) => i !== idx))}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "#ef4444",
+                            cursor: "pointer",
+                            padding: 0,
+                            display: "flex",
+                            alignItems: "center",
+                          }}
+                        >
+                          <LuX size={14} />
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 
@@ -1718,48 +1816,128 @@ const HelpSupport = () => {
                     </div>
                   </div>
 
-                  {/* Attached Files Chips */}
+                  {/* Attached Files Visual Previews & Chips */}
                   {newAttachments.length > 0 && (
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 12 }}>
-                      {newAttachments.map((att, idx) => (
-                        <div
-                          key={att.fileName || idx}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 8,
-                            padding: "6px 12px",
-                            background: "#eff6ff",
-                            border: "1px solid #bfdbfe",
-                            borderRadius: 8,
-                            fontSize: 12.5,
-                            fontWeight: 600,
-                            color: "#1e40af",
-                          }}
-                        >
-                          {isImageAttachment(att) ? <LuImage size={16} /> : <LuFileText size={16} />}
-                          <span style={{ maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {att.originalName}
-                          </span>
-                          <span style={{ fontSize: 11, opacity: 0.75 }}>({formatFileSize(att.fileSize)})</span>
-                          <button
-                            type="button"
-                            onClick={() => setNewAttachments((prev) => prev.filter((_, i) => i !== idx))}
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 14 }}>
+                      {newAttachments.map((att, idx) => {
+                        const isImg = isImageAttachment(att);
+                        const displayUrl = getAttachmentUrl(att.previewUrl || att.fileUrl);
+                        if (isImg) {
+                          return (
+                            <div
+                              key={att.fileName || idx}
+                              style={{
+                                position: "relative",
+                                width: 110,
+                                height: 85,
+                                borderRadius: 8,
+                                overflow: "hidden",
+                                border: "1px solid #bfdbfe",
+                                background: "#eff6ff",
+                                boxShadow: "0 2px 6px rgba(0,0,0,0.06)",
+                                cursor: "pointer",
+                              }}
+                              onClick={() => setLightboxAttachment({ ...att, fileUrl: displayUrl })}
+                              title="Click to zoom image preview"
+                            >
+                              <img
+                                src={displayUrl}
+                                alt={att.originalName}
+                                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                onError={(e) => {
+                                  const fname = att.fileName || (att.fileUrl ? att.fileUrl.split("/").pop() : "");
+                                  if (fname && !e.currentTarget.src.includes(`/api/support/attachments/${fname}`)) {
+                                    e.currentTarget.src = `${API_BASE}/api/support/attachments/${fname}`;
+                                  }
+                                }}
+                              />
+                              <div
+                                style={{
+                                  position: "absolute",
+                                  inset: 0,
+                                  background: "rgba(0,0,0,0.35)",
+                                  opacity: 0,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  color: "#ffffff",
+                                  transition: "opacity 0.2s ease",
+                                }}
+                                onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+                                onMouseLeave={(e) => (e.currentTarget.style.opacity = "0")}
+                              >
+                                <LuZoomIn size={20} />
+                              </div>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setNewAttachments((prev) => prev.filter((_, i) => i !== idx));
+                                }}
+                                style={{
+                                  position: "absolute",
+                                  top: 4,
+                                  right: 4,
+                                  width: 20,
+                                  height: 20,
+                                  borderRadius: "50%",
+                                  background: "rgba(220, 38, 38, 0.9)",
+                                  border: "none",
+                                  color: "#ffffff",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  cursor: "pointer",
+                                  padding: 0,
+                                  zIndex: 2,
+                                }}
+                                title="Remove attachment"
+                              >
+                                <LuX size={13} />
+                              </button>
+                            </div>
+                          );
+                        }
+                        return (
+                          <div
+                            key={att.fileName || idx}
                             style={{
-                              background: "none",
-                              border: "none",
-                              color: "#dc2626",
-                              cursor: "pointer",
-                              padding: 0,
                               display: "flex",
                               alignItems: "center",
+                              gap: 8,
+                              padding: "6px 12px",
+                              background: "#eff6ff",
+                              border: "1px solid #bfdbfe",
+                              borderRadius: 8,
+                              fontSize: 12.5,
+                              fontWeight: 600,
+                              color: "#1e40af",
                             }}
-                            title="Remove attachment"
                           >
-                            <LuX size={15} />
-                          </button>
-                        </div>
-                      ))}
+                            <LuFileText size={16} />
+                            <span style={{ maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {att.originalName}
+                            </span>
+                            <span style={{ fontSize: 11, opacity: 0.75 }}>({formatFileSize(att.fileSize)})</span>
+                            <button
+                              type="button"
+                              onClick={() => setNewAttachments((prev) => prev.filter((_, i) => i !== idx))}
+                              style={{
+                                background: "none",
+                                border: "none",
+                                color: "#dc2626",
+                                cursor: "pointer",
+                                padding: 0,
+                                display: "flex",
+                                alignItems: "center",
+                              }}
+                              title="Remove attachment"
+                            >
+                              <LuX size={15} />
+                            </button>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -1861,7 +2039,7 @@ const HelpSupport = () => {
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <a
-                  href={lightboxAttachment.fileUrl}
+                  href={getAttachmentUrl(lightboxAttachment.fileUrl)}
                   download={lightboxAttachment.originalName || "attachment"}
                   target="_blank"
                   rel="noreferrer"
@@ -1903,7 +2081,7 @@ const HelpSupport = () => {
 
             {/* Main Preview Image */}
             <img
-              src={lightboxAttachment.fileUrl}
+              src={getAttachmentUrl(lightboxAttachment.fileUrl)}
               alt={lightboxAttachment.originalName || "Attachment"}
               style={{
                 maxWidth: "100%",
@@ -1912,6 +2090,12 @@ const HelpSupport = () => {
                 borderRadius: 12,
                 boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
                 border: "1px solid rgba(255, 255, 255, 0.15)",
+              }}
+              onError={(e) => {
+                const fname = lightboxAttachment.fileName || (lightboxAttachment.fileUrl ? lightboxAttachment.fileUrl.split("/").pop() : "");
+                if (fname && !e.currentTarget.src.includes(`/api/support/attachments/${fname}`)) {
+                  e.currentTarget.src = `${API_BASE}/api/support/attachments/${fname}`;
+                }
               }}
             />
           </div>

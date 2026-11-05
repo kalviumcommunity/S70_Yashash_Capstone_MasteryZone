@@ -1,7 +1,10 @@
 
+const path = require("path");
+require("dotenv").config({ path: path.resolve(__dirname, ".env") });
+require("dotenv").config();
+
 const express = require("express")
 const fs = require("fs")
-const path = require("path")
 const mongoose = require("mongoose")
 const dotenv = require("dotenv")
 const cors = require("cors")

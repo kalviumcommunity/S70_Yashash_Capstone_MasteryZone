@@ -592,7 +592,7 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
 
   // Submit Project for Official Server-Side Grading & Permanent Report Generation
   const handleSubmitProject = async () => {
-    if (!token || !projectId) return;
+    if (!token || !projectId || isSubmitting) return;
     setIsSubmitting(true);
     setStatusToast(null);
     const elapsedSeconds = Math.max(15, Math.round((Date.now() - startTimeMs) / 1000));
@@ -707,7 +707,10 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
         toastId: "project-graded-toast",
         autoClose: 1800,
       });
-      navigate(reportTarget, { replace: true });
+      navigate(reportTarget, {
+        replace: true,
+        state: { report: data.report || reportEntry, reportData: data.report || reportEntry },
+      });
       return;
     } catch (err) {
       setStatusToast({ type: "error", text: `Submission failed: ${err.message}` });
