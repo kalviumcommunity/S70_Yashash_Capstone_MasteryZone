@@ -33,6 +33,7 @@ import bannerDsa from "../assets/course_banner_dsa_opt.jpg";
 import ctaMortarboardCap from "../assets/cta_mortarboard_cap.png";
 
 import "./LandingPage.css";
+import { verifyActiveSession } from "../utils/sessionAuth.js";
 
 const LandingPage = () => {
   const navigate = useNavigate();
@@ -41,8 +42,15 @@ const LandingPage = () => {
   const [tourModalOpen, setTourModalOpen] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    setIsAuthenticated(Boolean(token));
+    let isMounted = true;
+    verifyActiveSession().then((isActive) => {
+      if (isMounted) {
+        setIsAuthenticated(isActive);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Dashboard navigation follows strict auth logic:

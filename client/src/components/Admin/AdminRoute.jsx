@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { GlobalLoader } from "../Loaders.jsx";
+import { verifyActiveSession } from "../../utils/sessionAuth.js";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 const MAIN_ADMIN_EMAIL = "yashashyashash1@gmail.com";
@@ -14,7 +15,13 @@ const AdminRoute = ({ children }) => {
     let isMounted = true;
 
     const verifyAdmin = async () => {
-      const token = localStorage.getItem("token");
+      const hasActiveSession = await verifyActiveSession();
+      if (!hasActiveSession) {
+        if (isMounted) setAuthState("unauthorized");
+        return;
+      }
+
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
       if (!token) {
         if (isMounted) setAuthState("unauthorized");
         return;

@@ -48,6 +48,7 @@ import ChallengeWorkspaceModal from "./ChallengeWorkspaceModal";
 import { ProjectWorkspaceModal } from "./ProjectWorkspaceModal";
 import CertificationExamWorkspace from "./CertificationExamWorkspace";
 import FullScreenConceptLearning from "./FullScreenConceptLearning";
+import { performGlobalLogout } from "../utils/sessionAuth.js";
 import PracticalAssignmentModal from "./PracticalAssignmentModal";
 import ProctoredAssessmentWorkspace from "./ProctoredAssessmentWorkspace";
 import logoIcon from "../assets/logo_icon_transparent.png";
@@ -1499,10 +1500,9 @@ export default function Coding() {
   };
 
   const handleLogout = () => {
-    localStorage.clear();
-    sessionStorage.clear();
+    performGlobalLogout();
     toast.info("Signed out successfully.");
-    navigate("/login");
+    navigate("/login", { replace: true });
   };
 
   return (

@@ -26,6 +26,7 @@ import {
 } from "react-icons/lu";
 import { toast } from "react-toastify";
 import NotificationBell from "../NotificationBell";
+import { performGlobalLogout } from "../../utils/sessionAuth.js";
 
 const getApiBase = () => {
   if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
@@ -130,10 +131,9 @@ export default function MasteryZoneLiveLanding({
   }, []);
 
   const handleLogout = () => {
-    localStorage.clear();
-    sessionStorage.clear();
+    performGlobalLogout();
     toast.info("Signed out successfully.");
-    navigate("/login");
+    navigate("/login", { replace: true });
   };
 
   const handleBack = () => {

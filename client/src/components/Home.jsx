@@ -5,6 +5,7 @@ import "./home.css";
 import NotificationBell from "./NotificationBell.jsx";
 import FeaturedLearningCarousel from "./FeaturedLearningCarousel.jsx";
 import CertificationExamWorkspace from "./CertificationExamWorkspace.jsx";
+import { performGlobalLogout } from "../utils/sessionAuth.js";
 import logoIcon from "../assets/logo_icon_transparent.png";
 import heroIllustration from "../assets/interests_hero_illustration.png";
 import rocketIcon from "../assets/interests_card_rocket.png";
@@ -79,7 +80,7 @@ const DSA_TOPICS = [
     id: "arrays-hashing",
     title: "Arrays & Hashing",
     description: "Hash maps, frequency counters, prefix sums, and two-pointer arrays.",
-    problemCount: 28,
+    problemCount: 42,
     difficulty: "Easy to Hard",
     badgeColor: "#3b82f6",
     badgeBg: "#eff6ff",
@@ -90,7 +91,7 @@ const DSA_TOPICS = [
     id: "two-pointers",
     title: "Two Pointers & Sliding Window",
     description: "Subarray optimization, monotonic queues, and window shrinking.",
-    problemCount: 22,
+    problemCount: 36,
     difficulty: "Medium to Hard",
     badgeColor: "#f59e0b",
     badgeBg: "#fffbeb",
@@ -101,7 +102,7 @@ const DSA_TOPICS = [
     id: "stacks-queues",
     title: "Stacks & Queues",
     description: "LIFO/FIFO paradigms, monotonic stacks, and operation simulators.",
-    problemCount: 18,
+    problemCount: 30,
     difficulty: "Medium",
     badgeColor: "#8b5cf6",
     badgeBg: "#f5f3ff",
@@ -112,7 +113,7 @@ const DSA_TOPICS = [
     id: "trees-binary-search",
     title: "Trees & Binary Search",
     description: "BST traversal, BFS/DFS algorithms, and asymptotic tight-bound proofs.",
-    problemCount: 26,
+    problemCount: 46,
     difficulty: "Medium to Hard",
     badgeColor: "#10b981",
     badgeBg: "#f0fdf4",
@@ -123,7 +124,7 @@ const DSA_TOPICS = [
     id: "dynamic-programming",
     title: "Dynamic Programming",
     description: "Memoization, bottom-up tabulation, grid paths, and knapsack variants.",
-    problemCount: 24,
+    problemCount: 40,
     difficulty: "Hard",
     badgeColor: "#ef4444",
     badgeBg: "#fef2f2",
@@ -134,7 +135,7 @@ const DSA_TOPICS = [
     id: "graphs-backtracking",
     title: "Graphs & Backtracking",
     description: "Dijkstra, topological sort, connected components, and recursion trees.",
-    problemCount: 20,
+    problemCount: 35,
     difficulty: "Medium to Hard",
     badgeColor: "#06b6d4",
     badgeBg: "#ecfeff",
@@ -195,10 +196,11 @@ const SOFTWARE_PROJECTS = [
     domain: "Distributed Systems",
     tech: "Node.js • Redis • TypeScript • Docker",
     badge: "Distributed Systems",
-    badgeColor: "#059669",
-    badgeBg: "#ecfdf5",
-    themeGradient: "linear-gradient(135deg, #022c22 0%, #064e3b 50%, #047857 100%)",
-    accentColor: "#10b981",
+    badgeColor: "#047857",
+    badgeBg: "#d1fae5",
+    border: "#a7f3d0",
+    themeGradient: "linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 45%, #eff6ff 100%)",
+    accentColor: "#059669",
     fileTab: "queue.worker.ts",
     description: "Architect a resilient background job queue with concurrency limits, exponential backoff retries, and dead-letter queues.",
     route: "/coding?tab=projects",
@@ -220,10 +222,11 @@ const SOFTWARE_PROJECTS = [
     domain: "Real-Time Systems",
     tech: "React • WebSockets • Monaco • Node.js",
     badge: "Real-Time WebSockets",
-    badgeColor: "#2563eb",
-    badgeBg: "#eff6ff",
-    themeGradient: "linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 50%, #2563eb 100%)",
-    accentColor: "#3b82f6",
+    badgeColor: "#1d4ed8",
+    badgeBg: "#dbeafe",
+    border: "#bfdbfe",
+    themeGradient: "linear-gradient(135deg, #eff6ff 0%, #f0f9ff 45%, #f5f3ff 100%)",
+    accentColor: "#2563eb",
     fileTab: "socket.engine.js",
     description: "Build an interactive multi-cursor live code editor powered by WebSockets, Operational Transformation (OT), and presence tracking.",
     route: "/coding?tab=projects",
@@ -245,10 +248,11 @@ const SOFTWARE_PROJECTS = [
     domain: "Financial Systems",
     tech: "Modern C++20 • STL • Memory Pools • CMake",
     badge: "Low-Latency C++",
-    badgeColor: "#7c3aed",
-    badgeBg: "#f5f3ff",
-    themeGradient: "linear-gradient(135deg, #4c1d95 0%, #5b21b6 50%, #6d28d9 100%)",
-    accentColor: "#8b5cf6",
+    badgeColor: "#6d28d9",
+    badgeBg: "#ede9fe",
+    border: "#ddd6fe",
+    themeGradient: "linear-gradient(135deg, #faf5ff 0%, #f5f3ff 45%, #fdf2f8 100%)",
+    accentColor: "#7c3aed",
     fileTab: "order_book.cpp",
     description: "Construct a high-throughput Limit Order Book (LOB) in Modern C++ processing bid/ask orders with sub-microsecond matching latency.",
     route: "/coding?tab=projects",
@@ -270,10 +274,11 @@ const SOFTWARE_PROJECTS = [
     domain: "Developer Tooling",
     tech: "Python • Docker • Linux cgroups • FastAPI",
     badge: "Compiler Design",
-    badgeColor: "#d97706",
-    badgeBg: "#fffbeb",
-    themeGradient: "linear-gradient(135deg, #78350f 0%, #92400e 50%, #b45309 100%)",
-    accentColor: "#f59e0b",
+    badgeColor: "#b45309",
+    badgeBg: "#fef3c7",
+    border: "#fde68a",
+    themeGradient: "linear-gradient(135deg, #fffbeb 0%, #fef3c7 45%, #fefce8 100%)",
+    accentColor: "#d97706",
     fileTab: "profiler.py",
     description: "Process execution runtimes, sandbox memory cgroups, and evaluate automated test assertions in secure Linux execution environments.",
     route: "/coding?tab=projects",
@@ -295,10 +300,11 @@ const SOFTWARE_PROJECTS = [
     domain: "Full-Stack Architecture",
     tech: "FastAPI • PostgreSQL • Redis • Stripe Webhooks",
     badge: "Microservices",
-    badgeColor: "#0284c7",
-    badgeBg: "#f0f9ff",
-    themeGradient: "linear-gradient(135deg, #0c4a6e 0%, #0369a1 50%, #0284c7 100%)",
-    accentColor: "#38bdf8",
+    badgeColor: "#0369a1",
+    badgeBg: "#e0f2fe",
+    border: "#bae6fd",
+    themeGradient: "linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 45%, #ecfeff 100%)",
+    accentColor: "#0284c7",
     fileTab: "inventory.service.py",
     description: "Design production-ready REST microservices for product catalogs, cart state, payment webhook gateways, and inventory concurrency locks.",
     route: "/coding?tab=projects",
@@ -1065,9 +1071,9 @@ const Home = () => {
   };
 
   const handleLogoutConfirm = () => {
-    localStorage.clear();
-    sessionStorage.clear();
-    navigate("/login");
+    performGlobalLogout();
+    toast.info("Signed out successfully.");
+    navigate("/login", { replace: true });
   };
 
   const handleDeleteAccount = async () => {
@@ -3251,7 +3257,7 @@ const Home = () => {
                       Challenges Solved
                     </span>
                     <div style={{ fontSize: "1.45rem", fontWeight: 800, color: "#0f172a", lineHeight: 1.2 }}>
-                      {codingStats.challengesSolvedCount || 0} <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#64748b" }}>/ 135</span>
+                      {codingStats.challengesSolvedCount || 0} <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#64748b" }}>/ {codingStats?.totalChallenges || 235}</span>
                     </div>
                     <span style={{ fontSize: "0.74rem", color: "#059669", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 5 }}>
                       <span className="mz-telemetry-badge-icon" style={{ background: "#dcfce7", border: "1px solid #bbf7d0" }}>
@@ -3537,7 +3543,7 @@ const Home = () => {
                       gap: 4,
                     }}
                   >
-                    View All 135 Challenges <LuArrowRight size={14} />
+                    View All 235 Challenges <LuArrowRight size={14} />
                   </button>
                 </div>
 
@@ -3784,7 +3790,14 @@ const Home = () => {
                       >
                         <div className="mz-proj-cover-left">
                           <div className="mz-proj-cover-badges">
-                            <span className="mz-proj-badge-domain">
+                            <span
+                              className="mz-proj-badge-domain"
+                              style={{
+                                color: currentProj.badgeColor,
+                                background: "#ffffff",
+                                borderColor: currentProj.border || "#cbd5e1",
+                              }}
+                            >
                               {currentProj.domain}
                             </span>
                             <span className="mz-proj-badge-diff">
@@ -3822,7 +3835,18 @@ const Home = () => {
                                 <span className="mz-proj-code-dot" style={{ background: "#10b981" }} />
                               </div>
                               <span className="mz-proj-code-file">{currentProj.fileTab}</span>
-                              <span style={{ fontSize: "10.5px", color: currentProj.accentColor, fontWeight: 700 }}>
+                              <span
+                                style={{
+                                  fontSize: "10px",
+                                  color: currentProj.badgeColor,
+                                  background: currentProj.badgeBg,
+                                  fontWeight: 800,
+                                  padding: "2px 8px",
+                                  borderRadius: "4px",
+                                  border: `1px solid ${currentProj.border || "#e2e8f0"}`,
+                                  letterSpacing: "0.04em",
+                                }}
+                              >
                                 ACTIVE
                               </span>
                             </div>
@@ -3884,6 +3908,10 @@ const Home = () => {
                                 type="button"
                                 className={`mz-proj-thumb ${isActive ? "active" : ""}`}
                                 onClick={() => setActiveProjSlide(idx)}
+                                style={{
+                                  borderColor: isActive ? proj.badgeColor : undefined,
+                                  background: isActive ? proj.badgeBg : "#ffffff",
+                                }}
                               >
                                 <span
                                   className="mz-proj-thumb-tag"
@@ -3921,20 +3949,44 @@ const Home = () => {
                         {/* Card Cover Header */}
                         <div
                           className="mz-proj-grid-cover"
-                          style={{ background: proj.themeGradient }}
+                          style={{
+                            background: proj.themeGradient,
+                            borderBottom: `1px solid ${proj.border || "#e2e8f0"}`,
+                          }}
                         >
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                            <span style={{ fontSize: "11px", fontWeight: 700, background: "rgba(255,255,255,0.2)", padding: "2px 8px", borderRadius: "9999px", color: "#ffffff" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                            <span
+                              style={{
+                                fontSize: "11px",
+                                fontWeight: 700,
+                                background: "#ffffff",
+                                padding: "3px 9px",
+                                borderRadius: "9999px",
+                                color: proj.badgeColor,
+                                border: `1px solid ${proj.border || "#cbd5e1"}`,
+                                boxShadow: "0 1px 2px rgba(15, 23, 42, 0.05)",
+                              }}
+                            >
                               {proj.domain}
                             </span>
-                            <span style={{ fontSize: "11px", fontWeight: 700, color: "#a7f3d0" }}>
+                            <span
+                              style={{
+                                fontSize: "11px",
+                                fontWeight: 700,
+                                color: "#065f46",
+                                background: "#ecfdf5",
+                                border: "1px solid #a7f3d0",
+                                padding: "2px 8px",
+                                borderRadius: "9999px",
+                              }}
+                            >
                               {proj.xpReward}
                             </span>
                           </div>
-                          <h4 style={{ fontSize: "1.1rem", fontWeight: 800, color: "#ffffff", margin: "0 0 6px" }}>
+                          <h4 style={{ fontSize: "1.08rem", fontWeight: 800, color: "#0f172a", margin: "0 0 6px", lineHeight: 1.35 }}>
                             {proj.title}
                           </h4>
-                          <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.8)" }}>
+                          <span style={{ fontSize: "11.5px", color: "#475569", fontWeight: 600 }}>
                             {proj.tech}
                           </span>
                         </div>

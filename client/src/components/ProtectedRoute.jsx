@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { GlobalLoader } from "./Loaders.jsx";
+import { verifyActiveSession } from "../utils/sessionAuth.js";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -12,7 +13,16 @@ const ProtectedRoute = ({ children }) => {
     let isMounted = true;
 
     const verifyAuth = async () => {
-      const token = localStorage.getItem("token");
+      // 1. Enforce active browser session check.
+      // If the user closed the webpage and re-enters, no active session exists:
+      // verifyActiveSession() clears stale stored tokens and returns false.
+      const hasActiveSession = await verifyActiveSession();
+      if (!hasActiveSession) {
+        if (isMounted) setAuthState("unauthenticated");
+        return;
+      }
+
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
       if (!token) {
         if (isMounted) setAuthState("unauthenticated");
         return;
@@ -35,10 +45,9 @@ const ProtectedRoute = ({ children }) => {
           }
           setAuthState("authenticated");
         } else if (response.status === 401 || response.status === 403) {
-          // Token is genuinely invalid or expired
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
-          localStorage.removeItem("mz_user");
+          // Token is genuinely invalid or expired — purge session completely for strict isolation
+          localStorage.clear();
+          sessionStorage.clear();
           setAuthState("unauthenticated");
         } else {
           // Non-auth server status (e.g. 500), keep valid session
