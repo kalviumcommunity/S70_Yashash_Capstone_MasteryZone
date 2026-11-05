@@ -25,10 +25,11 @@ export default function ChallengeWorkspaceModal({
       const rawUser = localStorage.getItem("user");
       if (rawUser) {
         const u = JSON.parse(rawUser);
-        return u._id || u.id || u.userId || "guest";
+        const uid = u._id || u.id || u.userId || "";
+        return uid !== "guest" ? uid : "";
       }
     } catch {}
-    return "guest";
+    return "";
   })();
 
   const effectiveChallengeId = propChallenge?.id || challengeId;
@@ -147,13 +148,14 @@ export default function ChallengeWorkspaceModal({
       initialHistory={historyData}
       onSaveDraft={async (savedCode, lang) => {
         try {
-          const draftKey = currentUserId && currentUserId !== "guest" ? `mz_${currentUserId}_ch_draft_${challenge.id}_${lang}` : `mz_ch_draft_${challenge.id}_${lang}`;
-          localStorage.setItem(draftKey, savedCode);
+          if (currentUserId) {
+            const draftKey = `mz_${currentUserId}_ch_draft_${challenge.id}_${lang}`;
+            localStorage.setItem(draftKey, savedCode);
+          }
         } catch {}
       }}
       initialDraft={
         (currentUserId && localStorage.getItem(`mz_${currentUserId}_ch_draft_${challenge.id}_${targetStarterLang}`)) ||
-        localStorage.getItem(`mz_ch_draft_${challenge.id}_${targetStarterLang}`) ||
         challenge.starterCode?.[targetStarterLang] ||
         (targetStarterLang === "python" ? "# Enter your code below\n" : "// Enter your code below\n")
       }
@@ -198,8 +200,10 @@ export default function ChallengeWorkspaceModal({
         }
         if (data.status === "ACCEPTED" || data.passed || (Array.isArray(data.testResults) && data.testResults.length > 0 && data.testResults.every((t) => t.passed))) {
           try {
-            const solvedKey = currentUserId && currentUserId !== "guest" ? `mz_${currentUserId}_ch_solved_${challenge.id}` : `mz_ch_solved_${challenge.id}`;
-            localStorage.setItem(solvedKey, "true");
+            if (currentUserId) {
+              const solvedKey = `mz_${currentUserId}_ch_solved_${challenge.id}`;
+              localStorage.setItem(solvedKey, "true");
+            }
             window.dispatchEvent(new CustomEvent("mz_challenge_solved", { detail: { challengeId: challenge.id, userId: currentUserId } }));
           } catch {}
           if (onChallengeSolved) {
@@ -229,8 +233,10 @@ export default function ChallengeWorkspaceModal({
         }
         if (data.status === "ACCEPTED" || data.passed || (Array.isArray(data.testResults) && data.testResults.length > 0 && data.testResults.every((t) => t.passed))) {
           try {
-            const solvedKey = currentUserId && currentUserId !== "guest" ? `mz_${currentUserId}_ch_solved_${challenge.id}` : `mz_ch_solved_${challenge.id}`;
-            localStorage.setItem(solvedKey, "true");
+            if (currentUserId) {
+              const solvedKey = `mz_${currentUserId}_ch_solved_${challenge.id}`;
+              localStorage.setItem(solvedKey, "true");
+            }
             window.dispatchEvent(new CustomEvent("mz_challenge_solved", { detail: { challengeId: challenge.id, userId: currentUserId } }));
           } catch {}
           if (onChallengeSolved) {

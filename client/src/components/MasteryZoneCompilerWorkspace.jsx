@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Editor from "@monaco-editor/react";
 import { toast } from "react-toastify";
@@ -1015,6 +1015,12 @@ export default function MasteryZoneCompilerWorkspace({
   const [isFullscreenActive, setIsFullscreenActive] = useState(() => !!document.fullscreenElement);
   const [isRefreshConfirmOpen, setIsRefreshConfirmOpen] = useState(false);
   const isSubmittedRef = useRef(false);
+  const logProctoringAnomalyRef = useRef(null);
+  const logProctoringAnomaly = useCallback((...args) => {
+    if (typeof logProctoringAnomalyRef.current === "function") {
+      return logProctoringAnomalyRef.current(...args);
+    }
+  }, []);
 
   // Lock browser back / horizontal trackpad swipe navigation during active proctored assessment
   useNavigationLock(
@@ -1635,7 +1641,7 @@ export default function MasteryZoneCompilerWorkspace({
   };
 
   // Five-Chance Anomaly and Interruption Logger
-  const logProctoringAnomaly = async (type, message) => {
+  const handleLogProctoringAnomalyImpl = async (type, message) => {
     if (
       isSubmittedRef.current ||
       isTerminated ||
@@ -1730,9 +1736,7 @@ export default function MasteryZoneCompilerWorkspace({
                 language: selectedLang,
               }),
             });
-            setTimeout(() => {
-              navigate(`/assessment-report/${sid}`, { replace: true });
-            }, 1500);
+            navigate(`/assessment-report/${sid}`, { replace: true });
           } catch {}
         }
       }
@@ -1740,6 +1744,8 @@ export default function MasteryZoneCompilerWorkspace({
       console.error("Failed to post proctoring interruption:", err);
     }
   };
+
+  logProctoringAnomalyRef.current = handleLogProctoringAnomalyImpl;
 
   // Re-verify devices and resume assessment
   const handleResumeAssessment = async () => {
@@ -2745,22 +2751,19 @@ export default function MasteryZoneCompilerWorkspace({
 
           if (pRes.ok) {
             const pData = await pRes.json();
-            setSubmissionSuccessData({
-              score: pData.score !== undefined ? pData.score : calculatedScore,
-              grade: pData.grade || calculatedGrade,
-              accuracy: pData.accuracy !== undefined ? pData.accuracy : calculatedAccuracy,
-              passedTests: pData.passedTests !== undefined ? pData.passedTests : finalPassed,
-              totalTests: pData.totalTests || totalTestsCount,
-              durationSeconds: pData.durationSeconds || (3600 - secondsRemaining),
-              reportUrl: pData.reportUrl || `/assessment-report/${sid}`,
-              sessionId: sid,
-            });
             setIsSubmittedReadOnly(true);
             cleanupAllMediaAndProctoring();
             broadcastSessionSubmitted(sid);
             try {
               sessionStorage.removeItem("mz_active_proctored_session");
             } catch {}
+            const reportTarget = pData.reportUrl || `/assessment-report/${sid}`;
+            toast.dismiss();
+            toast.success("Assessment Graded! Opening your official report card...", {
+              toastId: "mz-compiler-graded",
+              autoClose: 1800,
+            });
+            navigate(reportTarget, { replace: true });
             return;
           }
         } catch (err) {

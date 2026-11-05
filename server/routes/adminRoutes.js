@@ -2035,39 +2035,35 @@ router.get("/assessments", async (req, res) => {
     const [certAttempts, moduleAttempts, challengeSubs, projectSubs] = await Promise.all([
       CertificationAttempt.find({
         ...baseDateFilter,
-        $or: [{ userId: { $in: genuineUserIds } }, { candidateEmail: { $in: genuineUserEmails } }],
       })
         .select("_id attemptId userId candidateName candidateEmail certTitle percentage score status finalVerdict submittedAt createdAt durationMinutes certificateId")
         .populate("userId", "fullName username email")
         .sort({ createdAt: -1 })
-        .limit(100)
+        .limit(150)
         .lean(),
       ModuleAssessmentAttempt.find({
         ...baseDateFilter,
-        userId: { $in: genuineUserIds },
       })
         .select("_id sessionId userId assessmentTitle moduleTitle totalQuestions score percentage passed submittedAt createdAt timeSpentSeconds")
         .populate("userId", "fullName username email")
         .sort({ createdAt: -1 })
-        .limit(100)
+        .limit(150)
         .lean(),
       ChallengeSubmission.find({
         ...baseDateFilter,
-        userId: { $in: genuineUserIds },
       })
         .select("_id userId challengeTitle challengeId totalTests passedTests score status createdAt runtimeMs")
         .populate("userId", "fullName username email")
         .sort({ createdAt: -1 })
-        .limit(100)
+        .limit(150)
         .lean(),
       ProjectSubmission.find({
         ...baseDateFilter,
-        $or: [{ userId: { $in: genuineUserIds } }, { "candidateDetails.email": { $in: genuineUserEmails } }],
       })
         .select("_id sessionId userId candidateDetails projectTitle totalMarks maxTotalMarks percentage overallVerdict submittedAt createdAt")
         .populate("userId", "fullName username email")
         .sort({ createdAt: -1 })
-        .limit(50)
+        .limit(100)
         .lean(),
     ]);
 
@@ -2242,20 +2238,17 @@ router.get("/proctoring", async (req, res) => {
       }
     }
 
-    const genuineUsers = await User.find(REAL_USER_FILTER).select("_id email fullName username").lean();
-    const genuineUserIds = genuineUsers.map((u) => u._id);
-
-    query.userId = { $in: genuineUserIds };
-
     const sessions = await ProctoredCodingSession.find(query)
       .select("_id sessionId userId assessmentTitle questionId status durationSeconds score violationsCount deviceInfo violationFlags recordingUrl submittedAt createdAt candidateDetails")
+      .populate("userId", "fullName username email")
       .sort({ createdAt: -1 })
-      .limit(60)
+      .limit(100)
       .lean();
 
-    // Map user info directly from genuineUsers map
+    const allSessionUserIds = sessions.map((s) => s.userId?._id || s.userId).filter(Boolean);
+    const sessionUsers = await User.find({ _id: { $in: allSessionUserIds } }).select("_id email fullName username").lean();
     let usersMap = {};
-    genuineUsers.forEach((u) => {
+    sessionUsers.forEach((u) => {
       usersMap[String(u._id)] = u;
     });
 
@@ -2518,28 +2511,22 @@ router.get("/reports", async (req, res) => {
     const genuineUserEmails = genuineUsers.map((u) => (u.email || "").toLowerCase()).filter(Boolean);
 
     const [certs, attempts, moduleAttempts] = await Promise.all([
-      IssuedCertificate.find({
-        $or: [{ userId: { $in: genuineUserIds } }, { candidateEmail: { $in: genuineUserEmails } }],
-      })
+      IssuedCertificate.find({})
         .select("_id attemptId certificateId verificationCode certificationTitle certTitle recipientName candidateEmail userId mcqScorePercentage percentage issueDate issuedAt createdAt status")
         .populate("userId", "fullName username email")
         .sort({ issueDate: -1, issuedAt: -1, createdAt: -1 })
         .lean(),
-      CertificationAttempt.find({
-        $or: [{ userId: { $in: genuineUserIds } }, { candidateEmail: { $in: genuineUserEmails } }],
-      })
+      CertificationAttempt.find({})
         .select("_id attemptId userId candidateName candidateEmail certTitle percentage score passed status finalVerdict certificateId submittedAt createdAt")
         .populate("userId", "fullName username email")
         .sort({ createdAt: -1 })
-        .limit(100)
+        .limit(150)
         .lean(),
-      ModuleAssessmentAttempt.find({
-        userId: { $in: genuineUserIds },
-      })
+      ModuleAssessmentAttempt.find({})
         .select("_id sessionId userId assessmentTitle moduleTitle totalQuestions score percentage passed submittedAt createdAt")
         .populate("userId", "fullName username email")
         .sort({ createdAt: -1 })
-        .limit(100)
+        .limit(150)
         .lean(),
     ]);
 

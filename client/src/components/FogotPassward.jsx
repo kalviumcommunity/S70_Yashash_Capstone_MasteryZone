@@ -111,7 +111,7 @@ const ForgotPassword = () => {
           />
           <div className="mz-forgot-logo-text-group">
             <span className="mz-forgot-brand-title">Mastery Zone</span>
-            <span className="mz-forgot-brand-tagline">Learn · Grow · Achieve</span>
+            <span className="mz-forgot-brand-tagline">Learn · Grow · Succeed</span>
           </div>
         </Link>
 

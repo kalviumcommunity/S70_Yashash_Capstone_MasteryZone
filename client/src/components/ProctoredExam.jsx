@@ -173,6 +173,12 @@ const ProctoredExam = ({ zone, onClose, title, onPurchase }) => {
       }
     };
 
+    const handleWindowBlur = () => {
+      if (examState === 'IN_PROGRESS') {
+        handleViolation("Screen switch or window blur detected. Do not switch screens or leave the exam!");
+      }
+    };
+
     const handleFullscreenChange = () => {
       const isCurrentlyFullscreen = document.fullscreenElement || document.webkitFullscreenElement;
       setIsFullscreen(!!isCurrentlyFullscreen);
@@ -183,11 +189,13 @@ const ProctoredExam = ({ zone, onClose, title, onPurchase }) => {
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("blur", handleWindowBlur);
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
 
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("blur", handleWindowBlur);
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
       document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
     };

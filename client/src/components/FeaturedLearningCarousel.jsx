@@ -85,9 +85,8 @@ export default function FeaturedLearningCarousel({
     (projects || []).forEach((p) => {
       const userPassed = uId && typeof window !== "undefined" && window.localStorage?.getItem(`mz_${uId}_proj_passed_${p.id}`) === "true";
       if (
-        p.userState?.passed ||
-        p.userState?.status === "PASSED" ||
-        p.userState?.status === "passed" ||
+        (p.userState?.passed && p.userState?.badgeAwarded) ||
+        (p.userState?.status === "PASSED" && p.userState?.passed) ||
         userPassed
       ) {
         count++;
@@ -124,7 +123,7 @@ export default function FeaturedLearningCarousel({
       coverImage: coverChallengesPro,
       isCompleted: computedSolvedChallenges > 0,
       stats: [
-        `${challenges?.length || 135} Challenges`,
+        `${challenges?.length || 235} Challenges`,
         "Automated Test Execution",
         "Python, C++, Java, JS",
       ],
