@@ -301,10 +301,15 @@ router.post('/forgot-password', async (req, res) => {
     user.resetPasswordExpires = Date.now() + 3600000; // 1 hour expiration
     await user.save();
 
-    // Send Branded HTML Password Reset Email asynchronously
-    sendPasswordResetEmail(user, resetToken, req, clientOrigin).catch((err) => {
-      console.warn('[Auth Mailer] Reset email dispatch warning:', err.message);
-    });
+    // Send Branded HTML Password Reset Email
+    const mailResult = await sendPasswordResetEmail(user, resetToken, req, clientOrigin);
+    if (!mailResult.success && mailResult.status !== 'skipped_guest') {
+      console.warn('[Auth Mailer] Reset email dispatch failed:', mailResult.message);
+      return res.status(500).json({
+        message: mailResult.message || 'Failed to dispatch password reset email. Please verify SMTP settings or try again later.',
+        errorCode: mailResult.errorCode
+      });
+    }
 
     // In-app security notification
     pushNotification(req.app, {
