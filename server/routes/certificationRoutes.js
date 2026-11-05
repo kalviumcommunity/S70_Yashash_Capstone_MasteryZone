@@ -12,7 +12,7 @@ const authenticateToken = require("../middleware/authMiddleware");
 const { optionalAuthenticateToken } = require("../middleware/authMiddleware");
 const { pushNotification } = require("../utils/notificationService");
 const { pushAdminNotification } = require("../utils/adminNotificationService");
-const { sendCertificateAwardedEmail, sendSubmissionEvaluationEmail, dispatchMailBackground } = require("../utils/mailer");
+const { sendCertificateAwardedEmail, sendSubmissionEvaluationEmail, dispatchMailBackground, isGuestAccount } = require("../utils/mailer");
 const { DSA_MCQ_BANK } = require("../data/dsaQuestionsBank");
 const CHALLENGES_CATALOG = require("../data/challengesCatalog");
 const { CURRICULUM } = require("../data/codingCurriculum");
@@ -974,29 +974,31 @@ router.post("/attempt/:attemptId/finalize", authenticateToken, async (req, res) 
 
       // Dispatch Official Certificate Email in background
       try {
-        const userObj = await User.findById(userId).select("fullName username email").lean();
-        const recipientEmail = attempt.candidateEmail || userObj?.email || req.user.email;
+        const userObj = await User.findById(userId).select("fullName username email role").lean();
+        const recipientEmail = attempt.candidateEmail || userObj?.email || req.user?.email;
         const recipientName = attempt.candidateName || userObj?.fullName || userObj?.username || "Candidate";
-        sendCertificateAwardedEmail({
-          candidateEmail: recipientEmail,
-          candidateName: recipientName,
-          certTitle: attempt.certTitle,
-          certificateId: certificate.certificateId,
-          score: finalScorePercentage,
-          req,
-        }).catch((emailErr) => {
-          console.warn("Certificate email notification note:", emailErr?.message);
-        });
+        if (recipientEmail && !isGuestAccount(recipientEmail)) {
+          dispatchMailBackground(async () => {
+            return await sendCertificateAwardedEmail({
+              candidateEmail: recipientEmail,
+              candidateName: recipientName,
+              certTitle: attempt.certTitle,
+              certificateId: certificate.certificateId,
+              score: finalScorePercentage,
+              req,
+            });
+          }, { type: "certificate_awarded", recipient: recipientEmail });
+        }
       } catch (userErr) {
         console.warn("User lookup note for email:", userErr.message);
       }
     } else {
       // Certification completed but score below passing threshold: dispatch evaluation result email
       try {
-        const userObj = await User.findById(userId).select("fullName username email").lean();
+        const userObj = await User.findById(userId).select("fullName username email role").lean();
         const recipientEmail = attempt.candidateEmail || userObj?.email || req.user?.email;
         const recipientName = attempt.candidateName || userObj?.fullName || userObj?.username || "Candidate";
-        if (recipientEmail) {
+        if (recipientEmail && !isGuestAccount(recipientEmail)) {
           dispatchMailBackground(async () => {
             return await sendSubmissionEvaluationEmail({
               userEmail: recipientEmail,

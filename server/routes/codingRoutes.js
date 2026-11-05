@@ -22,7 +22,7 @@ const User = require("../models/User");
 const ProctoredCodingSession = require("../models/ProctoredCodingSession");
 const { pushNotification } = require("../utils/notificationService");
 const { pushAdminNotification } = require("../utils/adminNotificationService");
-const { sendSubmissionEvaluationEmail, dispatchMailBackground } = require("../utils/mailer");
+const { sendSubmissionEvaluationEmail, dispatchMailBackground, isGuestAccount } = require("../utils/mailer");
 const SubjectProgress = require("../models/SubjectProgress");
 const crypto = require("crypto");
 const { CURRICULUM } = require("../data/codingCurriculum");
@@ -305,8 +305,8 @@ router.post("/execute", async (req, res) => {
       const binPath = path.join(tmpDir, "main_bin");
       fs.writeFileSync(srcPath, code, "utf8");
 
-      // Compile with g++
-      const compileRes = await runSandboxedProcess(GPP_BIN, ["-O2", srcPath, "-o", binPath], "", 6000, tmpDir);
+      // Fast compilation with -O0 for student execution
+      const compileRes = await runSandboxedProcess(GPP_BIN, ["-O0", srcPath, "-o", binPath], "", 6000, tmpDir);
       if (compileRes.exitCode !== 0) {
         return res.json({
           output: "",
@@ -327,7 +327,7 @@ router.post("/execute", async (req, res) => {
       const binPath = path.join(tmpDir, "main_bin");
       fs.writeFileSync(srcPath, code, "utf8");
 
-      const compileRes = await runSandboxedProcess(GCC_BIN, ["-O2", srcPath, "-o", binPath], "", 6000, tmpDir);
+      const compileRes = await runSandboxedProcess(GCC_BIN, ["-O0", srcPath, "-o", binPath], "", 6000, tmpDir);
       if (compileRes.exitCode !== 0) {
         return res.json({
           output: "",
@@ -826,73 +826,75 @@ if __name__ == "__main__":
     _mz_auto_runner()
 `;
 
-// Helper to execute code against a single test case
-async function evaluateSingleTestCase(language, code, input, expectedOutput) {
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "mz_judge_"));
-  let lang = (language || "").toLowerCase().trim();
-  const startTime = Date.now();
-  const timeoutMs = 4000;
+// Optimized Batch Test Case Evaluator: Prepares & compiles code ONCE, then executes all test cases
+async function evaluateTestCasesBatch(language, code, testCases) {
+  if (!Array.isArray(testCases) || testCases.length === 0) return [];
   const safeCode = typeof code === "string" ? code : "";
 
+  if (isCodeEmptyOrComments(safeCode)) {
+    return testCases.map((tc) => ({
+      passed: false,
+      actual: "",
+      expected: String(tc.expectedOutput !== undefined ? tc.expectedOutput : (tc.expected || "")).trim(),
+      error: "No executable code provided. Please implement your solution.",
+      duration: 0,
+    }));
+  }
+
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "mz_judge_"));
+  let lang = (language || "").toLowerCase().trim();
+  const timeoutMs = 4000;
+
+  // Strip comments to inspect raw executable syntax safely
+  const codeNoComments = safeCode
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/\/\/.*$/gm, "")
+    .replace(/#.*$/gm, "")
+    .trim();
+
+  // Auto-detect and align language if caller mislabeled
+  const hasPythonDef = /^\s*def\s+[a-zA-Z0-9_]+\s*\(|import\s+sys|import\s+json/m.test(codeNoComments);
+  const hasJsSyntax = /function\s+[a-zA-Z0-9_$]+|console\.log|const\s+[a-zA-Z0-9_$]+\s*=|let\s+[a-zA-Z0-9_$]+\s*=/m.test(codeNoComments);
+  const hasJavaSyntax = /(public\s+)?class\s+[A-Za-z0-9_]+|System\.out\.print/m.test(codeNoComments);
+  const hasCppSyntax = /#include\s*<[a-z]+>|std::|using\s+namespace\s+std/m.test(codeNoComments);
+
+  if ((lang === "javascript" || lang === "js") && hasPythonDef && !hasJsSyntax) {
+    lang = "python";
+  } else if ((lang === "python" || lang === "py") && hasJsSyntax && !hasPythonDef) {
+    lang = "javascript";
+  } else if ((lang === "python" || lang === "py") && hasCppSyntax && !hasPythonDef) {
+    lang = "cpp";
+  } else if ((lang === "python" || lang === "py") && hasJavaSyntax && !hasPythonDef) {
+    lang = "java";
+  }
+
   try {
-    if (isCodeEmptyOrComments(safeCode)) {
-      return {
-        passed: false,
-        actual: "",
-        expected: expectedOutput,
-        error: "No executable code provided. Please implement your solution.",
-        duration: 0,
-      };
-    }
+    let runner = null;
 
-    // Strip comments to inspect raw executable syntax safely
-    const codeNoComments = safeCode
-      .replace(/\/\*[\s\S]*?\*\//g, "")
-      .replace(/\/\/.*$/gm, "")
-      .replace(/#.*$/gm, "")
-      .trim();
-
-    // Auto-detect and align language if caller mislabeled
-    const hasPythonDef = /^\s*def\s+[a-zA-Z0-9_]+\s*\(|import\s+sys|import\s+json/m.test(codeNoComments);
-    const hasJsSyntax = /function\s+[a-zA-Z0-9_$]+|console\.log|const\s+[a-zA-Z0-9_$]+\s*=|let\s+[a-zA-Z0-9_$]+\s*=/m.test(codeNoComments);
-    const hasJavaSyntax = /(public\s+)?class\s+[A-Za-z0-9_]+|System\.out\.print/m.test(codeNoComments);
-    const hasCppSyntax = /#include\s*<[a-z]+>|std::|using\s+namespace\s+std/m.test(codeNoComments);
-
-    if ((lang === "javascript" || lang === "js") && hasPythonDef && !hasJsSyntax) {
-      lang = "python";
-    } else if ((lang === "python" || lang === "py") && hasJsSyntax && !hasPythonDef) {
-      lang = "javascript";
-    } else if ((lang === "python" || lang === "py") && hasCppSyntax && !hasPythonDef) {
-      lang = "cpp";
-    } else if ((lang === "python" || lang === "py") && hasJavaSyntax && !hasPythonDef) {
-      lang = "java";
-    }
-
-    let result;
     if (lang === "python" || lang === "py") {
       const p = path.join(tmpDir, "solution.py");
       const hasStdin = /sys\.stdin|input\s*\(/.test(codeNoComments);
       const executableCode = hasStdin ? safeCode : `${safeCode}\n\n${PYTHON_FUNCTION_HARNESS}`;
       fs.writeFileSync(p, executableCode, "utf8");
 
-      // Strict Python syntax check using py_compile
+      // Strict Python syntax check using py_compile (run ONCE!)
       const syntaxCheck = await runSandboxedProcess(PYTHON_BIN, ["-m", "py_compile", p], "", 4000, tmpDir);
       if (syntaxCheck.exitCode !== 0) {
-        return {
+        const syntaxErr = `Syntax Error (Python):\n${syntaxCheck.error || syntaxCheck.output}`;
+        return testCases.map((tc) => ({
           passed: false,
           actual: "",
-          expected: expectedOutput,
-          error: `Syntax Error (Python):\n${syntaxCheck.error || syntaxCheck.output}`,
-          duration: Date.now() - startTime,
-        };
+          expected: String(tc.expectedOutput !== undefined ? tc.expectedOutput : (tc.expected || "")).trim(),
+          error: syntaxErr,
+          duration: 0,
+        }));
       }
 
-      result = await runSandboxedProcess(PYTHON_BIN, ["-u", p], input, timeoutMs, tmpDir);
+      runner = (input) => runSandboxedProcess(PYTHON_BIN, ["-u", p], input, timeoutMs, tmpDir);
     } else if (lang === "javascript" || lang === "js" || lang === "node") {
       const p = path.join(tmpDir, "solution.js");
       const hasStdin = /fs\.readFileSync|readline|process\.stdin/.test(codeNoComments);
 
-      // Extract declared function names to allow direct invocation
       const fnMatches = [...safeCode.matchAll(/(?:function\s+([a-zA-Z0-9_$]+)|(?:const|let|var)\s+([a-zA-Z0-9_$]+)\s*=\s*(?:function|\([^)]*\)\s*=>))/g)];
       const extractedNames = fnMatches.map((m) => m[1] || m[2]).filter(Boolean);
 
@@ -979,35 +981,96 @@ async function evaluateSingleTestCase(language, code, input, expectedOutput) {
       const executableCode = hasStdin ? safeCode : `${safeCode}\n\n${jsHarness}`;
       fs.writeFileSync(p, executableCode, "utf8");
 
-      // Strict JavaScript syntax check using node --check
+      // Strict JavaScript syntax check (run ONCE!)
       const syntaxCheck = await runSandboxedProcess(NODE_BIN, ["--check", p], "", 4000, tmpDir);
       if (syntaxCheck.exitCode !== 0) {
-        return {
+        const syntaxErr = `Syntax Error (JavaScript):\n${syntaxCheck.error || syntaxCheck.output}`;
+        return testCases.map((tc) => ({
           passed: false,
           actual: "",
-          expected: expectedOutput,
-          error: `Syntax Error (JavaScript):\n${syntaxCheck.error || syntaxCheck.output}`,
-          duration: Date.now() - startTime,
-        };
+          expected: String(tc.expectedOutput !== undefined ? tc.expectedOutput : (tc.expected || "")).trim(),
+          error: syntaxErr,
+          duration: 0,
+        }));
       }
 
-      result = await runSandboxedProcess(NODE_BIN, [p], input, timeoutMs, tmpDir);
+      runner = (input) => runSandboxedProcess(NODE_BIN, [p], input, timeoutMs, tmpDir);
     } else if (lang === "c") {
       const p = path.join(tmpDir, "solution.c");
       const bin = path.join(tmpDir, "sol_c_bin");
       fs.writeFileSync(p, safeCode, "utf8");
 
-      const cRes = await runSandboxedProcess(GCC_BIN, ["-Wall", "-O2", p, "-o", bin], "", 5000, tmpDir);
+      // Fast compilation ONCE with -O0
+      const cRes = await runSandboxedProcess(GCC_BIN, ["-Wall", "-O0", p, "-o", bin], "", 5000, tmpDir);
       if (cRes.exitCode !== 0) {
-        return {
+        const compErr = `Compilation Error (C):\n${cRes.error || cRes.output}`;
+        return testCases.map((tc) => ({
           passed: false,
           actual: "",
-          expected: expectedOutput,
-          error: `Compilation Error (C):\n${cRes.error || cRes.output}`,
-          duration: Date.now() - startTime,
-        };
+          expected: String(tc.expectedOutput !== undefined ? tc.expectedOutput : (tc.expected || "")).trim(),
+          error: compErr,
+          duration: 0,
+        }));
       }
-      result = await runSandboxedProcess(bin, [], input, timeoutMs, tmpDir);
+
+      runner = (input) => runSandboxedProcess(bin, [], input, timeoutMs, tmpDir);
+    } else if (lang === "cpp" || lang === "c++") {
+      const p = path.join(tmpDir, "solution.cpp");
+      const bin = path.join(tmpDir, "sol_bin");
+      const hasMain = /(int|void)\s+main\s*\(/.test(codeNoComments);
+
+      let cppFullCode = safeCode;
+      if (!hasMain && /class\s+Solution/.test(codeNoComments)) {
+        let callStatement = "Solution sol; sol.solve();";
+        if (/twoSum/.test(codeNoComments)) {
+          callStatement = "Solution sol; int target = nums.empty() ? 0 : nums.back(); if (!nums.empty()) nums.pop_back(); std::vector<int> res = sol.twoSum(nums, target); for(size_t i = 0; i < res.size(); i++) std::cout << res[i] << (i + 1 < res.size() ? \" \" : \"\"); std::cout << std::endl;";
+        } else if (/findPeakElement/.test(codeNoComments)) {
+          callStatement = "Solution sol; std::cout << sol.findPeakElement(nums) << std::endl;";
+        } else if (/lengthOfLongestSubstring/.test(codeNoComments)) {
+          callStatement = "Solution sol; std::cout << sol.lengthOfLongestSubstring(rawAll) << std::endl;";
+        }
+
+        cppFullCode = `${safeCode}
+
+#include <sstream>
+int main() {
+    std::string line;
+    std::vector<int> nums;
+    std::string rawAll = "";
+    while (std::getline(std::cin, line)) {
+        rawAll += line + "\\n";
+        for (int i = 0; i < (int)line.size(); i++) {
+            char c = line[i];
+            if (c == 91 || c == 93 || c == 44 || c == 34) line[i] = 32;
+        }
+        std::stringstream ss(line);
+        int val;
+        while (ss >> val) {
+            nums.push_back(val);
+        }
+    }
+    ${callStatement}
+    return 0;
+}
+`;
+      }
+
+      fs.writeFileSync(p, cppFullCode, "utf8");
+
+      // Fast compilation ONCE with -O0
+      const cRes = await runSandboxedProcess(GPP_BIN, ["-Wall", "-O0", p, "-o", bin], "", 5000, tmpDir);
+      if (cRes.exitCode !== 0) {
+        const compErr = `Compilation Error (C++):\n${cRes.error || cRes.output}`;
+        return testCases.map((tc) => ({
+          passed: false,
+          actual: "",
+          expected: String(tc.expectedOutput !== undefined ? tc.expectedOutput : (tc.expected || "")).trim(),
+          error: compErr,
+          duration: 0,
+        }));
+      }
+
+      runner = (input) => runSandboxedProcess(bin, [], input, timeoutMs, tmpDir);
     } else if (lang === "java") {
       const hasMain = /public\s+static\s+void\s+main\s*\(|static\s+public\s+void\s+main\s*\(/.test(codeNoComments);
       let className = "Main";
@@ -1019,17 +1082,17 @@ async function evaluateSingleTestCase(language, code, input, expectedOutput) {
         fs.writeFileSync(p, safeCode, "utf8");
         const cRes = await runSandboxedProcess(JAVAC_BIN, [p], "", 5000, tmpDir);
         if (cRes.exitCode !== 0) {
-          return {
+          const compErr = `Compilation Error (Java):\n${cRes.error || cRes.output}`;
+          return testCases.map((tc) => ({
             passed: false,
             actual: "",
-            expected: expectedOutput,
-            error: `Compilation Error (Java):\n${cRes.error || cRes.output}`,
-            duration: Date.now() - startTime,
-          };
+            expected: String(tc.expectedOutput !== undefined ? tc.expectedOutput : (tc.expected || "")).trim(),
+            error: compErr,
+            duration: 0,
+          }));
         }
-        result = await runSandboxedProcess(JAVA_BIN, ["-cp", tmpDir, className], input, timeoutMs, tmpDir);
+        runner = (input) => runSandboxedProcess(JAVA_BIN, ["-cp", tmpDir, className], input, timeoutMs, tmpDir);
       } else {
-        // Wrap class Solution with reflection driver
         const nonPublicCode = safeCode.replace(/public\s+class\s+Solution/g, "class Solution");
         const javaDriver = `
 import java.util.*;
@@ -1096,94 +1159,65 @@ public class Main {
         fs.writeFileSync(p, javaDriver, "utf8");
         const cRes = await runSandboxedProcess(JAVAC_BIN, [p], "", 5000, tmpDir);
         if (cRes.exitCode !== 0) {
-          return {
+          const compErr = `Compilation Error (Java):\n${cRes.error || cRes.output}`;
+          return testCases.map((tc) => ({
             passed: false,
             actual: "",
-            expected: expectedOutput,
-            error: `Compilation Error (Java):\n${cRes.error || cRes.output}`,
-            duration: Date.now() - startTime,
-          };
+            expected: String(tc.expectedOutput !== undefined ? tc.expectedOutput : (tc.expected || "")).trim(),
+            error: compErr,
+            duration: 0,
+          }));
         }
-        result = await runSandboxedProcess(JAVA_BIN, ["-cp", tmpDir, "Main"], input, timeoutMs, tmpDir);
+        runner = (input) => runSandboxedProcess(JAVA_BIN, ["-cp", tmpDir, "Main"], input, timeoutMs, tmpDir);
       }
-    } else if (lang === "cpp" || lang === "c++") {
-      const p = path.join(tmpDir, "solution.cpp");
-      const bin = path.join(tmpDir, "sol_bin");
-      const hasMain = /(int|void)\s+main\s*\(/.test(codeNoComments);
-
-      let cppFullCode = safeCode;
-      if (!hasMain && /class\s+Solution/.test(codeNoComments)) {
-        // Intelligently inject C++ driver for class Solution
-        let callStatement = "Solution sol; sol.solve();";
-        if (/twoSum/.test(codeNoComments)) {
-          callStatement = "Solution sol; int target = nums.empty() ? 0 : nums.back(); if (!nums.empty()) nums.pop_back(); std::vector<int> res = sol.twoSum(nums, target); for(size_t i = 0; i < res.size(); i++) std::cout << res[i] << (i + 1 < res.size() ? \" \" : \"\"); std::cout << std::endl;";
-        } else if (/findPeakElement/.test(codeNoComments)) {
-          callStatement = "Solution sol; std::cout << sol.findPeakElement(nums) << std::endl;";
-        } else if (/lengthOfLongestSubstring/.test(codeNoComments)) {
-          callStatement = "Solution sol; std::cout << sol.lengthOfLongestSubstring(rawAll) << std::endl;";
-        }
-
-        cppFullCode = `${safeCode}
-
-#include <sstream>
-int main() {
-    std::string line;
-    std::vector<int> nums;
-    std::string rawAll = "";
-    while (std::getline(std::cin, line)) {
-        rawAll += line + "\\n";
-        for (int i = 0; i < (int)line.size(); i++) {
-            char c = line[i];
-            if (c == 91 || c == 93 || c == 44 || c == 34) line[i] = 32;
-        }
-        std::stringstream ss(line);
-        int val;
-        while (ss >> val) nums.push_back(val);
-    }
-    ${callStatement}
-    return 0;
-}
-`;
-      }
-
-      fs.writeFileSync(p, cppFullCode, "utf8");
-      const cRes = await runSandboxedProcess(GPP_BIN, ["-Wall", "-O2", p, "-o", bin], "", 5000, tmpDir);
-      if (cRes.exitCode !== 0) {
-        return {
-          passed: false,
-          actual: "",
-          expected: expectedOutput,
-          error: `Compilation Error (C++):\n${cRes.error || cRes.output}`,
-          duration: Date.now() - startTime,
-        };
-      }
-      result = await runSandboxedProcess(bin, [], input, timeoutMs, tmpDir);
     } else {
-      return {
+      return testCases.map((tc) => ({
         passed: false,
         actual: "",
-        expected: expectedOutput,
+        expected: String(tc.expectedOutput !== undefined ? tc.expectedOutput : (tc.expected || "")).trim(),
         error: `Unsupported language: ${language}. Supported languages are Python, JavaScript, Java, C, and C++.`,
         duration: 0,
-      };
+      }));
     }
 
-    const cleanActual = (result.output || "").trim().replace(/\r\n/g, "\n");
-    const cleanExpected = (expectedOutput || "").trim().replace(/\r\n/g, "\n");
-    const passed = result.exitCode === 0 && validateTestCaseOutput(cleanActual, cleanExpected);
+    // Execute test cases using the single compiled environment
+    const results = [];
+    for (const tc of testCases) {
+      const tcStartTime = Date.now();
+      const input = tc.input !== undefined ? tc.input : "";
+      const expectedOutput = tc.expectedOutput !== undefined ? tc.expectedOutput : (tc.expected || "");
+      const res = await runner(input);
+      const cleanActual = (res.output || "").trim().replace(/\r\n/g, "\n");
+      const cleanExpected = (expectedOutput || "").trim().replace(/\r\n/g, "\n");
+      const passed = res.exitCode === 0 && validateTestCaseOutput(cleanActual, cleanExpected);
 
-    return {
-      passed,
-      actual: cleanActual,
-      expected: cleanExpected,
-      error: result.error || "",
-      duration: result.duration || Date.now() - startTime,
-    };
+      results.push({
+        passed,
+        actual: cleanActual,
+        expected: cleanExpected,
+        error: res.error || "",
+        duration: res.duration || (Date.now() - tcStartTime),
+      });
+    }
+
+    return results;
   } finally {
     try {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     } catch {}
   }
+}
+
+// Single test case adapter using the batch engine
+async function evaluateSingleTestCase(language, code, input, expectedOutput) {
+  const batch = await evaluateTestCasesBatch(language, code, [{ input, expectedOutput }]);
+  return batch[0] || {
+    passed: false,
+    actual: "",
+    expected: String(expectedOutput || "").trim(),
+    error: "Execution failed",
+    duration: 0,
+  };
 }
 
 // Structured configurations for dedicated language coding compilers
@@ -1500,12 +1534,11 @@ router.post("/challenges/:id/test", optionalAuthenticateToken, async (req, res) 
       ? (challenge.testCases || [])
       : (challenge.testCases || []).filter((t) => !t.isHidden);
     const testCasesToRun = publicTests.length > 0 ? publicTests : challenge.testCases || [];
-    const testResults = [];
 
-    for (let i = 0; i < testCasesToRun.length; i++) {
-      const test = testCasesToRun[i];
-      const outcome = await evaluateSingleTestCase(effectiveLang, code, test.input, test.expectedOutput);
-      testResults.push({
+    const outcomes = await evaluateTestCasesBatch(effectiveLang, code, testCasesToRun);
+    const testResults = testCasesToRun.map((test, i) => {
+      const outcome = outcomes[i] || { passed: false, actual: "", expected: test.expectedOutput, error: "Evaluation failed", duration: 0 };
+      return {
         testIndex: i + 1,
         testNumber: i + 1,
         input: test.input,
@@ -1518,8 +1551,8 @@ router.post("/challenges/:id/test", optionalAuthenticateToken, async (req, res) 
         duration: outcome.duration,
         durationMs: outcome.duration,
         isHidden: false,
-      });
-    }
+      };
+    });
 
     const allPassed = testResults.every((r) => r.passed);
     res.json({
@@ -1559,26 +1592,25 @@ router.post("/challenges/:id/submit", optionalAuthenticateToken, async (req, res
   try {
     const allTests = challenge.testCases;
     const isPlayground = Boolean(id && id.startsWith("playground-"));
-    const testResults = await Promise.all(
-      allTests.map(async (test, i) => {
-        const isHidden = isPlayground ? false : (test.isHidden !== undefined ? test.isHidden : i >= 3);
-        const outcome = await evaluateSingleTestCase(effectiveLang, code, test.input, test.expectedOutput);
-        return {
-          testIndex: i + 1,
-          testNumber: i + 1,
-          isHidden,
-          passed: outcome.passed,
-          duration: outcome.duration,
-          durationMs: outcome.duration,
-          error: outcome.passed ? null : (isHidden ? (outcome.error ? "Runtime Error on Hidden Case" : "Wrong Answer on Hidden Case") : outcome.error),
-          input: isHidden ? "[Hidden Test Case]" : test.input,
-          expected: isHidden ? "[Hidden Test Case]" : test.expectedOutput,
-          expectedOutput: isHidden ? "[Hidden Test Case]" : test.expectedOutput,
-          actual: isHidden ? (outcome.passed ? "[Passed]" : "[Output Hidden]") : outcome.actual,
-          actualOutput: isHidden ? (outcome.passed ? "[Passed]" : "[Output Hidden]") : outcome.actual,
-        };
-      })
-    );
+    const outcomes = await evaluateTestCasesBatch(effectiveLang, code, allTests);
+    const testResults = allTests.map((test, i) => {
+      const outcome = outcomes[i] || { passed: false, actual: "", expected: test.expectedOutput, error: "Evaluation failed", duration: 0 };
+      const isHidden = isPlayground ? false : (test.isHidden !== undefined ? test.isHidden : i >= 3);
+      return {
+        testIndex: i + 1,
+        testNumber: i + 1,
+        isHidden,
+        passed: outcome.passed,
+        duration: outcome.duration,
+        durationMs: outcome.duration,
+        error: outcome.passed ? null : (isHidden ? (outcome.error ? "Runtime Error on Hidden Case" : "Wrong Answer on Hidden Case") : outcome.error),
+        input: isHidden ? "[Hidden Test Case]" : test.input,
+        expected: isHidden ? "[Hidden Test Case]" : test.expectedOutput,
+        expectedOutput: isHidden ? "[Hidden Test Case]" : test.expectedOutput,
+        actual: isHidden ? (outcome.passed ? "[Passed]" : "[Output Hidden]") : outcome.actual,
+        actualOutput: isHidden ? (outcome.passed ? "[Passed]" : "[Output Hidden]") : outcome.actual,
+      };
+    });
 
     const passedCount = testResults.filter((r) => r.passed).length;
     // Strict completion rule: completed ONLY when 100% of all test cases pass (including hidden tests)
@@ -1657,6 +1689,30 @@ router.post("/challenges/:id/submit", optionalAuthenticateToken, async (req, res
         actionUrl: "/admin/coding-analytics",
         io: req.app.get("io"),
       }).catch(() => {});
+
+      // Send submission / evaluation email to candidate
+      try {
+        const candidateUser = await User.findById(userId).select("fullName username email role").lean();
+        if (candidateUser && candidateUser.email && !isGuestAccount(candidateUser.email, candidateUser.role)) {
+          dispatchMailBackground(async () => {
+            return await sendSubmissionEvaluationEmail({
+              userEmail: candidateUser.email,
+              userName: candidateUser.fullName || candidateUser.username || "Candidate",
+              challengeTitle: challenge.title,
+              assessmentType: "coding",
+              language,
+              score,
+              maxScore: 100,
+              percentage: score,
+              verdict: isAccepted ? "ACCEPTED" : "WRONG_ANSWER",
+              reportUrl: `/coding/${challenge.id}`,
+              req,
+            });
+          }, { type: "coding_challenge_submitted", recipient: candidateUser.email });
+        }
+      } catch (subMailErr) {
+        console.warn("Challenge submission email dispatch warning:", subMailErr.message);
+      }
     }
 
     if (isAccepted) {
@@ -2344,12 +2400,10 @@ router.post("/curriculum/exercise/run", authenticateToken, async (req, res) => {
     }
 
     const publicTests = (module.codingExercise.testCases || []).filter((t) => !t.isHidden).slice(0, 3);
-    const results = [];
-
-    for (let i = 0; i < publicTests.length; i++) {
-      const tc = publicTests[i];
-      const outcome = await evaluateSingleTestCase(lang, code, tc.input, tc.expectedOutput);
-      results.push({
+    const outcomes = await evaluateTestCasesBatch(lang, code, publicTests);
+    const results = publicTests.map((tc, i) => {
+      const outcome = outcomes[i] || { passed: false, actual: "", expected: tc.expectedOutput, error: "Evaluation failed", duration: 0 };
+      return {
         testIndex: i + 1,
         testNumber: i + 1,
         input: tc.input,
@@ -2361,8 +2415,8 @@ router.post("/curriculum/exercise/run", authenticateToken, async (req, res) => {
         error: outcome.error,
         duration: outcome.duration,
         durationMs: outcome.duration,
-      });
-    }
+      };
+    });
 
     const allPassed = results.length > 0 && results.every((r) => r.passed);
     res.json({
@@ -2396,26 +2450,25 @@ router.post("/curriculum/exercise/submit", authenticateToken, async (req, res) =
     const testCases = module.codingExercise.testCases;
     const lang = (language || (trackId === "cpp" ? "cpp" : trackId === "java" ? "java" : trackId === "python" ? "python" : "javascript")).toLowerCase().trim();
 
-    const testResults = await Promise.all(
-      testCases.map(async (tc, i) => {
-        const isHidden = tc.isHidden !== undefined ? tc.isHidden : i >= 3;
-        const outcome = await evaluateSingleTestCase(lang, code, tc.input, tc.expectedOutput);
-        return {
-          testIndex: i + 1,
-          testNumber: i + 1,
-          isHidden,
-          passed: outcome.passed,
-          duration: outcome.duration,
-          durationMs: outcome.duration,
-          error: outcome.passed ? null : (isHidden ? (outcome.error ? "Runtime Error on Hidden Case" : "Wrong Answer on Hidden Case") : outcome.error),
-          input: isHidden ? "[Hidden Test Case]" : tc.input,
-          expected: isHidden ? "[Hidden Test Case]" : tc.expectedOutput,
-          expectedOutput: isHidden ? "[Hidden Test Case]" : tc.expectedOutput,
-          actual: isHidden ? (outcome.passed ? "[Passed]" : "[Output Hidden]") : outcome.actual,
-          actualOutput: isHidden ? (outcome.passed ? "[Passed]" : "[Output Hidden]") : outcome.actual,
-        };
-      })
-    );
+    const outcomes = await evaluateTestCasesBatch(lang, code, testCases);
+    const testResults = testCases.map((tc, i) => {
+      const outcome = outcomes[i] || { passed: false, actual: "", expected: tc.expectedOutput, error: "Evaluation failed", duration: 0 };
+      const isHidden = tc.isHidden !== undefined ? tc.isHidden : i >= 3;
+      return {
+        testIndex: i + 1,
+        testNumber: i + 1,
+        isHidden,
+        passed: outcome.passed,
+        duration: outcome.duration,
+        durationMs: outcome.duration,
+        error: outcome.passed ? null : (isHidden ? (outcome.error ? "Runtime Error on Hidden Case" : "Wrong Answer on Hidden Case") : outcome.error),
+        input: isHidden ? "[Hidden Test Case]" : tc.input,
+        expected: isHidden ? "[Hidden Test Case]" : tc.expectedOutput,
+        expectedOutput: isHidden ? "[Hidden Test Case]" : tc.expectedOutput,
+        actual: isHidden ? (outcome.passed ? "[Passed]" : "[Output Hidden]") : outcome.actual,
+        actualOutput: isHidden ? (outcome.passed ? "[Passed]" : "[Output Hidden]") : outcome.actual,
+      };
+    });
 
     const passedCount = testResults.filter((r) => r.passed).length;
     const score = Math.round((passedCount / testCases.length) * 100);
@@ -2947,7 +3000,7 @@ router.post("/curriculum/assessment/submit", authenticateToken, async (req, res)
 
     try {
       const candidateUser = await User.findById(userId).select("fullName username email role").lean();
-      if (candidateUser && candidateUser.email) {
+      if (candidateUser && candidateUser.email && !isGuestAccount(candidateUser.email, candidateUser.role)) {
         dispatchMailBackground(async () => {
           return await sendSubmissionEvaluationEmail({
             userEmail: candidateUser.email,
@@ -4785,22 +4838,21 @@ router.post(["/proctored-session/:sessionId/submit", "/proctored-session/submit"
       if (Array.isArray(testResults) && testResults.length > 0) {
         evaluatedResults = testResults;
       } else {
-        evaluatedResults = await Promise.all(
-          qTestCases.map(async (tc, i) => {
-            const isHidden = tc.isHidden !== undefined ? tc.isHidden : i >= 3;
-            const outcome = await evaluateSingleTestCase(submissionLang, submissionCode, tc.input, tc.expectedOutput);
-            return {
-              testIndex: i + 1,
-              passed: outcome.passed,
-              durationMs: outcome.duration || 0,
-              input: isHidden ? "[Hidden Test Case]" : tc.input,
-              expected: isHidden ? "[Hidden Output]" : tc.expectedOutput,
-              actual: isHidden ? (outcome.passed ? "[Passed]" : "[Output Hidden]") : (outcome.actual || (hasExecutableCode ? "" : "[No Output]")),
-              error: outcome.passed ? null : outcome.error || "Wrong output",
-              isHidden,
-            };
-          })
-        );
+        const outcomes = await evaluateTestCasesBatch(submissionLang, submissionCode, qTestCases);
+        evaluatedResults = qTestCases.map((tc, i) => {
+          const outcome = outcomes[i] || { passed: false, actual: "", expected: tc.expectedOutput, error: "Evaluation failed", duration: 0 };
+          const isHidden = tc.isHidden !== undefined ? tc.isHidden : i >= 3;
+          return {
+            testIndex: i + 1,
+            passed: outcome.passed,
+            durationMs: outcome.duration || 0,
+            input: isHidden ? "[Hidden Test Case]" : tc.input,
+            expected: isHidden ? "[Hidden Output]" : tc.expectedOutput,
+            actual: isHidden ? (outcome.passed ? "[Passed]" : "[Output Hidden]") : (outcome.actual || (hasExecutableCode ? "" : "[No Output]")),
+            error: outcome.passed ? null : outcome.error || "Wrong output",
+            isHidden,
+          };
+        });
       }
 
       const totalTests = providedTotalTests || qTestCases.length || 10;
@@ -4966,7 +5018,7 @@ router.post(["/proctored-session/:sessionId/submit", "/proctored-session/submit"
       const candidateUser = await User.findById(userId).select("fullName username email role").lean();
       const recipientEmail = candidateUser?.email || session.candidateDetails?.email;
       const recipientName = candidateUser?.fullName || candidateUser?.username || session.candidateDetails?.fullName || "Candidate";
-      if (recipientEmail) {
+      if (recipientEmail && !isGuestAccount(recipientEmail)) {
         dispatchMailBackground(async () => {
           return await sendSubmissionEvaluationEmail({
             userEmail: recipientEmail,
@@ -5705,6 +5757,7 @@ router.get("/proctored-session/:sessionId/report", optionalAuthenticateToken, as
 });
 
 router.evaluateSingleTestCase = evaluateSingleTestCase;
+router.evaluateTestCasesBatch = evaluateTestCasesBatch;
 router.runSandboxedProcess = runSandboxedProcess;
 
 module.exports = router;

@@ -29,7 +29,7 @@ import {
 import "./assessmentSecurityGate.css";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
-const SIGNAL_RESTORE_MS = 780;
+const SIGNAL_RESTORE_MS = 100;
 
 function getActiveFullscreenElement() {
   if (typeof document === "undefined") return null;
@@ -1315,56 +1315,48 @@ export default function AssessmentSecurityGate({
 
     try {
       const token = localStorage.getItem("token");
-      const initRes = await fetch(`${API_BASE}/api/coding/proctored-session/init`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          candidateDetails: {
-            fullName: candidateName.trim() || "Candidate",
-            email: candidateEmail.trim(),
-            candidateId: candidateId.trim(),
-            organization: organization.trim(),
-          },
-          questionId: questionId || problemData?.id || "ch_two_sum",
-          assessmentTitle: assessmentTitle || problemData?.title || "MZ-ASM Coding Assessment",
-          problemData,
-          timeLimitMinutes,
-        }),
-      });
+      let sid = launchedSessionId;
 
-      const initData = await initRes.json();
-      const sid = initData.sessionId || `mz_proc_${Date.now()}`;
-      setLaunchedSessionId(sid);
+      // Only invoke backend coding proctored session APIs if explicit coding problem metadata exists
+      const hasCodingProblem = Boolean(questionId || problemData?.id);
+      if (hasCodingProblem) {
+        try {
+          const initRes = await fetch(`${API_BASE}/api/coding/proctored-session/init`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify({
+              candidateDetails: {
+                fullName: candidateName.trim() || "Candidate",
+                email: candidateEmail.trim(),
+                candidateId: candidateId.trim(),
+                organization: organization.trim(),
+              },
+              questionId: questionId || problemData?.id,
+              assessmentTitle: assessmentTitle || problemData?.title || "Coding Assessment",
+              problemData,
+              timeLimitMinutes,
+            }),
+          });
 
-      await fetch(`${API_BASE}/api/coding/proctored-session/start`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          sessionId: sid,
-          questionId: questionId || problemData?.id || "ch_two_sum",
-          assessmentTitle: assessmentTitle || problemData?.title || "MZ-ASM Coding Assessment",
-          problemData,
-          candidateDetails: {
-            fullName: candidateName.trim(),
-            email: candidateEmail.trim(),
-            candidateId: candidateId.trim(),
-            organization: organization.trim(),
-          },
-          deviceInfo: {
-            camera: cameraActive,
-            microphone: micActive,
-            screenShare: screenShareActive,
-            fullscreen: fullscreenActive,
-            displaySurface,
-          },
-        }),
-      });
+          if (initRes.ok) {
+            const initData = await initRes.json();
+            if (initData?.sessionId) {
+              sid = initData.sessionId;
+              setLaunchedSessionId(sid);
+            }
+          }
+        } catch (e) {
+          console.warn("Coding proctored session init note:", e.message);
+        }
+      }
+
+      if (!sid) {
+        sid = `mz_proc_${Date.now()}`;
+        setLaunchedSessionId(sid);
+      }
 
       if (!getActiveFullscreenElement()) {
         try {
