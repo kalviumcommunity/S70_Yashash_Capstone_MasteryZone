@@ -1254,6 +1254,13 @@ export default function Coding() {
     setShowSearchDropdown(false);
     const targetLang = (langId || "python").toLowerCase();
     const seed = Date.now();
+    if (starterCode) {
+      try {
+        const uKey = currentUser?._id || currentUser?.id || "guest";
+        localStorage.setItem(`mz_${uKey}_ch_draft_playground-${targetLang}-${seed}_${targetLang}`, starterCode);
+        localStorage.setItem(`mz_ch_draft_playground-${targetLang}-${seed}_${targetLang}`, starterCode);
+      } catch {}
+    }
     window.open(`/challenge-workspace/playground-${targetLang}-${seed}`, "_blank", "noopener,noreferrer");
   };
 
@@ -2297,7 +2304,7 @@ export default function Coding() {
                       handleOpenPlayground(
                         "python",
                         "Python 3",
-                        "# Python 3 Sandboxed Runner\ndef solve():\n    print('Hello from MZ-ASM Compiler!')\n\nsolve()\n"
+                        `# Python 3 Sandboxed Runner\nimport sys\n\ndef solve():\n    input_text = sys.stdin.read().strip()\n    if input_text:\n        print(f"Input: {input_text}")\n    else:\n        print("Hello from Python 3 Runner!")\n\nif __name__ == "__main__":\n    solve()\n`
                       )
                     }
                     style={{
@@ -2336,7 +2343,7 @@ export default function Coding() {
                         handleOpenPlayground(
                           "python",
                           "Python 3",
-                          "# Python 3 Sandboxed Runner\ndef main():\n    print('Hello from Python 3 Runner!')\n\nif __name__ == '__main__':\n    main()\n"
+                          `# Python 3 Sandboxed Runner\nimport sys\n\ndef solve():\n    input_text = sys.stdin.read().strip()\n    if input_text:\n        print(f"Input: {input_text}")\n    else:\n        print("Hello from Python 3 Runner!")\n\nif __name__ == "__main__":\n    solve()\n`
                         )
                       }
                     >
@@ -2360,7 +2367,7 @@ export default function Coding() {
                         handleOpenPlayground(
                           "javascript",
                           "JavaScript",
-                          "// JavaScript Node.js Runtime\nconsole.log('Hello from JavaScript Node.js Runtime!');\n"
+                          `// JavaScript Node.js Runtime\nconst fs = require('fs');\n\nfunction solve() {\n    let input = "";\n    try { input = fs.readFileSync(0, 'utf-8').trim(); } catch(e) {}\n    if (input) {\n        console.log(\`Input: \${input}\`);\n    } else {\n        console.log("Hello from JavaScript Node.js Runtime!");\n    }\n}\n\nsolve();\n`
                         )
                       }
                     >
@@ -2384,7 +2391,7 @@ export default function Coding() {
                         handleOpenPlayground(
                           "java",
                           "Java 26",
-                          "// Java 26 OpenJDK Compiler\npublic class Solution {\n    public static void main(String[] args) {\n        System.out.println(\"Hello from Java 26 OpenJDK!\");\n    }\n}\n"
+                          `// Java 26 OpenJDK Compiler\nimport java.util.Scanner;\n\npublic class Solution {\n    public static void main(String[] args) {\n        Scanner scanner = new Scanner(System.in);\n        if (scanner.hasNextLine()) {\n            String line = scanner.nextLine().trim();\n            System.out.println("Input: " + line);\n        } else {\n            System.out.println("Hello from Java 26 OpenJDK!");\n        }\n    }\n}\n`
                         )
                       }
                     >
@@ -2408,7 +2415,7 @@ export default function Coding() {
                         handleOpenPlayground(
                           "cpp",
                           "Modern C++",
-                          "// Modern C++ (Clang / G++)\n#include <iostream>\n\nint main() {\n    std::cout << \"Hello from Modern C++!\" << std::endl;\n    return 0;\n}\n"
+                          `// Modern C++ (Clang / G++)\n#include <iostream>\n#include <string>\n\nint main() {\n    std::string line;\n    if (std::getline(std::cin, line) && !line.empty()) {\n        std::cout << "Input: " << line << std::endl;\n    } else {\n        std::cout << "Hello from Modern C++!" << std::endl;\n    }\n    return 0;\n}\n`
                         )
                       }
                     >
@@ -2426,60 +2433,41 @@ export default function Coding() {
         {activeTab === "challenges" && (
           <div className="mz-c-challenges-tab-view mz-c-grid-anim">
             {/* Top 135 Challenges Showcase Cover Card */}
-            <div
-              style={{
-                background: "linear-gradient(135deg, #0b1329 0%, #172554 55%, #1e3a8a 100%)",
-                borderRadius: "20px",
-                padding: "26px 30px",
-                color: "#ffffff",
-                marginBottom: "22px",
-                boxShadow: "0 12px 32px -4px rgba(15, 23, 42, 0.25)",
-                position: "relative",
-                overflow: "hidden",
-                border: "1px solid rgba(59, 130, 246, 0.35)",
-                display: "flex",
-                flexWrap: "wrap",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: "20px",
-              }}
-            >
+            <div className="mz-c-challenges-showcase-cover">
               <div style={{ position: "relative", zIndex: 1, maxWidth: "660px" }}>
-                <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: "rgba(59, 130, 246, 0.2)", border: "1px solid rgba(147, 197, 253, 0.4)", padding: "4px 12px", borderRadius: "9999px", marginBottom: "12px" }}>
-                  <LuCode size={13} color="#93c5fd" />
-                  <span style={{ fontSize: "11px", fontWeight: 800, color: "#bfdbfe", letterSpacing: "0.06em", textTransform: "uppercase" }}>
-                    Official LeetCode & FAANG Problem Catalog
-                  </span>
+                <div className="mz-c-challenges-cover-badge">
+                  <LuCode size={13} color="#2563eb" />
+                  <span>Official LeetCode & FAANG Problem Catalog</span>
                 </div>
-                <h2 style={{ fontSize: "24px", fontWeight: 900, margin: "0 0 8px", color: "#ffffff", letterSpacing: "-0.01em" }}>
+                <h2 className="mz-c-challenges-cover-title">
                   135 Curated Algorithmic Coding Challenges
                 </h2>
-                <p style={{ margin: 0, fontSize: "13.5px", color: "#cbd5e1", lineHeight: 1.55 }}>
+                <p className="mz-c-challenges-cover-desc">
                   Practice essential data structures and algorithms across Python, Modern C++, Java, and JavaScript. Every problem features automated multi-test execution, edge-case evaluation, and sub-millisecond benchmarking.
                 </p>
               </div>
 
               {/* Mini Quick Metric Counters */}
               <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", position: "relative", zIndex: 1 }}>
-                <div style={{ background: "rgba(255, 255, 255, 0.08)", backdropFilter: "blur(8px)", padding: "10px 16px", borderRadius: "12px", border: "1px solid rgba(255, 255, 255, 0.12)", textAlign: "center", minWidth: "85px" }}>
-                  <div style={{ fontSize: "10px", color: "#94a3b8", textTransform: "uppercase", fontWeight: 700 }}>Total</div>
-                  <div style={{ fontSize: "18px", fontWeight: 800, color: "#ffffff", marginTop: "2px" }}>{challenges.length || 135}</div>
+                <div className="mz-c-challenges-metric-box">
+                  <div style={{ fontSize: "10.5px", color: "#64748b", textTransform: "uppercase", fontWeight: 800 }}>Total</div>
+                  <div style={{ fontSize: "19px", fontWeight: 900, color: "#0f172a", marginTop: "2px" }}>{challenges.length || 135}</div>
                 </div>
-                <div style={{ background: "rgba(255, 255, 255, 0.08)", backdropFilter: "blur(8px)", padding: "10px 16px", borderRadius: "12px", border: "1px solid rgba(255, 255, 255, 0.12)", textAlign: "center", minWidth: "85px" }}>
-                  <div style={{ fontSize: "10px", color: "#86efac", textTransform: "uppercase", fontWeight: 700 }}>Easy</div>
-                  <div style={{ fontSize: "18px", fontWeight: 800, color: "#4ade80", marginTop: "2px" }}>
+                <div className="mz-c-challenges-metric-box">
+                  <div style={{ fontSize: "10.5px", color: "#16a34a", textTransform: "uppercase", fontWeight: 800 }}>Easy</div>
+                  <div style={{ fontSize: "19px", fontWeight: 900, color: "#16a34a", marginTop: "2px" }}>
                     {challenges.filter((c) => c.difficulty?.toLowerCase() === "easy").length || 45}
                   </div>
                 </div>
-                <div style={{ background: "rgba(255, 255, 255, 0.08)", backdropFilter: "blur(8px)", padding: "10px 16px", borderRadius: "12px", border: "1px solid rgba(255, 255, 255, 0.12)", textAlign: "center", minWidth: "85px" }}>
-                  <div style={{ fontSize: "10px", color: "#fde047", textTransform: "uppercase", fontWeight: 700 }}>Medium</div>
-                  <div style={{ fontSize: "18px", fontWeight: 800, color: "#facc15", marginTop: "2px" }}>
+                <div className="mz-c-challenges-metric-box">
+                  <div style={{ fontSize: "10.5px", color: "#d97706", textTransform: "uppercase", fontWeight: 800 }}>Medium</div>
+                  <div style={{ fontSize: "19px", fontWeight: 900, color: "#d97706", marginTop: "2px" }}>
                     {challenges.filter((c) => c.difficulty?.toLowerCase() === "medium").length || 65}
                   </div>
                 </div>
-                <div style={{ background: "rgba(255, 255, 255, 0.08)", backdropFilter: "blur(8px)", padding: "10px 16px", borderRadius: "12px", border: "1px solid rgba(255, 255, 255, 0.12)", textAlign: "center", minWidth: "85px" }}>
-                  <div style={{ fontSize: "10px", color: "#fca5a5", textTransform: "uppercase", fontWeight: 700 }}>Hard</div>
-                  <div style={{ fontSize: "18px", fontWeight: 800, color: "#f87171", marginTop: "2px" }}>
+                <div className="mz-c-challenges-metric-box">
+                  <div style={{ fontSize: "10.5px", color: "#dc2626", textTransform: "uppercase", fontWeight: 800 }}>Hard</div>
+                  <div style={{ fontSize: "19px", fontWeight: 900, color: "#dc2626", marginTop: "2px" }}>
                     {challenges.filter((c) => c.difficulty?.toLowerCase() === "hard").length || 25}
                   </div>
                 </div>
@@ -2795,106 +2783,37 @@ export default function Coding() {
               <div
                 className="mz-c-video-spotlight-banner"
                 onClick={() => setActiveVideoModal(filteredVideoCourses[0])}
-                style={{
-                  position: "relative",
-                  borderRadius: "18px",
-                  overflow: "hidden",
-                  marginBottom: "22px",
-                  cursor: "pointer",
-                  minHeight: "260px",
-                  background: "#090d16",
-                  border: "1px solid #1e293b",
-                  boxShadow: "0 12px 30px -5px rgba(0, 0, 0, 0.25)",
-                  display: "flex",
-                  alignItems: "center",
-                }}
               >
                 <img
                   src={`https://img.youtube.com/vi/${filteredVideoCourses[0].youtubeId}/hqdefault.jpg`}
                   alt={filteredVideoCourses[0].title}
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
-                    opacity: 0.38,
-                    transition: "transform 0.4s ease",
-                  }}
                   className="mz-c-spotlight-bg"
                 />
-                <div
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    background: "linear-gradient(90deg, rgba(15, 23, 42, 0.94) 0%, rgba(15, 23, 42, 0.7) 50%, rgba(15, 23, 42, 0.2) 100%)",
-                  }}
-                />
+                <div className="mz-c-spotlight-overlay" />
 
-                <div
-                  style={{
-                    position: "relative",
-                    zIndex: 2,
-                    padding: "28px 32px",
-                    maxWidth: "700px",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "12px",
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    <span
-                      style={{
-                        background: "#2563eb",
-                        color: "#ffffff",
-                        fontSize: "11px",
-                        fontWeight: 800,
-                        padding: "3px 10px",
-                        borderRadius: "20px",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.5px",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "5px",
-                      }}
-                    >
+                <div className="mz-c-spotlight-content">
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+                    <span className="mz-c-spotlight-tag">
                       <LuSparkles size={12} /> Spotlight Masterclass
                     </span>
-                    <span
-                      style={{
-                        background: "rgba(255, 255, 255, 0.12)",
-                        backdropFilter: "blur(4px)",
-                        color: "#e2e8f0",
-                        fontSize: "11.5px",
-                        fontWeight: 600,
-                        padding: "3px 10px",
-                        borderRadius: "20px",
-                      }}
-                    >
-                      <LuClock size={11} style={{ marginRight: "4px", verticalAlign: "middle" }} />
+                    <span className="mz-c-spotlight-duration">
+                      <LuClock size={12} style={{ marginRight: "5px", verticalAlign: "middle", color: "#2563eb" }} />
                       {filteredVideoCourses[0].duration}
                     </span>
                   </div>
 
-                  <h3 style={{ fontSize: "22px", fontWeight: 800, color: "#ffffff", margin: 0, lineHeight: 1.3 }}>
+                  <h3 className="mz-c-spotlight-title">
                     {filteredVideoCourses[0].title}
                   </h3>
 
-                  <p style={{ fontSize: "13px", color: "#94a3b8", margin: 0 }}>
-                    Taught by <strong style={{ color: "#f1f5f9" }}>{filteredVideoCourses[0].channelTitle}</strong> • {filteredVideoCourses[0].level} • {filteredVideoCourses[0].category}
+                  <p className="mz-c-spotlight-desc">
+                    Taught by <strong>{filteredVideoCourses[0].channelTitle}</strong> • {filteredVideoCourses[0].level} • {filteredVideoCourses[0].category}
                   </p>
 
                   <div style={{ marginTop: "4px" }}>
                     <button
                       type="button"
-                      className="mz-c-btn-solve"
-                      style={{
-                        padding: "9px 20px",
-                        fontSize: "13px",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "8px",
-                      }}
+                      className="mz-c-spotlight-btn"
                       onClick={(e) => {
                         e.stopPropagation();
                         setActiveVideoModal(filteredVideoCourses[0]);
