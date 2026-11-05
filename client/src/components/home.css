@@ -351,29 +351,17 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 40px;
-  background: linear-gradient(135deg, #f8faff 0%, #eff6ff 45%, #f1f8fe 80%, #f0fdf4 100%);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-bottom: 1.5px solid #dbeafe;
-  box-shadow: 0 4px 20px -2px rgba(37, 99, 235, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.03);
+  background: linear-gradient(180deg, #edf5ff 0%, #e2eeff 100%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1.5px solid #bfdbfe;
+  box-shadow: 0 4px 16px -2px rgba(37, 99, 235, 0.08);
   position: relative;
   z-index: 25;
   gap: 20px;
   flex-shrink: 0;
   box-sizing: border-box;
-  transition: background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
-}
-
-.mz-topbar::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2.5px;
-  background: linear-gradient(90deg, #3b82f6 0%, #6366f1 35%, #06b6d4 70%, #10b981 100%);
-  opacity: 0.9;
-  pointer-events: none;
+  transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
 /* Real-Time Search Bar Wrap */
@@ -402,7 +390,7 @@
   width: 100%;
   padding: 9px 80px 9px 40px;
   background: #ffffff;
-  border: 1.5px solid #cbd5e1;
+  border: 1.5px solid #bfdbfe;
   border-radius: 22px;
   font-size: 13px;
   color: #0f172a;
@@ -412,18 +400,18 @@
               box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1),
               transform 0.28s cubic-bezier(0.16, 1, 0.3, 1),
               background 0.2s ease;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.04);
 }
 
 .mz-search-bar-input:hover {
   background: #ffffff;
-  border-color: #93c5fd;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.08);
+  border-color: #60a5fa;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
 }
 
 .mz-search-bar-input:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.14), 0 2px 8px rgba(37, 99, 235, 0.08);
+  border-color: #2563eb;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.14), 0 2px 8px rgba(37, 99, 235, 0.08);
   transform: translateY(-1px);
 }
 
@@ -488,7 +476,7 @@
   align-items: center;
   gap: 10px;
   background: #ffffff;
-  border: 1.5px solid #dbeafe;
+  border: 1.5px solid #bfdbfe;
   border-radius: 30px;
   padding: 5px 14px 5px 6px;
   cursor: pointer;
@@ -499,7 +487,7 @@
 }
 
 .mz-profile-btn:hover {
-  border-color: #93c5fd;
+  border-color: #60a5fa;
   transform: translateY(-1px);
   box-shadow: 0 4px 14px rgba(37, 99, 235, 0.12);
 }
