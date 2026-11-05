@@ -1510,7 +1510,7 @@ router.put("/modify-marks", async (req, res) => {
 
       // Multi-Channel Notifications
       if (studentUser) {
-        const repUrl = `/admin/proctoring/audit/${session.sessionId}`;
+        const repUrl = `/assessment-report/${session.sessionId}`;
         try {
           notifCreated = await pushNotification(req.app, {
             userId: studentUser._id,
@@ -1519,7 +1519,7 @@ router.put("/modify-marks", async (req, res) => {
             type: "proctoring",
             severity: passed ? "success" : "warning",
             actionUrl: repUrl,
-            actionLabel: "View Examination Audit",
+            actionLabel: "View Examination Report",
             meta: {
               sessionId: session.sessionId,
               score: parsedScore,

@@ -170,7 +170,7 @@ router.post("/tickets", authenticateToken, async (req, res) => {
       subject,
       description,
       priority,
-      ticketUrl: `http://localhost:5174/help?ticket=${ticketId}`,
+      req,
     }).catch((e) => console.warn("Ticket submission email warning:", e.message));
 
     // Send Admin event notification & broadcast
@@ -446,7 +446,7 @@ router.put("/admin/tickets/:ticketId/status", verifyAdmin, async (req, res) => {
       adminResponse: `Status updated to ${status}. ${adminNotes ? `Admin Note: ${adminNotes}` : ""}`,
       status,
       respondedBy: req.user?.fullName || "MasteryZone Administrator",
-      ticketUrl: `http://localhost:5174/help?ticket=${ticket.ticketId}`,
+      req,
     }).catch((e) => console.warn("Status change email warning:", e.message));
 
     // Broadcast real-time update

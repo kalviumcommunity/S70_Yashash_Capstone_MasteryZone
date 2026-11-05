@@ -206,8 +206,15 @@ const ForgotPassword = () => {
                 <LuHeadphones className="mz-forgot-support-icon" aria-hidden="true" />
                 <span>
                   Need help?{" "}
-                  <a href="mailto:support@masteryzone.com">
+                  <a
+                    href="mailto:yashashyashash1@gmail.com"
+                    className="mz-forgot-support-link"
+                    title="yashashyashash1@gmail.com"
+                  >
                     Contact our support team
+                    <span className="mz-support-tooltip" role="tooltip">
+                      yashashyashash1@gmail.com
+                    </span>
                   </a>
                 </span>
               </div>
