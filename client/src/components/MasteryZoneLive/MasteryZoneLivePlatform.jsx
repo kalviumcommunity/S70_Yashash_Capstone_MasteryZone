@@ -127,12 +127,22 @@ export default function MasteryZoneLivePlatform({ initialMeetingId = null }) {
     };
   }, [currentUser]);
 
-  // Sync route param changes
+  // Sync route param changes with security guard against re-entering ended sessions
   useEffect(() => {
     if (meetingIdFromRoute) {
+      const isEnded =
+        sessionStorage.getItem(`mz_meeting_ended_${meetingIdFromRoute}`) === "true" ||
+        localStorage.getItem(`mz_meeting_ended_${meetingIdFromRoute}`) === "true";
+      if (isEnded) {
+        toast.info("This meeting session has ended and cannot be re-entered.", {
+          toastId: `mz_meeting_ended_${meetingIdFromRoute}`,
+        });
+        navigate("/live", { replace: true });
+        return;
+      }
       setActiveMeetingId(meetingIdFromRoute);
     }
-  }, [meetingIdFromRoute]);
+  }, [meetingIdFromRoute, navigate]);
 
   // 3. Action Handlers
   const handleStartMeeting = async ({ title, groupKey }) => {
@@ -276,18 +286,19 @@ export default function MasteryZoneLivePlatform({ initialMeetingId = null }) {
     } catch (e) {
       console.warn("Media shutdown warning:", e);
     }
+    const leavingId = activeMeetingId;
+    if (leavingId) {
+      sessionStorage.setItem(`mz_meeting_ended_${leavingId}`, "true");
+      localStorage.setItem(`mz_meeting_ended_${leavingId}`, "true");
+    }
     setActiveMeetingId(null);
     if (window.location.pathname.startsWith("/meeting")) {
-      navigate("/live");
+      navigate("/live", { replace: true });
     }
   };
 
   const handleNavigateHome = () => {
-    if (window.history && window.history.length > 1) {
-      navigate(-1);
-    } else {
-      navigate("/home");
-    }
+    navigate("/home", { replace: true });
   };
 
   if (isLoadingUser) {

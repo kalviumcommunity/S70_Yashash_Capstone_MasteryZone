@@ -18,6 +18,8 @@ body {
   min-height: 100%;
   background-color: #f8fafc;
   overflow-x: clip;
+  overscroll-behavior-x: none;
+  overscroll-behavior-y: auto;
   font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -29,17 +31,20 @@ body {
   border: 0;
   width: 100%;
   min-height: 100%;
+  overscroll-behavior-x: none;
   display: flex;
   flex-direction: column;
 }
 
-/* Examination & live meeting viewports: completely trap swipe-back bounce */
+/* Examination, project, and live meeting viewports: completely trap swipe-back bounce */
 .mz-cert-workspace-root,
 .mz-compiler-workspace-root,
 .mz-proctored-assessment-root,
 .mzl-platform-root,
 .mzl-meeting-room-container,
-.mz-gate-fullscreen-overlay {
+.mz-project-workspace-root,
+.mz-gate-fullscreen-overlay,
+.mz-report-root {
   overscroll-behavior-x: none;
 }
 

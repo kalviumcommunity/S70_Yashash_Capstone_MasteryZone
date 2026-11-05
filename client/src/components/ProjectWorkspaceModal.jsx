@@ -83,22 +83,25 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
       const rawUser = localStorage.getItem("user");
       if (rawUser) {
         const u = JSON.parse(rawUser);
-        return u._id || u.id || u.userId || "guest";
+        const uid = u._id || u.id || u.userId || "";
+        return uid !== "guest" ? uid : "";
       }
     } catch {}
-    return "guest";
+    return "";
   })();
 
   const [projectSpec, setProjectSpec] = useState(initialProject || null);
   const [files, setFiles] = useState(() => {
     // Check user-scoped localStorage backup first if available
     try {
-      const localKey = `mz_${currentUserId}_proj_draft_${initialProject?.id || routeProjectId}`;
-      const savedDraft = localStorage.getItem(localKey) || localStorage.getItem(`mz_proj_draft_${initialProject?.id || routeProjectId}`);
-      if (savedDraft) {
-        const parsed = JSON.parse(savedDraft);
-        if (Array.isArray(parsed?.files) && parsed.files.length > 0) {
-          return parsed.files;
+      if (currentUserId) {
+        const localKey = `mz_${currentUserId}_proj_draft_${initialProject?.id || routeProjectId}`;
+        const savedDraft = localStorage.getItem(localKey);
+        if (savedDraft) {
+          const parsed = JSON.parse(savedDraft);
+          if (Array.isArray(parsed?.files) && parsed.files.length > 0) {
+            return parsed.files;
+          }
         }
       }
     } catch {}
@@ -161,6 +164,22 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
     return () => clearInterval(interval);
   }, [lastSavedAt]);
 
+  // Security guard against backward swipe/navigation during or after project submission
+  useEffect(() => {
+    window.history.pushState(null, "", window.location.href);
+    const handlePopState = () => {
+      const pId = projectSpec?.id || projectId;
+      const isEnded =
+        sessionStorage.getItem(`mz_proj_submitted_${pId}`) === "true" ||
+        (currentUserId && sessionStorage.getItem(`mz_${currentUserId}_proj_submitted_${pId}`) === "true");
+      if (isEnded || submissionResultModal) {
+        navigate("/coding?tab=projects", { replace: true });
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [projectSpec, projectId, currentUserId, submissionResultModal, navigate]);
+
   // Fetch full project workspace state from backend on mount
   useEffect(() => {
     if (!projectId || !token) return;
@@ -189,10 +208,12 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
           setFiles(loadedFiles);
           setActiveFileIdx(0);
           try {
-            localStorage.setItem(
-              `mz_${currentUserId}_proj_draft_${projectId}`,
-              JSON.stringify({ files: loadedFiles, updatedAt: Date.now() })
-            );
+            if (currentUserId) {
+              localStorage.setItem(
+                `mz_${currentUserId}_proj_draft_${projectId}`,
+                JSON.stringify({ files: loadedFiles, updatedAt: Date.now() })
+              );
+            }
           } catch {}
         }
         if (Array.isArray(data.workspace?.checkedTasks)) {
@@ -236,10 +257,12 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
     async (filesToSave, tasksToSave, silent = true) => {
       if (!projectId) return;
       try {
-        localStorage.setItem(
-          `mz_${currentUserId}_proj_draft_${projectId}`,
-          JSON.stringify({ files: filesToSave, checkedTasks: tasksToSave, updatedAt: Date.now() })
-        );
+        if (currentUserId) {
+          localStorage.setItem(
+            `mz_${currentUserId}_proj_draft_${projectId}`,
+            JSON.stringify({ files: filesToSave, checkedTasks: tasksToSave, updatedAt: Date.now() })
+          );
+        }
       } catch {}
 
       if (!token) return;
@@ -336,10 +359,12 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
 
     // Save immediately to localStorage for instant crash recovery
     try {
-      localStorage.setItem(
-        `mz_${currentUserId}_proj_draft_${projectId}`,
-        JSON.stringify({ files: nextFiles, checkedTasks, updatedAt: Date.now() })
-      );
+      if (currentUserId) {
+        localStorage.setItem(
+          `mz_${currentUserId}_proj_draft_${projectId}`,
+          JSON.stringify({ files: nextFiles, checkedTasks, updatedAt: Date.now() })
+        );
+      }
     } catch {}
 
     // Debounced backend auto-save (750ms)
@@ -624,39 +649,41 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
 
       // Save report summary to localStorage for immediate Homepage availability
       try {
-        const reportsKey = currentUserId && currentUserId !== "guest" ? `mz_${currentUserId}_assessment_reports` : "mz_assessment_reports";
-        const existingReports = JSON.parse(localStorage.getItem(reportsKey) || "[]");
-        const reportEntry = {
-          id: sub.sessionId,
-          sessionId: sub.sessionId,
-          projectId: projectSpec?.id,
-          subjectKey: "coding",
-          type: "project_assessment",
-          typeLabel: "Project Assessment",
-          assessmentTitle: `${projectSpec?.title} — Project Evaluation`,
-          questionTitle: projectSpec?.title,
-          difficulty: projectSpec?.difficulty || "Intermediate",
-          category: projectSpec?.category || "Project Assessment",
-          submittedAt: sub.submittedAt || new Date().toISOString(),
-          score: sub.marksObtained || 0,
-          marksObtained: sub.marksObtained || 0,
-          totalMarks: sub.totalMarks || 100,
-          percentage: sub.percentage || 0,
-          passingMarks: sub.passingMarks || projectSpec?.passingMarks || 80,
-          grade: sub.grade || "F",
-          passedTests: sub.passedTests || 0,
-          totalTests: sub.totalTests || 6,
-          durationSeconds: elapsedSeconds,
-          language: projectSpec?.starterLanguage || "javascript",
-          passed: Boolean(sub.passed),
-          badgeAwarded: Boolean(sub.passed && sub.badgeAwarded),
-          reportUrl: `/assessment-report/${sub.sessionId}`,
-        };
-        const filtered = existingReports.filter((r) => r.sessionId !== sub.sessionId);
-        localStorage.setItem(
-          reportsKey,
-          JSON.stringify([reportEntry, ...filtered].slice(0, 50))
-        );
+        if (currentUserId) {
+          const reportsKey = `mz_${currentUserId}_assessment_reports`;
+          const existingReports = JSON.parse(localStorage.getItem(reportsKey) || "[]");
+          const reportEntry = {
+            id: sub.sessionId,
+            sessionId: sub.sessionId,
+            projectId: projectSpec?.id,
+            subjectKey: "coding",
+            type: "project_assessment",
+            typeLabel: "Project Assessment",
+            assessmentTitle: `${projectSpec?.title} — Project Evaluation`,
+            questionTitle: projectSpec?.title,
+            difficulty: projectSpec?.difficulty || "Intermediate",
+            category: projectSpec?.category || "Project Assessment",
+            submittedAt: sub.submittedAt || new Date().toISOString(),
+            score: sub.marksObtained || 0,
+            marksObtained: sub.marksObtained || 0,
+            totalMarks: sub.totalMarks || 100,
+            percentage: sub.percentage || 0,
+            passingMarks: sub.passingMarks || projectSpec?.passingMarks || 80,
+            grade: sub.grade || "F",
+            passedTests: sub.passedTests || 0,
+            totalTests: sub.totalTests || 6,
+            durationSeconds: elapsedSeconds,
+            language: projectSpec?.starterLanguage || "javascript",
+            passed: Boolean(sub.passed),
+            badgeAwarded: Boolean(sub.passed && sub.badgeAwarded),
+            reportUrl: `/assessment-report/${sub.sessionId}`,
+          };
+          const filtered = existingReports.filter((r) => r.sessionId !== sub.sessionId);
+          localStorage.setItem(
+            reportsKey,
+            JSON.stringify([reportEntry, ...filtered].slice(0, 50))
+          );
+        }
       } catch {}
 
       // Open Post-Submission Result Screen with "View Official Report" option
@@ -665,18 +692,10 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
       if (sub.passed) {
         try {
           const pId = projectSpec?.id || projectId;
-          const effectiveUserId = currentUserId || (() => {
-            try {
-              const rawUser = localStorage.getItem("user");
-              if (rawUser) {
-                const u = JSON.parse(rawUser);
-                return u._id || u.id || u.userId || "";
-              }
-            } catch {}
-            return "";
-          })();
-          if (effectiveUserId) {
-            localStorage.setItem(`mz_${effectiveUserId}_proj_passed_${pId}`, "true");
+          sessionStorage.setItem(`mz_proj_submitted_${pId}`, "true");
+          if (currentUserId) {
+            sessionStorage.setItem(`mz_${currentUserId}_proj_submitted_${pId}`, "true");
+            localStorage.setItem(`mz_${currentUserId}_proj_passed_${pId}`, "true");
           }
           window.dispatchEvent(new CustomEvent("mz_project_passed", { detail: { projectId: pId } }));
         } catch {}
@@ -716,7 +735,7 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
     } else if (window.opener) {
       window.close();
     } else {
-      navigate("/coding");
+      navigate("/coding?tab=projects", { replace: true });
     }
   };
 
@@ -1688,7 +1707,7 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
 
               <button
                 type="button"
-                onClick={() => navigate(`/assessment-report/${submissionResultModal.sessionId}`)}
+                onClick={() => navigate(`/assessment-report/${submissionResultModal.sessionId}`, { replace: true })}
                 style={{
                   padding: "11px 22px",
                   borderRadius: 11,

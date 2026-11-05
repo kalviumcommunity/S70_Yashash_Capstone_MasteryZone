@@ -152,7 +152,7 @@ export default function ProctoredAssessmentWorkspace({
   const lastResumeTimeRef = useRef(Date.now());
   const examTimerRef = useRef(null);
   const isSubmittedRef = useRef(false);
-  const immunityUntilRef = useRef(Date.now() + 15000);
+  const immunityUntilRef = useRef(Date.now() + 1500);
   const isReverifyingRef = useRef(false);
   const isViolationOverlayOpenRef = useRef(false);
 
@@ -275,7 +275,7 @@ export default function ProctoredAssessmentWorkspace({
       violationCooldownRef.current = true;
       setTimeout(() => {
         violationCooldownRef.current = false;
-      }, 5000);
+      }, 2000);
 
       isViolationOverlayOpenRef.current = true;
 
@@ -323,6 +323,18 @@ export default function ProctoredAssessmentWorkspace({
       }
     };
 
+    const handleWindowBlur = () => {
+      if (
+        isSubmittedRef.current ||
+        isTerminated ||
+        isViolationOverlayOpenRef.current ||
+        isReverifyingRef.current ||
+        Date.now() < immunityUntilRef.current
+      ) return;
+
+      logViolation("SCREEN_SWITCH", "Screen switch or window blur detected. Navigating away from the proctored test environment is prohibited.");
+    };
+
     const handleFullscreenChange = () => {
       if (
         isSubmittedRef.current ||
@@ -344,12 +356,14 @@ export default function ProctoredAssessmentWorkspace({
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("blur", handleWindowBlur);
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
     window.addEventListener("beforeunload", handleBeforeUnload);
 
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("blur", handleWindowBlur);
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
       document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
       window.removeEventListener("beforeunload", handleBeforeUnload);
@@ -391,7 +405,7 @@ export default function ProctoredAssessmentWorkspace({
       setVisitedQuestions({ 0: true });
       setTimeRemaining(EXAM_DURATION_SECONDS);
       lastResumeTimeRef.current = Date.now();
-      immunityUntilRef.current = Date.now() + 15000;
+      immunityUntilRef.current = Date.now() + 1500;
 
       // Request true browser fullscreen so no background page is visible
       try {
@@ -633,7 +647,7 @@ export default function ProctoredAssessmentWorkspace({
       if (window.opener) {
         window.close();
       } else {
-        navigate("/coding");
+        navigate("/coding", { replace: true });
       }
     }
   };
@@ -773,7 +787,7 @@ export default function ProctoredAssessmentWorkspace({
                           }
                         } catch {}
                         lastResumeTimeRef.current = Date.now();
-                        immunityUntilRef.current = Date.now() + 10000;
+                        immunityUntilRef.current = Date.now() + 1500;
                         setIsViolationOverlayOpen(false);
                         isViolationOverlayOpenRef.current = false;
                         isReverifyingRef.current = false;
@@ -1196,9 +1210,9 @@ export default function ProctoredAssessmentWorkspace({
                     onClick={() => {
                       const sid = resultsData?.sessionId || (resultsData?.attemptId ? `attempt_${resultsData.attemptId}` : null);
                       if (sid) {
-                        navigate(`/assessment-report/${sid}`);
+                        navigate(`/assessment-report/${sid}`, { replace: true });
                       } else {
-                        navigate("/home", { state: { tab: "reports" } });
+                        navigate("/home", { state: { tab: "reports" }, replace: true });
                       }
                     }}
                   >
@@ -1209,7 +1223,7 @@ export default function ProctoredAssessmentWorkspace({
                   <button
                     type="button"
                     className="mz-exam-nav-btn"
-                    onClick={() => navigate("/home", { state: { tab: "reports" } })}
+                    onClick={() => navigate("/home", { state: { tab: "reports" }, replace: true })}
                   >
                     <span>Centralized Records</span>
                   </button>

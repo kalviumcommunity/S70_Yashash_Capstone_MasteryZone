@@ -138,21 +138,21 @@ export default function CertificationExamWorkspace({
       const rawUser = localStorage.getItem("user");
       if (rawUser) {
         const u = JSON.parse(rawUser);
-        return u._id || u.id || u.userId || "guest";
+        const uid = u._id || u.id || u.userId || "";
+        return uid !== "guest" ? uid : "";
       }
     } catch {}
-    return "guest";
+    return "";
   })();
 
   // 1. Session Persistence Recovery State strictly isolated to authenticated user
   const savedSession = (() => {
     try {
-      const item =
-        (currentUserId && localStorage.getItem(`mz_${currentUserId}_active_cert_session`)) ||
-        localStorage.getItem("mz_active_cert_session");
+      if (!currentUserId) return null;
+      const item = localStorage.getItem(`mz_${currentUserId}_active_cert_session`);
       if (!item) return null;
       const parsed = JSON.parse(item);
-      if (parsed.userId && parsed.userId !== currentUserId && currentUserId !== "guest") return null;
+      if (parsed.userId && parsed.userId !== currentUserId) return null;
       return parsed;
     } catch {
       return null;
@@ -227,9 +227,25 @@ export default function CertificationExamWorkspace({
   const isReverifyingRef = useRef(false);
   const isSubmittedRef = useRef(false);
   const violationCooldownRef = useRef(false);
-  const immunityUntilRef = useRef(Date.now() + 15000);
+  const immunityUntilRef = useRef(Date.now() + 1500);
   const secondsRemainingRef = useRef(secondsRemaining);
   const currentQuestionIndexRef = useRef(currentQuestionIndex);
+  const mcqAnswersRef = useRef(mcqAnswers);
+  const codingSubmissionsRef = useRef(codingSubmissions);
+  const violationsCountRef = useRef(violationsCount);
+  const handleFinalSubmitRef = useRef(null);
+
+  useEffect(() => {
+    mcqAnswersRef.current = mcqAnswers;
+  }, [mcqAnswers]);
+
+  useEffect(() => {
+    codingSubmissionsRef.current = codingSubmissions;
+  }, [codingSubmissions]);
+
+  useEffect(() => {
+    violationsCountRef.current = violationsCount;
+  }, [violationsCount]);
 
   useEffect(() => {
     isRecoveryModalOpenRef.current = isRecoveryModalOpen;
@@ -452,9 +468,10 @@ export default function CertificationExamWorkspace({
       }
 
       // If candidate is starting a fresh valid attempt, clear stale submitted flag
-      const uKey = currentUserId && currentUserId !== "guest" ? currentUserId : "guest";
-      localStorage.removeItem(`mz_${uKey}_cert_${certId}_submitted`);
-      localStorage.removeItem(`mz_${uKey}_cert_${certId}_report_url`);
+      if (currentUserId) {
+        localStorage.removeItem(`mz_${currentUserId}_cert_${certId}_submitted`);
+        localStorage.removeItem(`mz_${currentUserId}_cert_${certId}_report_url`);
+      }
       setAttemptId(data.attemptId);
       setAttemptNumber(data.attemptNumber || 2);
       setCandidateName(data.candidateName || "Candidate");
@@ -493,22 +510,20 @@ export default function CertificationExamWorkspace({
       }
 
       // Save active session to localStorage so reload won't exit the test
-      const certSessionKey =
-        currentUserId && currentUserId !== "guest"
-          ? `mz_${currentUserId}_active_cert_session`
-          : "mz_active_cert_session";
-      localStorage.setItem(
-        certSessionKey,
-        JSON.stringify({
-          userId: currentUserId,
-          attemptId: data.attemptId,
-          certId,
-          certTitle,
-          currentQuestionIndex: currentQuestionIndex || 0,
-          secondsRemaining,
-          status: "IN_PROGRESS",
-        })
-      );
+      if (currentUserId) {
+        localStorage.setItem(
+          `mz_${currentUserId}_active_cert_session`,
+          JSON.stringify({
+            userId: currentUserId,
+            attemptId: data.attemptId,
+            certId,
+            certTitle,
+            currentQuestionIndex: currentQuestionIndex || 0,
+            secondsRemaining,
+            status: "IN_PROGRESS",
+          })
+        );
+      }
 
       // Enter fullscreen if permitted
       try {
@@ -518,7 +533,7 @@ export default function CertificationExamWorkspace({
       } catch {}
 
       setStage("active");
-      immunityUntilRef.current = Date.now() + 15000;
+      immunityUntilRef.current = Date.now() + 1500;
 
       if (isResumeTrigger || data.resumed) {
         toast.info("Resumed active certification examination.", {
@@ -622,7 +637,7 @@ export default function CertificationExamWorkspace({
       violationCooldownRef.current = true;
       setTimeout(() => {
         violationCooldownRef.current = false;
-      }, 6000);
+      }, 2000);
 
       isRecoveryModalOpenRef.current = true;
       const now = new Date();
@@ -636,6 +651,15 @@ export default function CertificationExamWorkspace({
         nextRem = Math.max(0, prev - 1);
         if (nextRem <= 0) {
           setIsTerminated(true);
+          toast.error("All 5 recovery chances exhausted! Submitting and grading exam now...", {
+            toastId: "cert_auto_submit_toast",
+            autoClose: 2000,
+          });
+          setTimeout(() => {
+            if (handleFinalSubmitRef.current) {
+              handleFinalSubmitRef.current();
+            }
+          }, 1500);
         }
         return nextRem;
       });
@@ -660,6 +684,11 @@ export default function CertificationExamWorkspace({
               setRecoveryChancesRemaining(data.chancesRemaining);
               if (data.chancesRemaining <= 0) {
                 setIsTerminated(true);
+                setTimeout(() => {
+                  if (handleFinalSubmitRef.current) {
+                    handleFinalSubmitRef.current();
+                  }
+                }, 1200);
               }
             }
           }
@@ -690,7 +719,7 @@ export default function CertificationExamWorkspace({
     setIsReverifying(true);
     isReverifyingRef.current = true;
     violationCooldownRef.current = true;
-    immunityUntilRef.current = Date.now() + 20000; // 20 seconds grace period
+    immunityUntilRef.current = Date.now() + 1500;
 
     try {
       // 1. Camera & Mic Check
@@ -779,6 +808,24 @@ export default function CertificationExamWorkspace({
       }
     };
 
+    // 1b. Screen switch / window blur detection
+    const handleWindowBlur = () => {
+      if (
+        isSubmittedRef.current ||
+        isTerminated ||
+        isRecoveryModalOpenRef.current ||
+        isReverifyingRef.current ||
+        Date.now() < immunityUntilRef.current
+      ) {
+        return;
+      }
+
+      logProctoringAnomaly(
+        "TAB_SWITCH",
+        "Screen switch or window blur detected. Navigating away from the proctored examination is prohibited."
+      );
+    };
+
     // 2. Continuous Fullscreen Enforcement
     const handleFsChange = () => {
       if (
@@ -826,28 +873,27 @@ export default function CertificationExamWorkspace({
       if (isSubmittedRef.current || isTerminated) return;
       try {
         sessionStorage.setItem("mz_cert_pending_refresh_violation", "true");
-        const certSessionKey =
-          currentUserId && currentUserId !== "guest"
-            ? `mz_${currentUserId}_active_cert_session`
-            : "mz_active_cert_session";
-        localStorage.setItem(
-          certSessionKey,
-          JSON.stringify({
-            userId: currentUserId,
-            attemptId,
-            certId,
-            certTitle,
-            currentQuestionIndex: currentQuestionIndexRef.current,
-            secondsRemaining: secondsRemainingRef.current,
-            status: "IN_PROGRESS",
-          })
-        );
+        if (currentUserId) {
+          localStorage.setItem(
+            `mz_${currentUserId}_active_cert_session`,
+            JSON.stringify({
+              userId: currentUserId,
+              attemptId,
+              certId,
+              certTitle,
+              currentQuestionIndex: currentQuestionIndexRef.current,
+              secondsRemaining: secondsRemainingRef.current,
+              status: "IN_PROGRESS",
+            })
+          );
+        }
       } catch {}
       e.preventDefault();
       e.returnValue = "Are you sure you want to reload? An integrity violation will be logged and 1 recovery chance deducted.";
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("blur", handleWindowBlur);
     document.addEventListener("fullscreenchange", handleFsChange);
     document.addEventListener("webkitfullscreenchange", handleFsChange);
     window.addEventListener("keydown", handleKeyDown, true);
@@ -855,6 +901,7 @@ export default function CertificationExamWorkspace({
 
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("blur", handleWindowBlur);
       document.removeEventListener("fullscreenchange", handleFsChange);
       document.removeEventListener("webkitfullscreenchange", handleFsChange);
       window.removeEventListener("keydown", handleKeyDown, true);
@@ -1015,9 +1062,10 @@ export default function CertificationExamWorkspace({
     });
     // Persist code per coding question index to prevent cross-question contamination
     try {
-      const uKey = currentUserId && currentUserId !== "guest" ? currentUserId : "guest";
-      localStorage.setItem(`mz_${uKey}_draft_${attemptId}_q${21 + codingIndex}`, newCode);
-      localStorage.setItem(`mz_${uKey}_lang_${attemptId}_q${21 + codingIndex}`, lang || "python");
+      if (currentUserId) {
+        localStorage.setItem(`mz_${currentUserId}_draft_${attemptId}_q${21 + codingIndex}`, newCode);
+        localStorage.setItem(`mz_${currentUserId}_lang_${attemptId}_q${21 + codingIndex}`, lang || "python");
+      }
     } catch {}
   };
 
@@ -1212,20 +1260,30 @@ export default function CertificationExamWorkspace({
   // 7. Final Combined Assessment Submission (MCQs + Coding >= 80%)
   // -------------------------------------------------------------
   const handleFinalSubmit = async () => {
+    if (isSubmittedRef.current && isFinalizing) return;
     setIsFinalizing(true);
     isSubmittedRef.current = true;
     try {
       const token = localStorage.getItem("token");
+      const currentMcqs = mcqAnswersRef.current || mcqAnswers;
+      const currentCoding = codingSubmissionsRef.current || codingSubmissions;
+      const currentViols = violationsCountRef.current !== undefined ? violationsCountRef.current : violationsCount;
+
       const res = await fetch(`${API_BASE}/api/certifications/attempt/${attemptId}/finalize`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
+        body: JSON.stringify({
+          mcqAnswers: currentMcqs,
+          codingSubmissions: currentCoding,
+          violationsCount: currentViols,
+        }),
       });
 
       if (!res.ok) {
-        const err = await res.json();
+        const err = await res.json().catch(() => ({}));
         throw new Error(err.error || "Failed to grade assessment");
       }
 
@@ -1241,10 +1299,12 @@ export default function CertificationExamWorkspace({
       }
       const targetReportUrl = `/assessment-report/${attemptId}`;
       localStorage.setItem(`mz_${uKey}_cert_${certId}_report_url`, targetReportUrl);
+      if (currentUserId) {
+        localStorage.removeItem(`mz_${currentUserId}_active_cert_session`);
+      }
 
       // Clear session from storage
       localStorage.removeItem("mz_active_cert_session");
-      if (currentUserId) localStorage.removeItem(`mz_${currentUserId}_active_cert_session`);
       sessionStorage.removeItem("mz_cert_pending_refresh_violation");
 
       // Stop ALL proctoring tracks (camera, microphone, screen) automatically upon submission
@@ -1265,17 +1325,124 @@ export default function CertificationExamWorkspace({
       const finalScore =
         data.totalScore !== undefined
           ? data.totalScore
-          : data.mcqScore !== undefined
-          ? data.mcqScore + (data.codingScore || 0)
+          : data.score !== undefined
+          ? data.score
+          : data.totalMarksObtained !== undefined
+          ? data.totalMarksObtained
           : answeredMcqCount + totalPassedCodingTests;
-      const finalPct = data.percentage !== undefined ? data.percentage : Math.round((finalScore / 40) * 100);
+      const finalPct =
+        data.percentage !== undefined
+          ? data.percentage
+          : data.finalScorePercentage !== undefined
+          ? data.finalScorePercentage
+          : Math.round((finalScore / 40) * 100);
+      const isPassed = data.finalVerdict === "PASSED" || finalPct >= 80;
+      const totalPassedCoding = currentCoding.reduce((acc, s) => acc + (s.passedTests || 0), 0);
+
+      // Cache comprehensive report locally for instant zero-latency report page rendering
+      try {
+        const reportsKey = uKey !== "guest" ? `mz_${uKey}_assessment_reports` : "mz_assessment_reports";
+        const existing = JSON.parse(localStorage.getItem(reportsKey) || "[]");
+        const localReportEntry = {
+          sessionId: attemptId,
+          attemptId,
+          id: attemptId,
+          certId,
+          assessmentTitle: `${certTitle || "Data Structures & Algorithms"} — Proctored Credential Examination`,
+          certTitle: certTitle || "Data Structures & Algorithms",
+          candidateDetails: {
+            fullName: candidateName || "Verified Candidate",
+            email: currentUserEmail || "candidate@masteryzone.com",
+            candidateId: `CAND-${(currentUserId || attemptId).slice(-6).toUpperCase()}`,
+            organization: "Mastery Zone Academic Accreditation",
+          },
+          startTime: new Date(Date.now() - (90 * 60 - secondsRemaining) * 1000).toISOString(),
+          submissionTime: new Date().toISOString(),
+          submittedAt: new Date().toISOString(),
+          durationSeconds: Math.max(1, 90 * 60 - secondsRemaining),
+          timeLimitMinutes: 90,
+          status: isPassed ? "passed" : "failed",
+          finalVerdict: data.finalVerdict || (isPassed ? "PASSED" : "FAILED"),
+          scorecard: {
+            totalQuestions: (selectedMcqs?.length || 20) + (selectedCodingQuestions?.length || 2),
+            questionsAttempted: Object.keys(currentMcqs).length + currentCoding.filter((s) => s.solved || s.passedTests > 0).length,
+            questionsUnanswered: Math.max(0, 22 - (Object.keys(currentMcqs).length + currentCoding.filter((s) => s.solved || s.passedTests > 0).length)),
+            totalMarks: 40,
+            marksObtained: finalScore,
+            overallPercentage: finalPct,
+            totalTestCases: 20,
+            totalPassedTests: totalPassedCoding,
+            passed: isPassed,
+            grade: finalPct >= 90 ? "A+" : finalPct >= 80 ? "A" : finalPct >= 70 ? "B" : finalPct >= 60 ? "C" : "F",
+          },
+          performance: {
+            score: finalPct,
+            passed: isPassed,
+            passedTests: totalPassedCoding,
+            totalTests: 20,
+            marksObtained: finalScore,
+            totalMarks: 40,
+            mcqScore: data.mcqScore !== undefined ? data.mcqScore : Object.keys(currentMcqs).length,
+            mcqTotal: 20,
+            codingSolvedCount: currentCoding.filter((s) => s.solved).length,
+            passingThreshold: 80,
+          },
+          proctoring: {
+            status: currentViols === 0 ? "Compliant" : "Audit Flagged",
+            violationsCount: currentViols,
+            tabSwitches: currentViols,
+            fullscreenExits: 0,
+            deviceVerified: true,
+            integrityRating: Math.max(50, 100 - currentViols * 10),
+          },
+          reviewBreakdown: (selectedMcqs || []).map((m) => {
+            const userAns = currentMcqs[m.id];
+            const isCorrect = userAns !== undefined && Number(userAns) === Number(m.correctAnswer);
+            return {
+              questionId: m.id,
+              question: m.question,
+              options: m.options,
+              userSelected: userAns !== undefined ? Number(userAns) : null,
+              correctIndex: Number(m.correctAnswer),
+              isCorrect,
+              marksAwarded: isCorrect ? 1 : 0,
+              maxMarks: 1,
+              explanation: m.explanation || "Algorithm analysis and complexity.",
+            };
+          }),
+          questions: (selectedCodingQuestions || []).map((q, idx) => {
+            const sub = currentCoding[idx] || {};
+            return {
+              questionId: q.questionId,
+              title: q.title,
+              difficulty: q.difficulty || "Medium",
+              category: q.category || "Algorithms",
+              submittedCode: sub.code || "",
+              language: sub.language || "python",
+              status: sub.solved ? "passed" : "failed",
+              score: Math.round(((sub.passedTests || 0) / 10) * 100),
+              marksObtained: sub.passedTests || 0,
+              totalMarks: 10,
+              passedTests: sub.passedTests || 0,
+              totalTests: 10,
+              testResults: sub.testResults || [],
+            };
+          }),
+          certificate: data.certificate || null,
+        };
+
+        const updated = [localReportEntry, ...existing.filter((r) => r.sessionId !== attemptId && r.attemptId !== attemptId)];
+        localStorage.setItem(reportsKey, JSON.stringify(updated.slice(0, 30)));
+      } catch (cacheErr) {
+        console.warn("Local report sync note:", cacheErr);
+      }
 
       setSubmissionSuccessData({
         attemptId,
         score: finalScore,
         totalMarks: data.maxScore || 40,
         percentage: finalPct,
-        passed: data.finalVerdict === "PASSED" || finalPct >= 80,
+        passed: isPassed,
         mcqScore: data.mcqScore !== undefined ? data.mcqScore : answeredMcqCount,
         codingScore: data.codingScore !== undefined ? data.codingScore : totalPassedCodingTests,
         reportUrl: targetReportUrl,
@@ -1294,6 +1461,10 @@ export default function CertificationExamWorkspace({
       setIsFinalizing(false);
     }
   };
+
+  useEffect(() => {
+    handleFinalSubmitRef.current = handleFinalSubmit;
+  });
 
   // Combined score calculations (20 MCQs + 20 Coding Tests = 40 Total Marks)
   const answeredMcqCount = Object.keys(mcqAnswers).length;
@@ -1449,7 +1620,7 @@ export default function CertificationExamWorkspace({
               onClick={() => {
                 if (onClose) onClose();
                 else if (window.opener) window.close();
-                else navigate("/certificates");
+                else navigate("/certificates", { replace: true });
               }}
               style={{
                 marginTop: "4px",
@@ -1485,7 +1656,7 @@ export default function CertificationExamWorkspace({
             onClose();
           } else if (isStandalone || !onClose) {
             if (window.opener) window.close();
-            else navigate("/coding");
+            else navigate("/coding", { replace: true });
           }
         }}
         onStartAssessment={async (gateData) => {
@@ -2297,11 +2468,41 @@ export default function CertificationExamWorkspace({
                 style={{
                   display: "flex",
                   flexDirection: "column",
-                  gap: "10px",
+                  alignItems: "center",
+                  gap: "12px",
                   width: "100%",
-                  marginTop: "6px",
+                  marginTop: "8px",
                 }}
               >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                    color: "#dc2626",
+                    fontSize: "0.92rem",
+                    fontWeight: 700,
+                    background: "rgba(220, 38, 38, 0.08)",
+                    border: "1px solid rgba(220, 38, 38, 0.2)",
+                    borderRadius: "10px",
+                    padding: "10px 16px",
+                    width: "100%",
+                    boxSizing: "border-box",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 18,
+                      height: 18,
+                      border: "2px solid #fecaca",
+                      borderTopColor: "#dc2626",
+                      borderRadius: "50%",
+                      animation: "spin 0.8s linear infinite",
+                      flexShrink: 0,
+                    }}
+                  />
+                  <span>All 5 recovery chances exhausted. Auto-submitting and grading exam...</span>
+                </div>
                 <button
                   type="button"
                   className="mz-proc-btn-resolve"
@@ -2309,7 +2510,7 @@ export default function CertificationExamWorkspace({
                   onClick={handleFinalSubmit}
                   disabled={isFinalizing}
                 >
-                  {isFinalizing ? "Submitting Assessment..." : "Finalize & Submit Assessment"}
+                  {isFinalizing ? "Submitting Assessment..." : "Finalize & Submit Immediately"}
                 </button>
               </div>
             )}
@@ -2424,7 +2625,7 @@ export default function CertificationExamWorkspace({
                 type="button"
                 className="mz-proc-btn-report"
                 onClick={() => {
-                  navigate(submissionSuccessData.reportUrl);
+                  navigate(submissionSuccessData.reportUrl, { replace: true });
                 }}
               >
                 <LuAward size={18} />
@@ -2442,7 +2643,7 @@ export default function CertificationExamWorkspace({
                     } catch {}
                     window.close();
                   } else {
-                    navigate("/coding");
+                    navigate("/coding", { replace: true });
                   }
                 }}
               >

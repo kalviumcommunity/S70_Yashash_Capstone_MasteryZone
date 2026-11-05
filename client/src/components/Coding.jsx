@@ -729,6 +729,7 @@ export default function Coding() {
           setCurrentUser({ ...u, name, fullName: u.fullName || name, email: u.email || "user@masteryzone.com" });
         }
       } catch {}
+      fetchDashboardData();
     };
 
     const handleWindowMessage = (event) => {
@@ -1747,16 +1748,35 @@ export default function Coding() {
             </div>
 
             {showUserDropdown && (
-              <div className="mz-c-user-dropdown">
+              <div className="mz-c-user-dropdown" role="menu">
                 <div className="mz-c-dropdown-header-card">
+                  <div className="mz-c-dropdown-avatar-wrap">
+                    <div className="mz-c-dropdown-avatar">
+                      {currentUser?.avatar ? (
+                        <img src={currentUser.avatar} alt="User" />
+                      ) : (
+                        (currentUser?.name || "U").charAt(0).toUpperCase()
+                      )}
+                    </div>
+                    <span className="mz-c-dropdown-status-dot" title="Active session" />
+                  </div>
                   <div className="mz-c-dropdown-header-info">
-                    <strong className="mz-c-dropdown-name">{currentUser?.name || "Learner"}</strong>
+                    <div className="mz-c-dropdown-name-row">
+                      <strong className="mz-c-dropdown-name" title={currentUser?.name || "Learner"}>
+                        {currentUser?.name || "Learner"}
+                      </strong>
+                      <span className="mz-c-role-badge">
+                        {String(currentUser?.name || "").toLowerCase().includes("guest") ? "Guest Session" : "Learner"}
+                      </span>
+                    </div>
                     <span className="mz-c-dropdown-sub" title={currentUser?.email || "learner@masteryzone.com"}>
                       {currentUser?.email || "learner@masteryzone.com"}
                     </span>
                   </div>
                 </div>
+
                 <div className="mz-c-dropdown-divider" />
+
                 <div
                   className="mz-c-dropdown-item"
                   onClick={() => {
@@ -1764,9 +1784,13 @@ export default function Coding() {
                     setShowUserDropdown(false);
                   }}
                 >
-                  <span className="mz-c-dropdown-item-icon"><LuUser size={15} /></span>
-                  <span>Profile Settings</span>
+                  <span className="mz-c-dropdown-item-icon"><LuUser size={16} /></span>
+                  <div className="mz-c-dropdown-item-content">
+                    <span className="mz-c-dropdown-item-title">Profile Settings</span>
+                    <span className="mz-c-dropdown-item-desc">Account details & preferences</span>
+                  </div>
                 </div>
+
                 <div
                   className="mz-c-dropdown-item"
                   onClick={() => {
@@ -1774,9 +1798,13 @@ export default function Coding() {
                     setShowUserDropdown(false);
                   }}
                 >
-                  <span className="mz-c-dropdown-item-icon"><LuTrendingUp size={15} /></span>
-                  <span>My Learning Progress</span>
+                  <span className="mz-c-dropdown-item-icon"><LuTrendingUp size={16} /></span>
+                  <div className="mz-c-dropdown-item-content">
+                    <span className="mz-c-dropdown-item-title">My Learning Progress</span>
+                    <span className="mz-c-dropdown-item-desc">XP, streaks & completion stats</span>
+                  </div>
                 </div>
+
                 <div
                   className="mz-c-dropdown-item"
                   onClick={() => {
@@ -1784,16 +1812,24 @@ export default function Coding() {
                     setShowUserDropdown(false);
                   }}
                 >
-                  <span className="mz-c-dropdown-item-icon"><LuAward size={15} /></span>
-                  <span className="mz-c-dropdown-item-text">
-                    <span>My Earned Certificates</span>
-                    <span className="mz-c-cert-count-pill">{earnedCertificates.length}</span>
-                  </span>
+                  <span className="mz-c-dropdown-item-icon"><LuAward size={16} /></span>
+                  <div className="mz-c-dropdown-item-content">
+                    <div className="mz-c-dropdown-item-title-row">
+                      <span className="mz-c-dropdown-item-title">My Earned Certificates</span>
+                      <span className="mz-c-cert-count-pill">{earnedCertificates.length}</span>
+                    </div>
+                    <span className="mz-c-dropdown-item-desc">Accredited credentials</span>
+                  </div>
                 </div>
+
                 <div className="mz-c-dropdown-divider" />
+
                 <div className="mz-c-dropdown-item mz-c-item-danger" onClick={handleLogout}>
-                  <span className="mz-c-dropdown-item-icon"><LuLogOut size={15} /></span>
-                  <span>Sign Out</span>
+                  <span className="mz-c-dropdown-item-icon"><LuLogOut size={16} /></span>
+                  <div className="mz-c-dropdown-item-content">
+                    <span className="mz-c-dropdown-item-title">Sign Out</span>
+                    <span className="mz-c-dropdown-item-desc">End current active session</span>
+                  </div>
                 </div>
               </div>
             )}
@@ -2565,11 +2601,11 @@ export default function Coding() {
                 </div>
               ) : (
                 filteredChallenges.map((ch, idx) => {
-                  const isDone =
+                  const isDone = Boolean(
                     ch.isCompleted ||
                     ch.solved ||
-                    (currentUserId && typeof window !== "undefined" && window.localStorage?.getItem(`mz_${currentUserId}_ch_solved_${ch.id}`) === "true") ||
-                    (!currentUserId && typeof window !== "undefined" && window.localStorage?.getItem(`mz_ch_solved_${ch.id}`) === "true");
+                    (currentUserId && currentUserId !== "guest" && typeof window !== "undefined" && window.localStorage?.getItem(`mz_${currentUserId}_ch_solved_${ch.id}`) === "true")
+                  );
                   return (
                     <div
                       key={ch.id || idx}
@@ -3030,10 +3066,9 @@ export default function Coding() {
             <div className="mz-c-projects-grid">
               {filteredProjects.map((proj) => {
                 const isDone = Boolean(
-                  proj.userState?.passed ||
-                  proj.userState?.status === "PASSED" ||
-                  proj.userState?.status === "passed" ||
-                  (currentUserId && typeof window !== "undefined" && window.localStorage?.getItem(`mz_${currentUserId}_proj_passed_${proj.id}`) === "true")
+                  (proj.userState?.passed && proj.userState?.badgeAwarded) ||
+                  (proj.userState?.status === "PASSED" && proj.userState?.passed) ||
+                  (currentUserId && currentUserId !== "guest" && typeof window !== "undefined" && window.localStorage?.getItem(`mz_${currentUserId}_proj_passed_${proj.id}`) === "true")
                 );
                 const techList = proj.technologies || [];
                 const milestonesList = proj.milestones || proj.tasks || [];
