@@ -14,6 +14,8 @@ const Recording = require("../models/Recording");
 const ProjectSubmission = require("../models/ProjectSubmission");
 const AdminActivityLog = require("../models/AdminActSchema");
 const AdminNotification = require("../models/AdminNotification");
+const PlatformSettings = require("../models/PlatformSettings");
+const EmailLog = require("../models/EmailLog");
 const { verifySuperAdmin, recordAdminAudit } = require("../middleware/adminAuth");
 const { pushAdminNotification } = require("../utils/adminNotificationService");
 
@@ -1189,8 +1191,7 @@ router.put("/modify-marks", async (req, res) => {
           console.warn("Certification in-app notification error:", notifErr.message);
         }
 
-        attempt.notificationEmailSent = true;
-        sendSubmissionEvaluationEmail({
+        const emailRes = await sendSubmissionEvaluationEmail({
           userEmail: studentUser.email,
           userName: studentUser.fullName || studentUser.username || "Student",
           assessmentTitle: attempt.certTitle,
@@ -1205,7 +1206,9 @@ router.put("/modify-marks", async (req, res) => {
           req,
         }).catch((emailErr) => {
           console.warn("Certification email notification error:", emailErr?.message);
+          return { success: false };
         });
+        attempt.notificationEmailSent = !!(emailRes && emailRes.success);
       }
 
       await attempt.save();
@@ -1312,8 +1315,7 @@ router.put("/modify-marks", async (req, res) => {
           console.warn("Module in-app notification error:", notifErr.message);
         }
 
-        attempt.notificationEmailSent = true;
-        sendSubmissionEvaluationEmail({
+        const emailRes = await sendSubmissionEvaluationEmail({
           userEmail: studentUser.email,
           userName: studentUser.fullName || studentUser.username || "Student",
           assessmentTitle: attempt.assessmentTitle || attempt.moduleTitle,
@@ -1328,7 +1330,9 @@ router.put("/modify-marks", async (req, res) => {
           req,
         }).catch((emailErr) => {
           console.warn("Module email notification error:", emailErr?.message);
+          return { success: false };
         });
+        attempt.notificationEmailSent = !!(emailRes && emailRes.success);
       }
 
       await attempt.save();
@@ -1412,8 +1416,7 @@ router.put("/modify-marks", async (req, res) => {
           console.warn("Coding in-app notification error:", notifErr.message);
         }
 
-        sub.notificationEmailSent = true;
-        sendSubmissionEvaluationEmail({
+        const emailRes = await sendSubmissionEvaluationEmail({
           userEmail: studentUser.email,
           userName: studentUser.fullName || studentUser.username || "Student",
           challengeTitle: sub.challengeTitle || sub.challengeId || "Coding Challenge",
@@ -1428,7 +1431,9 @@ router.put("/modify-marks", async (req, res) => {
           req,
         }).catch((emailErr) => {
           console.warn("Coding email notification error:", emailErr?.message);
+          return { success: false };
         });
+        sub.notificationEmailSent = !!(emailRes && emailRes.success);
       }
 
       await sub.save();
@@ -3103,6 +3108,24 @@ router.get("/storage", async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 router.get("/settings", async (req, res) => {
   try {
+    let persistedSettings = await PlatformSettings.findOne({ key: "global_platform_settings" }).lean();
+    if (!persistedSettings) {
+      persistedSettings = await PlatformSettings.create({
+        key: "global_platform_settings",
+        ...platformSettings,
+      });
+    }
+
+    platformSettings = {
+      ...platformSettings,
+      maintenanceMode: persistedSettings.maintenanceMode,
+      proctoringSensitivity: persistedSettings.proctoringSensitivity,
+      autoRecordAssessments: persistedSettings.autoRecordAssessments,
+      emailNotificationsEnabled: persistedSettings.emailNotificationsEnabled,
+      allowedRegistration: persistedSettings.allowedRegistration,
+      maxConcurrentSessionsPerUser: persistedSettings.maxConcurrentSessionsPerUser || 3,
+    };
+
     const auditLogs = await AdminActivityLog.find()
       .populate("adminId", "email fullName")
       .sort({ timestamp: -1 })
@@ -3115,6 +3138,7 @@ router.get("/settings", async (req, res) => {
       auditLogs,
     });
   } catch (error) {
+    console.error("Failed to fetch settings:", error);
     res.status(500).json({ success: false, message: "Failed to fetch settings" });
   }
 });
@@ -3127,27 +3151,38 @@ router.put("/settings", async (req, res) => {
       autoRecordAssessments,
       emailNotificationsEnabled,
       allowedRegistration,
+      maxConcurrentSessionsPerUser,
     } = req.body;
+
+    const updates = {};
+    if (maintenanceMode !== undefined) updates.maintenanceMode = Boolean(maintenanceMode);
+    if (proctoringSensitivity !== undefined) updates.proctoringSensitivity = proctoringSensitivity;
+    if (autoRecordAssessments !== undefined) updates.autoRecordAssessments = Boolean(autoRecordAssessments);
+    if (emailNotificationsEnabled !== undefined) updates.emailNotificationsEnabled = Boolean(emailNotificationsEnabled);
+    if (allowedRegistration !== undefined) updates.allowedRegistration = Boolean(allowedRegistration);
+    if (maxConcurrentSessionsPerUser !== undefined) updates.maxConcurrentSessionsPerUser = Number(maxConcurrentSessionsPerUser);
+    updates.updatedBy = req.user?._id;
+
+    const updated = await PlatformSettings.findOneAndUpdate(
+      { key: "global_platform_settings" },
+      { $set: updates },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    ).lean();
 
     platformSettings = {
       ...platformSettings,
-      ...(maintenanceMode !== undefined && { maintenanceMode: Boolean(maintenanceMode) }),
-      ...(proctoringSensitivity && { proctoringSensitivity }),
-      ...(autoRecordAssessments !== undefined && {
-        autoRecordAssessments: Boolean(autoRecordAssessments),
-      }),
-      ...(emailNotificationsEnabled !== undefined && {
-        emailNotificationsEnabled: Boolean(emailNotificationsEnabled),
-      }),
-      ...(allowedRegistration !== undefined && {
-        allowedRegistration: Boolean(allowedRegistration),
-      }),
+      maintenanceMode: updated.maintenanceMode,
+      proctoringSensitivity: updated.proctoringSensitivity,
+      autoRecordAssessments: updated.autoRecordAssessments,
+      emailNotificationsEnabled: updated.emailNotificationsEnabled,
+      allowedRegistration: updated.allowedRegistration,
+      maxConcurrentSessionsPerUser: updated.maxConcurrentSessionsPerUser,
     };
 
     await recordAdminAudit({
       adminId: req.user._id,
       action: "PLATFORM_SETTINGS_UPDATED",
-      note: `Updated platform configuration: Sensitivity=${platformSettings.proctoringSensitivity}, Maintenance=${platformSettings.maintenanceMode}`,
+      note: `Updated platform configuration: Sensitivity=${platformSettings.proctoringSensitivity}, Maintenance=${platformSettings.maintenanceMode}, EmailNotifications=${platformSettings.emailNotificationsEnabled}`,
       ip: req.ip,
     });
 
@@ -3157,7 +3192,108 @@ router.put("/settings", async (req, res) => {
       settings: platformSettings,
     });
   } catch (error) {
+    console.error("Failed to update settings:", error);
     res.status(500).json({ success: false, message: "Failed to update settings" });
+  }
+});
+
+// ── Email Health Check, Diagnostics & Test Email ──
+router.get("/email/status", async (req, res) => {
+  try {
+    const { verifySmtpConnection, getSmtpConfig, maskEmail } = require("../utils/mailer");
+    const config = getSmtpConfig();
+    const verification = await verifySmtpConnection();
+
+    res.status(200).json({
+      success: verification.ok,
+      configured: config.isConfigured,
+      host: config.host || null,
+      port: config.port || null,
+      secure: config.secure,
+      sender: config.auth?.user ? maskEmail(config.auth.user) : null,
+      verification: {
+        ok: verification.ok,
+        status: verification.status,
+        message: verification.message,
+        errorCode: verification.errorCode || null,
+      },
+    });
+  } catch (err) {
+    console.error("Admin email status check error:", err);
+    res.status(500).json({
+      success: false,
+      configured: false,
+      message: "Failed to check email service status",
+      error: err.message,
+    });
+  }
+});
+
+router.post("/email/test", async (req, res) => {
+  try {
+    const { sendTestEmail } = require("../utils/mailer");
+    const { toEmail } = req.body;
+
+    const targetEmail = (toEmail || req.user?.email || "").toLowerCase().trim();
+    if (!targetEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(targetEmail)) {
+      return res.status(400).json({
+        success: false,
+        message: "A valid recipient email address is required for testing.",
+      });
+    }
+
+    const result = await sendTestEmail({
+      toEmail: targetEmail,
+      requestedBy: req.user?.fullName || req.user?.email || "Super Admin",
+      req,
+    });
+
+    if (result && result.success) {
+      await recordAdminAudit({
+        adminId: req.user._id,
+        action: "TEST_EMAIL_DISPATCHED",
+        note: `Admin test email dispatched to ${targetEmail} (messageId: ${result.messageId})`,
+        ip: req.ip,
+      });
+
+      return res.status(200).json({
+        success: true,
+        status: "accepted",
+        message: `Test email successfully accepted by SMTP provider for ${targetEmail}. Note: SMTP acceptance indicates dispatch to provider; inbox delivery depends on recipient mail server.`,
+        messageId: result.messageId,
+      });
+    } else {
+      return res.status(502).json({
+        success: false,
+        status: "failed",
+        errorCode: result?.errorCode || "SMTP_DISPATCH_FAILED",
+        message: result?.message || "Failed to dispatch test email through configured SMTP provider.",
+      });
+    }
+  } catch (err) {
+    console.error("Admin test email error:", err);
+    res.status(500).json({
+      success: false,
+      message: err.message || "Internal server error dispatching test email",
+    });
+  }
+});
+
+router.get("/email/logs", async (req, res) => {
+  try {
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 30));
+    const logs = await EmailLog.find()
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
+
+    res.status(200).json({
+      success: true,
+      logs,
+    });
+  } catch (err) {
+    console.error("Failed to fetch email logs:", err);
+    res.status(500).json({ success: false, message: "Failed to fetch email logs" });
   }
 });
 
@@ -3216,12 +3352,21 @@ router.post("/main-admin/verify-password", async (req, res) => {
     });
 
     // Send OTP to yashashyashash1@gmail.com
-    await sendMainAdminOtpEmail({
+    const mailResult = await sendMainAdminOtpEmail({
       toEmail: MAIN_ADMIN_EMAIL,
       otp,
       expiresMinutes: 10,
       req,
     });
+
+    if (mailResult && !mailResult.success) {
+      console.warn("Main Admin OTP email dispatch failed:", mailResult.message);
+      return res.status(500).json({
+        success: false,
+        message: mailResult.message || `Failed to dispatch OTP email to ${MAIN_ADMIN_EMAIL}. Check SMTP server status.`,
+        errorCode: mailResult.errorCode,
+      });
+    }
 
     await recordAdminAudit({
       adminId: req.user._id,

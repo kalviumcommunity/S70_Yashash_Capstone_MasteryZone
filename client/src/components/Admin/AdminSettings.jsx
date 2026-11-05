@@ -94,6 +94,33 @@ const AdminSettings = () => {
   const [selectedAdminForReset, setSelectedAdminForReset] = useState(null);
   const [newPasswordInput, setNewPasswordInput] = useState("");
   const [resettingPassword, setResettingPassword] = useState(false);
+  const [sendingTestEmail, setSendingTestEmail] = useState(false);
+
+  const handleSendTestEmail = async () => {
+    setSendingTestEmail(true);
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_BASE}/api/admin/email/test`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ toEmail: currentUserEmail || currentUser?.email }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast.success(data.message || "Test email dispatched successfully!");
+      } else {
+        toast.error(data.message || "Failed to dispatch test email.");
+      }
+    } catch (err) {
+      console.error("Test email dispatch error:", err);
+      toast.error("Network error sending test email.");
+    } finally {
+      setSendingTestEmail(false);
+    }
+  };
 
   // Fetch Settings & Audit Logs
   const fetchSettingsAndAudit = async () => {
@@ -1286,24 +1313,50 @@ const AdminSettings = () => {
                 border: "1px solid #e2e8f0",
                 background: "#f8fafc",
                 display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
+                flexDirection: "column",
+                gap: 12,
               }}
             >
-              <div>
-                <p style={{ margin: 0, fontWeight: 700, color: "#0f172a", fontSize: 13 }}>
-                  Transactional Email Notifications
-                </p>
-                <p style={{ margin: "2px 0 0", fontSize: 11.5, color: "#64748b" }}>
-                  Dispatch OTPs, score revisions, and admin credentials via Gmail SMTP
-                </p>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <div>
+                  <p style={{ margin: 0, fontWeight: 700, color: "#0f172a", fontSize: 13 }}>
+                    Transactional Email Notifications
+                  </p>
+                  <p style={{ margin: "2px 0 0", fontSize: 11.5, color: "#64748b" }}>
+                    Dispatch OTPs, score revisions, and admin credentials via Gmail SMTP
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={settings.emailNotificationsEnabled}
+                  onChange={(e) => setSettings({ ...settings, emailNotificationsEnabled: e.target.checked })}
+                  style={{ width: 18, height: 18, accentColor: "#6366f1", cursor: "pointer" }}
+                />
               </div>
-              <input
-                type="checkbox"
-                checked={settings.emailNotificationsEnabled}
-                onChange={(e) => setSettings({ ...settings, emailNotificationsEnabled: e.target.checked })}
-                style={{ width: 18, height: 18, accentColor: "#6366f1", cursor: "pointer" }}
-              />
+
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", borderTop: "1px dashed #e2e8f0", paddingTop: 10 }}>
+                <button
+                  type="button"
+                  onClick={handleSendTestEmail}
+                  disabled={sendingTestEmail}
+                  className="mz-admin-btn-secondary"
+                  style={{
+                    padding: "6px 14px",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: sendingTestEmail ? "not-allowed" : "pointer",
+                    opacity: sendingTestEmail ? 0.7 : 1,
+                  }}
+                >
+                  {sendingTestEmail ? "Sending Test Email..." : "Send Test Email"}
+                </button>
+              </div>
             </div>
 
             {/* Auto-Record Assessments Toggle */}

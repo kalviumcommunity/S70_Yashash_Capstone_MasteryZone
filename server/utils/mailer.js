@@ -18,96 +18,455 @@ function getLanIpAddress() {
   return '192.168.1.13';
 }
 
-let transporter = null;
+let transporterInstance = null;
 let transporterInitPromise = null;
-let isEtherealAccount = false;
 
-// ── 1. INITIALIZE TRANSPORTER (REAL SMTP WITH CONNECTION POOLING OR FALLBACK) ──
+function resetTransporter() {
+  if (transporterInstance) {
+    try {
+      transporterInstance.close();
+    } catch {}
+  }
+  transporterInstance = null;
+  transporterInitPromise = null;
+}
+
+function getSmtpConfig() {
+  const host = (process.env.SMTP_HOST || 'smtp.gmail.com').trim();
+  const rawPort = process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : null;
+  const isSecure = process.env.SMTP_SECURE === 'true' || (!rawPort && host.includes('gmail')) || rawPort === 465;
+  const port = rawPort || (isSecure ? 465 : 587);
+
+  const email = (process.env.SMTP_EMAIL || process.env.EMAIL_USER || '').trim();
+  const password = (process.env.SMTP_PASSWORD || process.env.EMAIL_PASS || '').trim().replace(/\s+/g, '');
+  const defaultFrom = process.env.SMTP_FROM || `"Mastery Zone" <${email || 'notifications@masteryzone.com'}>`;
+
+  const isConfigured = Boolean(
+    email &&
+    password &&
+    !email.includes('your_email') &&
+    !password.includes('your_app_password')
+  );
+
+  return {
+    host,
+    port,
+    secure: isSecure,
+    email,
+    password,
+    auth: {
+      user: email,
+      pass: password,
+    },
+    from: defaultFrom,
+    isConfigured,
+  };
+}
+
+function maskEmail(email) {
+  if (!email || !email.includes('@')) return '***';
+  const [user, domain] = email.split('@');
+  if (user.length <= 2) return `${user.charAt(0)}***@${domain}`;
+  return `${user.charAt(0)}***${user.charAt(user.length - 1)}@${domain}`;
+}
+
+function diagnoseSmtpError(err) {
+  if (!err) return { code: 'UNKNOWN', message: 'Unknown mailer error' };
+  const rawMsg = err.message || '';
+  const lowerMsg = rawMsg.toLowerCase();
+  const code = err.code || 
+    (lowerMsg.includes('timed out') || lowerMsg.includes('timeout') ? 'ETIMEDOUT' :
+     lowerMsg.includes('535') || lowerMsg.includes('auth') ? 'EAUTH' : 'SMTP_ERROR');
+
+  let safeMessage = 'SMTP communication error.';
+
+  if (code === 'ECONFIG') {
+    safeMessage = 'SMTP configuration is missing or incomplete. Ensure SMTP_EMAIL and SMTP_PASSWORD are set.';
+  } else if (code === 'EAUTH' || rawMsg.includes('535') || rawMsg.includes('Username and Password not accepted')) {
+    safeMessage = 'SMTP Authentication failed. If using Gmail, verify that 2-Step Verification is active and you are using a 16-character Google App Password (not your personal account password).';
+  } else if (code === 'EENVELOPE' || rawMsg.includes('550') || rawMsg.includes('553')) {
+    safeMessage = 'Recipient or sender address was rejected by the mail server.';
+  } else if (code === 'ETIMEDOUT') {
+    safeMessage = 'Connection to SMTP server timed out. Check network connectivity and port settings.';
+  } else if (code === 'ECONNECTION' || code === 'ESOCKET') {
+    safeMessage = 'Failed to establish a network connection to the SMTP server. Check SMTP_HOST and SMTP_PORT.';
+  } else if (code === 'ETLS') {
+    safeMessage = 'TLS negotiation failed. Verify port and security settings (port 465 for SSL/TLS or 587 for STARTTLS).';
+  } else {
+    safeMessage = `SMTP error: ${rawMsg.slice(0, 150)}`;
+  }
+
+  return {
+    code,
+    message: safeMessage,
+  };
+}
+
+// ── 1. INITIALIZE TRANSPORTER (STRICT REAL SMTP ONLY) ──
 function getTransporter() {
-  if (transporter) return Promise.resolve(transporter);
+  if (transporterInstance) return Promise.resolve(transporterInstance);
   if (transporterInitPromise) return transporterInitPromise;
 
   transporterInitPromise = (async () => {
-    const smtpEmail = (process.env.SMTP_EMAIL || process.env.EMAIL_USER || "").trim();
-    const smtpPassword = (process.env.SMTP_PASSWORD || process.env.EMAIL_PASS || "").trim().replace(/\s+/g, "");
-    const smtpHost = process.env.SMTP_HOST;
-    const smtpPort = process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : (smtpHost ? 587 : 465);
+    const config = getSmtpConfig();
 
-    const hasRealCredentials =
-      smtpEmail &&
-      smtpPassword &&
-      !smtpEmail.includes('your_email') &&
-      !smtpPassword.includes('your_app_password');
+    if (!config.isConfigured) {
+      // In automated test environments ONLY, allow controlled mock when explicitly enabled
+      if (process.env.NODE_ENV === 'test' && process.env.ENABLE_TEST_EMAIL_MOCK === 'true') {
+        transporterInstance = nodemailer.createTransport({ jsonTransport: true });
+        return transporterInstance;
+      }
 
-    if (hasRealCredentials) {
-      const isGmail = !smtpHost || smtpHost.includes('gmail');
-      const host = smtpHost || 'smtp.gmail.com';
-      const port = smtpHost ? smtpPort : 465;
-      const secure = port === 465;
+      const err = new Error('SMTP credentials are not configured. Please set SMTP_EMAIL and SMTP_PASSWORD in your environment.');
+      err.code = 'ECONFIG';
+      transporterInitPromise = null;
+      throw err;
+    }
 
-      const config = {
-        host,
-        port,
-        secure,
+    try {
+      const transportOptions = {
+        host: config.host,
+        port: config.port,
+        secure: config.secure,
+        auth: {
+          user: config.email,
+          pass: config.password,
+        },
         pool: true,
         maxConnections: 5,
         maxMessages: 100,
         idleTimeout: 30000,
-        connectionTimeout: 8000,
-        greetingTimeout: 6000,
+        connectionTimeout: 10000,
+        greetingTimeout: 8000,
         socketTimeout: 15000,
-        rateDelta: 1000,
-        rateLimit: 10,
-        auth: { user: smtpEmail, pass: smtpPassword },
-        tls: {
-          rejectUnauthorized: false,
-        },
       };
 
-      transporter = nodemailer.createTransport(config);
-      isEtherealAccount = false;
-      console.log(`📧 [Mailer] Production SMTP pooled transporter initialized for ${smtpEmail} (${host}:${port})`);
-
-      // Verify connection asynchronously in background without blocking server boot
-      transporter.verify().then(() => {
-        console.log(`✅ [Mailer] Production SMTP connection verified and warm.`);
-      }).catch((verifyErr) => {
-        console.warn(`⚠️ [Mailer] SMTP pre-verification note: ${verifyErr.message}. Transporter will connect on demand.`);
-      });
-
-      return transporter;
-    }
-
-    // Fallback: Automatic Ethereal Testing Mailer
-    try {
-      const account = await nodemailer.createTestAccount();
-      transporter = nodemailer.createTransport({
-        host: account.smtp.host,
-        port: account.smtp.port,
-        secure: account.smtp.secure,
-        pool: true,
-        auth: {
-          user: account.user,
-          pass: account.pass,
-        },
-      });
-      isEtherealAccount = true;
-      console.log(`📧 [Mailer] Ethereal test mailer initialized (${account.user})`);
-      return transporter;
-    } catch (testErr) {
-      console.warn(`⚠️ [Mailer] Could not create Ethereal test account: ${testErr.message}. Creating JSON mock transporter.`);
-      transporter = nodemailer.createTransport({ jsonTransport: true });
-      return transporter;
+      transporterInstance = nodemailer.createTransport(transportOptions);
+      console.log(`📧 [Mailer] Production SMTP pooled transporter initialized for ${config.email} (${config.host}:${config.port})`);
+      return transporterInstance;
+    } catch (err) {
+      transporterInitPromise = null;
+      throw err;
     }
   })();
 
   return transporterInitPromise;
 }
 
-// Immediately trigger initialization in background
-getTransporter().catch((e) => console.warn('[Mailer] Initializer warning:', e.message));
+/**
+ * Explicit health check verifying live SMTP connection and authentication
+ */
+async function verifySmtpConnection() {
+  const config = getSmtpConfig();
+  if (!config.isConfigured) {
+    return {
+      success: false,
+      configured: false,
+      connected: false,
+      host: config.host,
+      port: config.port,
+      secure: config.secure,
+      sender: config.from,
+      user: config.email ? maskEmail(config.email) : null,
+      errorCode: 'ECONFIG',
+      message: 'SMTP credentials missing. Please set SMTP_EMAIL and SMTP_PASSWORD in environment variables.',
+    };
+  }
 
-// ── 2. USER AGENT & DEVICE PARSER ──
+  try {
+    const tp = await getTransporter();
+    await tp.verify();
+    return {
+      success: true,
+      configured: true,
+      connected: true,
+      host: config.host,
+      port: config.port,
+      secure: config.secure,
+      sender: config.from,
+      user: maskEmail(config.email),
+      message: 'SMTP connection verified successfully and ready for dispatch.',
+    };
+  } catch (err) {
+    resetTransporter();
+    const diag = diagnoseSmtpError(err);
+    return {
+      success: false,
+      configured: true,
+      connected: false,
+      host: config.host,
+      port: config.port,
+      secure: config.secure,
+      sender: config.from,
+      user: maskEmail(config.email),
+      errorCode: diag.code,
+      message: diag.message,
+    };
+  }
+}
+
+// Check SMTP connection in background on boot
+verifySmtpConnection().then((res) => {
+  if (res.success) {
+    console.log(`✅ [Mailer] SMTP connection verified for ${res.user}`);
+  } else {
+    console.warn(`⚠️ [Mailer] SMTP status: ${res.message} (${res.errorCode || 'UNCONFIGURED'})`);
+  }
+}).catch(() => {});
+
+function recordEmailLog(data) {
+  try {
+    const EmailLog = require('../models/EmailLog');
+    EmailLog.create({
+      ...data,
+      lastAttemptedAt: new Date(),
+    }).catch(() => {});
+  } catch {}
+}
+
+// ── 2. SEND MAIL WITH RETRY, TIMEOUT PROTECTION AND AUDIT LOGGING ──
+async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
+  const { emailType = 'generic', userId = null, recordId = null, bypassSettings = false } = options;
+  const config = getSmtpConfig();
+
+  const to = (mailOptions.to || '').trim().toLowerCase();
+  if (!to || !to.includes('@') || to.length < 5) {
+    const errMsg = `Invalid recipient email address: "${mailOptions.to}"`;
+    return {
+      success: false,
+      status: 'rejected',
+      errorCode: 'EENVELOPE',
+      message: errMsg,
+    };
+  }
+
+  // Check if transactional notifications are disabled in PlatformSettings
+  if (!bypassSettings) {
+    try {
+      const mongoose = require('mongoose');
+      if (mongoose.connection && mongoose.connection.readyState === 1) {
+        const PlatformSettings = require('../models/PlatformSettings');
+        const settings = await PlatformSettings.findOne({ key: 'global_platform_settings' }).lean();
+        if (settings && settings.emailNotificationsEnabled === false) {
+          recordEmailLog({
+            recipient: to,
+            emailType,
+            subject: mailOptions.subject || '',
+            relatedUserId: userId,
+            relatedRecordId: recordId,
+            status: 'suppressed',
+            errorMessage: 'Email suppressed: Transactional notifications disabled in Admin Settings',
+          });
+          return {
+            success: false,
+            status: 'suppressed',
+            message: 'Transactional email notifications are currently disabled in Admin Settings.',
+          };
+        }
+      }
+    } catch {}
+  }
+
+  let tp;
+  try {
+    tp = await getTransporter();
+  } catch (initErr) {
+    const diag = diagnoseSmtpError(initErr);
+    recordEmailLog({
+      recipient: to,
+      emailType,
+      subject: mailOptions.subject || '',
+      relatedUserId: userId,
+      relatedRecordId: recordId,
+      status: 'failed',
+      errorCode: diag.code,
+      errorMessage: diag.message,
+    });
+    return {
+      success: false,
+      status: 'failed',
+      errorCode: diag.code,
+      message: diag.message,
+    };
+  }
+
+  const finalOptions = {
+    ...mailOptions,
+    from: mailOptions.from || config.from,
+  };
+
+  const isTransient = (code) => {
+    return ['ETIMEDOUT', 'ECONNECTION', 'ESOCKET', '421', '451'].includes(String(code));
+  };
+
+  let attempt = 0;
+  let lastErr = null;
+
+  while (attempt <= maxRetries) {
+    attempt++;
+    let timer = null;
+
+    try {
+      const sendPromise = new Promise((resolve, reject) => {
+        let settled = false;
+        try {
+          const ret = tp.sendMail(finalOptions, (err, info) => {
+            if (settled) return;
+            settled = true;
+            if (err) return reject(err);
+            resolve(info);
+          });
+          if (ret && typeof ret.then === 'function') {
+            ret.then((info) => {
+              if (settled) return;
+              settled = true;
+              resolve(info);
+            }).catch((err) => {
+              if (settled) return;
+              settled = true;
+              reject(err);
+            });
+          }
+        } catch (e) {
+          if (!settled) {
+            settled = true;
+            reject(e);
+          }
+        }
+      });
+      const timeoutPromise = new Promise((_, reject) => {
+        timer = setTimeout(() => {
+          const tErr = new Error('SMTP send timed out after 12000ms');
+          tErr.code = 'ETIMEDOUT';
+          reject(tErr);
+        }, 12000);
+      });
+
+      const info = await Promise.race([sendPromise, timeoutPromise]);
+      if (timer) clearTimeout(timer);
+
+      // Check if recipient was rejected by provider
+      if (Array.isArray(info.rejected) && info.rejected.length > 0 && (!info.accepted || info.accepted.length === 0)) {
+        const rejectMsg = `Recipient ${info.rejected.join(', ')} was rejected by SMTP provider.`;
+        recordEmailLog({
+          recipient: to,
+          emailType,
+          subject: mailOptions.subject || '',
+          relatedUserId: userId,
+          relatedRecordId: recordId,
+          status: 'rejected',
+          errorCode: 'EENVELOPE',
+          errorMessage: rejectMsg,
+          attemptCount: attempt,
+        });
+
+        return {
+          success: false,
+          status: 'rejected',
+          errorCode: 'EENVELOPE',
+          message: rejectMsg,
+        };
+      }
+
+      recordEmailLog({
+        recipient: to,
+        emailType,
+        subject: mailOptions.subject || '',
+        relatedUserId: userId,
+        relatedRecordId: recordId,
+        status: 'accepted',
+        messageId: info.messageId,
+        providerResponse: info.response,
+        attemptCount: attempt,
+      });
+
+      return {
+        success: true,
+        status: 'accepted',
+        messageId: info.messageId,
+        accepted: info.accepted,
+        rejected: info.rejected,
+        providerResponse: info.response,
+      };
+    } catch (err) {
+      if (timer) clearTimeout(timer);
+      lastErr = err;
+
+      if (!isTransient(err.code) || attempt > maxRetries) {
+        break;
+      }
+
+      await new Promise((r) => setTimeout(r, 400 * Math.pow(2, attempt - 1)));
+    }
+  }
+
+  if (lastErr && (lastErr.code === 'ECONNECTION' || lastErr.code === 'ESOCKET' || lastErr.code === 'EAUTH')) {
+    resetTransporter();
+  }
+
+  const diag = diagnoseSmtpError(lastErr);
+  recordEmailLog({
+    recipient: to,
+    emailType,
+    subject: mailOptions.subject || '',
+    relatedUserId: userId,
+    relatedRecordId: recordId,
+    status: 'failed',
+    errorCode: diag.code,
+    errorMessage: diag.message,
+    attemptCount: attempt,
+  });
+
+  return {
+    success: false,
+    status: 'failed',
+    errorCode: diag.code,
+    message: diag.message,
+  };
+}
+
+/**
+ * Dispatches an email action in the background immediately without blocking the caller HTTP thread.
+ */
+function dispatchMailBackground(mailPromiseFn, meta = {}) {
+  setImmediate(async () => {
+    try {
+      const fn = typeof mailPromiseFn === 'function' ? mailPromiseFn : () => mailPromiseFn;
+      const res = await fn();
+      if (res && res.success === false) {
+        console.warn(`[Mailer Background Warning] ${meta.type || 'email'} to ${meta.recipient || 'recipient'} did not succeed: ${res.message} (${res.errorCode || res.status})`);
+      }
+    } catch (err) {
+      console.error(`[Mailer Background Error] Unhandled exception in background email dispatch:`, err.message);
+    }
+  });
+}
+
+// Helper: Check if account is a guest account to preserve isolation
+function isGuestAccount(email, role) {
+  if (role === 'guest') return true;
+  if (!email || typeof email !== 'string') return true;
+  const lower = email.toLowerCase().trim();
+  return lower.startsWith('guest_') || (lower.includes('@masteryzone.com') && lower.includes('guest'));
+}
+
+// Helper: Format date & time nicely
+function formatEmailDateTime(date = new Date()) {
+  const d = new Date(date);
+  const options = {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    timeZoneName: 'short',
+  };
+  return d.toLocaleString('en-US', options);
+}
+
+// Helper: Parse client request telemetry safely
 function parseDeviceAndBrowser(req) {
   const ua = (req && req.headers ? req.headers['user-agent'] : '') || '';
   const rawIp =
@@ -147,98 +506,6 @@ function parseDeviceAndBrowser(req) {
     deviceKey,
     rawUa: ua,
   };
-}
-
-// ── 3. SEND MAIL WITH TIMEOUT PROTECTION, RETRIES AND AUDIT LOGGING ──
-async function sendMailWithRetry(mailOptions, maxRetries = 1) {
-  let tp;
-  try {
-    tp = await getTransporter();
-  } catch (initErr) {
-    console.error(`❌ [Mailer] Transporter initialization failed:`, initErr.message);
-    return { success: false, error: initErr.message };
-  }
-
-  let attempt = 0;
-  let lastErr = null;
-
-  while (attempt <= maxRetries) {
-    try {
-      // Guard each send with a 12s timeout to ensure it never hangs
-      const info = await Promise.race([
-        tp.sendMail(mailOptions),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("SMTP send timeout after 12000ms")), 12000)
-        ),
-      ]);
-
-      const previewUrl = nodemailer.getTestMessageUrl(info);
-
-      console.log(`\n======================================================`);
-      console.log(`✉️  [MASTERY ZONE EMAIL DELIVERED]`);
-      console.log(`   To:       ${mailOptions.to}`);
-      console.log(`   Subject:  ${mailOptions.subject}`);
-      console.log(`   MessageId: ${info.messageId || 'MOCK_ID'}`);
-      if (previewUrl) {
-        console.log(`🔗 PREVIEW REAL INBOX EMAIL HERE:\n   ${previewUrl}`);
-      }
-      console.log(`======================================================\n`);
-
-      return {
-        success: true,
-        messageId: info.messageId,
-        previewUrl: previewUrl || null,
-        isEthereal: isEtherealAccount,
-      };
-    } catch (err) {
-      attempt++;
-      lastErr = err;
-      console.warn(`[Mailer] Delivery attempt ${attempt} failed for ${mailOptions.to}: ${err.message}`);
-      if (attempt <= maxRetries) {
-        await new Promise((r) => setTimeout(r, 350 * attempt));
-      }
-    }
-  }
-
-  console.error(`❌ [Mailer] Email delivery failure for ${mailOptions.to}:`, lastErr?.message);
-  return { success: false, error: lastErr?.message };
-}
-
-/**
- * Dispatches an email action in the background immediately without blocking the caller HTTP thread.
- */
-function dispatchMailBackground(mailPromiseFn) {
-  setImmediate(() => {
-    Promise.resolve()
-      .then(() => (typeof mailPromiseFn === "function" ? mailPromiseFn() : mailPromiseFn))
-      .catch((err) => {
-        console.warn(`[Mailer Background Dispatch Warning]:`, err?.message || err);
-      });
-  });
-}
-
-// Helper: Check if account is a guest account to preserve isolation
-function isGuestAccount(email, role) {
-  if (role === 'guest') return true;
-  if (!email || typeof email !== 'string') return true;
-  const lower = email.toLowerCase().trim();
-  return lower.startsWith('guest_') || (lower.includes('@masteryzone.com') && lower.includes('guest'));
-}
-
-// Helper: Format date & time nicely
-function formatEmailDateTime(date = new Date()) {
-  const d = new Date(date);
-  const options = {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    timeZoneName: 'short',
-  };
-  return d.toLocaleString('en-US', options);
 }
 
 // ── 4. CLIENT URL RESOLVER & BRANDED MOBILE-FIRST TEMPLATES ──
@@ -669,9 +936,11 @@ async function sendLoginNotification(user, req, isNewDevice = false) {
       html,
     };
 
-    return await sendMailWithRetry(mailOptions);
+    return await sendMailWithRetry(mailOptions, 1, { emailType: 'login_notification', userId: user?._id });
   } catch (err) {
-    console.error('Error in sendLoginNotification:', err);
+    const diag = diagnoseSmtpError(err);
+    console.error('Error in sendLoginNotification:', err.message);
+    return { success: false, status: 'failed', errorCode: diag.code, message: diag.message };
   }
 }
 
@@ -680,10 +949,10 @@ async function sendLoginNotification(user, req, isNewDevice = false) {
  */
 async function sendPasswordResetEmail(user, resetToken, req, clientOriginOverride = null) {
   try {
-    if (!user || !user.email) return;
+    if (!user || !user.email) return { success: false, status: 'rejected', errorCode: 'EENVELOPE', message: 'No recipient email provided' };
     if (isGuestAccount(user.email, user.role)) {
       console.log(`ℹ️ [Mailer] Guest password reset (${user.email}) — skipped external email delivery.`);
-      return;
+      return { success: true, status: 'skipped_guest' };
     }
 
     const candidateName = user.fullName || user.username || 'Candidate';
@@ -744,9 +1013,11 @@ async function sendPasswordResetEmail(user, resetToken, req, clientOriginOverrid
       html,
     };
 
-    return await sendMailWithRetry(mailOptions);
+    return await sendMailWithRetry(mailOptions, 1, { emailType: 'password_reset', userId: user?._id, bypassSettings: true });
   } catch (err) {
-    console.error('Error in sendPasswordResetEmail:', err);
+    const diag = diagnoseSmtpError(err);
+    console.error('Error in sendPasswordResetEmail:', err.message);
+    return { success: false, status: 'failed', errorCode: diag.code, message: diag.message };
   }
 }
 
@@ -755,10 +1026,10 @@ async function sendPasswordResetEmail(user, resetToken, req, clientOriginOverrid
  */
 async function sendSignupNotification(user, req) {
   try {
-    if (!user || !user.email) return;
+    if (!user || !user.email) return { success: false, status: 'rejected', errorCode: 'EENVELOPE', message: 'No recipient email provided' };
     if (isGuestAccount(user.email, user.role)) {
       console.log(`ℹ️ [Mailer] Guest signup (${user.email}) — skipped external email delivery.`);
-      return;
+      return { success: true, status: 'skipped_guest' };
     }
 
     const { browser, os, clientIp, deviceSummary } = parseDeviceAndBrowser(req);
@@ -837,9 +1108,11 @@ async function sendSignupNotification(user, req) {
       html,
     };
 
-    return await sendMailWithRetry(mailOptions);
+    return await sendMailWithRetry(mailOptions, 1, { emailType: 'signup_welcome', userId: user?._id });
   } catch (err) {
-    console.error('Error in sendSignupNotification:', err);
+    const diag = diagnoseSmtpError(err);
+    console.error('Error in sendSignupNotification:', err.message);
+    return { success: false, status: 'failed', errorCode: diag.code, message: diag.message };
   }
 }
 
@@ -848,10 +1121,10 @@ async function sendSignupNotification(user, req) {
  */
 async function sendPasswordResetSuccessEmail(user, req) {
   try {
-    if (!user || !user.email) return;
+    if (!user || !user.email) return { success: false, status: 'rejected', errorCode: 'EENVELOPE', message: 'No recipient email provided' };
     if (isGuestAccount(user.email, user.role)) {
       console.log(`ℹ️ [Mailer] Guest password reset confirmation (${user.email}) — skipped.`);
-      return;
+      return { success: true, status: 'skipped_guest' };
     }
 
     const { browser, os, clientIp } = parseDeviceAndBrowser(req);
@@ -926,9 +1199,11 @@ async function sendPasswordResetSuccessEmail(user, req) {
       html,
     };
 
-    return await sendMailWithRetry(mailOptions);
+    return await sendMailWithRetry(mailOptions, 1, { emailType: 'password_reset_success', userId: user?._id, bypassSettings: true });
   } catch (err) {
-    console.error('Error in sendPasswordResetSuccessEmail:', err);
+    const diag = diagnoseSmtpError(err);
+    console.error('Error in sendPasswordResetSuccessEmail:', err.message);
+    return { success: false, status: 'failed', errorCode: diag.code, message: diag.message };
   }
 }
 
@@ -937,8 +1212,8 @@ async function sendPasswordResetSuccessEmail(user, req) {
  */
 async function sendOtpEmail(userEmail, otp, req = null) {
   try {
-    if (!userEmail) return;
-    if (isGuestAccount(userEmail)) return;
+    if (!userEmail) return { success: false, status: 'rejected', errorCode: 'EENVELOPE', message: 'No recipient email provided' };
+    if (isGuestAccount(userEmail)) return { success: true, status: 'skipped_guest' };
 
     const clientUrl = getClientBaseUrl(req);
     const loginUrl = `${clientUrl}/login`;
@@ -988,9 +1263,11 @@ async function sendOtpEmail(userEmail, otp, req = null) {
       html,
     };
 
-    return await sendMailWithRetry(mailOptions);
+    return await sendMailWithRetry(mailOptions, 1, { emailType: 'user_otp', bypassSettings: true });
   } catch (err) {
-    console.error('Error in sendOtpEmail:', err);
+    const diag = diagnoseSmtpError(err);
+    console.error('Error in sendOtpEmail:', err.message);
+    return { success: false, status: 'failed', errorCode: diag.code, message: diag.message };
   }
 }
 
@@ -1124,10 +1401,11 @@ async function sendSubmissionEvaluationEmail({
       html,
     };
 
-    return await sendMailWithRetry(mailOptions);
+    return await sendMailWithRetry(mailOptions, 1, { emailType: 'submission_evaluated' });
   } catch (err) {
-    console.error("sendSubmissionEvaluationEmail error:", err);
-    return { success: false, error: err.message };
+    const diag = diagnoseSmtpError(err);
+    console.error("sendSubmissionEvaluationEmail error:", err.message);
+    return { success: false, status: 'failed', errorCode: diag.code, message: diag.message };
   }
 }
 
@@ -1187,10 +1465,11 @@ async function sendMainAdminOtpEmail({ toEmail, otp, expiresMinutes = 10, req = 
       html,
     };
 
-    return await sendMailWithRetry(mailOptions);
+    return await sendMailWithRetry(mailOptions, 1, { emailType: "admin_otp", bypassSettings: true });
   } catch (err) {
-    console.error("sendMainAdminOtpEmail error:", err);
-    return { success: false, error: err.message };
+    const diag = diagnoseSmtpError(err);
+    console.error("sendMainAdminOtpEmail error:", err.message);
+    return { success: false, status: "failed", errorCode: diag.code, message: diag.message };
   }
 }
 
@@ -1271,10 +1550,11 @@ async function sendNewAdminWelcomeEmail({ adminEmail, adminName, tempPassword, p
       html,
     };
 
-    return await sendMailWithRetry(mailOptions);
+    return await sendMailWithRetry(mailOptions, 1, { emailType: "admin_welcome", bypassSettings: true });
   } catch (err) {
-    console.error("sendNewAdminWelcomeEmail error:", err);
-    return { success: false, error: err.message };
+    const diag = diagnoseSmtpError(err);
+    console.error("sendNewAdminWelcomeEmail error:", err.message);
+    return { success: false, status: "failed", errorCode: diag.code, message: diag.message };
   }
 }
 
@@ -1328,10 +1608,11 @@ async function sendAdminPasswordChangedEmail({ adminEmail, adminName, changedBy 
       html,
     };
 
-    return await sendMailWithRetry(mailOptions);
+    return await sendMailWithRetry(mailOptions, 1, { emailType: "admin_password_changed", bypassSettings: true });
   } catch (err) {
-    console.error("sendAdminPasswordChangedEmail error:", err);
-    return { success: false, error: err.message };
+    const diag = diagnoseSmtpError(err);
+    console.error("sendAdminPasswordChangedEmail error:", err.message);
+    return { success: false, status: "failed", errorCode: diag.code, message: diag.message };
   }
 }
 
@@ -1420,10 +1701,11 @@ async function sendSupportTicketSubmittedEmail({
       html,
     };
 
-    return await sendMailWithRetry(mailOptions);
+    return await sendMailWithRetry(mailOptions, 1, { emailType: "ticket_submitted", recordId: ticketId });
   } catch (err) {
-    console.error("sendSupportTicketSubmittedEmail error:", err);
-    return { success: false, error: err.message };
+    const diag = diagnoseSmtpError(err);
+    console.error("sendSupportTicketSubmittedEmail error:", err.message);
+    return { success: false, status: "failed", errorCode: diag.code, message: diag.message };
   }
 }
 
@@ -1524,10 +1806,11 @@ async function sendSupportTicketResponseEmail({
       html,
     };
 
-    return await sendMailWithRetry(mailOptions);
+    return await sendMailWithRetry(mailOptions, 1, { emailType: "ticket_response", recordId: ticketId });
   } catch (err) {
-    console.error("sendSupportTicketResponseEmail error:", err);
-    return { success: false, error: err.message };
+    const diag = diagnoseSmtpError(err);
+    console.error("sendSupportTicketResponseEmail error:", err.message);
+    return { success: false, status: "failed", errorCode: diag.code, message: diag.message };
   }
 }
 
@@ -1615,21 +1898,112 @@ async function sendCertificateAwardedEmail({
       contentHtml,
     });
 
-    const smtpEmail = (process.env.SMTP_EMAIL || process.env.EMAIL_USER || "").trim();
-    return await sendMailWithRetry({
-      from: `"Mastery Zone Certifications" <${smtpEmail}>`,
-      to: candidateEmail,
-      subject: `🏆 Certificate Awarded: ${certTitle} [ID: ${certificateId}]`,
-      html,
-    });
+    return await sendMailWithRetry(
+      {
+        from: `"Mastery Zone Certifications" <${process.env.SMTP_EMAIL || 'certifications@masteryzone.com'}>`,
+        to: candidateEmail,
+        subject: `🏆 Certificate Awarded: ${certTitle} [ID: ${certificateId}]`,
+        html,
+      },
+      1,
+      { emailType: "certificate_awarded", recordId: certificateId }
+    );
   } catch (err) {
+    const diag = diagnoseSmtpError(err);
     console.error("sendCertificateAwardedEmail error:", err.message);
-    return { success: false, error: err.message };
+    return { success: false, status: "failed", errorCode: diag.code, message: diag.message };
+  }
+}
+
+/**
+ * Send official test email to verify SMTP delivery and configuration
+ */
+async function sendTestEmail({ toEmail, requestedBy = "Administrator", req = null }) {
+  try {
+    if (!toEmail) {
+      return { success: false, status: "rejected", errorCode: "EENVELOPE", message: "No recipient email provided" };
+    }
+
+    const clientUrl = getClientBaseUrl(req);
+    const testTimeStr = formatEmailDateTime(new Date());
+    const config = getSmtpConfig();
+
+    const buttonHtml = renderBulletproofButton({
+      url: `${clientUrl}/admin`,
+      label: 'Open Mastery Zone Admin Portal',
+      gradient: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+      bgColor: '#4f46e5',
+      showDirectLink: false,
+    });
+
+    const contentHtml = `
+      <div style="padding: 16px 0;">
+        <h2 style="margin: 0 0 12px; font-size: 20px; font-weight: 800; color: #0f172a;">
+          Mastery Zone SMTP Test Email
+        </h2>
+        <p style="margin: 0 0 16px; font-size: 14px; line-height: 1.6; color: #334155;">
+          This is an official test message dispatched by <strong>${requestedBy}</strong> to verify the live SMTP email configuration.
+        </p>
+
+        <div style="padding: 14px 18px; background: #ecfdf5; border-radius: 12px; border: 1px solid #a7f3d0; color: #065f46; font-size: 13px; margin-bottom: 20px;">
+          ✅ <strong>SMTP Verification Successful:</strong> The mail transport is active, authenticated, and communicating properly with your email provider.
+        </div>
+
+        <table class="data-table">
+          <tr>
+            <td class="label">Dispatched At</td>
+            <td class="val">${testTimeStr}</td>
+          </tr>
+          <tr>
+            <td class="label">Recipient</td>
+            <td class="val">${toEmail}</td>
+          </tr>
+          <tr>
+            <td class="label">Sender Identity</td>
+            <td class="val">${config.from}</td>
+          </tr>
+          <tr>
+            <td class="label">Mail Server Host</td>
+            <td class="val">${config.host}:${config.port} (${config.secure ? "SSL/TLS" : "STARTTLS"})</td>
+          </tr>
+        </table>
+
+        ${buttonHtml}
+      </div>
+    `;
+
+    const html = wrapHtmlEmail({
+      title: "Mastery Zone SMTP Test Message",
+      preheader: `SMTP test email successfully dispatched at ${testTimeStr}`,
+      badgeText: "🧪 SMTP System Test",
+      badgeColor: "#059669",
+      badgeBg: "#ecfdf5",
+      contentHtml,
+    });
+
+    return await sendMailWithRetry(
+      {
+        to: toEmail,
+        subject: `[Mastery Zone] SMTP Configuration Test (${new Date().toLocaleTimeString()})`,
+        html,
+      },
+      1,
+      { emailType: "admin_test_email", bypassSettings: true }
+    );
+  } catch (err) {
+    const diag = diagnoseSmtpError(err);
+    return { success: false, status: "failed", errorCode: diag.code, message: diag.message };
   }
 }
 
 module.exports = {
   getTransporter,
+  resetTransporter,
+  getSmtpConfig,
+  verifySmtpConnection,
+  diagnoseSmtpError,
+  maskEmail,
+  sendMailWithRetry,
   parseDeviceAndBrowser,
   getClientBaseUrl,
   renderBulletproofButton,
@@ -1646,5 +2020,6 @@ module.exports = {
   sendSupportTicketSubmittedEmail,
   sendSupportTicketResponseEmail,
   sendCertificateAwardedEmail,
+  sendTestEmail,
   dispatchMailBackground,
 };

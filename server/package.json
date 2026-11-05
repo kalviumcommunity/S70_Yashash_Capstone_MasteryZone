@@ -5,7 +5,8 @@
   "main": "server.js",
   "type": "commonjs",
   "scripts": {
-    "test": "node test/auditVerification.test.js",
+    "test": "node test/auditVerification.test.js && node test/emailSystem.test.js",
+    "test:email": "node test/emailSystem.test.js",
     "start": "node server.js"
   },
   "keywords": [],
