@@ -448,26 +448,26 @@ const Login = () => {
             />
           </div>
 
-          <div className="mz-features-grid">
-            <div className="mz-feature-card li-feat-1">
-              <div className="mz-feature-icon-box purple">
-                <LuBookOpen size={21} />
+          <div className="mz-login-features-grid">
+            <div className="mz-login-feature-card li-feat-1">
+              <div className="mz-login-feature-icon-box purple">
+                <LuBookOpen size={20} />
               </div>
-              <div className="mz-feature-text">
-                <span className="mz-feature-title">Learn</span>
-                <span className="mz-feature-desc">at your pace</span>
+              <div className="mz-login-feature-text">
+                <span className="mz-login-feature-title">Learn</span>
+                <span className="mz-login-feature-desc">at your pace</span>
               </div>
             </div>
 
-            <div className="mz-feature-card li-feat-2">
-              <div className="mz-feature-icon-box cyan">
+            <div className="mz-login-feature-card li-feat-2">
+              <div className="mz-login-feature-icon-box cyan">
                 <svg
-                  width="21"
-                  height="21"
+                  width="20"
+                  height="20"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
-                  strokeWidth="2"
+                  strokeWidth="2.2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   aria-hidden="true"
@@ -479,29 +479,29 @@ const Login = () => {
                   <path d="M21 4L13 12" />
                 </svg>
               </div>
-              <div className="mz-feature-text">
-                <span className="mz-feature-title">Track</span>
-                <span className="mz-feature-desc">your progress</span>
+              <div className="mz-login-feature-text">
+                <span className="mz-login-feature-title">Track</span>
+                <span className="mz-login-feature-desc">your progress</span>
               </div>
             </div>
 
-            <div className="mz-feature-card li-feat-3">
-              <div className="mz-feature-icon-box blue">
-                <LuUsers size={21} />
+            <div className="mz-login-feature-card li-feat-3">
+              <div className="mz-login-feature-icon-box blue">
+                <LuUsers size={20} />
               </div>
-              <div className="mz-feature-text">
-                <span className="mz-feature-title">Connect</span>
-                <span className="mz-feature-desc">with learners</span>
+              <div className="mz-login-feature-text">
+                <span className="mz-login-feature-title">Connect</span>
+                <span className="mz-login-feature-desc">with learners</span>
               </div>
             </div>
 
-            <div className="mz-feature-card li-feat-4">
-              <div className="mz-feature-icon-box amber">
-                <LuStar size={21} />
+            <div className="mz-login-feature-card li-feat-4">
+              <div className="mz-login-feature-icon-box amber">
+                <LuStar size={20} />
               </div>
-              <div className="mz-feature-text">
-                <span className="mz-feature-title">Grow</span>
-                <span className="mz-feature-desc">every day</span>
+              <div className="mz-login-feature-text">
+                <span className="mz-login-feature-title">Grow</span>
+                <span className="mz-login-feature-desc">every day</span>
               </div>
             </div>
           </div>

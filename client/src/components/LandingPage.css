@@ -566,7 +566,7 @@
   transform: scale(1.08);
 }
 
-.mz-feature-title {
+.mz-ref-landing .mz-feature-title {
   font-size: 15px;
   font-weight: 750;
   color: #0f172a;
@@ -574,7 +574,7 @@
   line-height: 1.25;
 }
 
-.mz-feature-desc {
+.mz-ref-landing .mz-feature-desc {
   font-size: 12px;
   color: #64748b;
   line-height: 1.48;
@@ -1147,7 +1147,7 @@
     margin-top: 20px;
   }
 
-  .mz-features-grid {
+  .mz-ref-landing .mz-features-grid {
     grid-template-columns: repeat(3, 1fr);
   }
 
@@ -1181,7 +1181,7 @@
     display: none;
   }
 
-  .mz-features-grid {
+  .mz-ref-landing .mz-features-grid {
     grid-template-columns: repeat(2, 1fr);
     padding: 0 20px;
   }
