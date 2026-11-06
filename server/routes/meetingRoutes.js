@@ -916,71 +916,77 @@ router.post("/:meetingId/run-tests", optionalAuthToken, async (req, res) => {
     }
 
     try {
-      for (let i = 0; i < testsToRun.length; i++) {
-        const tc = testsToRun[i];
-        let actualOutput = "";
-        let error = "";
-        let passed = false;
-
-        if (compileError) {
-          error = compileError;
-        } else {
-          const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "mz_live_test_"));
-          try {
-            if (lang === "python" || lang === "py") {
-              const filePath = path.join(tmpDir, "main.py");
-              fs.writeFileSync(filePath, code, "utf8");
-              const exec = await runSandboxedProcess(PYTHON_BIN, ["-u", filePath], tc.input || "", 4000, tmpDir);
-              actualOutput = (exec.output || "").trim();
-              error = exec.error;
-            } else if (lang === "javascript" || lang === "js" || lang === "node") {
-              const filePath = path.join(tmpDir, "index.js");
-              fs.writeFileSync(filePath, code, "utf8");
-              const exec = await runSandboxedProcess(NODE_BIN, [filePath], tc.input || "", 4000, tmpDir);
-              actualOutput = (exec.output || "").trim();
-              error = exec.error;
-            } else if (lang === "cpp" || lang === "c++" || lang === "c") {
-              if (compiledBinPath && fs.existsSync(compiledBinPath)) {
-                const exec = await runSandboxedProcess(compiledBinPath, [], tc.input || "", 4000, tmpDir);
-                actualOutput = (exec.output || "").trim();
-                error = exec.error;
-              } else {
-                error = "Compiled binary not found";
-              }
-            } else if (lang === "java") {
-              if (sharedTmpDir) {
-                const exec = await runSandboxedProcess(JAVA_BIN, ["-cp", sharedTmpDir, javaClassName], tc.input || "", 4000, tmpDir);
-                actualOutput = (exec.output || "").trim();
-                error = exec.error;
-              } else {
-                error = "Java runtime environment unavailable";
-              }
-            } else {
-              actualOutput = "Execution verified";
-            }
-
-            const expected = String(tc.expectedOutput || "").trim();
-            // Match strict or flexible substring
-            passed = !error && (actualOutput === expected || actualOutput.replace(/\r\n/g, "\n") === expected.replace(/\r\n/g, "\n"));
-          } catch (err) {
-            error = err.message;
-          } finally {
-            try {
-              fs.rmSync(tmpDir, { recursive: true, force: true });
-            } catch {}
-          }
-        }
-
-        if (passed) passedCount++;
-        testResults.push({
+      if (compileError) {
+        testResults.push(...testsToRun.map((tc, i) => ({
           id: tc.id || `tc_${i + 1}`,
           input: tc.input,
           expectedOutput: tc.expectedOutput,
-          actualOutput,
-          error,
-          passed,
-          isHidden: Boolean(tc.isHidden),
-        });
+          actualOutput: "",
+          error: compileError,
+          passed: false,
+        })));
+      } else {
+        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "mz_live_test_"));
+        try {
+          let runner = null;
+          if (lang === "python" || lang === "py") {
+            const filePath = path.join(tmpDir, "main.py");
+            fs.writeFileSync(filePath, code, "utf8");
+            runner = (stdin) => runSandboxedProcess(PYTHON_BIN, ["-u", filePath], stdin || "", 4000, tmpDir);
+          } else if (lang === "javascript" || lang === "js" || lang === "node") {
+            const filePath = path.join(tmpDir, "index.js");
+            fs.writeFileSync(filePath, code, "utf8");
+            runner = (stdin) => runSandboxedProcess(NODE_BIN, [filePath], stdin || "", 4000, tmpDir);
+          } else if (lang === "cpp" || lang === "c++" || lang === "c") {
+            if (compiledBinPath && fs.existsSync(compiledBinPath)) {
+              runner = (stdin) => runSandboxedProcess(compiledBinPath, [], stdin || "", 4000, tmpDir);
+            }
+          } else if (lang === "java") {
+            if (sharedTmpDir) {
+              runner = (stdin) => runSandboxedProcess(JAVA_BIN, ["-cp", sharedTmpDir, javaClassName], stdin || "", 4000, tmpDir);
+            }
+          }
+
+          const evaluated = await Promise.all(
+            testsToRun.map(async (tc, i) => {
+              let actualOutput = "";
+              let error = "";
+              let passed = false;
+
+              if (!runner) {
+                error = "Execution environment unavailable";
+              } else {
+                try {
+                  const exec = await runner(tc.input || "");
+                  actualOutput = (exec.output || "").trim();
+                  error = exec.error;
+                  const expected = String(tc.expectedOutput || "").trim();
+                  passed = !error && (actualOutput === expected || actualOutput.replace(/\r\n/g, "\n") === expected.replace(/\r\n/g, "\n"));
+                } catch (e) {
+                  error = e.message;
+                }
+              }
+
+              return {
+                id: tc.id || `tc_${i + 1}`,
+                input: tc.input,
+                expectedOutput: tc.expectedOutput,
+                actualOutput,
+                error,
+                passed,
+              };
+            })
+          );
+
+          for (const item of evaluated) {
+            if (item.passed) passedCount++;
+            testResults.push(item);
+          }
+        } finally {
+          try {
+            fs.rmSync(tmpDir, { recursive: true, force: true });
+          } catch {}
+        }
       }
     } finally {
       if (sharedTmpDir) {
@@ -1081,70 +1087,77 @@ router.post("/:meetingId/submit-solution", optionalAuthToken, async (req, res) =
     }
 
     try {
-      for (let i = 0; i < testsToRun.length; i++) {
-        const tc = testsToRun[i];
-        let actualOutput = "";
-        let error = "";
-        let passed = false;
-
-        if (compileError) {
-          error = compileError;
-        } else {
-          const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "mz_submit_run_"));
-          try {
-            if (lang === "python" || lang === "py") {
-              const filePath = path.join(tmpDir, "main.py");
-              fs.writeFileSync(filePath, code, "utf8");
-              const exec = await runSandboxedProcess(PYTHON_BIN, ["-u", filePath], tc.input || "", 4000, tmpDir);
-              actualOutput = (exec.output || "").trim();
-              error = exec.error;
-            } else if (lang === "javascript" || lang === "js" || lang === "node") {
-              const filePath = path.join(tmpDir, "index.js");
-              fs.writeFileSync(filePath, code, "utf8");
-              const exec = await runSandboxedProcess(NODE_BIN, [filePath], tc.input || "", 4000, tmpDir);
-              actualOutput = (exec.output || "").trim();
-              error = exec.error;
-            } else if (lang === "cpp" || lang === "c++" || lang === "c") {
-              if (compiledBinPath && fs.existsSync(compiledBinPath)) {
-                const exec = await runSandboxedProcess(compiledBinPath, [], tc.input || "", 4000, tmpDir);
-                actualOutput = (exec.output || "").trim();
-                error = exec.error;
-              } else {
-                error = "Compiled binary not found";
-              }
-            } else if (lang === "java") {
-              if (sharedTmpDir) {
-                const exec = await runSandboxedProcess(JAVA_BIN, ["-cp", sharedTmpDir, javaClassName], tc.input || "", 4000, tmpDir);
-                actualOutput = (exec.output || "").trim();
-                error = exec.error;
-              } else {
-                error = "Java runtime unavailable";
-              }
-            } else {
-              actualOutput = "Execution verified";
-            }
-
-            const expected = String(tc.expectedOutput || "").trim();
-            passed = !error && (actualOutput === expected || actualOutput.replace(/\r\n/g, "\n") === expected.replace(/\r\n/g, "\n"));
-          } catch (err) {
-            error = err.message;
-          } finally {
-            try {
-              fs.rmSync(tmpDir, { recursive: true, force: true });
-            } catch {}
-          }
-        }
-
-        if (passed) passedCount++;
-        testResults.push({
+      if (compileError) {
+        testResults.push(...testsToRun.map((tc, i) => ({
           id: tc.id || `tc_${i + 1}`,
           input: tc.input,
           expectedOutput: tc.expectedOutput,
-          actualOutput,
-          error,
-          passed,
-          isHidden: Boolean(tc.isHidden),
-        });
+          actualOutput: "",
+          error: compileError,
+          passed: false,
+        })));
+      } else {
+        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "mz_submit_run_"));
+        try {
+          let runner = null;
+          if (lang === "python" || lang === "py") {
+            const filePath = path.join(tmpDir, "main.py");
+            fs.writeFileSync(filePath, code, "utf8");
+            runner = (stdin) => runSandboxedProcess(PYTHON_BIN, ["-u", filePath], stdin || "", 4000, tmpDir);
+          } else if (lang === "javascript" || lang === "js" || lang === "node") {
+            const filePath = path.join(tmpDir, "index.js");
+            fs.writeFileSync(filePath, code, "utf8");
+            runner = (stdin) => runSandboxedProcess(NODE_BIN, [filePath], stdin || "", 4000, tmpDir);
+          } else if (lang === "cpp" || lang === "c++" || lang === "c") {
+            if (compiledBinPath && fs.existsSync(compiledBinPath)) {
+              runner = (stdin) => runSandboxedProcess(compiledBinPath, [], stdin || "", 4000, tmpDir);
+            }
+          } else if (lang === "java") {
+            if (sharedTmpDir) {
+              runner = (stdin) => runSandboxedProcess(JAVA_BIN, ["-cp", sharedTmpDir, javaClassName], stdin || "", 4000, tmpDir);
+            }
+          }
+
+          const evaluated = await Promise.all(
+            testsToRun.map(async (tc, i) => {
+              let actualOutput = "";
+              let error = "";
+              let passed = false;
+
+              if (!runner) {
+                error = "Execution environment unavailable";
+              } else {
+                try {
+                  const exec = await runner(tc.input || "");
+                  actualOutput = (exec.output || "").trim();
+                  error = exec.error;
+                  const expected = String(tc.expectedOutput || "").trim();
+                  passed = !error && (actualOutput === expected || actualOutput.replace(/\r\n/g, "\n") === expected.replace(/\r\n/g, "\n"));
+                } catch (e) {
+                  error = e.message;
+                }
+              }
+
+              return {
+                id: tc.id || `tc_${i + 1}`,
+                input: tc.input,
+                expectedOutput: tc.expectedOutput,
+                actualOutput,
+                error,
+                passed,
+              };
+            })
+          );
+
+          for (const item of evaluated) {
+            if (item.passed) passedCount++;
+            testResults.push(item);
+          }
+        } finally {
+          try {
+            fs.rmSync(tmpDir, { recursive: true, force: true });
+          } catch {}
+        }
       }
     } finally {
       if (sharedTmpDir) {

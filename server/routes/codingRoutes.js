@@ -877,19 +877,6 @@ async function evaluateTestCasesBatch(language, code, testCases) {
       const executableCode = hasStdin ? safeCode : `${safeCode}\n\n${PYTHON_FUNCTION_HARNESS}`;
       fs.writeFileSync(p, executableCode, "utf8");
 
-      // Strict Python syntax check using py_compile (run ONCE!)
-      const syntaxCheck = await runSandboxedProcess(PYTHON_BIN, ["-m", "py_compile", p], "", 4000, tmpDir);
-      if (syntaxCheck.exitCode !== 0) {
-        const syntaxErr = `Syntax Error (Python):\n${syntaxCheck.error || syntaxCheck.output}`;
-        return testCases.map((tc) => ({
-          passed: false,
-          actual: "",
-          expected: String(tc.expectedOutput !== undefined ? tc.expectedOutput : (tc.expected || "")).trim(),
-          error: syntaxErr,
-          duration: 0,
-        }));
-      }
-
       runner = (input) => runSandboxedProcess(PYTHON_BIN, ["-u", p], input, timeoutMs, tmpDir);
     } else if (lang === "javascript" || lang === "js" || lang === "node") {
       const p = path.join(tmpDir, "solution.js");
@@ -980,19 +967,6 @@ async function evaluateTestCasesBatch(language, code, testCases) {
 
       const executableCode = hasStdin ? safeCode : `${safeCode}\n\n${jsHarness}`;
       fs.writeFileSync(p, executableCode, "utf8");
-
-      // Strict JavaScript syntax check (run ONCE!)
-      const syntaxCheck = await runSandboxedProcess(NODE_BIN, ["--check", p], "", 4000, tmpDir);
-      if (syntaxCheck.exitCode !== 0) {
-        const syntaxErr = `Syntax Error (JavaScript):\n${syntaxCheck.error || syntaxCheck.output}`;
-        return testCases.map((tc) => ({
-          passed: false,
-          actual: "",
-          expected: String(tc.expectedOutput !== undefined ? tc.expectedOutput : (tc.expected || "")).trim(),
-          error: syntaxErr,
-          duration: 0,
-        }));
-      }
 
       runner = (input) => runSandboxedProcess(NODE_BIN, [p], input, timeoutMs, tmpDir);
     } else if (lang === "c") {
@@ -1180,25 +1154,27 @@ public class Main {
       }));
     }
 
-    // Execute test cases using the single compiled environment
-    const results = [];
-    for (const tc of testCases) {
-      const tcStartTime = Date.now();
-      const input = tc.input !== undefined ? tc.input : "";
-      const expectedOutput = tc.expectedOutput !== undefined ? tc.expectedOutput : (tc.expected || "");
-      const res = await runner(input);
-      const cleanActual = (res.output || "").trim().replace(/\r\n/g, "\n");
-      const cleanExpected = (expectedOutput || "").trim().replace(/\r\n/g, "\n");
-      const passed = res.exitCode === 0 && validateTestCaseOutput(cleanActual, cleanExpected);
+    // Execute all test cases concurrently in parallel for ultra-fast instant evaluation
+    const results = await Promise.all(
+      testCases.map(async (tc) => {
+        const tcStartTime = Date.now();
+        const input = tc.input !== undefined ? tc.input : "";
+        const expectedOutput = tc.expectedOutput !== undefined ? tc.expectedOutput : (tc.expected || "");
+        const res = await runner(input);
+        const cleanActual = (res.output || "").trim().replace(/\r\n/g, "\n");
+        const cleanExpected = (expectedOutput || "").trim().replace(/\r\n/g, "\n");
+        const effectiveError = res.error || (res.exitCode !== 0 ? (cleanActual || "Runtime error") : "");
+        const passed = res.exitCode === 0 && validateTestCaseOutput(cleanActual, cleanExpected);
 
-      results.push({
-        passed,
-        actual: cleanActual,
-        expected: cleanExpected,
-        error: res.error || "",
-        duration: res.duration || (Date.now() - tcStartTime),
-      });
-    }
+        return {
+          passed,
+          actual: cleanActual,
+          expected: cleanExpected,
+          error: effectiveError,
+          duration: res.duration || (Date.now() - tcStartTime),
+        };
+      })
+    );
 
     return results;
   } finally {
@@ -5281,8 +5257,8 @@ router.get("/proctored-session/:sessionId/report", optionalAuthenticateToken, as
         return res.redirect(`/api/certifications/attempt/${certAtt.attemptId}/report`);
       }
 
-      // Check if this is an mz_proc_ session that was initialized or routed
-      if (rawId.startsWith("mz_proc_") || rawId.startsWith("proc_") || rawId.startsWith("session_")) {
+      // Check if this is an mz_proc_, proc_, session_, sub_, or report_ session that was initialized or routed
+      if (rawId.startsWith("mz_proc_") || rawId.startsWith("proc_") || rawId.startsWith("session_") || rawId.startsWith("sub_") || rawId.startsWith("report_")) {
         let fallbackSession = null;
         if (userId) {
           fallbackSession = await ProctoredCodingSession.findOne({ userId }).sort({ createdAt: -1 });
