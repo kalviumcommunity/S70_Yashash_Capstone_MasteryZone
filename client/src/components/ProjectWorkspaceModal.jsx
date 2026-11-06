@@ -16,6 +16,7 @@ import {
   FiMinimize2,
   FiDownload,
   FiRotateCcw,
+  FiRefreshCw,
   FiPlay,
   FiTerminal,
   FiAward,
@@ -1246,6 +1247,12 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
               {/* TAB 1: TEST CASES TABLE */}
               {bottomTab === "testcases" && (
                 <div className="mz-pw-tc-table-wrap">
+                  {isRunningTests && (
+                    <div style={{ padding: "8px 14px", background: "#eff6ff", borderBottom: "1px solid #bfdbfe", display: "flex", alignItems: "center", gap: "8px", fontSize: "12px", color: "#1d4ed8", fontWeight: 600 }}>
+                      <FiRefreshCw size={13} className="mz-spin" />
+                      <span>Compiler Sandboxed Runner: Evaluating project files against test suite...</span>
+                    </div>
+                  )}
                   <table className="mz-pw-tc-table" data-testid="pw-testcases-table">
                     <thead>
                       <tr>

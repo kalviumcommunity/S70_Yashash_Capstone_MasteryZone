@@ -11,6 +11,7 @@ const {
   sendPasswordResetEmail,
   sendPasswordResetSuccessEmail,
   parseDeviceAndBrowser,
+  getClientBaseUrl,
   dispatchMailBackground,
   isGuestAccount,
 } = require('../utils/mailer');
@@ -177,8 +178,9 @@ router.post('/login', async (req, res) => {
 
     // Send login notification immediately to user's registered email on every login
     if (!isGuestAccount(user.email, user.role)) {
+      const telemetry = { browser, os, clientIp, deviceSummary, clientUrl: getClientBaseUrl(req) };
       dispatchMailBackground(async () => {
-        return await sendLoginNotification(user, req, isNewDevice);
+        return await sendLoginNotification(user, telemetry, isNewDevice);
       }, { type: 'login_notification', recipient: user.email });
     }
     user.lastLoginNotificationSentAt = now;
@@ -519,8 +521,9 @@ router.post('/firebase-login', verifyFirebaseToken, async (req, res) => {
 
     // Send login notification immediately on every login
     if (!isGuestAccount(user.email, user.role)) {
+      const telemetry = { browser, os, clientIp, deviceSummary, clientUrl: getClientBaseUrl(req) };
       dispatchMailBackground(async () => {
-        return await sendLoginNotification(user, req, isNewDevice);
+        return await sendLoginNotification(user, telemetry, isNewDevice);
       }, { type: 'login_notification', recipient: user.email });
     }
     user.lastLoginNotificationSentAt = now;

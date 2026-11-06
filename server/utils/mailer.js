@@ -65,7 +65,15 @@ function getSmtpConfig() {
 
 function getSenderAddress(department = 'Mastery Zone') {
   const config = getSmtpConfig();
-  const senderEmail = config.email || 'notifications@masteryzone.com';
+  const senderEmail = (
+    process.env.BREVO_SENDER_EMAIL ||
+    config.email ||
+    process.env.SMTP_EMAIL ||
+    process.env.EMAIL_USER ||
+    process.env.MAIN_ADMIN_EMAIL ||
+    process.env.ADMIN_EMAIL ||
+    'yashashyashash1@gmail.com'
+  ).trim();
   return `"${department}" <${senderEmail}>`;
 }
 
@@ -91,10 +99,18 @@ function getHttpEmailProvider() {
     };
   }
   if (process.env.BREVO_API_KEY && process.env.BREVO_API_KEY.trim()) {
+    const verifiedEmail = (
+      process.env.BREVO_SENDER_EMAIL ||
+      process.env.SMTP_EMAIL ||
+      process.env.EMAIL_USER ||
+      process.env.MAIN_ADMIN_EMAIL ||
+      process.env.ADMIN_EMAIL ||
+      'yashashyashash1@gmail.com'
+    ).trim();
     return {
       type: 'brevo',
       apiKey: process.env.BREVO_API_KEY.trim(),
-      from: process.env.SMTP_FROM || process.env.SMTP_EMAIL || 'notifications@masteryzone.com',
+      from: `Mastery Zone <${verifiedEmail}>`,
     };
   }
   return null;
@@ -155,6 +171,29 @@ async function sendViaHttpApi(mailOptions, provider) {
   }
 
   if (provider.type === 'brevo') {
+    let fromEmail = (
+      process.env.BREVO_SENDER_EMAIL ||
+      process.env.SMTP_EMAIL ||
+      process.env.EMAIL_USER ||
+      process.env.MAIN_ADMIN_EMAIL ||
+      process.env.ADMIN_EMAIL ||
+      'yashashyashash1@gmail.com'
+    ).trim();
+    let fromName = 'Mastery Zone';
+
+    if (mailOptions.from) {
+      const matchName = String(mailOptions.from).match(/"?([^"<]+)"?\s*<[^>]+>/);
+      if (matchName && matchName[1].trim()) fromName = matchName[1].trim();
+
+      const matchEmail = String(mailOptions.from).match(/<([^>]+)>/);
+      if (matchEmail && matchEmail[1].trim()) {
+        const candidate = matchEmail[1].trim().toLowerCase();
+        if (!candidate.endsWith('@masteryzone.com') && candidate.includes('@')) {
+          fromEmail = candidate;
+        }
+      }
+    }
+
     const res = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: {
@@ -164,20 +203,14 @@ async function sendViaHttpApi(mailOptions, provider) {
       },
       body: JSON.stringify({
         sender: {
-          name: (() => {
-            if (mailOptions.from) {
-              const match = String(mailOptions.from).match(/"?([^"<]+)"?\s*<[^>]+>/);
-              if (match && match[1].trim()) return match[1].trim();
-            }
-            return 'Mastery Zone';
-          })(),
-          email: process.env.BREVO_SENDER_EMAIL || process.env.SMTP_EMAIL || 'support@masteryzone.com',
+          name: fromName,
+          email: fromEmail,
         },
         to: cleanTo.map((e) => ({ email: e })),
         subject: mailOptions.subject,
         htmlContent: mailOptions.html,
         ...(mailOptions.text ? { textContent: mailOptions.text } : {}),
-        ...(process.env.SMTP_EMAIL ? { replyTo: { email: process.env.SMTP_EMAIL, name: 'Mastery Zone' } } : {}),
+        replyTo: { email: fromEmail, name: fromName },
       }),
     });
 
@@ -760,6 +793,9 @@ function formatEmailDateTime(date = new Date()) {
 
 // Helper: Parse client request telemetry safely
 function parseDeviceAndBrowser(req) {
+  if (req && req.browser && req.os && req.clientIp && req.deviceSummary) {
+    return req;
+  }
   const ua = (req && req.headers ? req.headers['user-agent'] : '') || '';
   const rawIp =
     (req && req.headers ? req.headers['x-forwarded-for'] || req.socket?.remoteAddress || req.ip : '') ||
@@ -812,6 +848,10 @@ function parseDeviceAndBrowser(req) {
  * 4. Fallback to http://localhost:5174
  */
 function getClientBaseUrl(req = null, overrideOrigin = null) {
+  if (req && req.clientUrl && typeof req.clientUrl === 'string') {
+    return req.clientUrl.trim().replace(/\/+$/, '');
+  }
+
   if (overrideOrigin && typeof overrideOrigin === 'string' && overrideOrigin.trim()) {
     const clean = overrideOrigin.trim().replace(/\/+$/, '');
     if (!clean.includes('localhost') && !clean.includes('127.0.0.1')) {
@@ -1129,10 +1169,6 @@ async function sendLoginNotification(user, req, isNewDevice = false) {
       console.log(`ℹ️ [Mailer] Guest login (${user.email}) — skipped external email delivery.`);
       return { success: true, status: 'skipped_guest' };
     }
-    if (user.preferences && user.preferences.notifications === false && !isNewDevice) {
-      console.log(`ℹ️ [Mailer] Login notification skipped per candidate preferences (${user.email}).`);
-      return { success: true, skippedByPreference: true };
-    }
 
     const { browser, os, clientIp, deviceSummary } = parseDeviceAndBrowser(req);
     const candidateName = user.fullName || user.username || 'Candidate';
@@ -1220,7 +1256,7 @@ async function sendLoginNotification(user, req, isNewDevice = false) {
     });
 
     const mailOptions = {
-      from: `"Mastery Zone Security" <${process.env.SMTP_EMAIL || 'security@masteryzone.com'}>`,
+      from: getSenderAddress('Mastery Zone Security'),
       to: user.email,
       subject: isNewDevice
         ? `[Security Alert] New device sign-in to Mastery Zone`
@@ -1299,7 +1335,7 @@ async function sendPasswordResetEmail(user, resetToken, req, clientOriginOverrid
     });
 
     const mailOptions = {
-      from: `"Mastery Zone Security" <${process.env.SMTP_EMAIL || 'security@masteryzone.com'}>`,
+      from: getSenderAddress('Mastery Zone Security'),
       to: user.email,
       subject: 'Reset your Mastery Zone password',
       html,
@@ -1394,7 +1430,7 @@ async function sendSignupNotification(user, req) {
     });
 
     const mailOptions = {
-      from: `"Mastery Zone Security" <${process.env.SMTP_EMAIL || 'security@masteryzone.com'}>`,
+      from: getSenderAddress('Mastery Zone Security'),
       to: user.email,
       subject: 'Welcome to Mastery Zone — Account Created Successfully',
       html,
@@ -1485,7 +1521,7 @@ async function sendPasswordResetSuccessEmail(user, req) {
     });
 
     const mailOptions = {
-      from: `"Mastery Zone Security" <${process.env.SMTP_EMAIL || 'security@masteryzone.com'}>`,
+      from: getSenderAddress('Mastery Zone Security'),
       to: user.email,
       subject: 'Your Mastery Zone password was successfully changed',
       html,
@@ -1549,7 +1585,7 @@ async function sendOtpEmail(userEmail, otp, req = null) {
     });
 
     const mailOptions = {
-      from: `"Mastery Zone Security" <${process.env.SMTP_EMAIL || 'security@masteryzone.com'}>`,
+      from: getSenderAddress('Mastery Zone Security'),
       to: userEmail,
       subject: `Your Mastery Zone Verification Code: ${otp}`,
       html,
@@ -1692,7 +1728,7 @@ async function sendSubmissionEvaluationEmail({
     });
 
     const mailOptions = {
-      from: `"MasteryZone Academics" <${process.env.SMTP_EMAIL || 'support@masteryzone.com'}>`,
+      from: getSenderAddress('Mastery Zone Academics'),
       to: userEmail,
       subject: `[MasteryZone] Score Updated: ${resolvedTitle} (${displayScore} - ${statusText})`,
       html,
@@ -1756,7 +1792,7 @@ async function sendMainAdminOtpEmail({ toEmail, otp, expiresMinutes = 10, req = 
     });
 
     const mailOptions = {
-      from: `"MasteryZone Security" <${process.env.SMTP_EMAIL || "security@masteryzone.com"}>`,
+      from: getSenderAddress('Mastery Zone Security'),
       to: toEmail,
       subject: `[MasteryZone Security] ${otp} is your Admin Management Verification Code`,
       html,
@@ -1841,7 +1877,7 @@ async function sendNewAdminWelcomeEmail({ adminEmail, adminName, tempPassword, p
     });
 
     const mailOptions = {
-      from: `"MasteryZone Security" <${process.env.SMTP_EMAIL || "security@masteryzone.com"}>`,
+      from: getSenderAddress('Mastery Zone Security'),
       to: adminEmail,
       subject: `[MasteryZone] Administrator Account Credentials Created (${adminEmail})`,
       html,
@@ -1899,7 +1935,7 @@ async function sendAdminPasswordChangedEmail({ adminEmail, adminName, changedBy 
     });
 
     const mailOptions = {
-      from: `"MasteryZone Security" <${process.env.SMTP_EMAIL || "security@masteryzone.com"}>`,
+      from: getSenderAddress('Mastery Zone Security'),
       to: adminEmail,
       subject: `[Security Notice] Administrator Password Modified (${adminEmail})`,
       html,
@@ -1994,7 +2030,7 @@ async function sendSupportTicketSubmittedEmail({
     });
 
     const mailOptions = {
-      from: `"MasteryZone Support" <${process.env.SMTP_EMAIL || "support@masteryzone.com"}>`,
+      from: getSenderAddress('Mastery Zone Support'),
       to: userEmail,
       subject: `[Ticket ${ticketId}] Issue Logged: ${subject}`,
       html,
@@ -2101,7 +2137,7 @@ async function sendSupportTicketResponseEmail({
     });
 
     const mailOptions = {
-      from: `"MasteryZone Support" <${process.env.SMTP_EMAIL || "support@masteryzone.com"}>`,
+      from: getSenderAddress('Mastery Zone Support'),
       to: userEmail,
       subject: `[Update: ${ticketId}] ${isResolved ? "Issue Resolved" : "New Admin Response"}: ${subject}`,
       html,
@@ -2201,7 +2237,7 @@ async function sendCertificateAwardedEmail({
 
     return await sendMailWithRetry(
       {
-        from: `"Mastery Zone Certifications" <${process.env.SMTP_EMAIL || 'certifications@masteryzone.com'}>`,
+        from: getSenderAddress('Mastery Zone Certifications'),
         to: candidateEmail,
         subject: `🏆 Certificate Awarded: ${certTitle} [ID: ${certificateId}]`,
         html,
@@ -2284,6 +2320,7 @@ async function sendTestEmail({ toEmail, requestedBy = "Administrator", req = nul
 
     return await sendMailWithRetry(
       {
+        from: getSenderAddress('Mastery Zone Systems'),
         to: toEmail,
         subject: `[Mastery Zone] SMTP Configuration Test (${new Date().toLocaleTimeString()})`,
         html,

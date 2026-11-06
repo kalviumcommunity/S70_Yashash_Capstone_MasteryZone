@@ -278,13 +278,13 @@ const AdminSettings = () => {
     setResendingOtp(true);
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`${API_BASE}/api/admin/main-admin/verify-password`, {
+      const res = await fetch(`${API_BASE}/api/admin/main-admin/resend-otp`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ password: passwordInput || "miqtinlszsdfayvi" }),
+        body: JSON.stringify({ password: passwordInput }),
       });
       const json = await res.json();
       if (res.ok && json.success) {

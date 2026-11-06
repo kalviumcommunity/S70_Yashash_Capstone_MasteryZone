@@ -3388,6 +3388,76 @@ router.post("/main-admin/verify-password", async (req, res) => {
   }
 });
 
+// Step 1b: Main Admin OTP Resend (Authorized Session)
+router.post("/main-admin/resend-otp", async (req, res) => {
+  try {
+    const userEmail = (req.user?.email || "").toLowerCase().trim();
+    if (userEmail !== MAIN_ADMIN_EMAIL) {
+      return res.status(403).json({
+        success: false,
+        message: `Access Denied: Only designated Main Administrator (${MAIN_ADMIN_EMAIL}) has authority to request OTP codes.`,
+      });
+    }
+
+    if (req.body?.password) {
+      const user = await User.findById(req.user._id);
+      const isMatch = await bcrypt.compare(req.body.password, user.password);
+      if (!isMatch) {
+        return res.status(401).json({ success: false, message: "Invalid administrator password" });
+      }
+    }
+
+    // Generate secure single-use 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Invalidate previous unverified OTPs
+    await AdminOtp.deleteMany({ email: MAIN_ADMIN_EMAIL, verified: false });
+
+    await AdminOtp.create({
+      email: MAIN_ADMIN_EMAIL,
+      otp,
+      expiresAt,
+      attempts: 0,
+      verified: false,
+    });
+
+    // Send OTP to yashashyashash1@gmail.com
+    const mailResult = await sendMainAdminOtpEmail({
+      toEmail: MAIN_ADMIN_EMAIL,
+      otp,
+      expiresMinutes: 10,
+      req,
+    });
+
+    if (mailResult && !mailResult.success) {
+      console.warn("Main Admin OTP email resend failed:", mailResult.message);
+      return res.status(500).json({
+        success: false,
+        message: mailResult.message || `Failed to dispatch OTP email to ${MAIN_ADMIN_EMAIL}. Check SMTP server status.`,
+        errorCode: mailResult.errorCode,
+      });
+    }
+
+    await recordAdminAudit({
+      adminId: req.user._id,
+      action: "MAIN_ADMIN_OTP_RESENT",
+      note: `Main Admin requested OTP resend; 6-digit OTP dispatched to ${MAIN_ADMIN_EMAIL}`,
+      ip: req.ip,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `A fresh 6-digit OTP code has been dispatched to ${MAIN_ADMIN_EMAIL}.`,
+      email: MAIN_ADMIN_EMAIL,
+      expiresInMinutes: 10,
+    });
+  } catch (err) {
+    console.error("Main Admin OTP resend error:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // Step 2: Main Admin OTP Verification & Session Unlock Token
 router.post("/main-admin/verify-otp", async (req, res) => {
   try {

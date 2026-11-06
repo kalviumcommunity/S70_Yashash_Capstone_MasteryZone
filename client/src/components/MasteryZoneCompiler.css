@@ -1265,6 +1265,123 @@
   box-shadow: inset 0 0 10px rgba(16, 185, 129, 0.15);
 }
 
+.mz-compiler-pass-banner.is-running {
+  background: #eff6ff;
+  border-bottom: 2px solid #3b82f6;
+  color: #1e40af;
+  box-shadow: inset 0 0 10px rgba(59, 130, 246, 0.12);
+}
+
+.mz-compiler-running-tag {
+  font-size: 11px;
+  font-weight: 800;
+  background: #dbeafe;
+  color: #1d4ed8;
+  padding: 3px 8px;
+  border-radius: 999px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  border: 1px solid #bfdbfe;
+}
+
+/* Animations */
+@keyframes mz-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.mz-spin {
+  animation: mz-spin 0.85s linear infinite !important;
+}
+
+@keyframes mz-pulse-glow {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.65; transform: scale(0.98); }
+}
+
+.mz-tc-running-chip {
+  font-size: 10px;
+  font-weight: 700;
+  background: #eff6ff;
+  color: #2563eb;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid #bfdbfe;
+  animation: mz-pulse-glow 1.4s ease-in-out infinite;
+}
+
+.mz-compiler-tc-item.is-evaluating {
+  border-left: 2px solid #3b82f6;
+  background: #f8fafc;
+}
+
+.mz-compiler-status-icon.running,
+.mz-compiler-status-icon.running svg {
+  color: #2563eb !important;
+  stroke: #2563eb !important;
+}
+
+/* Right Details Placeholder when running */
+.mz-compiler-running-detail-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 36px 20px;
+  text-align: center;
+}
+
+.mz-running-radar-circle {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: #eff6ff;
+  border: 1.5px solid #bfdbfe;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 16px rgba(59, 130, 246, 0.18);
+  margin-bottom: 4px;
+}
+
+.mz-running-pipeline {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 14px 20px;
+  min-width: 320px;
+  text-align: left;
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+.mz-pipeline-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.mz-pipeline-step.done {
+  color: #166534;
+  font-weight: 600;
+}
+
+.mz-pipeline-step.active {
+  color: #1d4ed8;
+  font-weight: 700;
+}
+
+.mz-pipeline-step .dot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .mz-compiler-banner-dismiss {
   background: none;
   border: none;
