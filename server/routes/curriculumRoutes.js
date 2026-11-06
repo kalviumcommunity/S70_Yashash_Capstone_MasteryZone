@@ -10,7 +10,7 @@ const ProctoredCodingSession = require("../models/ProctoredCodingSession");
 const Progress = require("../models/ProgressSchema");
 const User = require("../models/User");
 const { pushNotification } = require("../utils/notificationService");
-const { sendSubmissionEvaluationEmail, dispatchMailBackground, isGuestAccount } = require("../utils/mailer");
+const { sendSubmissionEvaluationEmail, sendModuleCompletionEmail, dispatchMailBackground, isGuestAccount } = require("../utils/mailer");
 const { spawn } = require("child_process");
 const fs = require("fs");
 const path = require("path");
@@ -1020,27 +1020,27 @@ router.post("/assignment/submit", authenticateToken, async (req, res) => {
       totalTests = testCases.length;
       const lang = normTrack === "cpp" ? "cpp" : normTrack === "java" ? "java" : normTrack === "python" ? "python" : "javascript";
 
-      testResults = await Promise.all(
-        testCases.map(async (tc, i) => {
-          const isHidden = tc.isHidden || i >= 2;
-          const execRes = await executeInSandbox(lang, code, tc.input, 7000);
-          const actualOut = (execRes.output || "").trim();
-          const expected = (tc.expectedOutput || "").trim();
-          const passed = actualOut === expected && !execRes.error;
-          return {
-            testNumber: i + 1,
-            testIndex: i + 1,
-            isHidden,
-            passed,
-            input: isHidden ? "[Hidden Test Case]" : tc.input,
-            expectedOutput: isHidden ? "[Hidden Test Case]" : expected,
-            actualOutput: isHidden ? (passed ? "[Passed]" : "[Output Hidden]") : actualOut,
-            error: isHidden ? (passed ? null : "Hidden Test Case Failed") : (execRes.error || null),
-            durationMs: execRes.duration,
-            duration: execRes.duration,
-          };
-        })
-      );
+      const codingRoutes = require("./codingRoutes");
+      const outcomes = await (codingRoutes.evaluateTestCasesBatch
+        ? codingRoutes.evaluateTestCasesBatch(lang, code, testCases)
+        : Promise.all(testCases.map((tc) => executeInSandbox(lang, code, tc.input, 4000))));
+
+      testResults = testCases.map((tc, i) => {
+        const out = outcomes[i] || { passed: false, actual: "", expected: tc.expectedOutput, error: "Evaluation failed", duration: 0 };
+        const isHidden = tc.isHidden || i >= 2;
+        return {
+          testNumber: i + 1,
+          testIndex: i + 1,
+          isHidden,
+          passed: Boolean(out.passed),
+          input: isHidden ? "[Hidden Test Case]" : tc.input,
+          expectedOutput: isHidden ? "[Hidden Test Case]" : tc.expectedOutput,
+          actualOutput: isHidden ? (out.passed ? "[Passed]" : "[Output Hidden]") : out.actual,
+          error: isHidden ? (out.passed ? null : "Hidden Test Case Failed") : (out.error || null),
+          durationMs: out.duration || 35,
+          duration: out.duration || 35,
+        };
+      });
       passedCount = testResults.filter((r) => r.passed).length;
       const score = totalTests > 0 ? Math.round((passedCount / totalTests) * 100) : 0;
       isAccepted = score >= 80 && totalTests > 0;
@@ -1552,20 +1552,109 @@ router.post("/assessment/submit", authenticateToken, async (req, res) => {
     try {
       const candidateUser = await User.findById(userId).select("fullName username email role").lean();
       if (candidateUser && candidateUser.email && !isGuestAccount(candidateUser.email, candidateUser.role)) {
-        dispatchMailBackground(async () => {
-          return await sendSubmissionEvaluationEmail({
-            userEmail: candidateUser.email,
-            userName: candidateUser.fullName || candidateUser.username || "Candidate",
-            assessmentTitle: module.title,
-            assessmentType: "module",
-            score: marksObtained,
-            maxScore: totalMarks,
-            percentage,
-            verdict: passed ? "PASSED" : "FAILED",
-            reportUrl: `/assessment-report/attempt_${attemptDoc._id}`,
-            req,
-          });
-        }, { type: "module_assessment_completed", recipient: candidateUser.email });
+        // Cutoff requirement: 8 marks out of 10 (80%)
+        const isMcqCutoffMet = marksObtained >= 8;
+        const alreadySent = Boolean(curState.moduleCompletionEmailSent);
+
+        if (isMcqCutoffMet && !alreadySent) {
+          // Fetch actual coding assessment marks for this specific module from CodingProgress / SubjectProgress
+          let actualCodingScore = null;
+          let actualCodingMaxScore = 100;
+          let hasCodingRecord = false;
+
+          if (normSubject === "coding") {
+            const cp = await CodingProgress.findOne({ userId }).lean();
+            const cpRaw = cp?.moduleProgress?.[pKey] || (cp?.moduleProgress?.get ? cp.moduleProgress.get(pKey) : null);
+            if (cpRaw) {
+              if (cpRaw.exerciseScore !== undefined && cpRaw.exerciseScore !== null) {
+                actualCodingScore = cpRaw.exerciseScore;
+                hasCodingRecord = true;
+              } else if (Array.isArray(cpRaw.exerciseAttempts) && cpRaw.exerciseAttempts.length > 0) {
+                actualCodingScore = Math.max(...cpRaw.exerciseAttempts.map((a) => a.score || 0));
+                hasCodingRecord = true;
+              } else if (cpRaw.exercisePassed) {
+                actualCodingScore = 100;
+                hasCodingRecord = true;
+              }
+            }
+          }
+
+          if (!hasCodingRecord) {
+            if (curState.exerciseScore !== undefined && curState.exerciseScore !== null) {
+              actualCodingScore = curState.exerciseScore;
+              hasCodingRecord = true;
+            } else if (curState.exercisePassed || curState.assignmentPassed) {
+              actualCodingScore = 100;
+              hasCodingRecord = true;
+            }
+          }
+
+          const mcqPct = Math.round((marksObtained / totalMarks) * 100);
+          const combinedMarksStr = hasCodingRecord
+            ? `${Math.round((actualCodingScore + mcqPct) / 2)}%`
+            : `${mcqPct}%`;
+          const displayCodingScore = hasCodingRecord ? `${actualCodingScore} / ${actualCodingMaxScore}` : "100 / 100";
+
+          // Lock module completion email to prevent duplicate dispatches across refreshes or multi-device logins
+          curState.moduleCompletionEmailSent = true;
+          curState.moduleCompletedAt = new Date();
+          subProg.moduleProgress.set(pKey, curState);
+          subProg.markModified("moduleProgress");
+          await subProg.save();
+
+          if (normSubject === "coding") {
+            try {
+              const cpDoc = await CodingProgress.findOne({ userId });
+              if (cpDoc) {
+                const cCur = cpDoc.moduleProgress.get(pKey) || {};
+                cpDoc.moduleProgress.set(pKey, {
+                  ...cCur,
+                  moduleCompletionEmailSent: true,
+                  moduleCompletedAt: new Date(),
+                });
+                cpDoc.markModified("moduleProgress");
+                await cpDoc.save();
+              }
+            } catch (cpSyncErr) {
+              console.warn("CodingProgress sync warning:", cpSyncErr.message);
+            }
+          }
+
+          dispatchMailBackground(async () => {
+            return await sendModuleCompletionEmail({
+              userEmail: candidateUser.email,
+              userName: candidateUser.fullName || candidateUser.username || "Student",
+              moduleNumber: idx + 1,
+              moduleName: module.title,
+              codingMarks: displayCodingScore,
+              codingMaxMarks: actualCodingMaxScore,
+              mcqMarks: marksObtained,
+              mcqMaxMarks: totalMarks,
+              combinedMarks: combinedMarksStr,
+              mcqCutoff: "8/10",
+              completionStatus: "COMPLETED",
+              completionDate: new Date(),
+              reportUrl: `/assessment-report/attempt_${attemptDoc._id}`,
+              req,
+            });
+          }, { type: "module_completion_update", recipient: candidateUser.email });
+        } else if (!isMcqCutoffMet) {
+          // If score is below 8/10 cutoff, do not trigger qualifying module completion email
+          dispatchMailBackground(async () => {
+            return await sendSubmissionEvaluationEmail({
+              userEmail: candidateUser.email,
+              userName: candidateUser.fullName || candidateUser.username || "Candidate",
+              assessmentTitle: module.title,
+              assessmentType: "module",
+              score: marksObtained,
+              maxScore: totalMarks,
+              percentage,
+              verdict: "FAILED",
+              reportUrl: `/assessment-report/attempt_${attemptDoc._id}`,
+              req,
+            });
+          }, { type: "module_assessment_evaluation", recipient: candidateUser.email });
+        }
       }
     } catch (mailDispatchErr) {
       console.warn("Module assessment email dispatch warning:", mailDispatchErr.message);

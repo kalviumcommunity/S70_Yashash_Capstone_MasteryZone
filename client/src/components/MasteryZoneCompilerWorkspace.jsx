@@ -78,6 +78,7 @@ import {
   VscChevronDown,
 } from "react-icons/vsc";
 import AssessmentSecurityGate from "./AssessmentSecurityGate";
+import AssessmentSubmissionFlow from "./AssessmentSubmissionFlow";
 import "./MasteryZoneCompiler.css";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
@@ -446,10 +447,61 @@ export default function MasteryZoneCompilerWorkspace({
           if (Array.isArray(data.attempts)) setHistoryList(data.attempts);
           if (data.attemptsCount !== undefined) setAttemptsCount(data.attemptsCount);
           if (data.bestScore !== undefined) setBestScore(data.bestScore);
+
+          // Restore Report Ready screen if assignment was already completed/submitted
+          if (data.exercisePassed || (data.bestScore !== undefined && data.bestScore >= 80)) {
+            const attempts = Array.isArray(data.attempts) ? data.attempts : [];
+            const lastAttempt = attempts.slice(-1)[0] || {};
+            const scoreVal = data.bestScore !== undefined ? data.bestScore : (lastAttempt.score || 100);
+            const totalTests = lastAttempt.totalTests || 10;
+            const passedTests = lastAttempt.passedTests !== undefined ? lastAttempt.passedTests : Math.round((scoreVal / 100) * totalTests);
+            const sid = data.sessionId || data.latestSessionId || lastAttempt.sessionId || localStorage.getItem(`mz_report_sid_${questionId}`) || localStorage.getItem("mz_last_assessment_report_sid");
+
+            setSubmissionSummary({
+              score: scoreVal,
+              totalMarks: 100,
+              grade: scoreVal >= 90 ? "A+" : scoreVal >= 80 ? "A" : "B",
+              passedTests,
+              totalTests,
+              passed: true,
+              attemptNumber: data.attemptsCount || attempts.length || 1,
+              submittedAt: lastAttempt.timestamp || new Date().toISOString(),
+            });
+            if (sid) setSubmissionReportSid(sid);
+            setSubmissionFlowStage("ready");
+            setIsSubmittedReadOnly(true);
+          }
         }
       })
       .catch(() => {});
-  }, [historyUrl]);
+  }, [historyUrl, questionId]);
+
+  // Restore Report Ready screen from initialHistory if passed via props
+  useEffect(() => {
+    if (!initialHistory) return;
+    if (initialHistory.exercisePassed || (initialHistory.bestScore !== undefined && initialHistory.bestScore >= 80)) {
+      const attempts = Array.isArray(initialHistory.attempts) ? initialHistory.attempts : [];
+      const lastAttempt = attempts.slice(-1)[0] || {};
+      const scoreVal = initialHistory.bestScore !== undefined ? initialHistory.bestScore : (lastAttempt.score || 100);
+      const totalTests = lastAttempt.totalTests || 10;
+      const passedTests = lastAttempt.passedTests !== undefined ? lastAttempt.passedTests : Math.round((scoreVal / 100) * totalTests);
+      const sid = initialHistory.sessionId || initialHistory.latestSessionId || lastAttempt.sessionId || localStorage.getItem(`mz_report_sid_${questionId}`) || localStorage.getItem("mz_last_assessment_report_sid");
+
+      setSubmissionSummary({
+        score: scoreVal,
+        totalMarks: 100,
+        grade: scoreVal >= 90 ? "A+" : scoreVal >= 80 ? "A" : "B",
+        passedTests,
+        totalTests,
+        passed: true,
+        attemptNumber: initialHistory.attemptsCount || attempts.length || 1,
+        submittedAt: lastAttempt.timestamp || new Date().toISOString(),
+      });
+      if (sid) setSubmissionReportSid(sid);
+      setSubmissionFlowStage("ready");
+      setIsSubmittedReadOnly(true);
+    }
+  }, [initialHistory, questionId]);
 
   // Actual test cases: exactly 10 test cases; cases 1-3 visible, 4-10 hidden
   const effectiveTestCases = useMemo(() => {
@@ -1012,6 +1064,10 @@ export default function MasteryZoneCompilerWorkspace({
   const [isTerminated, setIsTerminated] = useState(false);
   const [isSubmittedReadOnly, setIsSubmittedReadOnly] = useState(false);
   const [submissionSuccessData, setSubmissionSuccessData] = useState(null);
+  const [submissionFlowStage, setSubmissionFlowStage] = useState(null); // null | "preparing" | "ready" | "error"
+  const [submissionSummary, setSubmissionSummary] = useState(null);
+  const [submissionReportSid, setSubmissionReportSid] = useState(null);
+  const [submissionError, setSubmissionError] = useState(null);
   const [needsMediaInit, setNeedsMediaInit] = useState(false);
   const [isFullscreenActive, setIsFullscreenActive] = useState(() => !!document.fullscreenElement);
   const [isRefreshConfirmOpen, setIsRefreshConfirmOpen] = useState(false);
@@ -2495,6 +2551,7 @@ export default function MasteryZoneCompilerWorkspace({
     }
 
     setIsSubmitting(true);
+    setSubmissionFlowStage("preparing");
     setIsConfirmModalOpen(false);
     setIsDrawerOpen(true);
     setActiveTab("run_tests");
@@ -2733,6 +2790,8 @@ export default function MasteryZoneCompilerWorkspace({
 
       // Save report summary permanently to localStorage for instantaneous 0ms retrieval
       try {
+        localStorage.setItem("mz_last_assessment_report_sid", finalSid);
+        if (questionId) localStorage.setItem(`mz_report_sid_${questionId}`, finalSid);
         const rawUser = localStorage.getItem("user");
         let uId = "";
         if (rawUser) {
@@ -2785,28 +2844,50 @@ export default function MasteryZoneCompilerWorkspace({
         sessionStorage.removeItem("mz_active_proctored_session");
       } catch {}
 
-      // Prompt, instant navigation to the View Report Page
+      // Transition to Report Ready Screen
       toast.dismiss();
       toast.success(
         finalPassed === totalTestsCount
-          ? "🎉 Perfect Score! 100% test cases passed. Opening report card..."
+          ? "🎉 Perfect Score! 100% test cases passed. Your report is ready!"
           : isAccepted
-          ? `🎉 Submission Accepted (${calculatedScore}%). Opening report card...`
-          : `Submission Evaluated (${finalPassed}/${totalTestsCount} passed). Opening report card...`,
+          ? `🎉 Submission Accepted (${calculatedScore}%). Your report is ready!`
+          : `Submission Evaluated (${finalPassed}/${totalTestsCount} passed). Your report is ready!`,
         {
           toastId: "mz-submit-result",
           position: "top-right",
-          autoClose: 1200,
+          autoClose: 1800,
         }
       );
 
-      navigate(`/assessment-report/${finalSid}`, {
-        replace: true,
-        state: { report: reportItem, reportData: reportItem },
+      const summaryPayload = {
+        score: calculatedScore,
+        totalMarks: 100,
+        grade: calculatedGrade,
+        passedTests: finalPassed,
+        totalTests: totalTestsCount,
+        passed: isAccepted,
+        attemptNumber: result?.attemptNumber || (attemptsCount + 1),
+        submittedAt: new Date().toISOString(),
+      };
+      setSubmissionSummary(summaryPayload);
+      setSubmissionReportSid(finalSid);
+      setSubmissionSuccessData({
+        sessionId: finalSid,
+        reportUrl: `/assessment-report/${finalSid}`,
+        score: calculatedScore,
+        grade: calculatedGrade,
+        passedTests: finalPassed,
+        totalTests: totalTestsCount,
       });
+      setSubmissionFlowStage("ready");
+      setIsSubmittedReadOnly(true);
       return;
     } catch (err) {
-      toast.error(`Submission failed: ${err.message}`);
+      toast.error(`Submission evaluated with note: ${err.message}`);
+      const fallbackSid = sid || proctoredSessionId || routeSessionId || localStorage.getItem("mz_last_assessment_report_sid") || `sub_${(questionId || problemData?.id || "assignment").replace(/[^a-zA-Z0-9_-]/g, "_")}_${Date.now()}`;
+      setSubmissionReportSid(fallbackSid);
+      setSubmissionError(err.message || "Failed to evaluate submission");
+      setSubmissionFlowStage("error");
     } finally {
       isSubmittingRef.current = false;
       setIsSubmitting(false);
@@ -2889,6 +2970,99 @@ export default function MasteryZoneCompilerWorkspace({
           if (onClose) onClose();
         }}
         onStartAssessment={handleProctoringVerified}
+      />
+    );
+  }
+
+  // When preparing results, ready with report, or in submission error state: DO NOT show old assessment screen!
+  if (submissionFlowStage === "preparing" || (isSubmitting && !submissionSummary)) {
+    return (
+      <AssessmentSubmissionFlow
+        stage="preparing"
+        title={questionDetails.title || title}
+        assignmentType="Coding Assessment"
+        attemptNumber={attemptsCount || 1}
+      />
+    );
+  }
+
+  if (submissionFlowStage === "ready" || isSubmittedReadOnly || isTerminated) {
+    const lastAttempt = (Array.isArray(historyList) && historyList.length > 0)
+      ? historyList[historyList.length - 1]
+      : (Array.isArray(initialHistory?.attempts) ? initialHistory.attempts.slice(-1)[0] : null);
+
+    const scoreVal = submissionSummary?.score !== undefined
+      ? submissionSummary.score
+      : submissionSuccessData?.score !== undefined
+      ? submissionSuccessData.score
+      : bestScore > 0
+      ? bestScore
+      : (initialHistory?.bestScore !== undefined ? initialHistory.bestScore : (lastAttempt?.score || 100));
+
+    const totalTests = submissionSummary?.totalTests || submissionSuccessData?.totalTests || lastAttempt?.totalTests || (allTestCases && allTestCases.length ? allTestCases.length : 10);
+    const passedTests = submissionSummary?.passedTests !== undefined
+      ? submissionSummary.passedTests
+      : submissionSuccessData?.passedTests !== undefined
+      ? submissionSuccessData.passedTests
+      : lastAttempt?.passedTests !== undefined
+      ? lastAttempt.passedTests
+      : Math.round((scoreVal / 100) * totalTests);
+
+    const summaryData = submissionSummary || {
+      score: scoreVal,
+      totalMarks: 100,
+      grade: scoreVal >= 90 ? "A+" : scoreVal >= 80 ? "A" : "B",
+      passedTests,
+      totalTests,
+      passed: scoreVal >= 80,
+      attemptNumber: attemptsCount || initialHistory?.attemptsCount || (historyList.length || 1),
+      submittedAt: lastAttempt?.timestamp || new Date().toISOString(),
+    };
+    const reportSid = submissionReportSid || proctoredSessionId || routeSessionId || submissionSuccessData?.sessionId || initialHistory?.sessionId || initialHistory?.latestSessionId || lastAttempt?.sessionId || (questionId ? localStorage.getItem(`mz_report_sid_${questionId}`) : null) || localStorage.getItem("mz_last_assessment_report_sid") || `sub_${(questionId || problemData?.id || "assignment").replace(/[^a-zA-Z0-9_-]/g, "_")}`;
+
+    return (
+      <AssessmentSubmissionFlow
+        stage="ready"
+        title={questionDetails.title || title}
+        assignmentType="Coding Assessment"
+        summary={summaryData}
+        sessionId={reportSid}
+        reportUrl={`/assessment-report/${reportSid}`}
+        onViewReport={() => {
+          navigate(`/assessment-report/${reportSid}`, { replace: true });
+        }}
+        onRetake={() => {
+          setSubmissionFlowStage(null);
+          setIsSubmittedReadOnly(false);
+          isSubmittedRef.current = false;
+          setIsSubmitting(false);
+        }}
+        onReturn={() => {
+          if (onClose) onClose();
+          else navigate("/coding", { replace: true });
+        }}
+      />
+    );
+  }
+
+  if (submissionFlowStage === "error") {
+    return (
+      <AssessmentSubmissionFlow
+        stage="error"
+        title={questionDetails.title || title}
+        assignmentType="Coding Assessment"
+        errorMessage={submissionError}
+        sessionId={submissionReportSid}
+        onRetake={() => {
+          setSubmissionFlowStage(null);
+          setIsSubmittedReadOnly(false);
+          isSubmittedRef.current = false;
+          setIsSubmitting(false);
+        }}
+        onReturn={() => {
+          if (onClose) onClose();
+          else navigate("/coding", { replace: true });
+        }}
       />
     );
   }
@@ -4202,7 +4376,7 @@ export default function MasteryZoneCompilerWorkspace({
                     }}
                   />
 
-                  {(isTimeExpired || isTerminated || isSubmittedReadOnly) && (
+                  {(isTimeExpired || isTerminated || isSubmittedReadOnly) && !isSubmitting && (
                     <div className="mz-editor-locked-overlay">
                       <LuLock size={24} color="#3b82f6" />
                       <strong>Assessment Solution Locked (Read-Only)</strong>
@@ -4852,12 +5026,18 @@ export default function MasteryZoneCompilerWorkspace({
             className="mz-compiler-btn-submit btn-view-report"
             style={{ backgroundColor: "#2563eb", color: "#ffffff", gap: "8px", fontWeight: 700 }}
             onClick={() => {
-              const sid = proctoredSessionId || routeSessionId || submissionSuccessData?.sessionId;
-              if (sid) {
-                navigate(`/assessment-report/${sid}`, { replace: true });
-              } else if (submissionSuccessData?.reportUrl) {
-                navigate(submissionSuccessData.reportUrl, { replace: true });
-              }
+              const sid =
+                proctoredSessionId ||
+                routeSessionId ||
+                submissionSuccessData?.sessionId ||
+                (questionId ? localStorage.getItem(`mz_report_sid_${questionId}`) : null) ||
+                localStorage.getItem("mz_last_assessment_report_sid") ||
+                initialHistory?.sessionId ||
+                initialHistory?.latestSessionId ||
+                (submissionSuccessData?.reportUrl ? submissionSuccessData.reportUrl.replace("/assessment-report/", "") : null) ||
+                `sub_${(questionId || problemData?.id || "assignment").replace(/[^a-zA-Z0-9_-]/g, "_")}`;
+
+              navigate(`/assessment-report/${sid}`, { replace: true });
             }}
           >
             <LuAward size={18} />

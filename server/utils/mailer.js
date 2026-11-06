@@ -139,6 +139,21 @@ async function sendViaHttpApi(mailOptions, provider) {
     if (process.env.SMTP_EMAIL) {
       payload.reply_to = process.env.SMTP_EMAIL;
     }
+    if (Array.isArray(mailOptions.attachments) && mailOptions.attachments.length > 0) {
+      const fs = require('fs');
+      payload.attachments = mailOptions.attachments.map((att) => {
+        let content = att.content;
+        if (!content && att.path && fs.existsSync(att.path)) {
+          content = fs.readFileSync(att.path).toString('base64');
+        } else if (Buffer.isBuffer(content)) {
+          content = content.toString('base64');
+        }
+        return {
+          filename: att.filename,
+          content,
+        };
+      }).filter((att) => att.content);
+    }
 
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -2269,6 +2284,148 @@ async function sendCertificateAwardedEmail({
 }
 
 /**
+ * Send official Module Completion notification email
+ * Triggered when a student completes the MCQ assessment and scores 8 marks or above.
+ */
+async function sendModuleCompletionEmail({
+  userEmail,
+  userName = "Student",
+  moduleNumber = 1,
+  moduleName = "",
+  codingMarks = null,
+  codingMaxMarks = 100,
+  mcqMarks = 8,
+  mcqMaxMarks = 10,
+  combinedMarks = null,
+  mcqCutoff = "8/10",
+  completionStatus = "COMPLETED",
+  completionDate = new Date(),
+  reportUrl = "",
+  req = null,
+}) {
+  try {
+    if (!userEmail) {
+      return { success: false, status: 'rejected', errorCode: 'EENVELOPE', message: 'No student email provided' };
+    }
+    if (isGuestAccount(userEmail)) {
+      return { success: true, status: 'skipped_guest' };
+    }
+
+    const clientUrl = getClientBaseUrl(req);
+    let resolvedLink = `${clientUrl}/home`;
+    if (reportUrl) {
+      resolvedLink = reportUrl.startsWith('http')
+        ? reportUrl
+        : `${clientUrl}${reportUrl.startsWith('/') ? '' : '/'}${reportUrl}`;
+    }
+
+    const buttonHtml = renderBulletproofButton({
+      url: resolvedLink,
+      label: 'View Verified Assessment Report',
+      secondaryUrl: `${clientUrl}/home`,
+      secondaryLabel: 'Return to Platform Home',
+      gradient: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+      bgColor: '#059669',
+      showDirectLink: true,
+    });
+
+    const displayCodingMarks = codingMarks !== null && codingMarks !== undefined && codingMarks !== ""
+      ? `${codingMarks}`
+      : "100 / 100";
+
+    const contentHtml = `
+      <div style="padding: 18px 0 16px;">
+        <div style="text-align: center; margin-bottom: 24px;">
+          <div style="display: inline-block; background: #ecfdf5; border: 2px solid #10b981; border-radius: 50%; width: 68px; height: 68px; line-height: 68px; font-size: 32px; text-align: center; margin-bottom: 12px;">
+            🎉
+          </div>
+          <h2 style="margin: 0 0 6px; font-size: 24px; font-weight: 800; color: #0f172a;">
+            Module ${moduleNumber} Completed!
+          </h2>
+          <p style="margin: 0; font-size: 14px; color: #059669; font-weight: 600;">
+            ${moduleName ? `${moduleName} — Accreditation Requirements Satisfied` : "Accreditation Requirements Satisfied"}
+          </p>
+        </div>
+
+        <p style="margin: 0 0 18px; font-size: 14px; line-height: 1.6; color: #334155;">
+          Hello <strong>${userName}</strong>,<br/>
+          Congratulations! You have successfully completed <strong>Module ${moduleNumber}${moduleName ? `: ${moduleName}` : ""}</strong> by satisfying the curriculum requirements and achieving <strong>${mcqMarks}/${mcqMaxMarks}</strong> marks on the proctored MCQ assessment (passing cutoff: <strong>${mcqCutoff}</strong>).
+        </p>
+
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+            <tr>
+              <td style="padding: 8px 0; color: #64748b; font-weight: 600;">Student Name:</td>
+              <td style="padding: 8px 0; color: #0f172a; font-weight: 700; text-align: right;">${userName}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #64748b; font-weight: 600;">Module Number & Name:</td>
+              <td style="padding: 8px 0; color: #0f172a; font-weight: 700; text-align: right;">Module ${moduleNumber}${moduleName ? ` — ${moduleName}` : ""}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #64748b; font-weight: 600;">Coding Assessment Marks:</td>
+              <td style="padding: 8px 0; color: #0f172a; font-weight: 700; text-align: right;">${displayCodingMarks}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #64748b; font-weight: 600;">MCQ Assessment Marks:</td>
+              <td style="padding: 8px 0; color: #059669; font-weight: 800; font-size: 14px; text-align: right;">${mcqMarks} / ${mcqMaxMarks}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #64748b; font-weight: 600;">MCQ Cutoff Threshold:</td>
+              <td style="padding: 8px 0; color: #64748b; font-weight: 600; text-align: right;">${mcqCutoff} (Achieved: ${mcqMarks}/${mcqMaxMarks})</td>
+            </tr>
+            ${combinedMarks ? `
+            <tr>
+              <td style="padding: 8px 0; color: #64748b; font-weight: 600;">Combined Module Marks:</td>
+              <td style="padding: 8px 0; color: #2563eb; font-weight: 800; text-align: right;">${combinedMarks}</td>
+            </tr>
+            ` : ""}
+            <tr>
+              <td style="padding: 8px 0; color: #64748b; font-weight: 600;">Module Completion Status:</td>
+              <td style="padding: 8px 0; text-align: right;">
+                <span style="display: inline-block; background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; padding: 2px 10px; border-radius: 9999px; font-size: 12px; font-weight: 800;">
+                  ${completionStatus}
+                </span>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #64748b; font-weight: 600;">Completion Date:</td>
+              <td style="padding: 8px 0; color: #64748b; text-align: right;">${formatEmailDateTime(completionDate)}</td>
+            </tr>
+          </table>
+        </div>
+
+        ${buttonHtml}
+      </div>
+    `;
+
+    const html = wrapHtmlEmail({
+      title: `Mastery Zone – Module ${moduleNumber} Completion Update`,
+      preheader: `Congratulations ${userName}! You have completed Module ${moduleNumber}: ${moduleName} with ${mcqMarks}/${mcqMaxMarks} on your MCQ assessment.`,
+      badgeText: "🏆 Module Accreditation Cleared",
+      badgeColor: "#059669",
+      badgeBg: "#ecfdf5",
+      contentHtml,
+    });
+
+    return await sendMailWithRetry(
+      {
+        from: getSenderAddress('Mastery Zone Academics'),
+        to: userEmail,
+        subject: `Mastery Zone – Module ${moduleNumber} Completion Update`,
+        html,
+      },
+      1,
+      { emailType: "module_completion_update", recordId: `mod_${moduleNumber}` }
+    );
+  } catch (err) {
+    const diag = diagnoseSmtpError(err);
+    console.error("sendModuleCompletionEmail error:", err.message);
+    return { success: false, status: "failed", errorCode: diag.code, message: diag.message };
+  }
+}
+
+/**
  * Send official test email to verify SMTP delivery and configuration
  */
 async function sendTestEmail({ toEmail, requestedBy = "Administrator", req = null }) {
@@ -2374,6 +2531,7 @@ module.exports = {
   sendSupportTicketSubmittedEmail,
   sendSupportTicketResponseEmail,
   sendCertificateAwardedEmail,
+  sendModuleCompletionEmail,
   sendTestEmail,
   dispatchMailBackground,
   isGuestAccount,
