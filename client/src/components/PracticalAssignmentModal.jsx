@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import MasteryZoneCompilerWorkspace from "./MasteryZoneCompilerWorkspace";
+import AssessmentSubmissionFlow from "./AssessmentSubmissionFlow";
 import {
   LuLaptop,
   LuCheck,
@@ -59,6 +60,7 @@ export default function PracticalAssignmentModal({
   const [userSubmissionText, setUserSubmissionText] = useState("");
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [evalResult, setEvalResult] = useState(null);
+  const [submissionFlowStage, setSubmissionFlowStage] = useState(null); // null | "preparing" | "ready" | "error"
 
   // Fetch module if standalone / not supplied via prop
   useEffect(() => {
@@ -165,6 +167,7 @@ export default function PracticalAssignmentModal({
     }
 
     setIsEvaluating(true);
+    setSubmissionFlowStage("preparing");
     const token = localStorage.getItem("token");
 
     try {
@@ -190,13 +193,16 @@ export default function PracticalAssignmentModal({
           toastId: "practical_test_result",
         });
         if (onAssignmentPassed) onAssignmentPassed(data);
+        setSubmissionFlowStage("ready");
       } else {
         toast.warn(data.feedback || "Submission needs refinement. Please review criteria and retry.", {
           toastId: "practical_test_result",
         });
+        setSubmissionFlowStage("ready");
       }
     } catch (err) {
       toast.error(`Evaluation error: ${err.message}`);
+      setSubmissionFlowStage("error");
     } finally {
       setIsEvaluating(false);
     }
@@ -399,6 +405,55 @@ export default function PracticalAssignmentModal({
   };
 
   const isPassed = evalResult?.status === "PASSED" || evalResult?.isAccepted || evalResult?.passed || Boolean(module.assignmentPassed);
+
+  if (submissionFlowStage === "preparing" || isEvaluating) {
+    return (
+      <AssessmentSubmissionFlow
+        stage="preparing"
+        title={practical.taskTitle || "Practical Assignment"}
+        assignmentType="Practical Assignment"
+      />
+    );
+  }
+
+  if (submissionFlowStage === "ready" || (isPassed && evalResult)) {
+    return (
+      <AssessmentSubmissionFlow
+        stage="ready"
+        title={practical.taskTitle || "Practical Assignment"}
+        assignmentType="Practical Assignment"
+        summary={{
+          score: evalResult?.score !== undefined ? evalResult.score : (isPassed ? 100 : 60),
+          totalMarks: 100,
+          grade: isPassed ? "A" : "Needs Revision",
+          passedTests: evalResult?.passedCount || (isPassed ? 1 : 0),
+          totalTests: evalResult?.totalTests || 1,
+          passed: isPassed,
+          attemptNumber: 1,
+          submittedAt: new Date().toISOString(),
+        }}
+        onViewReport={handleProceedToMcq}
+        onRetake={() => {
+          setSubmissionFlowStage(null);
+          setEvalResult(null);
+        }}
+        onReturn={handleClose}
+      />
+    );
+  }
+
+  if (submissionFlowStage === "error") {
+    return (
+      <AssessmentSubmissionFlow
+        stage="error"
+        title={practical.taskTitle || "Practical Assignment"}
+        assignmentType="Practical Assignment"
+        errorMessage="Evaluation encountered an error. Please retry."
+        onRetake={() => setSubmissionFlowStage(null)}
+        onReturn={handleClose}
+      />
+    );
+  }
 
   return (
     <div className="mz-proc-overlay" style={{ zIndex: 100000, background: "rgba(15, 23, 42, 0.6)", backdropFilter: "blur(6px)" }}>

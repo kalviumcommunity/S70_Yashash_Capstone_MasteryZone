@@ -22,7 +22,7 @@ const User = require("../models/User");
 const ProctoredCodingSession = require("../models/ProctoredCodingSession");
 const { pushNotification } = require("../utils/notificationService");
 const { pushAdminNotification } = require("../utils/adminNotificationService");
-const { sendSubmissionEvaluationEmail, dispatchMailBackground, isGuestAccount } = require("../utils/mailer");
+const { sendSubmissionEvaluationEmail, sendModuleCompletionEmail, dispatchMailBackground, isGuestAccount } = require("../utils/mailer");
 const SubjectProgress = require("../models/SubjectProgress");
 const crypto = require("crypto");
 const { CURRICULUM } = require("../data/codingCurriculum");
@@ -240,7 +240,7 @@ router.post("/execute", async (req, res) => {
           const reqModule = url.protocol === "https:" ? https : http;
           const jReq = reqModule.request(
             url,
-            { method: "POST", headers, timeout: 7000 },
+            { method: "POST", headers, timeout: 1800 },
             (jRes) => {
               let resData = "";
               jRes.on("data", (c) => (resData += c));
@@ -826,6 +826,10 @@ if __name__ == "__main__":
     _mz_auto_runner()
 `;
 
+// In-memory LRU evaluation cache to avoid duplicate expensive runs of identical code & test cases
+const batchEvaluationCache = new Map();
+const MAX_EVAL_CACHE = 500;
+
 // Optimized Batch Test Case Evaluator: Prepares & compiles code ONCE, then executes all test cases
 async function evaluateTestCasesBatch(language, code, testCases) {
   if (!Array.isArray(testCases) || testCases.length === 0) return [];
@@ -841,8 +845,19 @@ async function evaluateTestCasesBatch(language, code, testCases) {
     }));
   }
 
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "mz_judge_"));
   let lang = (language || "").toLowerCase().trim();
+
+  // Deterministic cache lookup
+  let cacheKey = "";
+  try {
+    const hash = crypto.createHash("sha256").update(`${lang}:::${safeCode}:::${JSON.stringify(testCases)}`).digest("hex");
+    cacheKey = hash;
+    if (batchEvaluationCache.has(cacheKey)) {
+      return JSON.parse(JSON.stringify(batchEvaluationCache.get(cacheKey)));
+    }
+  } catch {}
+
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "mz_judge_"));
   const timeoutMs = 4000;
 
   // Strip comments to inspect raw executable syntax safely
@@ -974,8 +989,8 @@ async function evaluateTestCasesBatch(language, code, testCases) {
       const bin = path.join(tmpDir, "sol_c_bin");
       fs.writeFileSync(p, safeCode, "utf8");
 
-      // Fast compilation ONCE with -O0
-      const cRes = await runSandboxedProcess(GCC_BIN, ["-Wall", "-O0", p, "-o", bin], "", 5000, tmpDir);
+      // Fast compilation ONCE with -O0 -pipe
+      const cRes = await runSandboxedProcess(GCC_BIN, ["-Wall", "-O0", "-pipe", p, "-o", bin], "", 5000, tmpDir);
       if (cRes.exitCode !== 0) {
         const compErr = `Compilation Error (C):\n${cRes.error || cRes.output}`;
         return testCases.map((tc) => ({
@@ -1004,9 +1019,12 @@ async function evaluateTestCasesBatch(language, code, testCases) {
           callStatement = "Solution sol; std::cout << sol.lengthOfLongestSubstring(rawAll) << std::endl;";
         }
 
-        cppFullCode = `${safeCode}
-
+        cppFullCode = `#include <iostream>
+#include <string>
+#include <vector>
 #include <sstream>
+${safeCode}
+
 int main() {
     std::string line;
     std::vector<int> nums;
@@ -1031,8 +1049,8 @@ int main() {
 
       fs.writeFileSync(p, cppFullCode, "utf8");
 
-      // Fast compilation ONCE with -O0
-      const cRes = await runSandboxedProcess(GPP_BIN, ["-Wall", "-O0", p, "-o", bin], "", 5000, tmpDir);
+      // Fast compilation ONCE with -O0 -pipe
+      const cRes = await runSandboxedProcess(GPP_BIN, ["-Wall", "-O0", "-pipe", p, "-o", bin], "", 5000, tmpDir);
       if (cRes.exitCode !== 0) {
         const compErr = `Compilation Error (C++):\n${cRes.error || cRes.output}`;
         return testCases.map((tc) => ({
@@ -1065,7 +1083,7 @@ int main() {
             duration: 0,
           }));
         }
-        runner = (input) => runSandboxedProcess(JAVA_BIN, ["-cp", tmpDir, className], input, timeoutMs, tmpDir);
+        runner = (input) => runSandboxedProcess(JAVA_BIN, ["-XX:+TieredCompilation", "-XX:TieredStopAtLevel=1", "-Xms16m", "-Xmx64m", "-cp", tmpDir, className], input, timeoutMs, tmpDir);
       } else {
         const nonPublicCode = safeCode.replace(/public\s+class\s+Solution/g, "class Solution");
         const javaDriver = `
@@ -1142,7 +1160,7 @@ public class Main {
             duration: 0,
           }));
         }
-        runner = (input) => runSandboxedProcess(JAVA_BIN, ["-cp", tmpDir, "Main"], input, timeoutMs, tmpDir);
+        runner = (input) => runSandboxedProcess(JAVA_BIN, ["-XX:+TieredCompilation", "-XX:TieredStopAtLevel=1", "-Xms16m", "-Xmx64m", "-cp", tmpDir, "Main"], input, timeoutMs, tmpDir);
       }
     } else {
       return testCases.map((tc) => ({
@@ -1175,6 +1193,17 @@ public class Main {
         };
       })
     );
+
+    // Save successful outcome to LRU cache for 0ms retrieval on repeated executions
+    try {
+      if (cacheKey && results && results.length > 0) {
+        if (batchEvaluationCache.size >= MAX_EVAL_CACHE) {
+          const oldestKey = batchEvaluationCache.keys().next().value;
+          batchEvaluationCache.delete(oldestKey);
+        }
+        batchEvaluationCache.set(cacheKey, results);
+      }
+    } catch {}
 
     return results;
   } finally {
@@ -2624,10 +2653,69 @@ router.post("/curriculum/exercise/submit", authenticateToken, async (req, res) =
         activeSession.markModified("questionDrafts");
         activeSession.markModified("submissionResult");
         await activeSession.save();
+      } else {
+        const userObj = await User.findById(userId).lean();
+        const newSession = new ProctoredCodingSession({
+          sessionId: finalReturnSid,
+          userId,
+          questionId: qKey,
+          assessmentTitle: module.codingExercise?.taskTitle || module.title,
+          trackId,
+          status: isAccepted ? "submitted" : "completed",
+          candidateDetails: {
+            fullName: userObj?.fullName || userObj?.username || "Candidate",
+            email: userObj?.email || "",
+            candidateId: `CAND-${String(userId).slice(-6).toUpperCase()}`,
+            organization: "Mastery Zone Academy",
+          },
+          questions: [
+            {
+              questionId: qKey,
+              title: module.codingExercise?.taskTitle || module.title,
+              submittedCode: code,
+              language: lang,
+              score,
+              marksObtained: score,
+              totalMarks: 100,
+              passedTests: passedCount,
+              totalTests: testCases.length,
+              testResults,
+              status: isAccepted ? "passed" : "failed",
+              attempted: true,
+              submittedAt: new Date(),
+            },
+          ],
+          submissionResult: {
+            code,
+            language: lang,
+            score,
+            marksObtained: score,
+            totalMarks: 100,
+            passedTests: passedCount,
+            totalTests: testCases.length,
+            grade: score === 100 ? "A+" : score >= 80 ? "B" : "F",
+            accuracy: Math.round((passedCount / testCases.length) * 100),
+            passed: isAccepted,
+            status: isAccepted ? "PASSED" : "FAILED",
+            durationSeconds: 30,
+            submittedAt: new Date(),
+            testResults,
+          },
+        });
+        await newSession.save();
       }
     } catch (procSyncErr) {
       console.warn("Could not sync ProctoredCodingSession during curriculum submit:", procSyncErr);
     }
+
+    const finalReturnSid = activeSession?.sessionId || req.body.sessionId || `sub_${trackId}_${idx}_${Date.now()}`;
+    try {
+      progress.moduleProgress.set(pKey, {
+        ...(progress.moduleProgress.get(pKey) || {}),
+        latestSessionId: finalReturnSid,
+      });
+      await progress.save();
+    } catch {}
 
     res.json({
       status: isAccepted ? "PASSED" : "FAILED",
@@ -2639,6 +2727,8 @@ router.post("/curriculum/exercise/submit", authenticateToken, async (req, res) =
       totalTests: testCases.length,
       results: testResults,
       attempts: pastAttempts,
+      sessionId: finalReturnSid,
+      submissionId: finalReturnSid,
       message: isAccepted
         ? (passedCount === testCases.length
             ? `🎉 Incredible! 10/10 tests passed (100%). Solution Verified & Graded!`
@@ -2667,12 +2757,26 @@ router.get("/curriculum/exercise/history/:trackId/:moduleIndex", authenticateTok
     const rawMod = progress?.moduleProgress?.get ? progress.moduleProgress.get(pKey) : progress?.moduleProgress?.[pKey];
     const mod = (rawMod && typeof rawMod.toObject === "function") ? rawMod.toObject() : (rawMod || {});
 
+    // Also look up any submitted ProctoredCodingSession for this exercise
+    let latestSid = mod.latestSessionId;
+    if (!latestSid) {
+      const existingSession = await ProctoredCodingSession.findOne({
+        userId,
+        questionId: pKey,
+        status: { $in: ["submitted", "completed"] },
+      }).sort({ createdAt: -1 }).lean();
+      if (existingSession) latestSid = existingSession.sessionId;
+    }
+
     res.json({
       attemptsCount: mod.attemptsCount || (mod.exerciseAttempts ? mod.exerciseAttempts.length : 0),
       bestScore: mod.bestScore || 0,
       latestScore: mod.exerciseScore || 0,
       exercisePassed: !!mod.exercisePassed,
       attempts: mod.exerciseAttempts || [],
+      sessionId: latestSid || undefined,
+      latestSessionId: latestSid || undefined,
+      status: mod.exercisePassed ? "completed" : (mod.attemptsCount > 0 ? "submitted" : "unattempted"),
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -2977,20 +3081,74 @@ router.post("/curriculum/assessment/submit", authenticateToken, async (req, res)
     try {
       const candidateUser = await User.findById(userId).select("fullName username email role").lean();
       if (candidateUser && candidateUser.email && !isGuestAccount(candidateUser.email, candidateUser.role)) {
-        dispatchMailBackground(async () => {
-          return await sendSubmissionEvaluationEmail({
-            userEmail: candidateUser.email,
-            userName: candidateUser.fullName || candidateUser.username || "Candidate",
-            assessmentTitle: module.title,
-            assessmentType: "module",
-            score: marksObtained,
-            maxScore: totalMarks,
-            percentage,
-            verdict: passed ? "PASSED" : "FAILED",
-            reportUrl: `/assessment-report/attempt_${attemptDoc._id}`,
-            req,
-          });
-        }, { type: "module_assessment_completed", recipient: candidateUser.email });
+        // Cutoff requirement: 8 marks out of 10 (80%)
+        const isMcqCutoffMet = marksObtained >= 8;
+        const alreadySent = Boolean(current.moduleCompletionEmailSent);
+
+        if (isMcqCutoffMet && !alreadySent) {
+          // Fetch actual coding assessment marks for this specific module
+          let actualCodingScore = null;
+          let actualCodingMaxScore = 100;
+          let hasCodingRecord = false;
+
+          if (current.exerciseScore !== undefined && current.exerciseScore !== null) {
+            actualCodingScore = current.exerciseScore;
+            hasCodingRecord = true;
+          } else if (Array.isArray(current.exerciseAttempts) && current.exerciseAttempts.length > 0) {
+            actualCodingScore = Math.max(...current.exerciseAttempts.map((a) => a.score || 0));
+            hasCodingRecord = true;
+          } else if (current.exercisePassed || current.assignmentPassed) {
+            actualCodingScore = 100;
+            hasCodingRecord = true;
+          }
+
+          const mcqPct = Math.round((marksObtained / totalMarks) * 100);
+          const combinedMarksStr = hasCodingRecord
+            ? `${Math.round((actualCodingScore + mcqPct) / 2)}%`
+            : `${mcqPct}%`;
+          const displayCodingScore = hasCodingRecord ? `${actualCodingScore} / ${actualCodingMaxScore}` : "100 / 100";
+
+          // Lock module completion email to prevent duplicate dispatches
+          current.moduleCompletionEmailSent = true;
+          current.moduleCompletedAt = new Date();
+          progress.moduleProgress.set(pKey, current);
+          progress.markModified("moduleProgress");
+          await progress.save();
+
+          dispatchMailBackground(async () => {
+            return await sendModuleCompletionEmail({
+              userEmail: candidateUser.email,
+              userName: candidateUser.fullName || candidateUser.username || "Student",
+              moduleNumber: idx + 1,
+              moduleName: module.title,
+              codingMarks: displayCodingScore,
+              codingMaxMarks: actualCodingMaxScore,
+              mcqMarks: marksObtained,
+              mcqMaxMarks: totalMarks,
+              combinedMarks: combinedMarksStr,
+              mcqCutoff: "8/10",
+              completionStatus: "COMPLETED",
+              completionDate: new Date(),
+              reportUrl: `/assessment-report/attempt_${attemptDoc._id}`,
+              req,
+            });
+          }, { type: "module_completion_update", recipient: candidateUser.email });
+        } else if (!isMcqCutoffMet) {
+          dispatchMailBackground(async () => {
+            return await sendSubmissionEvaluationEmail({
+              userEmail: candidateUser.email,
+              userName: candidateUser.fullName || candidateUser.username || "Candidate",
+              assessmentTitle: module.title,
+              assessmentType: "module",
+              score: marksObtained,
+              maxScore: totalMarks,
+              percentage,
+              verdict: "FAILED",
+              reportUrl: `/assessment-report/attempt_${attemptDoc._id}`,
+              req,
+            });
+          }, { type: "module_assessment_evaluation", recipient: candidateUser.email });
+        }
       }
     } catch (mailDispatchErr) {
       console.warn("Coding module assessment email dispatch warning:", mailDispatchErr.message);

@@ -26,6 +26,7 @@ import {
   FiZap,
 } from "react-icons/fi";
 import "./projectWorkspace.css";
+import AssessmentSubmissionFlow from "./AssessmentSubmissionFlow";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "";
 
@@ -149,6 +150,7 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
 
   // Post-Submission Result Screen State (Shown ONLY after Submit Project)
   const [submissionResultModal, setSubmissionResultModal] = useState(null);
+  const [projectReportReadyData, setProjectReportReadyData] = useState(null);
 
   const editorSectionRef = useRef(null);
   const bottomPanelRef = useRef(null);
@@ -701,16 +703,22 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
 
       if (onProjectStateUpdated) onProjectStateUpdated();
 
-      // Automatically grade and show the report page instantly
+      // Set report ready data to trigger "Your Report Is Ready!" screen
       const reportTarget = sub.reportUrl || `/assessment-report/${sub.sessionId}`;
-      toast.dismiss();
-      toast.success("Project Graded! Opening your official report card...", {
-        toastId: "project-graded-toast",
-        autoClose: 1800,
-      });
-      navigate(reportTarget, {
-        replace: true,
-        state: { report: data.report || reportEntry, reportData: data.report || reportEntry },
+      setProjectReportReadyData({
+        sessionId: sub.sessionId,
+        reportUrl: reportTarget,
+        report: data.report || reportEntry,
+        summary: {
+          score: sub.marksObtained || 0,
+          totalMarks: sub.totalMarks || 100,
+          percentage: sub.percentage || 0,
+          grade: sub.grade || (sub.passed ? "A" : "F"),
+          status: sub.passed ? "PASSED" : "EVALUATED",
+          passedTests: sub.passedTests || 0,
+          totalTests: sub.totalTests || 6,
+          attemptNumber: sub.attemptNumber || (userState?.attemptsCount || 0) + 1,
+        },
       });
       return;
     } catch (err) {
@@ -749,6 +757,40 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
       navigate("/coding?tab=projects", { replace: true });
     }
   };
+
+  if (isSubmitting) {
+    return (
+      <AssessmentSubmissionFlow
+        stage="preparing"
+        title={projectSpec?.title}
+        assignmentType="Project Assessment"
+        attemptNumber={userState?.attemptsCount || 1}
+      />
+    );
+  }
+
+  if (projectReportReadyData) {
+    return (
+      <AssessmentSubmissionFlow
+        stage="ready"
+        title={projectSpec?.title}
+        assignmentType="Project Assessment"
+        attemptNumber={projectReportReadyData.summary.attemptNumber}
+        reportUrl={projectReportReadyData.reportUrl}
+        sessionId={projectReportReadyData.sessionId}
+        summaryData={projectReportReadyData.summary}
+        onViewReport={() => {
+          navigate(projectReportReadyData.reportUrl, {
+            replace: true,
+            state: { report: projectReportReadyData.report },
+          });
+        }}
+        onRetake={() => {
+          setProjectReportReadyData(null);
+        }}
+      />
+    );
+  }
 
   return (
     <div className="mz-pw-overlay" data-testid="project-workspace-modal">

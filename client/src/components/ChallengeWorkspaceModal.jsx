@@ -180,7 +180,7 @@ export default function ChallengeWorkspaceModal({
         }
       }}
       onRunTests={async (code, lang) => {
-        const res = await fetch(`${API_BASE}/api/coding/challenges/${challenge.id}/submit`, {
+        const res = await fetch(`${API_BASE}/api/coding/challenges/${challenge.id}/test`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

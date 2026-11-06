@@ -29,6 +29,7 @@ import {
   LuSparkles,
   LuFileText,
   LuSend,
+  LuRefreshCw,
 } from "react-icons/lu";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
@@ -80,8 +81,11 @@ export default function ProctoredAssessmentWorkspace({
 
 
 
-  // Assessment workflow stages: "gate", "active", "results"
+  // Assessment workflow stages: "gate", "active", "results_loading", "results"
   const [stage, setStage] = useState("gate");
+  const [evaluatingState, setEvaluatingState] = useState(null); // 'evaluating' | 'report_ready' | 'error'
+  const [savedReportData, setSavedReportData] = useState(null);
+  const [evaluatingError, setEvaluatingError] = useState(null);
 
   // Media & Device Streams
   const [cameraActive, setCameraActive] = useState(false);
@@ -135,6 +139,17 @@ export default function ProctoredAssessmentWorkspace({
   const isReverifyingRef = useRef(false);
   const isViolationOverlayOpenRef = useRef(false);
   const handleSubmitExamRef = useRef(null);
+
+  // Synchronized state refs to avoid re-binding proctoring event listeners every second
+  const answersRef = useRef(answers);
+  const markedForReviewRef = useRef(markedForReview);
+  const timeRemainingRef = useRef(timeRemaining);
+  const violationsCountRef = useRef(violationsCount);
+
+  useEffect(() => { answersRef.current = answers; }, [answers]);
+  useEffect(() => { markedForReviewRef.current = markedForReview; }, [markedForReview]);
+  useEffect(() => { timeRemainingRef.current = timeRemaining; }, [timeRemaining]);
+  useEffect(() => { violationsCountRef.current = violationsCount; }, [violationsCount]);
 
   useEffect(() => {
     isViolationOverlayOpenRef.current = isViolationOverlayOpen;
@@ -228,6 +243,9 @@ export default function ProctoredAssessmentWorkspace({
       setIsTerminated(false);
       setIsViolationOverlayOpen(false);
       setResultsData(null);
+      setEvaluatingState(null);
+      setSavedReportData(null);
+      setEvaluatingError(null);
       setIsSubmitting(false);
       isSubmittedRef.current = false;
       setStage("gate");
@@ -266,28 +284,33 @@ export default function ProctoredAssessmentWorkspace({
     }
   }, [module, isRetakeQuery, initShuffledQuestions]);
 
-  // Clean up all streams, audio contexts, and exit fullscreen immediately
+  const streamsRef = useRef({ cameraStream: null, micStream: null, screenStream: null });
+  useEffect(() => {
+    streamsRef.current = { cameraStream, micStream, screenStream };
+  }, [cameraStream, micStream, screenStream]);
+
+  // Clean up all streams, audio contexts, and exit fullscreen (safe unmount or final submission)
   const cleanUpMediaStreams = useCallback(() => {
-    isSubmittedRef.current = true;
-    if (cameraStream) {
+    const { cameraStream: cs, micStream: ms, screenStream: ss } = streamsRef.current;
+    if (cs) {
       try {
-        cameraStream.getTracks().forEach((track) => {
+        cs.getTracks().forEach((track) => {
           track.enabled = false;
           track.stop();
         });
       } catch {}
     }
-    if (micStream) {
+    if (ms) {
       try {
-        micStream.getTracks().forEach((track) => {
+        ms.getTracks().forEach((track) => {
           track.enabled = false;
           track.stop();
         });
       } catch {}
     }
-    if (screenStream) {
+    if (ss) {
       try {
-        screenStream.getTracks().forEach((track) => {
+        ss.getTracks().forEach((track) => {
           track.enabled = false;
           track.stop();
         });
@@ -314,8 +337,9 @@ export default function ProctoredAssessmentWorkspace({
       }
     } catch {}
     setFullscreenActive(false);
-  }, [cameraStream, micStream, screenStream]);
+  }, []);
 
+  // Component unmount ONLY
   useEffect(() => {
     return () => {
       cleanUpMediaStreams();
@@ -463,10 +487,10 @@ export default function ProctoredAssessmentWorkspace({
       if (isSubmittedRef.current || isTerminated) return;
       try {
         sessionStorage.setItem("mz_proc_pending_refresh_violation", "true");
-        const modKey = propModule?.id || module?.id || "mcq_proc";
-        localStorage.setItem(`mz_proc_draft_ans_${modKey}`, JSON.stringify(answers));
-        localStorage.setItem(`mz_proc_draft_time_${modKey}`, String(timeRemaining));
-        localStorage.setItem(`mz_proc_draft_violations_${modKey}`, String(violationsCount));
+        localStorage.setItem(`mz_proc_draft_ans_${modKey}`, JSON.stringify(answersRef.current));
+        localStorage.setItem(`mz_proc_draft_review_${modKey}`, JSON.stringify(markedForReviewRef.current));
+        localStorage.setItem(`mz_proc_draft_time_${modKey}`, String(timeRemainingRef.current));
+        localStorage.setItem(`mz_proc_draft_violations_${modKey}`, String(violationsCountRef.current));
       } catch {}
       e.preventDefault();
       e.returnValue = "Leaving or reloading will consume one of your 5 recovery chances. Are you sure?";
@@ -488,7 +512,7 @@ export default function ProctoredAssessmentWorkspace({
       window.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
-  }, [stage, isTerminated, logViolation, answers, timeRemaining, violationsCount, propModule, module]);
+  }, [stage, isTerminated, logViolation, modKey]);
 
   // Check for reload violation on stage mount & restore draft
   useEffect(() => {
@@ -500,9 +524,18 @@ export default function ProctoredAssessmentWorkspace({
             setAnswers(JSON.parse(savedAns));
           } catch {}
         }
+        const savedReview = localStorage.getItem(`mz_proc_draft_review_${modKey}`);
+        if (savedReview) {
+          try {
+            setMarkedForReview(JSON.parse(savedReview));
+          } catch {}
+        }
         const savedTime = localStorage.getItem(`mz_proc_draft_time_${modKey}`);
         if (savedTime && !isNaN(Number(savedTime))) {
-          setTimeRemaining(Number(savedTime));
+          const parsedTime = Number(savedTime);
+          if (parsedTime > 0 && parsedTime <= EXAM_DURATION_SECONDS) {
+            setTimeRemaining(parsedTime);
+          }
         }
         if (sessionStorage.getItem("mz_proc_pending_refresh_violation") === "true") {
           sessionStorage.removeItem("mz_proc_pending_refresh_violation");
@@ -545,13 +578,28 @@ export default function ProctoredAssessmentWorkspace({
         }).catch(() => {});
       }
 
+      // Clear previous draft answers, timers, and submission locks so new exam starts 100% fresh
+      try {
+        localStorage.removeItem(`mz_proc_draft_ans_${modKey}`);
+        localStorage.removeItem(`mz_proc_draft_review_${modKey}`);
+        localStorage.removeItem(`mz_proc_draft_time_${modKey}`);
+        localStorage.removeItem(`mz_proc_draft_violations_${modKey}`);
+        sessionStorage.removeItem("mz_proc_pending_refresh_violation");
+      } catch {}
+
+      isSubmittedRef.current = false;
+      setIsSubmitting(false);
+      setIsTerminated(false);
+      setIsViolationOverlayOpen(false);
+
       setStage("active");
-      initShuffledQuestions(module, false);
+      initShuffledQuestions(module, true);
       setCurrentQIndex(0);
       setAnswers({});
       setMarkedForReview({});
       setVisitedQuestions({ 0: true });
       setTimeRemaining(EXAM_DURATION_SECONDS);
+      timeRemainingRef.current = EXAM_DURATION_SECONDS;
       lastResumeTimeRef.current = Date.now();
       immunityUntilRef.current = Date.now() + 1500;
 
@@ -591,19 +639,6 @@ export default function ProctoredAssessmentWorkspace({
         } catch { /* audio context setup failed */ }
       }
 
-      // Start 30-Minute countdown timer
-      if (examTimerRef.current) clearInterval(examTimerRef.current);
-      examTimerRef.current = setInterval(() => {
-        setTimeRemaining((prev) => {
-          if (prev <= 1) {
-            clearInterval(examTimerRef.current);
-            handleAutoSubmit();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-
       toast.info("10-Question proctored assessment commenced. Strict 30-minute limit active!");
     } catch (err) {
       setGateError(err.message);
@@ -612,16 +647,60 @@ export default function ProctoredAssessmentWorkspace({
   };
 
   // -------------------------------------------------------------
+  // COUNTDOWN TIMER
+  // -------------------------------------------------------------
+  useEffect(() => {
+    if (stage !== "active" || isSubmittedRef.current || isTerminated) {
+      if (examTimerRef.current) clearInterval(examTimerRef.current);
+      return;
+    }
+
+    if (examTimerRef.current) clearInterval(examTimerRef.current);
+    examTimerRef.current = setInterval(() => {
+      setTimeRemaining((prev) => {
+        if (prev <= 1) {
+          clearInterval(examTimerRef.current);
+          if (handleSubmitExamRef.current) {
+            handleSubmitExamRef.current();
+          }
+          return 0;
+        }
+        const nextTime = prev - 1;
+        timeRemainingRef.current = nextTime;
+        if (nextTime % 5 === 0) {
+          try {
+            localStorage.setItem(`mz_proc_draft_time_${modKey}`, String(nextTime));
+          } catch {}
+        }
+        return nextTime;
+      });
+    }, 1000);
+
+    return () => {
+      if (examTimerRef.current) clearInterval(examTimerRef.current);
+    };
+  }, [stage, isTerminated, modKey]);
+
+  // -------------------------------------------------------------
   // EXAM ANSWERING & REVIEW CONTROLS
   // -------------------------------------------------------------
   const handleSelectOption = (optIndex) => {
-    setAnswers((prev) => ({
-      ...prev,
-      [currentQIndex]: optIndex,
-    }));
+    if (isSubmitting || isSubmittedRef.current) return;
+    setAnswers((prev) => {
+      const next = {
+        ...prev,
+        [currentQIndex]: optIndex,
+      };
+      answersRef.current = next;
+      try {
+        localStorage.setItem(`mz_proc_draft_ans_${modKey}`, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
   };
 
   const handleToggleMarkForReview = () => {
+    if (isSubmitting || isSubmittedRef.current) return;
     setMarkedForReview((prev) => {
       const next = { ...prev };
       if (next[currentQIndex]) {
@@ -631,8 +710,19 @@ export default function ProctoredAssessmentWorkspace({
         next[currentQIndex] = true;
         toast.info(`Question ${currentQIndex + 1} marked for review.`);
       }
+      markedForReviewRef.current = next;
+      try {
+        localStorage.setItem(`mz_proc_draft_review_${modKey}`, JSON.stringify(next));
+      } catch {}
       return next;
     });
+  };
+
+  const handleNavigateQuestion = (targetIdx) => {
+    if (isSubmitting || isSubmittedRef.current) return;
+    const bounded = Math.max(0, Math.min(questions.length - 1, targetIdx));
+    setCurrentQIndex(bounded);
+    setVisitedQuestions((prev) => ({ ...prev, [bounded]: true }));
   };
 
   const handleAutoSubmit = () => {
@@ -650,22 +740,31 @@ export default function ProctoredAssessmentWorkspace({
     isSubmittedRef.current = true;
     if (examTimerRef.current) clearInterval(examTimerRef.current);
 
+    // Immediately transition screen to results loading animation (no old exam visible)
+    setStage("results_loading");
+    setEvaluatingState("evaluating");
+    setEvaluatingError(null);
+
     cleanUpMediaStreams();
 
     const token = localStorage.getItem("token");
-    const timeSpent = Math.max(1, EXAM_DURATION_SECONDS - timeRemaining);
+    const timeSpent = Math.max(1, EXAM_DURATION_SECONDS - (timeRemainingRef.current || timeRemaining));
 
     // Prepare answers payload mapped by both original question index and question ID
+    const curAnswers = answersRef.current || answers;
     const submissionAnswers = {};
     questions.forEach((q, currentPos) => {
-      const userSelected = answers[currentPos];
+      const userSelected = curAnswers[currentPos];
       if (userSelected !== undefined && userSelected !== null && userSelected !== "") {
-        submissionAnswers[q.originalIndex] = userSelected;
-        submissionAnswers[String(q.originalIndex)] = userSelected;
+        const origIdx = q.originalIndex !== undefined ? q.originalIndex : currentPos;
+        submissionAnswers[origIdx] = userSelected;
+        submissionAnswers[String(origIdx)] = userSelected;
+        submissionAnswers[currentPos] = userSelected;
+        submissionAnswers[String(currentPos)] = userSelected;
         if (q.id) {
           submissionAnswers[q.id] = userSelected;
+          submissionAnswers[String(q.id)] = userSelected;
         }
-        submissionAnswers[currentPos] = userSelected;
       }
     });
 
@@ -682,7 +781,7 @@ export default function ProctoredAssessmentWorkspace({
           moduleIndex: mIdx,
           answers: submissionAnswers,
           timeSpentSeconds: timeSpent,
-          violationsCount,
+          violationsCount: violationsCountRef.current || violationsCount,
           violationsLog,
           proctoringVerified: {
             camera: true,
@@ -702,6 +801,7 @@ export default function ProctoredAssessmentWorkspace({
       const resolvedSessionId = data.sessionId || (data.attemptId ? `attempt_${data.attemptId}` : `mz_mcq_${Date.now()}`);
 
       // Cache report locally for instant zero-latency report page rendering
+      let localRecord = null;
       try {
         const rawUser = localStorage.getItem("user");
         let uId = "";
@@ -711,7 +811,7 @@ export default function ProctoredAssessmentWorkspace({
         }
         const reportsKey = uId ? `mz_${uId}_assessment_reports` : "mz_assessment_reports";
         const existing = JSON.parse(localStorage.getItem(reportsKey) || "[]");
-        const newRecord = {
+        localRecord = {
           id: data.attemptId || resolvedSessionId,
           sessionId: resolvedSessionId,
           attemptId: data.attemptId,
@@ -729,16 +829,16 @@ export default function ProctoredAssessmentWorkspace({
           grade: data.grade || (data.percentage >= 90 ? "A+" : data.percentage >= 80 ? "A" : data.percentage >= 70 ? "B" : data.percentage >= 60 ? "C" : "F"),
           accuracy: data.accuracy ?? data.percentage ?? 0,
           totalQuestions: data.totalQuestions || questions.length || 10,
-          questionsAttempted: data.questionsAttempted ?? Object.keys(answers).length,
-          questionsUnanswered: data.questionsUnanswered ?? Math.max(0, (data.totalQuestions || questions.length || 10) - Object.keys(answers).length),
+          questionsAttempted: data.questionsAttempted ?? Object.keys(curAnswers).length,
+          questionsUnanswered: data.questionsUnanswered ?? Math.max(0, (data.totalQuestions || questions.length || 10) - Object.keys(curAnswers).length),
           durationSeconds: timeSpent,
           passed: Boolean(data.passed),
-          violationsCount,
+          violationsCount: violationsCountRef.current || violationsCount,
           submittedAt: new Date().toISOString(),
           reviewBreakdown: data.reviewBreakdown || [],
           reportUrl: `/assessment-report/${resolvedSessionId}`,
         };
-        const updated = [newRecord, ...existing.filter((r) => r.sessionId !== resolvedSessionId && r.attemptId !== data.attemptId)];
+        const updated = [localRecord, ...existing.filter((r) => r.sessionId !== resolvedSessionId && r.attemptId !== data.attemptId)];
         localStorage.setItem(reportsKey, JSON.stringify(updated.slice(0, 30)));
 
         // Clean up current attempt temporary data and locks so retakes are 100% fresh
@@ -747,6 +847,7 @@ export default function ProctoredAssessmentWorkspace({
         localStorage.removeItem(`${userSubmittedKey}_report_url`);
         localStorage.removeItem(`mz_proc_draft_ans_${modKey}`);
         localStorage.removeItem(`mz_proc_draft_time_${modKey}`);
+        localStorage.removeItem(`mz_proc_draft_review_${modKey}`);
         localStorage.removeItem(`mz_proc_draft_violations_${modKey}`);
         localStorage.removeItem(orderStorageKey);
         sessionStorage.removeItem("mz_proc_pending_refresh_violation");
@@ -758,44 +859,19 @@ export default function ProctoredAssessmentWorkspace({
         onAssessmentCompleted(data);
       }
 
-      toast.dismiss();
-      if (data.passed) {
-        toast.success(data.message || `🎉 Passed with ${data.percentage}%! Opening your official grade report...`, {
-          toastId: "mcq_submit_result",
-          autoClose: 2000,
-        });
-      } else {
-        toast.warn(data.message || `Score: ${data.percentage}%. Opening your official grade report...`, {
-          toastId: "mcq_submit_result",
-          autoClose: 2000,
-        });
-      }
-
-      // Directly show the report page instantly
-      const targetReportUrl = `/assessment-report/${resolvedSessionId}`;
-      navigate(targetReportUrl, {
-        replace: true,
-        state: { report: data.report || newRecord, reportData: data.report || newRecord },
+      setSavedReportData({
+        ...data,
+        resolvedSessionId,
+        reportData: data.report || localRecord,
+        timeSpentSeconds: timeSpent,
       });
-      return;
-
-      if (data.passed) {
-        toast.success(data.message || `Congratulations! Passed with ${data.percentage}%!`, {
-          toastId: "mcq_submit_result",
-        });
-      } else {
-        toast.warn(data.message || `Score: ${data.percentage}%. Minimum 80% needed to pass.`, {
-          toastId: "mcq_submit_result",
-        });
-      }
-
-      if (onAssessmentCompleted) {
-        onAssessmentCompleted(data);
-      }
+      setEvaluatingState("report_ready");
     } catch (err) {
-      toast.error("Failed to submit assessment to server: " + err.message);
-    } finally {
+      console.error("Exam submission evaluation error:", err);
+      setEvaluatingError(err.message || "Failed to submit assessment to server. Please try again.");
+      setEvaluatingState("error");
       setIsSubmitting(false);
+      isSubmittedRef.current = false;
     }
   };
 
@@ -1227,7 +1303,7 @@ export default function ProctoredAssessmentWorkspace({
                           type="button"
                           key={idx}
                           className={`mz-exam-palette-btn ${statusClass} ${isCurrent ? "current" : ""}`}
-                          onClick={() => setCurrentQIndex(idx)}
+                          onClick={() => handleNavigateQuestion(idx)}
                           title={`Q${idx + 1}: ${
                             isMarked
                               ? "Marked for Review"
@@ -1250,7 +1326,7 @@ export default function ProctoredAssessmentWorkspace({
                       type="button"
                       className="mz-exam-nav-btn"
                       disabled={currentQIndex === 0}
-                      onClick={() => setCurrentQIndex((prev) => prev - 1)}
+                      onClick={() => handleNavigateQuestion(currentQIndex - 1)}
                     >
                       <LuArrowLeft size={16} /> Previous
                     </button>
@@ -1270,7 +1346,7 @@ export default function ProctoredAssessmentWorkspace({
                         <button
                           type="button"
                           className="mz-exam-nav-btn"
-                          onClick={() => setCurrentQIndex((prev) => prev + 1)}
+                          onClick={() => handleNavigateQuestion(currentQIndex + 1)}
                         >
                           Next <LuArrowRight size={16} />
                         </button>
@@ -1291,6 +1367,164 @@ export default function ProctoredAssessmentWorkspace({
               </div>
             </div>
           </div>
+        )}
+
+        {/* =====================================================
+            STAGE: RESULTS PREPARATION & REPORT NOTIFICATION
+            ===================================================== */}
+        {stage === "results_loading" && (
+          <>
+            {/* 1. Results Loading Animation */}
+            {evaluatingState === "evaluating" && (
+              <div className="mz-results-preparing-screen">
+                <div className="mz-results-preparing-card">
+                  <div className="mz-preparing-loader-wrapper">
+                    <div className="mz-preparing-pulse-ring" />
+                    <div className="mz-preparing-spinner-core">
+                      <LuRefreshCw className="mz-spin" size={32} color="#2563eb" />
+                    </div>
+                  </div>
+
+                  <h2 className="mz-preparing-title">Your Results Are Being Prepared...</h2>
+                  <p className="mz-preparing-subtitle">
+                    Our automated evaluation engine is evaluating your answers, computing accuracy metrics, and finalizing your official verified assessment report.
+                  </p>
+
+                  <div className="mz-preparing-steps-list">
+                    <div className="mz-preparing-step done">
+                      <LuCircleCheck size={17} />
+                      <span>Telemetry & Proctoring Audit Captured</span>
+                    </div>
+                    <div className="mz-preparing-step active">
+                      <LuRefreshCw className="mz-spin" size={17} />
+                      <span>Evaluating 10-Question Response Matrix...</span>
+                    </div>
+                    <div className="mz-preparing-step pending">
+                      <LuClock size={17} />
+                      <span>Generating Official Accreditation Report</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 2. View Report Notification Card */}
+            {evaluatingState === "report_ready" && savedReportData && (
+              <div className="mz-report-ready-screen">
+                <div className="mz-report-ready-card">
+                  <div className="mz-report-ready-badge-wrapper">
+                    <div className="mz-report-ready-check-icon">
+                      <LuCircleCheck size={44} color="#10b981" />
+                    </div>
+                  </div>
+
+                  <div className="mz-report-ready-tag">Evaluation Complete</div>
+                  <h2 className="mz-report-ready-title">Your Report Is Ready!</h2>
+                  <p className="mz-report-ready-subtitle">
+                    Your assessment results have been verified and permanently saved to your audit ledger. Click below to inspect your comprehensive grade report.
+                  </p>
+
+                  <div className="mz-report-summary-box">
+                    <div className="mz-summary-row">
+                      <span className="mz-summary-label">Module:</span>
+                      <span className="mz-summary-value">{module?.title || "Proctored Exam"}</span>
+                    </div>
+                    <div className="mz-summary-row">
+                      <span className="mz-summary-label">MCQ Assessment Score:</span>
+                      <span className={`mz-summary-value ${savedReportData.marksObtained >= 8 ? "pass" : "fail"}`}>
+                        {savedReportData.marksObtained ?? 0} / {savedReportData.totalMarks || 10} Marks
+                      </span>
+                    </div>
+                    <div className="mz-summary-row">
+                      <span className="mz-summary-label">Accuracy & Grade:</span>
+                      <span className="mz-summary-value">
+                        {savedReportData.accuracy ?? savedReportData.percentage ?? 0}% (Grade {savedReportData.grade || (savedReportData.percentage >= 80 ? "A" : "F")})
+                      </span>
+                    </div>
+                    <div className="mz-summary-row">
+                      <span className="mz-summary-label">Cutoff (8/10):</span>
+                      <span className={`mz-summary-badge ${savedReportData.marksObtained >= 8 ? "pass" : "fail"}`}>
+                        {savedReportData.marksObtained >= 8 ? "Cutoff Met (Passed)" : "Cutoff Not Met (<8/10)"}
+                      </span>
+                    </div>
+                    <div className="mz-summary-row">
+                      <span className="mz-summary-label">Time Taken:</span>
+                      <span className="mz-summary-value">
+                        {formatTime(savedReportData.timeSpentSeconds || (EXAM_DURATION_SECONDS - timeRemaining))}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mz-report-ready-actions">
+                    <button
+                      type="button"
+                      className="mz-view-report-primary-btn"
+                      onClick={() => {
+                        const sid = savedReportData.resolvedSessionId || savedReportData.sessionId || (savedReportData.attemptId ? `attempt_${savedReportData.attemptId}` : `attempt_${savedReportData.id}`);
+                        const targetUrl = `/assessment-report/${sid}`;
+                        navigate(targetUrl, {
+                          replace: true,
+                          state: {
+                            report: savedReportData.reportData || savedReportData.report || savedReportData,
+                            reportData: savedReportData.reportData || savedReportData.report || savedReportData,
+                          },
+                        });
+                      }}
+                    >
+                      <LuFileText size={18} />
+                      <span>View Report</span>
+                      <LuArrowRight size={18} />
+                    </button>
+
+                    <button
+                      type="button"
+                      className="mz-return-dashboard-btn"
+                      onClick={handleClose}
+                    >
+                      Done & Return to Curriculum
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 3. Evaluation Error State */}
+            {evaluatingState === "error" && (
+              <div className="mz-report-ready-screen">
+                <div className="mz-report-ready-card" style={{ borderColor: "#fca5a5" }}>
+                  <div className="mz-report-ready-badge-wrapper">
+                    <div className="mz-report-ready-check-icon" style={{ background: "#fef2f2", borderColor: "#fca5a5" }}>
+                      <LuCircleX size={44} color="#dc2626" />
+                    </div>
+                  </div>
+
+                  <h2 className="mz-report-ready-title" style={{ color: "#991b1b" }}>Submission Issue Detected</h2>
+                  <p className="mz-report-ready-subtitle" style={{ color: "#b91c1c" }}>
+                    {evaluatingError || "We could not save your evaluation report. Please check your network connection and retry."}
+                  </p>
+
+                  <div className="mz-report-ready-actions">
+                    <button
+                      type="button"
+                      className="mz-view-report-primary-btn"
+                      style={{ background: "linear-gradient(135deg, #2563eb, #1d4ed8)" }}
+                      onClick={handleSubmitExam}
+                    >
+                      <LuRefreshCw size={17} />
+                      <span>Retry Submission & Evaluation</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="mz-return-dashboard-btn"
+                      onClick={() => setStage("active")}
+                    >
+                      Return to Assessment Questions
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {/* =====================================================

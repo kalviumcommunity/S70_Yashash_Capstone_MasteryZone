@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import AssessmentSecurityGate from "./AssessmentSecurityGate";
+import AssessmentSubmissionFlow from "./AssessmentSubmissionFlow";
 import MasteryZoneCompilerWorkspace from "./MasteryZoneCompilerWorkspace";
 import useNavigationLock from "../hooks/useNavigationLock";
 import "./CertificationExamWorkspace.css";
@@ -296,6 +297,7 @@ export default function CertificationExamWorkspace({
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [submissionSuccessData, setSubmissionSuccessData] = useState(null);
+  const [finalReportReadyData, setFinalReportReadyData] = useState(null);
 
   // Centralized Navigation Lock (protects against trackpad two-finger swipe-back, browser Back, and reload)
   useNavigationLock({
@@ -1454,7 +1456,6 @@ export default function CertificationExamWorkspace({
 
       // Replace history entry so browser Back button cannot re-enter the completed exam workspace
       window.history.replaceState({ submitted: true, certId, attemptId }, "", targetReportUrl);
-      navigate(targetReportUrl, { replace: true });
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -1661,6 +1662,41 @@ export default function CertificationExamWorkspace({
         }}
         onStartAssessment={async (gateData) => {
           await startOrResumeAttempt(gateData);
+        }}
+      />
+    );
+  }
+
+  if (isFinalizing) {
+    return (
+      <AssessmentSubmissionFlow
+        stage="preparing"
+        title={certTitle}
+        assignmentType="Certification Exam"
+        attemptNumber={attemptNumber}
+      />
+    );
+  }
+
+  if (submissionSuccessData) {
+    return (
+      <AssessmentSubmissionFlow
+        stage="ready"
+        title={certTitle}
+        assignmentType="Certification Exam"
+        attemptNumber={attemptNumber}
+        reportUrl={submissionSuccessData.reportUrl}
+        sessionId={submissionSuccessData.attemptId}
+        summaryData={{
+          score: submissionSuccessData.score,
+          totalMarks: submissionSuccessData.totalMarks || 40,
+          percentage: submissionSuccessData.percentage,
+          status: submissionSuccessData.passed ? "PASSED" : "EVALUATED",
+          grade: submissionSuccessData.passed ? "CERTIFIED" : "COMPLETED",
+          details: `MCQs: ${submissionSuccessData.mcqScore}/20 • Coding: ${submissionSuccessData.codingScore}/20`,
+        }}
+        onViewReport={() => {
+          navigate(submissionSuccessData.reportUrl, { replace: true });
         }}
       />
     );
