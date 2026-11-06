@@ -4535,12 +4535,9 @@ export default function MasteryZoneCompilerWorkspace({
                               <div className="mz-running-radar-circle">
                                 <LuRefreshCw size={28} className="mz-spin" color="#2563eb" />
                               </div>
-                              <h3 style={{ margin: "12px 0 6px", fontSize: "15px", fontWeight: "700", color: "#0f172a" }}>
+                              <h3 style={{ margin: "12px 0 16px", fontSize: "15px", fontWeight: "700", color: "#0f172a" }}>
                                 Sandboxed Test Execution in Progress
                               </h3>
-                              <p style={{ margin: "0 0 16px", fontSize: "13px", color: "#64748b", maxWidth: "460px", textAlign: "center", lineHeight: "1.5" }}>
-                                The Kalvium compiler is executing your solution across the test suite in an isolated sandbox with real-time output verification.
-                              </p>
                               <div className="mz-running-pipeline">
                                 <div className="mz-pipeline-step done">
                                   <span className="dot"><LuCircleCheck size={14} color="#10b981" /></span>

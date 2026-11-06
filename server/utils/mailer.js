@@ -775,9 +775,10 @@ function isGuestAccount(email, role) {
   return lower.startsWith('guest_') || (lower.includes('@masteryzone.com') && lower.includes('guest'));
 }
 
-// Helper: Format date & time nicely
+// Helper: Format date & time nicely in Indian Standard Time (IST)
 function formatEmailDateTime(date = new Date()) {
   const d = new Date(date);
+  if (isNaN(d.getTime())) return 'N/A';
   const options = {
     weekday: 'long',
     year: 'numeric',
@@ -786,9 +787,24 @@ function formatEmailDateTime(date = new Date()) {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
+    hour12: true,
+    timeZone: 'Asia/Kolkata',
     timeZoneName: 'short',
   };
-  return d.toLocaleString('en-US', options);
+  return d.toLocaleString('en-IN', options);
+}
+
+// Helper: Format time nicely in Indian Standard Time (IST)
+function formatEmailTime(date = new Date()) {
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleTimeString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true,
+  }) + ' IST';
 }
 
 // Helper: Parse client request telemetry safely
@@ -1914,7 +1930,7 @@ async function sendAdminPasswordChangedEmail({ adminEmail, adminName, changedBy 
         </h2>
         <p style="margin: 0 0 16px; font-size: 14px; line-height: 1.6; color: #334155;">
           Hello <strong>${adminName}</strong>,<br/>
-          Your password for the <strong>MasteryZone Administrator Account</strong> was recently modified by <strong>${changedBy}</strong> on ${new Date().toLocaleString()}.
+          Your password for the <strong>MasteryZone Administrator Account</strong> was recently modified by <strong>${changedBy}</strong> on ${formatEmailDateTime(new Date())}.
         </p>
 
         <div style="padding: 12px 16px; background: #ecfdf5; border-radius: 8px; border: 1px solid #a7f3d0; color: #065f46; font-size: 13px; margin-bottom: 20px;">
@@ -2322,7 +2338,7 @@ async function sendTestEmail({ toEmail, requestedBy = "Administrator", req = nul
       {
         from: getSenderAddress('Mastery Zone Systems'),
         to: toEmail,
-        subject: `[Mastery Zone] SMTP Configuration Test (${new Date().toLocaleTimeString()})`,
+        subject: `[Mastery Zone] SMTP Configuration Test (${formatEmailTime(new Date())})`,
         html,
       },
       1,
@@ -2362,4 +2378,6 @@ module.exports = {
   dispatchMailBackground,
   isGuestAccount,
   getSenderAddress,
+  formatEmailDateTime,
+  formatEmailTime,
 };
