@@ -223,6 +223,21 @@ export default function CertificationExamWorkspace({
   const [isReverifying, setIsReverifying] = useState(false);
   const [isTerminated, setIsTerminated] = useState(false);
 
+  // Live Proctoring Media Streams (Continuous across MCQs & Coding)
+  const [cameraStream, setCameraStream] = useState(null);
+  const [screenStream, setScreenStream] = useState(null);
+  const [micStream, setMicStream] = useState(null);
+  const [batteryInfo, setBatteryInfo] = useState({ percentage: 82, charging: false });
+  const [proctoringViewMode, setProctoringViewMode] = useState("dual"); // "dual" | "camera" | "screen"
+  const [procMicVolume, setProcMicVolume] = useState(15);
+
+  // Modals & Finalizing
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [isFinalizing, setIsFinalizing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [submissionSuccessData, setSubmissionSuccessData] = useState(null);
+  const [finalReportReadyData, setFinalReportReadyData] = useState(null);
+
   // State synchronization refs for instant zero-latency isolation
   const isRecoveryModalOpenRef = useRef(false);
   const isReverifyingRef = useRef(false);
@@ -237,6 +252,14 @@ export default function CertificationExamWorkspace({
   const codingSubmissionsRef = useRef(codingSubmissions);
   const violationsCountRef = useRef(violationsCount);
   const handleFinalSubmitRef = useRef(null);
+
+  const procCameraVideoRef = useRef(null);
+  const procScreenVideoRef = useRef(null);
+  const cameraStreamRef = useRef(null);
+  const screenStreamRef = useRef(null);
+  const micStreamRef = useRef(null);
+  const audioContextRef = useRef(null);
+  const animFrameRef = useRef(null);
 
   useEffect(() => {
     mcqAnswersRef.current = mcqAnswers;
@@ -274,22 +297,6 @@ export default function CertificationExamWorkspace({
     showConfirmModalRef.current = showConfirmModal;
   }, [showConfirmModal]);
 
-  // Live Proctoring Media Streams (Continuous across MCQs & Coding)
-  const [cameraStream, setCameraStream] = useState(null);
-  const [screenStream, setScreenStream] = useState(null);
-  const [micStream, setMicStream] = useState(null);
-  const [batteryInfo, setBatteryInfo] = useState({ percentage: 82, charging: false });
-  const [proctoringViewMode, setProctoringViewMode] = useState("dual"); // "dual" | "camera" | "screen"
-  const [procMicVolume, setProcMicVolume] = useState(15);
-
-  const procCameraVideoRef = useRef(null);
-  const procScreenVideoRef = useRef(null);
-  const cameraStreamRef = useRef(null);
-  const screenStreamRef = useRef(null);
-  const micStreamRef = useRef(null);
-  const audioContextRef = useRef(null);
-  const animFrameRef = useRef(null);
-
   useEffect(() => {
     cameraStreamRef.current = cameraStream;
   }, [cameraStream]);
@@ -301,13 +308,6 @@ export default function CertificationExamWorkspace({
   useEffect(() => {
     micStreamRef.current = micStream;
   }, [micStream]);
-
-  // Modals & Finalizing
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [isFinalizing, setIsFinalizing] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [submissionSuccessData, setSubmissionSuccessData] = useState(null);
-  const [finalReportReadyData, setFinalReportReadyData] = useState(null);
 
   // Centralized Navigation Lock (protects against trackpad two-finger swipe-back, browser Back, and reload)
   useNavigationLock({
