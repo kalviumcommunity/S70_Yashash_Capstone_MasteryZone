@@ -443,7 +443,8 @@ export default function ProctoredAssessmentWorkspace({
       }
     };
 
-    const handleVisibilityChange = () => {
+    let blurTimer = null;
+    const triggerTabSwitch = () => {
       if (
         isSubmittedRef.current ||
         isTerminated ||
@@ -452,21 +453,29 @@ export default function ProctoredAssessmentWorkspace({
         Date.now() < immunityUntilRef.current
       ) return;
 
+      logViolation(
+        "TAB_SWITCH",
+        "The examination has been paused because you switched away from the active assessment tab. Navigating to other browser tabs or applications during a proctored examination is strictly prohibited."
+      );
+    };
+
+    const handleVisibilityChange = () => {
       if (document.hidden) {
-        logViolation("TAB_SWITCH", "Assessment window lost focus or switched tabs.");
+        if (blurTimer) {
+          clearTimeout(blurTimer);
+          blurTimer = null;
+        }
+        triggerTabSwitch();
       }
     };
 
     const handleWindowBlur = () => {
-      if (
-        isSubmittedRef.current ||
-        isTerminated ||
-        isViolationOverlayOpenRef.current ||
-        isReverifyingRef.current ||
-        Date.now() < immunityUntilRef.current
-      ) return;
-
-      logViolation("SCREEN_SWITCH", "Screen switch or window blur detected. Navigating away from the proctored test environment is prohibited.");
+      if (blurTimer) clearTimeout(blurTimer);
+      blurTimer = setTimeout(() => {
+        if (document.hidden || !document.hasFocus()) {
+          triggerTabSwitch();
+        }
+      }, 250);
     };
 
     const handleFullscreenChange = () => {
@@ -1085,7 +1094,7 @@ export default function ProctoredAssessmentWorkspace({
                               }
                             } catch {}
                             lastResumeTimeRef.current = Date.now();
-                            immunityUntilRef.current = Date.now() + 1500;
+                            immunityUntilRef.current = Date.now() + 3500;
                             setIsViolationOverlayOpen(false);
                             isViolationOverlayOpenRef.current = false;
                             isReverifyingRef.current = false;

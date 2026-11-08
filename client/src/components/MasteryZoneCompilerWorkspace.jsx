@@ -1150,7 +1150,7 @@ export default function MasteryZoneCompilerWorkspace({
 
   // Intercept refresh attempts (F5, Ctrl+R, Cmd+R, and browser reload button via beforeunload)
   useEffect(() => {
-    if (!isProctored || proctoringStage !== "active" || isSubmittedReadOnly || isTerminated) return;
+    if (!isProctored || isEmbedded || proctoringStage !== "active" || isSubmittedReadOnly || isTerminated) return;
 
     const handleKeyDown = (e) => {
       if (isSubmittedRef.current || isTerminated || isSubmittedReadOnly) return;
@@ -1701,6 +1701,7 @@ export default function MasteryZoneCompilerWorkspace({
   // Five-Chance Anomaly and Interruption Logger
   const handleLogProctoringAnomalyImpl = async (type, message) => {
     if (
+      isEmbedded ||
       isSubmittedRef.current ||
       isTerminated ||
       isSubmittedReadOnly ||
@@ -1810,7 +1811,7 @@ export default function MasteryZoneCompilerWorkspace({
     setIsReverifying(true);
     isReverifyingRef.current = true;
     violationCooldownRef.current = true;
-    immunityUntilRef.current = Date.now() + 1500;
+    immunityUntilRef.current = Date.now() + 3500;
     try {
       // 1. Camera + Mic: Only re-request if active tracks do not exist
       let cStream = cameraStreamRef.current || cameraStream;
@@ -2013,7 +2014,7 @@ export default function MasteryZoneCompilerWorkspace({
 
   // Real-time Event Listeners: Fullscreen, Tab Switch / Blur, Stream Track Ended, Heartbeat
   useEffect(() => {
-    if (!isProctored || proctoringStage !== "active" || isTerminated || isSubmittedReadOnly || isSubmittedRef.current) return;
+    if (!isProctored || isEmbedded || proctoringStage !== "active" || isTerminated || isSubmittedReadOnly || isSubmittedRef.current) return;
 
     const onFsChange = () => {
       if (
@@ -2059,7 +2060,7 @@ export default function MasteryZoneCompilerWorkspace({
       if (document.hidden) {
         logProctoringAnomaly(
           "TAB_SWITCH",
-          "Assessment window lost focus or switched tabs. Navigating away from the compiler is prohibited.",
+          "The examination has been paused because you switched away from the active assessment tab. Navigating to other browser tabs or applications during a proctored examination is strictly prohibited.",
           "focus"
         );
       }
@@ -2078,11 +2079,24 @@ export default function MasteryZoneCompilerWorkspace({
         Date.now() < immunityUntilRef.current
       ) return;
 
-      logProctoringAnomaly(
-        "TAB_SWITCH",
-        "Screen switch or window blur detected. Navigating away from the proctored test environment is prohibited.",
-        "focus"
-      );
+      setTimeout(() => {
+        if (document.hidden || !document.hasFocus()) {
+          if (
+            !isSubmittedRef.current &&
+            !isTerminated &&
+            !isSubmittedReadOnly &&
+            !isRecoveryModalOpenRef.current &&
+            !isReverifyingRef.current &&
+            Date.now() >= immunityUntilRef.current
+          ) {
+            logProctoringAnomaly(
+              "TAB_SWITCH",
+              "The examination has been paused because you switched away from the active assessment tab. Navigating to other browser tabs or applications during a proctored examination is strictly prohibited.",
+              "focus"
+            );
+          }
+        }
+      }, 250);
     };
     window.addEventListener("blur", onWindowBlur);
 
@@ -2846,6 +2860,17 @@ export default function MasteryZoneCompilerWorkspace({
 
       // Transition to Report Ready Screen
       toast.dismiss();
+      if (isEmbedded) {
+        setIsSubmitting(false);
+        isSubmittingRef.current = false;
+        toast.success(
+          isAccepted
+            ? `🎉 Problem Solved! (${finalPassed}/${totalTestsCount} test cases passed).`
+            : `Evaluated solution: ${finalPassed}/${totalTestsCount} test cases passed.`
+        );
+        return;
+      }
+
       toast.success(
         finalPassed === totalTestsCount
           ? "🎉 Perfect Score! 100% test cases passed. Your report is ready!"
@@ -5371,19 +5396,19 @@ export default function MasteryZoneCompilerWorkspace({
       {/* =========================================================================
           7. FIVE-CHANCE ASSESSMENT RECOVERY OVERLAY
           ========================================================================= */}
-      {isRecoveryModalOpen && (
+      {!isEmbedded && isRecoveryModalOpen && (
         <div className="mz-proc-violation-modal-overlay">
           <div className={`mz-proc-recovery-card ${isTerminated ? "terminated" : ""}`} style={{ position: "relative" }}>
             <div className="mz-proc-recovery-icon-ring">
               <LuTriangleAlert size={30} />
             </div>
             <h3 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 800, color: isTerminated ? "#b91c1c" : "#92400e" }}>
-              {isTerminated ? "Assessment Terminated: Limits Exceeded" : "Assessment Interrupted — Verification Required"}
+              {isTerminated ? "Assessment Terminated: Limits Exceeded" : "Examination Interrupted: Tab Switch Detected"}
             </h3>
             <p style={{ margin: 0, fontSize: "0.9rem", color: "#475569", lineHeight: "1.5" }}>
               {isTerminated
                 ? "You have exhausted all 5 recovery chances. Your assessment workspace is locked and your solution has been permanently submitted for final grading."
-                : recoveryReason || "An environment interruption was detected. You must re-verify your device permissions and fullscreen mode to resume."}
+                : recoveryReason || "The examination has been paused because you switched away from the active assessment tab. Navigating to other browser tabs or applications during a proctored examination is strictly prohibited. You must re-verify your environment to resume."}
             </p>
 
             {recoveryTimestamp && (

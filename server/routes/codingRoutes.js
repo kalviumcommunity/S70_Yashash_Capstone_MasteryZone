@@ -3455,13 +3455,19 @@ router.get("/data", authenticateToken, async (req, res) => {
       const totalMilestones = (proj.milestones || []).length || 3;
       const checkedCount = st?.checkedTasks?.length || 0;
       const taskProgressPct = Math.min(100, Math.round((checkedCount / totalMilestones) * 100));
-      const isPassed = Boolean(st?.passed && st?.badgeAwarded);
-      const status = isPassed ? "PASSED" : String(st?.status || "NOT_STARTED").toUpperCase();
+      const passingMarks = proj.passingMarks || spec.passingMarks || 80;
+      const bestScore = st?.bestScore || 0;
+      const isPassed = Boolean(st?.passed && st?.badgeAwarded && bestScore >= passingMarks);
+      const status = isPassed
+        ? "PASSED"
+        : st?.status === "needs_improvement" || (st?.attemptsCount > 0 && !isPassed)
+        ? "NEEDS_IMPROVEMENT"
+        : String(st?.status || "NOT_STARTED").toUpperCase();
       const progressPercent =
         isPassed
           ? 100
           : status === "NEEDS_IMPROVEMENT"
-          ? Math.max(taskProgressPct, Math.min(95, st?.bestScore || 50))
+          ? Math.max(taskProgressPct, Math.min(95, bestScore || 50))
           : status === "IN_PROGRESS"
           ? Math.max(15, taskProgressPct)
           : 0;
@@ -3473,7 +3479,7 @@ router.get("/data", authenticateToken, async (req, res) => {
           passed: isPassed,
           badgeAwarded: isPassed,
           attemptsCount: st?.attemptsCount || 0,
-          bestScore: st?.bestScore || 0,
+          bestScore,
           bestPercentage: st?.bestPercentage || 0,
           bestGrade: st?.bestGrade || "-",
           checkedTasks: st?.checkedTasks || [],

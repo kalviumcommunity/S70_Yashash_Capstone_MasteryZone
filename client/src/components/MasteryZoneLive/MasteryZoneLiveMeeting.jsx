@@ -48,13 +48,13 @@ import "./masteryZoneLive.css";
 
 const getApiBase = () => {
   if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
-  if (typeof window !== "undefined" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
-    if (window.location.port === "5174" || window.location.port === "5173") {
-      return `http://${window.location.hostname}:5012`;
+  if (typeof window !== "undefined") {
+    if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+      return "http://localhost:5012";
     }
     return window.location.origin;
   }
-  return "";
+  return "http://localhost:5012";
 };
 
 const API_BASE = getApiBase();
@@ -144,8 +144,13 @@ export default function MasteryZoneLiveMeeting({
 
   // Recording State
   const [recordingStatus, setRecordingStatus] = useState("idle"); // "idle" | "recording" | "paused" | "uploading"
+  const recordingStatusRef = useRef("idle");
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [showRecordingConsent, setShowRecordingConsent] = useState(false);
+
+  useEffect(() => {
+    recordingStatusRef.current = recordingStatus;
+  }, [recordingStatus]);
 
   // Security & Host Controls
   const [isMeetingLocked, setIsMeetingLocked] = useState(false);
@@ -1101,6 +1106,10 @@ export default function MasteryZoneLiveMeeting({
   // Continuous 1280x720 Canvas Compositor + Mixed Web Audio (Guarantees valid 30fps frames & zero corruption)
   // -------------------------------------------------------------
   const handleStartRecording = () => {
+    if (!isHost) {
+      toast.error("Only the meeting host can record this live session.");
+      return;
+    }
     if (recordingStatus === "recording") return;
 
     try {
@@ -1127,6 +1136,18 @@ export default function MasteryZoneLiveMeeting({
         } catch (e) {
           console.warn("Could not connect screen audio to mixer:", e);
         }
+      }
+
+      // Mix all active remote peer audio tracks
+      if (remoteStreams && typeof remoteStreams === "object") {
+        Object.values(remoteStreams).forEach((rStream) => {
+          if (rStream && rStream.getAudioTracks().length > 0) {
+            try {
+              const peerSource = audioCtx.createMediaStreamSource(rStream);
+              peerSource.connect(audioDest);
+            } catch (e) {}
+          }
+        });
       }
 
       recordingAudioCtxRef.current = audioCtx;
@@ -1364,9 +1385,6 @@ export default function MasteryZoneLiveMeeting({
       } catch (e) {}
       recordingAudioCtxRef.current = null;
     }
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-      mediaRecorderRef.current.stop();
-    }
     if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
     setRecordingStatus("uploading");
     if (socket) {
@@ -1376,93 +1394,91 @@ export default function MasteryZoneLiveMeeting({
         hostName: currentUser?.fullName || "Host",
       });
     }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
   };
 
   const finalizeAndUploadRecording = async () => {
     const chunks = recordedChunksRef.current;
     if (chunks.length === 0) {
       setRecordingStatus("idle");
-      return;
+      return null;
     }
+
+    setRecordingStatus("uploading");
 
     try {
       const blob = new Blob(chunks, { type: "video/webm" });
-      const reader = new FileReader();
-      reader.readAsDataURL(blob);
-      reader.onloadend = async () => {
-        const base64Data = reader.result;
-        const token = localStorage.getItem("token") || "";
+      if (blob.size === 0) {
+        setRecordingStatus("idle");
+        return null;
+      }
 
-        const allNames = [
-          currentUser?.fullName || "You",
-          ...participants.map((p) => p.fullName || p.username || "Participant"),
-        ];
+      const base64Data = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
 
-        let savedRecording = null;
-        try {
-          const res = await fetch(`${API_BASE}/api/recordings/upload`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              meetingId,
-              title: `${meetingData.title || "Live Meeting"} — ${isScreenSharing ? "Screen Share" : "Collaboration"} (${new Date().toLocaleDateString()})`,
-              recordingType: isScreenSharing ? "Screen Share" : "Meeting",
-              durationSeconds: recordingSeconds,
-              participantNames: allNames,
-              base64Data,
-              mimeType: "video/webm",
-              hostUserId: currentUser?._id || currentUser?.id || currentUser?.userId,
-              hostName: currentUser?.fullName || currentUser?.username || "Host",
-              hostEmail: currentUser?.email || "",
-            }),
-          });
+      const token = localStorage.getItem("token") || "";
+      const allNames = [
+        currentUser?.fullName || "You",
+        ...participants.map((p) => p.fullName || p.username || "Participant"),
+      ];
 
-          if (res.ok) {
-            const data = await res.json();
-            savedRecording = data.recording;
-            toast.success("Recording saved and published to Home → Recordings!");
-          } else {
-            toast.warn("Recording saved locally in browser storage");
-          }
-        } catch (uploadErr) {
-          console.warn("API upload failed, caching locally:", uploadErr);
-          toast.warn("Recording saved locally in browser storage");
-        }
+      const payload = {
+        meetingId,
+        title: `${meetingData.title || "Live Meeting"} — ${isScreenSharing ? "Screen Share" : "Collaboration"} (${new Date().toLocaleDateString()})`,
+        recordingType: isScreenSharing ? "Screen Share" : "Meeting",
+        durationSeconds: Math.max(1, recordingSeconds),
+        participantNames: allNames,
+        base64Data,
+        mimeType: "video/webm",
+        hostUserId: currentUser?._id || currentUser?.id || currentUser?.userId,
+        hostName: currentUser?.fullName || currentUser?.username || "Host",
+        hostEmail: currentUser?.email || "",
+      };
 
-        // Also save recording entry to user-specific localStorage for instant client persistence
-        try {
-          const rawU = localStorage.getItem("user");
-          const uObj = rawU ? JSON.parse(rawU) : null;
-          const uId = uObj?._id || uObj?.id || uObj?.userId || "guest";
-          const recKey = `mz_${uId}_local_recordings`;
-          const localRecs = JSON.parse(localStorage.getItem(recKey) || "[]");
-          const newRecEntry = savedRecording || {
-            recordingId: `rec_${Date.now()}`,
-            id: `rec_${Date.now()}`,
-            meetingId,
-            title: `${meetingData.title || "Live Meeting"} (${new Date().toLocaleDateString()})`,
-            durationSeconds: recordingSeconds,
-            participantNames: allNames,
-            fileUrl: base64Data, // Fallback playback
-            createdAt: new Date().toISOString(),
-            status: "ready",
-            hostUserId: uId,
-            hostName: currentUser?.fullName || currentUser?.username || "Host",
-          };
-          localRecs.unshift(newRecEntry);
-          localStorage.setItem(recKey, JSON.stringify(localRecs.slice(0, 30)));
-          window.dispatchEvent(new CustomEvent("new_recording_saved", { detail: newRecEntry }));
-        } catch {}
+      let res;
+      try {
+        res = await fetch(`${API_BASE}/api/recordings/upload`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
+        });
+      } catch {
+        res = await fetch("/api/recordings/upload", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
+        });
+      }
 
+      if (res && res.ok) {
+        const data = await res.json();
+        const savedRecording = data.recording;
+        toast.success("Meeting recording saved and published to Home → Recordings!");
         setRecordingStatus("idle");
         setRecordingSeconds(0);
-      };
-    } catch (err) {
-      console.error("Upload error:", err);
+        recordedChunksRef.current = [];
+        return savedRecording;
+      } else {
+        const errText = await res?.text().catch(() => "");
+        throw new Error(errText || "Failed to save video recording to storage");
+      }
+    } catch (uploadErr) {
+      console.error("Recording upload error:", uploadErr);
+      toast.error(`Recording save failed: ${uploadErr.message || "Network error"}`);
       setRecordingStatus("idle");
+      return null;
     }
   };
 
@@ -1546,9 +1562,41 @@ export default function MasteryZoneLiveMeeting({
     };
   }, [stopAllMediaHardware]);
 
-  const handleEndMeeting = (forAll = false) => {
-    if (recordingStatus === "recording") {
-      handleStopRecording();
+  const handleEndMeeting = async (forAll = false) => {
+    setShowLeaveConfirmModal(false);
+
+    if (recordingStatus === "recording" || recordingStatus === "paused") {
+      setRecordingStatus("uploading");
+      if (recordingAnimFrameRef.current) {
+        cancelAnimationFrame(recordingAnimFrameRef.current);
+        recordingAnimFrameRef.current = null;
+      }
+      if (recordingAudioCtxRef.current) {
+        try {
+          recordingAudioCtxRef.current.close();
+        } catch (e) {}
+        recordingAudioCtxRef.current = null;
+      }
+      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+      if (socket) {
+        socket.emit("meeting_recording_status", {
+          meetingId,
+          isRecording: false,
+          hostName: currentUser?.fullName || "Host",
+        });
+      }
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+        await new Promise((resolve) => {
+          mediaRecorderRef.current.onstop = async () => {
+            await finalizeAndUploadRecording();
+            resolve();
+          };
+          mediaRecorderRef.current.stop();
+        });
+      }
+    } else if (recordingStatus === "uploading") {
+      toast.info("Saving recording... Please wait.");
+      await new Promise((r) => setTimeout(r, 2000));
     }
 
     if (forAll && isHost && socket) {
@@ -1950,6 +1998,73 @@ export default function MasteryZoneLiveMeeting({
           </button>
         </div>
       </header>
+
+      {/* Participant Recording Notice & Consent Banner */}
+      {showRecordingConsent && !isHost && (
+        <div
+          style={{
+            background: "linear-gradient(90deg, #1e1b4b 0%, #0f172a 100%)",
+            borderBottom: "1px solid #4338ca",
+            padding: "8px 18px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            color: "#e0e7ff",
+            fontSize: 12.5,
+            zIndex: 40,
+            flexShrink: 0,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                background: "#ef4444",
+                boxShadow: "0 0 8px #ef4444",
+                flexShrink: 0,
+              }}
+            />
+            <span>
+              <strong>Recording in Progress:</strong> The meeting host is recording this session. By remaining in the meeting, you consent to audio, video, and screen sharing being captured.
+            </span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+            <button
+              type="button"
+              onClick={() => setShowRecordingConsent(false)}
+              style={{
+                background: "#3b82f6",
+                color: "#ffffff",
+                border: "none",
+                borderRadius: 6,
+                padding: "4px 12px",
+                fontSize: 11.5,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              I Understand
+            </button>
+            <button
+              type="button"
+              onClick={() => handleEndMeeting(false)}
+              style={{
+                background: "transparent",
+                color: "#94a3b8",
+                border: "1px solid #475569",
+                borderRadius: 6,
+                padding: "4px 12px",
+                fontSize: 11.5,
+                cursor: "pointer",
+              }}
+            >
+              Leave Meeting
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* =========================================================================
           2. CENTRAL STAGE (Full-Screen Video Grid or Spotlight + Slide-over Panel)
@@ -3558,6 +3673,78 @@ export default function MasteryZoneLiveMeeting({
               >
                 Cancel
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Recording Finalization & Uploading Overlay Modal */}
+      {recordingStatus === "uploading" && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15, 23, 42, 0.85)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 10000,
+            backdropFilter: "blur(4px)",
+          }}
+        >
+          <div
+            style={{
+              background: "#1e293b",
+              borderRadius: 16,
+              padding: "28px 32px",
+              maxWidth: 420,
+              width: "90%",
+              textAlign: "center",
+              border: "1px solid #334155",
+              boxShadow: "0 20px 40px rgba(0,0,0,0.5)",
+              color: "#f8fafc",
+            }}
+          >
+            <div
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: "50%",
+                background: "rgba(59, 130, 246, 0.15)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                margin: "0 auto 16px",
+                color: "#60a5fa",
+              }}
+            >
+              <LuCloudUpload size={28} />
+            </div>
+            <h3 style={{ margin: "0 0 8px", fontSize: 18, fontWeight: 700 }}>
+              Finalizing Meeting Recording...
+            </h3>
+            <p style={{ margin: "0 0 16px", fontSize: 13, color: "#94a3b8", lineHeight: 1.5 }}>
+              Encoding captured audio/video stream and uploading to your secure storage archive. Please keep this browser window open.
+            </p>
+            <div
+              style={{
+                width: "100%",
+                height: 6,
+                background: "#334155",
+                borderRadius: 999,
+                overflow: "hidden",
+                position: "relative",
+              }}
+            >
+              <div
+                style={{
+                  width: "60%",
+                  height: "100%",
+                  background: "linear-gradient(90deg, #3b82f6, #818cf8)",
+                  borderRadius: 999,
+                  animation: "pulse 1.5s infinite",
+                }}
+              />
             </div>
           </div>
         </div>

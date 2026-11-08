@@ -48,6 +48,10 @@ const recordingSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    streamUrl: {
+      type: String,
+      default: "",
+    },
     fileSize: {
       type: Number,
       default: 0,

@@ -1,5 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import "./AssessmentSubmissionFlow.css";
 import {
   LuRefreshCw,
   LuCircleCheck,
@@ -197,11 +198,11 @@ export default function AssessmentSubmissionFlow({
 
               <button
                 type="button"
-                className="mz-report-secondary-btn"
+                className="mz-report-secondary-btn mz-return-dashboard-btn"
                 onClick={handleNavigateReturn}
                 data-testid="return-dashboard-btn"
               >
-                <LuArrowLeft size={15} />
+                <LuArrowLeft size={16} />
                 <span>Back to Dashboard</span>
               </button>
             </div>
@@ -257,10 +258,10 @@ export default function AssessmentSubmissionFlow({
           <div className="mz-report-secondary-actions">
             <button
               type="button"
-              className="mz-report-secondary-btn"
+              className="mz-report-secondary-btn mz-return-dashboard-btn"
               onClick={handleNavigateReturn}
             >
-              <LuArrowLeft size={15} />
+              <LuArrowLeft size={16} />
               <span>Back to Dashboard</span>
             </button>
           </div>

@@ -227,6 +227,8 @@ export default function CertificationExamWorkspace({
   const isRecoveryModalOpenRef = useRef(false);
   const isReverifyingRef = useRef(false);
   const isSubmittedRef = useRef(false);
+  const isFinalizingRef = useRef(false);
+  const showConfirmModalRef = useRef(false);
   const violationCooldownRef = useRef(false);
   const immunityUntilRef = useRef(Date.now() + 1500);
   const secondsRemainingRef = useRef(secondsRemaining);
@@ -263,6 +265,14 @@ export default function CertificationExamWorkspace({
   useEffect(() => {
     currentQuestionIndexRef.current = currentQuestionIndex;
   }, [currentQuestionIndex]);
+
+  useEffect(() => {
+    isFinalizingRef.current = isFinalizing;
+  }, [isFinalizing]);
+
+  useEffect(() => {
+    showConfirmModalRef.current = showConfirmModal;
+  }, [showConfirmModal]);
 
   // Live Proctoring Media Streams (Continuous across MCQs & Coding)
   const [cameraStream, setCameraStream] = useState(null);
@@ -628,6 +638,9 @@ export default function CertificationExamWorkspace({
         isSubmittedRef.current ||
         isTerminated ||
         isFinalizing ||
+        isFinalizingRef.current ||
+        showConfirmModal ||
+        showConfirmModalRef.current ||
         violationCooldownRef.current ||
         isRecoveryModalOpenRef.current ||
         isReverifyingRef.current ||
@@ -682,6 +695,9 @@ export default function CertificationExamWorkspace({
           });
           if (res.ok) {
             const data = await res.json();
+            if (data.violationsCount !== undefined) {
+              setViolationsCount(data.violationsCount);
+            }
             if (data.chancesRemaining !== undefined) {
               setRecoveryChancesRemaining(data.chancesRemaining);
               if (data.chancesRemaining <= 0) {
@@ -721,7 +737,7 @@ export default function CertificationExamWorkspace({
     setIsReverifying(true);
     isReverifyingRef.current = true;
     violationCooldownRef.current = true;
-    immunityUntilRef.current = Date.now() + 1500;
+    immunityUntilRef.current = Date.now() + 3500;
 
     try {
       // 1. Camera & Mic Check
@@ -790,31 +806,18 @@ export default function CertificationExamWorkspace({
   useEffect(() => {
     if (stage !== "active" || isTerminated || isFinalizing) return;
 
-    // 1. Tab switch / browser window blur / minimized window
-    const handleVisibilityChange = () => {
+    // 1. Tab switch / browser window blur / minimized window with coordination & debouncing
+    let blurCheckTimer = null;
+
+    const triggerTabSwitchViolation = () => {
       if (
         isSubmittedRef.current ||
         isTerminated ||
-        isRecoveryModalOpenRef.current ||
-        isReverifyingRef.current ||
-        Date.now() < immunityUntilRef.current
-      ) {
-        return;
-      }
-
-      if (document.hidden) {
-        logProctoringAnomaly(
-          "TAB_SWITCH",
-          "Assessment window lost focus or switched tabs. Navigating away from the proctored examination is prohibited."
-        );
-      }
-    };
-
-    // 1b. Screen switch / window blur detection
-    const handleWindowBlur = () => {
-      if (
-        isSubmittedRef.current ||
-        isTerminated ||
+        isFinalizing ||
+        isFinalizingRef.current ||
+        showConfirmModal ||
+        showConfirmModalRef.current ||
+        violationCooldownRef.current ||
         isRecoveryModalOpenRef.current ||
         isReverifyingRef.current ||
         Date.now() < immunityUntilRef.current
@@ -824,8 +827,58 @@ export default function CertificationExamWorkspace({
 
       logProctoringAnomaly(
         "TAB_SWITCH",
-        "Screen switch or window blur detected. Navigating away from the proctored examination is prohibited."
+        "The examination has been paused because you switched away from the active assessment tab. Navigating to other browser tabs or applications during a proctored examination is strictly prohibited."
       );
+    };
+
+    const handleVisibilityChange = () => {
+      if (
+        isSubmittedRef.current ||
+        isTerminated ||
+        isFinalizing ||
+        isFinalizingRef.current ||
+        showConfirmModal ||
+        showConfirmModalRef.current
+      ) {
+        return;
+      }
+      if (document.hidden) {
+        if (blurCheckTimer) {
+          clearTimeout(blurCheckTimer);
+          blurCheckTimer = null;
+        }
+        triggerTabSwitchViolation();
+      }
+    };
+
+    const handleWindowBlur = () => {
+      if (blurCheckTimer) clearTimeout(blurCheckTimer);
+      if (
+        isSubmittedRef.current ||
+        isTerminated ||
+        isFinalizing ||
+        isFinalizingRef.current ||
+        showConfirmModal ||
+        showConfirmModalRef.current
+      ) {
+        return;
+      }
+      blurCheckTimer = setTimeout(() => {
+        if (
+          isSubmittedRef.current ||
+          isTerminated ||
+          isFinalizing ||
+          isFinalizingRef.current ||
+          showConfirmModal ||
+          showConfirmModalRef.current ||
+          Date.now() < immunityUntilRef.current
+        ) {
+          return;
+        }
+        if (document.hidden || !document.hasFocus()) {
+          triggerTabSwitchViolation();
+        }
+      }, 350);
     };
 
     // 2. Continuous Fullscreen Enforcement
@@ -833,6 +886,10 @@ export default function CertificationExamWorkspace({
       if (
         isSubmittedRef.current ||
         isTerminated ||
+        isFinalizing ||
+        isFinalizingRef.current ||
+        showConfirmModal ||
+        showConfirmModalRef.current ||
         isRecoveryModalOpenRef.current ||
         isReverifyingRef.current ||
         Date.now() < immunityUntilRef.current
@@ -946,7 +1003,7 @@ export default function CertificationExamWorkspace({
     const micTrack = micStreamRef.current?.getAudioTracks?.()[0];
 
     const onCamEnded = () => {
-      if (isSubmittedRef.current || isTerminated || isFinalizing) return;
+      if (isSubmittedRef.current || isTerminated || isFinalizing || isFinalizingRef.current || showConfirmModalRef.current) return;
       logProctoringAnomaly(
         "CAMERA_DISCONNECTED",
         "Webcam video connection was lost or disconnected. Reconnecting camera is required."
@@ -954,7 +1011,7 @@ export default function CertificationExamWorkspace({
     };
 
     const onScreenEnded = () => {
-      if (isSubmittedRef.current || isTerminated || isFinalizing) return;
+      if (isSubmittedRef.current || isTerminated || isFinalizing || isFinalizingRef.current || showConfirmModalRef.current) return;
       logProctoringAnomaly(
         "SCREEN_SHARE_STOPPED",
         "Entire screen sharing was stopped. Continuous entire screen sharing is required throughout the examination."
@@ -962,7 +1019,7 @@ export default function CertificationExamWorkspace({
     };
 
     const onMicEnded = () => {
-      if (isSubmittedRef.current || isTerminated || isFinalizing) return;
+      if (isSubmittedRef.current || isTerminated || isFinalizing || isFinalizingRef.current || showConfirmModalRef.current) return;
       logProctoringAnomaly(
         "MIC_DISCONNECTED",
         "Microphone audio connection was lost. Reconnecting microphone is required."
@@ -1171,6 +1228,10 @@ export default function CertificationExamWorkspace({
   // Stop all media tracks (camera, screen, microphone) and clean up contexts immediately
   const stopAllProctoringMedia = useCallback(() => {
     try {
+      isSubmittedRef.current = true;
+      isFinalizingRef.current = true;
+      immunityUntilRef.current = Date.now() + 60000;
+
       const activeStreams = [
         cameraStreamRef.current,
         screenStreamRef.current,
@@ -1263,8 +1324,14 @@ export default function CertificationExamWorkspace({
   // -------------------------------------------------------------
   const handleFinalSubmit = async () => {
     if (isSubmittedRef.current && isFinalizing) return;
-    setIsFinalizing(true);
     isSubmittedRef.current = true;
+    isFinalizingRef.current = true;
+    setIsFinalizing(true);
+    setShowConfirmModal(false);
+    showConfirmModalRef.current = false;
+    setIsRecoveryModalOpen(false);
+    isRecoveryModalOpenRef.current = false;
+    immunityUntilRef.current = Date.now() + 60000;
     try {
       const token = localStorage.getItem("token");
       const currentMcqs = mcqAnswersRef.current || mcqAnswers;
@@ -2380,13 +2447,13 @@ export default function CertificationExamWorkspace({
             >
               {isTerminated
                 ? "Assessment Terminated: Limits Exceeded"
-                : "Assessment Interrupted — Verification Required"}
+                : "Examination Interrupted: Tab Switch Detected"}
             </h3>
             <p style={{ margin: 0, fontSize: "0.9rem", color: "#475569", lineHeight: "1.5" }}>
               {isTerminated
                 ? "You have exhausted all 5 recovery chances. Your assessment workspace is locked and your answers have been permanently submitted for final grading."
                 : recoveryReason ||
-                  "An environment interruption was detected. You must re-verify your device permissions and fullscreen mode to resume."}
+                  "The examination has been paused because you switched away from the active assessment tab. Navigating to other browser tabs or applications during a proctored examination is strictly prohibited. You must re-verify your environment to resume."}
             </p>
 
             {recoveryTimestamp && (

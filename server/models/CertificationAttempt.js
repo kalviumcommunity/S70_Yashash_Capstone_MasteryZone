@@ -216,6 +216,7 @@ const certificationAttemptSchema = new mongoose.Schema(
 );
 
 certificationAttemptSchema.index({ userId: 1, certId: 1, createdAt: -1 });
+certificationAttemptSchema.index({ userId: 1, createdAt: -1 });
 
 const CertificationAttempt =
   mongoose.models.CertificationAttempt ||

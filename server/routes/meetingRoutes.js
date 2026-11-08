@@ -505,7 +505,7 @@ router.get("/:meetingId", optionalAuthToken, async (req, res) => {
   try {
     const cleanId = normalizeMeetingId(req.params.meetingId);
     const nonDashed = cleanId.replace(/-/g, "");
-    let meeting = await Meeting.findOne({
+    const meeting = await Meeting.findOne({
       $or: [
         { meetingId: cleanId },
         { meetingId: nonDashed },
@@ -515,25 +515,30 @@ router.get("/:meetingId", optionalAuthToken, async (req, res) => {
     }).lean();
 
     if (!meeting) {
-      // Auto-create active meeting so link or code works reliably
-      const hostUid = String(req.user?.userId || req.user?.id || req.user?._id || "host_" + Math.random().toString(36).slice(2, 8));
-      const created = await Meeting.create({
-        meetingId: cleanId,
-        title: "Live Meeting Session",
-        groupKey: "general",
-        groupTitle: "Live Meeting",
-        hostUserId: hostUid,
-        hostName: "Host",
-        status: "active",
-        invitationCode: nonDashed,
-        participants: [],
+      return res.status(404).json({
+        success: false,
+        message: "Meeting not found. The meeting link or code is invalid or does not exist.",
       });
-      meeting = created.toObject();
+    }
+
+    const currentUserId = String(req.user?.userId || req.user?.id || req.user?._id || "");
+    const isHost = Boolean(currentUserId && String(meeting.hostUserId) === currentUserId);
+
+    if (meeting.status === "ended" || meeting.isEnded === true) {
+      return res.status(200).json({
+        success: true,
+        meeting,
+        isEnded: true,
+        isHost,
+        message: "This meeting session has ended and is no longer active.",
+      });
     }
 
     res.json({
       success: true,
       meeting,
+      isEnded: false,
+      isHost,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -556,7 +561,7 @@ router.post("/:meetingId/join", optionalAuthToken, async (req, res) => {
 
     const callerName = user?.fullName || user?.username || req.body?.fullName || req.query?.name || "Participant";
 
-    let meeting = await Meeting.findOne({
+    const meeting = await Meeting.findOne({
       $or: [
         { meetingId: cleanId },
         { meetingId: nonDashed },
@@ -566,29 +571,28 @@ router.post("/:meetingId/join", optionalAuthToken, async (req, res) => {
     });
 
     if (!meeting) {
-      meeting = await Meeting.create({
-        meetingId: cleanId,
-        title: "Live Meeting Session",
-        groupKey: "general",
-        groupTitle: "Live Meeting",
-        hostUserId: String(userId),
-        hostName: callerName,
-        hostEmail: user?.email || "",
-        status: "active",
-        invitationCode: nonDashed,
-        participants: [],
+      return res.status(404).json({
+        success: false,
+        message: "Meeting not found. The meeting code or link is invalid.",
       });
     }
 
+    const isHost = String(meeting.hostUserId) === String(userId);
+
     if (meeting.status === "ended") {
-      if (String(meeting.hostUserId) === String(userId)) {
+      if (isHost) {
+        // Host re-activating their active session upon page refresh / reconnection
         meeting.status = "active";
         meeting.endedAt = null;
         await meeting.save();
+      } else {
+        return res.status(410).json({
+          success: false,
+          isEnded: true,
+          message: "This meeting has ended and is no longer accepting participants.",
+        });
       }
     }
-
-    const isHost = String(meeting.hostUserId) === String(userId);
 
     const existingIdx = meeting.participants.findIndex(
       (p) => String(p.userId) === String(userId) && !p.leftAt

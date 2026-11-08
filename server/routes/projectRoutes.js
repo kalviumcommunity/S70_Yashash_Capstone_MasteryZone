@@ -913,14 +913,18 @@ router.get("/", authenticateToken, async (req, res) => {
       const totalTasks = spec.milestones.length;
       const checkedCount = st?.checkedTasks?.length || 0;
 
+      const passingMarks = spec.passingMarks || 80;
+      const bestScore = st?.bestScore || st?.lastScore || 0;
+      const isPassed = Boolean(st?.passed && st?.badgeAwarded && bestScore >= passingMarks);
+
       let status = "not_started";
       let progressPct = 0;
 
       if (st) {
-        if (st.passed && st.badgeAwarded) {
+        if (isPassed) {
           status = "passed";
           progressPct = 100;
-        } else if (st.status === "needs_improvement") {
+        } else if (st.status === "needs_improvement" || (st.attemptsCount > 0 && !isPassed)) {
           status = "needs_improvement";
           progressPct = Math.max(40, Math.min(90, st.lastScore || st.bestScore || 50));
         } else if (st.status === "in_progress" || checkedCount > 0 || st.attemptsCount > 0) {
@@ -939,11 +943,11 @@ router.get("/", authenticateToken, async (req, res) => {
           progressPct,
           checkedTasks: st?.checkedTasks || [],
           attemptsCount: st?.attemptsCount || 0,
-          bestScore: st?.bestScore || 0,
+          bestScore,
           bestGrade: st?.bestGrade || "",
           lastScore: st?.lastScore ?? null,
-          passed: Boolean(st?.passed && st?.badgeAwarded),
-          badgeAwarded: Boolean(st?.passed && st?.badgeAwarded),
+          passed: isPassed,
+          badgeAwarded: isPassed,
           completedAt: st?.completedAt || null,
           latestReportSessionId: st?.latestReportSessionId || "",
           latestReportUrl: st?.latestReportSessionId

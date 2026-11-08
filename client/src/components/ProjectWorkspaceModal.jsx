@@ -689,7 +689,11 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
         }
       } catch {}
 
-      if (sub.passed) {
+      const passingThreshold = projectSpec?.passingMarks || 80;
+      const scoredMarks = sub.marksObtained !== undefined ? sub.marksObtained : 0;
+      const isMetRequiredMarks = Boolean(sub.passed && scoredMarks >= passingThreshold);
+
+      if (isMetRequiredMarks) {
         try {
           const pId = projectSpec?.id || projectId;
           sessionStorage.setItem(`mz_proj_submitted_${pId}`, "true");
@@ -698,6 +702,16 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
             localStorage.setItem(`mz_${currentUserId}_proj_passed_${pId}`, "true");
           }
           window.dispatchEvent(new CustomEvent("mz_project_passed", { detail: { projectId: pId } }));
+        } catch {}
+      } else {
+        try {
+          const pId = projectSpec?.id || projectId;
+          if (currentUserId) {
+            localStorage.removeItem(`mz_${currentUserId}_proj_passed_${pId}`);
+            sessionStorage.removeItem(`mz_${currentUserId}_proj_submitted_${pId}`);
+          }
+          localStorage.removeItem(`mz_proj_passed_${pId}`);
+          sessionStorage.removeItem(`mz_proj_submitted_${pId}`);
         } catch {}
       }
 
@@ -746,7 +760,9 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
   ).toLowerCase();
 
   const statusNormalized = String(userState?.status || "in_progress").toLowerCase();
-  const isAlreadyCompleted = Boolean(userState?.passed && userState?.badgeAwarded);
+  const passingThreshold = projectSpec?.passingMarks || 80;
+  const bestScore = userState?.bestScore ?? userState?.lastScore ?? 0;
+  const isAlreadyCompleted = Boolean(userState?.passed && userState?.badgeAwarded && bestScore >= passingThreshold);
 
   const handleClose = () => {
     if (onClose) {
@@ -1817,15 +1833,23 @@ export function ProjectsHubSection({ projects = [], onOpenProjectWorkspace }) {
 
   const summary = useMemo(() => {
     const total = projects.length;
-    const completed = projects.filter((p) => p.userState?.passed && p.userState?.badgeAwarded).length;
-    const inProgress = projects.filter(
-      (p) =>
-        !p.userState?.passed &&
-        p.userState?.status &&
-        String(p.userState.status).toUpperCase() !== "NOT_STARTED"
-    ).length;
+    const completed = projects.filter((p) => {
+      const passing = p.passingMarks || 80;
+      const score = p.userState?.bestScore ?? p.userState?.lastScore ?? 0;
+      return p.userState?.passed && p.userState?.badgeAwarded && score >= passing;
+    }).length;
+    const inProgress = projects.filter((p) => {
+      const passing = p.passingMarks || 80;
+      const score = p.userState?.bestScore ?? p.userState?.lastScore ?? 0;
+      const isPassed = p.userState?.passed && p.userState?.badgeAwarded && score >= passing;
+      return !isPassed && p.userState?.status && String(p.userState.status).toUpperCase() !== "NOT_STARTED";
+    }).length;
     const earnedXp = projects
-      .filter((p) => p.userState?.passed && p.userState?.badgeAwarded)
+      .filter((p) => {
+        const passing = p.passingMarks || 80;
+        const score = p.userState?.bestScore ?? p.userState?.lastScore ?? 0;
+        return p.userState?.passed && p.userState?.badgeAwarded && score >= passing;
+      })
       .reduce((acc, p) => acc + (p.xpReward || 450), 0);
     return { total, completed, inProgress, earnedXp };
   }, [projects]);
@@ -1995,7 +2019,9 @@ export function ProjectsHubSection({ projects = [], onOpenProjectWorkspace }) {
       <div className="mz-projects-grid">
         {filteredProjects.map((proj) => {
           const st = proj.userState || {};
-          const isPassed = Boolean(st.passed && st.badgeAwarded);
+          const passingThreshold = proj.passingMarks || 80;
+          const score = st.bestScore ?? st.lastScore ?? 0;
+          const isPassed = Boolean(st.passed && st.badgeAwarded && score >= passingThreshold);
           const status = String(st.status || "NOT_STARTED").toUpperCase();
           const progressPct = st.progressPct ?? st.progressPercent ?? 0;
           const diff = (proj.difficulty || proj.level || "Intermediate").toLowerCase();

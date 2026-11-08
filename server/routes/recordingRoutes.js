@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const fs = require("fs");
 const path = require("path");
+const mongoose = require("mongoose");
 const Recording = require("../models/Recording");
 const authenticateToken = require("../middleware/authMiddleware");
 
@@ -29,6 +30,7 @@ router.post("/upload", authenticateToken, async (req, res) => {
     }
 
     const hostUserId = String(req.user?.userId || req.user?.id || req.user?._id || req.body.hostUserId || "guest");
+    const hostEmail = req.user?.email || req.body.hostEmail || "";
     const hostName = req.user?.fullName || req.user?.name || req.body.hostName || "Host";
 
     const recordingId = `rec_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
@@ -41,6 +43,7 @@ router.post("/upload", authenticateToken, async (req, res) => {
     const buffer = Buffer.from(cleanBase64, "base64");
     fs.writeFileSync(filePath, buffer);
 
+    const streamUrl = `/api/recordings/stream/${fileName}`;
     const fileUrl = `/recordings/${fileName}`;
     const fileSize = buffer.length;
 
@@ -50,9 +53,12 @@ router.post("/upload", authenticateToken, async (req, res) => {
       title: title || `Meeting Recording - ${new Date().toLocaleDateString()}`,
       hostUserId,
       hostName,
+      hostEmail,
+      recordingType: req.body.recordingType || "Meeting",
       durationSeconds: Math.round(Number(durationSeconds) || 0),
       filePath: fileUrl,
       fileUrl,
+      streamUrl,
       fileSize,
       mimeType,
       status: "ready",
@@ -156,12 +162,35 @@ router.get("/", authenticateToken, async (req, res) => {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    const { q, dateFilter, sort = "newest" } = req.query;
+    const { q, dateFilter, sort = "newest", scope = "all" } = req.query;
 
-    // Strictly individual basis: only recordings created by this logged-in account
-    const filter = {
-      $or: [{ hostUserId: currentUserId }, { hostUserId: String(currentUserId) }],
-    };
+    const User = require("../models/User");
+    const currentUserDoc = mongoose.Types.ObjectId.isValid(currentUserId)
+      ? await User.findById(currentUserId).select("fullName username email").lean()
+      : null;
+    const userNames = [currentUserDoc?.fullName, currentUserDoc?.username].filter(Boolean);
+
+    // Support personal and shared recordings
+    let filter = {};
+    if (scope === "personal") {
+      filter = { hostUserId: currentUserId };
+    } else if (scope === "shared") {
+      filter = {
+        hostUserId: { $ne: currentUserId },
+        $or: [
+          ...(currentUserDoc?.email ? [{ hostEmail: currentUserDoc.email }] : []),
+          ...(userNames.length > 0 ? [{ participantNames: { $in: userNames } }] : []),
+        ],
+      };
+    } else {
+      filter = {
+        $or: [
+          { hostUserId: currentUserId },
+          ...(currentUserDoc?.email ? [{ hostEmail: currentUserDoc.email }] : []),
+          ...(userNames.length > 0 ? [{ participantNames: { $in: userNames } }] : []),
+        ],
+      };
+    }
 
     // Search query within the user's personal recordings
     if (q && q.trim()) {

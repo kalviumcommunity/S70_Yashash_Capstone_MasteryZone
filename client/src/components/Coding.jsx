@@ -719,6 +719,20 @@ export default function Coding() {
   // Re-render tick when challenges or projects are solved in separate tabs
   const [completionTick, setCompletionTick] = useState(0);
 
+  // Clean up legacy/unauthenticated project completion keys from browser storage
+  useEffect(() => {
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        Object.keys(window.localStorage).forEach((k) => {
+          if (k.startsWith("mz_proj_passed_") || k.includes("_proj_passed_proj_portfolio")) {
+            window.localStorage.removeItem(k);
+          }
+        });
+        window.sessionStorage?.removeItem("mz_proj_submitted_proj_portfolio");
+      }
+    } catch {}
+  }, []);
+
   useEffect(() => {
     const handleStorageOrCustom = () => {
       setCompletionTick((t) => t + 1);
@@ -3019,7 +3033,7 @@ export default function Coding() {
                 <div className="mz-c-proj-stat-box">
                   <div className="mz-c-proj-stat-label">Completed</div>
                   <div className="mz-c-proj-stat-num" style={{ color: "#4ade80" }}>
-                    {projects.filter((p) => p.userState?.passed).length}
+                    {projects.filter((p) => p.userState?.passed && (p.userState?.bestScore ?? 0) >= (p.passingMarks || 80)).length}
                   </div>
                   <div className="mz-c-proj-stat-sub">Verified</div>
                 </div>
@@ -3034,10 +3048,12 @@ export default function Coding() {
             {/* 12 Projects Grid (Blue line above slides removed) */}
             <div className="mz-c-projects-grid">
               {filteredProjects.map((proj) => {
+                const passingThreshold = proj.passingMarks || 80;
+                const bestScore = proj.userState?.bestScore ?? proj.userState?.lastScore ?? 0;
                 const isDone = Boolean(
-                  (proj.userState?.passed && proj.userState?.badgeAwarded) ||
-                  (proj.userState?.status === "PASSED" && proj.userState?.passed) ||
-                  (currentUserId && currentUserId !== "guest" && typeof window !== "undefined" && window.localStorage?.getItem(`mz_${currentUserId}_proj_passed_${proj.id}`) === "true")
+                  bestScore >= passingThreshold &&
+                  ((proj.userState?.passed && proj.userState?.badgeAwarded) ||
+                   (String(proj.userState?.status).toUpperCase() === "PASSED" && proj.userState?.passed))
                 );
                 const techList = proj.technologies || [];
                 const milestonesList = proj.milestones || proj.tasks || [];
@@ -3617,60 +3633,60 @@ export default function Coding() {
             {/* Top Academic & Professional Banner */}
             <div
               style={{
-                background: "linear-gradient(135deg, #0f172a 0%, #1e1b4b 55%, #1e3a8a 100%)",
+                background: "linear-gradient(135deg, #ffffff 0%, #f8faff 45%, #eff6ff 100%)",
                 borderRadius: "20px",
                 padding: "32px 36px",
-                color: "#ffffff",
+                color: "#0f172a",
                 marginBottom: "32px",
-                boxShadow: "0 12px 36px rgba(15, 23, 42, 0.25)",
+                boxShadow: "0 10px 30px -4px rgba(37, 99, 235, 0.08), 0 2px 8px rgba(15, 23, 42, 0.03)",
                 position: "relative",
                 overflow: "hidden",
-                border: "1px solid rgba(212, 175, 55, 0.3)",
+                border: "1.5px solid #bfdbfe",
               }}
             >
               <div
                 style={{
                   position: "absolute",
-                  top: -60,
-                  right: -60,
-                  width: "240px",
-                  height: "240px",
+                  top: -80,
+                  right: -80,
+                  width: "280px",
+                  height: "280px",
                   borderRadius: "50%",
-                  background: "radial-gradient(circle, rgba(212, 175, 55, 0.18) 0%, rgba(212, 175, 55, 0) 70%)",
+                  background: "radial-gradient(circle, rgba(59, 130, 246, 0.12) 0%, rgba(99, 102, 241, 0) 70%)",
                   pointerEvents: "none",
                 }}
               />
               <div style={{ position: "relative", zIndex: 1 }}>
-                <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: "rgba(212, 175, 55, 0.18)", border: "1px solid #d4af37", padding: "4px 12px", borderRadius: "9999px", marginBottom: "14px" }}>
-                  <span style={{ color: "#fbbf24", fontSize: "13px" }}>★</span>
-                  <span style={{ fontSize: "11.5px", fontWeight: 800, color: "#fef08a", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: "#eff6ff", border: "1.5px solid #bfdbfe", padding: "4px 14px", borderRadius: "9999px", marginBottom: "14px", boxShadow: "0 1px 3px rgba(37, 99, 235, 0.08)" }}>
+                  <span style={{ color: "#d97706", fontSize: "13px" }}>★</span>
+                  <span style={{ fontSize: "11px", fontWeight: 800, color: "#1d4ed8", letterSpacing: "0.04em", textTransform: "uppercase" }}>
                     Official Accredited Examination Suite
                   </span>
                 </div>
-                <h1 style={{ fontSize: "28px", fontWeight: 900, margin: "0 0 10px", color: "#ffffff", letterSpacing: "-0.02em" }}>
+                <h1 style={{ fontSize: "26px", fontWeight: 900, margin: "0 0 10px", color: "#0f172a", letterSpacing: "-0.02em" }}>
                   Mastery Zone Professional Certifications
                 </h1>
-                <p style={{ margin: "0 0 24px", fontSize: "14.5px", color: "#cbd5e1", maxWidth: "780px", lineHeight: 1.6 }}>
+                <p style={{ margin: "0 0 24px", fontSize: "14px", color: "#475569", maxWidth: "800px", lineHeight: 1.6 }}>
                   Take rigorous, proctored examinations designed to evaluate true engineering competence. Pass 20 MCQs and 2 live algorithmic coding challenges to receive official cryptographic credentials signed by Founder Yashash.
                 </p>
 
                 {/* Key Metrics Row */}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "14px", marginTop: "12px" }}>
-                  <div style={{ background: "rgba(255, 255, 255, 0.08)", backdropFilter: "blur(8px)", padding: "12px 16px", borderRadius: "12px", border: "1px solid rgba(255, 255, 255, 0.12)" }}>
-                    <div style={{ fontSize: "11px", color: "#94a3b8", textTransform: "uppercase", fontWeight: 700 }}>Pass Benchmark</div>
-                    <div style={{ fontSize: "18px", fontWeight: 800, color: "#4ade80", marginTop: "4px" }}>80% Required</div>
+                  <div style={{ background: "#ffffff", padding: "14px 18px", borderRadius: "14px", border: "1px solid #e2e8f0", boxShadow: "0 2px 6px rgba(15, 23, 42, 0.04)" }}>
+                    <div style={{ fontSize: "10.5px", color: "#64748b", textTransform: "uppercase", fontWeight: 800, letterSpacing: "0.04em" }}>Pass Benchmark</div>
+                    <div style={{ fontSize: "18px", fontWeight: 800, color: "#16a34a", marginTop: "4px" }}>80% Required</div>
                   </div>
-                  <div style={{ background: "rgba(255, 255, 255, 0.08)", backdropFilter: "blur(8px)", padding: "12px 16px", borderRadius: "12px", border: "1px solid rgba(255, 255, 255, 0.12)" }}>
-                    <div style={{ fontSize: "11px", color: "#94a3b8", textTransform: "uppercase", fontWeight: 700 }}>Proctoring Standard</div>
-                    <div style={{ fontSize: "18px", fontWeight: 800, color: "#60a5fa", marginTop: "4px" }}>Strict (5 Lives)</div>
+                  <div style={{ background: "#ffffff", padding: "14px 18px", borderRadius: "14px", border: "1px solid #e2e8f0", boxShadow: "0 2px 6px rgba(15, 23, 42, 0.04)" }}>
+                    <div style={{ fontSize: "10.5px", color: "#64748b", textTransform: "uppercase", fontWeight: 800, letterSpacing: "0.04em" }}>Proctoring Standard</div>
+                    <div style={{ fontSize: "18px", fontWeight: 800, color: "#2563eb", marginTop: "4px" }}>Strict (5 Lives)</div>
                   </div>
-                  <div style={{ background: "rgba(255, 255, 255, 0.08)", backdropFilter: "blur(8px)", padding: "12px 16px", borderRadius: "12px", border: "1px solid rgba(255, 255, 255, 0.12)" }}>
-                    <div style={{ fontSize: "11px", color: "#94a3b8", textTransform: "uppercase", fontWeight: 700 }}>Time Allowed</div>
-                    <div style={{ fontSize: "18px", fontWeight: 800, color: "#fef08a", marginTop: "4px" }}>90 Minutes</div>
+                  <div style={{ background: "#ffffff", padding: "14px 18px", borderRadius: "14px", border: "1px solid #e2e8f0", boxShadow: "0 2px 6px rgba(15, 23, 42, 0.04)" }}>
+                    <div style={{ fontSize: "10.5px", color: "#64748b", textTransform: "uppercase", fontWeight: 800, letterSpacing: "0.04em" }}>Time Allowed</div>
+                    <div style={{ fontSize: "18px", fontWeight: 800, color: "#d97706", marginTop: "4px" }}>90 Minutes</div>
                   </div>
-                  <div style={{ background: "rgba(255, 255, 255, 0.08)", backdropFilter: "blur(8px)", padding: "12px 16px", borderRadius: "12px", border: "1px solid rgba(255, 255, 255, 0.12)" }}>
-                    <div style={{ fontSize: "11px", color: "#94a3b8", textTransform: "uppercase", fontWeight: 700 }}>Earned Credentials</div>
-                    <div style={{ fontSize: "18px", fontWeight: 800, color: "#c084fc", marginTop: "4px" }}>{earnedCertificates.length} Issued</div>
+                  <div style={{ background: "#ffffff", padding: "14px 18px", borderRadius: "14px", border: "1px solid #e2e8f0", boxShadow: "0 2px 6px rgba(15, 23, 42, 0.04)" }}>
+                    <div style={{ fontSize: "10.5px", color: "#64748b", textTransform: "uppercase", fontWeight: 800, letterSpacing: "0.04em" }}>Earned Credentials</div>
+                    <div style={{ fontSize: "18px", fontWeight: 800, color: "#7c3aed", marginTop: "4px" }}>{earnedCertificates.length} Issued</div>
                   </div>
                 </div>
               </div>

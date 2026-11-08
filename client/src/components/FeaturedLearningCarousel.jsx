@@ -83,12 +83,14 @@ export default function FeaturedLearningCarousel({
 
     let count = 0;
     (projects || []).forEach((p) => {
-      const userPassed = uId && typeof window !== "undefined" && window.localStorage?.getItem(`mz_${uId}_proj_passed_${p.id}`) === "true";
-      if (
-        (p.userState?.passed && p.userState?.badgeAwarded) ||
-        (p.userState?.status === "PASSED" && p.userState?.passed) ||
-        userPassed
-      ) {
+      const passingThreshold = p.passingMarks || 80;
+      const bestScore = p.userState?.bestScore ?? p.userState?.lastScore ?? 0;
+      const isPassed = Boolean(
+        bestScore >= passingThreshold &&
+        ((p.userState?.passed && p.userState?.badgeAwarded) ||
+         (String(p.userState?.status).toUpperCase() === "PASSED" && p.userState?.passed))
+      );
+      if (isPassed) {
         count++;
       }
     });
