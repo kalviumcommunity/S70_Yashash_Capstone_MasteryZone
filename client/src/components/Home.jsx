@@ -66,6 +66,26 @@ import {
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
+const getMediaUrl = (url) => {
+  if (!url) return "";
+  if (
+    url.startsWith("http://") ||
+    url.startsWith("https://") ||
+    url.startsWith("blob:") ||
+    url.startsWith("data:")
+  ) {
+    return url;
+  }
+  const base =
+    API_BASE ||
+    (typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
+      ? "http://localhost:5012"
+      : "");
+  const cleanUrl = url.startsWith("/") ? url : `/${url}`;
+  return `${base}${cleanUrl}`;
+};
+
 // Vector Badge Component for Coding
 const InterestBadge = ({ type, className = "" }) => {
   return (
@@ -437,7 +457,10 @@ const Home = () => {
     return null;
   });
 
-  const fetchCertHistory = async () => {
+  const isFetchingCertHistoryRef = useRef(false);
+  const fetchCertHistory = async (force = false) => {
+    if (isFetchingCertHistoryRef.current && !force) return;
+    isFetchingCertHistoryRef.current = true;
     setIsLoadingCertHistory(true);
     try {
       const token = localStorage.getItem("token");
@@ -455,6 +478,7 @@ const Home = () => {
     } catch (err) {
       console.warn("Cert history fetch note:", err);
     } finally {
+      isFetchingCertHistoryRef.current = false;
       setIsLoadingCertHistory(false);
     }
   };
@@ -775,10 +799,16 @@ const Home = () => {
   };
 
   useEffect(() => {
-    fetchReports(false);
-    fetchRecordings(false);
-    fetchCertHistory();
-    fetchCodingPlatformData();
+    // Prioritize active tab loading for instant responsiveness
+    if (activeNavTab === "certifications") {
+      fetchCertHistory();
+    } else if (activeNavTab === "reports") {
+      fetchReports(true);
+    } else if (activeNavTab === "recordings") {
+      fetchRecordings(true);
+    } else {
+      fetchCodingPlatformData();
+    }
   }, []);
 
   const prevTabRef = useRef(activeNavTab);
@@ -791,6 +821,8 @@ const Home = () => {
         fetchRecordings(recordingsList.length === 0);
       } else if (activeNavTab === "certifications") {
         fetchCertHistory();
+      } else if (activeNavTab === "home") {
+        fetchCodingPlatformData();
       }
     }
   }, [activeNavTab, reportsList.length, recordingsList.length]);
@@ -2514,8 +2546,28 @@ const Home = () => {
                 </div>
               </div>
 
-              {/* AREA A: EARNED CERTIFICATES */}
-              <div style={{ marginBottom: 32 }}>
+              {/* Genuine Loading Animation for Certifications */}
+              {isLoadingCertHistory && (!certHistory.certificates?.length && !certHistory.attempts?.length) ? (
+                <div
+                  className="mz-reports-loading-box"
+                  style={{
+                    padding: "60px 20px",
+                    textAlign: "center",
+                    background: "#ffffff",
+                    borderRadius: 14,
+                    border: "1px solid #e2e8f0",
+                    marginBottom: 32,
+                  }}
+                >
+                  <div className="mz-reports-spinner" style={{ margin: "0 auto 14px" }} />
+                  <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#64748b" }}>
+                    Loading verified credentials & assessment transcripts...
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* AREA A: EARNED CERTIFICATES */}
+                  <div style={{ marginBottom: 32 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
                   <div>
                     <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0, color: "#0f172a" }}>
@@ -3013,8 +3065,10 @@ const Home = () => {
                   </div>
                 )}
               </div>
-            </div>
-          ) : activeNavTab === "settings" ? (
+            </>
+          )}
+        </div>
+      ) : activeNavTab === "settings" ? (
             <div className="mz-reports-page-wrapper">
               <div className="mz-reports-top-banner">
                 <div className="mz-reports-top-info">
@@ -5003,7 +5057,7 @@ const Home = () => {
             >
               <video
                 ref={videoPlayerRef}
-                src={activePlayingRecording.fileUrl}
+                src={getMediaUrl(activePlayingRecording.streamUrl || activePlayingRecording.fileUrl)}
                 controls
                 autoPlay
                 onTimeUpdate={() => {
@@ -5084,7 +5138,7 @@ const Home = () => {
                   <LuShare2 size={13} /> Share Link
                 </button>
                 <a
-                  href={activePlayingRecording.fileUrl}
+                  href={getMediaUrl(activePlayingRecording.streamUrl || activePlayingRecording.fileUrl)}
                   download={`${activePlayingRecording.title}.webm`}
                   style={{
                     display: "flex",

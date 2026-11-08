@@ -697,17 +697,17 @@ router.post("/attempt/:attemptId/proctoring-event", authenticateToken, async (re
     const events = attempt.proctoring.events || [];
     const lastEvent = events.length > 0 ? events[events.length - 1] : null;
 
-    // Deduplicate rapid repeat events from browser of exact same type within 800ms
+    // Deduplicate repeat interruption events from browser within 5000ms
     if (
       lastEvent &&
-      lastEvent.type === type &&
       lastEvent.timestamp &&
-      now.getTime() - new Date(lastEvent.timestamp).getTime() < 800
+      now.getTime() - new Date(lastEvent.timestamp).getTime() < 5000
     ) {
       return res.json({
         success: true,
         duplicateIgnored: true,
-        violationsCount: attempt.proctoring.violationsCount,
+        deduplicated: true,
+        violationsCount: attempt.proctoring.violationsCount || 0,
         chancesRemaining: Math.max(0, 5 - (attempt.proctoring.violationsCount || 0)),
         status: attempt.proctoring.status,
       });
@@ -1302,18 +1302,37 @@ router.get("/attempt/:attemptId/report", optionalAuthenticateToken, async (req, 
 
 // -------------------------------------------------------------
 // 10. GET /api/certifications/my-history
-// Returns authenticated user's attempts and earned certificates
+// Returns authenticated user's attempts and earned certificates (optimized lean & paginated summary)
 // -------------------------------------------------------------
 router.get("/my-history", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId || req.user.id;
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = req.query.all === "true" ? 0 : Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
 
-    const attempts = await CertificationAttempt.find({ userId })
+    const totalAttemptsPromise = CertificationAttempt.countDocuments({ userId });
+    const totalCertsPromise = IssuedCertificate.countDocuments({ userId, status: "VALID" });
+
+    let attemptsQuery = CertificationAttempt.find({ userId })
       .sort({ createdAt: -1 })
-      .select("attemptId certId certTitle attemptNumber status percentage score adminNote mcqScore mcqPassed finalVerdict certificateId startTime submittedAt codingSubmissions proctoring");
+      .select("attemptId certId certTitle attemptNumber status percentage score adminNote mcqScore mcqPassed finalVerdict certificateId startTime submittedAt codingSubmissions.solved proctoring.status proctoring.violationsCount")
+      .lean();
 
-    const certificates = await IssuedCertificate.find({ userId, status: "VALID" })
-      .sort({ createdAt: -1 });
+    if (limit > 0) {
+      attemptsQuery = attemptsQuery.skip((page - 1) * limit).limit(limit);
+    }
+
+    const certificatesQuery = IssuedCertificate.find({ userId, status: "VALID" })
+      .sort({ createdAt: -1 })
+      .select("certificateId attemptId userId recipientName certificationId certificationTitle issueDate mcqScore mcqScorePercentage codingScore issuingOrganization verificationUrl status createdAt")
+      .lean();
+
+    const [totalAttempts, totalCertificates, attempts, certificates] = await Promise.all([
+      totalAttemptsPromise,
+      totalCertsPromise,
+      attemptsQuery,
+      certificatesQuery,
+    ]);
 
     const formattedAttempts = attempts.map((att) => ({
       attemptId: att.attemptId,
@@ -1348,6 +1367,15 @@ router.get("/my-history", authenticateToken, async (req, res) => {
       success: true,
       attempts: formattedAttempts,
       certificates,
+      pagination: {
+        page,
+        limit: limit || totalAttempts,
+        totalAttempts,
+        totalCertificates,
+        hasMore: limit > 0 && (page * limit) < totalAttempts,
+      },
+      totalAttempts,
+      totalCertificates,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

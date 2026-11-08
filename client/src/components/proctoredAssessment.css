@@ -1273,6 +1273,35 @@
   box-shadow: 0 4px 14px rgba(37, 99, 235, 0.15);
 }
 
+.mz-spin {
+  animation: mzSpin 1.2s linear infinite;
+}
+
+@keyframes mzSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.mz-preparing-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 14px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+  margin-bottom: 12px;
+}
+
 .mz-preparing-title {
   margin: 0 0 10px;
   font-size: 24px;
@@ -1476,6 +1505,15 @@
   box-shadow: 0 6px 20px rgba(5, 150, 105, 0.45);
 }
 
+.mz-report-secondary-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.mz-report-secondary-btn,
 .mz-return-dashboard-btn {
   display: inline-flex;
   align-items: center;
@@ -1483,18 +1521,52 @@
   gap: 8px;
   padding: 12px 24px;
   border-radius: 12px;
-  background: #f1f5f9;
+  background: #f8fafc;
   color: #334155;
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 600;
-  border: 1px solid #cbd5e1;
+  font-family: inherit;
+  border: 1.5px solid #cbd5e1;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   width: 100%;
+  flex: 1;
+  box-sizing: border-box;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  outline: none;
+  text-decoration: none;
 }
 
+.mz-report-secondary-btn svg,
+.mz-return-dashboard-btn svg {
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.mz-report-secondary-btn:hover,
 .mz-return-dashboard-btn:hover {
-  background: #e2e8f0;
+  background: #f1f5f9;
   color: #0f172a;
+  border-color: #94a3b8;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+}
+
+.mz-report-secondary-btn:hover svg,
+.mz-return-dashboard-btn:hover svg {
+  transform: translateX(-2px);
+}
+
+.mz-report-secondary-btn:active,
+.mz-return-dashboard-btn:active {
+  transform: translateY(0);
+  background: #e2e8f0;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+
+.mz-report-secondary-btn:focus-visible,
+.mz-return-dashboard-btn:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
 }
 

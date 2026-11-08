@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { io } from "socket.io-client";
 import { toast } from "react-toastify";
+import { LuCircleAlert } from "react-icons/lu";
 import MasteryZoneLiveLanding from "./MasteryZoneLiveLanding";
 import MasteryZoneLiveMeeting from "./MasteryZoneLiveMeeting";
 import "./masteryZoneLive.css";
@@ -30,6 +31,8 @@ export default function MasteryZoneLivePlatform({ initialMeetingId = null }) {
   const [socket, setSocket] = useState(null);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
   const [isActionPending, setIsActionPending] = useState(false);
+  const [meetingError, setMeetingError] = useState(null);
+  const [isValidatingMeeting, setIsValidatingMeeting] = useState(Boolean(meetingIdFromRoute));
 
   // 1. Fetch authenticated user profile
   useEffect(() => {
@@ -127,22 +130,109 @@ export default function MasteryZoneLivePlatform({ initialMeetingId = null }) {
     };
   }, [currentUser]);
 
-  // Sync route param changes with security guard against re-entering ended sessions
+  // Validate and sync route param changes for meeting links and browser refreshes
   useEffect(() => {
-    if (meetingIdFromRoute) {
-      const isEnded =
-        sessionStorage.getItem(`mz_meeting_ended_${meetingIdFromRoute}`) === "true" ||
-        localStorage.getItem(`mz_meeting_ended_${meetingIdFromRoute}`) === "true";
-      if (isEnded) {
-        toast.info("This meeting session has ended and cannot be re-entered.", {
-          toastId: `mz_meeting_ended_${meetingIdFromRoute}`,
-        });
-        navigate("/live", { replace: true });
-        return;
-      }
-      setActiveMeetingId(meetingIdFromRoute);
+    let active = true;
+    if (!meetingIdFromRoute) {
+      setActiveMeetingId(null);
+      setMeetingError(null);
+      setIsValidatingMeeting(false);
+      return;
     }
-  }, [meetingIdFromRoute, navigate]);
+
+    async function validateAndJoinMeeting() {
+      setIsValidatingMeeting(true);
+      setMeetingError(null);
+      try {
+        const token = localStorage.getItem("token") || "";
+        let cleanCode = String(meetingIdFromRoute || "").trim().toLowerCase();
+        if (cleanCode.includes("/meeting/")) {
+          cleanCode = cleanCode.split("/meeting/").pop().split("?")[0].split("/")[0];
+        }
+
+        // Validate meeting exists and check status on server
+        let res;
+        try {
+          res = await fetch(`${API_BASE}/api/meetings/${cleanCode}`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          });
+        } catch {
+          res = await fetch(`/api/meetings/${cleanCode}`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          });
+        }
+
+        if (!active) return;
+
+        if (res.status === 404) {
+          setMeetingError({
+            type: "not_found",
+            title: "Meeting Not Found",
+            message: "The meeting link or ID is invalid or does not exist. Please check your link or start a new meeting.",
+          });
+          setIsValidatingMeeting(false);
+          return;
+        }
+
+        const data = await res.json().catch(() => ({}));
+        if (data.isEnded || data.meeting?.status === "ended") {
+          const currentUid = currentUser?._id || currentUser?.id || localStorage.getItem("userId");
+          const isHost = String(data.meeting?.hostUserId) === String(currentUid);
+          if (!isHost) {
+            setMeetingError({
+              type: "ended",
+              title: "Meeting Has Ended",
+              message: "This live collaboration session has concluded and is no longer available to join.",
+            });
+            setIsValidatingMeeting(false);
+            return;
+          }
+        }
+
+        // Properly register participant in backend
+        const effectiveUserName = currentUser?.fullName || currentUser?.username || localStorage.getItem("userName") || "Learner";
+        const effectiveUserId = currentUser?._id || currentUser?.id || localStorage.getItem("userId") || "";
+        try {
+          await fetch(`${API_BASE}/api/meetings/${cleanCode}/join`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify({ fullName: effectiveUserName, guestId: effectiveUserId }),
+          });
+        } catch (jErr) {
+          console.warn("Meeting join registration note:", jErr);
+        }
+
+        if (active) {
+          const actualId = data.meeting?.meetingId || cleanCode;
+          if (data.isHost) {
+            sessionStorage.setItem(`mz_host_${actualId}`, "true");
+          }
+          setActiveMeetingId(actualId);
+          setMeetingError(null);
+          setIsValidatingMeeting(false);
+        }
+      } catch (err) {
+        if (active) {
+          setMeetingError({
+            type: "error",
+            title: "Unable to Join Meeting",
+            message: err.message || "Failed to validate meeting link. Please check your network connection.",
+          });
+          setIsValidatingMeeting(false);
+        }
+      }
+    }
+
+    if (!isLoadingUser) {
+      validateAndJoinMeeting();
+    }
+    return () => {
+      active = false;
+    };
+  }, [meetingIdFromRoute, isLoadingUser, currentUser]);
 
   // 3. Action Handlers
   const handleStartMeeting = async ({ title, groupKey }) => {
@@ -286,12 +376,8 @@ export default function MasteryZoneLivePlatform({ initialMeetingId = null }) {
     } catch (e) {
       console.warn("Media shutdown warning:", e);
     }
-    const leavingId = activeMeetingId;
-    if (leavingId) {
-      sessionStorage.setItem(`mz_meeting_ended_${leavingId}`, "true");
-      localStorage.setItem(`mz_meeting_ended_${leavingId}`, "true");
-    }
     setActiveMeetingId(null);
+    setMeetingError(null);
     if (window.location.pathname.startsWith("/meeting")) {
       navigate("/live", { replace: true });
     }
@@ -301,10 +387,52 @@ export default function MasteryZoneLivePlatform({ initialMeetingId = null }) {
     navigate("/home", { replace: true });
   };
 
-  if (isLoadingUser) {
+  if (isLoadingUser || isValidatingMeeting) {
     return (
       <div className="mzl-container" style={{ alignItems: "center", justifyContent: "center" }}>
-        <div style={{ color: "#2563eb", fontWeight: 600 }}>Loading Mastery Zone Live...</div>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+          <div className="mzl-spinner" style={{ width: 36, height: 36, border: "3px solid #e2e8f0", borderTopColor: "#2563eb", borderRadius: "50%", animation: "mzlSpin 0.8s linear infinite" }} />
+          <div style={{ color: "#2563eb", fontWeight: 700, fontSize: 14 }}>
+            {isValidatingMeeting ? "Joining secure meeting room..." : "Loading Mastery Zone Live..."}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (meetingError) {
+    return (
+      <div className="mzl-container" style={{ alignItems: "center", justifyContent: "center", padding: 24, minHeight: "100vh" }}>
+        <div style={{ maxWidth: 460, width: "100%", background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 16, padding: "36px 28px", textAlign: "center", boxShadow: "0 10px 30px rgba(15, 23, 42, 0.08)" }}>
+          <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#fee2e2", color: "#ef4444", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+            <LuAlertCircle size={30} />
+          </div>
+          <h2 style={{ fontSize: 20, fontWeight: 800, color: "#0f172a", margin: "0 0 8px" }}>
+            {meetingError.title}
+          </h2>
+          <p style={{ fontSize: 13.5, color: "#64748b", lineHeight: 1.5, margin: "0 0 24px" }}>
+            {meetingError.message}
+          </p>
+          <div style={{ display: "flex", gap: 12 }}>
+            <button
+              type="button"
+              onClick={() => {
+                setMeetingError(null);
+                navigate("/live", { replace: true });
+              }}
+              style={{ flex: 1, padding: "10px 16px", borderRadius: 8, background: "#2563eb", color: "#ffffff", border: "none", fontWeight: 700, cursor: "pointer", fontSize: 13 }}
+            >
+              Live Platform
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate("/home", { replace: true })}
+              style={{ flex: 1, padding: "10px 16px", borderRadius: 8, background: "#f1f5f9", color: "#334155", border: "1px solid #cbd5e1", fontWeight: 600, cursor: "pointer", fontSize: 13 }}
+            >
+              Dashboard
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
