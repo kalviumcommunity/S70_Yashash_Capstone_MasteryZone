@@ -700,19 +700,18 @@ function formatLocalReport(matched, uObj, rawId) {
 
   if (loading) {
     return (
-      <div className="mz-report-root" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ textAlign: "center", padding: "48px 24px" }}>
-          <RefreshCw
-            size={38}
-            color="#5B46F8"
-            style={{ animation: "spin 1s linear infinite", marginBottom: 14 }}
-          />
-          <h2 style={{ fontSize: "1.25rem", fontWeight: 800, margin: "0 0 6px", color: "#0f172a" }}>
-            Loading Official Assessment Report...
+      <div className="mz-report-root" style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
+        <div style={{ textAlign: "center", padding: "48px 24px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <div className="mz-simple-spinner" style={{ marginBottom: 16 }} />
+          <h2 style={{ fontSize: "1.25rem", fontWeight: 700, margin: "0 0 6px", color: "#0f172a" }}>
+            Loading Results...
           </h2>
-          <p style={{ color: "#64748b", fontSize: "0.9rem", margin: 0 }}>
-            Retrieving candidate submission, code snapshot, and test-case telemetry.
+          <p style={{ color: "#64748b", fontSize: "0.9rem", margin: "0 0 16px" }}>
+            Please wait while your report is loaded.
           </p>
+          <div className="mz-simple-progress-bar">
+            <div className="mz-simple-progress-fill" />
+          </div>
         </div>
       </div>
     );
