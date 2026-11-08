@@ -293,9 +293,10 @@ router.get("/study-rooms", async (req, res) => {
 // -------------------------------------------------------------
 router.post("/create", optionalAuthToken, async (req, res) => {
   const mongoose = require("mongoose");
+  // Derive user identity strictly from authenticated token; never trust client-supplied userId
   const userId = req.user
     ? String(req.user.userId || req.user.id || req.user._id)
-    : String(req.body.userId || req.body.guestId || "user_" + Math.random().toString(36).slice(2, 10));
+    : ("guest_" + crypto.randomBytes(6).toString("hex"));
   const {
     title = "DSA Practice",
     groupKey = "dsa",
@@ -303,6 +304,13 @@ router.post("/create", optionalAuthToken, async (req, res) => {
     initialCode,
     initialLanguage = "python",
   } = req.body;
+
+  if (isPrivate && !req.user) {
+    return res.status(401).json({
+      success: false,
+      message: "Authentication required to create a private meeting.",
+    });
+  }
 
   const cleanTitle = (title || "DSA Practice").trim();
   const lockKey = `${userId}_${cleanTitle.toLowerCase()}`;
@@ -523,6 +531,16 @@ router.get("/:meetingId", optionalAuthToken, async (req, res) => {
 
     const currentUserId = String(req.user?.userId || req.user?.id || req.user?._id || "");
     const isHost = Boolean(currentUserId && String(meeting.hostUserId) === currentUserId);
+    const isAdmin = Boolean(req.user?.role === "admin" || req.user?.role === "SUPER_ADMIN" || req.user?.isMainAdmin);
+    const isParticipant = (meeting.participants || []).some((p) => String(p.userId) === currentUserId);
+
+    if (meeting.isPrivate && !isHost && !isParticipant && !isAdmin) {
+      return res.status(403).json({
+        success: false,
+        isPrivate: true,
+        message: "This is a private meeting. You are not authorized to view or join it.",
+      });
+    }
 
     if (meeting.status === "ended" || meeting.isEnded === true) {
       return res.status(200).json({
@@ -552,14 +570,6 @@ router.post("/:meetingId/join", optionalAuthToken, async (req, res) => {
   try {
     const cleanId = normalizeMeetingId(req.params.meetingId);
     const nonDashed = cleanId.replace(/-/g, "");
-    const userId = req.user?.userId || req.user?.id || req.user?._id || req.body?.guestId || req.query?.guestId || ("guest_" + Math.random().toString(36).slice(2, 10));
-    
-    let user = null;
-    if (req.user) {
-      user = await User.findById(req.user.userId || req.user.id).select("fullName username email avatarUrl").lean();
-    }
-
-    const callerName = user?.fullName || user?.username || req.body?.fullName || req.query?.name || "Participant";
 
     const meeting = await Meeting.findOne({
       $or: [
@@ -577,7 +587,33 @@ router.post("/:meetingId/join", optionalAuthToken, async (req, res) => {
       });
     }
 
-    const isHost = String(meeting.hostUserId) === String(userId);
+    let userId;
+    let callerName;
+    let user = null;
+    let isHost = false;
+
+    if (req.user) {
+      userId = String(req.user.userId || req.user.id || req.user?._id);
+      user = await User.findById(userId).select("fullName username email avatarUrl").lean();
+      callerName = user?.fullName || user?.username || req.user?.name || "Participant";
+      isHost = String(meeting.hostUserId) === String(userId);
+    } else {
+      // Unauthenticated caller: NEVER trust client-supplied userId or guestId to impersonate
+      userId = "guest_" + crypto.randomBytes(6).toString("hex");
+      callerName = String(req.body?.fullName || req.query?.name || "Guest").trim();
+      isHost = false; // Unauthenticated guest can NEVER claim host privileges
+    }
+
+    const isAdmin = Boolean(req.user?.role === "admin" || req.user?.role === "SUPER_ADMIN" || req.user?.isMainAdmin);
+    const isExistingParticipant = (meeting.participants || []).some((p) => String(p.userId) === String(userId));
+
+    if (meeting.isPrivate && !isHost && !isExistingParticipant && !isAdmin) {
+      return res.status(403).json({
+        success: false,
+        isPrivate: true,
+        message: "This is a private meeting. You are not authorized to join it.",
+      });
+    }
 
     if (meeting.status === "ended") {
       if (isHost) {
@@ -631,7 +667,17 @@ router.post("/:meetingId/leave", optionalAuthToken, async (req, res) => {
   try {
     const cleanId = normalizeMeetingId(req.params.meetingId);
     const nonDashed = cleanId.replace(/-/g, "");
-    const userId = req.user?.userId || req.user?.id || req.user?._id || req.body?.userId || req.body?.guestId;
+
+    // Only derive userId from authenticated token; never trust client-supplied userId
+    const authenticatedUserId = req.user ? String(req.user.userId || req.user.id || req.user._id) : null;
+    const guestId = !authenticatedUserId && req.body?.guestId && String(req.body.guestId).startsWith("guest_")
+      ? String(req.body.guestId)
+      : null;
+    const effectiveUserId = authenticatedUserId || guestId;
+
+    if (!effectiveUserId) {
+      return res.json({ success: true });
+    }
 
     const meeting = await Meeting.findOne({
       $or: [
@@ -643,13 +689,14 @@ router.post("/:meetingId/leave", optionalAuthToken, async (req, res) => {
     });
     if (meeting) {
       meeting.participants = meeting.participants.map((p) => {
-        if (String(p.userId) === String(userId) && !p.leftAt) {
+        if (String(p.userId) === String(effectiveUserId) && !p.leftAt) {
           p.leftAt = new Date();
         }
         return p;
       });
       const activeCount = meeting.participants.filter((p) => !p.leftAt).length;
-      if (activeCount === 0 && String(meeting.hostUserId) === String(userId)) {
+      // Only authenticated host can trigger meeting status = "ended" upon leave
+      if (activeCount === 0 && authenticatedUserId && String(meeting.hostUserId) === authenticatedUserId) {
         meeting.status = "ended";
         meeting.endedAt = new Date();
       }

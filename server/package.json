@@ -5,7 +5,7 @@
   "main": "server.js",
   "type": "commonjs",
   "scripts": {
-    "test": "node test/auditVerification.test.js && node test/emailSystem.test.js",
+    "test": "node test/auditVerification.test.js && node test/emailSystem.test.js && node test/accountIsolationAndRecording.test.js",
     "test:email": "node test/emailSystem.test.js",
     "start": "node server.js"
   },
@@ -27,5 +27,8 @@
     "qrcode": "^1.5.4",
     "socket.io": "^4.8.3",
     "twilio": "^4.0.0"
+  },
+  "devDependencies": {
+    "socket.io-client": "^4.8.4"
   }
 }

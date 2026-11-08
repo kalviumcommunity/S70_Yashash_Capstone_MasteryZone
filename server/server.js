@@ -24,6 +24,7 @@ const adminRoutes = require("./routes/adminRoutes");
 const supportRoutes = require("./routes/supportRoutes");
 const { bootstrapSuperAdmin } = require("./bootstrap/adminBootstrap");
 const Meeting = require("./models/Meeting");
+const SupportTicket = require("./models/SupportTicket");
 const jwt = require("jsonwebtoken");
 const { getJwtSecret } = require("./config/jwtConfig");
 const User = require("./models/User");
@@ -122,15 +123,51 @@ io.on("connection", (socket) => {
     io.emit("update_online_users", Array.from(onlineUsers.values()));
   });
 
-  // Real-time Support Ticket Chat & Typing Rooms
-  socket.on("join_ticket_room", (ticketId) => {
-    if (ticketId) {
+  // Real-time Support Ticket Chat & Typing Rooms (Strictly Authenticated & Authorized)
+  socket.on("join_ticket_room", async (data) => {
+    const ticketId = typeof data === "object" ? data.ticketId : data;
+    const token = typeof data === "object" ? data.token : null;
+    if (!ticketId) return;
+
+    if (token) {
+      joinUserRoomFromToken(token);
+    }
+
+    const uid = socket.data.userId;
+    const role = socket.data.userRole;
+    const isAdmin = role === "admin" || role === "SUPER_ADMIN" || socket.data.isMainAdmin;
+
+    if (!uid && !isAdmin) {
+      socket.emit("ticket_auth_error", { message: "Authentication required to access support ticket." });
+      return;
+    }
+
+    if (isAdmin) {
       socket.join(`ticket_${ticketId}`);
-      console.log(`📡 Socket ${socket.id} joined room ticket_${ticketId}`);
+      console.log(`📡 Admin socket ${socket.id} joined room ticket_${ticketId}`);
+      return;
+    }
+
+    try {
+      const ticket = await SupportTicket.findOne({ ticketId }).select("userId").lean();
+      if (!ticket) {
+        socket.emit("ticket_auth_error", { message: "Support ticket not found." });
+        return;
+      }
+      if (String(ticket.userId) !== String(uid)) {
+        console.warn(`🚨 Unauthorized socket ${socket.id} (user ${uid}) attempted to access ticket_${ticketId}`);
+        socket.emit("ticket_auth_error", { message: "Access denied. You do not own this ticket." });
+        return;
+      }
+      socket.join(`ticket_${ticketId}`);
+      console.log(`📡 Authorized student socket ${socket.id} joined room ticket_${ticketId}`);
+    } catch (err) {
+      console.error("Ticket room auth error:", err.message);
     }
   });
 
-  socket.on("leave_ticket_room", (ticketId) => {
+  socket.on("leave_ticket_room", (data) => {
+    const ticketId = typeof data === "object" ? data.ticketId : data;
     if (ticketId) {
       socket.leave(`ticket_${ticketId}`);
       console.log(`📡 Socket ${socket.id} left room ticket_${ticketId}`);
@@ -138,7 +175,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("ticket_typing", (data) => {
-    if (data?.ticketId) {
+    if (data?.ticketId && socket.data.userId) {
       socket.to(`ticket_${data.ticketId}`).emit("ticket_typing_update", {
         ticketId: data.ticketId,
         userName: data.userName || "User",
@@ -151,7 +188,8 @@ io.on("connection", (socket) => {
   // Real-time user activity heartbeat for Super Admin live activity monitoring
   socket.on("user_activity_heartbeat", async (data) => {
     if (!data) return;
-    const uid = socket.data.userId || data.userId;
+    // Derive identity strictly from authenticated socket session; never trust client-supplied data.userId
+    const uid = socket.data.userId;
     if (!uid || uid === "guest") return; // Exclude non-authenticated guest sessions
 
     let userInfo = null;
