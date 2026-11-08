@@ -752,9 +752,12 @@ export default function Coding() {
       if (
         event.data?.type === "MZ_MODULE_STUDIED" ||
         event.data?.type === "MZ_EXAM_COMPLETED" ||
-        event.data?.type === "MZ_ASSIGNMENT_PASSED"
+        event.data?.type === "MZ_ASSIGNMENT_PASSED" ||
+        event.data?.type === "mz_module_progress_updated"
       ) {
-        fetchCurriculum(activeTrackId);
+        if (activeTrackId) {
+          fetchCurriculum(activeTrackId);
+        }
         fetchDashboardData();
       }
     };
@@ -867,6 +870,55 @@ export default function Coding() {
 
   useEffect(() => {
     fetchDashboardData();
+
+    const handleProjectPassed = (e) => {
+      const pid = e.detail?.projectId;
+      if (pid) {
+        setProjects((prev) =>
+          prev.map((p) => {
+            if (p.id === pid) {
+              return {
+                ...p,
+                userState: {
+                  ...p.userState,
+                  passed: true,
+                  badgeAwarded: true,
+                  status: "PASSED",
+                  bestScore: Math.max(p.userState?.bestScore || 0, p.passingMarks || 80),
+                  progressPercent: 100,
+                },
+              };
+            }
+            return p;
+          })
+        );
+      }
+      fetchDashboardData();
+    };
+
+    const handleChallengeSolved = (e) => {
+      const chId = e.detail?.challengeId;
+      if (chId) {
+        setChallenges((prev) =>
+          prev.map((c) => (c.id === chId ? { ...c, solved: true, isCompleted: true } : c))
+        );
+      }
+      fetchDashboardData();
+    };
+
+    const handleCertAwarded = () => {
+      fetchDashboardData();
+    };
+
+    window.addEventListener("mz_project_passed", handleProjectPassed);
+    window.addEventListener("mz_challenge_solved", handleChallengeSolved);
+    window.addEventListener("mz_certificate_awarded", handleCertAwarded);
+
+    return () => {
+      window.removeEventListener("mz_project_passed", handleProjectPassed);
+      window.removeEventListener("mz_challenge_solved", handleChallengeSolved);
+      window.removeEventListener("mz_certificate_awarded", handleCertAwarded);
+    };
   }, [fetchDashboardData]);
 
   // Fetch real curriculum modules from server
@@ -894,6 +946,66 @@ export default function Coding() {
   useEffect(() => {
     fetchCurriculum(activeTrackId);
   }, [activeTrackId, fetchCurriculum]);
+
+  // Real-time synchronization for curriculum progress across tabs & windows
+  useEffect(() => {
+    const handleSync = () => {
+      if (activeTrackId) {
+        fetchCurriculum(activeTrackId);
+      }
+      fetchDashboardData();
+    };
+
+    const handleStorage = (e) => {
+      if (
+        !e ||
+        e.key === "mz_module_progress_updated" ||
+        e.key === "mz_exam_completed" ||
+        e.key === "mz_assignment_passed" ||
+        e.key === "user"
+      ) {
+        handleSync();
+      }
+    };
+
+    const handleCustomEvent = () => handleSync();
+
+    let bc = null;
+    try {
+      if (typeof BroadcastChannel !== "undefined") {
+        bc = new BroadcastChannel("mz_module_sync");
+        bc.onmessage = () => handleSync();
+      }
+    } catch {}
+
+    const handleFocus = () => handleSync();
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        handleSync();
+      }
+    };
+
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("mz_module_studied", handleCustomEvent);
+    window.addEventListener("mz_assignment_passed", handleCustomEvent);
+    window.addEventListener("mz_exam_completed", handleCustomEvent);
+
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("mz_module_studied", handleCustomEvent);
+      window.removeEventListener("mz_assignment_passed", handleCustomEvent);
+      window.removeEventListener("mz_exam_completed", handleCustomEvent);
+      if (bc) {
+        try {
+          bc.close();
+        } catch {}
+      }
+    };
+  }, [activeTrackId, fetchCurriculum, fetchDashboardData]);
 
   // Concept study lesson timer
   useEffect(() => {
@@ -1022,7 +1134,18 @@ export default function Coding() {
   }, [curriculumData, activeTrack, activeTrackId]);
 
   const completedCount = useMemo(() => {
-    return displayModules.filter((m) => m.assessmentPassed || m.assignmentPassed).length;
+    return displayModules.filter((m) => {
+      const isCodingDone = Boolean(m.assignmentPassed || m.exercisePassed);
+      const isAssessmentDone = Boolean(m.assessmentPassed);
+      return Boolean(
+        m.isCompleted ||
+        m.status === "completed" ||
+        (isCodingDone && isAssessmentDone) ||
+        (Boolean(m.isStudied) && isCodingDone && isAssessmentDone) ||
+        (isAssessmentDone && !m.codingExercise) ||
+        (isCodingDone && !m.assessment)
+      );
+    }).length;
   }, [displayModules]);
 
   const hasStartedLearning = useMemo(() => {
@@ -1191,7 +1314,7 @@ export default function Coding() {
       if (!subjectId) return { isCompleted: false };
       const target = subjectId.toLowerCase();
 
-      // Check earned valid certificates
+      // Check earned valid certificates from database
       const cert = earnedCertificates.find((c) => {
         const cId = (c.certificationId || c.certId || "").toLowerCase();
         return (
@@ -1230,20 +1353,47 @@ export default function Coding() {
             new Date(a.startTime || a.createdAt || 0)
         )[0];
 
-      const isCompleted = Boolean(cert || passedAttempt);
-      const certificateId = cert?.certificateId || passedAttempt?.certificateId || null;
-      const attemptId = passedAttempt?.attemptId || cert?.attemptId || latestAttempt?.attemptId || null;
+      // Local storage persistence check (zero-latency fallback)
+      const uKey = currentUser?._id || currentUser?.id || "guest";
+      const isLocallySubmitted =
+        typeof window !== "undefined" &&
+        (localStorage.getItem(`mz_${uKey}_cert_${target}_submitted`) === "true" ||
+         localStorage.getItem(`mz_cert_${target}_submitted`) === "true");
+
+      const localReports = (() => {
+        try {
+          const reportsKey = uKey !== "guest" ? `mz_${uKey}_assessment_reports` : "mz_assessment_reports";
+          return JSON.parse(localStorage.getItem(reportsKey) || "[]");
+        } catch {
+          return [];
+        }
+      })();
+
+      const localPassedReport = localReports.find((r) => {
+        const cId = (r.certId || r.subjectKey || "").toLowerCase();
+        const matches =
+          cId === target ||
+          (target === "js_cert" && cId === "fullstack_cert") ||
+          (target === "fullstack_cert" && cId === "js_cert") ||
+          (r.assessmentTitle && r.assessmentTitle.toLowerCase().includes(target.replace("_cert", "")));
+        const score = r.performance?.score ?? r.scorecard?.overallPercentage ?? r.score ?? 0;
+        return matches && (r.passed || score >= 80 || r.finalVerdict === "PASSED");
+      });
+
+      const isCompleted = Boolean(cert || passedAttempt || localPassedReport);
+      const certificateId = cert?.certificateId || passedAttempt?.certificateId || localPassedReport?.certificate?.certificateId || null;
+      const attemptId = passedAttempt?.attemptId || cert?.attemptId || localPassedReport?.sessionId || localPassedReport?.attemptId || latestAttempt?.attemptId || null;
 
       return {
         isCompleted,
-        certificate: cert,
+        certificate: cert || localPassedReport?.certificate,
         passedAttempt,
         latestAttempt,
         certificateId,
         attemptId,
       };
     },
-    [earnedCertificates, certAttempts]
+    [earnedCertificates, certAttempts, currentUser]
   );
 
   const handleStartExam = (certId, certTitle, language = "python") => {
@@ -1982,15 +2132,24 @@ export default function Coding() {
                   ) : (
                     displayModules.map((mod, idx) => {
                       const stepNum = typeof mod.moduleIndex === "number" ? mod.moduleIndex + 1 : idx + 1;
-                      const isComplete = Boolean(mod.assessmentPassed);
                       const isStudyDone = Boolean(mod.isStudied);
                       const isCodingDone = Boolean(mod.assignmentPassed || mod.exercisePassed);
+                      const isAssessmentDone = Boolean(mod.assessmentPassed);
+
+                      const isComplete = Boolean(
+                        mod.isCompleted ||
+                        mod.status === "completed" ||
+                        (isCodingDone && isAssessmentDone) ||
+                        (isStudyDone && isCodingDone && isAssessmentDone) ||
+                        (isAssessmentDone && !mod.codingExercise) ||
+                        (isCodingDone && !mod.assessment)
+                      );
 
                       return (
                         <div key={mod.id || idx} className="mz-c-timeline-step">
                           <div
                             className={`mz-c-timeline-node ${
-                              isComplete ? "completed" : isStudyDone || isCodingDone ? "in-progress" : ""
+                              isComplete ? "completed" : isStudyDone || isCodingDone || isAssessmentDone ? "in-progress" : ""
                             }`}
                           >
                             {isComplete ? (
@@ -2019,14 +2178,14 @@ export default function Coding() {
                                   className={`mz-c-mod-status-pill ${
                                     isComplete
                                       ? "passed"
-                                      : isStudyDone || isCodingDone
+                                      : isStudyDone || isCodingDone || isAssessmentDone
                                       ? "in-progress"
                                       : "available"
                                   }`}
                                 >
                                   {isComplete
                                     ? "Completed"
-                                    : isStudyDone || isCodingDone
+                                    : isStudyDone || isCodingDone || isAssessmentDone
                                     ? "In Progress"
                                     : "Available"}
                                 </span>
@@ -2059,7 +2218,7 @@ export default function Coding() {
                                   className={`mz-c-step-badge ${isStudyDone ? "done" : "active-step"}`}
                                   onClick={() => {
                                     const mIdx = typeof mod.moduleIndex === "number" ? mod.moduleIndex : idx;
-                                    window.open(`/concept-learning/${activeTrackId}/${mIdx}`, "_blank", "noopener,noreferrer");
+                                    window.open(`/concept-learning/${activeTrackId}/${mIdx}`, "_blank");
                                   }}
                                   title="Step 1: In-depth Theory & Concept Study"
                                 >
@@ -2074,10 +2233,10 @@ export default function Coding() {
                                     const mIdx = typeof mod.moduleIndex === "number" ? mod.moduleIndex : idx;
                                     if (!isStudyDone) {
                                       toast.warn("Please study the concept lesson first (Step 1).");
-                                      window.open(`/concept-learning/${activeTrackId}/${mIdx}`, "_blank", "noopener,noreferrer");
+                                      window.open(`/concept-learning/${activeTrackId}/${mIdx}`, "_blank");
                                       return;
                                     }
-                                    window.open(`/coding-test/${activeTrackId}/${mIdx}`, "_blank", "noopener,noreferrer");
+                                    window.open(`/coding-test/${activeTrackId}/${mIdx}`, "_blank");
                                   }}
                                   title="Step 2: Practical Coding Test with Monaco IDE"
                                 >
@@ -2087,26 +2246,26 @@ export default function Coding() {
 
                                 <button
                                   type="button"
-                                  className={`mz-c-step-badge ${isComplete ? "done" : isCodingDone ? "active-step" : ""}`}
+                                  className={`mz-c-step-badge ${isAssessmentDone ? "done" : isCodingDone ? "active-step" : ""}`}
                                   onClick={() => {
                                     const mIdx = typeof mod.moduleIndex === "number" ? mod.moduleIndex : idx;
                                     if (!isStudyDone) {
                                       toast.warn("Please study the concept lesson first (Step 1).");
-                                      window.open(`/concept-learning/${activeTrackId}/${mIdx}`, "_blank", "noopener,noreferrer");
+                                      window.open(`/concept-learning/${activeTrackId}/${mIdx}`, "_blank");
                                       return;
                                     }
                                     if (!isCodingDone) {
                                       toast.warn("Please pass the practical coding test first (Step 2).");
-                                      window.open(`/coding-test/${activeTrackId}/${mIdx}`, "_blank", "noopener,noreferrer");
+                                      window.open(`/coding-test/${activeTrackId}/${mIdx}`, "_blank");
                                       return;
                                     }
-                                    window.open(`/proctored-assessment/${activeTrackId}/${mIdx}`, "_blank", "noopener,noreferrer");
+                                    window.open(`/proctored-assessment/${activeTrackId}/${mIdx}`, "_blank");
                                   }}
                                   title="Step 3: Proctored 10-MCQ Exam with Security Gate"
                                 >
                                   <LuShieldCheck size={13} />
                                   <span>
-                                    {isComplete
+                                    {isAssessmentDone
                                       ? `✓ Step 3: Exam Passed (${mod.bestScore || 100}%)`
                                       : "Step 3: 10-MCQ Exam (≥80%)"}
                                   </span>
@@ -2427,6 +2586,17 @@ export default function Coding() {
                     {challenges.filter((c) => c.difficulty?.toLowerCase() === "hard").length || 12}
                   </div>
                 </div>
+                <div className="mz-c-challenges-metric-box">
+                  <div style={{ fontSize: "10.5px", color: "#10b981", textTransform: "uppercase", fontWeight: 800 }}>Completed</div>
+                  <div style={{ fontSize: "19px", fontWeight: 900, color: "#10b981", marginTop: "2px" }}>
+                    {challenges.filter((c) => {
+                      const isLocallySolved =
+                        (currentUserId && currentUserId !== "guest" && typeof window !== "undefined" && window.localStorage?.getItem(`mz_${currentUserId}_ch_solved_${c.id}`) === "true") ||
+                        (typeof window !== "undefined" && window.localStorage?.getItem(`mz_ch_solved_${c.id}`) === "true");
+                      return c.isCompleted || c.solved || isLocallySolved;
+                    }).length}
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -2510,10 +2680,14 @@ export default function Coding() {
                 </div>
               ) : (
                 filteredChallenges.map((ch, idx) => {
+                  const isLocallySolved =
+                    (currentUserId && currentUserId !== "guest" && typeof window !== "undefined" && window.localStorage?.getItem(`mz_${currentUserId}_ch_solved_${ch.id}`) === "true") ||
+                    (typeof window !== "undefined" && window.localStorage?.getItem(`mz_ch_solved_${ch.id}`) === "true");
+
                   const isDone = Boolean(
                     ch.isCompleted ||
                     ch.solved ||
-                    (currentUserId && currentUserId !== "guest" && typeof window !== "undefined" && window.localStorage?.getItem(`mz_${currentUserId}_ch_solved_${ch.id}`) === "true")
+                    isLocallySolved
                   );
                   return (
                     <div
@@ -2602,20 +2776,21 @@ export default function Coding() {
 
                           {isDone ? (
                             <span
+                              className="mz-c-proj-completed-badge"
                               style={{
                                 fontSize: "11px",
                                 fontWeight: 800,
-                                color: "#059669",
-                                background: "#ecfdf5",
-                                border: "1px solid #a7f3d0",
-                                padding: "3px 8px",
+                                color: "#15803d",
+                                background: "#dcfce7",
+                                border: "1px solid #86efac",
+                                padding: "3px 9px",
                                 borderRadius: "12px",
                                 display: "inline-flex",
                                 alignItems: "center",
                                 gap: "4px",
                               }}
                             >
-                              <LuCircleCheck size={13} /> Solved
+                              <LuCircleCheck size={13} /> Completed
                             </span>
                           ) : (
                             <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
@@ -2672,26 +2847,53 @@ export default function Coding() {
                             </span>
                           </div>
 
-                          <button
-                            type="button"
-                            className={`mz-c-btn-solve ${isDone ? "mz-c-btn-completed" : ""}`}
-                            style={{
-                              padding: "7px 15px",
-                              fontSize: "12px",
-                              borderRadius: "8px",
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: "6px",
-                              fontWeight: 700,
-                            }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenChallenge(ch);
-                            }}
-                          >
-                            <span>{isDone ? "Review Solution" : "Solve Challenge"}</span>
-                            <LuArrowRight className="mz-c-solve-arrow" size={13} />
-                          </button>
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                            {isDone && typeof window !== "undefined" && localStorage.getItem(`mz_report_sid_${ch.id}`) && (
+                              <button
+                                type="button"
+                                className="mz-c-btn-solve"
+                                style={{
+                                  padding: "6px 11px",
+                                  fontSize: "11.5px",
+                                  background: "#eff6ff",
+                                  color: "#1d4ed8",
+                                  border: "1px solid #bfdbfe",
+                                  borderRadius: "8px",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "4px",
+                                  fontWeight: 700,
+                                }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const sid = localStorage.getItem(`mz_report_sid_${ch.id}`);
+                                  window.open(`/assessment-report/${sid}`, "_blank", "noopener,noreferrer");
+                                }}
+                              >
+                                <LuAward size={12} /> Report
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              className={`mz-c-btn-solve ${isDone ? "mz-c-btn-completed" : ""}`}
+                              style={{
+                                padding: "7px 15px",
+                                fontSize: "12px",
+                                borderRadius: "8px",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "6px",
+                                fontWeight: 700,
+                              }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenChallenge(ch);
+                              }}
+                            >
+                              <span>{isDone ? "Review Solution" : "Solve Challenge"}</span>
+                              <LuArrowRight className="mz-c-solve-arrow" size={13} />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -2959,7 +3161,18 @@ export default function Coding() {
                 <div className="mz-c-proj-stat-box">
                   <div className="mz-c-proj-stat-label">Completed</div>
                   <div className="mz-c-proj-stat-num" style={{ color: "#4ade80" }}>
-                    {projects.filter((p) => p.userState?.passed && (p.userState?.bestScore ?? 0) >= (p.passingMarks || 80)).length}
+                    {projects.filter((p) => {
+                      const pass = p.passingMarks || 80;
+                      const score = p.userState?.bestScore ?? p.userState?.lastScore ?? 0;
+                      const isLocallyPassed =
+                        (currentUserId && (
+                          localStorage.getItem(`mz_${currentUserId}_proj_passed_${p.id}`) === "true" ||
+                          sessionStorage.getItem(`mz_${currentUserId}_proj_submitted_${p.id}`) === "true"
+                        )) ||
+                        localStorage.getItem(`mz_proj_passed_${p.id}`) === "true" ||
+                        sessionStorage.getItem(`mz_proj_submitted_${p.id}`) === "true";
+                      return isLocallyPassed || (score >= pass && p.userState?.passed) || p.userState?.passed;
+                    }).length}
                   </div>
                   <div className="mz-c-proj-stat-sub">Verified</div>
                 </div>
@@ -2976,10 +3189,20 @@ export default function Coding() {
               {filteredProjects.map((proj) => {
                 const passingThreshold = proj.passingMarks || 80;
                 const bestScore = proj.userState?.bestScore ?? proj.userState?.lastScore ?? 0;
+                const isLocallyPassed =
+                  (currentUserId && (
+                    localStorage.getItem(`mz_${currentUserId}_proj_passed_${proj.id}`) === "true" ||
+                    sessionStorage.getItem(`mz_${currentUserId}_proj_submitted_${proj.id}`) === "true"
+                  )) ||
+                  localStorage.getItem(`mz_proj_passed_${proj.id}`) === "true" ||
+                  sessionStorage.getItem(`mz_proj_submitted_${proj.id}`) === "true";
+
                 const isDone = Boolean(
-                  bestScore >= passingThreshold &&
-                  ((proj.userState?.passed && proj.userState?.badgeAwarded) ||
-                   (String(proj.userState?.status).toUpperCase() === "PASSED" && proj.userState?.passed))
+                  isLocallyPassed ||
+                  (bestScore >= passingThreshold && (proj.userState?.passed || String(proj.userState?.status).toUpperCase() === "PASSED")) ||
+                  proj.userState?.passed ||
+                  String(proj.userState?.status).toUpperCase() === "PASSED" ||
+                  String(proj.userState?.status).toUpperCase() === "COMPLETED"
                 );
                 const techList = proj.technologies || [];
                 const milestonesList = proj.milestones || proj.tasks || [];
@@ -3010,7 +3233,21 @@ export default function Coding() {
                             {proj.difficulty || "Intermediate"}
                           </span>
                           {isDone && (
-                            <span className="mz-c-proj-completed-badge">
+                            <span
+                              className="mz-c-proj-completed-badge"
+                              style={{
+                                background: "#dcfce7",
+                                color: "#15803d",
+                                border: "1px solid #86efac",
+                                fontSize: "11px",
+                                fontWeight: 800,
+                                padding: "3px 9px",
+                                borderRadius: "12px",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "4px",
+                              }}
+                            >
                               <LuCircleCheck size={13} /> Completed
                             </span>
                           )}
@@ -3039,7 +3276,7 @@ export default function Coding() {
                     <div className="mz-c-project-milestones-box">
                       <div className="mz-c-milestone-header">
                         <span className="mz-c-milestone-label">
-                          {isDone ? "✓ All Milestones Verified" : `${milestonesList.length} Guided Milestones`}
+                          {isDone ? "✓ All Milestones Verified • 100%" : `${milestonesList.length} Guided Milestones`}
                         </span>
                         <span className="mz-c-milestone-pct">{progressPct}%</span>
                       </div>
@@ -3061,19 +3298,47 @@ export default function Coding() {
                       <span className="mz-c-proj-xp-badge">
                         <LuZap size={13} color="#f59e0b" /> +{proj.xpReward || 300} XP
                       </span>
-                      <a
-                        href={`/project-workspace/${proj.id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={`mz-c-btn-solve ${isDone ? "mz-c-btn-completed" : ""}`}
-                        style={{ padding: "7px 16px", fontSize: "12.5px", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "6px" }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleOpenProject(proj);
-                        }}
-                      >
-                        {isDone ? "Review Workspace" : "Open Workspace"} <LuArrowRight size={13} />
-                      </a>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        {isDone && (proj.userState?.latestReportSessionId || (typeof window !== "undefined" && localStorage.getItem(`mz_report_sid_${proj.id}`))) && (
+                          <button
+                            type="button"
+                            className="mz-c-btn-solve"
+                            style={{
+                              padding: "6px 12px",
+                              fontSize: "12px",
+                              background: "#eff6ff",
+                              color: "#1d4ed8",
+                              border: "1px solid #bfdbfe",
+                              borderRadius: "8px",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "5px",
+                              cursor: "pointer",
+                              fontWeight: 700,
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const sid = proj.userState?.latestReportSessionId || localStorage.getItem(`mz_report_sid_${proj.id}`);
+                              window.open(`/assessment-report/${sid}`, "_blank", "noopener,noreferrer");
+                            }}
+                          >
+                            <LuAward size={13} /> View Report
+                          </button>
+                        )}
+                        <a
+                          href={`/project-workspace/${proj.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={`mz-c-btn-solve ${isDone ? "mz-c-btn-completed" : ""}`}
+                          style={{ padding: "7px 16px", fontSize: "12.5px", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "6px" }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenProject(proj);
+                          }}
+                        >
+                          {isDone ? "Review Workspace" : "Open Workspace"} <LuArrowRight size={13} />
+                        </a>
+                      </div>
                     </div>
                   </div>
                 );

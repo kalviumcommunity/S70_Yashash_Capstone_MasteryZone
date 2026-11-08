@@ -33,10 +33,11 @@ export default function AssessmentSubmissionFlow({
   const data = summaryData || summary || {};
   const score = data.score !== undefined ? data.score : 100;
   const totalMarks = data.totalMarks || 100;
-  const grade = data.grade || (score >= 90 ? "A+" : score >= 80 ? "A" : "B");
+  const percentage = data.percentage !== undefined ? data.percentage : Math.round((score / Math.max(1, totalMarks)) * 100);
+  const grade = data.grade || (percentage >= 90 ? "A+" : percentage >= 80 ? "A" : "B");
   const passedTests = data.passedTests !== undefined ? data.passedTests : 10;
   const totalTests = data.totalTests || 10;
-  const isPassed = data.passed !== undefined ? data.passed : score >= 80;
+  const isPassed = data.passed !== undefined ? data.passed : (data.status === "PASSED" || percentage >= 80);
 
   const resolvedSessionId =
     sessionId ||
@@ -125,7 +126,7 @@ export default function AssessmentSubmissionFlow({
             <div className="mz-summary-row">
               <span className="mz-summary-label">Grade / Accuracy:</span>
               <span className="mz-summary-value">
-                {score}% (Grade {grade})
+                {percentage}% (Grade {grade})
               </span>
             </div>
             <div className="mz-summary-row">
@@ -183,6 +184,22 @@ export default function AssessmentSubmissionFlow({
                 className="mz-report-secondary-btn mz-return-dashboard-btn"
                 onClick={handleNavigateReturn}
                 data-testid="return-dashboard-btn"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  padding: "12px 24px",
+                  borderRadius: 12,
+                  background: "#f8fafc",
+                  color: "#334155",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  border: "1.5px solid #cbd5e1",
+                  cursor: "pointer",
+                  width: "100%",
+                  boxSizing: "border-box",
+                }}
               >
                 <LuArrowLeft size={16} />
                 <span>Back to Dashboard</span>

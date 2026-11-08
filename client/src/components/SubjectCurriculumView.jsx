@@ -96,6 +96,63 @@ export default function SubjectCurriculumView({
     fetchCurriculum(selectedTrack);
   }, [selectedTrack, fetchCurriculum]);
 
+  // Real-time synchronization for curriculum progress across tabs & windows
+  useEffect(() => {
+    const handleSync = () => {
+      if (selectedTrack) {
+        fetchCurriculum(selectedTrack);
+      }
+    };
+
+    const handleStorage = (e) => {
+      if (
+        !e ||
+        e.key === "mz_module_progress_updated" ||
+        e.key === "mz_exam_completed" ||
+        e.key === "mz_assignment_passed" ||
+        e.key === "user"
+      ) {
+        handleSync();
+      }
+    };
+
+    let bc = null;
+    try {
+      if (typeof BroadcastChannel !== "undefined") {
+        bc = new BroadcastChannel("mz_module_sync");
+        bc.onmessage = () => handleSync();
+      }
+    } catch {}
+
+    const handleFocus = () => handleSync();
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        handleSync();
+      }
+    };
+
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("mz_module_studied", handleSync);
+    window.addEventListener("mz_assignment_passed", handleSync);
+    window.addEventListener("mz_exam_completed", handleSync);
+
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("mz_module_studied", handleSync);
+      window.removeEventListener("mz_assignment_passed", handleSync);
+      window.removeEventListener("mz_exam_completed", handleSync);
+      if (bc) {
+        try {
+          bc.close();
+        } catch {}
+      }
+    };
+  }, [selectedTrack, fetchCurriculum]);
+
   // Handle Study Modal Open & Timer
   const handleOpenStudy = async (module) => {
     const token = localStorage.getItem("token");
@@ -243,7 +300,18 @@ export default function SubjectCurriculumView({
         {curriculumData.modules?.map((module, idx) => {
           const stepNum = idx + 1;
           const isUnlocked = true;
-          const isPassed = module.assessmentPassed;
+          const isStudyDone = Boolean(module.isStudied);
+          const isAssignmentDone = Boolean(module.assignmentPassed || module.exercisePassed);
+          const isAssessmentDone = Boolean(module.assessmentPassed);
+
+          const isPassed = Boolean(
+            module.isCompleted ||
+            module.status === "completed" ||
+            (isAssignmentDone && isAssessmentDone) ||
+            (isStudyDone && isAssignmentDone && isAssessmentDone) ||
+            (isAssessmentDone && !module.practicalAssignment && !module.codingExercise) ||
+            (isAssignmentDone && !module.assessment)
+          );
 
           return (
             <div
@@ -303,6 +371,20 @@ export default function SubjectCurriculumView({
                       }}
                     >
                       <LuClock size={11} /> {module.estimatedTime}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: "11px",
+                        fontWeight: "700",
+                        padding: "2px 8px",
+                        borderRadius: "8px",
+                        letterSpacing: "0.3px",
+                        background: isPassed ? "#ecfdf5" : (isStudyDone || isAssignmentDone || isAssessmentDone) ? "#eff6ff" : "#f1f5f9",
+                        color: isPassed ? "#059669" : (isStudyDone || isAssignmentDone || isAssessmentDone) ? "#2563eb" : "#64748b",
+                        border: `1px solid ${isPassed ? "#a7f3d0" : (isStudyDone || isAssignmentDone || isAssessmentDone) ? "#bfdbfe" : "#e2e8f0"}`,
+                      }}
+                    >
+                      {isPassed ? "Completed" : (isStudyDone || isAssignmentDone || isAssessmentDone) ? "In Progress" : "Available"}
                     </span>
                   </div>
 

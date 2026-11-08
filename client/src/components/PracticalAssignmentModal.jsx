@@ -159,6 +159,57 @@ export default function PracticalAssignmentModal({
       .catch(() => {});
   }, [isCoding, tId, mIdx, activeExercise, initialCode]);
 
+  const notifyAssignmentCompletion = useCallback((resultData) => {
+    try {
+      localStorage.setItem(
+        "mz_module_progress_updated",
+        JSON.stringify({
+          type: "MZ_ASSIGNMENT_PASSED",
+          subjectKey,
+          trackId: tId,
+          moduleIndex: mIdx,
+          time: Date.now(),
+        })
+      );
+    } catch {}
+
+    if (typeof window !== "undefined" && window.opener) {
+      try {
+        window.opener.postMessage(
+          {
+            type: "MZ_ASSIGNMENT_PASSED",
+            subjectKey,
+            trackId: tId,
+            moduleIndex: mIdx,
+          },
+          "*"
+        );
+      } catch {}
+    }
+
+    try {
+      if (typeof BroadcastChannel !== "undefined") {
+        const bc = new BroadcastChannel("mz_module_sync");
+        bc.postMessage({
+          type: "MZ_ASSIGNMENT_PASSED",
+          subjectKey,
+          trackId: tId,
+          moduleIndex: mIdx,
+          timestamp: Date.now(),
+        });
+        bc.close();
+      }
+    } catch {}
+
+    try {
+      window.dispatchEvent(
+        new CustomEvent("mz_assignment_passed", {
+          detail: { subjectKey, trackId: tId, moduleIndex: mIdx, result: resultData },
+        })
+      );
+    } catch {}
+  }, [subjectKey, tId, mIdx]);
+
   // Handle Non-Coding Practical Assignment Submission
   const handleSubmitNonCodingAssignment = async () => {
     if (!userSubmissionText.trim()) {
@@ -192,6 +243,7 @@ export default function PracticalAssignmentModal({
         toast.success(data.feedback || "Assignment approved! Practical requirement cleared.", {
           toastId: "practical_test_result",
         });
+        notifyAssignmentCompletion(data);
         if (onAssignmentPassed) onAssignmentPassed(data);
         setSubmissionFlowStage("ready");
       } else {
@@ -352,6 +404,7 @@ export default function PracticalAssignmentModal({
             data = { error: text || `Server error (${res.status})` };
           }
           if (data.status === "PASSED" || data.passed || data.score >= 80) {
+            notifyAssignmentCompletion(data);
             if (onAssignmentPassed) onAssignmentPassed(data);
           }
           return data;
@@ -387,6 +440,7 @@ export default function PracticalAssignmentModal({
             data = { error: text || `Server error (${res.status})` };
           }
           if (data.status === "PASSED" || data.passed || data.score >= 80) {
+            notifyAssignmentCompletion(data);
             if (onAssignmentPassed) onAssignmentPassed(data);
           }
           return data;

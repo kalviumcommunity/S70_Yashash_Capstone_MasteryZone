@@ -864,6 +864,62 @@ export default function ProctoredAssessmentWorkspace({
         console.warn("Could not cache report locally:", e);
       }
 
+      // Cross-window and cross-tab real-time sync
+      try {
+        localStorage.setItem(
+          "mz_module_progress_updated",
+          JSON.stringify({
+            type: "MZ_EXAM_COMPLETED",
+            subjectKey,
+            trackId: tId,
+            moduleIndex: mIdx,
+            score: data.percentage || data.score,
+            passed: data.passed,
+            time: Date.now(),
+          })
+        );
+      } catch {}
+
+      if (typeof window !== "undefined" && window.opener) {
+        try {
+          window.opener.postMessage(
+            {
+              type: "MZ_EXAM_COMPLETED",
+              subjectKey,
+              trackId: tId,
+              moduleIndex: mIdx,
+              score: data.percentage || data.score,
+              passed: data.passed,
+            },
+            "*"
+          );
+        } catch {}
+      }
+
+      try {
+        if (typeof BroadcastChannel !== "undefined") {
+          const bc = new BroadcastChannel("mz_module_sync");
+          bc.postMessage({
+            type: "MZ_EXAM_COMPLETED",
+            subjectKey,
+            trackId: tId,
+            moduleIndex: mIdx,
+            score: data.percentage || data.score,
+            passed: data.passed,
+            timestamp: Date.now(),
+          });
+          bc.close();
+        }
+      } catch {}
+
+      try {
+        window.dispatchEvent(
+          new CustomEvent("mz_exam_completed", {
+            detail: { subjectKey, trackId: tId, moduleIndex: mIdx, data },
+          })
+        );
+      } catch {}
+
       if (onAssessmentCompleted) {
         onAssessmentCompleted(data);
       }

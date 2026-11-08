@@ -375,11 +375,27 @@ export default function FullScreenConceptLearning({
         autoClose: 2000,
       });
 
+      try {
+        localStorage.setItem("mz_module_progress_updated", JSON.stringify({ type: "MZ_MODULE_STUDIED", trackId: tId, moduleIndex: mIdx, time: Date.now() }));
+      } catch {}
+
       if (typeof window !== "undefined" && window.opener) {
         try {
           window.opener.postMessage({ type: "MZ_MODULE_STUDIED", trackId: tId, moduleIndex: mIdx }, "*");
         } catch {}
       }
+
+      try {
+        if (typeof BroadcastChannel !== "undefined") {
+          const bc = new BroadcastChannel("mz_module_sync");
+          bc.postMessage({ type: "MZ_MODULE_STUDIED", trackId: tId, moduleIndex: mIdx, timestamp: Date.now() });
+          bc.close();
+        }
+      } catch {}
+
+      try {
+        window.dispatchEvent(new CustomEvent("mz_module_studied", { detail: { trackId: tId, moduleIndex: mIdx } }));
+      } catch {}
 
       if (isStandalone || !propModule) {
         setTimeout(() => {

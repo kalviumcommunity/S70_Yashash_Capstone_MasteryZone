@@ -785,6 +785,26 @@ router.get("/:subjectKey/:trackId", authenticateToken, async (req, res, next) =>
       const bestScore = Math.max(state?.bestScore || 0, codingState?.bestScore || 0);
       const attemptsCount = Math.max(state?.attemptsCount || 0, codingState?.attemptsCount || 0);
 
+      const hasPractical = Boolean(m.practicalAssignment || m.codingExercise);
+      const hasAssessment = Boolean(m.assessment);
+
+      const isCompleted = Boolean(
+        state?.isCompleted ||
+        state?.status === "completed" ||
+        codingState?.isCompleted ||
+        codingState?.status === "completed" ||
+        (assignmentPassed && assessmentPassed) ||
+        (hasPractical && hasAssessment ? (assignmentPassed && assessmentPassed) : (assignmentPassed || assessmentPassed)) ||
+        (assessmentPassed && !hasPractical) ||
+        (assignmentPassed && !hasAssessment)
+      );
+
+      const status = isCompleted
+        ? "completed"
+        : (isStudied || assignmentPassed || assessmentPassed)
+        ? "in-progress"
+        : "available";
+
       // Safe questions without exposing answer keys
       const safeQuestions = (m.assessment?.questions || []).map((q) => ({
         id: q.id,
@@ -812,6 +832,9 @@ router.get("/:subjectKey/:trackId", authenticateToken, async (req, res, next) =>
         assignmentPassed,
         exercisePassed: assignmentPassed, // for backward compatibility
         assessmentPassed,
+        isCompleted,
+        status,
+        isComplete: isCompleted,
         bestScore,
         attemptsCount,
         totalQuestions: m.assessment?.questions?.length || 10,
@@ -1088,12 +1111,20 @@ router.post("/assignment/submit", authenticateToken, async (req, res) => {
       const pKey = `${normTrack}_${idx}`;
       const rawCur = subProg.moduleProgress.get(pKey);
       const cur = rawCur && rawCur.toObject ? rawCur.toObject() : (rawCur || {});
+      const willBeCompleted = Boolean(
+        cur.assessmentPassed ||
+        !module.assessment ||
+        cur.isCompleted
+      );
+
       subProg.moduleProgress.set(pKey, {
         ...cur,
         assignmentPassed: true,
         exercisePassed: true,
         assignmentPassedAt: new Date(),
         assignmentFeedback: feedback,
+        isCompleted: willBeCompleted || cur.isCompleted,
+        status: willBeCompleted ? "completed" : "in-progress",
       });
       subProg.markModified("moduleProgress");
       await subProg.save();
@@ -1109,6 +1140,8 @@ router.post("/assignment/submit", authenticateToken, async (req, res) => {
             exercisePassed: true,
             exercisePassedAt: new Date(),
             exerciseCode: code || "",
+            isCompleted: willBeCompleted || cCur.isCompleted,
+            status: willBeCompleted ? "completed" : "in-progress",
           });
           cp.markModified("moduleProgress");
           await cp.save();
@@ -1419,6 +1452,13 @@ router.post("/assessment/submit", authenticateToken, async (req, res) => {
     const newBest = Math.max(prevBest, percentage);
     const attempts = (curState.attemptsCount || 0) + 1;
 
+    const willBeCompleted = passed && Boolean(
+      curState.assignmentPassed ||
+      curState.exercisePassed ||
+      (!module.practicalAssignment && !module.codingExercise) ||
+      curState.isCompleted
+    );
+
     subProg.moduleProgress.set(pKey, {
       ...curState,
       assessmentPassed: passed || !!curState.assessmentPassed,
@@ -1426,6 +1466,8 @@ router.post("/assessment/submit", authenticateToken, async (req, res) => {
       assessmentPassedAt: passed ? new Date() : curState.assessmentPassedAt,
       bestScore: newBest,
       attemptsCount: attempts,
+      isCompleted: willBeCompleted || curState.isCompleted,
+      status: willBeCompleted ? "completed" : "in-progress",
     });
     subProg.markModified("moduleProgress");
 
@@ -1495,6 +1537,8 @@ router.post("/assessment/submit", authenticateToken, async (req, res) => {
         assessmentPassedAt: passed ? new Date() : cCur.assessmentPassedAt,
         bestScore: newBest,
         attemptsCount: attempts,
+        isCompleted: willBeCompleted || cCur.isCompleted,
+        status: willBeCompleted ? "completed" : "in-progress",
       });
       if (passed) {
         const nextLevel = Math.max(cp.trackUnlocks.get(normTrack) || 0, idx + 1);

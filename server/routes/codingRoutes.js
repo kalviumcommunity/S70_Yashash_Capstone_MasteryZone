@@ -2147,6 +2147,27 @@ router.get("/curriculum/:trackId", authenticateToken, async (req, res) => {
         options: q.options,
       }));
 
+      const isStudied = !!state?.isStudied;
+      const exercisePassed = !!state?.exercisePassed;
+      const assessmentPassed = !!state?.assessmentPassed;
+      const hasCoding = !!m.codingExercise;
+      const hasAssessment = !!m.assessment;
+
+      const isCompleted = Boolean(
+        state?.isCompleted ||
+        state?.status === "completed" ||
+        (exercisePassed && assessmentPassed) ||
+        (hasCoding && hasAssessment ? (exercisePassed && assessmentPassed) : (exercisePassed || assessmentPassed)) ||
+        (assessmentPassed && !hasCoding) ||
+        (exercisePassed && !hasAssessment)
+      );
+
+      const status = isCompleted
+        ? "completed"
+        : (isStudied || exercisePassed || assessmentPassed)
+        ? "in-progress"
+        : "available";
+
       return {
         id: m.id,
         trackId: m.trackId,
@@ -2156,9 +2177,12 @@ router.get("/curriculum/:trackId", authenticateToken, async (req, res) => {
         estimatedTime: m.estimatedTime,
         icon: m.icon,
         isUnlocked,
-        isStudied: !!state?.isStudied,
-        exercisePassed: !!state?.exercisePassed,
-        assessmentPassed: !!state?.assessmentPassed,
+        isStudied,
+        exercisePassed,
+        assessmentPassed,
+        isCompleted,
+        status,
+        isComplete: isCompleted,
         bestScore: state?.bestScore || 0,
         attemptsCount: state?.attemptsCount || (state?.exerciseAttempts ? state.exerciseAttempts.length : 0),
         exerciseScore: state?.exerciseScore ?? null,
@@ -2290,6 +2314,24 @@ router.get("/curriculum/:trackId/:moduleIndex", authenticateToken, async (req, r
         isStudied: !!state?.isStudied,
         exercisePassed: !!state?.exercisePassed,
         assessmentPassed: !!state?.assessmentPassed,
+        isCompleted: Boolean(
+          state?.isCompleted ||
+          state?.status === "completed" ||
+          (state?.exercisePassed && state?.assessmentPassed) ||
+          (state?.assessmentPassed && !module.codingExercise) ||
+          (state?.exercisePassed && !module.assessment)
+        ),
+        status: (
+          state?.isCompleted ||
+          state?.status === "completed" ||
+          (state?.exercisePassed && state?.assessmentPassed) ||
+          (state?.assessmentPassed && !module.codingExercise) ||
+          (state?.exercisePassed && !module.assessment)
+        )
+          ? "completed"
+          : (state?.isStudied || state?.exercisePassed || state?.assessmentPassed)
+          ? "in-progress"
+          : "available",
         bestScore: state?.bestScore || 0,
         attemptsCount: state?.attemptsCount || 0,
       },
@@ -2501,6 +2543,12 @@ router.post("/curriculum/exercise/submit", authenticateToken, async (req, res) =
 
     const newBestScore = Math.max(current.bestScore || 0, score);
 
+    const willBeCompleted = isAccepted && Boolean(
+      current.assessmentPassed ||
+      !module.assessment ||
+      current.isCompleted
+    );
+
     // Save current solution as draft, track attempt history and record scores
     progress.moduleProgress.set(pKey, {
       ...current,
@@ -2515,6 +2563,8 @@ router.post("/curriculum/exercise/submit", authenticateToken, async (req, res) =
             exercisePassed: true,
             exerciseCode: code,
             exercisePassedAt: current.exercisePassedAt || new Date(),
+            isCompleted: willBeCompleted,
+            status: willBeCompleted ? "completed" : "in-progress",
           }
         : {
             exercisePassed: false,
@@ -2547,6 +2597,8 @@ router.post("/curriculum/exercise/submit", authenticateToken, async (req, res) =
           exerciseCode: code,
           exercisePassedAt: current.exercisePassedAt || new Date(),
           bestScore: Math.max(curSp.bestScore || 0, score),
+          isCompleted: willBeCompleted || curSp.isCompleted,
+          status: willBeCompleted ? "completed" : "in-progress",
         });
         subProg.markModified("moduleProgress");
         await subProg.save();
@@ -2978,6 +3030,12 @@ router.post("/curriculum/assessment/submit", authenticateToken, async (req, res)
     const newBest = Math.max(prevBest, percentage);
     const attempts = (current.attemptsCount || 0) + 1;
 
+    const willBeCompleted = passed && Boolean(
+      current.exercisePassed ||
+      !module.codingExercise ||
+      current.isCompleted
+    );
+
     progress.moduleProgress.set(pKey, {
       ...current,
       assessmentPassed: passed || !!current.assessmentPassed,
@@ -2985,7 +3043,30 @@ router.post("/curriculum/assessment/submit", authenticateToken, async (req, res)
       assessmentPassedAt: passed ? new Date() : current.assessmentPassedAt,
       bestScore: newBest,
       attemptsCount: attempts,
+      isCompleted: willBeCompleted || current.isCompleted,
+      status: willBeCompleted ? "completed" : "in-progress",
     });
+
+    // Also sync with SubjectProgress
+    try {
+      let subProg = await SubjectProgress.findOne({ userId, subjectKey: "coding" });
+      if (!subProg) subProg = new SubjectProgress({ userId, subjectKey: "coding", activeTrack: trackId });
+      const curSp = subProg.moduleProgress.get(pKey) || {};
+      subProg.moduleProgress.set(pKey, {
+        ...curSp,
+        assessmentPassed: passed || !!curSp.assessmentPassed,
+        assessmentScore: percentage,
+        assessmentPassedAt: passed ? new Date() : curSp.assessmentPassedAt,
+        bestScore: Math.max(curSp.bestScore || 0, percentage),
+        attemptsCount: (curSp.attemptsCount || 0) + 1,
+        isCompleted: willBeCompleted || curSp.isCompleted,
+        status: willBeCompleted ? "completed" : "in-progress",
+      });
+      subProg.markModified("moduleProgress");
+      await subProg.save();
+    } catch (spErr) {
+      console.warn("Could not sync SubjectProgress for coding assessment:", spErr);
+    }
 
     progress.assessmentAttempts.push({
       trackId,
@@ -5153,6 +5234,53 @@ router.post(["/proctored-session/:sessionId/submit", "/proctored-session/submit"
       actionUrl: `/assessment-report/${session.sessionId}`,
       actionLabel: "View Coding Report",
     });
+
+    // Notify Super Admin of Coding Assessment Submission
+    pushAdminNotification({
+      title: isAccepted ? "Coding Challenge Assessment Passed!" : "Coding Assessment Evaluated",
+      message: `${session.candidateDetails?.fullName || "Candidate"} completed ${session.assessmentTitle || "Algorithmic Challenge"} — ${isAccepted ? "ACCEPTED (Completed Badge Awarded)" : "FAILED"} (${totalPassedTests}/${totalTestCases} Tests Passed, Grade ${grade}).`,
+      type: "coding",
+      severity: isAccepted ? "success" : "info",
+      targetId: String(session._id),
+      actionUrl: `/assessment-report/${session.sessionId}`,
+      io: req.app.get("io"),
+    }).catch(() => {});
+
+    // Real-time socket broadcast to Super Admin Centralized Reports
+    try {
+      const io = req.app.get("io");
+      if (io) {
+        const adminCodingReport = {
+          id: session._id,
+          rawId: session._id,
+          itemType: "coding",
+          sessionId: session.sessionId,
+          title: `${session.assessmentTitle || (session.questions && session.questions[0]?.title) || "Algorithmic Challenge"} — Coding Assessment Report`,
+          type: "Coding Challenge Report",
+          recipient: session.candidateDetails?.fullName || "Candidate",
+          email: session.candidateDetails?.email || "",
+          score: `${overallPercentage}%`,
+          rawScore: overallPercentage,
+          maxScore: 100,
+          grade,
+          verificationCode: String(session.sessionId || session._id).slice(-8).toUpperCase(),
+          date: now,
+          status: isAccepted ? "ACCEPTED" : "FAILED",
+          passedTests: totalPassedTests,
+          totalTests: totalTestCases,
+          reportUrl: `/assessment-report/${session.sessionId}`,
+        };
+        io.emit("NEW_REPORT", adminCodingReport);
+        io.emit("NEW_SUBMISSION", {
+          type: "coding",
+          sessionId: session.sessionId,
+          userId: String(userId),
+          passed: isAccepted,
+        });
+      }
+    } catch (socketErr) {
+      console.warn("Socket notification warning for coding:", socketErr.message);
+    }
 
     try {
       const candidateUser = await User.findById(userId).select("fullName username email role").lean();
