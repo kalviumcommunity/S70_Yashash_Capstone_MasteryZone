@@ -198,10 +198,18 @@ export default function MasteryZoneLiveMeeting({
   const recScreenVidRef = useRef(null);
   const recCameraVidRef = useRef(null);
   const recCompositorIntervalRef = useRef(null);
+  const recordingDisplayStreamRef = useRef(null);
+  const recordingStartTimeRef = useRef(null);
 
   // Explicitly turn off camera and microphone hardware tracks
   const stopAllMediaHardware = useCallback(() => {
     try {
+      if (recordingDisplayStreamRef.current) {
+        try {
+          recordingDisplayStreamRef.current.getTracks().forEach((t) => t.stop());
+        } catch {}
+        recordingDisplayStreamRef.current = null;
+      }
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach((t) => {
           try {
@@ -1105,10 +1113,10 @@ export default function MasteryZoneLiveMeeting({
   };
 
   // -------------------------------------------------------------
-  // Meeting Recording (Host Control, Actual Stream Capture & Upload)
-  // Continuous 1280x720 Canvas Compositor + Mixed Web Audio (Guarantees valid 30fps frames & zero corruption)
+  // Meeting Recording (Host Control, Actual Entire Screen + Camera + Mic Recording)
+  // Strictly records the entire screen as-is with all audio sources mixed
   // -------------------------------------------------------------
-  const handleStartRecording = () => {
+  const handleStartRecording = async () => {
     if (!isHost) {
       toast.error("Only the meeting host can record this live session.");
       return;
@@ -1118,11 +1126,33 @@ export default function MasteryZoneLiveMeeting({
     try {
       recordedChunksRef.current = [];
 
-      // 1. Audio Mixing Engine via Web Audio Context
+      // 1. Capture the Entire Screen (however it is: camera, whiteboard, compiler, entire screen)
+      let displayStream;
+      try {
+        displayStream = await navigator.mediaDevices.getDisplayMedia({
+          video: {
+            displaySurface: "monitor",
+            cursor: "always",
+            frameRate: { ideal: 30, max: 60 },
+          },
+          audio: true, // Captures system/display audio if user permits
+        });
+      } catch (dispErr) {
+        if (dispErr.name === "NotAllowedError" || dispErr.message?.includes("Permission denied")) {
+          toast.info("Screen recording was cancelled.");
+          return;
+        }
+        throw dispErr;
+      }
+
+      recordingDisplayStreamRef.current = displayStream;
+
+      // 2. Audio Mixing Engine via Web Audio Context (Mix Microphone + Screen Audio + Remote Peers)
       const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
       const audioCtx = new AudioCtxClass();
       const audioDest = audioCtx.createMediaStreamDestination();
 
+      // Ensure local microphone track is connected
       if (localStreamRef.current && localStreamRef.current.getAudioTracks().length > 0) {
         try {
           const micSource = audioCtx.createMediaStreamSource(localStreamRef.current);
@@ -1130,14 +1160,24 @@ export default function MasteryZoneLiveMeeting({
         } catch (e) {
           console.warn("Could not connect mic track to audio mixer:", e);
         }
+      } else {
+        // Attempt to capture separate mic if not yet initialized
+        try {
+          const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          const micSource = audioCtx.createMediaStreamSource(micStream);
+          micSource.connect(audioDest);
+        } catch (e) {
+          console.warn("Could not capture separate mic for recording:", e);
+        }
       }
 
-      if (screenStreamRef.current && screenStreamRef.current.getAudioTracks().length > 0) {
+      // Mix display / system audio if user shared system audio
+      if (displayStream.getAudioTracks().length > 0) {
         try {
-          const screenAudioSource = audioCtx.createMediaStreamSource(screenStreamRef.current);
-          screenAudioSource.connect(audioDest);
+          const dispAudioSource = audioCtx.createMediaStreamSource(displayStream);
+          dispAudioSource.connect(audioDest);
         } catch (e) {
-          console.warn("Could not connect screen audio to mixer:", e);
+          console.warn("Could not connect display audio to mixer:", e);
         }
       }
 
@@ -1155,252 +1195,21 @@ export default function MasteryZoneLiveMeeting({
 
       recordingAudioCtxRef.current = audioCtx;
 
-      // 2. High-Performance Continuous Compositor Canvas (1280x720 @ 30fps)
-      const canvas = document.createElement("canvas");
-      canvas.width = 1280;
-      canvas.height = 720;
-      const ctx = canvas.getContext("2d", { alpha: false });
-      recordingCanvasRef.current = canvas;
+      // 3. Assemble recording stream from entire display video track + combined audio destination
+      const videoTracks = displayStream.getVideoTracks();
+      const audioTracks = audioDest.stream.getAudioTracks();
+      const captureStream = new MediaStream([
+        ...videoTracks,
+        ...(audioTracks.length > 0 ? audioTracks : displayStream.getAudioTracks()),
+      ]);
 
-      // Sync active streams into mounted decoder elements
-      if (recScreenVidRef.current && screenStreamRef.current) {
-        recScreenVidRef.current.srcObject = screenStreamRef.current;
-        recScreenVidRef.current.play().catch(() => {});
-      }
-      if (recCameraVidRef.current && localStreamRef.current) {
-        recCameraVidRef.current.srcObject = localStreamRef.current;
-        recCameraVidRef.current.play().catch(() => {});
-      }
-
-      let tick = 0;
-      const renderCompositor = () => {
-        tick++;
-        ctx.fillStyle = "#0a0e1a";
-        ctx.fillRect(0, 0, 1280, 720);
-
-        const screenVid = recScreenVidRef.current;
-        const camVid = recCameraVidRef.current;
-
-        const isScreenLive = Boolean(
-          isScreenSharing &&
-          screenStreamRef.current &&
-          screenStreamRef.current.getVideoTracks().some((t) => t.readyState === "live" && t.enabled !== false)
-        );
-        const isCamLive = Boolean(
-          !isVideoOff &&
-          localStreamRef.current &&
-          localStreamRef.current.getVideoTracks().some((t) => t.readyState === "live" && t.enabled !== false)
-        );
-
-        if (screenVid && screenStreamRef.current && screenVid.srcObject !== screenStreamRef.current) {
-          screenVid.srcObject = screenStreamRef.current;
-          screenVid.play().catch(() => {});
-        }
-        if (camVid && localStreamRef.current && camVid.srcObject !== localStreamRef.current) {
-          camVid.srcObject = localStreamRef.current;
-          camVid.play().catch(() => {});
-        }
-
-        if (isScreenLive && screenVid && screenVid.readyState >= 2) {
-          // A. Draw Screen Share (Main 1280x720)
-          ctx.drawImage(screenVid, 0, 0, 1280, 720);
-
-          // Picture-in-Picture Camera Tile (Bottom-Right)
-          if (isCamLive && camVid && camVid.readyState >= 2) {
-            const pipW = 280;
-            const pipH = 158;
-            const pipX = 1280 - pipW - 20;
-            const pipY = 720 - pipH - 20;
-            ctx.save();
-            ctx.fillStyle = "rgba(15, 23, 42, 0.9)";
-            ctx.fillRect(pipX - 4, pipY - 4, pipW + 8, pipH + 8);
-            ctx.strokeStyle = "#3b82f6";
-            ctx.lineWidth = 3;
-            ctx.strokeRect(pipX, pipY, pipW, pipH);
-            ctx.drawImage(camVid, pipX, pipY, pipW, pipH);
-            ctx.fillStyle = "rgba(15, 23, 42, 0.8)";
-            ctx.fillRect(pipX, pipY + pipH - 24, pipW, 24);
-            ctx.fillStyle = "#ffffff";
-            ctx.font = "bold 12px sans-serif";
-            ctx.fillText(currentUser?.fullName || "You (Host)", pipX + 8, pipY + pipH - 7);
-            ctx.restore();
+      // If user clicks native browser "Stop sharing" bar, automatically stop and save recording
+      if (videoTracks[0]) {
+        videoTracks[0].onended = () => {
+          if (recordingStatusRef.current === "recording" || recordingStatusRef.current === "paused") {
+            handleStopRecording();
           }
-        } else {
-          // B. Stage Video Grid (Host + Remote Participants)
-          const remoteDecoders = Array.from(document.querySelectorAll(".mz-rec-remote-decoder"));
-          const activeParticipants = (Array.isArray(participants) ? participants : []).filter(
-            (p) => p && p.socketId && !p.leftAt
-          );
-
-          // Build tiles list
-          const tiles = [
-            {
-              isLocal: true,
-              name: currentUser?.fullName || "You (Host)",
-              isCamOn: Boolean(isCamLive && camVid && camVid.readyState >= 2),
-              videoEl: camVid,
-            },
-            ...activeParticipants.map((p) => {
-              const rVid = remoteDecoders.find((el) => el.getAttribute("data-socket-id") === p.socketId);
-              const rStream = remoteStreams ? remoteStreams[p.socketId] : null;
-              const rCamLive = Boolean(!p.isVideoOff && rStream?.getVideoTracks().some((t) => t.readyState === "live" && t.enabled !== false));
-              return {
-                isLocal: false,
-                name: p.fullName || p.username || "Participant",
-                isCamOn: Boolean(rCamLive && rVid && rVid.readyState >= 2),
-                videoEl: rVid,
-              };
-            }),
-          ];
-
-          if (tiles.length === 1) {
-            // Single Host Tile (Full 1280x720)
-            const t0 = tiles[0];
-            if (t0.isCamOn && t0.videoEl) {
-              ctx.drawImage(t0.videoEl, 0, 0, 1280, 720);
-            } else {
-              // High-contrast collaboration card ensuring non-black video
-              const grad = ctx.createLinearGradient(0, 0, 1280, 720);
-              grad.addColorStop(0, "#090d1f");
-              grad.addColorStop(1, "#1e1b4b");
-              ctx.fillStyle = grad;
-              ctx.fillRect(0, 0, 1280, 720);
-
-              ctx.fillStyle = "rgba(30, 41, 59, 0.8)";
-              if (ctx.roundRect) ctx.roundRect(340, 160, 600, 400, 20);
-              else ctx.fillRect(340, 160, 600, 400);
-              ctx.fill();
-
-              const pulse = Math.sin(tick * 0.08) * 6;
-              ctx.fillStyle = "#3b82f6";
-              ctx.beginPath();
-              ctx.arc(640, 270, 52 + pulse, 0, Math.PI * 2);
-              ctx.fill();
-
-              ctx.fillStyle = "#ffffff";
-              ctx.font = "bold 36px sans-serif";
-              ctx.textAlign = "center";
-              ctx.fillText((t0.name || "H")[0].toUpperCase(), 640, 282);
-
-              ctx.font = "bold 24px sans-serif";
-              ctx.fillText(t0.name, 640, 360);
-
-              ctx.font = "15px sans-serif";
-              ctx.fillStyle = "#94a3b8";
-              ctx.fillText(meetingData.title || "Mastery Zone Live Collaboration Session", 640, 395);
-
-              // Dynamic audio visualizer bars
-              ctx.fillStyle = "#60a5fa";
-              for (let b = 0; b < 12; b++) {
-                const barH = 8 + Math.sin(tick * 0.15 + b) * 16;
-                ctx.fillRect(540 + b * 18, 450 - barH / 2, 8, barH);
-              }
-              ctx.textAlign = "left";
-            }
-          } else if (tiles.length === 2) {
-            // 2 Tiles Side by Side (each 620 x 680)
-            tiles.slice(0, 2).forEach((t, i) => {
-              const x = 15 + i * 635;
-              const y = 20;
-              const w = 615;
-              const h = 680;
-              if (t.isCamOn && t.videoEl) {
-                ctx.drawImage(t.videoEl, x, y, w, h);
-              } else {
-                ctx.fillStyle = "#1e293b";
-                if (ctx.roundRect) ctx.roundRect(x, y, w, h, 14);
-                else ctx.fillRect(x, y, w, h);
-                ctx.fill();
-
-                ctx.fillStyle = i === 0 ? "#3b82f6" : "#10b981";
-                ctx.beginPath();
-                ctx.arc(x + w / 2, y + h / 2 - 30, 48, 0, Math.PI * 2);
-                ctx.fill();
-
-                ctx.fillStyle = "#ffffff";
-                ctx.font = "bold 32px sans-serif";
-                ctx.textAlign = "center";
-                ctx.fillText((t.name || "P")[0].toUpperCase(), x + w / 2, y + h / 2 - 20);
-
-                ctx.font = "bold 18px sans-serif";
-                ctx.fillText(t.name, x + w / 2, y + h / 2 + 40);
-                ctx.textAlign = "left";
-              }
-              // Name banner
-              ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
-              ctx.fillRect(x, y + h - 36, w, 36);
-              ctx.fillStyle = "#ffffff";
-              ctx.font = "bold 14px sans-serif";
-              ctx.fillText(t.name, x + 16, y + h - 12);
-            });
-          } else {
-            // 2x2 Grid (up to 4 tiles)
-            tiles.slice(0, 4).forEach((t, i) => {
-              const col = i % 2;
-              const row = Math.floor(i / 2);
-              const x = 15 + col * 635;
-              const y = 20 + row * 345;
-              const w = 615;
-              const h = 330;
-              if (t.isCamOn && t.videoEl) {
-                ctx.drawImage(t.videoEl, x, y, w, h);
-              } else {
-                ctx.fillStyle = "#1e293b";
-                if (ctx.roundRect) ctx.roundRect(x, y, w, h, 12);
-                else ctx.fillRect(x, y, w, h);
-                ctx.fill();
-
-                ctx.fillStyle = "#6366f1";
-                ctx.beginPath();
-                ctx.arc(x + w / 2, y + h / 2 - 20, 36, 0, Math.PI * 2);
-                ctx.fill();
-
-                ctx.fillStyle = "#ffffff";
-                ctx.font = "bold 26px sans-serif";
-                ctx.textAlign = "center";
-                ctx.fillText((t.name || "P")[0].toUpperCase(), x + w / 2, y + h / 2 - 10);
-
-                ctx.font = "bold 16px sans-serif";
-                ctx.fillText(t.name, x + w / 2, y + h / 2 + 35);
-                ctx.textAlign = "left";
-              }
-              // Name banner
-              ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
-              ctx.fillRect(x, y + h - 30, w, 30);
-              ctx.fillStyle = "#ffffff";
-              ctx.font = "bold 13px sans-serif";
-              ctx.fillText(t.name, x + 12, y + h - 10);
-            });
-          }
-        }
-
-        // Header watermark badge
-        ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
-        ctx.fillRect(20, 20, 420, 44);
-        ctx.fillStyle = "#ffffff";
-        ctx.font = "bold 15px sans-serif";
-        ctx.fillText(meetingData.title || "Mastery Zone Live Meeting", 36, 47);
-
-        // Blinking Red REC Indicator
-        ctx.fillStyle = tick % 60 < 30 ? "#ef4444" : "#7f1d1d";
-        ctx.beginPath();
-        ctx.arc(414, 42, 6, 0, Math.PI * 2);
-        ctx.fill();
-      };
-
-      // Continuous 30fps timer: guarantees frame output even in background tabs
-      if (recCompositorIntervalRef.current) clearInterval(recCompositorIntervalRef.current);
-      recCompositorIntervalRef.current = setInterval(renderCompositor, 1000 / 30);
-      renderCompositor();
-
-      // 3. Assemble composite capture stream
-      const animStream = canvas.captureStream(30);
-      const captureStream = new MediaStream();
-      if (animStream.getVideoTracks()[0]) {
-        captureStream.addTrack(animStream.getVideoTracks()[0]);
-      }
-      if (audioDest.stream.getAudioTracks()[0]) {
-        captureStream.addTrack(audioDest.stream.getAudioTracks()[0]);
+        };
       }
 
       // 4. Initialize MediaRecorder with standard WebM VP8/VP9 and Opus audio
@@ -1429,6 +1238,7 @@ export default function MasteryZoneLiveMeeting({
 
       recorder.start(1000);
       mediaRecorderRef.current = recorder;
+      recordingStartTimeRef.current = Date.now();
       setRecordingStatus("recording");
       setRecordingSeconds(0);
 
@@ -1447,7 +1257,7 @@ export default function MasteryZoneLiveMeeting({
         });
       }
 
-      toast.success("● REC: Meeting recording started");
+      toast.success("● REC: Entire screen recording started (Camera, Screen & Audio captured)");
     } catch (err) {
       console.error("Recording start error:", err);
       toast.error(`Recording failed: ${err.message}`);
@@ -1488,6 +1298,12 @@ export default function MasteryZoneLiveMeeting({
   };
 
   const handleStopRecording = () => {
+    if (recordingDisplayStreamRef.current) {
+      try {
+        recordingDisplayStreamRef.current.getTracks().forEach((t) => t.stop());
+      } catch {}
+      recordingDisplayStreamRef.current = null;
+    }
     if (recCompositorIntervalRef.current) {
       clearInterval(recCompositorIntervalRef.current);
       recCompositorIntervalRef.current = null;
@@ -1532,6 +1348,37 @@ export default function MasteryZoneLiveMeeting({
         return null;
       }
 
+      // Calculate exact duration
+      const exactSeconds = recordingStartTimeRef.current
+        ? Math.max(1, Math.round((Date.now() - recordingStartTimeRef.current) / 1000))
+        : Math.max(1, recordingSeconds);
+
+      // Probe duration from blob metadata if possible
+      const durationFromBlob = await new Promise((resolve) => {
+        const tempVid = document.createElement("video");
+        tempVid.preload = "metadata";
+        const tempUrl = URL.createObjectURL(blob);
+        tempVid.src = tempUrl;
+        tempVid.onloadedmetadata = () => {
+          URL.revokeObjectURL(tempUrl);
+          if (tempVid.duration && isFinite(tempVid.duration) && tempVid.duration > 0) {
+            resolve(Math.round(tempVid.duration));
+          } else {
+            resolve(null);
+          }
+        };
+        tempVid.onerror = () => {
+          URL.revokeObjectURL(tempUrl);
+          resolve(null);
+        };
+        setTimeout(() => {
+          try { URL.revokeObjectURL(tempUrl); } catch {}
+          resolve(null);
+        }, 800);
+      });
+
+      const finalDuration = durationFromBlob || exactSeconds;
+
       const base64Data = await new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onloadend = () => resolve(reader.result);
@@ -1547,9 +1394,9 @@ export default function MasteryZoneLiveMeeting({
 
       const payload = {
         meetingId,
-        title: `${meetingData.title || "Live Meeting"} — ${isScreenSharing ? "Screen Share" : "Collaboration"} (${new Date().toLocaleDateString()})`,
-        recordingType: isScreenSharing ? "Screen Share" : "Meeting",
-        durationSeconds: Math.max(1, recordingSeconds),
+        title: `${meetingData.title || "Live Meeting"} — Screen Recording (${new Date().toLocaleDateString()})`,
+        recordingType: "Entire Screen",
+        durationSeconds: finalDuration,
         participantNames: allNames,
         base64Data,
         mimeType: "video/webm",
@@ -1759,7 +1606,9 @@ export default function MasteryZoneLiveMeeting({
     };
 
     const seenSockets = new Set();
+    const seenUserIds = new Set();
     if (currentSocId) seenSockets.add(currentSocId);
+    if (currentUid) seenUserIds.add(currentUid);
 
     const remoteTiles = [];
     if (Array.isArray(participants)) {
@@ -1770,9 +1619,17 @@ export default function MasteryZoneLiveMeeting({
         // Never duplicate the exact local socket
         if (currentSocId && p.socketId === currentSocId) continue;
 
-        // Deduplicate remote participants strictly by socketId
+        // Never duplicate the local user by userId or email
+        const pUid = String(p.userId || p._id || p.id || "");
+        if (currentUid && pUid && pUid === currentUid) continue;
+        if (currentUser?.email && p.email && p.email.toLowerCase() === currentUser.email.toLowerCase()) continue;
+
+        // Deduplicate remote participants strictly by socketId and userId
         if (seenSockets.has(p.socketId)) continue;
+        if (pUid && seenUserIds.has(pUid)) continue;
+
         seenSockets.add(p.socketId);
+        if (pUid) seenUserIds.add(pUid);
 
         remoteTiles.push({
           ...p,
@@ -2102,6 +1959,30 @@ export default function MasteryZoneLiveMeeting({
 
           <button
             type="button"
+            onClick={() => {
+              if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(() => {});
+              } else {
+                document.exitFullscreen().catch(() => {});
+              }
+            }}
+            style={{
+              background: "#1e293b",
+              color: "#e2e8f0",
+              border: "none",
+              borderRadius: 8,
+              padding: 6,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+            }}
+            title="Toggle Meeting Fullscreen"
+          >
+            <LuMaximize2 size={16} />
+          </button>
+
+          <button
+            type="button"
             onClick={() => setShowSettingsModal(true)}
             style={{
               background: "#1e293b",
@@ -2413,6 +2294,38 @@ export default function MasteryZoneLiveMeeting({
                           ✋ Hand Raised
                         </div>
                       )}
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const tileEl = e.currentTarget.closest(".mzl-tile");
+                          if (!document.fullscreenElement) {
+                            if (tileEl && tileEl.requestFullscreen) {
+                              tileEl.requestFullscreen().catch(() => {});
+                            } else {
+                              document.documentElement.requestFullscreen().catch(() => {});
+                            }
+                          } else {
+                            document.exitFullscreen().catch(() => {});
+                          }
+                        }}
+                        title="Toggle Video Fullscreen"
+                        style={{
+                          background: "rgba(15, 23, 42, 0.6)",
+                          border: "none",
+                          borderRadius: "50%",
+                          width: 28,
+                          height: 28,
+                          color: "#ffffff",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <LuMaximize size={13} />
+                      </button>
 
                       <button
                         type="button"

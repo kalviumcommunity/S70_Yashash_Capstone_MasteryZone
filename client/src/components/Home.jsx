@@ -2105,9 +2105,13 @@ const Home = () => {
                   }}
                 >
                   {recordingsList.map((rec) => {
-                    const mins = Math.floor((rec.durationSeconds || 0) / 60);
-                    const secs = (rec.durationSeconds || 0) % 60;
-                    const durationStr = `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+                    const totalSecs = Math.max(0, Math.round(rec.durationSeconds || 0));
+                    const hrs = Math.floor(totalSecs / 3600);
+                    const mins = Math.floor((totalSecs % 3600) / 60);
+                    const secs = totalSecs % 60;
+                    const durationStr = hrs > 0
+                      ? `${hrs}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
+                      : `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
                     const dateStr = new Date(rec.createdAt).toLocaleDateString([], {
                       month: "short",
                       day: "numeric",
@@ -2164,15 +2168,18 @@ const Home = () => {
                               position: "absolute",
                               bottom: 8,
                               right: 8,
-                              background: "rgba(0, 0, 0, 0.8)",
+                              background: "rgba(0, 0, 0, 0.85)",
                               color: "#ffffff",
-                              padding: "2px 7px",
-                              borderRadius: 4,
+                              padding: "3px 8px",
+                              borderRadius: 6,
                               fontSize: 11,
                               fontWeight: 700,
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 4,
                             }}
                           >
-                            {durationStr}
+                            <LuClock size={11} /> {durationStr}
                           </span>
 
                           <span
@@ -2208,6 +2215,20 @@ const Home = () => {
                           >
                             {rec.title}
                           </h4>
+                          <div
+                            style={{
+                              fontSize: 12,
+                              color: "#2563eb",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 5,
+                              marginBottom: 6,
+                              fontWeight: 700,
+                            }}
+                          >
+                            <LuClock size={13} />
+                            <span>Exact Duration: <strong>{durationStr}</strong></span>
+                          </div>
                           <div
                             style={{
                               fontSize: 12,
@@ -2269,6 +2290,30 @@ const Home = () => {
                           </button>
 
                           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setRenameModalRecording(rec);
+                                setRenameInput(rec.title);
+                              }}
+                              style={{
+                                border: "1px solid #e2e8f0",
+                                background: "#ffffff",
+                                color: "#2563eb",
+                                padding: "5px 9px",
+                                borderRadius: 6,
+                                fontSize: 12,
+                                fontWeight: 600,
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 4,
+                              }}
+                              title="Rename Recording"
+                              data-testid={`rename-recording-${rec.recordingId}`}
+                            >
+                              <LuPencil size={12} /> Rename
+                            </button>
                             <button
                               type="button"
                               onClick={() => handleShareRecording(rec)}
@@ -4907,11 +4952,49 @@ const Home = () => {
               }}
             >
               <div>
-                <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#f8fafc" }}>
-                  {activePlayingRecording.title}
-                </h3>
-                <p style={{ margin: "2px 0 0", fontSize: 12, color: "#94a3b8" }}>
-                  Host: {activePlayingRecording.hostName} • {activePlayingRecording.participantsCount || 1} participant(s)
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#f8fafc" }}>
+                    {activePlayingRecording.title}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRenameModalRecording(activePlayingRecording);
+                      setRenameInput(activePlayingRecording.title);
+                    }}
+                    style={{
+                      border: "1px solid #334155",
+                      background: "#1e293b",
+                      color: "#38bdf8",
+                      padding: "4px 8px",
+                      borderRadius: 6,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
+                    title="Rename Recording"
+                  >
+                    <LuPencil size={12} /> Rename
+                  </button>
+                </div>
+                <p style={{ margin: "4px 0 0", fontSize: 12, color: "#94a3b8", display: "flex", alignItems: "center", gap: 8 }}>
+                  <span>Host: {activePlayingRecording.hostName} • {activePlayingRecording.participantsCount || 1} participant(s)</span>
+                  <span>•</span>
+                  <span style={{ color: "#38bdf8", fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
+                    <LuClock size={12} />
+                    Exact Duration: {(() => {
+                      const t = Math.max(0, Math.round(activePlayingRecording.durationSeconds || 0));
+                      const h = Math.floor(t / 3600);
+                      const m = Math.floor((t % 3600) / 60);
+                      const s = t % 60;
+                      return h > 0
+                        ? `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`
+                        : `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+                    })()}
+                  </span>
                 </p>
               </div>
               <button
@@ -4944,6 +5027,14 @@ const Home = () => {
                 src={getMediaUrl(activePlayingRecording.streamUrl || activePlayingRecording.fileUrl)}
                 controls
                 autoPlay
+                onLoadedMetadata={(e) => {
+                  if (e.target.duration && isFinite(e.target.duration) && e.target.duration > 0) {
+                    const d = Math.round(e.target.duration);
+                    if (!activePlayingRecording.durationSeconds || activePlayingRecording.durationSeconds !== d) {
+                      setActivePlayingRecording((prev) => (prev ? { ...prev, durationSeconds: d } : prev));
+                    }
+                  }
+                }}
                 onTimeUpdate={() => {
                   if (videoPlayerRef.current) {
                     const uId = user?._id || user?.id || user?.userId || "guest";

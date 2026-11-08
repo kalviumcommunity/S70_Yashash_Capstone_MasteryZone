@@ -20,6 +20,7 @@ import {
   LuMaximize,
   LuExternalLink,
   LuTrash2,
+  LuPencil,
 } from "react-icons/lu";
 import io from "socket.io-client";
 import { toast } from "react-toastify";
@@ -36,6 +37,49 @@ const AdminRecordings = () => {
   const [modalTab, setModalTab] = useState("timeline"); // "timeline" | "details"
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [videoError, setVideoError] = useState(false);
+  const [renameModalRecording, setRenameModalRecording] = useState(null);
+  const [renameInput, setRenameInput] = useState("");
+  const [isRenaming, setIsRenaming] = useState(false);
+
+  const handleRenameRecording = async (e) => {
+    e?.preventDefault?.();
+    if (!renameModalRecording || !renameInput.trim()) return;
+    setIsRenaming(true);
+    try {
+      const token = localStorage.getItem("token") || "";
+      const res = await fetch(`${API_BASE}/api/recordings/${renameModalRecording.recordingId}/rename`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ title: renameInput.trim() }),
+      });
+      if (res.ok) {
+        toast.success("Recording renamed successfully!");
+        setData((prev) => {
+          if (!prev) return prev;
+          const updatedRecordings = (prev.recordings || []).map((r) =>
+            r.recordingId === renameModalRecording.recordingId
+              ? { ...r, title: renameInput.trim() }
+              : r
+          );
+          return { ...prev, recordings: updatedRecordings };
+        });
+        if (activeRecording?.recordingId === renameModalRecording.recordingId) {
+          setActiveRecording((prev) => ({ ...prev, title: renameInput.trim() }));
+        }
+        setRenameModalRecording(null);
+      } else {
+        const d = await res.json().catch(() => ({}));
+        toast.error(d.error || "Failed to rename recording");
+      }
+    } catch (err) {
+      toast.error(`Rename error: ${err.message}`);
+    } finally {
+      setIsRenaming(false);
+    }
+  };
 
   const fetchRecordings = async () => {
     try {
@@ -574,6 +618,18 @@ const AdminRecordings = () => {
                     <span>Playback & Audit</span>
                   </button>
 
+                  <button
+                    onClick={() => {
+                      setRenameModalRecording(r);
+                      setRenameInput(r.title);
+                    }}
+                    className="mz-admin-btn-secondary"
+                    style={{ padding: "8px 10px" }}
+                    title="Rename Recording"
+                  >
+                    <LuPencil style={{ width: 14, height: 14 }} />
+                  </button>
+
                   <a
                     href={getVideoSrc(r)}
                     download={`${r.title?.replace(/[^a-zA-Z0-9_-]/g, "_") || "recording"}.webm`}
@@ -634,6 +690,30 @@ const AdminRecordings = () => {
                 </h3>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <button
+                  onClick={() => {
+                    setRenameModalRecording(activeRecording);
+                    setRenameInput(activeRecording.title);
+                  }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 5,
+                    padding: "5px 10px",
+                    background: "#eff6ff",
+                    color: "#2563eb",
+                    border: "1px solid #bfdbfe",
+                    borderRadius: 6,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                  title="Rename recording"
+                >
+                  <LuPencil style={{ width: 13, height: 13 }} />
+                  <span>Rename</span>
+                </button>
+
                 <a
                   href={getVideoSrc(activeRecording)}
                   target="_blank"
@@ -922,6 +1002,79 @@ const AdminRecordings = () => {
                 Close Audit
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* Rename Recording Modal */}
+      {renameModalRecording && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15, 23, 42, 0.6)",
+            backdropFilter: "blur(4px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 100000,
+            padding: 20,
+          }}
+          onClick={() => setRenameModalRecording(null)}
+        >
+          <div
+            style={{
+              background: "#ffffff",
+              borderRadius: 16,
+              maxWidth: 440,
+              width: "100%",
+              padding: 24,
+              boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ margin: "0 0 8px", fontSize: 17, fontWeight: 700, color: "#0f172a" }}>
+              Rename Recording
+            </h3>
+            <p style={{ margin: "0 0 16px", fontSize: 13, color: "#64748b" }}>
+              Update the title of this recording across student dashboards and admin portals.
+            </p>
+
+            <form onSubmit={handleRenameRecording}>
+              <input
+                type="text"
+                value={renameInput}
+                onChange={(e) => setRenameInput(e.target.value)}
+                autoFocus
+                required
+                style={{
+                  width: "100%",
+                  padding: "10px 14px",
+                  borderRadius: 8,
+                  border: "1px solid #cbd5e1",
+                  fontSize: 14,
+                  outline: "none",
+                  boxSizing: "border-box",
+                  marginBottom: 18,
+                }}
+              />
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+                <button
+                  type="button"
+                  onClick={() => setRenameModalRecording(null)}
+                  className="mz-admin-btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isRenaming}
+                  className="mz-admin-btn-primary"
+                >
+                  {isRenaming ? "Saving..." : "Save Title"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
