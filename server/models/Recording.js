@@ -64,6 +64,11 @@ const recordingSchema = new mongoose.Schema(
       type: Number,
       default: 1,
     },
+    participantUserIds: {
+      type: [String],
+      default: [],
+      index: true,
+    },
     participantNames: {
       type: [String],
       default: [],

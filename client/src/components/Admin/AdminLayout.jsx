@@ -173,71 +173,93 @@ const AdminLayout = () => {
                 className="mz-admin-profile-btn"
               >
                 <div className="mz-admin-avatar">
-                  A
+                  {adminUser?.fullName ? adminUser.fullName.charAt(0).toUpperCase() : "A"}
                 </div>
-                <span className="mz-admin-name">Admin</span>
-                <LuChevronDown style={{ width: 14, height: 14, color: '#94a3b8' }} />
+                <span className="mz-admin-name">{adminUser?.fullName || "Admin"}</span>
+                <LuChevronDown className={`mz-c-user-chevron ${profileDropdownOpen ? "open" : ""}`} style={{ width: 14, height: 14 }} />
               </button>
 
               {/* Profile Dropdown Menu */}
               {profileDropdownOpen && (
                 <div
+                  className="mz-c-user-dropdown"
                   onMouseLeave={() => setProfileDropdownOpen(false)}
-                  style={{
-                    position: 'absolute',
-                    right: 0,
-                    top: '100%',
-                    marginTop: 8,
-                    width: 240,
-                    background: '#ffffff',
-                    borderRadius: 14,
-                    boxShadow: '0 20px 30px -10px rgba(0,0,0,0.18), 0 10px 15px -3px rgba(0,0,0,0.1)',
-                    border: '1px solid #e2e8f0',
-                    padding: 8,
-                    zIndex: 9999,
-                  }}
+                  style={{ top: "calc(100% + 8px)", right: 0 }}
                 >
-                  <div style={{ padding: '8px 12px', borderBottom: '1px solid #f1f5f9' }}>
-                    <p style={{ fontWeight: 700, margin: 0, fontSize: 13, color: '#0f172a' }}>{adminUser.fullName || (isMainAdmin ? "MasteryZone Main Admin" : "Administrator")}</p>
-                    <p style={{ fontSize: 11, color: '#64748b', margin: '2px 0 0' }}>{adminUser.email || "yashashyashash1@gmail.com"}</p>
-                    <span style={{ display: 'inline-block', marginTop: 4, padding: '2px 6px', background: isMainAdmin ? '#ede9fe' : '#e0f2fe', color: isMainAdmin ? '#6366f1' : '#0284c7', fontSize: 10, fontWeight: 700, borderRadius: 4 }}>
-                      {isMainAdmin ? "SUPER_ADMIN (MAIN)" : "SECONDARY ADMIN"}
-                    </span>
+                  <div className="mz-c-dropdown-header-card">
+                    <div className="mz-c-dropdown-avatar-wrap">
+                      <div className="mz-c-dropdown-avatar" style={{ background: '#6366f1' }}>
+                        {adminUser?.fullName ? adminUser.fullName.charAt(0).toUpperCase() : "A"}
+                      </div>
+                      <span className="mz-c-dropdown-status-dot" title="Active session" />
+                    </div>
+                    <div className="mz-c-dropdown-header-info">
+                      <div className="mz-c-dropdown-name-row">
+                        <strong className="mz-c-dropdown-name" title={adminUser?.fullName || "Admin"}>
+                          {adminUser?.fullName || (isMainAdmin ? "Main Admin" : "Administrator")}
+                        </strong>
+                        <span className="mz-c-role-badge">
+                          {isMainAdmin ? "Super Admin" : "Admin"}
+                        </span>
+                      </div>
+                      <span className="mz-c-dropdown-sub" title={adminUser?.email || "yashashyashash1@gmail.com"}>
+                        {adminUser?.email || "yashashyashash1@gmail.com"}
+                      </span>
+                    </div>
                   </div>
 
-                  <div style={{ padding: '4px 0' }}>
-                    <button
+                  <div className="mz-c-dropdown-divider" />
+
+                  <div
+                    className="mz-c-dropdown-item"
+                    onClick={() => {
+                      setProfileDropdownOpen(false);
+                      navigate("/home");
+                    }}
+                  >
+                    <span className="mz-c-dropdown-item-icon">
+                      <LuExternalLink size={16} />
+                    </span>
+                    <div className="mz-c-dropdown-item-content">
+                      <span className="mz-c-dropdown-item-title">Switch to Student View</span>
+                      <span className="mz-c-dropdown-item-desc">Return to learner dashboard</span>
+                    </div>
+                  </div>
+
+                  {isMainAdmin && (
+                    <div
+                      className="mz-c-dropdown-item"
                       onClick={() => {
                         setProfileDropdownOpen(false);
-                        navigate("/home");
+                        navigate("/admin/settings");
                       }}
-                      style={{ width: '100%', padding: '8px 12px', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 12.5, color: '#334155', display: 'flex', alignItems: 'center', gap: 8 }}
                     >
-                      <LuExternalLink style={{ width: 14, height: 14, color: '#94a3b8' }} />
-                      <span>Switch to Student View</span>
-                    </button>
-                    {isMainAdmin && (
-                      <button
-                        onClick={() => {
-                          setProfileDropdownOpen(false);
-                          navigate("/admin/settings");
-                        }}
-                        style={{ width: '100%', padding: '8px 12px', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 12.5, color: '#334155', display: 'flex', alignItems: 'center', gap: 8 }}
-                      >
-                        <LuSettings style={{ width: 14, height: 14, color: '#94a3b8' }} />
-                        <span>Admin Settings</span>
-                      </button>
-                    )}
-                  </div>
+                      <span className="mz-c-dropdown-item-icon">
+                        <LuSettings size={16} />
+                      </span>
+                      <div className="mz-c-dropdown-item-content">
+                        <span className="mz-c-dropdown-item-title">Admin Settings</span>
+                        <span className="mz-c-dropdown-item-desc">System configs & moderation</span>
+                      </div>
+                    </div>
+                  )}
 
-                  <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 4 }}>
-                    <button
-                      onClick={handleLogout}
-                      style={{ width: '100%', padding: '8px 12px', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 12.5, color: '#dc2626', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}
-                    >
-                      <LuLogOut style={{ width: 14, height: 14, color: '#dc2626' }} />
-                      <span>Sign Out</span>
-                    </button>
+                  <div className="mz-c-dropdown-divider" />
+
+                  <div
+                    className="mz-c-dropdown-item mz-c-item-danger"
+                    onClick={() => {
+                      setProfileDropdownOpen(false);
+                      handleLogout();
+                    }}
+                  >
+                    <span className="mz-c-dropdown-item-icon">
+                      <LuLogOut size={16} />
+                    </span>
+                    <div className="mz-c-dropdown-item-content">
+                      <span className="mz-c-dropdown-item-title">Sign Out</span>
+                      <span className="mz-c-dropdown-item-desc">End current active session</span>
+                    </div>
                   </div>
                 </div>
               )}

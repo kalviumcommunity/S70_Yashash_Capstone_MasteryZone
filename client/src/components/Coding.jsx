@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { toast } from "react-toastify";
+import UserProfileDropdown from "./UserProfileDropdown.jsx";
 import {
   LuSearch,
   LuX,
@@ -1751,95 +1752,20 @@ export default function Coding() {
                 )}
               </div>
               <span className="mz-c-user-name">{currentUser?.name || "Learner"}</span>
-              <LuChevronDown className="mz-c-user-chevron" size={14} />
+              <LuChevronDown className={`mz-c-user-chevron ${showUserDropdown ? "open" : ""}`} size={14} />
             </div>
 
-            {showUserDropdown && (
-              <div className="mz-c-user-dropdown" role="menu">
-                <div className="mz-c-dropdown-header-card">
-                  <div className="mz-c-dropdown-avatar-wrap">
-                    <div className="mz-c-dropdown-avatar">
-                      {currentUser?.avatar ? (
-                        <img src={currentUser.avatar} alt="User" />
-                      ) : (
-                        (currentUser?.name || "U").charAt(0).toUpperCase()
-                      )}
-                    </div>
-                    <span className="mz-c-dropdown-status-dot" title="Active session" />
-                  </div>
-                  <div className="mz-c-dropdown-header-info">
-                    <div className="mz-c-dropdown-name-row">
-                      <strong className="mz-c-dropdown-name" title={currentUser?.name || "Learner"}>
-                        {currentUser?.name || "Learner"}
-                      </strong>
-                      <span className="mz-c-role-badge">
-                        {String(currentUser?.name || "").toLowerCase().includes("guest") ? "Guest Session" : "Learner"}
-                      </span>
-                    </div>
-                    <span className="mz-c-dropdown-sub" title={currentUser?.email || "learner@masteryzone.com"}>
-                      {currentUser?.email || "learner@masteryzone.com"}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="mz-c-dropdown-divider" />
-
-                <div
-                  className="mz-c-dropdown-item"
-                  onClick={() => {
-                    navigate("/profile");
-                    setShowUserDropdown(false);
-                  }}
-                >
-                  <span className="mz-c-dropdown-item-icon"><LuUser size={16} /></span>
-                  <div className="mz-c-dropdown-item-content">
-                    <span className="mz-c-dropdown-item-title">Profile Settings</span>
-                    <span className="mz-c-dropdown-item-desc">Account details & preferences</span>
-                  </div>
-                </div>
-
-                <div
-                  className="mz-c-dropdown-item"
-                  onClick={() => {
-                    navigate("/progress");
-                    setShowUserDropdown(false);
-                  }}
-                >
-                  <span className="mz-c-dropdown-item-icon"><LuTrendingUp size={16} /></span>
-                  <div className="mz-c-dropdown-item-content">
-                    <span className="mz-c-dropdown-item-title">My Learning Progress</span>
-                    <span className="mz-c-dropdown-item-desc">XP, streaks & completion stats</span>
-                  </div>
-                </div>
-
-                <div
-                  className="mz-c-dropdown-item"
-                  onClick={() => {
-                    setActiveTab("certification");
-                    setShowUserDropdown(false);
-                  }}
-                >
-                  <span className="mz-c-dropdown-item-icon"><LuAward size={16} /></span>
-                  <div className="mz-c-dropdown-item-content">
-                    <div className="mz-c-dropdown-item-title-row">
-                      <span className="mz-c-dropdown-item-title">My Earned Certificates</span>
-                      <span className="mz-c-cert-count-pill">{earnedCertificates.length}</span>
-                    </div>
-                    <span className="mz-c-dropdown-item-desc">Accredited credentials</span>
-                  </div>
-                </div>
-
-                <div className="mz-c-dropdown-divider" />
-
-                <div className="mz-c-dropdown-item mz-c-item-danger" onClick={handleLogout}>
-                  <span className="mz-c-dropdown-item-icon"><LuLogOut size={16} /></span>
-                  <div className="mz-c-dropdown-item-content">
-                    <span className="mz-c-dropdown-item-title">Sign Out</span>
-                    <span className="mz-c-dropdown-item-desc">End current active session</span>
-                  </div>
-                </div>
-              </div>
-            )}
+            <UserProfileDropdown
+              isOpen={showUserDropdown}
+              onClose={() => setShowUserDropdown(false)}
+              user={currentUser}
+              certCount={earnedCertificates.length}
+              onCertificatesClick={() => {
+                setActiveTab("certification");
+                setShowUserDropdown(false);
+              }}
+              onLogout={handleLogout}
+            />
           </div>
         </div>
       </header>

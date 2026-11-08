@@ -26,6 +26,7 @@ import {
 } from "react-icons/lu";
 import { toast } from "react-toastify";
 import NotificationBell from "../NotificationBell";
+import UserProfileDropdown from "../UserProfileDropdown.jsx";
 import { performGlobalLogout } from "../../utils/sessionAuth.js";
 
 const getApiBase = () => {
@@ -317,60 +318,15 @@ export default function MasteryZoneLiveLanding({
               <span className="mz-c-user-name">
                 {currentUser?.name || currentUser?.fullName || "Learner"}
               </span>
-              <LuChevronDown className="mz-c-user-chevron" size={14} />
+              <LuChevronDown className={`mz-c-user-chevron ${showUserDropdown ? "open" : ""}`} size={14} />
             </div>
 
-            {showUserDropdown && (
-              <div className="mz-c-user-dropdown">
-                <div className="mz-c-dropdown-item mz-c-dropdown-header-item">
-                  <strong>{currentUser?.name || currentUser?.fullName || "Learner"}</strong>
-                  <span className="mz-c-dropdown-sub">
-                    {currentUser?.email || "learner@masteryzone.com"}
-                  </span>
-                </div>
-                <div className="mz-c-dropdown-divider" />
-                <div
-                  className="mz-c-dropdown-item"
-                  onClick={() => {
-                    navigate("/profile");
-                    setShowUserDropdown(false);
-                  }}
-                >
-                  <LuUser size={15} /> Profile Settings
-                </div>
-                <div
-                  className="mz-c-dropdown-item"
-                  onClick={() => {
-                    navigate("/progress");
-                    setShowUserDropdown(false);
-                  }}
-                >
-                  <LuTrendingUp size={15} /> My Learning Progress
-                </div>
-                <div
-                  className="mz-c-dropdown-item"
-                  onClick={() => {
-                    navigate("/coding?tab=certification");
-                    setShowUserDropdown(false);
-                  }}
-                >
-                  <LuAward size={15} /> Certifications & Hall
-                </div>
-                <div
-                  className="mz-c-dropdown-item"
-                  onClick={() => {
-                    navigate("/help");
-                    setShowUserDropdown(false);
-                  }}
-                >
-                  <LuCircleHelp size={15} /> Help & Support
-                </div>
-                <div className="mz-c-dropdown-divider" />
-                <div className="mz-c-dropdown-item mz-c-item-danger" onClick={handleLogout}>
-                  <LuLogOut size={15} /> Sign Out
-                </div>
-              </div>
-            )}
+            <UserProfileDropdown
+              isOpen={showUserDropdown}
+              onClose={() => setShowUserDropdown(false)}
+              user={currentUser}
+              onLogout={handleLogout}
+            />
           </div>
         </div>
       </header>
