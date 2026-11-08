@@ -1231,7 +1231,7 @@ const Language = () => {
                 <input
                   type="text"
                   className="lang-fitness-search-input"
-                  placeholder="Search exercises, products, advisors, FAQs, certifications..."
+                  placeholder="Search..."
                   value={searchQuery}
                   onChange={(e) => {
                     const val = e.target.value;

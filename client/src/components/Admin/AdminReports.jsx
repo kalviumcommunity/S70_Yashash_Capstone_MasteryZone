@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   LuFileText,
   LuAward,
@@ -40,6 +40,18 @@ const AdminReports = () => {
   });
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const searchContainerRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target)) {
+        setShowSearchDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
   const [filterType, setFilterType] = useState("all"); // "all" | "Certification Report" | "Assessment Report" | "MCQ Assessment Report"
   const [copiedCodeId, setCopiedCodeId] = useState(null);
 
@@ -505,7 +517,7 @@ const AdminReports = () => {
         }}
       >
         {/* Search Input */}
-        <div style={{ position: "relative", flex: "1 1 340px", maxWidth: 460 }}>
+        <div ref={searchContainerRef} style={{ position: "relative", flex: "1 1 340px", maxWidth: 460 }}>
           <LuSearch
             style={{
               position: "absolute",
@@ -519,9 +531,24 @@ const AdminReports = () => {
           />
           <input
             type="text"
-            placeholder="Search report by user, title, or verification code..."
+            placeholder="Search..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setShowSearchDropdown(true);
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = "#6366f1";
+              e.target.style.background = "#ffffff";
+              if (search.trim()) setShowSearchDropdown(true);
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = "#e2e8f0";
+              e.target.style.background = "#f8fafc";
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setShowSearchDropdown(false);
+            }}
             style={{
               width: "100%",
               padding: "10px 14px 10px 40px",
@@ -533,18 +560,13 @@ const AdminReports = () => {
               background: "#f8fafc",
               transition: "all 0.15s ease",
             }}
-            onFocus={(e) => {
-              e.target.style.borderColor = "#6366f1";
-              e.target.style.background = "#ffffff";
-            }}
-            onBlur={(e) => {
-              e.target.style.borderColor = "#e2e8f0";
-              e.target.style.background = "#f8fafc";
-            }}
           />
           {search && (
             <button
-              onClick={() => setSearch("")}
+              onClick={() => {
+                setSearch("");
+                setShowSearchDropdown(false);
+              }}
               style={{
                 position: "absolute",
                 right: 12,
@@ -554,11 +576,47 @@ const AdminReports = () => {
                 border: "none",
                 color: "#94a3b8",
                 cursor: "pointer",
-                padding: 0,
               }}
             >
               <LuX style={{ width: 14, height: 14 }} />
             </button>
+          )}
+
+          {showSearchDropdown && search.trim().length > 0 && (
+            <div className="mz-global-search-dropdown" style={{ minWidth: 360, left: 0 }}>
+              <div className="mz-global-search-header">
+                <span>Reports matching &ldquo;{search.trim()}&rdquo;</span>
+                <span className="mz-global-search-esc">Press ESC</span>
+              </div>
+              {filteredReports.length === 0 ? (
+                <div className="mz-global-search-empty">
+                  <p>No reports match &ldquo;{search}&rdquo;</p>
+                  <small>Try searching by recipient, title, or verification code</small>
+                </div>
+              ) : (
+                <div className="mz-global-search-group">
+                  {filteredReports.slice(0, 6).map((r, idx) => (
+                    <div
+                      key={r.id || idx}
+                      className="mz-global-search-item"
+                      onClick={() => {
+                        setShowSearchDropdown(false);
+                        handleOpenReportModal(r);
+                      }}
+                    >
+                      <span className="mz-global-search-item-icon">📊</span>
+                      <div className="mz-global-search-item-content">
+                        <div className="mz-global-search-item-title">{r.title || "Report"}</div>
+                        <div className="mz-global-search-item-sub">
+                          {r.recipient} ({r.email}) • Score: {r.score}
+                        </div>
+                      </div>
+                      <span className="mz-global-search-item-action">View Report →</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
         </div>
 

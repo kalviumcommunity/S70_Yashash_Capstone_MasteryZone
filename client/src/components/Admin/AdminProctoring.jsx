@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   LuShield,
   LuCamera,
@@ -13,6 +13,7 @@ import {
   LuActivity,
   LuExternalLink,
   LuRadio,
+  LuX,
 } from "react-icons/lu";
 import io from "socket.io-client";
 
@@ -22,6 +23,18 @@ const AdminProctoring = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const searchContainerRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target)) {
+        setShowSearchDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
   const [statusFilter, setStatusFilter] = useState("all");
   const [liveAlerts, setLiveAlerts] = useState([]);
 
@@ -339,16 +352,25 @@ const AdminProctoring = () => {
 
         {/* Search Bar */}
         <div style={{ padding: "12px 20px", borderBottom: "1px solid #f1f5f9", background: "#fbfcfd" }}>
-          <div style={{ position: "relative", maxWidth: 380 }}>
+          <div ref={searchContainerRef} style={{ position: "relative", maxWidth: 380 }}>
             <LuSearch style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#94a3b8", width: 14, height: 14 }} />
             <input
               type="text"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search candidate, email, assessment, session ID..."
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setShowSearchDropdown(true);
+              }}
+              onFocus={() => {
+                if (searchTerm.trim()) setShowSearchDropdown(true);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setShowSearchDropdown(false);
+              }}
+              placeholder="Search..."
               style={{
                 width: "100%",
-                padding: "8px 12px 8px 34px",
+                padding: "8px 30px 8px 34px",
                 fontSize: 13,
                 border: "1px solid #e2e8f0",
                 borderRadius: 8,
@@ -356,6 +378,65 @@ const AdminProctoring = () => {
                 background: "#ffffff",
               }}
             />
+            {searchTerm && (
+              <button
+                onClick={() => {
+                  setSearchTerm("");
+                  setShowSearchDropdown(false);
+                }}
+                style={{
+                  position: "absolute",
+                  right: 8,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  background: "none",
+                  border: "none",
+                  color: "#94a3b8",
+                  cursor: "pointer",
+                }}
+              >
+                <LuX style={{ width: 13, height: 13 }} />
+              </button>
+            )}
+
+            {showSearchDropdown && searchTerm.trim().length > 0 && (
+              <div className="mz-global-search-dropdown" style={{ minWidth: 340, left: 0 }}>
+                <div className="mz-global-search-header">
+                  <span>Sessions matching &ldquo;{searchTerm.trim()}&rdquo;</span>
+                  <span className="mz-global-search-esc">Press ESC</span>
+                </div>
+                {filteredSessions.length === 0 ? (
+                  <div className="mz-global-search-empty">
+                    <p>No proctoring sessions match &ldquo;{searchTerm}&rdquo;</p>
+                    <small>Try searching by candidate name, email, or session ID</small>
+                  </div>
+                ) : (
+                  <div className="mz-global-search-group">
+                    {filteredSessions.slice(0, 6).map((s) => (
+                      <div
+                        key={s.sessionId}
+                        className="mz-global-search-item"
+                        onClick={() => {
+                          setShowSearchDropdown(false);
+                          handleOpenAudit(s.sessionId);
+                        }}
+                      >
+                        <span className="mz-global-search-item-icon">🛡️</span>
+                        <div className="mz-global-search-item-content">
+                          <div className="mz-global-search-item-title">
+                            {s.candidateDetails?.fullName || "Candidate"}
+                          </div>
+                          <div className="mz-global-search-item-sub">
+                            {s.assessmentTitle || "Proctored Exam"} • {s.sessionId}
+                          </div>
+                        </div>
+                        <span className="mz-global-search-item-action">Audit Log →</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

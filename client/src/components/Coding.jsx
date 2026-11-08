@@ -1706,7 +1706,7 @@ export default function Coding() {
               ref={searchInputRef}
               type="text"
               className="mz-c-search-input"
-              placeholder='Search by Question # (e.g. 1, 22), Challenge Title, Track, or Project...'
+              placeholder="Search..."
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
@@ -2919,7 +2919,7 @@ export default function Coding() {
                 <LuSearch size={16} color="#64748b" />
                 <input
                   type="text"
-                  placeholder="Search by title, topic, or instructor..."
+                  placeholder="Search..."
                   value={videoSearchQuery}
                   onChange={(e) => setVideoSearchQuery(e.target.value)}
                 />

@@ -1233,7 +1233,7 @@ const Fitness = () => {
                 <input
                   type="text"
                   className="fitness-search-input"
-                  placeholder="Search exercises, products, advisors, FAQs, certifications..."
+                  placeholder="Search..."
                   value={searchQuery}
                   onChange={(e) => {
                     const val = e.target.value;

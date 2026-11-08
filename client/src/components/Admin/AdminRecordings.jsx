@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   LuVideo,
   LuPlay,
@@ -31,6 +31,18 @@ const AdminRecordings = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const searchContainerRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target)) {
+        setShowSearchDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
   const [typeFilter, setTypeFilter] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
   const [activeRecording, setActiveRecording] = useState(null);
@@ -353,7 +365,7 @@ const AdminRecordings = () => {
         }}
       >
         {/* Search Input */}
-        <div style={{ position: "relative", minWidth: 280, flex: "1 1 300px" }}>
+        <div ref={searchContainerRef} style={{ position: "relative", minWidth: 280, flex: "1 1 300px" }}>
           <LuSearch
             style={{
               position: "absolute",
@@ -368,8 +380,17 @@ const AdminRecordings = () => {
           <input
             type="text"
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by meeting title, host, candidate, or recording ID..."
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setShowSearchDropdown(true);
+            }}
+            onFocus={() => {
+              if (searchTerm.trim()) setShowSearchDropdown(true);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setShowSearchDropdown(false);
+            }}
+            placeholder="Search..."
             style={{
               width: "100%",
               padding: "9px 12px 9px 36px",
@@ -380,6 +401,63 @@ const AdminRecordings = () => {
               boxSizing: "border-box",
             }}
           />
+          {searchTerm && (
+            <button
+              onClick={() => {
+                setSearchTerm("");
+                setShowSearchDropdown(false);
+              }}
+              style={{
+                position: "absolute",
+                right: 10,
+                top: "50%",
+                transform: "translateY(-50%)",
+                background: "none",
+                border: "none",
+                color: "#94a3b8",
+                cursor: "pointer",
+              }}
+            >
+              <LuX style={{ width: 14, height: 14 }} />
+            </button>
+          )}
+
+          {showSearchDropdown && searchTerm.trim().length > 0 && (
+            <div className="mz-global-search-dropdown" style={{ minWidth: 320, left: 0 }}>
+              <div className="mz-global-search-header">
+                <span>Recordings matching &ldquo;{searchTerm.trim()}&rdquo;</span>
+                <span className="mz-global-search-esc">Press ESC</span>
+              </div>
+              {filteredRecordings.length === 0 ? (
+                <div className="mz-global-search-empty">
+                  <p>No recordings match &ldquo;{searchTerm}&rdquo;</p>
+                  <small>Try searching by meeting title, host, or ID</small>
+                </div>
+              ) : (
+                <div className="mz-global-search-group">
+                  {filteredRecordings.slice(0, 6).map((rec) => (
+                    <div
+                      key={rec._id || rec.recordingId}
+                      className="mz-global-search-item"
+                      onClick={() => {
+                        setShowSearchDropdown(false);
+                        handleOpenPlayback(rec);
+                      }}
+                    >
+                      <span className="mz-global-search-item-icon">🎥</span>
+                      <div className="mz-global-search-item-content">
+                        <div className="mz-global-search-item-title">{rec.title || "Untitled Session"}</div>
+                        <div className="mz-global-search-item-sub">
+                          {rec.hostName || "Host"} • {rec.durationFormatted || "00:00"}
+                        </div>
+                      </div>
+                      <span className="mz-global-search-item-action">Play →</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Filter Pills */}

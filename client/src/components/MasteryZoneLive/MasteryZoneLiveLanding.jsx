@@ -83,10 +83,22 @@ export default function MasteryZoneLiveLanding({
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [inputCode, setInputCode] = useState("");
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const searchContainerRef = useRef(null);
   const [newMeetingTitle, setNewMeetingTitle] = useState("DSA Practice Session");
   const [newMeetingGroup, setNewMeetingGroup] = useState("dsa");
   const [isCreating, setIsCreating] = useState(false);
   const [recentMeetings, setRecentMeetings] = useState([]);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target)) {
+        setShowSearchDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // Profile dropdown state
   const [showUserDropdown, setShowUserDropdown] = useState(false);
@@ -280,20 +292,84 @@ export default function MasteryZoneLiveLanding({
 
         <div className="mzl-nav-center">
           <form onSubmit={handleJoinSubmit} className="mzl-quick-join-header-form">
-            <div className="mzl-search-wrap">
+            <div className="mzl-search-wrap" ref={searchContainerRef} style={{ position: "relative" }}>
               <LuSearch className="mzl-search-icon" />
               <input
                 type="text"
                 className="mzl-search-input"
-                placeholder="Enter meeting code or link to join..."
+                placeholder="Search..."
                 value={inputCode}
-                onChange={(e) => setInputCode(e.target.value)}
+                onChange={(e) => {
+                  setInputCode(e.target.value);
+                  setShowSearchDropdown(true);
+                }}
+                onFocus={() => {
+                  if (inputCode.trim()) setShowSearchDropdown(true);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") setShowSearchDropdown(false);
+                }}
                 data-testid="mzl-header-join-input"
               />
               {inputCode.trim() && (
                 <button type="submit" className="mzl-header-quick-join-btn">
                   Join
                 </button>
+              )}
+
+              {showSearchDropdown && inputCode.trim().length > 0 && (
+                <div className="mz-global-search-dropdown" style={{ minWidth: 320, left: 0 }}>
+                  <div className="mz-global-search-header">
+                    <span>Results for &ldquo;{inputCode.trim()}&rdquo;</span>
+                    <span className="mz-global-search-esc">Press ESC</span>
+                  </div>
+
+                  <div className="mz-global-search-group">
+                    <div
+                      className="mz-global-search-item"
+                      onClick={() => {
+                        setShowSearchDropdown(false);
+                        handleJoinSubmit({ preventDefault: () => {} });
+                      }}
+                    >
+                      <span className="mz-global-search-item-icon">⚡</span>
+                      <div className="mz-global-search-item-content">
+                        <div className="mz-global-search-item-title">
+                          Join Room: {inputCode.trim()}
+                        </div>
+                        <div className="mz-global-search-item-sub">
+                          Connect to live session immediately
+                        </div>
+                      </div>
+                      <span className="mz-global-search-item-action">Join →</span>
+                    </div>
+
+                    {(recentMeetings || [])
+                      .filter(
+                        (m) =>
+                          (m.title && m.title.toLowerCase().includes(inputCode.toLowerCase())) ||
+                          (m.meetingId && m.meetingId.toLowerCase().includes(inputCode.toLowerCase()))
+                      )
+                      .slice(0, 4)
+                      .map((m) => (
+                        <div
+                          key={m.meetingId}
+                          className="mz-global-search-item"
+                          onClick={() => {
+                            setShowSearchDropdown(false);
+                            navigate(`/live/${m.meetingId}`);
+                          }}
+                        >
+                          <span className="mz-global-search-item-icon">🎥</span>
+                          <div className="mz-global-search-item-content">
+                            <div className="mz-global-search-item-title">{m.title || "Meeting"}</div>
+                            <div className="mz-global-search-item-sub">{m.meetingId}</div>
+                          </div>
+                          <span className="mz-global-search-item-action">Enter →</span>
+                        </div>
+                      ))}
+                  </div>
+                </div>
               )}
             </div>
           </form>

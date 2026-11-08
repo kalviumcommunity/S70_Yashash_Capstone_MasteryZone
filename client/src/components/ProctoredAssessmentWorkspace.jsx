@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import AssessmentSecurityGate from "./AssessmentSecurityGate";
 import useNavigationLock from "../hooks/useNavigationLock";
+import MasteryZoneGlobalLoader from "./MasteryZoneGlobalLoader";
 import "./proctoredAssessment.css";
 
 // Functional icons from react-icons/lu
@@ -969,34 +970,7 @@ export default function ProctoredAssessmentWorkspace({
   };
 
   if (loadingModule || !module) {
-    return (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          minHeight: "100vh",
-          backgroundColor: "#0d1117",
-          color: "#94a3b8",
-          fontFamily: "'Inter', sans-serif",
-          flexDirection: "column",
-          gap: "16px",
-        }}
-      >
-        <div
-          style={{
-            width: "36px",
-            height: "36px",
-            border: "3px solid #3b82f6",
-            borderTopColor: "transparent",
-            borderRadius: "50%",
-            animation: "spin 1s linear infinite",
-          }}
-        />
-        <p style={{ fontSize: "14px", fontWeight: 500 }}>Initializing Proctored Security Gate...</p>
-        <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
-      </div>
-    );
+    return <MasteryZoneGlobalLoader message="Initializing Proctored Security Gate..." />;
   }
 
   if (stage === "gate") {
@@ -1439,14 +1413,10 @@ export default function ProctoredAssessmentWorkspace({
             ===================================================== */}
         {stage === "results_loading" && (
           <>
-            {/* 1. Results Loading Animation (Simple Normal Animation) */}
+            {/* 1. Results Loading Animation (Single Clean Animated Progress Bar) */}
             {evaluatingState === "evaluating" && (
               <div className="mz-results-preparing-screen">
                 <div className="mz-results-preparing-card mz-simple-loading-card">
-                  <div className="mz-simple-loader">
-                    <div className="mz-simple-spinner" />
-                  </div>
-
                   <h2 className="mz-preparing-title">Loading Results...</h2>
                   <p className="mz-preparing-subtitle">
                     Please wait while your submission is being evaluated.

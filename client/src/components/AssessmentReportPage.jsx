@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import Editor from "@monaco-editor/react";
 import {
@@ -42,6 +42,7 @@ import {
   FiExternalLink as ExternalLink,
 } from "react-icons/fi";
 import "./AssessmentReportPage.css";
+import MasteryZoneGlobalLoader from "./MasteryZoneGlobalLoader";
 
 const API_BASE = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || "";
 
@@ -114,6 +115,18 @@ export default function AssessmentReportPage() {
   // Question Navigator & Filter states
   const [questionFilter, setQuestionFilter] = useState("all"); // 'all' | 'passed' | 'failed' | 'partial' | 'unanswered'
   const [questionSearch, setQuestionSearch] = useState("");
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const searchContainerRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target)) {
+        setShowSearchDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
   const [expandedQuestions, setExpandedQuestions] = useState({ 0: true, 1: true });
   const [selectedProjectFileIdx, setSelectedProjectFileIdx] = useState({});
   const [expandedTestRows, setExpandedTestRows] = useState({});
@@ -699,22 +712,7 @@ function formatLocalReport(matched, uObj, rawId) {
   }, [normalizedQuestions, questionFilter, questionSearch]);
 
   if (loading) {
-    return (
-      <div className="mz-report-root" style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
-        <div style={{ textAlign: "center", padding: "48px 24px", display: "flex", flexDirection: "column", alignItems: "center" }}>
-          <div className="mz-simple-spinner" style={{ marginBottom: 16 }} />
-          <h2 style={{ fontSize: "1.25rem", fontWeight: 700, margin: "0 0 6px", color: "#0f172a" }}>
-            Loading Results...
-          </h2>
-          <p style={{ color: "#64748b", fontSize: "0.9rem", margin: "0 0 16px" }}>
-            Please wait while your report is loaded.
-          </p>
-          <div className="mz-simple-progress-bar">
-            <div className="mz-simple-progress-fill" />
-          </div>
-        </div>
-      </div>
-    );
+    return <MasteryZoneGlobalLoader message="Loading assessment report..." />;
   }
 
   if (error || !report) {
@@ -1496,7 +1494,7 @@ function formatLocalReport(matched, uObj, rawId) {
             <div className="mz-questions-main-panel">
               <div className="mz-questions-panel-toolbar mz-report-print-hide">
                 <div className="mz-questions-toolbar-left">
-                  <div className="mz-q-search-input-wrap">
+                  <div className="mz-q-search-input-wrap" ref={searchContainerRef} style={{ position: "relative" }}>
                     <Search
                       size={14}
                       color="#94A3B8"
@@ -1505,10 +1503,82 @@ function formatLocalReport(matched, uObj, rawId) {
                     <input
                       type="text"
                       className="mz-q-search-input"
-                      placeholder="Search questions..."
+                      placeholder="Search..."
                       value={questionSearch}
-                      onChange={(e) => setQuestionSearch(e.target.value)}
+                      onChange={(e) => {
+                        setQuestionSearch(e.target.value);
+                        setShowSearchDropdown(true);
+                      }}
+                      onFocus={() => {
+                        if (questionSearch.trim()) setShowSearchDropdown(true);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") setShowSearchDropdown(false);
+                      }}
                     />
+                    {questionSearch && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setQuestionSearch("");
+                          setShowSearchDropdown(false);
+                        }}
+                        style={{
+                          position: "absolute",
+                          right: 8,
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          background: "none",
+                          border: "none",
+                          color: "#94a3b8",
+                          cursor: "pointer",
+                          fontSize: 13,
+                        }}
+                      >
+                        ✕
+                      </button>
+                    )}
+
+                    {showSearchDropdown && questionSearch.trim().length > 0 && (
+                      <div className="mz-global-search-dropdown" style={{ minWidth: 320, left: 0 }}>
+                        <div className="mz-global-search-header">
+                          <span>Questions matching &ldquo;{questionSearch.trim()}&rdquo;</span>
+                          <span className="mz-global-search-esc">Press ESC</span>
+                        </div>
+                        {filteredQuestions.length === 0 ? (
+                          <div className="mz-global-search-empty">
+                            <p>No questions match &ldquo;{questionSearch}&rdquo;</p>
+                            <small>Try searching question title or category</small>
+                          </div>
+                        ) : (
+                          <div className="mz-global-search-group">
+                            {filteredQuestions.slice(0, 6).map((q) => (
+                              <div
+                                key={q.questionIndex}
+                                className="mz-global-search-item"
+                                onClick={() => {
+                                  setShowSearchDropdown(false);
+                                  setExpandedQuestions((prev) => ({ ...prev, [q.questionIndex]: true }));
+                                  const el = document.getElementById(`q-card-${q.questionIndex}`);
+                                  if (el) el.scrollIntoView({ behavior: "smooth" });
+                                }}
+                              >
+                                <span className="mz-global-search-item-icon">
+                                  {q.status === "passed" ? "✅" : q.status === "partial" ? "⚠️" : "❌"}
+                                </span>
+                                <div className="mz-global-search-item-content">
+                                  <div className="mz-global-search-item-title">{q.title}</div>
+                                  <div className="mz-global-search-item-sub">
+                                    Q{q.questionIndex + 1} • {q.marksAllocated} Marks ({q.status})
+                                  </div>
+                                </div>
+                                <span className="mz-global-search-item-action">Jump to Q →</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <span style={{ fontSize: "0.8rem", color: "#64748b", fontWeight: 600 }}>
                     Showing {filteredQuestions.length} of {normalizedQuestions.length}{" "}

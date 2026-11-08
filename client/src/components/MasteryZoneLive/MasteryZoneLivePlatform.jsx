@@ -5,6 +5,7 @@ import { toast } from "react-toastify";
 import { LuCircleAlert } from "react-icons/lu";
 import MasteryZoneLiveLanding from "./MasteryZoneLiveLanding";
 import MasteryZoneLiveMeeting from "./MasteryZoneLiveMeeting";
+import MasteryZoneGlobalLoader from "../MasteryZoneGlobalLoader";
 import "./masteryZoneLive.css";
 
 const getBackendUrl = () => {
@@ -389,14 +390,9 @@ export default function MasteryZoneLivePlatform({ initialMeetingId = null }) {
 
   if (isLoadingUser || isValidatingMeeting) {
     return (
-      <div className="mzl-container" style={{ alignItems: "center", justifyContent: "center" }}>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
-          <div className="mzl-spinner" style={{ width: 36, height: 36, border: "3px solid #e2e8f0", borderTopColor: "#2563eb", borderRadius: "50%", animation: "mzlSpin 0.8s linear infinite" }} />
-          <div style={{ color: "#2563eb", fontWeight: 700, fontSize: 14 }}>
-            {isValidatingMeeting ? "Joining secure meeting room..." : "Loading Mastery Zone Live..."}
-          </div>
-        </div>
-      </div>
+      <MasteryZoneGlobalLoader
+        message={isValidatingMeeting ? "Joining secure meeting room..." : "Loading Mastery Zone Live..."}
+      />
     );
   }
 

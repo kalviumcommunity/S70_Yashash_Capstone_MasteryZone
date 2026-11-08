@@ -157,6 +157,8 @@ const Profile = () => {
 
   // Search & Navigation
   const [searchQuery, setSearchQuery] = useState("");
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const searchContainerRef = useRef(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
@@ -191,6 +193,9 @@ const Profile = () => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setIsDropdownOpen(false);
+      }
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target)) {
+        setShowSearchDropdown(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -531,6 +536,33 @@ const Profile = () => {
     return user.interests;
   }, [user?.interests]);
 
+  const profileSearchResults = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return { links: [], challenges: [], interests: [] };
+    const links = [
+      { title: "Coding Sandbox & Assessment", sub: "Algorithms, Python, Java, C++, JS", route: "/coding", icon: "💻" },
+      { title: "Progress Dashboard", sub: "View metrics, streak, and learning tracks", route: "/progress", icon: "📊" },
+      { title: "Professional Certifications", sub: "Accredited credentials and exams", route: "/certifications", icon: "🎓" },
+      { title: "Live Collaboration Platform", sub: "Whiteboard, video, and pair programming", route: "/live", icon: "🎥" },
+      { title: "Account & Security Settings", sub: "Update password, profile, and email preferences", route: "/settings", icon: "⚙️" },
+    ].filter((l) => l.title.toLowerCase().includes(q) || l.sub.toLowerCase().includes(q));
+
+    const challenges = (stats?.challengesSolved || []).filter((c) =>
+      (typeof c === "string" ? c : c.title || "").toLowerCase().includes(q)
+    );
+
+    const matchedInterests = (user?.interests || []).filter((i) =>
+      (typeof i === "string" ? i : i.name || "").toLowerCase().includes(q)
+    );
+
+    return { links, challenges, interests: matchedInterests };
+  }, [searchQuery, user, stats]);
+
+  const totalProfileResults =
+    profileSearchResults.links.length +
+    profileSearchResults.challenges.length +
+    profileSearchResults.interests.length;
+
   return (
     <div key={location.key} className="mz-profile-layout mz-page-enter">
       {/* ================= LEFT SIDEBAR ================= */}
@@ -692,25 +724,135 @@ const Profile = () => {
         {/* Top Navbar */}
         <header className="mz-topbar">
           {/* Search Bar */}
-          <div className="mz-search-bar-wrap">
+          <div className="mz-search-bar-wrap" ref={searchContainerRef} style={{ position: "relative" }}>
             <LuSearch className="mz-search-bar-icon" size={17} />
             <input
               type="text"
               className="mz-search-bar-input"
-              placeholder="Search for skills, courses, or anything..."
+              placeholder="Search..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              aria-label="Search skills and courses"
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setShowSearchDropdown(true);
+              }}
+              onFocus={() => {
+                if (searchQuery.trim()) setShowSearchDropdown(true);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setShowSearchDropdown(false);
+              }}
+              aria-label="Search"
             />
             {searchQuery && (
               <button
                 type="button"
                 className="mz-search-clear-btn"
-                onClick={() => setSearchQuery("")}
+                onClick={() => {
+                  setSearchQuery("");
+                  setShowSearchDropdown(false);
+                }}
                 title="Clear search"
               >
                 <LuX size={14} />
               </button>
+            )}
+
+            {showSearchDropdown && searchQuery.trim().length > 0 && (
+              <div className="mz-global-search-dropdown" style={{ minWidth: 380 }}>
+                <div className="mz-global-search-header">
+                  <span>Results for &ldquo;{searchQuery.trim()}&rdquo;</span>
+                  <span className="mz-global-search-esc">Press ESC to dismiss</span>
+                </div>
+
+                {totalProfileResults === 0 ? (
+                  <div className="mz-global-search-empty">
+                    <p>No results found for &ldquo;{searchQuery}&rdquo;</p>
+                    <small>Try searching for Coding, Progress, Certifications, or Settings</small>
+                  </div>
+                ) : (
+                  <>
+                    {profileSearchResults.links.length > 0 && (
+                      <div className="mz-global-search-group">
+                        <div className="mz-global-search-group-title">
+                          Navigation & Features ({profileSearchResults.links.length})
+                        </div>
+                        {profileSearchResults.links.map((link) => (
+                          <div
+                            key={link.route}
+                            className="mz-global-search-item"
+                            onClick={() => {
+                              setShowSearchDropdown(false);
+                              navigate(link.route);
+                            }}
+                          >
+                            <span className="mz-global-search-item-icon">{link.icon}</span>
+                            <div className="mz-global-search-item-content">
+                              <div className="mz-global-search-item-title">{link.title}</div>
+                              <div className="mz-global-search-item-sub">{link.sub}</div>
+                            </div>
+                            <span className="mz-global-search-item-action">Go to Page →</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {profileSearchResults.interests.length > 0 && (
+                      <div className="mz-global-search-group">
+                        <div className="mz-global-search-group-title">
+                          Enrolled Interests ({profileSearchResults.interests.length})
+                        </div>
+                        {profileSearchResults.interests.map((interest, idx) => {
+                          const name = typeof interest === "string" ? interest : interest.name;
+                          return (
+                            <div
+                              key={idx}
+                              className="mz-global-search-item"
+                              onClick={() => {
+                                setShowSearchDropdown(false);
+                              }}
+                            >
+                              <span className="mz-global-search-item-icon">🎯</span>
+                              <div className="mz-global-search-item-content">
+                                <div className="mz-global-search-item-title">{name}</div>
+                                <div className="mz-global-search-item-sub">Enrolled Interest</div>
+                              </div>
+                              <span className="mz-global-search-item-action">View →</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {profileSearchResults.challenges.length > 0 && (
+                      <div className="mz-global-search-group">
+                        <div className="mz-global-search-group-title">
+                          Solved Challenges ({profileSearchResults.challenges.length})
+                        </div>
+                        {profileSearchResults.challenges.map((ch, idx) => {
+                          const title = typeof ch === "string" ? ch : ch.title;
+                          return (
+                            <div
+                              key={idx}
+                              className="mz-global-search-item"
+                              onClick={() => {
+                                setShowSearchDropdown(false);
+                                navigate("/coding");
+                              }}
+                            >
+                              <span className="mz-global-search-item-icon">✅</span>
+                              <div className="mz-global-search-item-content">
+                                <div className="mz-global-search-item-title">{title}</div>
+                                <div className="mz-global-search-item-sub">Solved & Verified</div>
+                              </div>
+                              <span className="mz-global-search-item-action">Open Sandbox →</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
             )}
           </div>
 

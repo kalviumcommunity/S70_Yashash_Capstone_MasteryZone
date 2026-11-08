@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import "./Admin.css";
 import {
   LuUsers,
@@ -22,11 +22,35 @@ const AdminUsers = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [showDropdown, setShowDropdown] = useState(false);
+  const searchContainerRef = useRef(null);
   const [status, setStatus] = useState("all");
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({ total: 0, pages: 1, limit: 15 });
   const [selectedUserDetail, setSelectedUserDetail] = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
+
+  const filteredUsersList = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return [];
+    return users.filter(
+      (u) =>
+        (u.fullName && u.fullName.toLowerCase().includes(q)) ||
+        (u.email && u.email.toLowerCase().includes(q)) ||
+        (u._id && u._id.toLowerCase().includes(q)) ||
+        (u.username && u.username.toLowerCase().includes(q))
+    ).slice(0, 6);
+  }, [search, users]);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const fetchUsers = async () => {
     try {
@@ -157,14 +181,62 @@ const AdminUsers = () => {
 
       {/* Search and Filters Bar */}
       <div className="mz-admin-search-bar">
-        <form onSubmit={handleSearchSubmit} className="mz-admin-search-box-input">
+        <form
+          ref={searchContainerRef}
+          onSubmit={handleSearchSubmit}
+          className="mz-admin-search-box-input"
+          style={{ position: 'relative' }}
+        >
           <LuSearch style={{ position: 'absolute', left: 12, top: 11, width: 16, height: 16, color: '#94a3b8' }} />
           <input
             type="text"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name, email, or ID..."
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setShowDropdown(true);
+            }}
+            onFocus={() => {
+              if (search.trim()) setShowDropdown(true);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setShowDropdown(false);
+            }}
+            placeholder="Search..."
           />
+          {showDropdown && search.trim().length > 0 && (
+            <div className="mz-global-search-dropdown" style={{ minWidth: 320, left: 0 }}>
+              <div className="mz-global-search-header">
+                <span>Users matching &ldquo;{search.trim()}&rdquo;</span>
+                <span className="mz-global-search-esc">Press ESC</span>
+              </div>
+              {filteredUsersList.length === 0 ? (
+                <div className="mz-global-search-empty">
+                  <p>No loaded users match &ldquo;{search}&rdquo;</p>
+                  <small>Press Enter to search entire database</small>
+                </div>
+              ) : (
+                <div className="mz-global-search-group">
+                  {filteredUsersList.map((u) => (
+                    <div
+                      key={u._id}
+                      className="mz-global-search-item"
+                      onClick={() => {
+                        setShowDropdown(false);
+                        handleOpenUserDetail(u._id);
+                      }}
+                    >
+                      <span className="mz-global-search-item-icon">👤</span>
+                      <div className="mz-global-search-item-content">
+                        <div className="mz-global-search-item-title">{u.fullName || u.username || "User"}</div>
+                        <div className="mz-global-search-item-sub">{u.email}</div>
+                      </div>
+                      <span className="mz-global-search-item-action">View Profile →</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </form>
 
         <div className="mz-admin-filter-tabs">

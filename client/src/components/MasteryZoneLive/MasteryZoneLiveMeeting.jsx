@@ -1150,6 +1150,11 @@ export default function MasteryZoneLiveMeeting({
       // 2. Audio Mixing Engine via Web Audio Context (Mix Microphone + Screen Audio + Remote Peers)
       const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
       const audioCtx = new AudioCtxClass();
+      if (audioCtx.state === "suspended") {
+        try {
+          await audioCtx.resume();
+        } catch (e) {}
+      }
       const audioDest = audioCtx.createMediaStreamDestination();
 
       // Ensure local microphone track is connected
@@ -1298,12 +1303,17 @@ export default function MasteryZoneLiveMeeting({
   };
 
   const handleStopRecording = () => {
-    if (recordingDisplayStreamRef.current) {
+    // 1. Stop MediaRecorder first so it flushes the final audio/video frame chunk
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
       try {
-        recordingDisplayStreamRef.current.getTracks().forEach((t) => t.stop());
-      } catch {}
-      recordingDisplayStreamRef.current = null;
+        mediaRecorderRef.current.stop();
+      } catch (e) {
+        console.warn("Could not stop MediaRecorder cleanly:", e);
+      }
     }
+
+    // 2. Clear intervals and timers
+    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
     if (recCompositorIntervalRef.current) {
       clearInterval(recCompositorIntervalRef.current);
       recCompositorIntervalRef.current = null;
@@ -1312,13 +1322,23 @@ export default function MasteryZoneLiveMeeting({
       cancelAnimationFrame(recordingAnimFrameRef.current);
       recordingAnimFrameRef.current = null;
     }
+
+    // 3. Close audio context after flushing
     if (recordingAudioCtxRef.current) {
       try {
         recordingAudioCtxRef.current.close();
       } catch (e) {}
       recordingAudioCtxRef.current = null;
     }
-    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+
+    // 4. Safely stop hardware display tracks
+    if (recordingDisplayStreamRef.current) {
+      try {
+        recordingDisplayStreamRef.current.getTracks().forEach((t) => t.stop());
+      } catch {}
+      recordingDisplayStreamRef.current = null;
+    }
+
     setRecordingStatus("uploading");
     if (socket) {
       socket.emit("meeting_recording_status", {
@@ -1326,9 +1346,6 @@ export default function MasteryZoneLiveMeeting({
         isRecording: false,
         hostName: currentUser?.fullName || "Host",
       });
-    }
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-      mediaRecorderRef.current.stop();
     }
   };
 
@@ -1342,7 +1359,8 @@ export default function MasteryZoneLiveMeeting({
     setRecordingStatus("uploading");
 
     try {
-      const blob = new Blob(chunks, { type: "video/webm" });
+      const activeMimeType = mediaRecorderRef.current?.mimeType || "video/webm";
+      const blob = new Blob(chunks, { type: activeMimeType });
       if (blob.size === 0) {
         setRecordingStatus("idle");
         return null;
@@ -1399,7 +1417,7 @@ export default function MasteryZoneLiveMeeting({
         durationSeconds: finalDuration,
         participantNames: allNames,
         base64Data,
-        mimeType: "video/webm",
+        mimeType: activeMimeType,
         hostUserId: currentUser?._id || currentUser?.id || currentUser?.userId,
         hostName: currentUser?.fullName || currentUser?.username || "Host",
         hostEmail: currentUser?.email || "",
@@ -2706,7 +2724,7 @@ export default function MasteryZoneLiveMeeting({
                   <LuSearch size={14} color="#94a3b8" style={{ position: "absolute", left: 10, top: 9 }} />
                   <input
                     type="text"
-                    placeholder="Search people in call..."
+                    placeholder="Search..."
                     value={participantSearchQuery}
                     onChange={(e) => setParticipantSearchQuery(e.target.value)}
                     style={{

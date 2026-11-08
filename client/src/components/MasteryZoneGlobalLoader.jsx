@@ -128,35 +128,8 @@ export default function MasteryZoneGlobalLoader({
           />
         </div>
 
-        {/* Small rotating spinner + Minimal status text */}
+        {/* Status text */}
         <div className="mz-simple-status-row">
-          <svg
-            className="mz-simple-spinner"
-            viewBox="0 0 20 20"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            aria-hidden="true"
-          >
-            <circle
-              cx="10"
-              cy="10"
-              r="8"
-              stroke="#e2e8f0"
-              strokeWidth="2"
-            />
-            <path
-              d="M10 2C14.4183 2 18 5.58172 18 10"
-              stroke="url(#mzSimpleSpinnerGrad)"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-            <defs>
-              <linearGradient id="mzSimpleSpinnerGrad" x1="10" y1="2" x2="18" y2="10">
-                <stop offset="0%" stopColor="#2563eb" />
-                <stop offset="100%" stopColor="#8b5cf6" />
-              </linearGradient>
-            </defs>
-          </svg>
           <span className="mz-simple-status-text">
             {statusMessage}
           </span>

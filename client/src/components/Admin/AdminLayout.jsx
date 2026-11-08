@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Link, useLocation, useNavigate, Outlet } from "react-router-dom";
 import "./Admin.css";
 import AdminNotificationDropdown from "./AdminNotificationDropdown.jsx";
@@ -46,6 +46,8 @@ const AdminLayout = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const searchContainerRef = useRef(null);
   const [adminUser, setAdminUser] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem("user") || "{}");
@@ -69,7 +71,13 @@ const AdminLayout = () => {
     return permissions.includes("*") || permissions.includes(item.id);
   });
 
-  // Handle Ctrl+K / Cmd+K global shortcut
+  const matchingNavItems = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return [];
+    return visibleNavItems.filter((item) => item.label.toLowerCase().includes(q) || item.id.toLowerCase().includes(q));
+  }, [searchQuery, visibleNavItems]);
+
+  // Handle Ctrl+K / Cmd+K global shortcut and outside click
   useEffect(() => {
     const handleKeyDown = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
@@ -80,8 +88,17 @@ const AdminLayout = () => {
         }
       }
     };
+    const handleClickOutside = (e) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target)) {
+        setShowSearchDropdown(false);
+      }
+    };
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
   }, []);
 
   const handleLogout = () => {
@@ -149,16 +166,137 @@ const AdminLayout = () => {
         {/* Top Header Bar */}
         <header className="mz-admin-header">
           {/* Mobile Menu Toggle & Global Search */}
-          <div className="mz-admin-search-wrap">
+          <div className="mz-admin-search-wrap" ref={searchContainerRef} style={{ position: "relative" }}>
             <LuSearch className="mz-admin-search-icon" />
             <input
               id="admin-global-search"
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search users, courses, or reports... (Ctrl + K)"
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setShowSearchDropdown(true);
+              }}
+              onFocus={() => {
+                if (searchQuery.trim()) setShowSearchDropdown(true);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setShowSearchDropdown(false);
+                if (e.key === "Enter" && searchQuery.trim()) {
+                  setShowSearchDropdown(false);
+                  navigate(`/admin/users?search=${encodeURIComponent(searchQuery.trim())}`);
+                }
+              }}
+              placeholder="Search..."
               className="mz-admin-search-input"
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery("");
+                  setShowSearchDropdown(false);
+                }}
+                style={{
+                  position: "absolute",
+                  right: 12,
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "#94a3b8",
+                  display: "flex",
+                  alignItems: "center",
+                }}
+              >
+                <LuX size={14} />
+              </button>
+            )}
+
+            {showSearchDropdown && searchQuery.trim().length > 0 && (
+              <div className="mz-global-search-dropdown" style={{ minWidth: 360 }}>
+                <div className="mz-global-search-header">
+                  <span>Results for &ldquo;{searchQuery.trim()}&rdquo;</span>
+                  <span className="mz-global-search-esc">Press ESC to dismiss</span>
+                </div>
+
+                {matchingNavItems.length > 0 && (
+                  <div className="mz-global-search-group">
+                    <div className="mz-global-search-group-title">
+                      Admin Modules ({matchingNavItems.length})
+                    </div>
+                    {matchingNavItems.map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <div
+                          key={item.id}
+                          className="mz-global-search-item"
+                          onClick={() => {
+                            setShowSearchDropdown(false);
+                            navigate(item.path);
+                          }}
+                        >
+                          <span className="mz-global-search-item-icon">
+                            <Icon size={16} />
+                          </span>
+                          <div className="mz-global-search-item-content">
+                            <div className="mz-global-search-item-title">{item.label}</div>
+                            <div className="mz-global-search-item-sub">Go to {item.label} page</div>
+                          </div>
+                          <span className="mz-global-search-item-action">Open →</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <div className="mz-global-search-group">
+                  <div className="mz-global-search-group-title">Deep Search</div>
+                  <div
+                    className="mz-global-search-item"
+                    onClick={() => {
+                      setShowSearchDropdown(false);
+                      navigate(`/admin/users?search=${encodeURIComponent(searchQuery.trim())}`);
+                    }}
+                  >
+                    <span className="mz-global-search-item-icon">👥</span>
+                    <div className="mz-global-search-item-content">
+                      <div className="mz-global-search-item-title">Search Users</div>
+                      <div className="mz-global-search-item-sub">Find &ldquo;{searchQuery.trim()}&rdquo; in user directory</div>
+                    </div>
+                    <span className="mz-global-search-item-action">Search Users →</span>
+                  </div>
+
+                  <div
+                    className="mz-global-search-item"
+                    onClick={() => {
+                      setShowSearchDropdown(false);
+                      navigate(`/admin/assessments?search=${encodeURIComponent(searchQuery.trim())}`);
+                    }}
+                  >
+                    <span className="mz-global-search-item-icon">📝</span>
+                    <div className="mz-global-search-item-content">
+                      <div className="mz-global-search-item-title">Search Assessments</div>
+                      <div className="mz-global-search-item-sub">Find submissions & exams for &ldquo;{searchQuery.trim()}&rdquo;</div>
+                    </div>
+                    <span className="mz-global-search-item-action">Search Assessments →</span>
+                  </div>
+
+                  <div
+                    className="mz-global-search-item"
+                    onClick={() => {
+                      setShowSearchDropdown(false);
+                      navigate(`/admin/reports?search=${encodeURIComponent(searchQuery.trim())}`);
+                    }}
+                  >
+                    <span className="mz-global-search-item-icon">📊</span>
+                    <div className="mz-global-search-item-content">
+                      <div className="mz-global-search-item-title">Search Reports</div>
+                      <div className="mz-global-search-item-sub">Find evaluation reports for &ldquo;{searchQuery.trim()}&rdquo;</div>
+                    </div>
+                    <span className="mz-global-search-item-action">Search Reports →</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Right: Notifications & Admin Profile */}

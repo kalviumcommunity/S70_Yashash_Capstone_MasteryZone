@@ -3270,7 +3270,7 @@ export default function MasteryZoneCompilerWorkspace({
                       <div className="mz-compiler-q-menu-search">
                         <input
                           type="text"
-                          placeholder="Search 65 questions by title or topic..."
+                          placeholder="Search..."
                           value={qSearch}
                           onChange={(e) => setQSearch(e.target.value)}
                           autoFocus

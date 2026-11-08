@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   LuFileText,
   LuTrophy,
@@ -37,6 +37,18 @@ const AdminAssessments = () => {
   const [range, setRange] = useState("30d");
   const [filterType, setFilterType] = useState("all"); // "all" | "Certification" | "MCQ Assessment" | "Coding Assessment" | "Project Assignment"
   const [search, setSearch] = useState("");
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const searchContainerRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target)) {
+        setShowSearchDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
   const [copiedCodeId, setCopiedCodeId] = useState(null);
 
   // Full Details Modal State
@@ -673,7 +685,7 @@ const AdminAssessments = () => {
         }}
       >
         {/* Search */}
-        <div style={{ position: "relative", flex: "1 1 340px", maxWidth: 460 }}>
+        <div ref={searchContainerRef} style={{ position: "relative", flex: "1 1 340px", maxWidth: 460 }}>
           <LuSearch
             style={{
               position: "absolute",
@@ -687,9 +699,24 @@ const AdminAssessments = () => {
           />
           <input
             type="text"
-            placeholder="Search candidate name, email, or assessment title..."
+            placeholder="Search..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setShowSearchDropdown(true);
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = "#6366f1";
+              e.target.style.background = "#ffffff";
+              if (search.trim()) setShowSearchDropdown(true);
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = "#e2e8f0";
+              e.target.style.background = "#f8fafc";
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setShowSearchDropdown(false);
+            }}
             style={{
               width: "100%",
               padding: "10px 14px 10px 40px",
@@ -700,18 +727,13 @@ const AdminAssessments = () => {
               outline: "none",
               background: "#f8fafc",
             }}
-            onFocus={(e) => {
-              e.target.style.borderColor = "#6366f1";
-              e.target.style.background = "#ffffff";
-            }}
-            onBlur={(e) => {
-              e.target.style.borderColor = "#e2e8f0";
-              e.target.style.background = "#f8fafc";
-            }}
           />
           {search && (
             <button
-              onClick={() => setSearch("")}
+              onClick={() => {
+                setSearch("");
+                setShowSearchDropdown(false);
+              }}
               style={{
                 position: "absolute",
                 right: 12,
@@ -725,6 +747,43 @@ const AdminAssessments = () => {
             >
               <LuX style={{ width: 14, height: 14 }} />
             </button>
+          )}
+
+          {showSearchDropdown && search.trim().length > 0 && (
+            <div className="mz-global-search-dropdown" style={{ minWidth: 360, left: 0 }}>
+              <div className="mz-global-search-header">
+                <span>Assessments matching &ldquo;{search.trim()}&rdquo;</span>
+                <span className="mz-global-search-esc">Press ESC</span>
+              </div>
+              {filteredList.length === 0 ? (
+                <div className="mz-global-search-empty">
+                  <p>No assessments match &ldquo;{search}&rdquo;</p>
+                  <small>Try searching by candidate name, email, or test title</small>
+                </div>
+              ) : (
+                <div className="mz-global-search-group">
+                  {filteredList.slice(0, 6).map((item, idx) => (
+                    <div
+                      key={item.id || idx}
+                      className="mz-global-search-item"
+                      onClick={() => {
+                        setShowSearchDropdown(false);
+                        handleOpenDetails(item);
+                      }}
+                    >
+                      <span className="mz-global-search-item-icon">📝</span>
+                      <div className="mz-global-search-item-content">
+                        <div className="mz-global-search-item-title">{item.title || "Assessment"}</div>
+                        <div className="mz-global-search-item-sub">
+                          {item.user} ({item.email}) • Score: {item.score}
+                        </div>
+                      </div>
+                      <span className="mz-global-search-item-action">View Details →</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
         </div>
 
