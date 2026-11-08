@@ -23,6 +23,7 @@ import {
   LuBell,
   LuX,
   LuExternalLink,
+  LuFolderGit2,
 } from "react-icons/lu";
 import { toast } from "react-toastify";
 import { io } from "socket.io-client";
@@ -73,11 +74,15 @@ const AdminReports = () => {
             const certs = (json.reports || []).filter((r) => r.type === "Certification Report").length;
             const assess = (json.reports || []).filter((r) => r.type === "Assessment Report").length;
             const mcq = (json.reports || []).filter((r) => r.type === "MCQ Assessment Report").length;
+            const projects = (json.reports || []).filter((r) => r.type === "Project Assessment Report").length;
+            const coding = (json.reports || []).filter((r) => r.type === "Coding Challenge Report").length;
             setStats({
               total: json.reports?.length || 0,
               certificationsCount: certs,
               assessmentsCount: assess,
               mcqReportsCount: mcq,
+              projectsCount: projects,
+              codingCount: coding,
             });
           }
           if (showToast) toast.success("Reports synchronized with database");
@@ -127,6 +132,10 @@ const AdminReports = () => {
             newRecord.type === "Assessment Report" ? prev.assessmentsCount + 1 : prev.assessmentsCount,
           mcqReportsCount:
             newRecord.type === "MCQ Assessment Report" ? prev.mcqReportsCount + 1 : prev.mcqReportsCount,
+          projectsCount:
+            newRecord.type === "Project Assessment Report" ? (prev.projectsCount || 0) + 1 : (prev.projectsCount || 0),
+          codingCount:
+            newRecord.type === "Coding Challenge Report" ? (prev.codingCount || 0) + 1 : (prev.codingCount || 0),
         }));
       };
 
@@ -559,6 +568,8 @@ const AdminReports = () => {
             { id: "all", label: "All Reports", count: stats.total },
             { id: "Certification Report", label: "Certification Report", count: stats.certificationsCount },
             { id: "Assessment Report", label: "Assessment Report", count: stats.assessmentsCount },
+            { id: "Project Assessment Report", label: "Practical Projects", count: stats.projectsCount || 0 },
+            { id: "Coding Challenge Report", label: "Coding Challenges", count: stats.codingCount || 0 },
             { id: "MCQ Assessment Report", label: "MCQ Assessment Report — 10 Marks", count: stats.mcqReportsCount },
           ].map((tab) => {
             const isActive = filterType === tab.id;
@@ -809,17 +820,22 @@ const AdminReports = () => {
                 filteredReports.map((r, idx) => {
                   const isCert = r.type === "Certification Report";
                   const isMcq = r.type === "MCQ Assessment Report";
-                  const categoryBg = isCert ? "#eff6ff" : isMcq ? "#ecfdf5" : "#eef2ff";
-                  const categoryColor = isCert ? "#2563eb" : isMcq ? "#059669" : "#4f46e5";
-                  const categoryBorder = isCert ? "#bfdbfe" : isMcq ? "#a7f3d0" : "#c7d2fe";
+                  const isProj = r.type === "Project Assessment Report";
+                  const isCoding = r.type === "Coding Challenge Report";
+
+                  const categoryBg = isCert ? "#eff6ff" : isMcq ? "#ecfdf5" : isProj ? "#faf5ff" : isCoding ? "#f0fdf4" : "#eef2ff";
+                  const categoryColor = isCert ? "#2563eb" : isMcq ? "#059669" : isProj ? "#7c3aed" : isCoding ? "#16a34a" : "#4f46e5";
+                  const categoryBorder = isCert ? "#bfdbfe" : isMcq ? "#a7f3d0" : isProj ? "#e9d5ff" : isCoding ? "#bbf7d0" : "#c7d2fe";
 
                   const initial = (r.recipient ? r.recipient[0] : "S").toUpperCase();
                   const isPass =
                     r.status === "PASSED" ||
+                    r.status === "ACCEPTED" ||
                     r.grade === "Qualified" ||
                     r.grade === "Distinction" ||
                     r.grade === "First Class" ||
-                    r.grade === "Passed";
+                    r.grade === "Passed" ||
+                    r.grade === "Accepted";
 
                   return (
                     <tr
@@ -853,6 +869,10 @@ const AdminReports = () => {
                               <LuAward style={{ width: 16, height: 16 }} />
                             ) : isMcq ? (
                               <LuCircleCheck style={{ width: 16, height: 16 }} />
+                            ) : isProj ? (
+                              <LuFolderGit2 style={{ width: 16, height: 16 }} />
+                            ) : isCoding ? (
+                              <LuCode style={{ width: 16, height: 16 }} />
                             ) : (
                               <LuFileText style={{ width: 16, height: 16 }} />
                             )}
@@ -1145,6 +1165,34 @@ const AdminReports = () => {
               </div>
 
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                {Boolean(activeReport.reportUrl || activeReport.sessionId || activeReport.attemptId) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const url = activeReport.reportUrl || `/assessment-report/${activeReport.sessionId || activeReport.attemptId}`;
+                      window.open(url, "_blank", "noopener,noreferrer");
+                    }}
+                    style={{
+                      padding: "6px 12px",
+                      borderRadius: 8,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: "#4f46e5",
+                      background: "#eef2ff",
+                      border: "1px solid #c7d2fe",
+                      cursor: "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      transition: "all 0.15s ease",
+                    }}
+                    title="View candidate's full report in dedicated viewer"
+                  >
+                    <span>Open Full Report</span>
+                    <LuExternalLink style={{ width: 13, height: 13 }} />
+                  </button>
+                )}
+
                 <span
                   style={{
                     fontSize: 12,
@@ -1153,14 +1201,18 @@ const AdminReports = () => {
                     borderRadius: 20,
                     background:
                       activeReport.status === "PASSED" ||
+                      activeReport.status === "ACCEPTED" ||
                       activeReport.grade === "Qualified" ||
-                      activeReport.grade === "Passed"
+                      activeReport.grade === "Passed" ||
+                      activeReport.grade === "Accepted"
                         ? "#dcfce7"
                         : "#fee2e2",
                     color:
                       activeReport.status === "PASSED" ||
+                      activeReport.status === "ACCEPTED" ||
                       activeReport.grade === "Qualified" ||
-                      activeReport.grade === "Passed"
+                      activeReport.grade === "Passed" ||
+                      activeReport.grade === "Accepted"
                         ? "#15803d"
                         : "#b91c1c",
                   }}

@@ -124,17 +124,32 @@ router.get("/", authenticateToken, async (req, res) => {
 router.post("/attempt/start", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId || req.user.id;
-    const { certId = "dsa_cert" } = req.body;
+    const { certId = "dsa_cert", forceNew, candidatePhoto } = req.body;
 
     // Fetch user profile for candidate identity
     const user = await User.findById(userId);
     const candidateName = user ? (user.fullName || user.name || "Candidate") : "Candidate";
     const candidateEmail = user ? (user.email || "") : "";
 
+    // Dynamic title mapping
+    const certTitleMap = {
+      python_cert: "Python Certified Professional",
+      js_cert: "JavaScript Full-Stack Developer",
+      fullstack_cert: "JavaScript Full-Stack Developer",
+      java_cert: "Enterprise Java Specialist",
+      cpp_cert: "Modern C++ Systems Engineer",
+      dsa_cert: "Data Structures & Algorithms (DSA)",
+    };
+    const resolvedCertTitle =
+      req.body.certTitle || certTitleMap[certId] || "Data Structures & Algorithms (DSA)";
+
     // 0. Check if candidate has already cleared the cutoff and earned a certificate (disallow retaking or attending completed exam)
     const earnedCert = await IssuedCertificate.findOne({
       userId,
-      certificationId: certId,
+      $or: [
+        { certificationId: certId },
+        { certificationId: new RegExp(`^${certId}$`, "i") },
+      ],
       status: "VALID",
     });
 
@@ -161,76 +176,95 @@ router.post("/attempt/start", authenticateToken, async (req, res) => {
       });
     }
 
-    // 1. Check if candidate already has an IN_PROGRESS attempt
-    const activeAttempt = await CertificationAttempt.findOne({
-      userId,
-      certId,
-      status: "IN_PROGRESS",
-    });
-
-    if (activeAttempt) {
-      // Return existing attempt state (stable on page refresh)
-      const sanitizedMcqs = activeAttempt.selectedMcqs.map((q) => ({
-        id: q.id,
-        question: q.question,
-        options: q.options,
-        topic: q.topic,
-        difficulty: q.difficulty,
-      }));
-
-      const sanitizedCoding = activeAttempt.selectedCodingQuestions.map((q) => {
-        const testCases = [
-          ...(q.publicTests || []).map((t, idx) => ({
-            index: idx + 1,
-            input: t.input,
-            expectedOutput: t.expectedOutput,
-            isHidden: false,
-          })),
-          ...(q.hiddenTests || []).map((t, idx) => ({
-            index: (q.publicTests || []).length + idx + 1,
-            input: `[Hidden Test Case #${(q.publicTests || []).length + idx + 1}]`,
-            expectedOutput: `[Hidden Output #${(q.publicTests || []).length + idx + 1}]`,
-            isHidden: true,
-          })),
-        ];
-
-        return {
-          questionId: q.questionId,
-          id: q.questionId,
-          title: q.title,
-          difficulty: q.difficulty,
-          category: q.category,
-          description: q.description,
-          inputFormat: q.inputFormat,
-          outputFormat: q.outputFormat,
-          constraints: q.constraints,
-          examples: q.examples,
-          starterCode: q.starterCode,
-          publicTests: q.publicTests,
-          testCases,
-        };
+    // 1. Handle attempt starting / resuming
+    if (forceNew) {
+      // User is starting an entirely fresh attempt.
+      // Mark any prior IN_PROGRESS attempts for this user and certId as ABANDONED.
+      await CertificationAttempt.updateMany(
+        { userId, certId, status: "IN_PROGRESS" },
+        { status: "ABANDONED", abandonedAt: new Date() }
+      );
+    } else {
+      // Check if candidate already has an active, unexpired IN_PROGRESS attempt
+      const activeAttempt = await CertificationAttempt.findOne({
+        userId,
+        certId,
+        status: "IN_PROGRESS",
       });
 
-      return res.json({
-        success: true,
-        resumed: true,
-        attemptId: activeAttempt.attemptId,
-        certId: activeAttempt.certId,
-        certTitle: activeAttempt.certTitle,
-        attemptNumber: activeAttempt.attemptNumber,
-        status: activeAttempt.status,
-        startTime: activeAttempt.startTime,
-        durationMinutes: activeAttempt.durationMinutes,
-        candidateName: activeAttempt.candidateName,
-        selectedMcqs: sanitizedMcqs,
-        mcqAnswers: Object.fromEntries(activeAttempt.mcqAnswers || new Map()),
-        selectedCodingQuestions: sanitizedCoding,
-        codingSubmissions: activeAttempt.codingSubmissions,
-        proctoring: activeAttempt.proctoring,
-      });
+      if (activeAttempt) {
+        const elapsedMinutes = (Date.now() - new Date(activeAttempt.startTime).getTime()) / (60 * 1000);
+        const durationMinutes = activeAttempt.durationMinutes || 90;
+
+        if (elapsedMinutes < durationMinutes) {
+          // Return existing attempt state (resumed during active test)
+          const sanitizedMcqs = (activeAttempt.selectedMcqs || []).map((q) => ({
+            id: q.id,
+            question: q.question,
+            options: q.options,
+            topic: q.topic,
+            difficulty: q.difficulty,
+          }));
+
+          const sanitizedCoding = (activeAttempt.selectedCodingQuestions || []).map((q) => {
+            const testCases = [
+              ...(q.publicTests || []).map((t, idx) => ({
+                index: idx + 1,
+                input: t.input,
+                expectedOutput: t.expectedOutput,
+                isHidden: false,
+              })),
+              ...(q.hiddenTests || []).map((t, idx) => ({
+                index: (q.publicTests || []).length + idx + 1,
+                input: `[Hidden Test Case #${(q.publicTests || []).length + idx + 1}]`,
+                expectedOutput: `[Hidden Output #${(q.publicTests || []).length + idx + 1}]`,
+                isHidden: true,
+              })),
+            ];
+
+            return {
+              questionId: q.questionId,
+              id: q.questionId,
+              title: q.title,
+              difficulty: q.difficulty,
+              category: q.category,
+              description: q.description,
+              inputFormat: q.inputFormat,
+              outputFormat: q.outputFormat,
+              constraints: q.constraints,
+              examples: q.examples,
+              starterCode: q.starterCode,
+              publicTests: q.publicTests,
+              testCases,
+            };
+          });
+
+          return res.json({
+            success: true,
+            resumed: true,
+            attemptId: activeAttempt.attemptId,
+            certId: activeAttempt.certId,
+            certTitle: activeAttempt.certTitle || resolvedCertTitle,
+            attemptNumber: activeAttempt.attemptNumber,
+            status: activeAttempt.status,
+            startTime: activeAttempt.startTime,
+            durationMinutes: activeAttempt.durationMinutes,
+            candidateName: activeAttempt.candidateName,
+            selectedMcqs: sanitizedMcqs,
+            mcqAnswers: Object.fromEntries(activeAttempt.mcqAnswers || new Map()),
+            selectedCodingQuestions: sanitizedCoding,
+            codingSubmissions: activeAttempt.codingSubmissions,
+            proctoring: activeAttempt.proctoring,
+          });
+        } else {
+          // Attempt expired, mark as evaluated/abandoned so fresh attempt starts
+          activeAttempt.status = "EVALUATED";
+          await activeAttempt.save();
+        }
+      }
     }
 
-    // 2. Determine attempt number
+    // 2. Determine accurate attempt number for entirely new attempt
     const pastAttemptsCount = await CertificationAttempt.countDocuments({
       userId,
       certId,
@@ -280,13 +314,14 @@ router.post("/attempt/start", authenticateToken, async (req, res) => {
 
     const attemptId = `cert_att_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
+    // Create 100% clean attempt with zero carryover from past attempts
     const newAttempt = new CertificationAttempt({
       attemptId,
       userId,
       candidateName,
       candidateEmail,
       certId,
-      certTitle: "Data Structures & Algorithms (DSA)",
+      certTitle: resolvedCertTitle,
       attemptNumber,
       status: "IN_PROGRESS",
       startTime: new Date(),
@@ -309,7 +344,7 @@ router.post("/attempt/start", authenticateToken, async (req, res) => {
         violationsCount: 0,
         tabSwitches: 0,
         fullscreenExits: 0,
-        candidatePhoto: req.body.candidatePhoto || null,
+        candidatePhoto: candidatePhoto || null,
         events: [],
       },
     });
@@ -378,6 +413,92 @@ router.post("/attempt/start", authenticateToken, async (req, res) => {
   } catch (err) {
     console.error("Attempt start error:", err);
     res.status(500).json({ error: err.message || "Failed to start certification attempt" });
+  }
+});
+
+// -------------------------------------------------------------
+// 2b. GET /api/certifications/check/:certId
+// Read-only check: verifies certification status without starting an attempt
+// -------------------------------------------------------------
+router.get("/check/:certId", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId || req.user.id;
+    const { certId } = req.params;
+
+    // Check if already certified
+    const cert = await IssuedCertificate.findOne({
+      userId,
+      $or: [
+        { certificationId: certId },
+        { certificationId: new RegExp(`^${certId}$`, "i") },
+      ],
+      status: "VALID",
+    });
+
+    if (cert) {
+      return res.json({
+        alreadyCertified: true,
+        isCompleted: true,
+        isPassed: true,
+        certificateId: cert.certificateId,
+        attemptId: cert.attemptId,
+        reportUrl: `/assessment-report/${cert.attemptId}`,
+        verificationUrl: `/verify/${cert.certificateId}`,
+        message: "You have already passed this certification examination and earned your verified certificate.",
+      });
+    }
+
+    const passedAttempt = await CertificationAttempt.findOne({
+      userId,
+      certId,
+      status: "PASSED",
+    }).sort({ submittedAt: -1, createdAt: -1 });
+
+    if (passedAttempt) {
+      return res.json({
+        alreadyCertified: true,
+        isCompleted: true,
+        isPassed: true,
+        certificateId: passedAttempt.certificateId,
+        attemptId: passedAttempt.attemptId,
+        reportUrl: `/assessment-report/${passedAttempt.attemptId}`,
+        verificationUrl: `/verify/${passedAttempt.certificateId}`,
+        message: "You have already passed this certification examination and earned your verified certificate.",
+      });
+    }
+
+    const pastAttemptsCount = await CertificationAttempt.countDocuments({ userId, certId });
+
+    // Check if active IN_PROGRESS attempt exists and is not expired
+    const activeAttempt = await CertificationAttempt.findOne({
+      userId,
+      certId,
+      status: "IN_PROGRESS",
+    });
+
+    if (activeAttempt) {
+      const elapsedMinutes = (Date.now() - new Date(activeAttempt.startTime).getTime()) / (60 * 1000);
+      const durationMinutes = activeAttempt.durationMinutes || 90;
+      if (elapsedMinutes < durationMinutes) {
+        return res.json({
+          alreadyCertified: false,
+          hasActiveAttempt: true,
+          attemptId: activeAttempt.attemptId,
+          attemptNumber: activeAttempt.attemptNumber,
+          secondsRemaining: Math.max(60, Math.floor((durationMinutes * 60) - (elapsedMinutes * 60))),
+          pastAttemptsCount,
+        });
+      }
+    }
+
+    return res.json({
+      alreadyCertified: false,
+      hasActiveAttempt: false,
+      attemptNumber: pastAttemptsCount + 1,
+      pastAttemptsCount,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -1032,6 +1153,45 @@ router.post("/attempt/:attemptId/finalize", authenticateToken, async (req, res) 
       io: req.app.get("io"),
     }).catch(() => {});
 
+    // Broadcast to Admin Reports in real-time
+    try {
+      const io = req.app.get("io");
+      if (io) {
+        const adminCertReport = {
+          id: attempt._id,
+          rawId: attempt._id,
+          itemType: "certification",
+          attemptId: attempt.attemptId,
+          title: `${attempt.certTitle || "Professional Certification"} — Assessment Scorecard`,
+          type: "Assessment Report",
+          recipient: attempt.candidateName || "Candidate",
+          email: attempt.candidateEmail || "",
+          score: `${finalScorePercentage}%`,
+          rawScore: finalScorePercentage,
+          grade: passed ? "Qualified" : "Not Qualified",
+          verificationCode: attempt.certificateId || String(attempt.attemptId || attempt._id).slice(-8).toUpperCase(),
+          date: new Date(),
+          status: finalVerdict,
+          reportUrl: `/assessment-report/${attempt.attemptId}`,
+        };
+        io.emit("NEW_REPORT", adminCertReport);
+        io.emit("NEW_SUBMISSION", {
+          type: "certification",
+          attemptId: attempt.attemptId,
+          userId: String(userId),
+          passed,
+        });
+        if (certificate) {
+          io.emit("NEW_CERTIFICATE", {
+            certificateId: certificate.certificateId,
+            recipient: attempt.candidateName,
+          });
+        }
+      }
+    } catch (socketErr) {
+      console.warn("Socket notification warning for certification:", socketErr.message);
+    }
+
     res.json({
       success: true,
       alreadyFinalized: false,
@@ -1394,12 +1554,86 @@ router.get("/my-history", authenticateToken, async (req, res) => {
 
 // -------------------------------------------------------------
 // 11. GET /api/certifications/verify/:certificateId
-// Public verification endpoint
+// Public verification endpoint with fallback resolution for attemptId & demo
 // -------------------------------------------------------------
 router.get("/verify/:certificateId", async (req, res) => {
   try {
-    const { certificateId } = req.params;
-    const cert = await IssuedCertificate.findOne({ certificateId });
+    const rawCertId = (req.params.certificateId || "").trim();
+    if (!rawCertId) {
+      return res.status(400).json({ valid: false, message: "Certificate ID is required." });
+    }
+
+    // Special handler for demo certificate preview
+    if (rawCertId.toLowerCase() === "demo") {
+      return res.json({
+        valid: true,
+        certificateId: "MZ-DEMO-2026-VERIFIED",
+        attemptId: "demo_attempt_id",
+        recipientName: "Mastery Zone Demo Scholar",
+        certificationId: "fullstack_cert",
+        certificationTitle: "Full-Stack Software Engineering & Algorithms",
+        issueDate: new Date(),
+        issuingOrganization: "Mastery Zone Academy of Computer Science",
+        mcqScore: "20 / 20",
+        mcqScorePercentage: 100,
+        codingScore: "2/2 Challenges Passed",
+        finalGradePercentage: 100,
+        status: "VALID",
+        verificationUrl: `/verify/demo`,
+      });
+    }
+
+    const regexCertId = new RegExp(`^${rawCertId}$`, "i");
+
+    // 1. Search in IssuedCertificate by certificateId, case-insensitive, or attemptId
+    let cert = await IssuedCertificate.findOne({
+      $or: [
+        { certificateId: rawCertId },
+        { certificateId: regexCertId },
+        { attemptId: rawCertId },
+      ],
+    });
+
+    // 2. Fallback: Search in CertificationAttempt if passed
+    if (!cert) {
+      const attempt = await CertificationAttempt.findOne({
+        $or: [
+          { certificateId: rawCertId },
+          { certificateId: regexCertId },
+          { attemptId: rawCertId },
+        ],
+        status: "PASSED",
+      });
+
+      if (attempt) {
+        cert = await IssuedCertificate.findOne({ attemptId: attempt.attemptId });
+
+        if (!cert) {
+          const uniqueSuffix = Math.random().toString(36).substring(2, 8).toUpperCase();
+          const generatedCertId = attempt.certificateId || `MZ-DSA-2026-${uniqueSuffix}`;
+          cert = new IssuedCertificate({
+            certificateId: generatedCertId,
+            attemptId: attempt.attemptId,
+            userId: attempt.userId,
+            recipientName: attempt.candidateName || "Candidate",
+            certificationId: attempt.certId,
+            certificationTitle: attempt.certTitle || "Professional Certification",
+            issueDate: attempt.submittedAt || new Date(),
+            mcqScore: attempt.mcqScore !== undefined ? `${attempt.mcqScore}/20` : "20/20",
+            mcqScorePercentage: attempt.mcqScorePercentage || 100,
+            codingScore: "2/2 Challenges Passed",
+            finalGradePercentage: attempt.finalScorePercentage || 100,
+            verificationUrl: `/verify/${generatedCertId}`,
+            status: "VALID",
+          });
+          await cert.save();
+          if (!attempt.certificateId) {
+            attempt.certificateId = generatedCertId;
+            await attempt.save();
+          }
+        }
+      }
+    }
 
     if (!cert) {
       return res.status(404).json({
@@ -1411,13 +1645,18 @@ router.get("/verify/:certificateId", async (req, res) => {
     res.json({
       valid: cert.status === "VALID",
       certificateId: cert.certificateId,
+      attemptId: cert.attemptId,
       recipientName: cert.recipientName,
+      certificationId: cert.certificationId,
       certificationTitle: cert.certificationTitle,
       issueDate: cert.issueDate,
-      issuingOrganization: cert.issuingOrganization,
+      issuingOrganization: cert.issuingOrganization || "Mastery Zone Academy of Computer Science",
       mcqScore: cert.mcqScore,
+      mcqScorePercentage: cert.mcqScorePercentage,
       codingScore: cert.codingScore,
+      finalGradePercentage: cert.finalGradePercentage || 100,
       status: cert.status,
+      verificationUrl: cert.verificationUrl || `/verify/${cert.certificateId}`,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1430,16 +1669,64 @@ router.get("/verify/:certificateId", async (req, res) => {
 // -------------------------------------------------------------
 router.get(["/certificate/:certificateId/download", "/download/:certificateId"], async (req, res) => {
   try {
-    const { certificateId } = req.params;
-    const cert = await IssuedCertificate.findOne({ certificateId, status: "VALID" });
+    const rawCertId = (req.params.certificateId || "").trim();
+    if (!rawCertId) {
+      return res.status(400).send("Certificate ID is required.");
+    }
+
+    const regexCertId = new RegExp(`^${rawCertId}$`, "i");
+
+    let cert = await IssuedCertificate.findOne({
+      $or: [
+        { certificateId: rawCertId },
+        { certificateId: regexCertId },
+        { attemptId: rawCertId },
+      ],
+      status: "VALID",
+    });
+
+    if (!cert) {
+      const attempt = await CertificationAttempt.findOne({
+        $or: [
+          { certificateId: rawCertId },
+          { certificateId: regexCertId },
+          { attemptId: rawCertId },
+        ],
+        status: "PASSED",
+      });
+
+      if (attempt) {
+        cert = await IssuedCertificate.findOne({ attemptId: attempt.attemptId });
+        if (!cert) {
+          const uniqueSuffix = Math.random().toString(36).substring(2, 8).toUpperCase();
+          const generatedCertId = attempt.certificateId || `MZ-DSA-2026-${uniqueSuffix}`;
+          cert = new IssuedCertificate({
+            certificateId: generatedCertId,
+            attemptId: attempt.attemptId,
+            userId: attempt.userId,
+            recipientName: attempt.candidateName || "Candidate",
+            certificationId: attempt.certId,
+            certificationTitle: attempt.certTitle || "Professional Certification",
+            issueDate: attempt.submittedAt || new Date(),
+            mcqScore: attempt.mcqScore !== undefined ? `${attempt.mcqScore}/20` : "20/20",
+            mcqScorePercentage: attempt.mcqScorePercentage || 100,
+            codingScore: "2/2 Challenges Passed",
+            finalGradePercentage: attempt.finalScorePercentage || 100,
+            verificationUrl: `/verify/${generatedCertId}`,
+            status: "VALID",
+          });
+          await cert.save();
+        }
+      }
+    }
 
     if (!cert) {
       return res.status(404).send("Valid certificate record not found.");
     }
 
     const userScopedDir = cert.userId ? path.join(CERTIFICATES_DIR, String(cert.userId)) : null;
-    const userScopedPath = userScopedDir ? path.join(userScopedDir, `${certificateId}.pdf`) : null;
-    const flatPath = path.join(CERTIFICATES_DIR, `${certificateId}.pdf`);
+    const userScopedPath = userScopedDir ? path.join(userScopedDir, `${cert.certificateId}.pdf`) : null;
+    const flatPath = path.join(CERTIFICATES_DIR, `${cert.certificateId}.pdf`);
 
     let pdfPath = (userScopedPath && fs.existsSync(userScopedPath))
       ? userScopedPath
@@ -1464,7 +1751,7 @@ router.get(["/certificate/:certificateId/download", "/download/:certificateId"],
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename="MasteryZone_${cert.certificationId}_${cert.certificateId}.pdf"`
+      `attachment; filename="MasteryZone_${cert.certificationId || "CERT"}_${cert.certificateId}.pdf"`
     );
 
     const stream = fs.createReadStream(pdfPath);

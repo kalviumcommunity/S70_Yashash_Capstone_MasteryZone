@@ -171,7 +171,7 @@ export default function CertificationExamWorkspace({
   const [stage, setStage] = useState(() => (isResumingActive ? "active" : "gate"));
   const [alreadyCertifiedInfo, setAlreadyCertifiedInfo] = useState(null);
   const [attemptId, setAttemptId] = useState(() => savedSession?.attemptId || null);
-  const [attemptNumber, setAttemptNumber] = useState(2);
+  const [attemptNumber, setAttemptNumber] = useState(1);
   const [candidateName, setCandidateName] = useState("Candidate");
   const [secondsRemaining, setSecondsRemaining] = useState(() => savedSession?.secondsRemaining || 5394); // ~89m 54s default
   const [isTimerRunning, setIsTimerRunning] = useState(true);
@@ -449,6 +449,8 @@ export default function CertificationExamWorkspace({
         ensureMediaStreams();
       }
       const token = localStorage.getItem("token");
+      const isStartingFresh = !isResumeTrigger;
+
       const res = await fetch(`${API_BASE}/api/certifications/attempt/start`, {
         method: "POST",
         headers: {
@@ -457,6 +459,8 @@ export default function CertificationExamWorkspace({
         },
         body: JSON.stringify({
           certId,
+          certTitle,
+          forceNew: isStartingFresh,
           candidatePhoto: securityGateData?.candidatePhoto || null,
         }),
       });
@@ -479,19 +483,31 @@ export default function CertificationExamWorkspace({
         return;
       }
 
-      // If candidate is starting a fresh valid attempt, clear stale submitted flag
-      if (currentUserId) {
+      // If candidate is starting a fresh valid attempt, clear stale drafts and submitted flags
+      if (currentUserId && isStartingFresh) {
         localStorage.removeItem(`mz_${currentUserId}_cert_${certId}_submitted`);
         localStorage.removeItem(`mz_${currentUserId}_cert_${certId}_report_url`);
+        // Remove stale draft code from previous attempts
+        try {
+          Object.keys(localStorage).forEach((key) => {
+            if (key.startsWith(`mz_${currentUserId}_draft_`) || key.startsWith(`mz_${currentUserId}_lang_`)) {
+              localStorage.removeItem(key);
+            }
+          });
+        } catch {}
       }
+
       setAttemptId(data.attemptId);
-      setAttemptNumber(data.attemptNumber || 2);
+      setAttemptNumber(data.attemptNumber || 1);
       setCandidateName(data.candidateName || "Candidate");
       setSelectedMcqs(data.selectedMcqs || []);
-      setMcqAnswers(data.mcqAnswers || {});
+      // Guarantee fresh attempt starts with 0 answers and question index 0
+      setMcqAnswers(isStartingFresh ? {} : (data.mcqAnswers || {}));
+      setFlaggedMcqs(new Set());
+      setCurrentQuestionIndex(0);
       setSelectedCodingQuestions(data.selectedCodingQuestions || []);
 
-      if (Array.isArray(data.codingSubmissions) && data.codingSubmissions.length > 0) {
+      if (Array.isArray(data.codingSubmissions) && data.codingSubmissions.length > 0 && !isStartingFresh) {
         setCodingSubmissions(
           data.codingSubmissions.map((sub, idx) => ({
             code: sub.code || data.selectedCodingQuestions[idx]?.starterCode?.python || "# Enter your code below\n",
@@ -503,6 +519,7 @@ export default function CertificationExamWorkspace({
           }))
         );
       } else if (Array.isArray(data.selectedCodingQuestions)) {
+        // Pristine starter code for brand new attempt
         setCodingSubmissions(
           data.selectedCodingQuestions.map((q) => ({
             code: q.starterCode?.python || "# Enter your code below\n",
@@ -515,10 +532,13 @@ export default function CertificationExamWorkspace({
         );
       }
 
-      if (data.proctoring) {
+      if (data.proctoring && !isStartingFresh) {
         const viols = data.proctoring.violationsCount || 0;
         setViolationsCount(viols);
         setRecoveryChancesRemaining(Math.max(0, 5 - viols));
+      } else {
+        setViolationsCount(0);
+        setRecoveryChancesRemaining(5);
       }
 
       // Save active session to localStorage so reload won't exit the test
@@ -530,8 +550,8 @@ export default function CertificationExamWorkspace({
             attemptId: data.attemptId,
             certId,
             certTitle,
-            currentQuestionIndex: currentQuestionIndex || 0,
-            secondsRemaining,
+            currentQuestionIndex: 0,
+            secondsRemaining: data.durationMinutes ? data.durationMinutes * 60 : 5400,
             status: "IN_PROGRESS",
           })
         );
@@ -567,18 +587,15 @@ export default function CertificationExamWorkspace({
     }
   };
 
-  // Verify backend session state: check if certified, active, or allowed to retake
+  // Verify backend session state: check if certified or allowed to take exam (read-only, no attempt created)
   useEffect(() => {
     let isCancelled = false;
     const token = localStorage.getItem("token");
     if (token && certId) {
-      fetch(`${API_BASE}/api/certifications/attempt/start`, {
-        method: "POST",
+      fetch(`${API_BASE}/api/certifications/check/${certId}`, {
         headers: {
-          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ certId }),
       })
         .then(async (res) => {
           const data = await res.json().catch(() => ({}));
@@ -591,17 +608,13 @@ export default function CertificationExamWorkspace({
             localStorage.removeItem(`mz_${uKey}_cert_${certId}_submitted`);
             localStorage.removeItem(`mz_${uKey}_cert_${certId}_report_url`);
 
-            if (data.resumed && data.attemptId) {
-              setAttemptId(data.attemptId);
-              setAttemptNumber(data.attemptNumber || 1);
-              if (data.candidateName) setCandidateName(data.candidateName);
-              if (Array.isArray(data.selectedMcqs) && data.selectedMcqs.length > 0) {
-                setSelectedMcqs(data.selectedMcqs);
-              }
-              if (data.mcqAnswers) setMcqAnswers(data.mcqAnswers);
-              if (Array.isArray(data.selectedCodingQuestions) && data.selectedCodingQuestions.length > 0) {
-                setSelectedCodingQuestions(data.selectedCodingQuestions);
-              }
+            if (data.attemptNumber) {
+              setAttemptNumber(data.attemptNumber);
+            }
+
+            // Only auto-resume if user actually had an active session stored locally
+            if (isResumingActive && data.hasActiveAttempt) {
+              startOrResumeAttempt(null, true);
             }
           }
         })
@@ -609,6 +622,7 @@ export default function CertificationExamWorkspace({
     }
 
     const handlePopState = () => {
+      const uKey = currentUserId && currentUserId !== "guest" ? currentUserId : "guest";
       const checkSubmitted =
         isSubmittedRef.current ||
         localStorage.getItem(`mz_${uKey}_cert_${certId}_submitted`) === "true" ||
@@ -621,10 +635,6 @@ export default function CertificationExamWorkspace({
       }
     };
     window.addEventListener("popstate", handlePopState);
-
-    if (isResumingActive) {
-      startOrResumeAttempt(null, true);
-    }
 
     return () => window.removeEventListener("popstate", handlePopState);
   }, []);
@@ -1408,6 +1418,14 @@ export default function CertificationExamWorkspace({
       const isPassed = data.finalVerdict === "PASSED" || finalPct >= 80;
       const totalPassedCoding = currentCoding.reduce((acc, s) => acc + (s.passedTests || 0), 0);
 
+      if (isPassed) {
+        try {
+          localStorage.setItem(`mz_${uKey}_cert_passed_${certId}`, "true");
+          localStorage.setItem(`mz_cert_passed_${certId}`, "true");
+          window.dispatchEvent(new CustomEvent("mz_certificate_awarded", { detail: { certId, attemptId } }));
+        } catch {}
+      }
+
       // Cache comprehensive report locally for instant zero-latency report page rendering
       try {
         const reportsKey = uKey !== "guest" ? `mz_${uKey}_assessment_reports` : "mz_assessment_reports";
@@ -1765,6 +1783,21 @@ export default function CertificationExamWorkspace({
         onViewReport={() => {
           navigate(submissionSuccessData.reportUrl, { replace: true });
         }}
+        onRetake={!submissionSuccessData.passed ? () => {
+          setSubmissionSuccessData(null);
+          setStage("gate");
+          setAttemptId(null);
+          setMcqAnswers({});
+          setFlaggedMcqs(new Set());
+          setCodingSubmissions([]);
+          setSelectedMcqs([]);
+          setSelectedCodingQuestions([]);
+          setCurrentQuestionIndex(0);
+          setAttemptNumber((prev) => prev + 1);
+          if (currentUserId) {
+            localStorage.removeItem(`mz_${currentUserId}_active_cert_session`);
+          }
+        } : null}
       />
     );
   }

@@ -19,6 +19,7 @@ const Progress = require("../models/ProgressSchema");
 const CodingProgress = require("../models/CodingProgress");
 const User = require("../models/User");
 const { pushNotification } = require("../utils/notificationService");
+const { pushAdminNotification } = require("../utils/adminNotificationService");
 const { sendSubmissionEvaluationEmail, dispatchMailBackground, isGuestAccount } = require("../utils/mailer");
 
 const JAVAC_BIN = fs.existsSync("/opt/homebrew/Cellar/openjdk/26.0.2.1/bin/javac")
@@ -1396,6 +1397,51 @@ router.post("/:projectId/submit", authenticateToken, async (req, res) => {
         badgeAwarded: evaluation.passed,
       },
     });
+
+    // Notify Super Admin of Project Submission and Report Generation
+    pushAdminNotification({
+      title: evaluation.passed ? "Project Completed & Passed!" : "Project Assessment Evaluated",
+      message: `${user?.fullName || user?.username || "Candidate"} completed ${project.title} — ${evaluation.passed ? "PASSED (Completed Badge Awarded)" : "NEEDS IMPROVEMENT"} (${evaluation.marksObtained}/100 Marks, Grade ${evaluation.grade}).`,
+      type: "project",
+      severity: evaluation.passed ? "success" : "info",
+      targetId: String(submissionDoc._id),
+      actionUrl: `/assessment-report/${sessionId}`,
+      io: req.app.get("io"),
+    }).catch(() => {});
+
+    // Real-time socket broadcast to Super Admin Centralized Reports
+    try {
+      const io = req.app.get("io");
+      if (io) {
+        const adminProjectReport = {
+          id: submissionDoc._id,
+          rawId: submissionDoc._id,
+          itemType: "project",
+          sessionId,
+          title: `${project.title} — Project Assessment Report`,
+          type: "Project Assessment Report",
+          recipient: user?.fullName || user?.username || submissionDoc.candidateDetails?.fullName || "Candidate",
+          email: user?.email || submissionDoc.candidateDetails?.email || "",
+          score: `${evaluation.marksObtained}/100 (${evaluation.marksObtained}%)`,
+          rawScore: evaluation.marksObtained,
+          maxScore: 100,
+          grade: evaluation.grade || (evaluation.passed ? "Passed" : "Needs Improvement"),
+          verificationCode: String(sessionId || submissionDoc._id).slice(-8).toUpperCase(),
+          date: now,
+          status: evaluation.passed ? "PASSED" : "NEEDS_IMPROVEMENT",
+          reportUrl: `/assessment-report/${sessionId}`,
+        };
+        io.emit("NEW_REPORT", adminProjectReport);
+        io.emit("NEW_SUBMISSION", {
+          type: "project",
+          sessionId,
+          userId: String(userId),
+          passed: evaluation.passed,
+        });
+      }
+    } catch (socketErr) {
+      console.warn("Socket notification warning for project:", socketErr.message);
+    }
 
     try {
       const recipientEmail = user?.email || submissionDoc?.candidateDetails?.email;

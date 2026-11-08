@@ -2819,6 +2819,17 @@ export default function MasteryZoneCompilerWorkspace({
         localStorage.setItem(reportsKey, JSON.stringify(updatedList));
         localStorage.setItem("mz_assessment_reports", JSON.stringify(updatedList));
         localStorage.setItem(`mz_report_${finalSid}`, JSON.stringify(reportItem));
+
+        if (isAccepted) {
+          const qId = questionId || problemData?.id;
+          if (qId) {
+            localStorage.setItem(`mz_ch_solved_${qId}`, "true");
+            if (uId) {
+              localStorage.setItem(`mz_${uId}_ch_solved_${qId}`, "true");
+            }
+            window.dispatchEvent(new CustomEvent("mz_challenge_solved", { detail: { challengeId: qId, userId: uId } }));
+          }
+        }
       } catch (e) {
         console.warn("Could not save report to localStorage:", e);
       }

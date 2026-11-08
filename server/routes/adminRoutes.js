@@ -990,6 +990,63 @@ router.get("/attempt-report/:type/:id", async (req, res) => {
           .populate("userId", "fullName username email phoneNumber location avatarUrl")
           .lean();
       }
+      if (!doc) {
+        // Check ProctoredCodingSession
+        let sessionDoc = null;
+        if (mongoose.Types.ObjectId.isValid(id)) {
+          sessionDoc = await ProctoredCodingSession.findById(id)
+            .populate("userId", "fullName username email phoneNumber location avatarUrl")
+            .lean();
+        }
+        if (!sessionDoc) {
+          sessionDoc = await ProctoredCodingSession.findOne({ sessionId: id })
+            .populate("userId", "fullName username email phoneNumber location avatarUrl")
+            .lean();
+        }
+        if (sessionDoc) {
+          const user = sessionDoc.userId || {};
+          const subResult = sessionDoc.submissionResult || {};
+          const primaryQ = (sessionDoc.questions && sessionDoc.questions[0]) || {};
+          const score = subResult.score !== undefined ? subResult.score : (primaryQ.score !== undefined ? primaryQ.score : 0);
+          const totalT = subResult.totalTests || primaryQ.totalTests || 10;
+          const passedT = subResult.passedTests !== undefined ? subResult.passedTests : (primaryQ.passedTests !== undefined ? primaryQ.passedTests : 0);
+          const isPassed = subResult.passed !== undefined ? subResult.passed : score >= 80;
+
+          report = {
+            itemType: "coding",
+            id: sessionDoc._id,
+            sessionId: sessionDoc.sessionId,
+            title: sessionDoc.assessmentTitle || primaryQ.title || "Coding Challenge",
+            challengeId: sessionDoc.questionId,
+            candidateName: sessionDoc.candidateDetails?.fullName || user.fullName || user.username || "Student",
+            candidateEmail: sessionDoc.candidateDetails?.email || user.email || "",
+            avatarUrl: user.avatarUrl,
+            date: subResult.submittedAt || sessionDoc.updatedAt || sessionDoc.createdAt,
+            language: subResult.language || primaryQ.language || "python",
+            code: subResult.code || primaryQ.submittedCode || "",
+            score,
+            maxScore: 100,
+            percentage: score,
+            status: isPassed ? "ACCEPTED" : "FAILED",
+            passed: isPassed,
+            passedTests: passedT,
+            totalTests: totalT,
+            runtimeMs: 0,
+            output: isPassed ? "All test assertions passed." : "Evaluation completed.",
+            error: "",
+            testResults: subResult.testResults || primaryQ.testResults || [],
+            adminNote: "",
+            marksHistory: [],
+            notificationSent: true,
+            notificationEmailSent: false,
+            notificationViewed: true,
+            notificationViewedAt: subResult.submittedAt,
+            reportUrl: `/assessment-report/${sessionDoc.sessionId}`,
+          };
+          return res.status(200).json({ success: true, report });
+        }
+      }
+
       if (!doc) return res.status(404).json({ success: false, message: "Coding submission not found" });
 
       const user = doc.userId || {};
@@ -1040,7 +1097,7 @@ router.get("/attempt-report/:type/:id", async (req, res) => {
         notificationEmailSent: Boolean(doc.notificationEmailSent),
         notificationViewed: isViewed,
         notificationViewedAt: viewedAt,
-        reportUrl: `/coding`,
+        reportUrl: `/assessment-report/${doc._id}`,
       };
     } else if (type === "project") {
       let doc = null;
@@ -1057,9 +1114,10 @@ router.get("/attempt-report/:type/:id", async (req, res) => {
       if (!doc) return res.status(404).json({ success: false, message: "Project submission not found" });
 
       const user = doc.userId || {};
-      const maxScore = doc.maxTotalMarks || 100;
-      const scoreVal = doc.totalMarks || 0;
+      const maxScore = doc.totalMarks || 100;
+      const scoreVal = doc.marksObtained !== undefined ? doc.marksObtained : (doc.score || 0);
       const pct = doc.percentage != null ? doc.percentage : Math.round((scoreVal / maxScore) * 100);
+      const isPassed = Boolean(doc.passed || scoreVal >= (doc.passingMarks || 80));
 
       report = {
         itemType: "project",
@@ -1076,18 +1134,22 @@ router.get("/attempt-report/:type/:id", async (req, res) => {
         score: scoreVal,
         maxScore,
         percentage: pct,
-        status: doc.overallVerdict === "ACCEPTED" || pct >= 70 ? "Passed" : "Failed",
-        passed: doc.overallVerdict === "ACCEPTED" || pct >= 70,
+        status: isPassed ? "PASSED" : "NEEDS_IMPROVEMENT",
+        passed: isPassed,
+        grade: doc.grade || (isPassed ? "Passed" : "Needs Improvement"),
         files: doc.files || [],
         technologies: doc.technologies || [],
         rubricBreakdown: doc.rubricBreakdown || {},
+        testResults: doc.testResults || [],
+        passedTests: doc.passedTests || 0,
+        totalTests: doc.totalTests || 6,
         adminNote: doc.adminNote || "",
         marksHistory: doc.marksHistory || [],
         notificationSent: Boolean(doc.notificationSent),
         notificationEmailSent: Boolean(doc.notificationEmailSent),
         notificationViewed: Boolean(doc.notificationViewed),
         notificationViewedAt: doc.notificationViewedAt,
-        reportUrl: `/project-workspace/${doc.projectId}`,
+        reportUrl: `/assessment-report/${doc.sessionId}`,
       };
     } else {
       return res.status(400).json({ success: false, message: "Unsupported attempt type" });
@@ -2516,7 +2578,7 @@ router.get("/reports", async (req, res) => {
     const genuineUserIds = genuineUsers.map((u) => u._id);
     const genuineUserEmails = genuineUsers.map((u) => (u.email || "").toLowerCase()).filter(Boolean);
 
-    const [certs, attempts, moduleAttempts] = await Promise.all([
+    const [certs, attempts, moduleAttempts, projectSubs, codingSessions] = await Promise.all([
       IssuedCertificate.find({})
         .select("_id attemptId certificateId verificationCode certificationTitle certTitle recipientName candidateEmail userId mcqScorePercentage percentage issueDate issuedAt createdAt status")
         .populate("userId", "fullName username email")
@@ -2532,6 +2594,20 @@ router.get("/reports", async (req, res) => {
         .select("_id sessionId userId assessmentTitle moduleTitle totalQuestions score percentage passed submittedAt createdAt")
         .populate("userId", "fullName username email")
         .sort({ createdAt: -1 })
+        .limit(150)
+        .lean(),
+      ProjectSubmission.find({})
+        .select("_id sessionId projectId projectTitle projectCategory difficulty userId candidateDetails marksObtained totalMarks percentage grade passed status badgeAwarded passedTests totalTests submittedAt createdAt")
+        .populate("userId", "fullName username email")
+        .sort({ submittedAt: -1, createdAt: -1 })
+        .limit(150)
+        .lean(),
+      ProctoredCodingSession.find({
+        $or: [{ status: "submitted" }, { "submissionResult.submittedAt": { $exists: true } }]
+      })
+        .select("_id sessionId questionId assessmentTitle trackId userId candidateDetails status submissionResult questions updatedAt createdAt")
+        .populate("userId", "fullName username email")
+        .sort({ updatedAt: -1 })
         .limit(150)
         .lean(),
     ]);
@@ -2614,7 +2690,66 @@ router.get("/reports", async (req, res) => {
       };
     });
 
-    const allReports = [...certReports, ...assessReports, ...mcqReports].sort(
+    const projectReports = (projectSubs || []).map((ps) => {
+      const marks = ps.marksObtained != null ? ps.marksObtained : 0;
+      const total = ps.totalMarks || 100;
+      const pct = ps.percentage != null ? ps.percentage : Math.round((marks / total) * 100);
+      const isPassed = Boolean(ps.passed || marks >= (ps.passingMarks || 80));
+      const recipient = ps.candidateDetails?.fullName || ps.userId?.fullName || ps.userId?.username || "Candidate";
+      const email = ps.candidateDetails?.email || ps.userId?.email || "";
+      return {
+        id: ps._id,
+        rawId: ps._id,
+        itemType: "project",
+        sessionId: ps.sessionId,
+        title: `${ps.projectTitle || "Practical Project"} — Project Assessment Report`,
+        type: "Project Assessment Report",
+        recipient,
+        email,
+        score: `${marks}/${total} (${pct}%)`,
+        rawScore: pct,
+        maxScore: total,
+        grade: ps.grade || (isPassed ? "Passed" : "Needs Improvement"),
+        verificationCode: String(ps.sessionId || ps._id).slice(-8).toUpperCase(),
+        date: ps.submittedAt || ps.createdAt,
+        status: isPassed ? "PASSED" : "NEEDS_IMPROVEMENT",
+        reportUrl: `/assessment-report/${ps.sessionId}`,
+      };
+    });
+
+    const codingReports = (codingSessions || []).map((cs) => {
+      const subResult = cs.submissionResult || {};
+      const primaryQ = (cs.questions && cs.questions[0]) || {};
+      const score = subResult.score !== undefined ? subResult.score : (primaryQ.score !== undefined ? primaryQ.score : 0);
+      const totalTests = subResult.totalTests || primaryQ.totalTests || 10;
+      const passedTests = subResult.passedTests !== undefined ? subResult.passedTests : (primaryQ.passedTests !== undefined ? primaryQ.passedTests : 0);
+      const isPassed = subResult.passed !== undefined ? subResult.passed : score >= 80;
+      const recipient = cs.candidateDetails?.fullName || cs.userId?.fullName || cs.userId?.username || "Candidate";
+      const email = cs.candidateDetails?.email || cs.userId?.email || "";
+      const title = `${cs.assessmentTitle || primaryQ.title || "Algorithmic Challenge"} — Coding Assessment Report`;
+      return {
+        id: cs._id,
+        rawId: cs._id,
+        itemType: "coding",
+        sessionId: cs.sessionId,
+        title,
+        type: "Coding Challenge Report",
+        recipient,
+        email,
+        score: `${score}%`,
+        rawScore: score,
+        maxScore: 100,
+        grade: subResult.grade || (isPassed ? "Accepted" : "Failed"),
+        verificationCode: String(cs.sessionId || cs._id).slice(-8).toUpperCase(),
+        date: subResult.submittedAt || cs.updatedAt || cs.createdAt,
+        status: isPassed ? "ACCEPTED" : "FAILED",
+        passedTests,
+        totalTests,
+        reportUrl: `/assessment-report/${cs.sessionId}`,
+      };
+    });
+
+    const allReports = [...certReports, ...assessReports, ...mcqReports, ...projectReports, ...codingReports].sort(
       (a, b) => new Date(b.date) - new Date(a.date)
     );
 
@@ -2626,6 +2761,8 @@ router.get("/reports", async (req, res) => {
         certificationsCount: certReports.length,
         assessmentsCount: assessReports.length,
         mcqReportsCount: mcqReports.length,
+        projectsCount: projectReports.length,
+        codingCount: codingReports.length,
       },
     });
   } catch (error) {

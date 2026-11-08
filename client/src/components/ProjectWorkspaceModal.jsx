@@ -697,6 +697,10 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
         try {
           const pId = projectSpec?.id || projectId;
           sessionStorage.setItem(`mz_proj_submitted_${pId}`, "true");
+          localStorage.setItem(`mz_proj_passed_${pId}`, "true");
+          if (sub.sessionId) {
+            localStorage.setItem(`mz_report_sid_${pId}`, sub.sessionId);
+          }
           if (currentUserId) {
             sessionStorage.setItem(`mz_${currentUserId}_proj_submitted_${pId}`, "true");
             localStorage.setItem(`mz_${currentUserId}_proj_passed_${pId}`, "true");
