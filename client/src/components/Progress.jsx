@@ -109,6 +109,8 @@ const Progress = () => {
 
   // Search, Filters & Modals
   const [searchQuery, setSearchQuery] = useState("");
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const searchContainerRef = useRef(null);
   const [timeFilter, setTimeFilter] = useState("This Month"); // "This Week", "This Month", "All Time"
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
@@ -178,6 +180,9 @@ const Progress = () => {
     const handleClickOutside = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setIsDropdownOpen(false);
+      }
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target)) {
+        setShowSearchDropdown(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -587,23 +592,105 @@ const Progress = () => {
         {/* Top Navbar */}
         <header className="mz-p-topbar">
           {/* Search Bar */}
-          <div className="mz-p-search-wrap">
+          <div className="mz-p-search-wrap" ref={searchContainerRef} style={{ position: "relative" }}>
             <LuSearch className="mz-p-search-icon" size={17} />
             <input
               type="text"
               className="mz-p-search-input"
-              placeholder="Search for skills, courses, or anything..."
+              placeholder="Search..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setShowSearchDropdown(true);
+              }}
+              onFocus={() => {
+                if (searchQuery.trim()) setShowSearchDropdown(true);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setShowSearchDropdown(false);
+              }}
             />
             {searchQuery && (
               <button
                 type="button"
                 className="mz-p-search-clear"
-                onClick={() => setSearchQuery("")}
+                onClick={() => {
+                  setSearchQuery("");
+                  setShowSearchDropdown(false);
+                }}
               >
                 <LuX size={14} />
               </button>
+            )}
+
+            {showSearchDropdown && searchQuery.trim().length > 0 && (
+              <div className="mz-global-search-dropdown" style={{ minWidth: 380 }}>
+                <div className="mz-global-search-header">
+                  <span>Results for &ldquo;{searchQuery.trim()}&rdquo;</span>
+                  <span className="mz-global-search-esc">Press ESC to dismiss</span>
+                </div>
+
+                {filteredTracks.length === 0 && filteredActivity.length === 0 ? (
+                  <div className="mz-global-search-empty">
+                    <p>No results found for &ldquo;{searchQuery}&rdquo;</p>
+                    <small>Try searching for Python, React, Cloud, or recent activity</small>
+                  </div>
+                ) : (
+                  <>
+                    {filteredTracks.length > 0 && (
+                      <div className="mz-global-search-group">
+                        <div className="mz-global-search-group-title">
+                          Learning Tracks ({filteredTracks.length})
+                        </div>
+                        {filteredTracks.map((tr) => (
+                          <div
+                            key={tr.key || tr.id || tr.title}
+                            className="mz-global-search-item"
+                            onClick={() => {
+                              setShowSearchDropdown(false);
+                            }}
+                          >
+                            <span className="mz-global-search-item-icon">📊</span>
+                            <div className="mz-global-search-item-content">
+                              <div className="mz-global-search-item-title">{tr.title}</div>
+                              <div className="mz-global-search-item-sub">
+                                Progress: {tr.percentage}% • {tr.completedLessons || 0}/{tr.totalLessons || 0} Lessons
+                              </div>
+                            </div>
+                            <span className="mz-global-search-item-action">View Track →</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {filteredActivity.length > 0 && (
+                      <div className="mz-global-search-group">
+                        <div className="mz-global-search-group-title">
+                          Recent Activity ({filteredActivity.length})
+                        </div>
+                        {filteredActivity.slice(0, 5).map((act, idx) => (
+                          <div
+                            key={act.id || idx}
+                            className="mz-global-search-item"
+                            onClick={() => {
+                              setShowSearchDropdown(false);
+                            }}
+                          >
+                            <span className="mz-global-search-item-icon">⚡</span>
+                            <div className="mz-global-search-item-content">
+                              <div className="mz-global-search-item-title">{act.title}</div>
+                              <div className="mz-global-search-item-sub">
+                                {act.category || "Activity"} • {act.duration || act.timeSpent || ""}
+                              </div>
+                            </div>
+                            <span className="mz-global-search-item-action">Details →</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
             )}
           </div>
 

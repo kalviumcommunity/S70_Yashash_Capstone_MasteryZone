@@ -97,6 +97,18 @@ const AdminHelpSupport = () => {
 
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const searchContainerRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target)) {
+        setShowSearchDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("All Categories");
 
@@ -688,7 +700,7 @@ const AdminHelpSupport = () => {
       >
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", flex: 1 }}>
           {/* Search bar */}
-          <div style={{ position: "relative", minWidth: 280, flex: "1 1 280px" }}>
+          <div ref={searchContainerRef} style={{ position: "relative", minWidth: 280, flex: "1 1 280px" }}>
             <LuSearch
               style={{
                 position: "absolute",
@@ -703,11 +715,20 @@ const AdminHelpSupport = () => {
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by ticket ID, student name, email, or subject..."
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setShowSearchDropdown(true);
+              }}
+              onFocus={() => {
+                if (searchQuery.trim()) setShowSearchDropdown(true);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setShowSearchDropdown(false);
+              }}
+              placeholder="Search..."
               style={{
                 width: "100%",
-                padding: "8px 12px 8px 36px",
+                padding: "8px 30px 8px 36px",
                 borderRadius: 8,
                 border: "1px solid #cbd5e1",
                 fontSize: 13,
@@ -715,6 +736,63 @@ const AdminHelpSupport = () => {
                 boxSizing: "border-box",
               }}
             />
+            {searchQuery && (
+              <button
+                onClick={() => {
+                  setSearchQuery("");
+                  setShowSearchDropdown(false);
+                }}
+                style={{
+                  position: "absolute",
+                  right: 10,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  background: "none",
+                  border: "none",
+                  color: "#94a3b8",
+                  cursor: "pointer",
+                }}
+              >
+                <LuX style={{ width: 14, height: 14 }} />
+              </button>
+            )}
+
+            {showSearchDropdown && searchQuery.trim().length > 0 && (
+              <div className="mz-global-search-dropdown" style={{ minWidth: 320, left: 0 }}>
+                <div className="mz-global-search-header">
+                  <span>Tickets matching &ldquo;{searchQuery.trim()}&rdquo;</span>
+                  <span className="mz-global-search-esc">Press ESC</span>
+                </div>
+                {filteredTickets.length === 0 ? (
+                  <div className="mz-global-search-empty">
+                    <p>No tickets match &ldquo;{searchQuery}&rdquo;</p>
+                    <small>Try searching by ticket ID, student name, or subject</small>
+                  </div>
+                ) : (
+                  <div className="mz-global-search-group">
+                    {filteredTickets.slice(0, 6).map((t) => (
+                      <div
+                        key={t.ticketId}
+                        className="mz-global-search-item"
+                        onClick={() => {
+                          setShowSearchDropdown(false);
+                          handleOpenTicket(t);
+                        }}
+                      >
+                        <span className="mz-global-search-item-icon">🎫</span>
+                        <div className="mz-global-search-item-content">
+                          <div className="mz-global-search-item-title">{t.subject || "Support Ticket"}</div>
+                          <div className="mz-global-search-item-sub">
+                            {t.ticketId} • {t.userName} ({t.status})
+                          </div>
+                        </div>
+                        <span className="mz-global-search-item-action">Inspect →</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Category Filter */}

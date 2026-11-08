@@ -28,6 +28,7 @@ import {
   LuCheckCheck,
 } from "react-icons/lu";
 import "./FullScreenConceptLearning.css";
+import MasteryZoneGlobalLoader from "./MasteryZoneGlobalLoader";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -530,34 +531,7 @@ export default function FullScreenConceptLearning({
   };
 
   if (loading || !module) {
-    return (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          minHeight: "100vh",
-          backgroundColor: "#f8fafc",
-          color: "#475569",
-          fontFamily: "'Inter', sans-serif",
-          flexDirection: "column",
-          gap: "16px",
-        }}
-      >
-        <div
-          style={{
-            width: "36px",
-            height: "36px",
-            border: "3px solid #2563eb",
-            borderTopColor: "transparent",
-            borderRadius: "50%",
-            animation: "spin 1s linear infinite",
-          }}
-        />
-        <p style={{ fontSize: "14px", fontWeight: 600 }}>Loading Comprehensive Module Curriculum...</p>
-        <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
-      </div>
-    );
+    return <MasteryZoneGlobalLoader message="Loading Comprehensive Module Curriculum..." />;
   }
 
   return (

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import MasteryZoneCompilerWorkspace from "./MasteryZoneCompilerWorkspace";
+import MasteryZoneGlobalLoader from "./MasteryZoneGlobalLoader";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -98,34 +99,7 @@ export default function ChallengeWorkspaceModal({
   };
 
   if (loading || !challenge) {
-    return (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          minHeight: "100vh",
-          backgroundColor: "#0d1117",
-          color: "#94a3b8",
-          fontFamily: "'Inter', sans-serif",
-          flexDirection: "column",
-          gap: "16px",
-        }}
-      >
-        <div
-          style={{
-            width: "36px",
-            height: "36px",
-            border: "3px solid #3b82f6",
-            borderTopColor: "transparent",
-            borderRadius: "50%",
-            animation: "spin 1s linear infinite",
-          }}
-        />
-        <p style={{ fontSize: "14px", fontWeight: 500 }}>Loading Challenge Workspace...</p>
-        <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
-      </div>
-    );
+    return <MasteryZoneGlobalLoader message="Loading Challenge Workspace..." />;
   }
 
   const isPlayground = Boolean(effectiveChallengeId?.startsWith("playground-") || challenge?.id?.startsWith("playground-"));

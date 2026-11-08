@@ -949,6 +949,29 @@ const Home = () => {
 
   // Real-time search query
   const [searchQuery, setSearchQuery] = useState("");
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const searchContainerRef = useRef(null);
+
+  const homeSearchResults = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return { interests: [], projects: [], recordings: [] };
+    const interests = INTEREST_CARDS.filter(
+      (c) => c.title.toLowerCase().includes(q) || c.description.toLowerCase().includes(q) || c.tags.some((t) => t.toLowerCase().includes(q))
+    );
+    const matchedProjects = (typeof SOFTWARE_PROJECTS !== "undefined" ? SOFTWARE_PROJECTS : []).filter(
+      (p) => p.title.toLowerCase().includes(q) || (p.domain && p.domain.toLowerCase().includes(q)) || (p.technologies && p.technologies.some((t) => t.toLowerCase().includes(q)))
+    ).slice(0, 4);
+    const matchedRecordings = (recordingsList || []).filter(
+      (r) => (r.title && r.title.toLowerCase().includes(q)) || (r.hostName && r.hostName.toLowerCase().includes(q))
+    ).slice(0, 4);
+
+    return { interests, projects: matchedProjects, recordings: matchedRecordings };
+  }, [searchQuery, recordingsList]);
+
+  const totalHomeResults =
+    homeSearchResults.interests.length +
+    homeSearchResults.projects.length +
+    homeSearchResults.recordings.length;
 
   const fileInputRef = useRef(null);
   const dropdownRef = useRef(null);
@@ -959,6 +982,9 @@ const Home = () => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setIsDropdownOpen(false);
+      }
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target)) {
+        setShowSearchDropdown(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -1236,6 +1262,159 @@ const Home = () => {
     }
   };
 
+  const formattedTodayDate = useMemo(() => {
+    try {
+      return new Date().toLocaleDateString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    } catch {
+      return "Today";
+    }
+  }, []);
+
+  const userLevelTier = useMemo(() => {
+    const xp = codingStats?.totalXp || 0;
+    if (xp >= 1000) return { title: "Lead Architect", tier: "Level 4", badge: "Expert" };
+    if (xp >= 500) return { title: "Senior Developer", tier: "Level 3", badge: "Advanced" };
+    if (xp >= 200) return { title: "Junior Engineer", tier: "Level 2", badge: "Intermediate" };
+    return { title: "Apprentice Developer", tier: "Level 1", badge: "Beginner" };
+  }, [codingStats?.totalXp]);
+
+  const activeTrackInfo = useMemo(() => {
+    if (Array.isArray(codingStats?.tracks) && codingStats.tracks.length > 0) {
+      const ongoing = codingStats.tracks.find((t) => (t.completedLessons || 0) > 0 && (t.completedLessons || 0) < (t.totalLessons || 1));
+      if (ongoing) {
+        const total = ongoing.totalLessons || 24;
+        const done = ongoing.completedLessons || 0;
+        const pct = Math.min(100, Math.round((done / total) * 100));
+        return {
+          id: ongoing.id || "python",
+          title: ongoing.title || "Python Core to Advanced DSA",
+          category: ongoing.category || "Software Engineering Track",
+          totalLessons: total,
+          completedLessons: done,
+          progressPct: pct,
+          currentModule: ongoing.currentModule || "Module 4: Binary Search Trees & Hash Maps",
+          nextUp: ongoing.nextUp || "Module 5: Dynamic Programming & Recursion",
+          route: ongoing.route || `/coding?tab=learning_path&track=${ongoing.id || "python"}`,
+        };
+      }
+    }
+    const solved = codingStats?.challengesSolvedCount || 0;
+    const completedLessons = Math.min(24, Math.max(3, solved + 4));
+    const progressPct = Math.round((completedLessons / 24) * 100);
+    return {
+      id: "python",
+      title: "Python Core to Advanced DSA",
+      category: "Foundations & System Architecture",
+      totalLessons: 24,
+      completedLessons,
+      progressPct,
+      currentModule: "Module 4: Binary Search Trees & Hash Maps",
+      nextUp: "Module 5: Dynamic Programming & Recursion",
+      route: "/coding?tab=learning_path&track=python",
+    };
+  }, [codingStats?.tracks, codingStats?.challengesSolvedCount]);
+
+  const combinedActivities = useMemo(() => {
+    const list = [];
+
+    // Submissions from coding arena
+    if (Array.isArray(recentCodingSubmissions)) {
+      recentCodingSubmissions.forEach((sub, i) => {
+        const isPass = sub.status === "ACCEPTED" || sub.verdict === "ACCEPTED" || sub.passed === true;
+        list.push({
+          id: sub._id || sub.submissionId || `sub_${i}`,
+          title: sub.challengeTitle || sub.problemTitle || "Algorithmic Challenge",
+          category: "DSA Challenge",
+          badgeType: "challenge",
+          tag: sub.language ? sub.language.toUpperCase() : "ALGO",
+          status: isPass ? "PASSED" : "FAILED",
+          statusLabel: isPass ? "Accepted" : "Wrong Answer",
+          score: sub.passedTests != null && sub.totalTests != null ? `${sub.passedTests}/${sub.totalTests} tests` : (sub.score != null ? `${sub.score}%` : null),
+          runtime: sub.runtimeMs ? `${sub.runtimeMs}ms` : null,
+          timestamp: sub.createdAt || sub.submittedAt || Date.now(),
+          actionUrl: "/coding?tab=challenges",
+          actionLabel: "Solve Challenge",
+        });
+      });
+    }
+
+    // Reports from curriculum & proctored sessions
+    if (Array.isArray(reportsList)) {
+      reportsList.forEach((rep, i) => {
+        const isPass = rep.passed || (rep.percentage != null && rep.percentage >= (rep.passingScore || 70)) || rep.status === "PASSED";
+        list.push({
+          id: rep.reportId || rep.attemptId || rep._id || `rep_${i}`,
+          title: rep.subjectTitle || rep.assessmentTitle || rep.title || "Proctored Assessment",
+          category: rep.type === "mcq_exam" ? "MCQ Assessment" : (rep.type === "coding_assessment" ? "Coding Assessment" : "Skill Evaluation"),
+          badgeType: "assessment",
+          tag: rep.type === "mcq_exam" ? "MCQ" : "EXAM",
+          status: isPass ? "PASSED" : "FAILED",
+          statusLabel: isPass ? "Passed" : "Below Cutoff",
+          score: rep.totalScore != null && rep.maxScore != null ? `${rep.totalScore}/${rep.maxScore} marks` : (rep.percentage != null ? `${rep.percentage}%` : null),
+          runtime: null,
+          timestamp: rep.completedAt || rep.createdAt || Date.now(),
+          actionUrl: `/assessment-report/${rep.reportId || rep.attemptId || rep._id}`,
+          actionLabel: "View Report",
+        });
+      });
+    }
+
+    // Cert attempts
+    if (Array.isArray(certHistory?.attempts)) {
+      certHistory.attempts.forEach((att, i) => {
+        const isPass = att.status === "PASSED" || (att.percentage != null && att.percentage >= 80);
+        list.push({
+          id: att.attemptId || att._id || `cert_${i}`,
+          title: att.certTitle || "Accredited Certification Exam",
+          category: "Official Certification",
+          badgeType: "cert",
+          tag: "CERT",
+          status: isPass ? "PASSED" : "FAILED",
+          statusLabel: isPass ? "Certified" : "Below Cutoff",
+          score: att.score != null ? `${att.score}/40 marks` : (att.percentage != null ? `${att.percentage}%` : null),
+          runtime: null,
+          timestamp: att.completedAt || att.createdAt || Date.now(),
+          actionUrl: `/assessment-report/${att.attemptId}`,
+          actionLabel: "View Report",
+        });
+      });
+    }
+
+    // Deduplicate by ID and sort newest first
+    const seen = new Set();
+    const result = [];
+    for (const item of list) {
+      if (!seen.has(item.id)) {
+        seen.add(item.id);
+        result.push(item);
+      }
+    }
+
+    result.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    return result.slice(0, 6);
+  }, [recentCodingSubmissions, reportsList, certHistory?.attempts]);
+
+  const formatActivityTime = (timestamp) => {
+    if (!timestamp) return "Recent";
+    try {
+      const d = new Date(timestamp);
+      const now = new Date();
+      const diffSec = Math.floor((now - d) / 1000);
+      if (diffSec < 60) return "Just now";
+      if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
+      if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
+      if (diffSec < 172800) return "Yesterday";
+      return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    } catch {
+      return "Recent";
+    }
+  };
+
   const selectedItem = INTEREST_CARDS.find((i) => i.key === selectedInterest);
   const displayName =
     user?.fullName ||
@@ -1468,15 +1647,24 @@ const Home = () => {
         {/* Top Navbar */}
         <header className="mz-topbar">
           {/* Real-time search bar */}
-          <div className="mz-search-bar-wrap">
+          <div className="mz-search-bar-wrap" ref={searchContainerRef} style={{ position: "relative" }}>
             <LuSearch className="mz-search-bar-icon" size={17} />
             <input
               ref={searchInputRef}
               type="text"
               className="mz-search-bar-input"
-              placeholder="Search challenges, algorithms, or concepts (e.g. Binary Search, Dynamic Programming, Python)..."
+              placeholder="Search..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setShowSearchDropdown(true);
+              }}
+              onFocus={() => {
+                if (searchQuery.trim()) setShowSearchDropdown(true);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setShowSearchDropdown(false);
+              }}
               aria-label="Real-time search"
             />
             {searchQuery && (
@@ -1485,6 +1673,7 @@ const Home = () => {
                 className="mz-search-clear-btn"
                 onClick={() => {
                   setSearchQuery("");
+                  setShowSearchDropdown(false);
                   searchInputRef.current?.focus();
                 }}
                 title="Clear search"
@@ -1494,8 +1683,109 @@ const Home = () => {
             )}
             {searchQuery && (
               <span className="mz-search-count-pill">
-                {filteredCards.length} {filteredCards.length === 1 ? "result" : "results"}
+                {totalHomeResults} {totalHomeResults === 1 ? "result" : "results"}
               </span>
+            )}
+
+            {showSearchDropdown && searchQuery.trim().length > 0 && (
+              <div className="mz-global-search-dropdown" style={{ minWidth: 380 }}>
+                <div className="mz-global-search-header">
+                  <span>Results for &ldquo;{searchQuery.trim()}&rdquo;</span>
+                  <span className="mz-global-search-esc">Press ESC to dismiss</span>
+                </div>
+
+                {totalHomeResults === 0 ? (
+                  <div className="mz-global-search-empty">
+                    <p>No results found for &ldquo;{searchQuery}&rdquo;</p>
+                    <small>Try searching for Python, Full Stack, Cloud, Algorithms, or Recordings</small>
+                  </div>
+                ) : (
+                  <>
+                    {homeSearchResults.interests.length > 0 && (
+                      <div className="mz-global-search-group">
+                        <div className="mz-global-search-group-title">
+                          Tracks & Skills ({homeSearchResults.interests.length})
+                        </div>
+                        {homeSearchResults.interests.map((card) => (
+                          <div
+                            key={card.id}
+                            className="mz-global-search-item"
+                            onClick={() => {
+                              setShowSearchDropdown(false);
+                              if (card.route) navigate(card.route);
+                            }}
+                          >
+                            <span className="mz-global-search-item-icon">🎯</span>
+                            <div className="mz-global-search-item-content">
+                              <div className="mz-global-search-item-title">{card.title}</div>
+                              <div className="mz-global-search-item-sub">
+                                {card.tags.slice(0, 3).join(" • ")}
+                              </div>
+                            </div>
+                            <span className="mz-global-search-item-action">Go to Track →</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {homeSearchResults.projects.length > 0 && (
+                      <div className="mz-global-search-group">
+                        <div className="mz-global-search-group-title">
+                          Projects ({homeSearchResults.projects.length})
+                        </div>
+                        {homeSearchResults.projects.map((proj) => (
+                          <div
+                            key={proj.id}
+                            className="mz-global-search-item"
+                            onClick={() => {
+                              setShowSearchDropdown(false);
+                              navigate(`/project/${proj.id}`);
+                            }}
+                          >
+                            <span className="mz-global-search-item-icon">💻</span>
+                            <div className="mz-global-search-item-content">
+                              <div className="mz-global-search-item-title">{proj.title}</div>
+                              <div className="mz-global-search-item-sub">
+                                {proj.domain || "Software Project"}
+                              </div>
+                            </div>
+                            <span className="mz-global-search-item-action">Open Project →</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {homeSearchResults.recordings.length > 0 && (
+                      <div className="mz-global-search-group">
+                        <div className="mz-global-search-group-title">
+                          Recordings ({homeSearchResults.recordings.length})
+                        </div>
+                        {homeSearchResults.recordings.map((rec) => (
+                          <div
+                            key={rec.id}
+                            className="mz-global-search-item"
+                            onClick={() => {
+                              setShowSearchDropdown(false);
+                              setActiveNavTab("recordings");
+                              setSelectedRecording(rec);
+                              setIsPlaying(true);
+                            }}
+                          >
+                            <span className="mz-global-search-item-icon">🎥</span>
+                            <div className="mz-global-search-item-content">
+                              <div className="mz-global-search-item-title">{rec.title}</div>
+                              <div className="mz-global-search-item-sub">
+                                Host: {rec.hostName || "Host"}
+                              </div>
+                            </div>
+                            <span className="mz-global-search-item-action">Watch →</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
             )}
           </div>
 
@@ -1924,7 +2214,7 @@ const Home = () => {
                     <LuSearch size={14} color="#64748b" />
                     <input
                       type="text"
-                      placeholder="Search title, host, or participant..."
+                      placeholder="Search..."
                       value={recSearchQuery}
                       onChange={(e) => setRecSearchQuery(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && fetchRecordings()}
@@ -3097,1059 +3387,397 @@ const Home = () => {
               </div>
             </div>
           ) : (
-            /* ================= DEDICATED CODING PLATFORM DASHBOARD ================= */
-            <div className="mz-coding-platform-dashboard mz-dashboard-entrance" style={{ maxWidth: 1200, margin: "0 auto", padding: "8px 0 40px" }}>
-              {/* 1. Header & Learner Profile Spotlight */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  flexWrap: "wrap",
-                  gap: 16,
-                  marginBottom: 26,
-                }}
-              >
-                <div className="mz-welcome-entrance">
-                  <h2 style={{ fontSize: "1.75rem", fontWeight: 800, color: "#0f172a", margin: 0, letterSpacing: "-0.02em" }}>
-                    Welcome back, {displayName} <span className="mz-wave-hand">👋</span>
-                  </h2>
-                  <p style={{ fontSize: "0.95rem", color: "#64748b", margin: "6px 0 0", lineHeight: 1.5 }}>
-                    Your centralized software engineering headquarters. Master Data Structures, build production systems, and earn accredited credentials.
+            /* ================= MASTERY ZONE REDESIGNED HOME DASHBOARD ================= */
+            <div className="mz-home-dashboard mz-dashboard-entrance">
+              {/* Section B: Welcome Section */}
+              <div className="mz-dash-welcome">
+                <div className="mz-dash-welcome-text">
+                  <div className="mz-dash-welcome-title-row">
+                    <h1 className="mz-dash-welcome-title">
+                      Welcome back, {displayName} <span className="mz-wave-hand">👋</span>
+                    </h1>
+                  </div>
+                  <p className="mz-dash-welcome-subtitle">
+                    Here is your software engineering overview and current curriculum progress.
                   </p>
                 </div>
 
-                {user && (
-                  <div
-                    className="mz-user-entrance"
-                    onClick={() => navigate("/profile")}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 12,
-                      background: "#ffffff",
-                      padding: "8px 18px 8px 10px",
-                      borderRadius: 32,
-                      border: "1px solid #e2e8f0",
-                      boxShadow: "0 2px 10px rgba(0,0,0,0.04)",
-                      cursor: "pointer",
-                    }}
-                    title="View & Edit Profile"
-                  >
-                    <div
-                      style={{
-                        width: 38,
-                        height: 38,
-                        borderRadius: "50%",
-                        overflow: "hidden",
-                        background: "#eff6ff",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontWeight: 700,
-                        fontSize: "0.95rem",
-                        color: "#2563eb",
-                        border: "2px solid #3b82f6",
-                        boxShadow: "0 0 0 2px rgba(59, 130, 246, 0.2)",
-                      }}
-                    >
-                      {user.avatarUrl ? (
-                        <img
-                          src={user.avatarUrl}
-                          alt="Avatar"
-                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                <div className="mz-dash-welcome-meta">
+                  <div className="mz-dash-meta-chip">
+                    <LuCalendar size={14} className="mz-dash-meta-icon" />
+                    <span>{formattedTodayDate}</span>
+                  </div>
+                  <div className="mz-dash-meta-chip mz-dash-meta-level">
+                    <LuSparkles size={14} className="mz-dash-meta-icon" />
+                    <span>{userLevelTier.title}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section C: Learning Overview Cards (Genuine account data) */}
+              <div className="mz-dash-overview-grid">
+                {/* 1. Streak */}
+                <div
+                  className="mz-overview-card"
+                  onClick={() => navigate("/progress")}
+                  title="View streak & daily activity calendar"
+                >
+                  <div className="mz-overview-top">
+                    <div className="mz-overview-icon-wrap mz-icon-streak">
+                      <LuFlame size={20} />
+                    </div>
+                    <span className="mz-overview-badge mz-badge-streak">Daily</span>
+                  </div>
+                  <div className="mz-overview-metric">
+                    {codingStats.streak || 1} <span className="mz-overview-unit">Days</span>
+                  </div>
+                  <div className="mz-overview-label">Coding Streak</div>
+                  <div className="mz-overview-sub">
+                    <span className="mz-overview-dot mz-dot-orange" />
+                    <span>Active momentum</span>
+                  </div>
+                </div>
+
+                {/* 2. Total XP */}
+                <div
+                  className="mz-overview-card"
+                  onClick={() => navigate("/progress")}
+                  title="View engineering XP breakdown"
+                >
+                  <div className="mz-overview-top">
+                    <div className="mz-overview-icon-wrap mz-icon-xp">
+                      <LuZap size={20} />
+                    </div>
+                    <span className="mz-overview-badge mz-badge-xp">{userLevelTier.tier}</span>
+                  </div>
+                  <div className="mz-overview-metric">
+                    {codingStats.totalXp != null ? codingStats.totalXp : 120} <span className="mz-overview-unit">XP</span>
+                  </div>
+                  <div className="mz-overview-label">Engineering XP</div>
+                  <div className="mz-overview-sub">
+                    <span className="mz-overview-dot mz-dot-blue" />
+                    <span>Earned across challenges</span>
+                  </div>
+                </div>
+
+                {/* 3. Challenges Solved */}
+                <div
+                  className="mz-overview-card"
+                  onClick={() => navigate("/coding?tab=challenges")}
+                  title="Open DSA algorithmic challenges"
+                >
+                  <div className="mz-overview-top">
+                    <div className="mz-overview-icon-wrap mz-icon-challenges">
+                      <LuCodeXml size={20} />
+                    </div>
+                    <span className="mz-overview-badge mz-badge-challenges">Curated</span>
+                  </div>
+                  <div className="mz-overview-metric">
+                    {codingStats.challengesSolvedCount || 0} <span className="mz-overview-total">/ 235</span>
+                  </div>
+                  <div className="mz-overview-label">Challenges Solved</div>
+                  <div className="mz-overview-sub">
+                    <span className="mz-overview-dot mz-dot-emerald" />
+                    <span>Verified unit assertions</span>
+                  </div>
+                </div>
+
+                {/* 4. Earned Credentials */}
+                <div
+                  className="mz-overview-card"
+                  onClick={() => navigate("/certificates")}
+                  title="View accredited certificates"
+                >
+                  <div className="mz-overview-top">
+                    <div className="mz-overview-icon-wrap mz-icon-certs">
+                      <LuAward size={20} />
+                    </div>
+                    <span className="mz-overview-badge mz-badge-certs">Verified</span>
+                  </div>
+                  <div className="mz-overview-metric">
+                    {certHistory.certificates?.length || 0} <span className="mz-overview-unit">Earned</span>
+                  </div>
+                  <div className="mz-overview-label">Accredited Certificates</div>
+                  <div className="mz-overview-sub">
+                    <span className="mz-overview-dot mz-dot-purple" />
+                    <span>Proctored audit credentials</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section D: Focus Grid (Continue Learning + Problem of the Day) */}
+              <div className="mz-dash-focus-grid">
+                {/* Continue Learning Card */}
+                <div className="mz-focus-card mz-continue-card">
+                  <div className="mz-focus-card-header">
+                    <div className="mz-focus-pill mz-pill-blue">
+                      <LuBookOpen size={13} />
+                      <span>Continue Learning</span>
+                    </div>
+                    <span className="mz-focus-track-category">{activeTrackInfo.category}</span>
+                  </div>
+
+                  <div className="mz-continue-body">
+                    <h2 className="mz-continue-title">{activeTrackInfo.title}</h2>
+                    <div className="mz-continue-module-box">
+                      <div className="mz-continue-module-tag">Current Module</div>
+                      <div className="mz-continue-module-name">{activeTrackInfo.currentModule}</div>
+                      <div className="mz-continue-nextup">
+                        <span className="mz-nextup-label">Next Up:</span> {activeTrackInfo.nextUp}
+                      </div>
+                    </div>
+
+                    <div className="mz-continue-progress-wrap">
+                      <div className="mz-continue-progress-text">
+                        <span className="mz-progress-lbl">Track Completion</span>
+                        <span className="mz-progress-stat">
+                          {activeTrackInfo.completedLessons} of {activeTrackInfo.totalLessons} lessons ({activeTrackInfo.progressPct}%)
+                        </span>
+                      </div>
+                      <div className="mz-progress-bar-track">
+                        <div
+                          className="mz-progress-bar-fill"
+                          style={{ width: `${Math.max(6, activeTrackInfo.progressPct)}%` }}
                         />
-                      ) : (
-                        (displayName || "U")[0]?.toUpperCase()
-                      )}
-                    </div>
-                    <div style={{ textAlign: "left", lineHeight: 1.25 }}>
-                      <div style={{ fontSize: "0.88rem", fontWeight: 700, color: "#0f172a" }}>
-                        {displayName}
-                      </div>
-                      <div style={{ fontSize: "0.75rem", color: "#2563eb", fontWeight: 600, display: "flex", alignItems: "center", gap: 5, marginTop: 2 }}>
-                        <span className="mz-live-status-dot" />
-                        <span>Active Profile →</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* 2. Coding Telemetry Quick Stats Strip (4 Interactive Tiles) */}
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                  gap: 16,
-                  marginBottom: 28,
-                }}
-              >
-                {/* Tile 1: Streak */}
-                <div
-                  className="mz-telemetry-tile mz-tile-anim-1"
-                  onClick={() => navigate("/coding?tab=challenges")}
-                  title="Click to view DSA Challenges and maintain your streak"
-                  style={{ cursor: "pointer" }}
-                >
-                  <div
-                    style={{
-                      width: 46,
-                      height: 46,
-                      borderRadius: 14,
-                      background: "linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)",
-                      color: "#ea580c",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      border: "1px solid #fed7aa",
-                    }}
-                  >
-                    <LuFlame size={24} className="mz-pulse-flame" />
-                  </div>
-                  <div>
-                    <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#9a3412", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                      Coding Streak
-                    </span>
-                    <div style={{ fontSize: "1.45rem", fontWeight: 800, color: "#0f172a", lineHeight: 1.2 }}>
-                      {codingStats.streak || 1} <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#64748b" }}>Days</span>
-                    </div>
-                    <span style={{ fontSize: "0.74rem", color: "#ea580c", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 5 }}>
-                      <span className="mz-telemetry-badge-icon" style={{ background: "#ffedd5", border: "1px solid #fed7aa" }}>
-                        <LuFlame size={11} color="#ea580c" />
-                      </span>
-                      <span>Keep daily momentum</span>
-                    </span>
-                  </div>
-                </div>
-
-                {/* Tile 2: Engineering XP */}
-                <div
-                  className="mz-telemetry-tile mz-tile-anim-2"
-                  onClick={() => navigate("/progress")}
-                  title="Click to view learning progress & XP breakdown"
-                  style={{ cursor: "pointer" }}
-                >
-                  <div
-                    style={{
-                      width: 46,
-                      height: 46,
-                      borderRadius: 14,
-                      background: "linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)",
-                      color: "#2563eb",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      border: "1px solid #bfdbfe",
-                    }}
-                  >
-                    <LuZap size={24} />
-                  </div>
-                  <div>
-                    <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#1e40af", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                      Engineering XP
-                    </span>
-                    <div style={{ fontSize: "1.45rem", fontWeight: 800, color: "#0f172a", lineHeight: 1.2 }}>
-                      {codingStats.totalXp || 120} <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#64748b" }}>XP</span>
-                    </div>
-                    <span style={{ fontSize: "0.74rem", color: "#2563eb", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 5 }}>
-                      <span className="mz-telemetry-badge-icon" style={{ background: "#dbeafe", border: "1px solid #bfdbfe" }}>
-                        <LuZap size={11} color="#2563eb" />
-                      </span>
-                      <span>Level 2 Developer</span>
-                    </span>
-                  </div>
-                </div>
-
-                {/* Tile 3: Challenges Solved */}
-                <div
-                  className="mz-telemetry-tile mz-tile-anim-3"
-                  onClick={() => navigate("/coding?tab=challenges")}
-                  title="Click to solve algorithmic challenges"
-                  style={{ cursor: "pointer" }}
-                >
-                  <div
-                    style={{
-                      width: 46,
-                      height: 46,
-                      borderRadius: 14,
-                      background: "linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)",
-                      color: "#16a34a",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      border: "1px solid #bbf7d0",
-                    }}
-                  >
-                    <LuCodeXml size={24} />
-                  </div>
-                  <div>
-                    <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#166534", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                      Challenges Solved
-                    </span>
-                    <div style={{ fontSize: "1.45rem", fontWeight: 800, color: "#0f172a", lineHeight: 1.2 }}>
-                      {codingStats.challengesSolvedCount || 0} <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#64748b" }}>/ {codingStats?.totalChallenges || 235}</span>
-                    </div>
-                    <span style={{ fontSize: "0.74rem", color: "#059669", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 5 }}>
-                      <span className="mz-telemetry-badge-icon" style={{ background: "#dcfce7", border: "1px solid #bbf7d0" }}>
-                        <LuTarget size={11} color="#059669" />
-                      </span>
-                      <span>Real Test Assertions</span>
-                    </span>
-                  </div>
-                </div>
-
-                {/* Tile 4: Study Time */}
-                <div
-                  className="mz-telemetry-tile mz-tile-anim-4"
-                  onClick={() => navigate("/progress")}
-                  title="Click to view total study telemetry"
-                  style={{ cursor: "pointer" }}
-                >
-                  <div
-                    style={{
-                      width: 46,
-                      height: 46,
-                      borderRadius: 14,
-                      background: "linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)",
-                      color: "#7c3aed",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      border: "1px solid #ddd6fe",
-                    }}
-                  >
-                    <LuClock size={24} />
-                  </div>
-                  <div>
-                    <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#6d28d9", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                      Study Time
-                    </span>
-                    <div style={{ fontSize: "1.45rem", fontWeight: 800, color: "#0f172a", lineHeight: 1.2 }}>
-                      {codingStats.totalHours || 4.5} <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#64748b" }}>Hours</span>
-                    </div>
-                    <span style={{ fontSize: "0.74rem", color: "#7c3aed", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 5 }}>
-                      <span className="mz-telemetry-badge-icon" style={{ background: "#ede9fe", border: "1px solid #ddd6fe" }}>
-                        <LuClock size={11} color="#7c3aed" />
-                      </span>
-                      <span>Active Focus Telemetry</span>
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* 3. Hero Spotlight: Coding & Software Engineering Ecosystem */}
-              <div className="mz-hero-banner-glass">
-                <div style={{ maxWidth: 640, zIndex: 1 }}>
-                  <div
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 6,
-                      background: "#eff6ff",
-                      border: "1px solid #bfdbfe",
-                      color: "#1d4ed8",
-                      padding: "5px 14px",
-                      borderRadius: 24,
-                      fontSize: "0.78rem",
-                      fontWeight: 700,
-                      marginBottom: 14,
-                    }}
-                  >
-                    <LuSparkles size={14} /> Official Coding & DSA Ecosystem
-                  </div>
-                  <h3
-                    style={{
-                      fontSize: "1.9rem",
-                      fontWeight: 800,
-                      color: "#0f172a",
-                      margin: "0 0 12px",
-                      letterSpacing: "-0.02em",
-                      lineHeight: 1.25,
-                    }}
-                  >
-                    Master Algorithmic Thinking & Full-Stack Systems
-                  </h3>
-                  <p
-                    style={{
-                      color: "#475569",
-                      fontSize: "0.95rem",
-                      lineHeight: 1.6,
-                      margin: "0 0 24px",
-                    }}
-                  >
-                    Solve industrial coding challenges with real-time browser compilers, construct milestone multi-file architectures, and earn accredited, proctored computer science certificates.
-                  </p>
-                  
-                  {/* Action Buttons Row */}
-                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-                    <button
-                      type="button"
-                      className="mz-hero-btn-primary"
-                      onClick={() => navigate("/coding?tab=challenges", { state: { tab: "challenges" } })}
-                      title="Solve DSA Challenges in Compiler"
-                    >
-                      <LuCodeXml size={18} /> Solve DSA Challenges
-                    </button>
-                    <button
-                      type="button"
-                      className="mz-hero-btn-glass"
-                      onClick={() => navigate("/coding?tab=learning_path", { state: { tab: "learning_path" } })}
-                      title="Open Structured Learning Path"
-                    >
-                      <LuBookOpen size={18} /> Learn & Path
-                    </button>
-                    <button
-                      type="button"
-                      className="mz-hero-btn-glass"
-                      onClick={() => navigate("/coding?tab=projects", { state: { tab: "projects" } })}
-                      title="Open Industry Software Projects"
-                    >
-                      <LuFolderGit2 size={18} /> Projects
-                    </button>
-                    <button
-                      type="button"
-                      className="mz-hero-btn-glass"
-                      onClick={() => navigate("/certificates")}
-                      title="View Proctored Examinations"
-                    >
-                      <LuAward size={18} /> Proctored Exams
-                    </button>
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    flexShrink: 0,
-                    zIndex: 1,
-                    width: 360,
-                    maxWidth: "100%",
-                  }}
-                >
-                  <img
-                    src={heroLaptop4k}
-                    alt="Mastery Zone 4K Interactive Coding Platform"
-                    className="mz-hero-laptop-img"
-                    style={{
-                      width: "100%",
-                      height: "auto",
-                      maxHeight: 230,
-                      objectFit: "contain",
-                      filter: "drop-shadow(0 14px 28px rgba(15, 23, 42, 0.12))",
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* 4. Interactive Problem of the Day Spotlight */}
-              <div className="mz-pod-card">
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 20 }}>
-                  <div style={{ maxWidth: 760 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
-                      <span style={{ fontSize: "0.76rem", fontWeight: 800, color: "#4338ca", background: "#eef2ff", border: "1px solid #c7d2fe", padding: "4px 12px", borderRadius: 20, display: "inline-flex", alignItems: "center", gap: 6 }}>
-                        <LuFlame size={13} color="#ea580c" className="mz-pulse-flame" /> Problem of the Day
-                      </span>
-                      <span style={{ fontSize: "0.74rem", fontWeight: 700, color: "#b45309", background: "#fffbeb", border: "1px solid #fef3c7", padding: "3px 10px", borderRadius: 20, display: "inline-flex", alignItems: "center", gap: 5 }}>
-                        <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#f59e0b" }} />
-                        Medium
-                      </span>
-                      <span style={{ fontSize: "0.74rem", fontWeight: 600, color: "#334155", background: "#f1f5f9", border: "1px solid #e2e8f0", padding: "3px 10px", borderRadius: 20 }}>
-                        Arrays &amp; Prefix Sum
-                      </span>
-                      <span style={{ fontSize: "0.74rem", fontWeight: 700, color: "#047857", background: "#ecfdf5", border: "1px solid #a7f3d0", padding: "3px 10px", borderRadius: 20, display: "inline-flex", alignItems: "center", gap: 5 }}>
-                        <LuSparkles size={12} color="#059669" /> +50 XP Reward
-                      </span>
-                    </div>
-
-                    <h3 style={{ fontSize: "1.45rem", fontWeight: 800, color: "#0f172a", margin: "0 0 10px", letterSpacing: "-0.02em" }}>
-                      Subarray Sum Equals K
-                    </h3>
-                    <p style={{ fontSize: "0.92rem", color: "#475569", lineHeight: 1.65, margin: "0 0 14px", maxWidth: 720 }}>
-                      Given an array of integers <code className="mz-pod-code-inline">nums</code> and an integer <code className="mz-pod-code-inline">k</code>, return the total number of continuous subarrays whose sum equals to <code className="mz-pod-code-inline">k</code>. Implement an optimal O(N) solution using a prefix sum frequency hash map.
-                    </p>
-
-                    {/* Test Case Preview */}
-                    <div className="mz-pod-io-box">
-                      <div className="mz-pod-io-item">
-                        <span className="mz-pod-io-label">Sample Input:</span>
-                        <code className="mz-pod-io-code">nums = [1, 1, 1], k = 2</code>
-                      </div>
-                      <div className="mz-pod-io-divider" />
-                      <div className="mz-pod-io-item">
-                        <span className="mz-pod-io-label">Expected Output:</span>
-                        <code className="mz-pod-io-code mz-pod-io-success">2</code>
                       </div>
                     </div>
 
-                    <div className="mz-pod-meta-row">
-                      <span className="mz-pod-meta-pill">
-                        <LuCircleCheck size={14} color="#16a34a" /> Acceptance: <strong>44.2%</strong>
-                      </span>
-                      <span>•</span>
-                      <span className="mz-pod-meta-pill">
-                        <LuClock size={14} color="#6366f1" /> Time Limit: <strong>1000ms</strong>
-                      </span>
-                      <span>•</span>
-                      <span className="mz-pod-meta-pill">
-                        <LuTerminal size={14} color="#0284c7" /> Languages: <strong>Python, Java, C++, JS</strong>
-                      </span>
-                    </div>
-                  </div>
-
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 200, alignSelf: "center" }}>
-                    <button
-                      type="button"
-                      className="mz-pod-btn-solve"
-                      onClick={() => {
-                        navigate("/coding?tab=challenges", { state: { tab: "challenges" } });
-                        window.scrollTo({ top: 0, behavior: "smooth" });
-                      }}
-                    >
-                      Solve Challenge <LuArrowRight size={16} />
-                    </button>
-
-                    <button
-                      type="button"
-                      className="mz-pod-btn-hint"
-                      onClick={() => setShowPodHint((prev) => !prev)}
-                    >
-                      <LuLightbulb size={15} color="#d97706" />
-                      {showPodHint ? "Hide Solution Hint" : "View Solution Hint"}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Collapsible Solution Hint Accordion */}
-                {showPodHint && (
-                  <div
-                    style={{
-                      marginTop: 18,
-                      padding: "16px 22px",
-                      background: "linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)",
-                      border: "1px solid #fde68a",
-                      borderRadius: 14,
-                      boxShadow: "0 2px 8px rgba(245, 158, 11, 0.08)",
-                      animation: "mzFadeInUp 0.25s ease-out forwards",
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                      <LuLightbulb size={16} color="#b45309" />
-                      <span style={{ fontSize: "0.88rem", fontWeight: 700, color: "#92400e" }}>
-                        Algorithmic Intuition &amp; Optimal Approach
-                      </span>
-                    </div>
-                    <p style={{ fontSize: "0.86rem", color: "#78350f", lineHeight: 1.6, margin: 0 }}>
-                      Maintain a running prefix sum <code>currSum</code> and a hash map tracking how often each prefix sum occurs. For each element, check if <code>currSum - k</code> exists in your map. If so, add its frequency to your answer. This reduces the brute-force O(N²) solution down to an optimal <strong>O(N) Time and O(N) Space</strong> algorithm.
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* 5. DSA Problem-Solving Tracks (6 Cards in 3x2 Grid) */}
-              <div style={{ marginBottom: 38 }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18, flexWrap: "wrap", gap: 12 }}>
-                  <div>
-                    <h3 style={{ fontSize: "1.3rem", fontWeight: 800, color: "#0f172a", margin: 0 }}>
-                      Data Structures & Algorithms Tracks
-                    </h3>
-                    <p style={{ fontSize: "0.88rem", color: "#64748b", margin: "4px 0 0" }}>
-                      Curated algorithmic topics designed to take you from foundational concepts to FAANG-grade mastery.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => navigate("/coding?tab=challenges", { state: { tab: "challenges" } })}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "#2563eb",
-                      fontSize: "0.88rem",
-                      fontWeight: 700,
-                      cursor: "pointer",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 4,
-                    }}
-                  >
-                    View All 235 Challenges <LuArrowRight size={14} />
-                  </button>
-                </div>
-
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 18 }}>
-                  {DSA_TOPICS.map((topic) => (
-                    <div
-                      key={topic.id}
-                      className="mz-interactive-card"
-                      onClick={() => navigate(topic.route, { state: { tab: "challenges", topic: topic.id } })}
-                      title={`Open ${topic.title} practice`}
-                    >
-                      <div>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-                          <div
-                            style={{
-                              width: 44,
-                              height: 44,
-                              borderRadius: 12,
-                              background: topic.badgeBg,
-                              color: topic.badgeColor,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                            }}
-                          >
-                            <LuCodeXml size={22} />
-                          </div>
-                          <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "#475569", background: "#f8fafc", border: "1px solid #e2e8f0", padding: "3px 9px", borderRadius: 8 }}>
-                            {topic.problemCount} Challenges
-                          </span>
-                        </div>
-
-                        <h4 style={{ fontSize: "1.08rem", fontWeight: 700, color: "#0f172a", margin: "0 0 6px" }}>
-                          {topic.title}
-                        </h4>
-                        <p style={{ fontSize: "0.84rem", color: "#64748b", lineHeight: 1.5, margin: "0 0 14px" }}>
-                          {topic.description}
-                        </p>
-
-                        {/* Sample Problem Tags */}
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
-                          {topic.challenges?.slice(0, 3).map((ch) => (
-                            <span key={ch} style={{ fontSize: "0.72rem", background: "#f1f5f9", color: "#334155", padding: "2px 7px", borderRadius: 6, fontWeight: 500 }}>
-                              {ch}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div style={{ borderTop: "1px solid #f1f5f9", paddingTop: 12, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <span style={{ fontSize: "0.78rem", fontWeight: 600, color: "#94a3b8" }}>
-                          {topic.difficulty}
-                        </span>
-                        <span style={{ fontSize: "0.82rem", fontWeight: 700, color: topic.badgeColor, display: "inline-flex", alignItems: "center", gap: 4 }}>
-                          Practice Topic <LuArrowRight size={13} className="mz-card-arrow-icon" />
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* 6. Structured Learning Paths (Curricula) */}
-              <div style={{ marginBottom: 38 }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18, flexWrap: "wrap", gap: 12 }}>
-                  <div>
-                    <h3 style={{ fontSize: "1.3rem", fontWeight: 800, color: "#0f172a", margin: 0 }}>
-                      Structured Learning Paths
-                    </h3>
-                    <p style={{ fontSize: "0.88rem", color: "#64748b", margin: "4px 0 0" }}>
-                      Deepen your software engineering expertise in industry-standard languages, paradigms, and architecture.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => navigate("/coding?tab=learning_path", { state: { tab: "learning_path" } })}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "#2563eb",
-                      fontSize: "0.88rem",
-                      fontWeight: 700,
-                      cursor: "pointer",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 4,
-                    }}
-                  >
-                    Open Learning Path <LuArrowRight size={14} />
-                  </button>
-                </div>
-
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 18 }}>
-                  {PROGRAMMING_COURSES.map((course) => (
-                    <div
-                      key={course.id}
-                      className="mz-interactive-card"
-                      onClick={() => navigate(course.route, { state: { tab: "learning_path", track: course.id } })}
-                      title={`Open ${course.title} in Learning Path`}
-                    >
-                      <div>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-                          <span style={{ fontSize: "0.75rem", fontWeight: 700, color: course.iconColor, background: `${course.iconColor}15`, padding: "3px 9px", borderRadius: 6 }}>
-                            {course.level}
-                          </span>
-                          <span style={{ fontSize: "0.78rem", color: "#64748b", fontWeight: 600 }}>
-                            {course.hours}
-                          </span>
-                        </div>
-                        <h4 style={{ fontSize: "1.08rem", fontWeight: 700, color: "#0f172a", margin: "0 0 8px" }}>
-                          {course.title}
-                        </h4>
-                        <p style={{ fontSize: "0.84rem", color: "#64748b", lineHeight: 1.5, margin: "0 0 14px" }}>
-                          {course.description}
-                        </p>
-                      </div>
-
-                      <div style={{ borderTop: "1px solid #f1f5f9", paddingTop: 12, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <span style={{ fontSize: "0.78rem", fontWeight: 600, color: "#94a3b8" }}>
-                          {course.modules} Interactive Modules
-                        </span>
-                        <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "#2563eb", display: "inline-flex", alignItems: "center", gap: 4 }}>
-                          Start Track <LuArrowRight size={13} className="mz-card-arrow-icon" />
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* 7. Industry Software Projects — Interactive Slide Showcase & Cover Blueprints */}
-              <div style={{ marginBottom: 38 }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18, flexWrap: "wrap", gap: 12 }}>
-                  <div>
-                    <h3 style={{ fontSize: "1.3rem", fontWeight: 800, color: "#0f172a", margin: 0 }}>
-                      Real-World Software Engineering Projects
-                    </h3>
-                    <p style={{ fontSize: "0.88rem", color: "#64748b", margin: "4px 0 0" }}>
-                      Hands-on multi-file workspaces with step-by-step milestones, code review, and automated testing.
-                    </p>
-                  </div>
-
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    {/* View Mode Toggle */}
-                    <div style={{ display: "flex", background: "#f1f5f9", padding: "3px", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
+                    <div className="mz-continue-actions">
                       <button
                         type="button"
-                        onClick={() => setProjViewMode("slider")}
-                        style={{
-                          background: projViewMode === "slider" ? "#ffffff" : "transparent",
-                          color: projViewMode === "slider" ? "#2563eb" : "#64748b",
-                          border: "none",
-                          fontSize: "12px",
-                          fontWeight: 700,
-                          padding: "5px 12px",
-                          borderRadius: "7px",
-                          cursor: "pointer",
-                          boxShadow: projViewMode === "slider" ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
-                          transition: "all 0.15s ease",
-                        }}
+                        className="mz-btn-primary"
+                        onClick={() => navigate(activeTrackInfo.route)}
+                        id="mz-btn-continue-learning"
                       >
-                        Slide Showcase
+                        <span>Continue Learning</span>
+                        <LuArrowRight size={16} />
                       </button>
                       <button
                         type="button"
-                        onClick={() => setProjViewMode("grid")}
-                        style={{
-                          background: projViewMode === "grid" ? "#ffffff" : "transparent",
-                          color: projViewMode === "grid" ? "#2563eb" : "#64748b",
-                          border: "none",
-                          fontSize: "12px",
-                          fontWeight: 700,
-                          padding: "5px 12px",
-                          borderRadius: "7px",
-                          cursor: "pointer",
-                          boxShadow: projViewMode === "grid" ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
-                          transition: "all 0.15s ease",
-                        }}
+                        className="mz-btn-secondary"
+                        onClick={() => navigate("/coding?tab=learning_path")}
                       >
-                        Browse All (5)
+                        Browse All Tracks
                       </button>
                     </div>
+                  </div>
+                </div>
 
-                    {/* Slide Prev/Next Arrows (in slider mode) */}
-                    {projViewMode === "slider" && (
-                      <div className="mz-proj-controls">
-                        <button
-                          type="button"
-                          className="mz-proj-nav-arrow"
-                          onClick={() =>
-                            setActiveProjSlide((prev) =>
-                              prev === 0 ? SOFTWARE_PROJECTS.length - 1 : prev - 1
-                            )
-                          }
-                          title="Previous Project Slide"
-                        >
-                          <LuChevronLeft size={16} />
-                        </button>
-                        <button
-                          type="button"
-                          className="mz-proj-nav-arrow"
-                          onClick={() =>
-                            setActiveProjSlide((prev) =>
-                              (prev + 1) % SOFTWARE_PROJECTS.length
-                            )
-                          }
-                          title="Next Project Slide"
-                        >
-                          <LuChevronRight size={16} />
-                        </button>
+                {/* Problem of the Day Card */}
+                <div className="mz-focus-card mz-pod-card">
+                  <div className="mz-focus-card-header">
+                    <div className="mz-focus-pill mz-pill-amber">
+                      <LuFlame size={13} />
+                      <span>Daily Challenge</span>
+                    </div>
+                    <div className="mz-pod-tags">
+                      <span className="mz-tag-diff mz-diff-medium">Medium</span>
+                      <span className="mz-tag-xp">+50 XP</span>
+                    </div>
+                  </div>
+
+                  <div className="mz-pod-body">
+                    <h3 className="mz-pod-title">Subarray Sum Equals K</h3>
+                    <p className="mz-pod-desc">
+                      Given an integer array nums and target integer k, return the total count of continuous subarrays whose elements sum to k.
+                    </p>
+
+                    <div className="mz-pod-specs">
+                      <div className="mz-pod-spec-item">
+                        <span className="mz-spec-k">Acceptance</span>
+                        <span className="mz-spec-v">44.2%</span>
+                      </div>
+                      <div className="mz-pod-spec-item">
+                        <span className="mz-spec-k">Time Limit</span>
+                        <span className="mz-spec-v">1000ms</span>
+                      </div>
+                      <div className="mz-pod-spec-item">
+                        <span className="mz-spec-k">Topic</span>
+                        <span className="mz-spec-v">Hash Map • Prefix</span>
+                      </div>
+                    </div>
+
+                    {showPodHint && (
+                      <div className="mz-pod-hint-box">
+                        <strong>Hint:</strong> Use a hash map storing cumulative sum frequencies to solve in single pass O(N) time and O(N) space.
                       </div>
                     )}
 
-                    <button
-                      type="button"
-                      onClick={() => navigate("/coding?tab=projects", { state: { tab: "projects" } })}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        color: "#059669",
-                        fontSize: "0.88rem",
-                        fontWeight: 700,
-                        cursor: "pointer",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 4,
-                      }}
-                    >
-                      Open Projects Workspace <LuArrowRight size={14} />
-                    </button>
+                    <div className="mz-pod-actions">
+                      <button
+                        type="button"
+                        className="mz-btn-primary mz-btn-pod"
+                        onClick={() => navigate("/coding?tab=challenges")}
+                      >
+                        <span>Solve Challenge</span>
+                        <LuArrowRight size={15} />
+                      </button>
+                      <button
+                        type="button"
+                        className="mz-btn-ghost"
+                        onClick={() => setShowPodHint((prev) => !prev)}
+                      >
+                        {showPodHint ? "Hide Hint" : "View Hint"}
+                      </button>
+                    </div>
                   </div>
                 </div>
-
-                {/* ── MODE 1: SLIDE SHOWCASE WITH INTERACTIVE COVER HERO ── */}
-                {projViewMode === "slider" && (() => {
-                  const currentProj = SOFTWARE_PROJECTS[activeProjSlide] || SOFTWARE_PROJECTS[0];
-
-                  return (
-                    <div className="mz-proj-showcase-box">
-                      {/* Top Cover Page Hero */}
-                      <div
-                        className="mz-proj-cover-hero"
-                        style={{ background: currentProj.themeGradient }}
-                      >
-                        <div className="mz-proj-cover-left">
-                          <div className="mz-proj-cover-badges">
-                            <span
-                              className="mz-proj-badge-domain"
-                              style={{
-                                color: currentProj.badgeColor,
-                                background: "#ffffff",
-                                borderColor: currentProj.border || "#cbd5e1",
-                              }}
-                            >
-                              {currentProj.domain}
-                            </span>
-                            <span className="mz-proj-badge-diff">
-                              {currentProj.difficulty} • {currentProj.xpReward}
-                            </span>
-                            <span className="mz-proj-badge-container">
-                              <span className="mz-proj-pulse-dot" />
-                              {currentProj.containerStatus}
-                            </span>
-                          </div>
-
-                          <h2 className="mz-proj-cover-title">
-                            {currentProj.title}
-                          </h2>
-                          <p className="mz-proj-cover-desc">
-                            {currentProj.description}
-                          </p>
-
-                          <div className="mz-proj-tech-chips">
-                            {currentProj.technologies.map((t) => (
-                              <span key={t} className="mz-proj-tech-chip">
-                                {t}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Interactive Code Blueprint Window on Cover Page */}
-                        <div className="mz-proj-cover-right">
-                          <div className="mz-proj-code-window">
-                            <div className="mz-proj-code-header">
-                              <div className="mz-proj-code-dots">
-                                <span className="mz-proj-code-dot" style={{ background: "#ef4444" }} />
-                                <span className="mz-proj-code-dot" style={{ background: "#f59e0b" }} />
-                                <span className="mz-proj-code-dot" style={{ background: "#10b981" }} />
-                              </div>
-                              <span className="mz-proj-code-file">{currentProj.fileTab}</span>
-                              <span
-                                style={{
-                                  fontSize: "10px",
-                                  color: currentProj.badgeColor,
-                                  background: currentProj.badgeBg,
-                                  fontWeight: 800,
-                                  padding: "2px 8px",
-                                  borderRadius: "4px",
-                                  border: `1px solid ${currentProj.border || "#e2e8f0"}`,
-                                  letterSpacing: "0.04em",
-                                }}
-                              >
-                                ACTIVE
-                              </span>
-                            </div>
-                            <pre className="mz-proj-code-snippet">
-                              {currentProj.codePreview}
-                            </pre>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Bottom Interactive Milestones & Action Bar */}
-                      <div className="mz-proj-interactive-bar">
-                        <div className="mz-proj-milestones-list">
-                          <span className="mz-proj-ms-label">Milestones:</span>
-                          {currentProj.milestones.map((ms, mIdx) => (
-                            <div
-                              key={ms.id || mIdx}
-                              className={`mz-proj-ms-item ${ms.state}`}
-                              title={`Milestone ${mIdx + 1}: ${ms.name}`}
-                            >
-                              {ms.state === "done" && <LuCircleCheck size={13} color="#059669" />}
-                              {ms.state === "active" && <LuZap size={13} color="#2563eb" />}
-                              {ms.state === "upcoming" && <LuLock size={13} color="#94a3b8" />}
-                              <span>M{mIdx + 1}: {ms.name}</span>
-                            </div>
-                          ))}
-                        </div>
-
-                        <div className="mz-proj-cta-group">
-                          <div className="mz-proj-time-info">
-                            <LuClock size={14} color="#64748b" />
-                            <span>{currentProj.estTime}</span>
-                          </div>
-
-                          <button
-                            type="button"
-                            className="mz-proj-btn-launch"
-                            style={{ background: currentProj.accentColor }}
-                            onClick={() =>
-                              navigate(currentProj.route, {
-                                state: { tab: "projects", project: currentProj.id },
-                              })
-                            }
-                          >
-                            <span>Launch Project Workspace</span>
-                            <LuArrowRight size={15} />
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Interactive Thumbnails Navigation Strip */}
-                      <div style={{ padding: "0 24px 20px" }}>
-                        <div className="mz-proj-thumbs-strip">
-                          {SOFTWARE_PROJECTS.map((proj, idx) => {
-                            const isActive = idx === activeProjSlide;
-                            return (
-                              <button
-                                key={proj.id}
-                                type="button"
-                                className={`mz-proj-thumb ${isActive ? "active" : ""}`}
-                                onClick={() => setActiveProjSlide(idx)}
-                                style={{
-                                  borderColor: isActive ? proj.badgeColor : undefined,
-                                  background: isActive ? proj.badgeBg : "#ffffff",
-                                }}
-                              >
-                                <span
-                                  className="mz-proj-thumb-tag"
-                                  style={{ color: proj.badgeColor }}
-                                >
-                                  {proj.badge}
-                                </span>
-                                <span className="mz-proj-thumb-title">
-                                  {proj.title}
-                                </span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* ── MODE 2: BROWSE ALL GRID VIEW WITH COVER PAGES ── */}
-                {projViewMode === "grid" && (
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 18 }}>
-                    {SOFTWARE_PROJECTS.map((proj) => (
-                      <div
-                        key={proj.id}
-                        className="mz-proj-grid-card"
-                        onClick={() =>
-                          navigate(proj.route, {
-                            state: { tab: "projects", project: proj.id },
-                          })
-                        }
-                        title={`Open ${proj.title}`}
-                        style={{ cursor: "pointer" }}
-                      >
-                        {/* Card Cover Header */}
-                        <div
-                          className="mz-proj-grid-cover"
-                          style={{
-                            background: proj.themeGradient,
-                            borderBottom: `1px solid ${proj.border || "#e2e8f0"}`,
-                          }}
-                        >
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                            <span
-                              style={{
-                                fontSize: "11px",
-                                fontWeight: 700,
-                                background: "#ffffff",
-                                padding: "3px 9px",
-                                borderRadius: "9999px",
-                                color: proj.badgeColor,
-                                border: `1px solid ${proj.border || "#cbd5e1"}`,
-                                boxShadow: "0 1px 2px rgba(15, 23, 42, 0.05)",
-                              }}
-                            >
-                              {proj.domain}
-                            </span>
-                            <span
-                              style={{
-                                fontSize: "11px",
-                                fontWeight: 700,
-                                color: "#065f46",
-                                background: "#ecfdf5",
-                                border: "1px solid #a7f3d0",
-                                padding: "2px 8px",
-                                borderRadius: "9999px",
-                              }}
-                            >
-                              {proj.xpReward}
-                            </span>
-                          </div>
-                          <h4 style={{ fontSize: "1.08rem", fontWeight: 800, color: "#0f172a", margin: "0 0 6px", lineHeight: 1.35 }}>
-                            {proj.title}
-                          </h4>
-                          <span style={{ fontSize: "11.5px", color: "#475569", fontWeight: 600 }}>
-                            {proj.tech}
-                          </span>
-                        </div>
-
-                        {/* Card Body */}
-                        <div className="mz-proj-grid-body">
-                          <p style={{ fontSize: "0.85rem", color: "#475569", lineHeight: 1.5, margin: "0 0 14px" }}>
-                            {proj.description}
-                          </p>
-
-                          <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginBottom: "16px" }}>
-                            {proj.milestones.map((m, mIdx) => (
-                              <div
-                                key={mIdx}
-                                style={{
-                                  fontSize: "11.5px",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: "6px",
-                                  color: m.state === "done" ? "#065f46" : m.state === "active" ? "#1d4ed8" : "#64748b",
-                                  background: m.state === "done" ? "#ecfdf5" : m.state === "active" ? "#eff6ff" : "#f8fafc",
-                                  padding: "4px 8px",
-                                  borderRadius: "6px",
-                                }}
-                              >
-                                {m.state === "done" ? <LuCircleCheck size={12} /> : <LuZap size={12} />}
-                                <span>Milestone {mIdx + 1}: {m.name}</span>
-                              </div>
-                            ))}
-                          </div>
-
-                          <div style={{ borderTop: "1px solid #f1f5f9", paddingTop: 12, display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "auto" }}>
-                            <span style={{ fontSize: "0.78rem", fontWeight: 600, color: "#94a3b8" }}>
-                              {proj.estTime}
-                            </span>
-                            <span style={{ fontSize: "0.82rem", fontWeight: 700, color: proj.badgeColor, display: "inline-flex", alignItems: "center", gap: 4 }}>
-                              Launch Workspace <LuArrowRight size={13} className="mz-card-arrow-icon" />
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
 
-              {/* 8. Recent Coding Submissions Log (Genuine Database Data) */}
-              <div style={{ marginBottom: 38 }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18, flexWrap: "wrap", gap: 12 }}>
+              {/* Section E: Quick Access Grid */}
+              <div className="mz-dash-section">
+                <div className="mz-dash-section-header">
                   <div>
-                    <h3 style={{ fontSize: "1.3rem", fontWeight: 800, color: "#0f172a", margin: 0 }}>
-                      Recent Algorithm Submissions
-                    </h3>
-                    <p style={{ fontSize: "0.88rem", color: "#64748b", margin: "4px 0 0" }}>
-                      Real-time compiler execution history and test assertions from your student account.
-                    </p>
+                    <h2 className="mz-dash-section-title">Quick Access</h2>
+                    <p className="mz-dash-section-sub">Jump into primary engineering disciplines and assessment modules</p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => navigate("/reports")}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "#4f46e5",
-                      fontSize: "0.88rem",
-                      fontWeight: 700,
-                      cursor: "pointer",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 4,
-                    }}
-                  >
-                    View All Reports ({reportsList.length}) <LuArrowRight size={14} />
-                  </button>
                 </div>
 
-                <div
-                  style={{
-                    background: "#ffffff",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: 18,
-                    overflow: "hidden",
-                    boxShadow: "0 2px 8px rgba(0,0,0,0.03)",
-                  }}
-                >
-                  {recentCodingSubmissions && recentCodingSubmissions.length > 0 ? (
-                    <div style={{ overflowX: "auto" }}>
-                      <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+                <div className="mz-dash-quick-access-grid">
+                  <div
+                    className="mz-qa-card"
+                    onClick={() => navigate("/coding?tab=challenges")}
+                  >
+                    <div className="mz-qa-icon mz-qa-blue">
+                      <LuCodeXml size={20} />
+                    </div>
+                    <h3 className="mz-qa-title">DSA Challenges</h3>
+                    <p className="mz-qa-desc">
+                      230+ algorithmic problems across arrays, trees, dynamic programming, and graphs.
+                    </p>
+                    <div className="mz-qa-action">
+                      <span>Enter Arena</span>
+                      <LuArrowRight size={14} />
+                    </div>
+                  </div>
+
+                  <div
+                    className="mz-qa-card"
+                    onClick={() => navigate("/coding?tab=learning_path")}
+                  >
+                    <div className="mz-qa-icon mz-qa-teal">
+                      <LuBookOpen size={20} />
+                    </div>
+                    <h3 className="mz-qa-title">Learning Tracks</h3>
+                    <p className="mz-qa-desc">
+                      Structured step-by-step curricula in Python, Java, JavaScript, and C++.
+                    </p>
+                    <div className="mz-qa-action">
+                      <span>Explore Tracks</span>
+                      <LuArrowRight size={14} />
+                    </div>
+                  </div>
+
+                  <div
+                    className="mz-qa-card"
+                    onClick={() => navigate("/coding?tab=projects")}
+                  >
+                    <div className="mz-qa-icon mz-qa-indigo">
+                      <LuFolderGit2 size={20} />
+                    </div>
+                    <h3 className="mz-qa-title">Production Projects</h3>
+                    <p className="mz-qa-desc">
+                      Architect distributed systems, background queues, and production microservices.
+                    </p>
+                    <div className="mz-qa-action">
+                      <span>View Projects</span>
+                      <LuArrowRight size={14} />
+                    </div>
+                  </div>
+
+                  <div
+                    className="mz-qa-card"
+                    onClick={() => navigate("/certificates")}
+                  >
+                    <div className="mz-qa-icon mz-qa-purple">
+                      <LuAward size={20} />
+                    </div>
+                    <h3 className="mz-qa-title">Proctored Exams</h3>
+                    <p className="mz-qa-desc">
+                      Earn verified industry credentials with proctoring and audit reports.
+                    </p>
+                    <div className="mz-qa-action">
+                      <span>Certifications</span>
+                      <LuArrowRight size={14} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section F: Recent Activity */}
+              <div className="mz-dash-section">
+                <div className="mz-dash-section-header">
+                  <div>
+                    <h2 className="mz-dash-section-title">Recent Activity</h2>
+                    <p className="mz-dash-section-sub">Your authenticated submissions, code verifications, and assessment results</p>
+                  </div>
+                  {combinedActivities.length > 0 && (
+                    <button
+                      type="button"
+                      className="mz-dash-header-link"
+                      onClick={() => navigate("/reports")}
+                    >
+                      <span>View Full History</span>
+                      <LuArrowRight size={14} />
+                    </button>
+                  )}
+                </div>
+
+                <div className="mz-dash-recent-activity-card">
+                  {combinedActivities.length > 0 ? (
+                    <div className="mz-activity-table-wrapper">
+                      <table className="mz-activity-table">
                         <thead>
-                          <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-                            <th style={{ padding: "14px 20px", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em" }}>Challenge</th>
-                            <th style={{ padding: "14px 16px", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em" }}>Language</th>
-                            <th style={{ padding: "14px 16px", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em" }}>Tests Passed</th>
-                            <th style={{ padding: "14px 16px", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em" }}>Score</th>
-                            <th style={{ padding: "14px 16px", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em" }}>Status</th>
-                            <th style={{ padding: "14px 20px", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em" }}>Submitted</th>
+                          <tr>
+                            <th>Activity / Title</th>
+                            <th>Category</th>
+                            <th>Status & Score</th>
+                            <th>Time</th>
+                            <th style={{ textAlign: "right" }}>Action</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {recentCodingSubmissions.slice(0, 5).map((sub, idx) => {
-                            const isPass = sub.status === "PASSED" || sub.status === "ACCEPTED" || (sub.score && sub.score >= 80);
+                          {combinedActivities.map((act) => {
+                            const isPass = act.status === "PASSED";
                             return (
-                              <tr key={sub._id || idx} style={{ borderBottom: "1px solid #f1f5f9", transition: "background 0.15s ease" }}>
-                                <td style={{ padding: "14px 20px", fontSize: 13, fontWeight: 700, color: "#0f172a" }}>
-                                  {sub.challengeTitle || sub.title || "Algorithmic Challenge"}
+                              <tr key={act.id} className="mz-activity-row">
+                                <td>
+                                  <div className="mz-act-title-wrap">
+                                    <div className={`mz-act-icon ${isPass ? "mz-act-pass" : "mz-act-fail"}`}>
+                                      {isPass ? <LuCircleCheck size={16} /> : <LuFileText size={16} />}
+                                    </div>
+                                    <div>
+                                      <div className="mz-act-title">{act.title}</div>
+                                      <div className="mz-act-meta">
+                                        <span className="mz-act-tag">{act.tag}</span>
+                                        {act.runtime && <span>• {act.runtime}</span>}
+                                      </div>
+                                    </div>
+                                  </div>
                                 </td>
-                                <td style={{ padding: "14px 16px" }}>
-                                  <span style={{ fontSize: 11, fontWeight: 700, background: "#f1f5f9", color: "#334155", padding: "3px 8px", borderRadius: 6, textTransform: "uppercase" }}>
-                                    {sub.language || "python"}
-                                  </span>
+                                <td>
+                                  <span className="mz-act-category">{act.category}</span>
                                 </td>
-                                <td style={{ padding: "14px 16px", fontSize: 12, fontWeight: 600, color: "#475569" }}>
-                                  {sub.passedTests != null && sub.totalTests != null ? `${sub.passedTests}/${sub.totalTests} Passed` : "All Tests Passed"}
+                                <td>
+                                  <div className="mz-act-result-cell">
+                                    <span className={`mz-act-status-pill ${isPass ? "mz-pill-pass" : "mz-pill-fail"}`}>
+                                      {act.statusLabel}
+                                    </span>
+                                    {act.score && <span className="mz-act-score">{act.score}</span>}
+                                  </div>
                                 </td>
-                                <td style={{ padding: "14px 16px", fontSize: 13, fontWeight: 700, color: "#0f172a" }}>
-                                  {sub.score != null ? `${sub.score}%` : "100%"}
+                                <td>
+                                  <span className="mz-act-time">{formatActivityTime(act.timestamp)}</span>
                                 </td>
-                                <td style={{ padding: "14px 16px" }}>
-                                  <span style={{
-                                    fontSize: 11,
-                                    fontWeight: 700,
-                                    padding: "3px 8px",
-                                    borderRadius: 12,
-                                    background: isPass ? "#ecfdf5" : "#fef2f2",
-                                    color: isPass ? "#059669" : "#dc2626",
-                                    border: isPass ? "1px solid #a7f3d0" : "1px solid #fecaca",
-                                  }}>
-                                    {isPass ? "Accepted" : "Needs Review"}
-                                  </span>
-                                </td>
-                                <td style={{ padding: "14px 20px", fontSize: 12, color: "#64748b" }}>
-                                  {sub.createdAt ? new Date(sub.createdAt).toLocaleDateString() : "Today"}
+                                <td style={{ textAlign: "right" }}>
+                                  <button
+                                    type="button"
+                                    className="mz-btn-row-action"
+                                    onClick={() => navigate(act.actionUrl)}
+                                  >
+                                    <span>{act.actionLabel}</span>
+                                    <LuArrowRight size={13} />
+                                  </button>
                                 </td>
                               </tr>
                             );
@@ -4158,495 +3786,23 @@ const Home = () => {
                       </table>
                     </div>
                   ) : (
-                    <div style={{ padding: "40px 20px", textAlign: "center" }}>
-                      <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#eff6ff", color: "#2563eb", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
-                        <LuCodeXml size={24} />
+                    <div className="mz-activity-empty-state">
+                      <div className="mz-empty-icon-wrap">
+                        <LuFileText size={28} />
                       </div>
-                      <h4 style={{ fontSize: "1.05rem", fontWeight: 700, color: "#0f172a", margin: "0 0 6px" }}>
-                        Ready to write your first algorithm?
-                      </h4>
-                      <p style={{ fontSize: "0.88rem", color: "#64748b", margin: "0 0 18px", maxWidth: 440, marginLeft: "auto", marginRight: "auto" }}>
-                        Solve a problem in Python, Java, C++, or JavaScript to start recording your execution telemetry.
+                      <h4 className="mz-empty-title">No Recent Submissions Yet</h4>
+                      <p className="mz-empty-desc">
+                        As you solve coding challenges, complete curriculum modules, and take proctored assessments, your real activity and verification audits will appear here.
                       </p>
                       <button
                         type="button"
-                        onClick={() => navigate("/coding?tab=challenges", { state: { tab: "challenges" } })}
-                        style={{
-                          background: "#2563eb",
-                          color: "#ffffff",
-                          border: "none",
-                          padding: "10px 22px",
-                          borderRadius: 12,
-                          fontSize: "0.88rem",
-                          fontWeight: 700,
-                          cursor: "pointer",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 6,
-                          boxShadow: "0 4px 12px rgba(37, 99, 235, 0.25)",
-                        }}
+                        className="mz-btn-primary mz-btn-empty"
+                        onClick={() => navigate("/coding?tab=challenges")}
                       >
-                        <LuCodeXml size={16} /> Start DSA Practice
+                        Start Your First Challenge
                       </button>
                     </div>
                   )}
-                </div>
-              </div>
-
-              {/* 9. Verified Proctored Coding Credentials Hall */}
-              <div
-                style={{
-                  background: "#ffffff",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: 20,
-                  padding: "30px 34px",
-                  boxShadow: "0 2px 10px rgba(0,0,0,0.03)",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16, marginBottom: 22 }}>
-                  <div>
-                    <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#f5f3ff", color: "#7c3aed", padding: "4px 12px", borderRadius: 20, fontSize: "0.75rem", fontWeight: 700, marginBottom: 8 }}>
-                      <LuAward size={14} /> Official Verifiable Credentials
-                    </div>
-                    <h3 style={{ fontSize: "1.35rem", fontWeight: 800, color: "#0f172a", margin: "0 0 4px" }}>
-                      Proctored Examination & Certification Hall
-                    </h3>
-                    <p style={{ fontSize: "0.88rem", color: "#64748b", margin: 0 }}>
-                      Take verified computer science credential examinations with biometric proctoring and earn digital certificates.
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => navigate("/certificates")}
-                    style={{
-                      background: "linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)",
-                      color: "#ffffff",
-                      border: "none",
-                      padding: "11px 22px",
-                      borderRadius: 12,
-                      fontSize: "0.88rem",
-                      fontWeight: 700,
-                      cursor: "pointer",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 6,
-                      boxShadow: "0 4px 14px rgba(124, 58, 237, 0.25)",
-                      transition: "all 0.15s ease",
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-1px)")}
-                    onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}
-                  >
-                    View All Certificates ({certHistory.certificates?.length || 0}) <LuArrowRight size={15} />
-                  </button>
-                </div>
-
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 18 }}>
-                  <div
-                    style={{
-                      padding: 22,
-                      background: "#f8fafc",
-                      borderRadius: 16,
-                      border: "1px solid #e2e8f0",
-                      display: "flex",
-                      flexDirection: "column",
-                      justifyContent: "space-between",
-                    }}
-                  >
-                    <div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                        <div style={{ width: 40, height: 40, borderRadius: 12, background: "#eff6ff", color: "#2563eb", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          <LuShieldCheck size={22} />
-                        </div>
-                        <div>
-                          <h4 style={{ fontSize: "1rem", fontWeight: 700, color: "#0f172a", margin: 0 }}>
-                            Data Structures & Algorithms (DSA)
-                          </h4>
-                          <span style={{ fontSize: "0.75rem", color: "#059669", fontWeight: 700 }}>
-                            Level: Professional • Proctored Exam
-                          </span>
-                        </div>
-                      </div>
-                      <p style={{ fontSize: "0.84rem", color: "#64748b", margin: "0 0 16px", lineHeight: 1.5 }}>
-                        Comprehensive proctored assessment covering Arrays, Binary Trees, Dynamic Programming, and Graph theory with live compiler problems.
-                      </p>
-                    </div>
-
-                    {(() => {
-                      const dsaInfo = getEarnedCertInfo("dsa_cert");
-                      if (dsaInfo.isCompleted) {
-                        return (
-                          <div>
-                            <div style={{ background: "#dcfce7", border: "1px solid #86efac", borderRadius: 8, padding: "8px 12px", marginBottom: 12, fontSize: 12, color: "#166534", fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
-                              <LuCircleCheck size={14} /> Completed • Certificate Awarded 🏆
-                            </div>
-                            <div style={{ display: "flex", gap: 8 }}>
-                              {dsaInfo.certificateId && (
-                                <button
-                                  type="button"
-                                  onClick={() => navigate(`/verify/${dsaInfo.certificateId}`)}
-                                  style={{
-                                    flex: 1,
-                                    padding: "9px 0",
-                                    background: "#16a34a",
-                                    color: "#ffffff",
-                                    border: "none",
-                                    borderRadius: 10,
-                                    fontSize: "0.85rem",
-                                    fontWeight: 700,
-                                    cursor: "pointer",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    gap: 5,
-                                  }}
-                                >
-                                  <LuAward size={14} /> View Certificate
-                                </button>
-                              )}
-                              {dsaInfo.attemptId && (
-                                <button
-                                  type="button"
-                                  onClick={() => navigate(`/assessment-report/${dsaInfo.attemptId}`)}
-                                  style={{
-                                    flex: 1,
-                                    padding: "9px 0",
-                                    background: "#eff6ff",
-                                    color: "#1d4ed8",
-                                    border: "1px solid #bfdbfe",
-                                    borderRadius: 10,
-                                    fontSize: "0.85rem",
-                                    fontWeight: 700,
-                                    cursor: "pointer",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    gap: 5,
-                                  }}
-                                >
-                                  <LuFileText size={14} /> View Report
-                                </button>
-                              )}
-                            </div>
-                            <div style={{ fontSize: "0.75rem", color: "#64748b", textAlign: "center", marginTop: 6, display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
-                              <LuLock size={12} /> Test Passed • Cannot Attend Again
-                            </div>
-                          </div>
-                        );
-                      }
-                      return (
-                        <button
-                          type="button"
-                          onClick={() => handleOpenCertExam("dsa_cert", "Data Structures & Algorithms (DSA)")}
-                          style={{
-                            width: "100%",
-                            padding: "10px 0",
-                            background: "#ffffff",
-                            color: "#2563eb",
-                            border: "1px solid #bfdbfe",
-                            borderRadius: 10,
-                            fontSize: "0.85rem",
-                            fontWeight: 700,
-                            cursor: "pointer",
-                            transition: "all 0.15s ease",
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.background = "#eff6ff";
-                            e.currentTarget.style.borderColor = "#93c5fd";
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.background = "#ffffff";
-                            e.currentTarget.style.borderColor = "#bfdbfe";
-                          }}
-                        >
-                          Start DSA Examination
-                        </button>
-                      );
-                    })()}
-                  </div>
-
-                  <div
-                    style={{
-                      padding: 22,
-                      background: "#f8fafc",
-                      borderRadius: 16,
-                      border: "1px solid #e2e8f0",
-                      display: "flex",
-                      flexDirection: "column",
-                      justifyContent: "space-between",
-                    }}
-                  >
-                    <div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                        <div style={{ width: 40, height: 40, borderRadius: 12, background: "#fef3c7", color: "#d97706", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          <LuAward size={22} />
-                        </div>
-                        <div>
-                          <h4 style={{ fontSize: "1rem", fontWeight: 700, color: "#0f172a", margin: 0 }}>
-                            Python Software Engineer
-                          </h4>
-                          <span style={{ fontSize: "0.75rem", color: "#059669", fontWeight: 700 }}>
-                            Level: Associate • Proctored Exam
-                          </span>
-                        </div>
-                      </div>
-                      <p style={{ fontSize: "0.84rem", color: "#64748b", margin: "0 0 16px", lineHeight: 1.5 }}>
-                        Verifies mastery in core Python semantics, memory model, generator mechanics, algorithms, and modular software design.
-                      </p>
-                    </div>
-
-                    {(() => {
-                      const pyInfo = getEarnedCertInfo("python_cert");
-                      if (pyInfo.isCompleted) {
-                        return (
-                          <div>
-                            <div style={{ background: "#dcfce7", border: "1px solid #86efac", borderRadius: 8, padding: "8px 12px", marginBottom: 12, fontSize: 12, color: "#166534", fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
-                              <LuCircleCheck size={14} /> Completed • Certificate Awarded 🏆
-                            </div>
-                            <div style={{ display: "flex", gap: 8 }}>
-                              {pyInfo.certificateId && (
-                                <button
-                                  type="button"
-                                  onClick={() => navigate(`/verify/${pyInfo.certificateId}`)}
-                                  style={{
-                                    flex: 1,
-                                    padding: "9px 0",
-                                    background: "#16a34a",
-                                    color: "#ffffff",
-                                    border: "none",
-                                    borderRadius: 10,
-                                    fontSize: "0.85rem",
-                                    fontWeight: 700,
-                                    cursor: "pointer",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    gap: 5,
-                                  }}
-                                >
-                                  <LuAward size={14} /> View Certificate
-                                </button>
-                              )}
-                              {pyInfo.attemptId && (
-                                <button
-                                  type="button"
-                                  onClick={() => navigate(`/assessment-report/${pyInfo.attemptId}`)}
-                                  style={{
-                                    flex: 1,
-                                    padding: "9px 0",
-                                    background: "#eff6ff",
-                                    color: "#1d4ed8",
-                                    border: "1px solid #bfdbfe",
-                                    borderRadius: 10,
-                                    fontSize: "0.85rem",
-                                    fontWeight: 700,
-                                    cursor: "pointer",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    gap: 5,
-                                  }}
-                                >
-                                  <LuFileText size={14} /> View Report
-                                </button>
-                              )}
-                            </div>
-                            <div style={{ fontSize: "0.75rem", color: "#64748b", textAlign: "center", marginTop: 6, display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
-                              <LuLock size={12} /> Test Passed • Cannot Attend Again
-                            </div>
-                          </div>
-                        );
-                      }
-                      return (
-                        <button
-                          type="button"
-                          onClick={() => handleOpenCertExam("python_cert", "Python Software Engineer")}
-                          style={{
-                            width: "100%",
-                            padding: "10px 0",
-                            background: "#ffffff",
-                            color: "#d97706",
-                            border: "1px solid #fde68a",
-                            borderRadius: 10,
-                            fontSize: "0.85rem",
-                            fontWeight: 700,
-                            cursor: "pointer",
-                            transition: "all 0.15s ease",
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.background = "#fffbeb";
-                            e.currentTarget.style.borderColor = "#fcd34d";
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.background = "#ffffff";
-                            e.currentTarget.style.borderColor = "#fde68a";
-                          }}
-                        >
-                          Start Python Examination
-                        </button>
-                      );
-                    })()}
-                  </div>
-                </div>
-              </div>
-
-              {/* 10. Dedicated Help & Support Section */}
-              <div
-                style={{
-                  background: "#ffffff",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: 20,
-                  padding: "30px 32px",
-                  boxShadow: "0 4px 18px rgba(0, 0, 0, 0.03)",
-                  marginBottom: 38,
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    flexWrap: "wrap",
-                    gap: 16,
-                    marginBottom: 24,
-                  }}
-                >
-                  <div>
-                    <div
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 6,
-                        background: "#eef2ff",
-                        color: "#4f46e5",
-                        padding: "4px 12px",
-                        borderRadius: 20,
-                        fontSize: "0.75rem",
-                        fontWeight: 700,
-                        marginBottom: 8,
-                      }}
-                    >
-                      <LuLifeBuoy size={14} /> 24/7 Technical Support & Issue Resolution
-                    </div>
-                    <h3 style={{ fontSize: "1.35rem", fontWeight: 800, color: "#0f172a", margin: "0 0 4px" }}>
-                      Help & Support Center
-                    </h3>
-                    <p style={{ fontSize: "0.88rem", color: "#64748b", margin: 0 }}>
-                      Need help with code compilation, proctored examinations, or reports? Submit a ticket and our engineers will respond in real time.
-                    </p>
-                  </div>
-
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <button
-                      type="button"
-                      onClick={() => navigate("/help")}
-                      style={{
-                        background: "linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)",
-                        color: "#ffffff",
-                        border: "none",
-                        padding: "11px 22px",
-                        borderRadius: 12,
-                        fontSize: "0.88rem",
-                        fontWeight: 700,
-                        cursor: "pointer",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 8,
-                        boxShadow: "0 4px 14px rgba(79, 70, 229, 0.25)",
-                        transition: "all 0.15s ease",
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-1px)")}
-                      onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}
-                    >
-                      <LuLifeBuoy size={16} /> Open Support Center <LuArrowRight size={14} />
-                    </button>
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-                    gap: 16,
-                  }}
-                >
-                  {[
-                    {
-                      title: "Compiler & IDE Issues",
-                      desc: "Runtime execution errors, memory limits, language compilers, and test cases.",
-                      icon: LuCodeXml,
-                      color: "#0891b2",
-                      bg: "#ecfeff",
-                      border: "#a5f3fc",
-                    },
-                    {
-                      title: "Examinations & Proctoring",
-                      desc: "Biometric webcam locks, screen sharing stream verification, submission timers.",
-                      icon: LuShieldCheck,
-                      color: "#7c3aed",
-                      bg: "#f5f3ff",
-                      border: "#ddd6fe",
-                    },
-                    {
-                      title: "Reports & Marks Audit",
-                      desc: "Scorecard synchronization, grade verification, and detailed evaluation reviews.",
-                      icon: LuFileText,
-                      color: "#2563eb",
-                      bg: "#eff6ff",
-                      border: "#bfdbfe",
-                    },
-                    {
-                      title: "Certificates & Verification",
-                      desc: "Official credential issuance, distinction honors, verification links, and QR codes.",
-                      icon: LuAward,
-                      color: "#059669",
-                      bg: "#ecfdf5",
-                      border: "#a7f3d0",
-                    },
-                  ].map((item, idx) => {
-                    const Icon = item.icon;
-                    return (
-                      <div
-                        key={idx}
-                        className="mz-interactive-card"
-                        onClick={() => navigate("/help")}
-                        style={{
-                          padding: 18,
-                          borderRadius: 14,
-                          background: "#f8fafc",
-                          border: `1px solid #e2e8f0`,
-                          cursor: "pointer",
-                          transition: "all 0.15s ease",
-                        }}
-                      >
-                        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                          <div
-                            style={{
-                              width: 36,
-                              height: 36,
-                              borderRadius: 10,
-                              background: item.bg,
-                              color: item.color,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                            }}
-                          >
-                            <Icon size={18} />
-                          </div>
-                          <h4 style={{ margin: 0, fontSize: "0.92rem", fontWeight: 700, color: "#0f172a" }}>
-                            {item.title}
-                          </h4>
-                        </div>
-                        <p style={{ margin: "0 0 12px", fontSize: "0.8rem", color: "#64748b", lineHeight: 1.45 }}>
-                          {item.desc}
-                        </p>
-                        <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: "0.8rem", fontWeight: 700, color: item.color }}>
-                          <span>Report Issue</span> <LuArrowRight size={13} className="mz-card-arrow-icon" />
-                        </div>
-                      </div>
-                    );
-                  })}
                 </div>
               </div>
             </div>

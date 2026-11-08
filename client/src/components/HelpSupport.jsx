@@ -170,8 +170,20 @@ const HelpSupport = () => {
   const [myTickets, setMyTickets] = useState([]);
   const [loadingTickets, setLoadingTickets] = useState(false);
   const [ticketSearch, setTicketSearch] = useState("");
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const searchContainerRef = useRef(null);
   const [statusFilter, setStatusFilter] = useState("all");
   const [activeTicket, setActiveTicket] = useState(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target)) {
+        setShowSearchDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // Reply State
   const [replyText, setReplyText] = useState("");
@@ -1325,7 +1337,7 @@ const HelpSupport = () => {
                 gap: 14,
               }}
             >
-              <div style={{ position: "relative", minWidth: 300 }}>
+              <div ref={searchContainerRef} style={{ position: "relative", minWidth: 300 }}>
                 <LuSearch
                   style={{
                     position: "absolute",
@@ -1340,11 +1352,20 @@ const HelpSupport = () => {
                 <input
                   type="text"
                   value={ticketSearch}
-                  onChange={(e) => setTicketSearch(e.target.value)}
-                  placeholder="Search tickets by ID, subject, or category..."
+                  onChange={(e) => {
+                    setTicketSearch(e.target.value);
+                    setShowSearchDropdown(true);
+                  }}
+                  onFocus={() => {
+                    if (ticketSearch.trim()) setShowSearchDropdown(true);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") setShowSearchDropdown(false);
+                  }}
+                  placeholder="Search..."
                   style={{
                     width: "100%",
-                    padding: "9px 12px 9px 36px",
+                    padding: "9px 30px 9px 36px",
                     borderRadius: 8,
                     border: "1px solid #cbd5e1",
                     fontSize: 13,
@@ -1353,6 +1374,64 @@ const HelpSupport = () => {
                     boxSizing: "border-box",
                   }}
                 />
+                {ticketSearch && (
+                  <button
+                    onClick={() => {
+                      setTicketSearch("");
+                      setShowSearchDropdown(false);
+                    }}
+                    style={{
+                      position: "absolute",
+                      right: 10,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      background: "none",
+                      border: "none",
+                      color: "#94a3b8",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <LuX style={{ width: 14, height: 14 }} />
+                  </button>
+                )}
+
+                {showSearchDropdown && ticketSearch.trim().length > 0 && (
+                  <div className="mz-global-search-dropdown" style={{ minWidth: 320, left: 0 }}>
+                    <div className="mz-global-search-header">
+                      <span>Tickets matching &ldquo;{ticketSearch.trim()}&rdquo;</span>
+                      <span className="mz-global-search-esc">Press ESC</span>
+                    </div>
+                    {filteredTickets.length === 0 ? (
+                      <div className="mz-global-search-empty">
+                        <p>No tickets match &ldquo;{ticketSearch}&rdquo;</p>
+                        <small>Try searching by ticket ID, subject, or category</small>
+                      </div>
+                    ) : (
+                      <div className="mz-global-search-group">
+                        {filteredTickets.slice(0, 6).map((t) => (
+                          <div
+                            key={t.ticketId}
+                            className="mz-global-search-item"
+                            onClick={() => {
+                              setShowSearchDropdown(false);
+                              setActiveTicket(t);
+                              setSearchParams({ ticket: t.ticketId });
+                            }}
+                          >
+                            <span className="mz-global-search-item-icon">🎫</span>
+                            <div className="mz-global-search-item-content">
+                              <div className="mz-global-search-item-title">{t.subject || "Ticket"}</div>
+                              <div className="mz-global-search-item-sub">
+                                {t.ticketId} • {t.category} ({t.status})
+                              </div>
+                            </div>
+                            <span className="mz-global-search-item-action">View →</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Status Filters */}

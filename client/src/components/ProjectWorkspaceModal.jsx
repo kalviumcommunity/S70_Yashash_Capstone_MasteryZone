@@ -1822,6 +1822,18 @@ export function ProjectsHubSection({ projects = [], onOpenProjectWorkspace }) {
   const navigate = useNavigate();
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const searchContainerRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target)) {
+        setShowSearchDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
   const [selectedCategory, setSelectedCategory] = useState("ALL");
   const [selectedDifficulty, setSelectedDifficulty] = useState("ALL");
   const [selectedStatus, setSelectedStatus] = useState("ALL");
@@ -1953,16 +1965,84 @@ export function ProjectsHubSection({ projects = [], onOpenProjectWorkspace }) {
       {/* 2. FILTER, SEARCH & SORT TOOLBAR */}
       <div className="mz-projects-toolbar">
         <div className="mz-projects-toolbar-top">
-          <div className="mz-projects-search-wrap">
+          <div className="mz-projects-search-wrap" ref={searchContainerRef} style={{ position: "relative" }}>
             <span className="mz-projects-search-icon">🔍</span>
             <input
               type="text"
               className="mz-projects-search-input"
-              placeholder="Search projects by title, technology (React, FastAPI, Spring Boot, Python, Java), or domain..."
+              placeholder="Search..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setShowSearchDropdown(true);
+              }}
+              onFocus={() => {
+                if (searchQuery.trim()) setShowSearchDropdown(true);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setShowSearchDropdown(false);
+              }}
               data-testid="projects-search-input"
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery("");
+                  setShowSearchDropdown(false);
+                }}
+                style={{
+                  position: "absolute",
+                  right: 12,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  background: "none",
+                  border: "none",
+                  color: "#94a3b8",
+                  cursor: "pointer",
+                  fontSize: 14,
+                }}
+              >
+                ✕
+              </button>
+            )}
+
+            {showSearchDropdown && searchQuery.trim().length > 0 && (
+              <div className="mz-global-search-dropdown" style={{ minWidth: 320, left: 0 }}>
+                <div className="mz-global-search-header">
+                  <span>Projects matching &ldquo;{searchQuery.trim()}&rdquo;</span>
+                  <span className="mz-global-search-esc">Press ESC</span>
+                </div>
+                {filteredProjects.length === 0 ? (
+                  <div className="mz-global-search-empty">
+                    <p>No projects match &ldquo;{searchQuery}&rdquo;</p>
+                    <small>Try searching for Python, React, FastAPI, or Spring Boot</small>
+                  </div>
+                ) : (
+                  <div className="mz-global-search-group">
+                    {filteredProjects.slice(0, 6).map((proj) => (
+                      <div
+                        key={proj.id}
+                        className="mz-global-search-item"
+                        onClick={() => {
+                          setShowSearchDropdown(false);
+                          onOpenProjectWorkspace(proj);
+                        }}
+                      >
+                        <span className="mz-global-search-item-icon">💻</span>
+                        <div className="mz-global-search-item-content">
+                          <div className="mz-global-search-item-title">{proj.title}</div>
+                          <div className="mz-global-search-item-sub">
+                            {proj.domain || proj.category} • {proj.difficulty || "Intermediate"}
+                          </div>
+                        </div>
+                        <span className="mz-global-search-item-action">Open →</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="mz-projects-select-group">

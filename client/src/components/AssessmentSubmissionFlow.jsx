@@ -65,16 +65,12 @@ export default function AssessmentSubmissionFlow({
   };
 
   // ---------------------------------------------------------------------------
-  // 1. STAGE: PREPARING RESULTS (Simple Normal Animation Effect)
+  // 1. STAGE: PREPARING RESULTS (Single Clean Animated Progress Bar)
   // ---------------------------------------------------------------------------
   if (stage === "preparing") {
     return (
       <div className="mz-results-preparing-screen" data-testid="assessment-results-preparing">
         <div className="mz-results-preparing-card mz-simple-loading-card">
-          <div className="mz-simple-loader">
-            <div className="mz-simple-spinner" />
-          </div>
-
           <h2 className="mz-preparing-title">Loading Results...</h2>
 
           <p className="mz-preparing-subtitle">
