@@ -981,7 +981,17 @@
   width: 100%;
 }
 
-.mzl-grid-1 { grid-template-columns: 1fr; }
+.mzl-grid-1 {
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+  height: 100%;
+  width: 100%;
+}
+.mzl-grid-1 .mzl-tile {
+  width: 100%;
+  height: 100%;
+  border-radius: 14px;
+}
 .mzl-grid-2 { grid-template-columns: 1fr 1fr; }
 .mzl-grid-3 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
 .mzl-grid-4 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }

@@ -404,10 +404,12 @@ router.patch("/:recordingId/rename", authenticateToken, async (req, res) => {
       return res.status(404).json({ error: "Recording not found" });
     }
 
-    // Permission check: host can rename
+    // Permission check: host or admin can rename
     const currentUserId = req.user?.userId || req.user?.id;
-    if (recording.hostUserId && String(recording.hostUserId) !== String(currentUserId)) {
-      return res.status(403).json({ error: "Only the recording host can rename this video" });
+    const isOwner = recording.hostUserId && String(recording.hostUserId) === String(currentUserId);
+    const isAdmin = req.user?.role === "admin" || req.user?.isAdmin;
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ error: "Only the recording host or an administrator can rename this video" });
     }
 
     recording.title = title.trim();
