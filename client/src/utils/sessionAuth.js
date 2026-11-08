@@ -137,4 +137,7 @@ export const performGlobalLogout = () => {
     localStorage.clear();
     sessionStorage.clear();
   } catch {}
+  if (typeof window !== "undefined") {
+    window.location.replace("/login");
+  }
 };

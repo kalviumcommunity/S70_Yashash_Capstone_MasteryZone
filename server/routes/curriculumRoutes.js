@@ -472,6 +472,16 @@ router.get("/assessment-attempt/:attemptId", optionalAuthenticateToken, async (r
       return res.status(404).json({ error: "Assessment attempt not found" });
     }
 
+    // Strict account isolation: verify candidate ownership or admin privileges
+    const callerUserId = req.user ? String(req.user.userId || req.user.id || req.user._id || "") : null;
+    const isPrivileged = req.user?.role === "admin" || req.user?.role === "SUPER_ADMIN";
+    if (attempt.userId) {
+      const ownerId = String(attempt.userId);
+      if (!callerUserId || (!isPrivileged && callerUserId !== ownerId)) {
+        return res.status(403).json({ error: "Access denied. You do not have permission to view this assessment report." });
+      }
+    }
+
     let user = null;
     const targetUserId = attempt.userId || userId;
     if (targetUserId && mongoose.Types.ObjectId.isValid(targetUserId)) {

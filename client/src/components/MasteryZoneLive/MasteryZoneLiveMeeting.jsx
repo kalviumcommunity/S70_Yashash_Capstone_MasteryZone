@@ -195,6 +195,9 @@ export default function MasteryZoneLiveMeeting({
   const recordingCanvasRef = useRef(null);
   const recordingAnimFrameRef = useRef(null);
   const recordingAudioCtxRef = useRef(null);
+  const recScreenVidRef = useRef(null);
+  const recCameraVidRef = useRef(null);
+  const recCompositorIntervalRef = useRef(null);
 
   // Explicitly turn off camera and microphone hardware tracks
   const stopAllMediaHardware = useCallback(() => {
@@ -1156,18 +1159,18 @@ export default function MasteryZoneLiveMeeting({
       const canvas = document.createElement("canvas");
       canvas.width = 1280;
       canvas.height = 720;
-      const ctx = canvas.getContext("2d");
+      const ctx = canvas.getContext("2d", { alpha: false });
       recordingCanvasRef.current = canvas;
 
-      const screenVidEl = document.createElement("video");
-      screenVidEl.muted = true;
-      screenVidEl.autoplay = true;
-      screenVidEl.playsInline = true;
-
-      const cameraVidEl = document.createElement("video");
-      cameraVidEl.muted = true;
-      cameraVidEl.autoplay = true;
-      cameraVidEl.playsInline = true;
+      // Sync active streams into mounted decoder elements
+      if (recScreenVidRef.current && screenStreamRef.current) {
+        recScreenVidRef.current.srcObject = screenStreamRef.current;
+        recScreenVidRef.current.play().catch(() => {});
+      }
+      if (recCameraVidRef.current && localStreamRef.current) {
+        recCameraVidRef.current.srcObject = localStreamRef.current;
+        recCameraVidRef.current.play().catch(() => {});
+      }
 
       let tick = 0;
       const renderCompositor = () => {
@@ -1175,98 +1178,205 @@ export default function MasteryZoneLiveMeeting({
         ctx.fillStyle = "#0a0e1a";
         ctx.fillRect(0, 0, 1280, 720);
 
-        const isScreenLive = isScreenSharing && screenStreamRef.current && screenStreamRef.current.getVideoTracks().some((t) => t.readyState === "live");
-        const isCamLive = isVideoEnabled && localStreamRef.current && localStreamRef.current.getVideoTracks().some((t) => t.readyState === "live" && t.enabled);
+        const screenVid = recScreenVidRef.current;
+        const camVid = recCameraVidRef.current;
 
-        if (isScreenLive) {
-          if (screenVidEl.srcObject !== screenStreamRef.current) {
-            screenVidEl.srcObject = screenStreamRef.current;
-            screenVidEl.play().catch(() => {});
-          }
-          if (screenVidEl.readyState >= 2) {
-            ctx.drawImage(screenVidEl, 0, 0, 1280, 720);
-          } else {
-            ctx.fillStyle = "#1e1b4b";
-            ctx.fillRect(0, 0, 1280, 720);
-            ctx.fillStyle = "#a5b4fc";
-            ctx.font = "bold 28px sans-serif";
-            ctx.fillText("🖥️ Screen Sharing Active...", 80, 360);
-          }
+        const isScreenLive = Boolean(
+          isScreenSharing &&
+          screenStreamRef.current &&
+          screenStreamRef.current.getVideoTracks().some((t) => t.readyState === "live" && t.enabled !== false)
+        );
+        const isCamLive = Boolean(
+          !isVideoOff &&
+          localStreamRef.current &&
+          localStreamRef.current.getVideoTracks().some((t) => t.readyState === "live" && t.enabled !== false)
+        );
 
-          // Picture-in-picture camera in bottom-right corner if camera on
-          if (isCamLive) {
-            if (cameraVidEl.srcObject !== localStreamRef.current) {
-              cameraVidEl.srcObject = localStreamRef.current;
-              cameraVidEl.play().catch(() => {});
-            }
-            if (cameraVidEl.readyState >= 2) {
-              const pipW = 260;
-              const pipH = 146;
-              const pipX = 1280 - pipW - 24;
-              const pipY = 720 - pipH - 24;
-              ctx.save();
-              ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
-              ctx.fillRect(pipX - 4, pipY - 4, pipW + 8, pipH + 8);
-              ctx.strokeStyle = "#6366f1";
-              ctx.lineWidth = 3;
-              ctx.strokeRect(pipX, pipY, pipW, pipH);
-              ctx.drawImage(cameraVidEl, pipX, pipY, pipW, pipH);
-              ctx.restore();
-            }
-          }
-        } else if (isCamLive) {
-          if (cameraVidEl.srcObject !== localStreamRef.current) {
-            cameraVidEl.srcObject = localStreamRef.current;
-            cameraVidEl.play().catch(() => {});
-          }
-          if (cameraVidEl.readyState >= 2) {
-            ctx.drawImage(cameraVidEl, 0, 0, 1280, 720);
-          } else {
-            ctx.fillStyle = "#0f172a";
-            ctx.fillRect(0, 0, 1280, 720);
+        if (screenVid && screenStreamRef.current && screenVid.srcObject !== screenStreamRef.current) {
+          screenVid.srcObject = screenStreamRef.current;
+          screenVid.play().catch(() => {});
+        }
+        if (camVid && localStreamRef.current && camVid.srcObject !== localStreamRef.current) {
+          camVid.srcObject = localStreamRef.current;
+          camVid.play().catch(() => {});
+        }
+
+        if (isScreenLive && screenVid && screenVid.readyState >= 2) {
+          // A. Draw Screen Share (Main 1280x720)
+          ctx.drawImage(screenVid, 0, 0, 1280, 720);
+
+          // Picture-in-Picture Camera Tile (Bottom-Right)
+          if (isCamLive && camVid && camVid.readyState >= 2) {
+            const pipW = 280;
+            const pipH = 158;
+            const pipX = 1280 - pipW - 20;
+            const pipY = 720 - pipH - 20;
+            ctx.save();
+            ctx.fillStyle = "rgba(15, 23, 42, 0.9)";
+            ctx.fillRect(pipX - 4, pipY - 4, pipW + 8, pipH + 8);
+            ctx.strokeStyle = "#3b82f6";
+            ctx.lineWidth = 3;
+            ctx.strokeRect(pipX, pipY, pipW, pipH);
+            ctx.drawImage(camVid, pipX, pipY, pipW, pipH);
+            ctx.fillStyle = "rgba(15, 23, 42, 0.8)";
+            ctx.fillRect(pipX, pipY + pipH - 24, pipW, 24);
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 12px sans-serif";
+            ctx.fillText(currentUser?.fullName || "You (Host)", pipX + 8, pipY + pipH - 7);
+            ctx.restore();
           }
         } else {
-          // Dynamic animated card ensuring active non-zero frames
-          const grad = ctx.createLinearGradient(0, 0, 1280, 720);
-          grad.addColorStop(0, "#090d1f");
-          grad.addColorStop(1, "#1e1b4b");
-          ctx.fillStyle = grad;
-          ctx.fillRect(0, 0, 1280, 720);
+          // B. Stage Video Grid (Host + Remote Participants)
+          const remoteDecoders = Array.from(document.querySelectorAll(".mz-rec-remote-decoder"));
+          const activeParticipants = (Array.isArray(participants) ? participants : []).filter(
+            (p) => p && p.socketId && !p.leftAt
+          );
 
-          ctx.fillStyle = "rgba(30, 41, 59, 0.7)";
-          if (ctx.roundRect) ctx.roundRect(340, 160, 600, 400, 20);
-          else ctx.fillRect(340, 160, 600, 400);
-          ctx.fill();
+          // Build tiles list
+          const tiles = [
+            {
+              isLocal: true,
+              name: currentUser?.fullName || "You (Host)",
+              isCamOn: Boolean(isCamLive && camVid && camVid.readyState >= 2),
+              videoEl: camVid,
+            },
+            ...activeParticipants.map((p) => {
+              const rVid = remoteDecoders.find((el) => el.getAttribute("data-socket-id") === p.socketId);
+              const rStream = remoteStreams ? remoteStreams[p.socketId] : null;
+              const rCamLive = Boolean(!p.isVideoOff && rStream?.getVideoTracks().some((t) => t.readyState === "live" && t.enabled !== false));
+              return {
+                isLocal: false,
+                name: p.fullName || p.username || "Participant",
+                isCamOn: Boolean(rCamLive && rVid && rVid.readyState >= 2),
+                videoEl: rVid,
+              };
+            }),
+          ];
 
-          const pulse = Math.sin(tick * 0.08) * 8;
-          ctx.fillStyle = "#4f46e5";
-          ctx.beginPath();
-          ctx.arc(640, 270, 50 + pulse, 0, Math.PI * 2);
-          ctx.fill();
+          if (tiles.length === 1) {
+            // Single Host Tile (Full 1280x720)
+            const t0 = tiles[0];
+            if (t0.isCamOn && t0.videoEl) {
+              ctx.drawImage(t0.videoEl, 0, 0, 1280, 720);
+            } else {
+              // High-contrast collaboration card ensuring non-black video
+              const grad = ctx.createLinearGradient(0, 0, 1280, 720);
+              grad.addColorStop(0, "#090d1f");
+              grad.addColorStop(1, "#1e1b4b");
+              ctx.fillStyle = grad;
+              ctx.fillRect(0, 0, 1280, 720);
 
-          ctx.fillStyle = "#ffffff";
-          ctx.font = "bold 36px sans-serif";
-          ctx.textAlign = "center";
-          ctx.fillText((currentUser?.fullName || "H")[0].toUpperCase(), 640, 282);
+              ctx.fillStyle = "rgba(30, 41, 59, 0.8)";
+              if (ctx.roundRect) ctx.roundRect(340, 160, 600, 400, 20);
+              else ctx.fillRect(340, 160, 600, 400);
+              ctx.fill();
 
-          ctx.font = "bold 24px sans-serif";
-          ctx.fillText(currentUser?.fullName || "Meeting Host", 640, 360);
+              const pulse = Math.sin(tick * 0.08) * 6;
+              ctx.fillStyle = "#3b82f6";
+              ctx.beginPath();
+              ctx.arc(640, 270, 52 + pulse, 0, Math.PI * 2);
+              ctx.fill();
 
-          ctx.font = "16px sans-serif";
-          ctx.fillStyle = "#94a3b8";
-          ctx.fillText(meetingData.title || "Mastery Zone Live Collaboration Session", 640, 395);
+              ctx.fillStyle = "#ffffff";
+              ctx.font = "bold 36px sans-serif";
+              ctx.textAlign = "center";
+              ctx.fillText((t0.name || "H")[0].toUpperCase(), 640, 282);
 
-          ctx.fillStyle = "#818cf8";
-          for (let b = 0; b < 12; b++) {
-            const barH = 10 + Math.sin(tick * 0.15 + b) * 18;
-            ctx.fillRect(540 + b * 18, 450 - barH / 2, 8, barH);
+              ctx.font = "bold 24px sans-serif";
+              ctx.fillText(t0.name, 640, 360);
+
+              ctx.font = "15px sans-serif";
+              ctx.fillStyle = "#94a3b8";
+              ctx.fillText(meetingData.title || "Mastery Zone Live Collaboration Session", 640, 395);
+
+              // Dynamic audio visualizer bars
+              ctx.fillStyle = "#60a5fa";
+              for (let b = 0; b < 12; b++) {
+                const barH = 8 + Math.sin(tick * 0.15 + b) * 16;
+                ctx.fillRect(540 + b * 18, 450 - barH / 2, 8, barH);
+              }
+              ctx.textAlign = "left";
+            }
+          } else if (tiles.length === 2) {
+            // 2 Tiles Side by Side (each 620 x 680)
+            tiles.slice(0, 2).forEach((t, i) => {
+              const x = 15 + i * 635;
+              const y = 20;
+              const w = 615;
+              const h = 680;
+              if (t.isCamOn && t.videoEl) {
+                ctx.drawImage(t.videoEl, x, y, w, h);
+              } else {
+                ctx.fillStyle = "#1e293b";
+                if (ctx.roundRect) ctx.roundRect(x, y, w, h, 14);
+                else ctx.fillRect(x, y, w, h);
+                ctx.fill();
+
+                ctx.fillStyle = i === 0 ? "#3b82f6" : "#10b981";
+                ctx.beginPath();
+                ctx.arc(x + w / 2, y + h / 2 - 30, 48, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "bold 32px sans-serif";
+                ctx.textAlign = "center";
+                ctx.fillText((t.name || "P")[0].toUpperCase(), x + w / 2, y + h / 2 - 20);
+
+                ctx.font = "bold 18px sans-serif";
+                ctx.fillText(t.name, x + w / 2, y + h / 2 + 40);
+                ctx.textAlign = "left";
+              }
+              // Name banner
+              ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
+              ctx.fillRect(x, y + h - 36, w, 36);
+              ctx.fillStyle = "#ffffff";
+              ctx.font = "bold 14px sans-serif";
+              ctx.fillText(t.name, x + 16, y + h - 12);
+            });
+          } else {
+            // 2x2 Grid (up to 4 tiles)
+            tiles.slice(0, 4).forEach((t, i) => {
+              const col = i % 2;
+              const row = Math.floor(i / 2);
+              const x = 15 + col * 635;
+              const y = 20 + row * 345;
+              const w = 615;
+              const h = 330;
+              if (t.isCamOn && t.videoEl) {
+                ctx.drawImage(t.videoEl, x, y, w, h);
+              } else {
+                ctx.fillStyle = "#1e293b";
+                if (ctx.roundRect) ctx.roundRect(x, y, w, h, 12);
+                else ctx.fillRect(x, y, w, h);
+                ctx.fill();
+
+                ctx.fillStyle = "#6366f1";
+                ctx.beginPath();
+                ctx.arc(x + w / 2, y + h / 2 - 20, 36, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "bold 26px sans-serif";
+                ctx.textAlign = "center";
+                ctx.fillText((t.name || "P")[0].toUpperCase(), x + w / 2, y + h / 2 - 10);
+
+                ctx.font = "bold 16px sans-serif";
+                ctx.fillText(t.name, x + w / 2, y + h / 2 + 35);
+                ctx.textAlign = "left";
+              }
+              // Name banner
+              ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
+              ctx.fillRect(x, y + h - 30, w, 30);
+              ctx.fillStyle = "#ffffff";
+              ctx.font = "bold 13px sans-serif";
+              ctx.fillText(t.name, x + 12, y + h - 10);
+            });
           }
-          ctx.textAlign = "left";
         }
 
         // Header watermark badge
         ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
-        ctx.fillRect(20, 20, 380, 44);
+        ctx.fillRect(20, 20, 420, 44);
         ctx.fillStyle = "#ffffff";
         ctx.font = "bold 15px sans-serif";
         ctx.fillText(meetingData.title || "Mastery Zone Live Meeting", 36, 47);
@@ -1274,13 +1384,14 @@ export default function MasteryZoneLiveMeeting({
         // Blinking Red REC Indicator
         ctx.fillStyle = tick % 60 < 30 ? "#ef4444" : "#7f1d1d";
         ctx.beginPath();
-        ctx.arc(374, 42, 6, 0, Math.PI * 2);
+        ctx.arc(414, 42, 6, 0, Math.PI * 2);
         ctx.fill();
-
-        recordingAnimFrameRef.current = requestAnimationFrame(renderCompositor);
       };
 
-      recordingAnimFrameRef.current = requestAnimationFrame(renderCompositor);
+      // Continuous 30fps timer: guarantees frame output even in background tabs
+      if (recCompositorIntervalRef.current) clearInterval(recCompositorIntervalRef.current);
+      recCompositorIntervalRef.current = setInterval(renderCompositor, 1000 / 30);
+      renderCompositor();
 
       // 3. Assemble composite capture stream
       const animStream = canvas.captureStream(30);
@@ -1292,8 +1403,10 @@ export default function MasteryZoneLiveMeeting({
         captureStream.addTrack(audioDest.stream.getAudioTracks()[0]);
       }
 
-      // 4. Initialize MediaRecorder with VP9/Opus
-      const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")
+      // 4. Initialize MediaRecorder with standard WebM VP8/VP9 and Opus audio
+      const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp8,opus")
+        ? "video/webm;codecs=vp8,opus"
+        : MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")
         ? "video/webm;codecs=vp9,opus"
         : MediaRecorder.isTypeSupported("video/webm")
         ? "video/webm"
@@ -1375,6 +1488,10 @@ export default function MasteryZoneLiveMeeting({
   };
 
   const handleStopRecording = () => {
+    if (recCompositorIntervalRef.current) {
+      clearInterval(recCompositorIntervalRef.current);
+      recCompositorIntervalRef.current = null;
+    }
     if (recordingAnimFrameRef.current) {
       cancelAnimationFrame(recordingAnimFrameRef.current);
       recordingAnimFrameRef.current = null;
@@ -1567,6 +1684,10 @@ export default function MasteryZoneLiveMeeting({
 
     if (recordingStatus === "recording" || recordingStatus === "paused") {
       setRecordingStatus("uploading");
+      if (recCompositorIntervalRef.current) {
+        clearInterval(recCompositorIntervalRef.current);
+        recCompositorIntervalRef.current = null;
+      }
       if (recordingAnimFrameRef.current) {
         cancelAnimationFrame(recordingAnimFrameRef.current);
         recordingAnimFrameRef.current = null;
@@ -3749,6 +3870,41 @@ export default function MasteryZoneLiveMeeting({
           </div>
         </div>
       )}
+
+      {/* Offscreen DOM-Mounted Video Decoders for Hardware-Accelerated Recording Compositor */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: "fixed",
+          left: -9999,
+          top: -9999,
+          width: 1,
+          height: 1,
+          opacity: 0,
+          pointerEvents: "none",
+          overflow: "hidden",
+          zIndex: -1,
+        }}
+      >
+        <video ref={recScreenVidRef} autoPlay playsInline muted />
+        <video ref={recCameraVidRef} autoPlay playsInline muted />
+        {Object.entries(remoteStreams || {}).map(([sockId, rStream]) => (
+          <video
+            key={`rec_dec_${sockId}`}
+            ref={(el) => {
+              if (el && rStream && el.srcObject !== rStream) {
+                el.srcObject = rStream;
+                el.play().catch(() => {});
+              }
+            }}
+            data-socket-id={sockId}
+            className="mz-rec-remote-decoder"
+            autoPlay
+            playsInline
+            muted
+          />
+        ))}
+      </div>
     </div>
   );
 }

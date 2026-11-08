@@ -47,7 +47,7 @@ router.get("/", authenticateToken, async (req, res) => {
 router.post("/", authenticateToken, async (req, res) => {
   try {
     const callerUserId = resolveReqUserId(req);
-    const targetUserId = req.body.userId || callerUserId;
+    const targetUserId = (req.user?.role === "admin" && req.body.userId) ? req.body.userId : callerUserId;
     const {
       title = "Mastery Zone Alert",
       message,

@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "react-toastify";
 import "./progress.css";
 import NotificationBell from "./NotificationBell.jsx";
+import UserProfileDropdown from "./UserProfileDropdown.jsx";
 import logoIcon from "../assets/logo_icon_transparent.png";
 import heroIllustration from "../assets/interests_hero_illustration.png";
 import { performGlobalLogout } from "../utils/sessionAuth.js";
@@ -653,71 +654,13 @@ const Progress = () => {
               </div>
 
               {/* Dropdown Menu */}
-              {isDropdownOpen && (
-                <div className="mz-p-dropdown-menu">
-                  <div className="mz-p-dropdown-header">
-                    <p className="mz-p-dropdown-user-name">{user?.fullName || user?.username}</p>
-                    <p className="mz-p-dropdown-email">{user?.email}</p>
-                  </div>
-                  <div className="mz-p-dropdown-divider" />
-                  <button
-                    type="button"
-                    className="mz-p-dropdown-item"
-                    onClick={() => {
-                      setIsDropdownOpen(false);
-                      navigate("/profile");
-                    }}
-                  >
-                    <LuUser size={15} />
-                    <span>My Profile</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="mz-p-dropdown-item"
-                    onClick={() => {
-                      setIsDropdownOpen(false);
-                      setIsAchievementsModalOpen(true);
-                    }}
-                  >
-                    <LuAward size={15} />
-                    <span>Badges & Certifications</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="mz-p-dropdown-item"
-                    onClick={() => {
-                      setIsDropdownOpen(false);
-                      setIsSettingsModalOpen(true);
-                    }}
-                  >
-                    <LuSettings size={15} />
-                    <span>Settings</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="mz-p-dropdown-item danger"
-                    onClick={() => {
-                      setIsDropdownOpen(false);
-                      setIsResetModalOpen(true);
-                    }}
-                  >
-                    <LuRotateCcw size={15} />
-                    <span>Reset Learning Process</span>
-                  </button>
-                  <div className="mz-p-dropdown-divider" />
-                  <button
-                    type="button"
-                    className="mz-p-dropdown-item danger"
-                    onClick={() => {
-                      setIsDropdownOpen(false);
-                      setIsLogoutModalOpen(true);
-                    }}
-                  >
-                    <LuLogOut size={15} />
-                    <span>Log Out</span>
-                  </button>
-                </div>
-              )}
+              <UserProfileDropdown
+                isOpen={isDropdownOpen}
+                onClose={() => setIsDropdownOpen(false)}
+                user={user}
+                onOpenSettings={() => setIsSettingsModalOpen(true)}
+                onLogout={() => setIsLogoutModalOpen(true)}
+              />
             </div>
           </div>
         </header>

@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 import "./profile.css";
 import NotificationBell from "./NotificationBell.jsx";
 import IndiaLocationPicker from "./IndiaLocationPicker";
+import UserProfileDropdown from "./UserProfileDropdown.jsx";
 import logoIcon from "../assets/logo_icon_transparent.png";
 import { getExploredTracks, isTrackExplored } from "../utils/trackExploration";
 import { performGlobalLogout } from "../utils/sessionAuth.js";
@@ -741,56 +742,13 @@ const Profile = () => {
                 />
               </button>
 
-              {isDropdownOpen && (
-                <div className="mz-profile-menu">
-                  <div className="mz-menu-header">
-                    <strong>{displayName}</strong>
-                    <span>{user?.email || "user@masteryzone.com"}</span>
-                  </div>
-                  <div className="mz-menu-divider" />
-                  <button
-                    type="button"
-                    className="mz-menu-item"
-                    onClick={() => {
-                      setIsDropdownOpen(false);
-                      openEditModal();
-                    }}
-                  >
-                    Edit Profile
-                  </button>
-                  <button
-                    type="button"
-                    className="mz-menu-item"
-                    onClick={() => {
-                      setIsDropdownOpen(false);
-                      fileInputRef.current?.click();
-                    }}
-                  >
-                    Change Photo
-                  </button>
-                  <button
-                    type="button"
-                    className="mz-menu-item"
-                    onClick={() => {
-                      setIsDropdownOpen(false);
-                      setIsSettingsModalOpen(true);
-                    }}
-                  >
-                    Settings
-                  </button>
-                  <div className="mz-menu-divider" />
-                  <button
-                    type="button"
-                    className="mz-menu-item text-danger"
-                    onClick={() => {
-                      setIsDropdownOpen(false);
-                      setIsLogoutModalOpen(true);
-                    }}
-                  >
-                    Log Out
-                  </button>
-                </div>
-              )}
+              <UserProfileDropdown
+                isOpen={isDropdownOpen}
+                onClose={() => setIsDropdownOpen(false)}
+                user={user}
+                onOpenSettings={() => setIsSettingsModalOpen(true)}
+                onLogout={() => setIsLogoutModalOpen(true)}
+              />
             </div>
 
             <input

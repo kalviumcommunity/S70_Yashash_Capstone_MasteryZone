@@ -1097,6 +1097,16 @@ router.get("/attempt/:attemptId/report", optionalAuthenticateToken, async (req, 
       return res.status(404).json({ error: "Assessment report not found" });
     }
 
+    // Strict account isolation: verify candidate ownership or admin privileges
+    const callerUserId = req.user ? String(req.user.userId || req.user.id || req.user._id || "") : null;
+    const isPrivileged = req.user?.role === "admin" || req.user?.role === "SUPER_ADMIN";
+    if (attempt.userId) {
+      const ownerId = String(attempt.userId);
+      if (!callerUserId || (!isPrivileged && callerUserId !== ownerId)) {
+        return res.status(403).json({ error: "Access denied. You do not have permission to view this certification report." });
+      }
+    }
+
     // Enrich candidate details with actual registered user if available
     let resolvedCandidateName = attempt.candidateName || "Verified Candidate";
     let resolvedCandidateEmail = attempt.candidateEmail || "candidate@masteryzone.edu";

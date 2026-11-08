@@ -29,19 +29,61 @@ router.post("/upload", authenticateToken, async (req, res) => {
       return res.status(400).json({ error: "Missing recording video data" });
     }
 
-    const hostUserId = String(req.user?.userId || req.user?.id || req.user?._id || req.body.hostUserId || "guest");
-    const hostEmail = req.user?.email || req.body.hostEmail || "";
-    const hostName = req.user?.fullName || req.user?.name || req.body.hostName || "Host";
+    const hostUserId = String(req.user?.userId || req.user?.id || req.user?._id || "guest");
+    const User = require("../models/User");
+    let hostName = req.user?.fullName || req.user?.name || req.body.hostName || "";
+    let hostEmail = req.user?.email || req.body.hostEmail || "";
+    if ((!hostName || !hostEmail) && hostUserId && mongoose.Types.ObjectId.isValid(hostUserId)) {
+      try {
+        const u = await User.findById(hostUserId).select("fullName username email").lean();
+        if (u) {
+          if (!hostName) hostName = u.fullName || u.username || "Host";
+          if (!hostEmail) hostEmail = u.email || "";
+        }
+      } catch {}
+    }
+    if (!hostName) hostName = "Host";
 
     const recordingId = `rec_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const ext = mimeType.includes("mp4") ? "mp4" : "webm";
     const fileName = `${recordingId}.${ext}`;
     const filePath = path.join(RECORDINGS_DIR, fileName);
 
-    // Strip data URL header if present (e.g. data:video/webm;base64,...)
-    const cleanBase64 = base64Data.replace(/^data:video\/[a-z0-9.-]+;base64,/, "");
+    // Strip data URL header safely (handles video/webm;codecs=vp9,opus, video/webm, video/mp4, etc.)
+    const cleanBase64 = base64Data.includes(";base64,") ? base64Data.split(";base64,").pop() : base64Data;
     const buffer = Buffer.from(cleanBase64, "base64");
+
+    if (buffer.length < 50) {
+      return res.status(400).json({ error: "Recording video data is empty or too short." });
+    }
+
+    // Validate container format
+    const isWebM = buffer.length >= 4 && buffer[0] === 0x1a && buffer[1] === 0x45 && buffer[2] === 0xdf && buffer[3] === 0xa3;
+    const isMp4 = buffer.length >= 8 && buffer.toString("ascii", 4, 8) === "ftyp";
+    if (!isWebM && !isMp4) {
+      console.warn(`[Recording Upload] Recording header not standard WebM/MP4 (first 4 bytes: ${buffer.slice(0, 4).toString("hex")}).`);
+    }
+
     fs.writeFileSync(filePath, buffer);
+
+    // Retrieve active meeting participants to attach verified participantUserIds
+    const Meeting = require("../models/Meeting");
+    let participantUserIds = [];
+    if (meetingId) {
+      try {
+        const meeting = await Meeting.findOne({ meetingId }).lean();
+        if (meeting && Array.isArray(meeting.participants)) {
+          participantUserIds = meeting.participants
+            .map((p) => String(p.userId || p._id || ""))
+            .filter(Boolean);
+        }
+      } catch (mErr) {
+        console.warn("Could not retrieve meeting participants:", mErr);
+      }
+    }
+    if (hostUserId && !participantUserIds.includes(hostUserId)) {
+      participantUserIds.push(hostUserId);
+    }
 
     const streamUrl = `/api/recordings/stream/${fileName}`;
     const fileUrl = `/recordings/${fileName}`;
@@ -65,6 +107,7 @@ router.post("/upload", authenticateToken, async (req, res) => {
       startTime: new Date(Date.now() - (Math.round(Number(durationSeconds) || 0) * 1000)),
       endTime: new Date(),
       participantsCount: Math.max(1, participantNames.length),
+      participantUserIds,
       participantNames: Array.isArray(participantNames) ? participantNames : [],
       thumbnailUrl: thumbnailUrl || "",
       chapters: [
@@ -165,12 +208,26 @@ router.get("/", authenticateToken, async (req, res) => {
     const { q, dateFilter, sort = "newest", scope = "all" } = req.query;
 
     const User = require("../models/User");
+    const Meeting = require("../models/Meeting");
+
     const currentUserDoc = mongoose.Types.ObjectId.isValid(currentUserId)
       ? await User.findById(currentUserId).select("fullName username email").lean()
       : null;
     const userNames = [currentUserDoc?.fullName, currentUserDoc?.username].filter(Boolean);
 
-    // Support personal and shared recordings
+    // Identify all meetings created by or attended by this user
+    let userMeetingIds = [];
+    try {
+      const userMeetings = await Meeting.find({
+        $or: [
+          { hostUserId: currentUserId },
+          { "participants.userId": currentUserId },
+        ],
+      }).select("meetingId").lean();
+      userMeetingIds = userMeetings.map((m) => m.meetingId).filter(Boolean);
+    } catch {}
+
+    // Support personal and shared recordings with strict account boundaries
     let filter = {};
     if (scope === "personal") {
       filter = { hostUserId: currentUserId };
@@ -178,6 +235,8 @@ router.get("/", authenticateToken, async (req, res) => {
       filter = {
         hostUserId: { $ne: currentUserId },
         $or: [
+          { participantUserIds: currentUserId },
+          ...(userMeetingIds.length > 0 ? [{ meetingId: { $in: userMeetingIds } }] : []),
           ...(currentUserDoc?.email ? [{ hostEmail: currentUserDoc.email }] : []),
           ...(userNames.length > 0 ? [{ participantNames: { $in: userNames } }] : []),
         ],
@@ -186,6 +245,8 @@ router.get("/", authenticateToken, async (req, res) => {
       filter = {
         $or: [
           { hostUserId: currentUserId },
+          { participantUserIds: currentUserId },
+          ...(userMeetingIds.length > 0 ? [{ meetingId: { $in: userMeetingIds } }] : []),
           ...(currentUserDoc?.email ? [{ hostEmail: currentUserDoc.email }] : []),
           ...(userNames.length > 0 ? [{ participantNames: { $in: userNames } }] : []),
         ],
@@ -294,17 +355,36 @@ router.post("/:recordingId/bookmarks", authenticateToken, async (req, res) => {
   }
 });
 
-// 3. Get single recording (strictly individual access)
+// 3. Get single recording (strictly individual access for host, participants, or admin)
 router.get("/:recordingId", authenticateToken, async (req, res) => {
   try {
-    const currentUserId = req.user?.userId || req.user?.id;
-    const recording = await Recording.findOne({
-      recordingId: req.params.recordingId,
-      $or: [{ hostUserId: currentUserId }, { hostUserId: String(currentUserId) }],
-    });
+    const currentUserId = String(req.user?.userId || req.user?.id || req.user?._id || "");
+    const isPrivileged = req.user?.role === "admin" || req.user?.role === "SUPER_ADMIN";
+    const recording = await Recording.findOne({ recordingId: req.params.recordingId }).lean();
+
     if (!recording) {
-      return res.status(404).json({ error: "Recording not found or access restricted" });
+      return res.status(404).json({ error: "Recording not found" });
     }
+
+    const Meeting = require("../models/Meeting");
+    let isMeetingParticipant = false;
+    if (recording.meetingId) {
+      try {
+        const meeting = await Meeting.findOne({
+          meetingId: recording.meetingId,
+          $or: [{ hostUserId: currentUserId }, { "participants.userId": currentUserId }],
+        }).lean();
+        if (meeting) isMeetingParticipant = true;
+      } catch {}
+    }
+
+    const isHost = String(recording.hostUserId) === currentUserId;
+    const isParticipant = (recording.participantUserIds || []).includes(currentUserId);
+
+    if (!isPrivileged && !isHost && !isParticipant && !isMeetingParticipant) {
+      return res.status(403).json({ error: "Access denied. You do not have permission to view this private recording." });
+    }
+
     res.json({ success: true, recording });
   } catch (err) {
     res.status(500).json({ error: err.message });
