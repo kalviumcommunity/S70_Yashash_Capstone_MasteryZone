@@ -14,7 +14,7 @@ const Meeting = require("../models/Meeting");
 const Recording = require("../models/Recording");
 const CodingProgress = require("../models/CodingProgress");
 const ModuleAssessmentAttempt = require("../models/ModuleAssessmentAttempt");
-const { app } = require("../server");
+const { app, server } = require("../server");
 
 let testServer;
 let baseUrl;
@@ -25,6 +25,7 @@ let userB;
 let tokenB;
 let adminUser;
 let tokenAdmin;
+const createdFiles = [];
 
 async function setup() {
   const mongoUri = process.env.MONGODB_URI || process.env.db_url || "mongodb://127.0.0.1:27017/masteryzone";
@@ -85,9 +86,9 @@ async function setup() {
     { expiresIn: "2h" }
   );
 
-  // Start ephemeral HTTP server
+  // Start ephemeral HTTP server with Socket.IO attached
   await new Promise((resolve) => {
-    testServer = app.listen(0, () => {
+    testServer = server.listen(0, () => {
       const port = testServer.address().port;
       baseUrl = `http://127.0.0.1:${port}`;
       resolve();
@@ -98,6 +99,12 @@ async function setup() {
 async function teardown() {
   if (testServer) {
     await new Promise((resolve) => testServer.close(resolve));
+  }
+  for (const f of createdFiles) {
+    const diskPath = path.join(__dirname, "../uploads/recordings", f);
+    if (fs.existsSync(diskPath)) {
+      try { fs.unlinkSync(diskPath); } catch (e) {}
+    }
   }
   if (mongoose.connection.readyState !== 0) {
     await mongoose.disconnect();
@@ -169,6 +176,7 @@ async function runTests() {
 
       recordingAId = data.recording.recordingId;
       recordingAFile = path.basename(data.recording.fileUrl);
+      createdFiles.push(recordingAFile);
 
       // Verify file on disk exists and contains genuine WebM magic bytes (0x1A 0x45 0xDF 0xA3)
       const diskPath = path.join(__dirname, "../uploads/recordings", recordingAFile);
@@ -184,12 +192,109 @@ async function runTests() {
 
     await it("GET /api/recordings/stream/:filename supports HTTP 206 partial streaming with video/webm type", async () => {
       const res = await fetch(`${baseUrl}/api/recordings/stream/${recordingAFile}`, {
-        headers: { Range: "bytes=0-15" },
+        headers: {
+          Range: "bytes=0-15",
+          Authorization: `Bearer ${tokenA}`,
+        },
       });
       assert.strictEqual(res.status, 206, "Should return 206 Partial Content");
       assert.strictEqual(res.headers.get("accept-ranges"), "bytes");
       assert(res.headers.get("content-type").includes("video/webm"));
       assert.strictEqual(res.headers.get("content-range"), `bytes 0-15/${validWebmBytes.length}`);
+    });
+
+    await it("Unauthenticated request to GET /api/recordings/stream/:filename returns 401 Unauthorized", async () => {
+      const res = await fetch(`${baseUrl}/api/recordings/stream/${recordingAFile}`, {
+        headers: { Range: "bytes=0-15" },
+      });
+      assert.strictEqual(res.status, 401, "Unauthenticated stream request must return 401");
+    });
+
+    await it("User B attempting to stream User A's private recording returns 403 Forbidden", async () => {
+      const res = await fetch(`${baseUrl}/api/recordings/stream/${recordingAFile}`, {
+        headers: {
+          Range: "bytes=0-15",
+          Authorization: `Bearer ${tokenB}`,
+        },
+      });
+      assert.strictEqual(res.status, 403, "User B must not be permitted to stream User A's recording");
+    });
+
+    await it("User B cannot view or join User A's private meeting (returns 403 Forbidden)", async () => {
+      // User A creates a private meeting
+      const resCreate = await fetch(`${baseUrl}/api/meetings/create`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${tokenA}`,
+        },
+        body: JSON.stringify({
+          title: "Alpha Confidential Strategy Meeting",
+          isPrivate: true,
+          scheduledStartTime: new Date(),
+        }),
+      });
+      assert.strictEqual(resCreate.status, 201);
+      const dataM = await resCreate.json();
+      const privateMeetingId = dataM.meeting.meetingId;
+
+      // User B tries to view private meeting details -> 403 Forbidden
+      const resGet = await fetch(`${baseUrl}/api/meetings/${privateMeetingId}`, {
+        headers: { Authorization: `Bearer ${tokenB}` },
+      });
+      assert.strictEqual(resGet.status, 403, "User B must receive 403 Forbidden for private meeting info");
+
+      // User B tries to join private meeting -> 403 Forbidden
+      const resJoin = await fetch(`${baseUrl}/api/meetings/${privateMeetingId}/join`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${tokenB}`,
+        },
+        body: JSON.stringify({
+          role: "attendee",
+        }),
+      });
+      assert.strictEqual(resJoin.status, 403, "User B must receive 403 Forbidden when attempting to join private meeting");
+    });
+
+    await it("Socket.IO: User B cannot join User A's support ticket room (ticket_auth_error emitted)", async () => {
+      const SupportTicket = require("../models/SupportTicket");
+      const ticket = await SupportTicket.create({
+        ticketId: `tkt_iso_${Date.now()}`,
+        userId: userA._id,
+        userEmail: userA.email,
+        userName: userA.fullName,
+        subject: "Isolation Private Technical Inquiry",
+        description: "Secret ticket body contents",
+        category: "Other Technical Issues",
+        priority: "High",
+      });
+
+      const { io: ioClient } = require("socket.io-client");
+      const socketB = ioClient(baseUrl, {
+        auth: { token: tokenB },
+        transports: ["websocket"],
+      });
+
+      await new Promise((resolve, reject) => {
+        socketB.on("connect", () => {
+          socketB.emit("join_ticket_room", { ticketId: ticket.ticketId });
+        });
+        socketB.on("ticket_auth_error", (errData) => {
+          assert(errData && errData.message);
+          socketB.disconnect();
+          resolve();
+        });
+        socketB.on("ticket_room_joined", () => {
+          socketB.disconnect();
+          reject(new Error("User B should NOT have been allowed to join User A's ticket room!"));
+        });
+        setTimeout(() => {
+          socketB.disconnect();
+          reject(new Error("Timeout waiting for socket response"));
+        }, 5000);
+      });
     });
 
     // =========================================================================
@@ -391,7 +496,11 @@ async function runTests() {
         }),
       });
       assert.strictEqual(resUp.status, 201);
-      const recId = (await resUp.json()).recording.recordingId;
+      const upData = await resUp.json();
+      const recId = upData.recording.recordingId;
+      if (upData.recording.fileUrl) {
+        createdFiles.push(path.basename(upData.recording.fileUrl));
+      }
 
       // Both User A and User B can access the recording
       const getA = await fetch(`${baseUrl}/api/recordings/${recId}`, {

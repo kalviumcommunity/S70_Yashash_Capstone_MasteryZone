@@ -146,16 +146,74 @@ router.post("/upload", authenticateToken, async (req, res) => {
   }
 });
 
-// Dedicated video chunk streaming route with HTTP 206 Partial Content (Mac, Win, Chrome, Edge)
-router.get("/stream/:filename", (req, res) => {
+// Dedicated video chunk streaming route with HTTP 206 Partial Content (Strictly Authenticated & Authorized)
+router.get("/stream/:filename", async (req, res) => {
   try {
-    const filename = path.basename(req.params.filename);
+    const rawFilename = req.params.filename || "";
+    // 1. Strict Path Traversal Prevention
+    if (!rawFilename || rawFilename.includes("..") || rawFilename.includes("/") || rawFilename.includes("\\")) {
+      return res.status(400).send("Invalid filename");
+    }
+    const filename = path.basename(rawFilename);
     const filePath = path.join(RECORDINGS_DIR, filename);
 
     if (!fs.existsSync(filePath)) {
       return res.status(404).send("Video file not found");
     }
 
+    // 2. Authorize Requesting User (via Bearer header or ?token= query parameter)
+    const authHeader = req.headers["authorization"];
+    const rawToken = (authHeader && authHeader.split(" ")[1]) || req.query.token;
+    if (!rawToken) {
+      return res.status(401).send("Authentication required to stream recording");
+    }
+
+    let decoded;
+    try {
+      const jwt = require("jsonwebtoken");
+      const { getJwtSecret } = require("../config/jwtConfig");
+      decoded = jwt.verify(rawToken, getJwtSecret());
+    } catch (authErr) {
+      return res.status(401).send("Invalid or expired session token");
+    }
+
+    const currentUserId = String(decoded.userId || decoded.id || decoded._id || "");
+    const isAdmin = Boolean(decoded.role === "admin" || decoded.role === "SUPER_ADMIN" || decoded.isMainAdmin);
+
+    // 3. Database Ownership & Participant Relationship Verification
+    const recording = await Recording.findOne({
+      $or: [
+        { streamUrl: { $regex: filename } },
+        { filePath: { $regex: filename } },
+        { fileUrl: { $regex: filename } },
+      ],
+    }).lean();
+
+    if (!recording) {
+      if (!isAdmin) {
+        return res.status(404).send("Recording record not found");
+      }
+    } else if (!isAdmin) {
+      const isHost = String(recording.hostUserId) === currentUserId;
+      const isParticipant = (recording.participantUserIds || []).includes(currentUserId);
+      let isMeetingAttendee = false;
+      if (recording.meetingId) {
+        try {
+          const Meeting = require("../models/Meeting");
+          const meeting = await Meeting.findOne({
+            meetingId: recording.meetingId,
+            $or: [{ hostUserId: currentUserId }, { "participants.userId": currentUserId }],
+          }).lean();
+          if (meeting) isMeetingAttendee = true;
+        } catch {}
+      }
+
+      if (!isHost && !isParticipant && !isMeetingAttendee) {
+        return res.status(403).send("Forbidden: You do not have permission to stream this recording");
+      }
+    }
+
+    // 4. Stream Partial / Full HTTP Content
     const stat = fs.statSync(filePath);
     const fileSize = stat.size;
     const range = req.headers.range;

@@ -300,33 +300,7 @@ function formatLocalReport(matched, uObj, rawId) {
 
       const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
 
-      // 1. Check local cache first for instant zero-latency report rendering
-      const rawUser = localStorage.getItem("user");
-      let uObj = null;
-      let uId = "";
-      if (rawUser) {
-        try {
-          uObj = JSON.parse(rawUser);
-          uId = uObj?._id || uObj?.id || uObj?.userId || "";
-        } catch {}
-      }
-      const reportsKey = uId ? `mz_${uId}_assessment_reports` : "mz_assessment_reports";
-      const localReports = JSON.parse(localStorage.getItem(reportsKey) || localStorage.getItem("mz_assessment_reports") || "[]");
-      const matchedLocal = localReports.find(
-        (r) => r.sessionId === rawId || r.sessionId === cleanId || r.id === rawId || r.id === cleanId || r.attemptId === rawId || r.attemptId === cleanId
-      );
-
-      let foundReport = Boolean(initialPassedReport || report);
-      if (matchedLocal && !foundReport) {
-        const initialReport = (matchedLocal.scorecard && (matchedLocal.reviewBreakdown || matchedLocal.questions))
-          ? { ...matchedLocal }
-          : formatLocalReport(matchedLocal, uObj, rawId);
-        setReport(initialReport);
-        setLoading(false);
-        foundReport = true;
-      }
-
-      // 2. Direct targeted query without slow 7-step waterfall
+      // 1. Authoritative Backend Fetch (Database is the definitive source of truth)
       let targetUrl = null;
       if (isCertAttemptId || rawId.startsWith("cert_")) {
         targetUrl = `${API_BASE}/api/certifications/attempt/${rawId}/report`;
@@ -341,6 +315,7 @@ function formatLocalReport(matched, uObj, rawId) {
       }
 
       let serverReport = null;
+      let fetchFailed = false;
       try {
         const res = await fetch(targetUrl, { headers: authHeaders });
         if (res.ok) {
@@ -348,6 +323,10 @@ function formatLocalReport(matched, uObj, rawId) {
           if (data?.report) {
             serverReport = data.report;
           }
+        } else if (res.status === 403) {
+          setError("Access denied. You do not have permission to view another user's assessment report.");
+          setLoading(false);
+          return;
         } else if (!isCertAttemptId && !isProjectSubId && !isAttemptId) {
           const codingRes = await fetch(`${API_BASE}/api/coding/proctored-session/${rawId}/report`, { headers: authHeaders });
           if (codingRes.ok) {
@@ -355,10 +334,19 @@ function formatLocalReport(matched, uObj, rawId) {
             if (codingData?.report) {
               serverReport = codingData.report;
             }
+          } else if (codingRes.status === 403) {
+            setError("Access denied. You do not have permission to view another user's assessment report.");
+            setLoading(false);
+            return;
+          } else {
+            fetchFailed = true;
           }
+        } else {
+          fetchFailed = true;
         }
       } catch (netErr) {
-        console.warn("Direct fetch note:", netErr.message);
+        console.warn("Direct fetch network warning:", netErr.message);
+        fetchFailed = true;
       }
 
       if (serverReport) {
@@ -369,8 +357,12 @@ function formatLocalReport(matched, uObj, rawId) {
           initialExpanded[serverReport.reviewBreakdown.length] = true;
         }
         setExpandedQuestions(initialExpanded);
-      } else if (!foundReport) {
-        setError("This assessment session does not exist or could not be found.");
+      } else if (initialPassedReport) {
+        setReport(initialPassedReport);
+        setLoading(false);
+      } else {
+        // Backend report is authoritative; never let stale localStorage override missing or foreign reports
+        setError("The assessment report for this attempt is not yet available, pending evaluation, or does not exist.");
         setLoading(false);
       }
     } catch (err) {

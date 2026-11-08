@@ -31,13 +31,19 @@ export default function AssessmentSubmissionFlow({
   const navigate = useNavigate();
 
   const data = summaryData || summary || {};
-  const score = data.score !== undefined ? data.score : 100;
-  const totalMarks = data.totalMarks || 100;
-  const percentage = data.percentage !== undefined ? data.percentage : Math.round((score / Math.max(1, totalMarks)) * 100);
-  const grade = data.grade || (percentage >= 90 ? "A+" : percentage >= 80 ? "A" : "B");
-  const passedTests = data.passedTests !== undefined ? data.passedTests : 10;
-  const totalTests = data.totalTests || 10;
-  const isPassed = data.passed !== undefined ? data.passed : (data.status === "PASSED" || percentage >= 80);
+  const hasScore = data.score !== undefined || data.scoreObtained !== undefined;
+  const rawScore = data.score !== undefined ? data.score : data.scoreObtained;
+  const score = hasScore ? Number(rawScore) : 0;
+  const totalMarks = Number(data.totalMarks || data.maxMarks || 100);
+  const percentage = data.percentage !== undefined
+    ? Number(data.percentage)
+    : hasScore
+    ? Math.round((score / Math.max(1, totalMarks)) * 100)
+    : 0;
+  const grade = data.grade || (hasScore ? (percentage >= 90 ? "A+" : percentage >= 80 ? "A" : percentage >= 60 ? "B" : percentage >= 40 ? "C" : "F") : "Pending");
+  const passedTests = data.passedTests !== undefined ? Number(data.passedTests) : (data.passedCount !== undefined ? Number(data.passedCount) : 0);
+  const totalTests = data.totalTests !== undefined ? Number(data.totalTests) : (data.totalCount !== undefined ? Number(data.totalCount) : 0);
+  const isPassed = Boolean(data.passed === true || data.status === "PASSED" || (hasScore && percentage >= (data.passingThreshold || 80)));
 
   const resolvedSessionId =
     sessionId ||

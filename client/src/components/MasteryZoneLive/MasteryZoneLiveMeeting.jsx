@@ -1145,6 +1145,14 @@ export default function MasteryZoneLiveMeeting({
         throw dispErr;
       }
 
+      // Verify active video track exists before initializing recorder (prevents audio-only black screen recording)
+      const rawVideoTracks = displayStream.getVideoTracks();
+      if (!rawVideoTracks || rawVideoTracks.length === 0 || rawVideoTracks[0].readyState === "ended") {
+        displayStream.getTracks().forEach((t) => t.stop());
+        toast.error("Screen recording aborted: No active video stream captured. Please select a valid screen or window.");
+        return;
+      }
+
       recordingDisplayStreamRef.current = displayStream;
 
       // 2. Audio Mixing Engine via Web Audio Context (Mix Microphone + Screen Audio + Remote Peers)
@@ -1361,8 +1369,9 @@ export default function MasteryZoneLiveMeeting({
     try {
       const activeMimeType = mediaRecorderRef.current?.mimeType || "video/webm";
       const blob = new Blob(chunks, { type: activeMimeType });
-      if (blob.size === 0) {
+      if (blob.size < 500) {
         setRecordingStatus("idle");
+        toast.warn("Recording was too short or contained no video data.");
         return null;
       }
 
