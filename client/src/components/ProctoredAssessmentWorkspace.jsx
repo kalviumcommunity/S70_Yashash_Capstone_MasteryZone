@@ -1383,35 +1383,21 @@ export default function ProctoredAssessmentWorkspace({
             ===================================================== */}
         {stage === "results_loading" && (
           <>
-            {/* 1. Results Loading Animation */}
+            {/* 1. Results Loading Animation (Simple Normal Animation) */}
             {evaluatingState === "evaluating" && (
               <div className="mz-results-preparing-screen">
-                <div className="mz-results-preparing-card">
-                  <div className="mz-preparing-loader-wrapper">
-                    <div className="mz-preparing-pulse-ring" />
-                    <div className="mz-preparing-spinner-core">
-                      <LuRefreshCw className="mz-spin" size={32} color="#2563eb" />
-                    </div>
+                <div className="mz-results-preparing-card mz-simple-loading-card">
+                  <div className="mz-simple-loader">
+                    <div className="mz-simple-spinner" />
                   </div>
 
-                  <h2 className="mz-preparing-title">Your Results Are Being Prepared...</h2>
+                  <h2 className="mz-preparing-title">Loading Results...</h2>
                   <p className="mz-preparing-subtitle">
-                    Our automated evaluation engine is evaluating your answers, computing accuracy metrics, and finalizing your official verified assessment report.
+                    Please wait while your submission is being evaluated.
                   </p>
 
-                  <div className="mz-preparing-steps-list">
-                    <div className="mz-preparing-step done">
-                      <LuCircleCheck size={17} />
-                      <span>Telemetry & Proctoring Audit Captured</span>
-                    </div>
-                    <div className="mz-preparing-step active">
-                      <LuRefreshCw className="mz-spin" size={17} />
-                      <span>Evaluating 10-Question Response Matrix...</span>
-                    </div>
-                    <div className="mz-preparing-step pending">
-                      <LuClock size={17} />
-                      <span>Generating Official Accreditation Report</span>
-                    </div>
+                  <div className="mz-simple-progress-bar">
+                    <div className="mz-simple-progress-fill" />
                   </div>
                 </div>
               </div>

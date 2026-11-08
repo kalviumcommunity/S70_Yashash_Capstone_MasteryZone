@@ -48,6 +48,70 @@
   border-color: #fca5a5;
 }
 
+.mz-results-preparing-card.mz-simple-loading-card {
+  max-width: 440px;
+  padding: 38px 28px 32px;
+}
+
+/* Simple normal loading animation effect */
+.mz-simple-loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.mz-simple-spinner {
+  width: 46px;
+  height: 46px;
+  border: 3.5px solid #e2e8f0;
+  border-top-color: #2563eb;
+  border-right-color: #3b82f6;
+  border-radius: 50%;
+  animation: mzSimpleSpin 0.75s linear infinite;
+  box-sizing: border-box;
+}
+
+@keyframes mzSimpleSpin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.mz-simple-progress-bar {
+  width: 100%;
+  max-width: 240px;
+  height: 4px;
+  background: #f1f5f9;
+  border-radius: 9999px;
+  overflow: hidden;
+  margin-top: 14px;
+  position: relative;
+}
+
+.mz-simple-progress-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 40%;
+  background: linear-gradient(90deg, #2563eb, #38bdf8);
+  border-radius: 9999px;
+  animation: mzSimpleProgressAnim 1.4s ease-in-out infinite;
+}
+
+@keyframes mzSimpleProgressAnim {
+  0% {
+    left: -40%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
 /* Preparing screen loader & pulse */
 .mz-preparing-loader-wrapper {
   position: relative;

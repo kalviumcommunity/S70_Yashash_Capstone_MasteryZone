@@ -25,6 +25,57 @@
   box-sizing: border-box;
 }
 
+/* Simple normal loader animation */
+.mz-report-root .mz-simple-spinner {
+  width: 44px;
+  height: 44px;
+  border: 3.5px solid #e2e8f0;
+  border-top-color: #2563eb;
+  border-right-color: #3b82f6;
+  border-radius: 50%;
+  animation: mzSimpleSpin 0.75s linear infinite;
+  box-sizing: border-box;
+}
+
+@keyframes mzSimpleSpin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.mz-report-root .mz-simple-progress-bar {
+  width: 100%;
+  max-width: 240px;
+  height: 4px;
+  background: #e2e8f0;
+  border-radius: 9999px;
+  overflow: hidden;
+  position: relative;
+}
+
+.mz-report-root .mz-simple-progress-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 40%;
+  background: linear-gradient(90deg, #2563eb, #38bdf8);
+  border-radius: 9999px;
+  animation: mzSimpleProgressAnim 1.4s ease-in-out infinite;
+}
+
+@keyframes mzSimpleProgressAnim {
+  0% {
+    left: -40%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
 /* Main Container */
 .mz-report-container {
   max-width: 1340px;
