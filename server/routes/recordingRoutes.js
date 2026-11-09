@@ -74,9 +74,20 @@ async function probeWithFfprobe(filePath) {
   });
 }
 
-function inspectMediaBinary(buffer) {
-  if (!buffer || buffer.length < 500) {
+function inspectMediaBinary(buffer, expectedDuration = null) {
+  if (!buffer || !Buffer.isBuffer(buffer)) {
+    return { valid: false, error: "Invalid media buffer payload" };
+  }
+
+  if (buffer.length < 500) {
     return { valid: false, error: "Media file too small to contain valid video stream" };
+  }
+
+  if (expectedDuration !== null && expectedDuration !== undefined) {
+    const dur = Number(expectedDuration);
+    if (!Number.isFinite(dur) || dur <= 0) {
+      return { valid: false, error: "Recording duration must be a valid positive number of seconds." };
+    }
   }
 
   // 1. WebM EBML Check
@@ -130,45 +141,75 @@ function inspectMediaBinary(buffer) {
         hasCluster = true;
       }
       if (buffer[i] === 0x83 && (buffer[i + 1] === 0x01 || buffer[i + 1] === 0x81)) {
-        if (buffer[i + 2] === 0x01) {
+        if (buffer[i + 2] === 0x01 || buffer[i + 1] === 0x01) {
           hasVideoTrack = true;
-        } else if (buffer[i + 2] === 0x02) {
+        }
+      }
+      if (buffer[i] === 0x83 && (buffer[i + 1] === 0x02 || buffer[i + 1] === 0x81)) {
+        if (buffer[i + 2] === 0x02 || buffer[i + 1] === 0x02) {
           hasAudioTrack = true;
         }
       }
+      if (buffer.toString("ascii", i, i + 5) === "V_VP8" || buffer.toString("ascii", i, i + 5) === "V_VP9" || buffer.toString("ascii", i, i + 5) === "V_AV1") {
+        hasVideoTrack = true;
+      }
+      if (buffer.toString("ascii", i, i + 6) === "A_OPUS" || buffer.toString("ascii", i, i + 8) === "A_VORBIS" || buffer.toString("ascii", i, i + 5) === "A_AAC") {
+        hasAudioTrack = true;
+      }
     }
 
-    if (hasWebmDocType || hasSegment || hasTracks || hasCluster || hasVideoTrack) {
-      return { valid: true, container: "webm", hasVideo: true, hasAudio: hasAudioTrack };
+    if (!hasSegment || !hasTracks || !hasCluster) {
+      return { valid: false, error: "WebM container is missing track headers or cluster data" };
     }
-    return { valid: false, error: "WebM container is missing track headers or cluster data" };
+    if (!hasVideoTrack) {
+      return { valid: false, error: "Recording missing required video stream. Audio-only uploads are not accepted as meeting video recordings." };
+    }
+    if (!hasAudioTrack) {
+      return { valid: false, error: "Recording missing required audio stream. Meeting recordings require both audio and video streams." };
+    }
+
+    return { valid: true, container: "webm", hasVideo: true, hasAudio: true };
   }
 
   // 2. MP4 Check
   const isMp4 = buffer.length >= 8 && buffer.toString("ascii", 4, 8) === "ftyp";
   if (isMp4) {
     const scanLimit = Math.min(buffer.length - 4, 65536);
-    let hasMoovOrMdat = false;
+    let hasMoov = false;
+    let hasMdat = false;
+    let hasVideoTrack = false;
     let hasAudioTrack = false;
     for (let i = 0; i < scanLimit; i++) {
       const box = buffer.toString("ascii", i, i + 4);
-      if (box === "moov" || box === "moof" || box === "mdat" || box === "trak") {
-        hasMoovOrMdat = true;
+      if (box === "moov" || box === "moof") {
+        hasMoov = true;
+      }
+      if (box === "mdat") {
+        hasMdat = true;
+      }
+      if (box === "vide" || box === "avc1" || box === "hev1" || box === "mp4v") {
+        hasVideoTrack = true;
       }
       if (box === "soun" || box === "mp4a") {
         hasAudioTrack = true;
       }
     }
-    if (hasMoovOrMdat) {
-      return { valid: true, container: "mp4", hasVideo: true, hasAudio: hasAudioTrack };
+    if (!hasMoov && !hasMdat) {
+      return { valid: false, error: "MP4 container is missing moov/mdat payload atoms" };
     }
-    return { valid: false, error: "MP4 container is missing moov/mdat payload atoms" };
+    if (!hasVideoTrack) {
+      return { valid: false, error: "Recording missing required video stream. Audio-only uploads are not accepted as meeting video recordings." };
+    }
+    if (!hasAudioTrack) {
+      return { valid: false, error: "Recording missing required audio stream. Meeting recordings require both audio and video streams." };
+    }
+    return { valid: true, container: "mp4", hasVideo: true, hasAudio: true };
   }
 
   return { valid: false, error: "Unrecognized or corrupted video container" };
 }
 
-async function validateMediaIntegrity(filePath, buffer) {
+async function validateMediaIntegrity(filePath, buffer, expectedDuration = null) {
   const probeData = await probeWithFfprobe(filePath);
   if (probeData) {
     if (probeData.error) {
@@ -183,8 +224,9 @@ async function validateMediaIntegrity(filePath, buffer) {
       if (!hasAudio) {
         return { valid: false, error: "Recording missing required audio stream. Meeting recordings require both audio and video streams." };
       }
-      const duration = Number(probeData.format?.duration) || 0;
-      if (probeData.format?.duration !== undefined && duration <= 0) {
+      const rawDur = probeData.format?.duration !== undefined ? probeData.format.duration : expectedDuration;
+      const duration = Number(rawDur);
+      if (rawDur === undefined || rawDur === null || !Number.isFinite(duration) || duration <= 0) {
         return { valid: false, error: "Recording duration must be greater than zero seconds." };
       }
       const frameCheck = await verifyFrameDecodability(filePath);
@@ -195,7 +237,7 @@ async function validateMediaIntegrity(filePath, buffer) {
         valid: true,
         hasVideo,
         hasAudio,
-        duration: Number(probeData.format?.duration) || 0,
+        duration,
         format: probeData.format?.format_name || "webm",
       };
     }
@@ -209,7 +251,7 @@ async function validateMediaIntegrity(filePath, buffer) {
     };
   }
 
-  return inspectMediaBinary(buffer);
+  return inspectMediaBinary(buffer, expectedDuration);
 }
 
 // 1. Upload a new recording (Dedicated 100mb limit for video payload)
@@ -323,7 +365,7 @@ router.post("/upload", express.json({ limit: "100mb" }), authenticateToken, asyn
     createdFilePath = filePath;
 
     // 3. Media Stream Validation (Verify playable video/audio integrity)
-    const mediaCheck = await validateMediaIntegrity(filePath, buffer);
+    const mediaCheck = await validateMediaIntegrity(filePath, buffer, durationSeconds);
     if (!mediaCheck.valid) {
       try { fs.unlinkSync(filePath); } catch {}
       createdFilePath = null;

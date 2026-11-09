@@ -20,132 +20,33 @@ const { generateCertificatePDF, CERTIFICATES_DIR } = require("../utils/certifica
 const codingRoutes = require("./codingRoutes");
 const evaluateSingleTestCase = codingRoutes.evaluateSingleTestCase;
 const runSandboxedProcess = codingRoutes.runSandboxedProcess;
+const { PDFDocument } = require("pdf-lib");
 
 // Supported Coding Binaries
 const PYTHON_BIN = fs.existsSync("/usr/bin/python3") ? "/usr/bin/python3" : "python3";
 const NODE_BIN = fs.existsSync("/usr/local/bin/node") ? "/usr/local/bin/node" : "node";
 
-function parseAndValidatePdfStructure(filePath) {
-  if (!filePath || typeof filePath !== "string" || !fs.existsSync(filePath)) return false;
+async function parseAndValidatePdfStructure(filePath) {
+  if (!filePath || typeof filePath !== "string") return false;
   try {
     if (!fs.existsSync(filePath)) return false;
     const stat = fs.statSync(filePath);
     if (!stat.isFile() || stat.size < 500) return false;
 
     const buffer = fs.readFileSync(filePath);
+    const pdfDoc = await PDFDocument.load(buffer, { ignoreEncryption: false });
+    const pageCount = pdfDoc.getPageCount();
+    if (pageCount < 1) return false;
 
-    // 1. Validate %PDF- header magic signature
-    if (buffer.subarray(0, 5).toString("ascii") !== "%PDF-") {
+    const pages = pdfDoc.getPages();
+    if (!Array.isArray(pages) || pages.length === 0) return false;
+    const firstPage = pages[0];
+    if (!firstPage) return false;
+
+    const { width, height } = firstPage.getSize();
+    if (typeof width !== "number" || typeof height !== "number" || width <= 0 || height <= 0) {
       return false;
     }
-
-    // 2. Locate startxref marker near the end of the file
-    const tailSearchLimit = Math.min(buffer.length, 2048);
-    const tailStr = buffer.subarray(buffer.length - tailSearchLimit).toString("latin1");
-    if (!tailStr.includes("%%EOF")) {
-      return false;
-    }
-
-    const startXrefMatch = tailStr.match(/startxref\s+(\d+)\s+%%EOF/);
-    if (!startXrefMatch) {
-      return false;
-    }
-    const startXrefOffset = parseInt(startXrefMatch[1], 10);
-    if (isNaN(startXrefOffset) || startXrefOffset <= 0 || startXrefOffset >= buffer.length) {
-      return false;
-    }
-
-    // 3. Parse XRef table or cross-reference objects
-    const xrefChunk = buffer.subarray(startXrefOffset).toString("latin1");
-    const objectOffsets = new Map();
-
-    if (xrefChunk.startsWith("xref")) {
-      const xrefLines = xrefChunk.split(/\r?\n/);
-      let i = 1;
-      while (i < xrefLines.length && !xrefLines[i].startsWith("trailer")) {
-        const headerMatch = xrefLines[i].trim().match(/^(\d+)\s+(\d+)$/);
-        if (headerMatch) {
-          let startObj = parseInt(headerMatch[1], 10);
-          const count = parseInt(headerMatch[2], 10);
-          i++;
-          for (let j = 0; j < count && i < xrefLines.length; j++, i++) {
-            const entryMatch = xrefLines[i].trim().match(/^(\d{10})\s+(\d{5})\s+([nf])/);
-            if (entryMatch) {
-              const offset = parseInt(entryMatch[1], 10);
-              const type = entryMatch[3];
-              if (type === "n" && offset < buffer.length) {
-                objectOffsets.set(startObj + j, offset);
-              }
-            }
-          }
-        } else {
-          i++;
-        }
-      }
-    } else {
-      const objRegex = /(\d+)\s+(\d+)\s+obj/g;
-      let match;
-      const fullText = buffer.toString("latin1");
-      while ((match = objRegex.exec(fullText)) !== null) {
-        objectOffsets.set(parseInt(match[1], 10), match.index);
-      }
-    }
-
-    if (objectOffsets.size === 0) return false;
-
-    // 4. Resolve Document Catalog (/Root)
-    const fullText = buffer.toString("latin1");
-    const rootMatch = fullText.match(/\/Root\s+(\d+)\s+(\d+)\s+R/);
-    if (!rootMatch) return false;
-    const catalogObjId = parseInt(rootMatch[1], 10);
-    const catalogOffset = objectOffsets.get(catalogObjId);
-    if (catalogOffset === undefined || catalogOffset >= buffer.length) return false;
-
-    const catalogSnippet = fullText.slice(catalogOffset, catalogOffset + 1500);
-    if (!catalogSnippet.includes("/Type") || !catalogSnippet.includes("/Catalog")) return false;
-
-    // 5. Resolve Page Tree root (/Pages)
-    const pagesMatch = catalogSnippet.match(/\/Pages\s+(\d+)\s+(\d+)\s+R/);
-    if (!pagesMatch) return false;
-    const pagesObjId = parseInt(pagesMatch[1], 10);
-    const pagesOffset = objectOffsets.get(pagesObjId);
-    if (pagesOffset === undefined || pagesOffset >= buffer.length) return false;
-
-    const pagesSnippet = fullText.slice(pagesOffset, pagesOffset + 2000);
-    if (!pagesSnippet.includes("/Type") || !pagesSnippet.includes("/Pages")) return false;
-
-    // 6. Verify page count >= 1
-    const countMatch = pagesSnippet.match(/\/Count\s+(\d+)/);
-    if (!countMatch || parseInt(countMatch[1], 10) < 1) return false;
-
-    const kidsMatch = pagesSnippet.match(/\/Kids\s*\[\s*(\d+)\s+(\d+)\s+R/);
-    if (!kidsMatch) return false;
-    const firstPageObjId = parseInt(kidsMatch[1], 10);
-    const firstPageOffset = objectOffsets.get(firstPageObjId);
-    if (firstPageOffset === undefined || firstPageOffset >= buffer.length) return false;
-
-    // 7. Verify Page object has valid structure and content stream
-    const pageSnippet = fullText.slice(firstPageOffset, firstPageOffset + 2000);
-    if (!pageSnippet.includes("/Type") || !pageSnippet.includes("/Page")) return false;
-
-    let hasValidContentStream = false;
-    const contentsMatch = pageSnippet.match(/\/Contents\s+(?:\[\s*)?(\d+)\s+(\d+)\s+R/);
-    if (contentsMatch) {
-      const contentsObjId = parseInt(contentsMatch[1], 10);
-      const contentsOffset = objectOffsets.get(contentsObjId);
-      if (contentsOffset !== undefined && contentsOffset < buffer.length) {
-        const contentsSnippet = fullText.slice(contentsOffset, contentsOffset + 3000);
-        const streamStart = contentsSnippet.indexOf("stream");
-        const streamEnd = contentsSnippet.indexOf("endstream");
-        if (streamStart !== -1 && streamEnd > streamStart) {
-          hasValidContentStream = true;
-        }
-      }
-    } else if (pageSnippet.indexOf("stream") !== -1 && pageSnippet.indexOf("endstream") > pageSnippet.indexOf("stream")) {
-      hasValidContentStream = true;
-    }
-
-    if (!hasValidContentStream) return false;
 
     return true;
   } catch {
@@ -1149,7 +1050,7 @@ router.post("/attempt/:attemptId/finalize", authenticateToken, async (req, res) 
         const userScopedDir = attempt.userId ? path.join(CERTIFICATES_DIR, String(attempt.userId)) : null;
         const userScopedPath = userScopedDir ? path.join(userScopedDir, `${existingCert.certificateId}.pdf`) : null;
         const flatPath = path.join(CERTIFICATES_DIR, `${existingCert.certificateId}.pdf`);
-        certPdfValid = (userScopedPath && isValidPdfFile(userScopedPath)) || isValidPdfFile(flatPath);
+        certPdfValid = (userScopedPath && await isValidPdfFile(userScopedPath)) || (await isValidPdfFile(flatPath));
       }
 
       if (attempt.status === "FAILED" || (attempt.finalVerdict === "FAILED" && !verdict.passed)) {
@@ -1227,7 +1128,7 @@ router.post("/attempt/:attemptId/finalize", authenticateToken, async (req, res) 
       const userScopedPath = userScopedDir ? path.join(userScopedDir, `${certificateId}.pdf`) : null;
       const flatPath = path.join(CERTIFICATES_DIR, `${certificateId}.pdf`);
 
-      let fileWritten = (userScopedPath && isValidPdfFile(userScopedPath)) || isValidPdfFile(flatPath);
+      let fileWritten = (userScopedPath && await isValidPdfFile(userScopedPath)) || (await isValidPdfFile(flatPath));
 
       if (!fileWritten) {
         try {
@@ -1243,7 +1144,7 @@ router.post("/attempt/:attemptId/finalize", authenticateToken, async (req, res) 
             finalGradePercentage: finalScorePercentage,
             verificationUrl,
           });
-          fileWritten = (userScopedPath && isValidPdfFile(userScopedPath)) || isValidPdfFile(flatPath);
+          fileWritten = (userScopedPath && await isValidPdfFile(userScopedPath)) || (await isValidPdfFile(flatPath));
         } catch (pdfErr) {
           console.warn("PDF generation error:", pdfErr.message);
           fileWritten = false;
@@ -1341,7 +1242,7 @@ router.post("/attempt/:attemptId/finalize", authenticateToken, async (req, res) 
         const userScopedDir = attempt.userId ? path.join(CERTIFICATES_DIR, String(attempt.userId)) : null;
         const userScopedPath = userScopedDir ? path.join(userScopedDir, `${certificate.certificateId}.pdf`) : null;
         const flatPath = path.join(CERTIFICATES_DIR, `${certificate.certificateId}.pdf`);
-        const targetPdf = (userScopedPath && isValidPdfFile(userScopedPath)) ? userScopedPath : (isValidPdfFile(flatPath) ? flatPath : null);
+        const targetPdf = (userScopedPath && await isValidPdfFile(userScopedPath)) ? userScopedPath : ((await isValidPdfFile(flatPath)) ? flatPath : null);
 
         if (recipientEmail && !isGuestAccount(recipientEmail)) {
           dispatchMailBackground(async () => {

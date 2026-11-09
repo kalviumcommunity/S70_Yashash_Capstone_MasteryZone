@@ -5,5 +5,8 @@
   "scripts": {
     "build": "cd client && npm install && npm run build && cd ../server && npm install",
     "start": "cd server && node server.js"
+  },
+  "dependencies": {
+    "pdf-lib": "^1.17.1"
   }
 }
