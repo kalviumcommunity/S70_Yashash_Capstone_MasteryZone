@@ -961,6 +961,75 @@ async function runTests() {
       assert.strictEqual(res.status, 400, "Corrupted WebM without tracks/segment must be rejected with 400");
     });
 
+    await it("Meeting HTTP code execution rejects unauthenticated callers with 401", async () => {
+      const res = await fetch(`${baseUrl}/api/meetings/mtg_alpha_video_test/run-code`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: "print('test')", language: "python" }),
+      });
+      assert.strictEqual(res.status, 401, "Unauthenticated meeting execution must return 401");
+    });
+
+    await it("Meeting HTTP code execution rejects non-participants with 403 Forbidden", async () => {
+      const res = await fetch(`${baseUrl}/api/meetings/mtg_alpha_video_test/run-code`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${tokenB}`,
+        },
+        body: JSON.stringify({ code: "print('test')", language: "python" }),
+      });
+      assert.strictEqual(res.status, 403, "Non-participant meeting execution must return 403");
+    });
+
+    await it("Certification finalization strictly enforces both section cutoffs (16 MCQ and 16 Coding) even if total >= 32", async () => {
+      const attemptId = `att_cutoff_fail_${Date.now()}`;
+      await CertificationAttempt.create({
+        userId: userA._id,
+        attemptId,
+        certId: "cert_dsa",
+        certTitle: "DSA Certification",
+        status: "IN_PROGRESS",
+        candidateName: userA.fullName,
+        candidateEmail: userA.email,
+        selectedMcqs: Array.from({ length: 20 }, (_, i) => ({ id: `mcq_${i}`, question: `Q${i}`, answer: "A", correctAnswer: 0 })),
+        mcqAnswers: Object.fromEntries(Array.from({ length: 20 }, (_, i) => [String(i), 0])), // 20/20 on MCQ
+        selectedCodingQuestions: [
+          {
+            questionId: "q_1",
+            title: "Question 1",
+            publicTests: [{ input: "1", expectedOutput: "1" }],
+            hiddenTests: [],
+          },
+        ],
+        codingSubmissions: [
+          {
+            questionId: "q_1",
+            code: "def solve(): return 1",
+            solved: false,
+            passedTests: 12, // 12/20 on Coding (< 16 cutoff, but 20 + 12 = 32 >= 80% total)
+            totalTests: 20,
+            submittedAt: new Date(),
+          },
+        ],
+        proctoring: { status: "COMPLIANT", violationsCount: 0 },
+      });
+
+      const res = await fetch(`${baseUrl}/api/certifications/attempt/${attemptId}/finalize`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${tokenA}`,
+        },
+        body: JSON.stringify({}),
+      });
+
+      assert.strictEqual(res.status, 200);
+      const data = await res.json();
+      assert.strictEqual(data.finalVerdict, "FAILED", "Candidate with < 16 on Coding must FAIL even if total score is 32/40 (80%)");
+      assert.strictEqual(data.certificate, null, "No certificate should be issued when coding section cutoff is not met");
+    });
+
   } finally {
     await teardown();
   }

@@ -3,6 +3,11 @@
   "outputDirectory": "client/dist",
   "installCommand": "echo 'skip'",
   "rewrites": [
+    { "source": "/api/(.*)", "destination": "https://mastery-zone.onrender.com/api/$1" },
+    { "source": "/auth/(.*)", "destination": "https://mastery-zone.onrender.com/auth/$1" },
+    { "source": "/recordings/(.*)", "destination": "https://mastery-zone.onrender.com/recordings/$1" },
+    { "source": "/certificates/(.*)", "destination": "https://mastery-zone.onrender.com/certificates/$1" },
+    { "source": "/proctoring-evidence/(.*)", "destination": "https://mastery-zone.onrender.com/proctoring-evidence/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

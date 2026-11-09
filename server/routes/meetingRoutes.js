@@ -671,13 +671,30 @@ router.post("/:meetingId/end", authenticateToken, async (req, res) => {
 // -------------------------------------------------------------
 // 7. POST /api/meetings/:meetingId/run-code (Sandboxed execution)
 // -------------------------------------------------------------
-router.post("/:meetingId/run-code", optionalAuthToken, async (req, res) => {
+router.post("/:meetingId/run-code", authenticateToken, async (req, res) => {
   try {
-    const { meetingId } = req.params;
+    const cleanId = normalizeMeetingId(req.params.meetingId);
+    const nonDashed = cleanId.replace(/-/g, "");
     const { code, language = "python", stdin = "", files = [] } = req.body;
 
     if (!code || typeof code !== "string") {
       return res.status(400).json({ error: "Code content is required" });
+    }
+
+    const meeting = await Meeting.findOne({
+      $or: [{ meetingId: cleanId }, { meetingId: nonDashed }, { invitationCode: cleanId }],
+    });
+    if (!meeting) {
+      return res.status(404).json({ error: "Meeting not found" });
+    }
+
+    const callerId = String(req.user?.userId || req.user?.id || req.user?._id || "");
+    const isAdmin = Boolean(req.user?.role === "admin" || req.user?.role === "SUPER_ADMIN" || req.user?.isMainAdmin);
+    const isHost = meeting.hostUserId && String(meeting.hostUserId) === callerId;
+    const isParticipant = Array.isArray(meeting.participants) && meeting.participants.some((p) => String(p.userId || "") === callerId);
+
+    if (!isAdmin && !isHost && !isParticipant) {
+      return res.status(403).json({ error: "Access denied: you are not an authorized member of this meeting." });
     }
 
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "mz_live_code_"));
@@ -837,7 +854,7 @@ router.post("/:meetingId/run-code", optionalAuthToken, async (req, res) => {
 // -------------------------------------------------------------
 // 8. POST /api/meetings/:meetingId/run-tests (Collaborative Test Runner)
 // -------------------------------------------------------------
-router.post("/:meetingId/run-tests", optionalAuthToken, async (req, res) => {
+router.post("/:meetingId/run-tests", authenticateToken, async (req, res) => {
   try {
     const cleanId = normalizeMeetingId(req.params.meetingId);
     const nonDashed = cleanId.replace(/-/g, "");
@@ -850,9 +867,26 @@ router.post("/:meetingId/run-tests", optionalAuthToken, async (req, res) => {
     const meeting = await Meeting.findOne({
       $or: [{ meetingId: cleanId }, { meetingId: nonDashed }, { invitationCode: cleanId }],
     });
-    const testsToRun = testCases.length > 0 ? testCases : meeting?.testCases || [];
+    if (!meeting) {
+      return res.status(404).json({ error: "Meeting not found" });
+    }
+
+    const callerId = String(req.user?.userId || req.user?.id || req.user?._id || "");
+    const isAdmin = Boolean(req.user?.role === "admin" || req.user?.role === "SUPER_ADMIN" || req.user?.isMainAdmin);
+    const isHost = meeting.hostUserId && String(meeting.hostUserId) === callerId;
+    const isParticipant = Array.isArray(meeting.participants) && meeting.participants.some((p) => String(p.userId || "") === callerId);
+
+    if (!isAdmin && !isHost && !isParticipant) {
+      return res.status(403).json({ error: "Access denied: you are not an authorized member of this meeting." });
+    }
 
     const lang = String(language).toLowerCase();
+    const safety = validateCodeSafety(lang, code);
+    if (!safety.safe) {
+      return res.status(400).json({ error: `Security Violation: ${safety.reason}`, passedCount: 0, testResults: [] });
+    }
+
+    const testsToRun = testCases.length > 0 ? testCases : meeting?.testCases || [];
     const testResults = [];
     let passedCount = 0;
 
@@ -1002,7 +1036,7 @@ router.post("/:meetingId/run-tests", optionalAuthToken, async (req, res) => {
 // -------------------------------------------------------------
 // 9. POST /api/meetings/:meetingId/submit-solution (Collaborative Solution Grading)
 // -------------------------------------------------------------
-router.post("/:meetingId/submit-solution", optionalAuthToken, async (req, res) => {
+router.post("/:meetingId/submit-solution", authenticateToken, async (req, res) => {
   try {
     const cleanId = normalizeMeetingId(req.params.meetingId);
     const nonDashed = cleanId.replace(/-/g, "");
@@ -1021,9 +1055,26 @@ router.post("/:meetingId/submit-solution", optionalAuthToken, async (req, res) =
     const meeting = await Meeting.findOne({
       $or: [{ meetingId: cleanId }, { meetingId: nonDashed }, { invitationCode: cleanId }],
     });
+    if (!meeting) {
+      return res.status(404).json({ error: "Meeting not found" });
+    }
+
+    const callerId = String(req.user?.userId || req.user?.id || req.user?._id || "");
+    const isAdmin = Boolean(req.user?.role === "admin" || req.user?.role === "SUPER_ADMIN" || req.user?.isMainAdmin);
+    const isHost = meeting.hostUserId && String(meeting.hostUserId) === callerId;
+    const isParticipant = Array.isArray(meeting.participants) && meeting.participants.some((p) => String(p.userId || "") === callerId);
+
+    if (!isAdmin && !isHost && !isParticipant) {
+      return res.status(403).json({ error: "Access denied: you are not an authorized member of this meeting." });
+    }
+
+    const lang = String(language).toLowerCase();
+    const safety = validateCodeSafety(lang, code);
+    if (!safety.safe) {
+      return res.status(400).json({ error: `Security Violation: ${safety.reason}`, passed: false, passedPercentage: 0, testResults: [] });
+    }
 
     const testsToRun = testCases.length > 0 ? testCases : meeting?.testCases || [];
-    const lang = String(language).toLowerCase();
     const testResults = [];
     let passedCount = 0;
 

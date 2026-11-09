@@ -1,6 +1,7 @@
 const nodemailer = require('nodemailer');
 const path = require('path');
 const os = require('os');
+const fs = require('fs');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 require('dotenv').config();
 
@@ -2193,6 +2194,7 @@ async function sendCertificateAwardedEmail({
   score = 100,
   verificationUrl = "",
   issuedAt = new Date(),
+  pdfPath = null,
   req = null,
 }) {
   try {
@@ -2266,12 +2268,29 @@ async function sendCertificateAwardedEmail({
       contentHtml,
     });
 
+    const attachments = [];
+    let targetPdf = pdfPath;
+    if (!targetPdf && certificateId) {
+      const flatPath = path.join(__dirname, "../uploads/certificates", `${certificateId}.pdf`);
+      if (fs.existsSync(flatPath)) {
+        targetPdf = flatPath;
+      }
+    }
+    if (targetPdf && fs.existsSync(targetPdf)) {
+      attachments.push({
+        filename: `MasteryZone_${certTitle.replace(/[^a-zA-Z0-9]/g, '_')}_${certificateId}.pdf`,
+        path: targetPdf,
+        contentType: 'application/pdf',
+      });
+    }
+
     return await sendMailWithRetry(
       {
         from: getSenderAddress('Mastery Zone Certifications'),
         to: candidateEmail,
         subject: `🏆 Certificate Awarded: ${certTitle} [ID: ${certificateId}]`,
         html,
+        attachments,
       },
       1,
       { emailType: "certificate_awarded", recordId: certificateId }
