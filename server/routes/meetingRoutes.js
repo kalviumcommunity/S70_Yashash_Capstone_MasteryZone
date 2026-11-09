@@ -739,7 +739,7 @@ router.post("/:meetingId/end", authenticateToken, async (req, res) => {
     // Broadcast end event via socket if mounted
     const io = req.app.get("io");
     if (io) {
-      io.to(`meeting_${meetingId}`).emit("meeting_ended_by_host", {
+      io.to(`meeting_${meeting.meetingId}`).emit("meeting_ended_by_host", {
         message: "The host has ended this meeting.",
       });
     }

@@ -71,11 +71,26 @@ router.post("/upload", authenticateToken, async (req, res) => {
     let participantUserIds = [];
     if (meetingId) {
       try {
-        const meeting = await Meeting.findOne({ meetingId }).lean();
-        if (meeting && Array.isArray(meeting.participants)) {
-          participantUserIds = meeting.participants
-            .map((p) => String(p.userId || p._id || ""))
-            .filter(Boolean);
+        const meeting = await Meeting.findOne({
+          $or: [
+            { meetingId: meetingId },
+            { meetingId: meetingId.replace(/-/g, "") },
+          ],
+        }).lean();
+        if (meeting) {
+          const isAdmin = req.user?.role === "admin" || req.user?.role === "SUPER_ADMIN" || req.user?.isMainAdmin;
+          const isHost = String(meeting.hostUserId) === hostUserId;
+          const isParticipant = Array.isArray(meeting.participants) && meeting.participants.some(
+            (p) => String(p.userId || p._id || "") === hostUserId
+          );
+          if (!isAdmin && !isHost && !isParticipant) {
+            return res.status(403).json({ error: "Access denied. You were not an authorized host or participant of this meeting." });
+          }
+          if (Array.isArray(meeting.participants)) {
+            participantUserIds = meeting.participants
+              .map((p) => String(p.userId || p._id || ""))
+              .filter(Boolean);
+          }
         }
       } catch (mErr) {
         console.warn("Could not retrieve meeting participants:", mErr);
@@ -285,7 +300,7 @@ router.get("/", authenticateToken, async (req, res) => {
       userMeetingIds = userMeetings.map((m) => m.meetingId).filter(Boolean);
     } catch {}
 
-    // Support personal and shared recordings with strict account boundaries
+    // Support personal and shared recordings strictly bounded by database user IDs and meetings
     let filter = {};
     if (scope === "personal") {
       filter = { hostUserId: currentUserId };
@@ -295,8 +310,6 @@ router.get("/", authenticateToken, async (req, res) => {
         $or: [
           { participantUserIds: currentUserId },
           ...(userMeetingIds.length > 0 ? [{ meetingId: { $in: userMeetingIds } }] : []),
-          ...(currentUserDoc?.email ? [{ hostEmail: currentUserDoc.email }] : []),
-          ...(userNames.length > 0 ? [{ participantNames: { $in: userNames } }] : []),
         ],
       };
     } else {
@@ -305,8 +318,6 @@ router.get("/", authenticateToken, async (req, res) => {
           { hostUserId: currentUserId },
           { participantUserIds: currentUserId },
           ...(userMeetingIds.length > 0 ? [{ meetingId: { $in: userMeetingIds } }] : []),
-          ...(currentUserDoc?.email ? [{ hostEmail: currentUserDoc.email }] : []),
-          ...(userNames.length > 0 ? [{ participantNames: { $in: userNames } }] : []),
         ],
       };
     }
@@ -487,9 +498,10 @@ router.delete("/:recordingId", authenticateToken, async (req, res) => {
       return res.status(404).json({ error: "Recording not found" });
     }
 
-    const currentUserId = req.user?.userId || req.user?.id;
-    if (recording.hostUserId && String(recording.hostUserId) !== String(currentUserId)) {
-      return res.status(403).json({ error: "Only the recording host can delete this video" });
+    const currentUserId = String(req.user?.userId || req.user?.id || req.user?._id || "");
+    const isAdmin = Boolean(req.user?.role === "admin" || req.user?.role === "SUPER_ADMIN" || req.user?.isMainAdmin);
+    if (!isAdmin && recording.hostUserId && String(recording.hostUserId) !== currentUserId) {
+      return res.status(403).json({ error: "Only the recording host or an administrator can delete this video" });
     }
 
     // Remove file from disk
