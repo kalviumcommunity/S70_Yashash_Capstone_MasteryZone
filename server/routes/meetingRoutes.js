@@ -764,7 +764,7 @@ router.post("/:meetingId/run-code", authenticateToken, async (req, res) => {
       } else if (lang === "javascript" || lang === "js" || lang === "node") {
         const filePath = path.join(tmpDir, "index.js");
         fs.writeFileSync(filePath, code, "utf8");
-        const exec = await runSandboxedProcess(NODE_BIN, [filePath], stdin, 5000, tmpDir);
+        const exec = await runSandboxedProcess(NODE_BIN, ["--max-old-space-size=128", filePath], stdin, 5000, tmpDir);
         result = {
           output: exec.output,
           error: exec.error,
@@ -830,7 +830,7 @@ router.post("/:meetingId/run-code", authenticateToken, async (req, res) => {
             durationMs: compile.duration,
           };
         } else {
-          const exec = await runSandboxedProcess(JAVA_BIN, ["-cp", tmpDir, className], stdin, 5000, tmpDir);
+          const exec = await runSandboxedProcess(JAVA_BIN, ["-Xmx128m", "-cp", tmpDir, className], stdin, 5000, tmpDir);
           result = {
             output: exec.output,
             error: exec.error,

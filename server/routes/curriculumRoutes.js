@@ -97,7 +97,7 @@ async function executeInSandbox(language, code, stdinInput = "", timeoutMs = 800
     } else if (lang === "javascript" || lang === "js" || lang === "node") {
       const codeFilePath = path.join(tempDir, "solution.js");
       fs.writeFileSync(codeFilePath, code, "utf8");
-      const res = await runSandboxedProcess(NODE_BIN, [codeFilePath], stdinInput, timeoutMs, tempDir);
+      const res = await runSandboxedProcess(NODE_BIN, ["--max-old-space-size=128", codeFilePath], stdinInput, timeoutMs, tempDir);
       cleanUp();
       return res;
     } else if (lang === "java") {
@@ -116,7 +116,7 @@ async function executeInSandbox(language, code, stdinInput = "", timeoutMs = 800
           exitCode: 1,
         };
       }
-      const execRes = await runSandboxedProcess(JAVA_BIN, ["-cp", tempDir, className], stdinInput, timeoutMs, tempDir);
+      const execRes = await runSandboxedProcess(JAVA_BIN, ["-Xmx128m", "-cp", tempDir, className], stdinInput, timeoutMs, tempDir);
       cleanUp();
       return execRes;
     } else if (lang === "cpp" || lang === "c++") {

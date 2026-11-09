@@ -710,6 +710,21 @@ io.on("connection", (socket) => {
       }
 
       const canonicalId = meeting ? meeting.meetingId : cleanId;
+
+      // If socket is currently registered in a different meeting room, cleanly depart first
+      if (socket.data?.meetingId && socket.data.meetingId !== canonicalId) {
+        try {
+          await handleUserLeavingMeeting(socket);
+        } catch (e) {
+          console.warn("Error cleaning up previous meeting state on switch:", e.message);
+        }
+        for (const roomName of Array.from(socket.rooms)) {
+          if (roomName.startsWith("meeting_")) {
+            socket.leave(roomName);
+          }
+        }
+      }
+
       const roomName = `meeting_${canonicalId}`;
       socket.join(roomName);
       if (cleanId !== canonicalId) socket.join(`meeting_${cleanId}`);
@@ -1516,6 +1531,50 @@ app.use("/api", router);
 
 const PRIMARY_MONGO_URI = process.env.MONGODB_URI || process.env.db_url;
 
+function parseMongoUri(uriStr) {
+  if (!uriStr || typeof uriStr !== "string") return null;
+  try {
+    const normalized = uriStr.replace(/^mongodb(\+srv)?:\/\//i, "http://");
+    const parsed = new URL(normalized);
+    let host = (parsed.hostname || "").toLowerCase();
+    if (host === "localhost") host = "127.0.0.1";
+    const port = parsed.port || "27017";
+    let pathname = (parsed.pathname || "").replace(/^\//, "").split("?")[0].trim().toLowerCase();
+    return { host, port, dbName: pathname };
+  } catch {
+    return null;
+  }
+}
+
+function isSameOrProductionDatabase(testUri, prodUri) {
+  if (!testUri) return false;
+  const testParsed = parseMongoUri(testUri);
+  if (!testParsed) return false;
+
+  const testDb = testParsed.dbName;
+  if (
+    testDb === "masteryzone" ||
+    testDb === "production" ||
+    testDb === "prod" ||
+    testDb.endsWith("_prod") ||
+    testDb.endsWith("-prod")
+  ) {
+    return true;
+  }
+
+  if (!prodUri) return false;
+  if (testUri.trim() === prodUri.trim()) return true;
+
+  const prodParsed = parseMongoUri(prodUri);
+  if (!prodParsed) return false;
+
+  if (testParsed.host === prodParsed.host && testParsed.dbName === prodParsed.dbName) {
+    return true;
+  }
+
+  return false;
+}
+
 async function connectDB() {
   if (process.env.NODE_ENV === "test") {
     const testUri = process.env.TEST_MONGODB_URI;
@@ -1523,8 +1582,8 @@ async function connectDB() {
       console.error("FATAL: TEST_MONGODB_URI is required to run in test mode safely.");
       throw new Error("TEST_MONGODB_URI required for test mode");
     }
-    if (PRIMARY_MONGO_URI && testUri.trim() === PRIMARY_MONGO_URI.trim()) {
-      console.error("FATAL: TEST_MONGODB_URI cannot point to the production/development database.");
+    if (isSameOrProductionDatabase(testUri, PRIMARY_MONGO_URI)) {
+      console.error("FATAL: TEST_MONGODB_URI cannot point to the production/development database or alias.");
       throw new Error("TEST_MONGODB_URI points to production database");
     }
     try {
@@ -1593,4 +1652,4 @@ if (process.env.NODE_ENV !== "test") {
   });
 }
 
-module.exports = { app, server };
+module.exports = { app, server, isSameOrProductionDatabase, parseMongoUri };

@@ -1283,11 +1283,62 @@ async function runTests() {
       assert.strictEqual(res.status, 403, "User B must be forbidden from downloading User A's private recording");
     });
 
-    await it("Test database safety: verify test isolation refuses to run if test URI matches app production URI", async () => {
+    await it("Test database safety: verify test isolation refuses to run if test URI matches app production URI or alias", async () => {
+      const { isSameOrProductionDatabase } = require("../server");
       const testUri = process.env.TEST_MONGODB_URI;
       const appUri = process.env.MONGODB_URI || process.env.db_url;
       assert.ok(testUri, "TEST_MONGODB_URI must be configured");
       assert.notStrictEqual(testUri.trim(), appUri ? appUri.trim() : "", "TEST_MONGODB_URI must be strictly isolated from production DB");
+
+      if (typeof isSameOrProductionDatabase === "function") {
+        assert.strictEqual(
+          isSameOrProductionDatabase("mongodb://127.0.0.1:27017/masteryzone", "mongodb://localhost:27017/masteryzone"),
+          true,
+          "isSameOrProductionDatabase must detect localhost vs 127.0.0.1 aliases"
+        );
+        assert.strictEqual(
+          isSameOrProductionDatabase("mongodb://localhost:27017/masteryzone", "mongodb://remote:27017/app"),
+          true,
+          "isSameOrProductionDatabase must detect production database name"
+        );
+        assert.strictEqual(
+          isSameOrProductionDatabase("mongodb://127.0.0.1:27017/masteryzone_test", "mongodb://127.0.0.1:27017/masteryzone"),
+          false,
+          "isSameOrProductionDatabase must permit isolated test database"
+        );
+      }
+    });
+
+    await it("Certification report route enforces authenticateToken and strict candidate ownership", async () => {
+      const reportAttemptId = `att_report_iso_${Date.now()}`;
+      await CertificationAttempt.create({
+        attemptId: reportAttemptId,
+        userId: userA._id,
+        candidateName: "Candidate A",
+        candidateEmail: userA.email,
+        trackId: "dsa",
+        trackTitle: "Data Structures & Algorithms",
+        status: "PASSED",
+        finalVerdict: "PASSED",
+        totalScore: 40,
+        percentage: 100,
+        submittedAt: new Date(),
+        selectedMcqs: [],
+        selectedCodingQuestions: [],
+      });
+
+      const noAuthRes = await fetch(`${baseUrl}/api/certifications/attempt/${reportAttemptId}/report`);
+      assert.strictEqual(noAuthRes.status, 401, "Unauthenticated access to certification report must be 401");
+
+      const forbiddenRes = await fetch(`${baseUrl}/api/certifications/attempt/${reportAttemptId}/report`, {
+        headers: { Authorization: `Bearer ${tokenB}` },
+      });
+      assert.strictEqual(forbiddenRes.status, 403, "Cross-account access to certification report must be 403");
+
+      const ownRes = await fetch(`${baseUrl}/api/certifications/attempt/${reportAttemptId}/report`, {
+        headers: { Authorization: `Bearer ${tokenA}` },
+      });
+      assert.strictEqual(ownRes.status, 200, "Candidate accessing own report must succeed");
     });
 
   } finally {
