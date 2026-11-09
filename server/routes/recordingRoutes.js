@@ -16,10 +16,32 @@ if (!fs.existsSync(RECORDINGS_DIR)) {
   fs.mkdirSync(RECORDINGS_DIR, { recursive: true });
 }
 
+function getFfmpegBinary() {
+  if (process.env.FFMPEG_PATH) return process.env.FFMPEG_PATH;
+  try {
+    const ffmpegInstaller = require("@ffmpeg-installer/ffmpeg");
+    if (ffmpegInstaller && ffmpegInstaller.path && fs.existsSync(ffmpegInstaller.path)) {
+      return ffmpegInstaller.path;
+    }
+  } catch {}
+  return "ffmpeg";
+}
+
+function getFfprobeBinary() {
+  if (process.env.FFPROBE_PATH) return process.env.FFPROBE_PATH;
+  try {
+    const ffprobeInstaller = require("@ffprobe-installer/ffprobe");
+    if (ffprobeInstaller && ffprobeInstaller.path && fs.existsSync(ffprobeInstaller.path)) {
+      return ffprobeInstaller.path;
+    }
+  } catch {}
+  return "ffprobe";
+}
+
 async function verifyFrameDecodability(filePath) {
   return new Promise((resolve) => {
     execFile(
-      "ffmpeg",
+      getFfmpegBinary(),
       [
         "-v", "error",
         "-i", filePath,
@@ -44,7 +66,7 @@ async function verifyFrameDecodability(filePath) {
 async function probeWithFfprobe(filePath) {
   return new Promise((resolve) => {
     execFile(
-      "ffprobe",
+      getFfprobeBinary(),
       [
         "-v", "error",
         "-show_streams",
@@ -247,7 +269,7 @@ async function validateMediaIntegrity(filePath, buffer, expectedDuration = null)
   if (process.env.NODE_ENV === "production") {
     return {
       valid: false,
-      error: "Production media validation requires FFprobe/FFmpeg. Binary fallback disabled in production.",
+      error: "Media integrity inspection service unavailable: Production media validation requires FFprobe/FFmpeg. Binary fallback disabled in production.",
     };
   }
 
@@ -899,5 +921,7 @@ router.validateMediaIntegrity = validateMediaIntegrity;
 router.probeWithFfprobe = probeWithFfprobe;
 router.inspectMediaBinary = inspectMediaBinary;
 router.verifyFrameDecodability = verifyFrameDecodability;
+router.getFfmpegBinary = getFfmpegBinary;
+router.getFfprobeBinary = getFfprobeBinary;
 
 module.exports = router;
