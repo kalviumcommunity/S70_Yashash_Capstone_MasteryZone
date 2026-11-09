@@ -891,6 +891,76 @@ async function runTests() {
       assert.strictEqual(updated.codingSubmissions[0].solved, false, "Broken code must not be marked solved");
     });
 
+    await it("Socket.IO: Non-host user cannot modify meeting recording status", async () => {
+      const { io: ioClient } = require("socket.io-client");
+      const testMeetingId = `mtg_host_perm_${Date.now()}`;
+      await Meeting.create({
+        meetingId: testMeetingId,
+        title: "Host Permissions Test",
+        hostUserId: String(userA._id),
+        hostName: userA.fullName,
+        isPrivate: false,
+        status: "active",
+      });
+
+      const socketB = ioClient(baseUrl, {
+        auth: { token: tokenB },
+        transports: ["websocket"],
+      });
+
+      await new Promise((resolve, reject) => {
+        socketB.on("connect", () => {
+          socketB.emit("join_meeting", {
+            meetingId: testMeetingId,
+            user: { _id: userB._id, fullName: userB.fullName },
+          });
+        });
+
+        socketB.on("meeting_joined_success", () => {
+          // User B attempts to toggle recording status
+          socketB.emit("meeting_recording_status", {
+            meetingId: testMeetingId,
+            isRecording: true,
+          });
+        });
+
+        socketB.on("meeting_error", (errData) => {
+          assert(errData && errData.message.includes("host"));
+          socketB.disconnect();
+          resolve();
+        });
+
+        setTimeout(() => {
+          socketB.disconnect();
+          reject(new Error("Timeout waiting for non-host meeting recording rejection"));
+        }, 5000);
+      });
+    });
+
+    await it("Media integrity validation strictly rejects corrupted WebM stubs lacking segment or tracks", async () => {
+      // 600 bytes of arbitrary bytes that contain EBML header but no segment or tracks
+      const corruptedWebm = Buffer.alloc(600, 0x00);
+      corruptedWebm[0] = 0x1a;
+      corruptedWebm[1] = 0x45;
+      corruptedWebm[2] = 0xdf;
+      corruptedWebm[3] = 0xa3;
+
+      const res = await fetch(`${baseUrl}/api/recordings/upload`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${tokenA}`,
+        },
+        body: JSON.stringify({
+          meetingId: "mtg_alpha_video_test",
+          base64Data: corruptedWebm.toString("base64"),
+          mimeType: "video/webm",
+        }),
+      });
+
+      assert.strictEqual(res.status, 400, "Corrupted WebM without tracks/segment must be rejected with 400");
+    });
+
   } finally {
     await teardown();
   }

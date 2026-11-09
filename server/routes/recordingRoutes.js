@@ -26,12 +26,20 @@ async function probeWithFfprobe(filePath) {
       ],
       { timeout: 5000 },
       (err, stdout) => {
-        if (err || !stdout) return resolve(null);
+        if (err) {
+          // If ffprobe binary exists but failed to decode, treat as decoding failure
+          if (err.code !== "ENOENT") {
+            return resolve({ error: err.message || "ffprobe decoding error: invalid or corrupted media file" });
+          }
+          // ffprobe is not installed on the host
+          return resolve(null);
+        }
+        if (!stdout) return resolve(null);
         try {
           const parsed = JSON.parse(stdout);
           resolve(parsed);
         } catch {
-          resolve(null);
+          resolve({ error: "ffprobe output parse error: corrupted media header" });
         }
       }
     );
@@ -102,6 +110,7 @@ function inspectMediaBinary(buffer) {
     if (hasWebmDocType || hasSegment || hasTracks || hasCluster || hasVideoTrack) {
       return { valid: true, container: "webm", hasVideo: true };
     }
+    return { valid: false, error: "WebM container is missing track headers or cluster data" };
   }
 
   // 2. MP4 Check
@@ -119,6 +128,7 @@ function inspectMediaBinary(buffer) {
     if (hasMoovOrMdat) {
       return { valid: true, container: "mp4", hasVideo: true };
     }
+    return { valid: false, error: "MP4 container is missing moov/mdat payload atoms" };
   }
 
   return { valid: false, error: "Unrecognized or corrupted video container" };
@@ -126,19 +136,25 @@ function inspectMediaBinary(buffer) {
 
 async function validateMediaIntegrity(filePath, buffer) {
   const probeData = await probeWithFfprobe(filePath);
-  if (probeData && Array.isArray(probeData.streams) && probeData.streams.length > 0) {
-    const hasVideo = probeData.streams.some((s) => s.codec_type === "video");
-    const hasAudio = probeData.streams.some((s) => s.codec_type === "audio");
-    if (!hasVideo) {
-      return { valid: false, error: "Recording missing required video stream. Audio-only uploads are not accepted as meeting video recordings." };
+  if (probeData) {
+    if (probeData.error) {
+      return { valid: false, error: `Media decoding failed: ${probeData.error}` };
     }
-    return {
-      valid: true,
-      hasVideo,
-      hasAudio,
-      duration: Number(probeData.format?.duration) || 0,
-      format: probeData.format?.format_name || "webm",
-    };
+    if (Array.isArray(probeData.streams) && probeData.streams.length > 0) {
+      const hasVideo = probeData.streams.some((s) => s.codec_type === "video");
+      const hasAudio = probeData.streams.some((s) => s.codec_type === "audio");
+      if (!hasVideo) {
+        return { valid: false, error: "Recording missing required video stream. Audio-only uploads are not accepted as meeting video recordings." };
+      }
+      return {
+        valid: true,
+        hasVideo,
+        hasAudio,
+        duration: Number(probeData.format?.duration) || 0,
+        format: probeData.format?.format_name || "webm",
+      };
+    }
+    return { valid: false, error: "No decodable media streams found in recording." };
   }
 
   return inspectMediaBinary(buffer);

@@ -101,6 +101,53 @@ const codingRooms = new Map();
 io.on("connection", (socket) => {
   console.log("🔌 User connected:", socket.id);
 
+  const handleUserLeavingMeeting = async (sock) => {
+    const mId = sock.data?.meetingId;
+    if (!mId) return;
+    const roomName = `meeting_${mId}`;
+    sock.leave(roomName);
+    sock.to(roomName).emit("meeting_peer_left", { socketId: sock.id });
+
+    try {
+      const m = await Meeting.findOne({ meetingId: mId });
+      if (m) {
+        let changed = false;
+        const currentSockets = io.sockets.adapter.rooms.get(roomName) || new Set();
+
+        m.participants.forEach((p) => {
+          if (p.socketId === sock.id || (p.socketId && !currentSockets.has(p.socketId))) {
+            if (!p.leftAt) {
+              p.leftAt = new Date();
+              changed = true;
+            }
+          }
+        });
+
+        if (changed) {
+          await m.save();
+        }
+
+        const seenActive = new Set();
+        const activeRemaining = [];
+        for (let i = m.participants.length - 1; i >= 0; i--) {
+          const p = m.participants[i];
+          if (p.leftAt || !p.socketId || !currentSockets.has(p.socketId)) continue;
+          const uKey = String(p.userId || p.socketId);
+          const nameKey = (p.fullName || "").trim().toLowerCase();
+          if (seenActive.has(uKey) || (nameKey && nameKey !== "learner" && seenActive.has(nameKey))) continue;
+          seenActive.add(uKey);
+          if (nameKey && nameKey !== "learner") seenActive.add(nameKey);
+          activeRemaining.unshift(p);
+        }
+
+        io.to(roomName).emit("meeting_participants_updated", activeRemaining);
+      }
+    } catch (err) {
+      console.error("Error during meeting leave cleanup:", err);
+    }
+    sock.data.meetingId = null;
+  };
+
   const joinUserRoomFromToken = (rawToken) => {
     if (!rawToken || typeof rawToken !== "string") return null;
     try {
@@ -113,9 +160,18 @@ io.on("connection", (socket) => {
           // Leave old user's private notification and session room
           socket.leave(`user_${oldUid}`);
           console.log(`🔌 Socket ${socket.id} left previous room user_${oldUid} on account switch`);
-          // Leave any user-specific ticket rooms or admin rooms previously joined
+          // Leave old user's meeting session if any
+          if (socket.data.meetingId) {
+            handleUserLeavingMeeting(socket);
+          }
+          // Leave any user-specific ticket rooms, admin rooms, or meeting rooms previously joined
           for (const roomName of socket.rooms) {
-            if (roomName.startsWith("ticket_") || roomName === "super_admin_room") {
+            if (
+              roomName.startsWith("ticket_") ||
+              roomName.startsWith("meeting_") ||
+              roomName.startsWith("coding_room_") ||
+              roomName === "super_admin_room"
+            ) {
               socket.leave(roomName);
             }
           }
@@ -151,8 +207,16 @@ io.on("connection", (socket) => {
     const oldUid = socket.data.userId;
     if (oldUid) {
       socket.leave(`user_${oldUid}`);
+      if (socket.data.meetingId) {
+        handleUserLeavingMeeting(socket);
+      }
       for (const roomName of socket.rooms) {
-        if (roomName.startsWith("ticket_") || roomName === "super_admin_room") {
+        if (
+          roomName.startsWith("ticket_") ||
+          roomName.startsWith("meeting_") ||
+          roomName.startsWith("coding_room_") ||
+          roomName === "super_admin_room"
+        ) {
           socket.leave(roomName);
         }
       }
@@ -166,6 +230,8 @@ io.on("connection", (socket) => {
       delete socket.data.role;
       delete socket.data.isMainAdmin;
       delete socket.data.userEmail;
+      delete socket.data.meetingId;
+      delete socket.data.meetingUser;
       console.log(`🔌 Socket ${socket.id} logged out and purged private rooms for user_${oldUid}`);
     }
   });
@@ -518,53 +584,6 @@ io.on("connection", (socket) => {
   // ==========================================
   // MASTERY ZONE LIVE — REAL-TIME COLLABORATION & WEBRTC
   // ==========================================
-  const handleUserLeavingMeeting = async (sock) => {
-    const mId = sock.data?.meetingId;
-    if (!mId) return;
-    const roomName = `meeting_${mId}`;
-    sock.leave(roomName);
-    sock.to(roomName).emit("meeting_peer_left", { socketId: sock.id });
-
-    try {
-      const m = await Meeting.findOne({ meetingId: mId });
-      if (m) {
-        let changed = false;
-        const currentSockets = io.sockets.adapter.rooms.get(roomName) || new Set();
-
-        m.participants.forEach((p) => {
-          if (p.socketId === sock.id || (p.socketId && !currentSockets.has(p.socketId))) {
-            if (!p.leftAt) {
-              p.leftAt = new Date();
-              changed = true;
-            }
-          }
-        });
-
-        if (changed) {
-          await m.save();
-        }
-
-        const seenActive = new Set();
-        const activeRemaining = [];
-        for (let i = m.participants.length - 1; i >= 0; i--) {
-          const p = m.participants[i];
-          if (p.leftAt || !p.socketId || !currentSockets.has(p.socketId)) continue;
-          const uKey = String(p.userId || p.socketId);
-          const nameKey = (p.fullName || "").trim().toLowerCase();
-          if (seenActive.has(uKey) || (nameKey && nameKey !== "learner" && seenActive.has(nameKey))) continue;
-          seenActive.add(uKey);
-          if (nameKey && nameKey !== "learner") seenActive.add(nameKey);
-          activeRemaining.unshift(p);
-        }
-
-        io.to(roomName).emit("meeting_participants_updated", activeRemaining);
-      }
-    } catch (err) {
-      console.error("Error during meeting leave cleanup:", err);
-    }
-    sock.data.meetingId = null;
-  };
-
   const isAuthorizedMeetingMember = (sock, meetingId) => {
     const mid = sock.data?.meetingId || meetingId;
     if (!mid) return false;
@@ -1108,10 +1127,18 @@ io.on("connection", (socket) => {
     }
   });
 
-  // Meeting Recording Telemetry (Host controls, Peer indicator)
-  socket.on("meeting_recording_status", ({ meetingId, isRecording, isPaused, recordingStartedAt, hostName }) => {
-    if (!meetingId || !isAuthorizedMeetingMember(socket, meetingId)) return;
-    io.to(`meeting_${meetingId}`).emit("meeting_recording_status", {
+  // Meeting Recording Telemetry (Host controls, Peer indicator) - Authorized strictly to Host or Admin
+  socket.on("meeting_recording_status", async ({ meetingId, isRecording, isPaused, recordingStartedAt, hostName }) => {
+    const mid = meetingId || socket.data.meetingId;
+    if (!mid || !isAuthorizedMeetingMember(socket, mid)) return;
+    const meeting = await Meeting.findOne({
+      $or: [{ meetingId: mid }, { invitationCode: mid }],
+    }).select("hostUserId").lean();
+    if (!meeting || !isMeetingHostOrAdmin(socket, meeting)) {
+      socket.emit("meeting_error", { message: "Only the meeting host can modify recording status." });
+      return;
+    }
+    io.to(`meeting_${mid}`).emit("meeting_recording_status", {
       isRecording,
       isPaused,
       recordingStartedAt,

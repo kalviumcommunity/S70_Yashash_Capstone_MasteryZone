@@ -258,6 +258,23 @@ async function runTests() {
     assert(adminRouteCode.includes('// Fail-closed'), "Must have explicit fail-closed error handling");
   });
 
+  test("evaluateTestCasesBatch strictly blocks hazardous code from running across batch evaluation", async () => {
+    const { evaluateTestCasesBatch } = require("../routes/codingRoutes");
+    const badCode = "import os\nprint(os.listdir('.'))";
+    const outcomes = await evaluateTestCasesBatch("python", badCode, [{ input: "1", expectedOutput: "1" }]);
+    assert.strictEqual(outcomes.length, 1);
+    assert.strictEqual(outcomes[0].passed, false);
+    assert(outcomes[0].error.includes("Security Violation"), "Batch evaluation must block restricted code");
+  });
+
+  test("terminateProcessTree function exists and handles process group termination safely", () => {
+    const { terminateProcessTree } = require("../routes/codingRoutes");
+    assert.strictEqual(typeof terminateProcessTree, "function");
+    // Must handle null / invalid gracefully without throwing
+    assert.doesNotThrow(() => terminateProcessTree(null));
+    assert.doesNotThrow(() => terminateProcessTree({ pid: 99999999 }));
+  });
+
   console.log("==================================================");
   console.log(`Results: ${passed}/${total} tests passed (${Math.round((passed / total) * 100)}%)`);
   console.log("==================================================");
