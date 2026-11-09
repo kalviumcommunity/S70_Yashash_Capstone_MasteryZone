@@ -28,9 +28,13 @@ let tokenAdmin;
 const createdFiles = [];
 
 async function setup() {
-  const mongoUri = process.env.MONGODB_URI || process.env.db_url || "mongodb://127.0.0.1:27017/masteryzone";
+  const mongoUri = process.env.TEST_MONGODB_URI || "mongodb://127.0.0.1:27017/masteryzone";
   if (mongoose.connection.readyState === 0) {
-    await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 5000 });
+    try {
+      await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 3000 });
+    } catch {
+      await mongoose.connect("mongodb://127.0.0.1:27017/masteryzone", { serverSelectionTimeoutMS: 3000 });
+    }
   }
 
   const secret = getJwtSecret();
@@ -256,6 +260,29 @@ async function runTests() {
         }),
       });
       assert.strictEqual(resJoin.status, 403, "User B must receive 403 Forbidden when attempting to join private meeting");
+
+      // User B tries to upload recording against User A's private meeting -> 403 Forbidden
+      const resFakeUpload = await fetch(`${baseUrl}/api/recordings/upload`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${tokenB}`,
+        },
+        body: JSON.stringify({
+          meetingId: privateMeetingId,
+          title: "Hijacked Recording",
+          base64Data: b64WithCodecs,
+        }),
+      });
+      assert.strictEqual(resFakeUpload.status, 403, "User B must NOT be allowed to upload a recording for User A's meeting");
+    });
+
+    await it("User B cannot delete User A's private recording (returns 403 Forbidden)", async () => {
+      const resDel = await fetch(`${baseUrl}/api/recordings/${recordingAId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${tokenB}` },
+      });
+      assert.strictEqual(resDel.status, 403, "User B must be rejected when attempting to delete User A's recording");
     });
 
     await it("Socket.IO: User B cannot join User A's support ticket room (ticket_auth_error emitted)", async () => {

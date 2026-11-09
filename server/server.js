@@ -1230,15 +1230,30 @@ async function connectDB() {
     console.warn("⚠️ No MONGODB_URI configured. Falling back to local MongoDB for development.");
   }
 
-  const mongoUri = PRIMARY_MONGO_URI || "mongodb://127.0.0.1:27017/masteryzone";
+  const mongoUri =
+    (process.env.NODE_ENV === "test"
+      ? (process.env.TEST_MONGODB_URI || "mongodb://127.0.0.1:27017/masteryzone")
+      : PRIMARY_MONGO_URI) || "mongodb://127.0.0.1:27017/masteryzone";
 
   try {
-    await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 5000 });
+    await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 3000 });
     console.log("✅ MongoDB Connected Successfully");
     await bootstrapSuperAdmin();
   } catch (err) {
     console.error("🔌 MongoDB connection failed:", err.message);
-    if (process.env.NODE_ENV === "production") {
+    if (process.env.NODE_ENV !== "production" && mongoUri !== "mongodb://127.0.0.1:27017/masteryzone") {
+      console.log("🔄 Retrying with local MongoDB fallback (mongodb://127.0.0.1:27017/masteryzone)...");
+      try {
+        await mongoose.disconnect();
+      } catch {}
+      try {
+        await mongoose.connect("mongodb://127.0.0.1:27017/masteryzone", { serverSelectionTimeoutMS: 3000 });
+        console.log("✅ MongoDB Connected Successfully (Local Fallback)");
+        await bootstrapSuperAdmin();
+      } catch (localErr) {
+        console.error("🔌 Local MongoDB connection also failed:", localErr.message);
+      }
+    } else if (process.env.NODE_ENV === "production") {
       process.exit(1);
     }
   }
