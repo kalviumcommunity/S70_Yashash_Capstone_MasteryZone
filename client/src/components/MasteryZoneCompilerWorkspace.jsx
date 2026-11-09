@@ -2836,9 +2836,9 @@ export default function MasteryZoneCompilerWorkspace({
         console.warn("Could not save report to localStorage:", e);
       }
 
-      // Record in ProctoredCodingSession database asynchronously
+      // Record in ProctoredCodingSession database and await completion so report is immediately ready
       try {
-        fetch(`${API_BASE}/api/coding/proctored-session/${finalSid}/submit`, {
+        await fetch(`${API_BASE}/api/coding/proctored-session/${finalSid}/submit`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -2861,8 +2861,10 @@ export default function MasteryZoneCompilerWorkspace({
             questions: reportItem.questions,
             testResults: submittedTestResults,
           }),
-        }).catch((err) => console.warn("Background proctored submit notice:", err));
-      } catch {}
+        });
+      } catch (submitErr) {
+        console.warn("Proctored session submit notice:", submitErr?.message);
+      }
 
       setIsSubmittedReadOnly(true);
       cleanupAllMediaAndProctoring();

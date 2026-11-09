@@ -1502,13 +1502,13 @@ router.get("/attempt/:attemptId/report", authenticateToken, async (req, res) => 
 
     const verdict = calculateCertificationVerdict(attempt);
     const isPassed = attempt.status === "PASSED" || attempt.finalVerdict === "PASSED" || verdict.passed;
+    const totalMaxMarks = verdict.totalMarksMax || 40;
     const marksObtainedFinal = attempt.totalMarksObtained != null && attempt.totalMarksObtained > 0
       ? attempt.totalMarksObtained
-      : verdict.totalMarksObtained;
+      : (attempt.score != null ? Math.round((attempt.score / 100) * totalMaxMarks) : verdict.totalMarksObtained);
     const overallPercentage = attempt.finalScorePercentage != null && attempt.finalScorePercentage > 0
       ? attempt.finalScorePercentage
-      : verdict.finalScorePercentage;
-    const totalMaxMarks = verdict.totalMarksMax || 40;
+      : (attempt.percentage != null ? attempt.percentage : verdict.finalScorePercentage);
 
     const totalPassedCodingTests = codingSubmissions.reduce((acc, s) => acc + (s.passedTests || 0), 0);
     const totalCodingTests = codingSubmissions.reduce((acc, s) => acc + (s.totalTests || 10), 0);

@@ -1183,7 +1183,12 @@ router.put("/modify-marks", async (req, res) => {
       if (!attempt) return res.status(404).json({ success: false, message: "Certification attempt not found" });
 
       targetUserId = attempt.userId;
-      studentUser = await User.findById(targetUserId).select("fullName username email").lean();
+      if (targetUserId && mongoose.Types.ObjectId.isValid(String(targetUserId))) {
+        studentUser = await User.findById(targetUserId).select("fullName username email").lean();
+      }
+      if (!studentUser && attempt.candidateEmail) {
+        studentUser = await User.findOne({ email: String(attempt.candidateEmail).toLowerCase().trim() }).select("fullName username email").lean();
+      }
 
       // Validate score (0 to 100)
       const parsedPct = Math.max(0, Math.min(100, Number(newPercentage != null ? newPercentage : newScore)));
@@ -1205,6 +1210,8 @@ router.put("/modify-marks", async (req, res) => {
 
       attempt.percentage = parsedPct;
       attempt.score = parsedPct;
+      attempt.finalScorePercentage = parsedPct;
+      attempt.totalMarksObtained = Math.round((parsedPct / 100) * 40);
       attempt.mcqScore = Math.min(20, Math.round((parsedPct / 100) * 20));
       attempt.status = statusVerdict;
       attempt.finalVerdict = statusVerdict;
@@ -1251,10 +1258,14 @@ router.put("/modify-marks", async (req, res) => {
         } catch (notifErr) {
           console.warn("Certification in-app notification error:", notifErr.message);
         }
+      }
 
+      const recipientEmail = studentUser?.email || attempt.candidateEmail;
+      const recipientName = studentUser?.fullName || studentUser?.username || attempt.candidateName || "Student";
+      if (recipientEmail && !isGuestAccount(recipientEmail)) {
         const emailRes = await sendSubmissionEvaluationEmail({
-          userEmail: studentUser.email,
-          userName: studentUser.fullName || studentUser.username || "Student",
+          userEmail: recipientEmail,
+          userName: recipientName,
           assessmentTitle: attempt.certTitle,
           assessmentType: "certification",
           score: parsedPct,
@@ -1292,7 +1303,12 @@ router.put("/modify-marks", async (req, res) => {
       if (!attempt) return res.status(404).json({ success: false, message: "Module assessment attempt not found" });
 
       targetUserId = attempt.userId;
-      studentUser = await User.findById(targetUserId).select("fullName username email").lean();
+      if (targetUserId && mongoose.Types.ObjectId.isValid(String(targetUserId))) {
+        studentUser = await User.findById(targetUserId).select("fullName username email").lean();
+      }
+      if (!studentUser && attempt.candidateEmail) {
+        studentUser = await User.findOne({ email: String(attempt.candidateEmail).toLowerCase().trim() }).select("fullName username email").lean();
+      }
 
       const totalQ = attempt.totalQuestions || 10;
       // Validate score (0 to totalQuestions)
@@ -1347,9 +1363,9 @@ router.put("/modify-marks", async (req, res) => {
         console.warn("SubjectProgress sync warning:", subErr.message);
       }
 
+      const repUrl = `/assessment-report/${attempt.sessionId || `attempt_${attempt._id}`}`;
       // Multi-Channel Notifications
       if (studentUser) {
-        const repUrl = `/assessment-report/${attempt.sessionId || `attempt_${attempt._id}`}`;
         try {
           notifCreated = await pushNotification(req.app, {
             userId: studentUser._id,
@@ -1375,10 +1391,14 @@ router.put("/modify-marks", async (req, res) => {
         } catch (notifErr) {
           console.warn("Module in-app notification error:", notifErr.message);
         }
+      }
 
+      const recipientEmail = studentUser?.email || attempt.candidateEmail || attempt.userEmail;
+      const recipientName = studentUser?.fullName || studentUser?.username || attempt.candidateName || attempt.userName || "Student";
+      if (recipientEmail && !isGuestAccount(recipientEmail)) {
         const emailRes = await sendSubmissionEvaluationEmail({
-          userEmail: studentUser.email,
-          userName: studentUser.fullName || studentUser.username || "Student",
+          userEmail: recipientEmail,
+          userName: recipientName,
           assessmentTitle: attempt.assessmentTitle || attempt.moduleTitle,
           assessmentType: "module",
           score: parsedScore,
@@ -1476,10 +1496,14 @@ router.put("/modify-marks", async (req, res) => {
         } catch (notifErr) {
           console.warn("Coding in-app notification error:", notifErr.message);
         }
+      }
 
+      const recipientEmail = studentUser?.email || sub.userEmail;
+      const recipientName = studentUser?.fullName || studentUser?.username || sub.userName || "Student";
+      if (recipientEmail && !isGuestAccount(recipientEmail)) {
         const emailRes = await sendSubmissionEvaluationEmail({
-          userEmail: studentUser.email,
-          userName: studentUser.fullName || studentUser.username || "Student",
+          userEmail: recipientEmail,
+          userName: recipientName,
           challengeTitle: sub.challengeTitle || sub.challengeId || "Coding Challenge",
           assessmentType: "coding",
           language: sub.language || "python",
@@ -1577,9 +1601,9 @@ router.put("/modify-marks", async (req, res) => {
         console.warn("Linked cert attempt sync warning:", certErr.message);
       }
 
+      const repUrl = `/assessment-report/${session.sessionId}`;
       // Multi-Channel Notifications
       if (studentUser) {
-        const repUrl = `/assessment-report/${session.sessionId}`;
         try {
           notifCreated = await pushNotification(req.app, {
             userId: studentUser._id,
@@ -1606,10 +1630,14 @@ router.put("/modify-marks", async (req, res) => {
         } catch (notifErr) {
           console.warn("Proctoring in-app notification error:", notifErr.message);
         }
+      }
 
+      const recipientEmail = studentUser?.email || session.candidateDetails?.email;
+      const recipientName = studentUser?.fullName || studentUser?.username || session.candidateDetails?.fullName || "Candidate";
+      if (recipientEmail && !isGuestAccount(recipientEmail)) {
         const emailRes = await sendSubmissionEvaluationEmail({
-          userEmail: studentUser.email,
-          userName: studentUser.fullName || studentUser.username || session.candidateDetails?.fullName || "Candidate",
+          userEmail: recipientEmail,
+          userName: recipientName,
           assessmentTitle: session.assessmentTitle || "Proctored Examination",
           assessmentType: "proctoring",
           score: parsedScore,
