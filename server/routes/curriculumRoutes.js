@@ -35,13 +35,47 @@ const GPP_BIN = fs.existsSync("/usr/bin/clang++")
   ? "/usr/bin/g++"
   : "g++";
 
-const { validateCodeSafety, runSandboxedProcess } = require("./codingRoutes");
+const { validateCodeSafety, runSandboxedProcess, executeViaJudge0, isProductionExecutionRestricted } = require("./codingRoutes");
 
 // Sandboxed execution helper for coding exercises with isolated environment and safety checks
 async function executeInSandbox(language, code, stdinInput = "", timeoutMs = 8000) {
   const safety = validateCodeSafety(language, code);
   if (!safety.safe) {
     return { output: "", error: `Security Violation: ${safety.reason}`, duration: 0, exitCode: 1 };
+  }
+
+  if (isProductionExecutionRestricted && isProductionExecutionRestricted()) {
+    return {
+      output: "",
+      error: "Production execution requires a configured isolated execution environment (Judge0).",
+      duration: 0,
+      exitCode: 1,
+    };
+  }
+
+  const lang = (language || "").toLowerCase().trim();
+
+  if (process.env.JUDGE0_API_HOST && typeof executeViaJudge0 === "function") {
+    try {
+      const j0 = await executeViaJudge0(lang, code, stdinInput, timeoutMs);
+      if (j0) {
+        return {
+          output: j0.output,
+          error: j0.error,
+          duration: j0.duration,
+          exitCode: j0.exitCode,
+        };
+      }
+    } catch (j0Err) {
+      if (process.env.NODE_ENV === "production" && process.env.ALLOW_LOCAL_FALLBACK !== "true") {
+        return {
+          output: "",
+          error: "Isolated execution sandbox (Judge0) is temporarily unavailable.",
+          duration: 0,
+          exitCode: 1,
+        };
+      }
+    }
   }
 
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "mz_curriculum_sandbox_"));

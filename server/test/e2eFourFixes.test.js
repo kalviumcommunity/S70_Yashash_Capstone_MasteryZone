@@ -23,7 +23,16 @@ let adminUser;
 let adminToken;
 
 async function setup() {
-  const mongoUri = process.env.MONGODB_URI || process.env.db_url || "mongodb://127.0.0.1:27017/masteryzone";
+  const mongoUri = process.env.TEST_MONGODB_URI;
+  if (!mongoUri) {
+    console.error("FATAL: TEST_MONGODB_URI is required to run tests safely. Tests will not run against production or development database.");
+    process.exit(1);
+  }
+  const appDb = process.env.MONGODB_URI || process.env.db_url;
+  if (appDb && mongoUri.trim() === appDb.trim()) {
+    console.error("FATAL: TEST_MONGODB_URI cannot point to the application production/development database!");
+    process.exit(1);
+  }
   if (mongoose.connection.readyState === 0) {
     await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 5000 });
   }
@@ -314,11 +323,16 @@ async function runAllTests() {
     // =========================================================================
     console.log("\n--- Pillar 4: Meeting Video Recording, Upload, and Playback ---");
 
-    // Realistic minimal WebM video header bytes
-    const sampleWebmBytes = Buffer.from([
+    // Realistic minimal WebM video header bytes with valid EBML segment
+    const headerBytes = [
       0x1a, 0x45, 0xdf, 0xa3, 0x9f, 0x42, 0x86, 0x81, 0x01, 0x42, 0xf7, 0x81, 0x01, 0x42, 0xf2, 0x81, 0x04,
       0x42, 0xf3, 0x81, 0x08, 0x42, 0x82, 0x84, 0x77, 0x65, 0x62, 0x6d, 0x42, 0x87, 0x81, 0x04, 0x42, 0x85,
       0x81, 0x02, 0x18, 0x53, 0x80, 0x67, 0x01, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x15, 0x49, 0xa9,
+      0x66, 0x99, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00,
+    ];
+    const sampleWebmBytes = Buffer.concat([
+      Buffer.from(headerBytes),
+      Buffer.alloc(512 - headerBytes.length, 0x00),
     ]);
     const sampleBase64 = `data:video/webm;base64,${sampleWebmBytes.toString("base64")}`;
     let savedRecordingObj = null;
@@ -368,7 +382,10 @@ async function runAllTests() {
 
       // Test byte-range request
       const res = await fetch(`${baseUrl}/api/recordings/stream/${fileName}`, {
-        headers: { Range: "bytes=0-20" },
+        headers: {
+          Range: "bytes=0-20",
+          Authorization: `Bearer ${testUserToken}`,
+        },
       });
       assert.strictEqual(res.status, 206, "Range request should return 206 Partial Content");
       assert.strictEqual(res.headers.get("accept-ranges"), "bytes");

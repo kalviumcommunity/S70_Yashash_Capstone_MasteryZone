@@ -7,10 +7,38 @@ const { execFile } = require("child_process");
 const Recording = require("../models/Recording");
 const authenticateToken = require("../middleware/authMiddleware");
 
-// Uploads directory path
-const RECORDINGS_DIR = path.join(__dirname, "../uploads/recordings");
+// Uploads directory path (Supports persistent cloud disk mount via RECORDINGS_STORAGE_PATH)
+const RECORDINGS_DIR =
+  process.env.RECORDINGS_STORAGE_PATH ||
+  process.env.RECORDINGS_DIR ||
+  path.join(__dirname, "../uploads/recordings");
 if (!fs.existsSync(RECORDINGS_DIR)) {
   fs.mkdirSync(RECORDINGS_DIR, { recursive: true });
+}
+
+async function verifyFrameDecodability(filePath) {
+  return new Promise((resolve) => {
+    execFile(
+      "ffmpeg",
+      [
+        "-v", "error",
+        "-i", filePath,
+        "-frames:v", "1",
+        "-f", "null",
+        "-",
+      ],
+      { timeout: 5000 },
+      (err) => {
+        if (err) {
+          if (err.code !== "ENOENT") {
+            return resolve({ valid: false, error: "ffmpeg frame decode failed: corrupted media stream" });
+          }
+          return resolve(null); // ffmpeg not installed on host
+        }
+        resolve({ valid: true });
+      }
+    );
+  });
 }
 
 async function probeWithFfprobe(filePath) {
@@ -145,6 +173,10 @@ async function validateMediaIntegrity(filePath, buffer) {
       const hasAudio = probeData.streams.some((s) => s.codec_type === "audio");
       if (!hasVideo) {
         return { valid: false, error: "Recording missing required video stream. Audio-only uploads are not accepted as meeting video recordings." };
+      }
+      const frameCheck = await verifyFrameDecodability(filePath);
+      if (frameCheck && !frameCheck.valid) {
+        return { valid: false, error: frameCheck.error };
       }
       return {
         valid: true,
@@ -450,6 +482,77 @@ router.get("/stream/:filename", async (req, res) => {
   } catch (streamErr) {
     console.error("Stream error:", streamErr);
     res.status(500).send("Streaming error");
+  }
+});
+
+// Dedicated video download route with strict authorization and path-traversal prevention
+router.get("/download/:filename", async (req, res) => {
+  try {
+    const rawFilename = req.params.filename || "";
+    if (!rawFilename || rawFilename.includes("..") || rawFilename.includes("/") || rawFilename.includes("\\")) {
+      return res.status(400).send("Invalid filename");
+    }
+    const filename = path.basename(rawFilename);
+    const filePath = path.join(RECORDINGS_DIR, filename);
+
+    const authHeader = req.headers["authorization"];
+    const rawToken = (authHeader && authHeader.split(" ")[1]) || req.query.token;
+    if (!rawToken) {
+      return res.status(401).send("Authentication required to download recording");
+    }
+
+    let decoded;
+    try {
+      const jwt = require("jsonwebtoken");
+      const { getJwtSecret } = require("../config/jwtConfig");
+      decoded = jwt.verify(rawToken, getJwtSecret());
+    } catch {
+      return res.status(401).send("Invalid or expired session token");
+    }
+
+    const currentUserId = String(decoded.userId || decoded.id || decoded._id || "");
+    const isAdmin = Boolean(decoded.role === "admin" || decoded.role === "SUPER_ADMIN" || decoded.isMainAdmin);
+
+    const escapedFilename = filename.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const recording = await Recording.findOne({
+      $or: [
+        { streamUrl: `/api/recordings/stream/${filename}` },
+        { fileUrl: `/recordings/${filename}` },
+        { fileUrl: `/uploads/recordings/${filename}` },
+        { filePath: { $regex: `(^|[\\\\/])${escapedFilename}$` } },
+      ],
+    }).lean();
+
+    if (!recording) {
+      if (!isAdmin) return res.status(404).send("Recording record not found");
+    } else if (!isAdmin) {
+      const isHost = String(recording.hostUserId) === currentUserId;
+      const isParticipant = (recording.participantUserIds || []).includes(currentUserId);
+      let isMeetingAttendee = false;
+      if (recording.meetingId) {
+        try {
+          const Meeting = require("../models/Meeting");
+          const meeting = await Meeting.findOne({
+            meetingId: recording.meetingId,
+            $or: [{ hostUserId: currentUserId }, { "participants.userId": currentUserId }],
+          }).lean();
+          if (meeting) isMeetingAttendee = true;
+        } catch {}
+      }
+
+      if (!isHost && !isParticipant && !isMeetingAttendee) {
+        return res.status(403).send("Forbidden: You do not have permission to download this recording");
+      }
+    }
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).send("Video file not found");
+    }
+
+    res.download(filePath, filename);
+  } catch (downloadErr) {
+    console.error("Download error:", downloadErr);
+    res.status(500).send("Download error");
   }
 });
 

@@ -43,7 +43,7 @@ const JAVA_BIN = fs.existsSync("/opt/homebrew/Cellar/openjdk/26.0.2.1/bin/java")
   ? "/usr/local/bin/java"
   : "java";
 
-const { runSandboxedProcess, validateCodeSafety } = require("./codingRoutes");
+const { runSandboxedProcess, validateCodeSafety, executeViaJudge0, isProductionExecutionRestricted } = require("./codingRoutes");
 
 // Preset study rooms matching reference image & coding curriculum
 const STUDY_ROOMS_CATALOG = [
@@ -707,8 +707,38 @@ router.post("/:meetingId/run-code", authenticateToken, async (req, res) => {
       return res.status(400).json({ output: "", error: `Security Violation: ${safety.reason}`, ok: false, durationMs: 0 });
     }
 
+    if (isProductionExecutionRestricted && isProductionExecutionRestricted()) {
+      try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+      return res.status(503).json({
+        success: false,
+        error: "Production execution requires a configured isolated execution environment (Judge0).",
+      });
+    }
+
+    if (process.env.JUDGE0_API_HOST && typeof executeViaJudge0 === "function") {
+      try {
+        const j0 = await executeViaJudge0(lang, code, stdin, 5000);
+        if (j0) {
+          result = {
+            output: j0.output,
+            error: j0.error,
+            ok: j0.exitCode === 0,
+            durationMs: j0.duration,
+          };
+        }
+      } catch (j0Err) {
+        if (process.env.NODE_ENV === "production" && process.env.ALLOW_LOCAL_FALLBACK !== "true") {
+          try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+          return res.status(503).json({
+            success: false,
+            error: "Isolated execution sandbox (Judge0) is temporarily unavailable.",
+          });
+        }
+      }
+    }
+
     // Write any companion workspace files to tmpDir for multi-file imports
-    if (Array.isArray(files)) {
+    if (!result && Array.isArray(files)) {
       files.forEach((f) => {
         if (f.name && typeof f.content === "string") {
           try {
@@ -719,7 +749,9 @@ router.post("/:meetingId/run-code", authenticateToken, async (req, res) => {
     }
 
     try {
-      if (lang === "python" || lang === "py") {
+      if (result) {
+        // Already executed via Judge0
+      } else if (lang === "python" || lang === "py") {
         const filePath = path.join(tmpDir, "main.py");
         fs.writeFileSync(filePath, code, "utf8");
         const exec = await runSandboxedProcess(PYTHON_BIN, ["-u", "-I", filePath], stdin, 5000, tmpDir);
@@ -884,6 +916,15 @@ router.post("/:meetingId/run-tests", authenticateToken, async (req, res) => {
     const safety = validateCodeSafety(lang, code);
     if (!safety.safe) {
       return res.status(400).json({ error: `Security Violation: ${safety.reason}`, passedCount: 0, testResults: [] });
+    }
+
+    if (isProductionExecutionRestricted && isProductionExecutionRestricted()) {
+      return res.status(503).json({
+        success: false,
+        error: "Production execution requires a configured isolated execution environment (Judge0).",
+        passedCount: 0,
+        testResults: [],
+      });
     }
 
     const testsToRun = testCases.length > 0 ? testCases : meeting?.testCases || [];
@@ -1072,6 +1113,16 @@ router.post("/:meetingId/submit-solution", authenticateToken, async (req, res) =
     const safety = validateCodeSafety(lang, code);
     if (!safety.safe) {
       return res.status(400).json({ error: `Security Violation: ${safety.reason}`, passed: false, passedPercentage: 0, testResults: [] });
+    }
+
+    if (isProductionExecutionRestricted && isProductionExecutionRestricted()) {
+      return res.status(503).json({
+        success: false,
+        error: "Production execution requires a configured isolated execution environment (Judge0).",
+        passed: false,
+        passedPercentage: 0,
+        testResults: [],
+      });
     }
 
     const testsToRun = testCases.length > 0 ? testCases : meeting?.testCases || [];

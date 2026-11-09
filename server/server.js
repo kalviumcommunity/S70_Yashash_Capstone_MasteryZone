@@ -56,6 +56,7 @@ function corsOriginValidator(origin, callback) {
     TRUSTED_ORIGINS.includes(origin) ||
     /^https?:\/\/localhost(:\d+)?$/.test(origin) ||
     /^https?:\/\/127\.0\.0\.1(:\d+)?$/.test(origin) ||
+    /^https:\/\/[a-zA-Z0-9_-]+\.vercel\.app$/.test(origin) ||
     (process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "staging")
   ) {
     return callback(null, true);
@@ -76,7 +77,7 @@ const io = new Server(server, {
   pingTimeout: 30000,
   pingInterval: 25000,
   allowEIO3: true,
-  maxHttpBufferSize: 1e8,
+  maxHttpBufferSize: 2e6,
 });
 
 // Wire Socket.IO globally for instantaneous notification dispatch
@@ -585,14 +586,21 @@ io.on("connection", (socket) => {
   // MASTERY ZONE LIVE — REAL-TIME COLLABORATION & WEBRTC
   // ==========================================
   const isAuthorizedMeetingMember = (sock, meetingId) => {
-    const mid = sock.data?.meetingId || meetingId;
-    if (!mid) return false;
-    const cleanMid = String(mid).trim().toLowerCase();
-    const nonDashed = cleanMid.replace(/-/g, "");
+    if (!sock || !meetingId) return false;
+    const authedMid = sock.data?.meetingId;
+    if (!authedMid) return false;
+
+    // The requested meetingId must match the socket's authenticated meetingId
+    const cleanRequested = String(meetingId).trim().toLowerCase().replace(/-/g, "");
+    const cleanAuthed = String(authedMid).trim().toLowerCase().replace(/-/g, "");
+    if (cleanRequested !== cleanAuthed) {
+      return false;
+    }
+
     return (
-      sock.rooms.has(`meeting_${mid}`) ||
-      sock.rooms.has(`meeting_${cleanMid}`) ||
-      sock.rooms.has(`meeting_${nonDashed}`)
+      sock.rooms.has(`meeting_${authedMid}`) ||
+      sock.rooms.has(`meeting_${cleanAuthed}`) ||
+      sock.rooms.has(`meeting_${String(meetingId).trim().toLowerCase()}`)
     );
   };
 
@@ -610,31 +618,38 @@ io.on("connection", (socket) => {
     const targetSocket = io.sockets.sockets.get(targetSocketId);
     if (!targetSocket) return false;
 
-    const mid = meetingId || srcSocket.data?.meetingId;
+    const mid = srcSocket.data?.meetingId;
     if (!mid) return false;
 
-    const cleanMid = String(mid).trim().toLowerCase();
-    const nonDashed = cleanMid.replace(/-/g, "");
+    // Both sockets must have the exact matching authorized meetingId
+    const targetMid = targetSocket.data?.meetingId;
+    if (!targetMid) return false;
+    const cleanMid = String(mid).trim().toLowerCase().replace(/-/g, "");
+    const cleanTargetMid = String(targetMid).trim().toLowerCase().replace(/-/g, "");
+    if (cleanMid !== cleanTargetMid) return false;
+
     const roomMatches = (s) =>
       s.rooms.has(`meeting_${mid}`) ||
       s.rooms.has(`meeting_${cleanMid}`) ||
-      s.rooms.has(`meeting_${nonDashed}`);
+      s.rooms.has(`meeting_${String(meetingId || mid).trim().toLowerCase()}`);
 
     return roomMatches(srcSocket) && roomMatches(targetSocket);
   };
 
-  socket.on("join_meeting", async ({ meetingId, user, mediaState }) => {
+  socket.on("join_meeting", async ({ meetingId, user, mediaState, token }) => {
     if (!meetingId) return;
     const cleanId = String(meetingId).trim().toLowerCase();
     const nonDashed = cleanId.replace(/-/g, "");
+
+    // Authenticate token if not already authenticated
+    if (!socket.data?.userId && token) {
+      joinUserRoomFromToken(token);
+    }
 
     try {
       let meeting = await Meeting.findOne({
         $or: [{ meetingId: cleanId }, { meetingId: nonDashed }, { invitationCode: cleanId }],
       });
-
-      const targetUid = String(socket.data?.userId || user?._id || user?.id || user?.userId || "");
-      const targetName = user?.fullName || user?.username || "Learner";
 
       // 1. Validate that the meeting genuinely exists before allowing a socket to join
       if (!meeting) {
@@ -642,13 +657,40 @@ io.on("connection", (socket) => {
         return;
       }
 
-      // 2. Enforce private meeting access authorization (Strict server session / verified token identity)
+      // Authoritative user identity lookup: never trust unverified client credentials
+      let targetUid = socket.data?.userId ? String(socket.data.userId) : "";
+      let verifiedUser = null;
+      if (targetUid) {
+        try {
+          verifiedUser = await User.findById(targetUid).select("fullName username email role avatar").lean();
+        } catch {}
+      }
+
+      if (!targetUid) {
+        targetUid = `guest_${socket.id.slice(0, 8)}`;
+      }
+
+      const targetName = verifiedUser?.fullName || verifiedUser?.username || user?.fullName || user?.username || "Learner";
+      const targetEmail = verifiedUser?.email || user?.email || "";
+      const targetRole = verifiedUser?.role || socket.data?.role || "user";
+
+      // 2. Enforce private meeting access authorization
       const isHost =
         Boolean(meeting.hostUserId) &&
-        Boolean(targetUid) &&
-        String(meeting.hostUserId) === targetUid;
-      const isAdmin = Boolean(socket.data?.role === "admin" || socket.data?.userRole === "admin" || socket.data?.role === "SUPER_ADMIN" || socket.data?.userRole === "SUPER_ADMIN" || socket.data?.isMainAdmin);
-      const isAdmitted = (meeting.participants || []).some((p) => String(p.userId) === targetUid);
+        Boolean(socket.data?.userId) &&
+        String(meeting.hostUserId) === String(socket.data.userId);
+
+      const isAdmin = Boolean(
+        targetRole === "admin" ||
+        targetRole === "SUPER_ADMIN" ||
+        socket.data?.role === "admin" ||
+        socket.data?.role === "SUPER_ADMIN" ||
+        socket.data?.isMainAdmin
+      );
+
+      const isAdmitted = (meeting.participants || []).some(
+        (p) => String(p.userId) === targetUid || (socket.data?.userId && String(p.userId) === String(socket.data.userId))
+      );
 
       if (meeting.isPrivate && !isHost && !isAdmitted && !isAdmin) {
         socket.emit("meeting_error", { message: "Access denied. This is a private meeting." });
@@ -674,7 +716,15 @@ io.on("connection", (socket) => {
       if (nonDashed !== canonicalId) socket.join(`meeting_${nonDashed}`);
 
       socket.data.meetingId = canonicalId;
-      socket.data.meetingUser = user;
+      socket.data.meetingUser = {
+        _id: targetUid,
+        userId: targetUid,
+        fullName: targetName,
+        username: verifiedUser?.username || user?.username || "learner",
+        email: targetEmail,
+        role: targetRole,
+        isHost,
+      };
 
       const roomSockets = io.sockets.adapter.rooms.get(roomName) || new Set();
 
@@ -873,47 +923,48 @@ io.on("connection", (socket) => {
 
   // Reactions (emojis floating on peer screens)
   socket.on("meeting_reaction", ({ meetingId, emoji, user }) => {
-    const mid = socket.data.meetingId || meetingId;
-    if (!mid || !isAuthorizedMeetingMember(socket, mid)) return;
+    const mid = socket.data.meetingId;
+    if (!mid || !isAuthorizedMeetingMember(socket, meetingId || mid)) return;
     const reactionPayload = {
       id: Date.now() + "-" + Math.random().toString(36).substr(2, 4),
       emoji: emoji || "👏",
-      user: user || socket.data.meetingUser || { fullName: "A learner" },
+      user: socket.data.meetingUser || { fullName: "A learner" },
       timestamp: new Date().toISOString(),
     };
     io.to(`meeting_${mid}`).emit("meeting_reaction_received", reactionPayload);
-    if (meetingId && meetingId !== mid) {
-      io.to(`meeting_${meetingId}`).emit("meeting_reaction_received", reactionPayload);
-    }
   });
 
   // Live Chat messages
   socket.on("meeting_chat_message", async ({ meetingId, text, user }) => {
-    if (!meetingId || !text || !isAuthorizedMeetingMember(socket, meetingId)) return;
+    const mid = socket.data.meetingId;
+    if (!mid || !text || !isAuthorizedMeetingMember(socket, meetingId || mid)) return;
+    const u = socket.data.meetingUser || {};
     const msgObj = {
       id: Date.now() + "-" + Math.random().toString(36).substr(2, 5),
-      senderId: String(user?._id || user?.id || socket.id),
-      senderName: user?.fullName || user?.username || "Learner",
-      senderAvatar: user?.avatarUrl || "",
+      senderId: String(socket.data.userId || socket.id),
+      senderName: u.fullName || u.username || user?.fullName || "Learner",
+      senderAvatar: u.avatarUrl || user?.avatarUrl || "",
       text,
       timeString: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       timestamp: new Date(),
     };
 
-    io.to(`meeting_${meetingId}`).emit("meeting_chat_message_received", msgObj);
+    io.to(`meeting_${mid}`).emit("meeting_chat_message_received", msgObj);
 
     try {
-      await Meeting.updateOne({ meetingId }, { $push: { messages: msgObj } });
+      await Meeting.updateOne({ meetingId: mid }, { $push: { messages: msgObj } });
     } catch (err) {}
   });
 
   // Collaborative Shared Code Sync
   socket.on("meeting_code_change", async ({ meetingId, code, language, user, cursor }) => {
-    if (!meetingId || !isAuthorizedMeetingMember(socket, meetingId)) return;
-    socket.to(`meeting_${meetingId}`).emit("meeting_code_updated", {
+    const mid = socket.data.meetingId;
+    if (!mid || !isAuthorizedMeetingMember(socket, meetingId || mid)) return;
+    const u = socket.data.meetingUser || {};
+    socket.to(`meeting_${mid}`).emit("meeting_code_updated", {
       code,
       language,
-      user,
+      user: u,
       cursor,
       fromSocketId: socket.id,
     });
@@ -922,38 +973,48 @@ io.on("connection", (socket) => {
       const updateDoc = {};
       if (code !== undefined) updateDoc["sharedCode.code"] = code;
       if (language !== undefined) updateDoc["sharedCode.language"] = language;
-      updateDoc["sharedCode.lastModifiedBy"] = user?.fullName || "Collaborator";
+      updateDoc["sharedCode.lastModifiedBy"] = u.fullName || "Collaborator";
       updateDoc["sharedCode.lastUpdatedAt"] = new Date();
-      await Meeting.updateOne({ meetingId }, { $set: updateDoc });
+      await Meeting.updateOne({ meetingId: mid }, { $set: updateDoc });
     } catch (err) {}
   });
 
   // Collaborative Multi-File Operations
   socket.on("meeting_file_select", ({ meetingId, fileId, user }) => {
-    if (!meetingId || !isAuthorizedMeetingMember(socket, meetingId)) return;
-    socket.to(`meeting_${meetingId}`).emit("meeting_file_selected", { fileId, user, fromSocketId: socket.id });
-    Meeting.updateOne({ meetingId }, { $set: { activeFileId: fileId } }).catch(() => {});
+    const mid = socket.data.meetingId;
+    if (!mid || !isAuthorizedMeetingMember(socket, meetingId || mid)) return;
+    socket.to(`meeting_${mid}`).emit("meeting_file_selected", { fileId, user: socket.data.meetingUser, fromSocketId: socket.id });
+    Meeting.updateOne({ meetingId: mid }, { $set: { activeFileId: fileId } }).catch(() => {});
   });
 
   socket.on("meeting_file_update", async ({ meetingId, fileId, name, content, language, user }) => {
-    if (!meetingId || !isAuthorizedMeetingMember(socket, meetingId)) return;
-    socket.to(`meeting_${meetingId}`).emit("meeting_file_updated", {
-      fileId,
-      name,
-      content,
-      language,
-      user,
-      fromSocketId: socket.id,
-    });
+    const mid = socket.data.meetingId;
+    if (!mid || !isAuthorizedMeetingMember(socket, meetingId || mid)) return;
+
     try {
+      const meeting = await Meeting.findOne({ meetingId: mid }).select("codingPermission hostUserId").lean();
+      if (meeting && (meeting.codingPermission === "host-only" || meeting.codingPermission === "read-only") && !isMeetingHostOrAdmin(socket, meeting)) {
+        socket.emit("meeting_error", { message: "Only the host can modify files in this workspace." });
+        return;
+      }
+
+      socket.to(`meeting_${mid}`).emit("meeting_file_updated", {
+        fileId,
+        name,
+        content,
+        language,
+        user: socket.data.meetingUser,
+        fromSocketId: socket.id,
+      });
+
       await Meeting.updateOne(
-        { meetingId, "workspaceFiles.id": fileId },
+        { meetingId: mid, "workspaceFiles.id": fileId },
         {
           $set: {
             "workspaceFiles.$.content": content,
             "workspaceFiles.$.name": name,
             "workspaceFiles.$.language": language,
-            "workspaceFiles.$.lastModifiedBy": user?.fullName || "Collaborator",
+            "workspaceFiles.$.lastModifiedBy": socket.data.meetingUser?.fullName || "Collaborator",
           },
         }
       );
@@ -961,18 +1022,34 @@ io.on("connection", (socket) => {
   });
 
   socket.on("meeting_file_create", async ({ meetingId, file, user }) => {
-    if (!meetingId || !file || !isAuthorizedMeetingMember(socket, meetingId)) return;
-    io.to(`meeting_${meetingId}`).emit("meeting_file_created", { file, user });
+    const mid = socket.data.meetingId;
+    if (!mid || !file || !isAuthorizedMeetingMember(socket, meetingId || mid)) return;
+
     try {
-      await Meeting.updateOne({ meetingId }, { $push: { workspaceFiles: file } });
+      const meeting = await Meeting.findOne({ meetingId: mid }).select("codingPermission hostUserId").lean();
+      if (meeting && (meeting.codingPermission === "host-only" || meeting.codingPermission === "read-only") && !isMeetingHostOrAdmin(socket, meeting)) {
+        socket.emit("meeting_error", { message: "Only the host can create files in this workspace." });
+        return;
+      }
+
+      io.to(`meeting_${mid}`).emit("meeting_file_created", { file, user: socket.data.meetingUser });
+      await Meeting.updateOne({ meetingId: mid }, { $push: { workspaceFiles: file } });
     } catch {}
   });
 
   socket.on("meeting_file_delete", async ({ meetingId, fileId, user }) => {
-    if (!meetingId || !fileId || !isAuthorizedMeetingMember(socket, meetingId)) return;
-    io.to(`meeting_${meetingId}`).emit("meeting_file_deleted", { fileId, user });
+    const mid = socket.data.meetingId;
+    if (!mid || !fileId || !isAuthorizedMeetingMember(socket, meetingId || mid)) return;
+
     try {
-      await Meeting.updateOne({ meetingId }, { $pull: { workspaceFiles: { id: fileId } } });
+      const meeting = await Meeting.findOne({ meetingId: mid }).select("codingPermission hostUserId").lean();
+      if (meeting && (meeting.codingPermission === "host-only" || meeting.codingPermission === "read-only") && !isMeetingHostOrAdmin(socket, meeting)) {
+        socket.emit("meeting_error", { message: "Only the host can delete files in this workspace." });
+        return;
+      }
+
+      io.to(`meeting_${mid}`).emit("meeting_file_deleted", { fileId, user: socket.data.meetingUser });
+      await Meeting.updateOne({ meetingId: mid }, { $pull: { workspaceFiles: { id: fileId } } });
     } catch {}
   });
 
@@ -1440,6 +1517,27 @@ app.use("/api", router);
 const PRIMARY_MONGO_URI = process.env.MONGODB_URI || process.env.db_url;
 
 async function connectDB() {
+  if (process.env.NODE_ENV === "test") {
+    const testUri = process.env.TEST_MONGODB_URI;
+    if (!testUri) {
+      console.error("FATAL: TEST_MONGODB_URI is required to run in test mode safely.");
+      throw new Error("TEST_MONGODB_URI required for test mode");
+    }
+    if (PRIMARY_MONGO_URI && testUri.trim() === PRIMARY_MONGO_URI.trim()) {
+      console.error("FATAL: TEST_MONGODB_URI cannot point to the production/development database.");
+      throw new Error("TEST_MONGODB_URI points to production database");
+    }
+    try {
+      await mongoose.connect(testUri, { serverSelectionTimeoutMS: 3000 });
+      console.log("✅ MongoDB Connected to Isolated Test Database");
+      await bootstrapSuperAdmin();
+    } catch (err) {
+      console.error("🔌 Test MongoDB connection failed:", err.message);
+      throw err;
+    }
+    return;
+  }
+
   if (!PRIMARY_MONGO_URI) {
     if (process.env.NODE_ENV === "production") {
       console.error("FATAL: MONGODB_URI or db_url environment variable is missing in production.");
@@ -1448,10 +1546,7 @@ async function connectDB() {
     console.warn("⚠️ No MONGODB_URI configured. Falling back to local MongoDB for development.");
   }
 
-  const mongoUri =
-    (process.env.NODE_ENV === "test"
-      ? (process.env.TEST_MONGODB_URI || "mongodb://127.0.0.1:27017/masteryzone")
-      : PRIMARY_MONGO_URI) || "mongodb://127.0.0.1:27017/masteryzone";
+  const mongoUri = PRIMARY_MONGO_URI || "mongodb://127.0.0.1:27017/masteryzone";
 
   try {
     await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 3000 });
