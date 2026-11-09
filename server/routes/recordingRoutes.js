@@ -53,15 +53,32 @@ router.post("/upload", authenticateToken, async (req, res) => {
     const cleanBase64 = base64Data.includes(";base64,") ? base64Data.split(";base64,").pop() : base64Data;
     const buffer = Buffer.from(cleanBase64, "base64");
 
-    if (buffer.length < 50) {
-      return res.status(400).json({ error: "Recording video data is empty or too short." });
+    if (buffer.length < 100) {
+      return res.status(400).json({ error: "Recording video data is empty or too short to contain valid video frames." });
     }
 
-    // Validate container format
+    // Validate container format and magic bytes
     const isWebM = buffer.length >= 4 && buffer[0] === 0x1a && buffer[1] === 0x45 && buffer[2] === 0xdf && buffer[3] === 0xa3;
     const isMp4 = buffer.length >= 8 && buffer.toString("ascii", 4, 8) === "ftyp";
     if (!isWebM && !isMp4) {
-      console.warn(`[Recording Upload] Recording header not standard WebM/MP4 (first 4 bytes: ${buffer.slice(0, 4).toString("hex")}).`);
+      return res.status(400).json({ error: "Invalid video media format. Only genuine WebM and MP4 video recordings are supported." });
+    }
+
+    // Check for recent duplicate upload within 10 seconds for the same meeting and user
+    if (meetingId) {
+      const existingRecent = await Recording.findOne({
+        meetingId,
+        hostUserId,
+        createdAt: { $gte: new Date(Date.now() - 10000) },
+        fileSize: buffer.length,
+      }).lean();
+      if (existingRecent) {
+        return res.status(200).json({
+          success: true,
+          message: "Recording already processed (duplicate upload prevented)",
+          recording: existingRecent,
+        });
+      }
     }
 
     fs.writeFileSync(filePath, buffer);
