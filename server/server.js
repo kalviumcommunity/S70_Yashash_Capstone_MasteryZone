@@ -90,14 +90,15 @@ app.set("io", io);
 // Store online users: { socketId: username }
 const onlineUsers = new Map();
 
+// Real-Time Collaborative Coding Rooms: roomId => { code, language, hostUserId, hostSocketId, authorizedUsers, authorizedEmails, participants, createdAt }
+const codingRooms = new Map();
+app.set("codingRooms", codingRooms);
+server.codingRooms = codingRooms;
+
 // Active User Sessions Map for Real-Time Super Admin Monitoring:
 // socketId => { socketId, userId, username, fullName, email, currentPage, activity, startedAt, lastHeartbeat, device }
 const activeUserSessions = new Map();
 app.set("activeUserSessions", activeUserSessions);
-
-// Active collaborative coding rooms in memory:
-// roomId => { code, language, participants: Map(socketId => { user, role, cursor }) }
-const codingRooms = new Map();
 
 io.on("connection", (socket) => {
   console.log("🔌 User connected:", socket.id);
@@ -176,6 +177,16 @@ io.on("connection", (socket) => {
               socket.leave(roomName);
             }
           }
+          if (socket.data.codingRoomId && codingRooms.has(socket.data.codingRoomId)) {
+            const cRoom = codingRooms.get(socket.data.codingRoomId);
+            cRoom.participants.delete(socket.id);
+            const rKey = `coding_room_${socket.data.codingRoomId}`;
+            io.to(rKey).emit("coding_room_participants", Array.from(cRoom.participants.values()));
+            if (cRoom.participants.size === 0) {
+              codingRooms.delete(socket.data.codingRoomId);
+            }
+            socket.data.codingRoomId = null;
+          }
           // Clean up old user session in super admin monitor
           if (activeUserSessions.has(socket.id)) {
             const sess = activeUserSessions.get(socket.id);
@@ -225,6 +236,16 @@ io.on("connection", (socket) => {
         ) {
           socket.leave(roomName);
         }
+      }
+      if (socket.data.codingRoomId && codingRooms.has(socket.data.codingRoomId)) {
+        const cRoom = codingRooms.get(socket.data.codingRoomId);
+        cRoom.participants.delete(socket.id);
+        const rKey = `coding_room_${socket.data.codingRoomId}`;
+        io.to(rKey).emit("coding_room_participants", Array.from(cRoom.participants.values()));
+        if (cRoom.participants.size === 0) {
+          codingRooms.delete(socket.data.codingRoomId);
+        }
+        delete socket.data.codingRoomId;
       }
       if (activeUserSessions.has(socket.id)) {
         const sess = activeUserSessions.get(socket.id);
@@ -470,6 +491,14 @@ io.on("connection", (socket) => {
       }
     }
 
+    if (cleanRoomCode && codingRooms.has(cleanRoomCode)) {
+      const cRoom = codingRooms.get(cleanRoomCode);
+      if (String(cRoom.hostUserId) === String(socket.data.userId) || cRoom.authorizedUsers?.has(socket.data.userId)) {
+        cRoom.authorizedUsers.add(recipient._id.toString());
+        if (recipient.email) cRoom.authorizedEmails.add(recipient.email.toLowerCase());
+      }
+    }
+
     try {
       await pushNotification(io, {
         userId: recipient._id,
@@ -562,7 +591,7 @@ io.on("connection", (socket) => {
   // =========================================================
   // REAL-TIME COLLABORATIVE CODING ROOMS
   // =========================================================
-  socket.on("join_coding_room", ({ roomId, user, language, initialCode, token }) => {
+  socket.on("join_coding_room", async ({ roomId, user, language, initialCode, token }) => {
     if (!roomId || typeof roomId !== "string" || !/^[a-zA-Z0-9_\-]{3,64}$/.test(roomId)) {
       socket.emit("coding_room_error", { message: "Invalid room identifier." });
       return;
@@ -599,6 +628,35 @@ io.on("connection", (socket) => {
       return;
     }
 
+    // Verify room authorization if room already exists
+    if (codingRooms.has(roomId)) {
+      const room = codingRooms.get(roomId);
+      const isHost = String(room.hostUserId) === String(authUser.userId);
+      const isAuthorizedUser = room.authorizedUsers && room.authorizedUsers.has(authUser.userId);
+      const isAuthorizedEmail = authUser.email && room.authorizedEmails && room.authorizedEmails.has(authUser.email.toLowerCase());
+
+      let isMeetingAuthorized = false;
+      try {
+        const Meeting = require("./models/Meeting");
+        const meeting = await Meeting.findOne({
+          $or: [{ meetingId: roomId }, { meetingId: roomId.replace(/-/g, "") }],
+        }).lean();
+        if (meeting) {
+          isMeetingAuthorized =
+            String(meeting.hostUserId) === String(authUser.userId) ||
+            (Array.isArray(meeting.participants) &&
+              meeting.participants.some((p) => String(p.userId || p._id || "") === String(authUser.userId)));
+        }
+      } catch {}
+
+      if (!isHost && !isAuthorizedUser && !isAuthorizedEmail && !isMeetingAuthorized) {
+        socket.emit("coding_room_error", {
+          message: "Access denied. You are not authorized to join this private collaborative coding room.",
+        });
+        return;
+      }
+    }
+
     if (socket.data.codingRoomId && socket.data.codingRoomId !== roomId) {
       const prevRoomKey = `coding_room_${socket.data.codingRoomId}`;
       socket.leave(prevRoomKey);
@@ -626,12 +684,16 @@ io.on("connection", (socket) => {
         code: typeof initialCode === "string" ? initialCode.slice(0, 500000) : "",
         language: safeLanguage,
         hostUserId: authUser.userId,
+        hostSocketId: socket.id,
+        authorizedUsers: new Set([authUser.userId]),
+        authorizedEmails: new Set([authUser.email ? authUser.email.toLowerCase() : ""]),
         participants: new Map(),
+        createdAt: new Date(),
       });
     }
 
     const room = codingRooms.get(roomId);
-    const isHost = String(room.hostUserId) === String(authUser.userId) || room.participants.size === 0;
+    const isHost = String(room.hostUserId) === String(authUser.userId);
     const participantInfo = {
       socketId: socket.id,
       userId: authUser.userId,
@@ -659,10 +721,26 @@ io.on("connection", (socket) => {
     });
   });
 
+  socket.on("invite_coding_participant", async ({ roomId, targetUserId, targetEmail }) => {
+    if (!socket.data.userId || !roomId || !codingRooms.has(roomId)) return;
+    const room = codingRooms.get(roomId);
+    if (String(room.hostUserId) !== String(socket.data.userId)) {
+      socket.emit("coding_room_error", { message: "Only the room host can invite collaborators." });
+      return;
+    }
+    if (targetUserId) room.authorizedUsers.add(String(targetUserId));
+    if (targetEmail) room.authorizedEmails.add(String(targetEmail).toLowerCase());
+    socket.emit("coding_system_msg", {
+      text: "Collaborator invited to session",
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    });
+  });
+
   socket.on("code_change", ({ roomId, code, language, cursor }) => {
     if (!roomId || socket.data.codingRoomId !== roomId || !codingRooms.has(roomId)) return;
     const room = codingRooms.get(roomId);
     if (!room.participants.has(socket.id)) return;
+    if (String(room.hostUserId) !== String(socket.data.userId) && !room.authorizedUsers?.has(socket.data.userId)) return;
     room.code = typeof code === "string" ? code.slice(0, 500000) : "";
     if (language) {
       const safeLang = ["python", "py", "javascript", "js", "node", "cpp", "c++", "c", "java", "html", "css"].includes(String(language).toLowerCase())
@@ -684,6 +762,7 @@ io.on("connection", (socket) => {
     if (!roomId || socket.data.codingRoomId !== roomId || !codingRooms.has(roomId)) return;
     const room = codingRooms.get(roomId);
     if (!room.participants.has(socket.id)) return;
+    if (String(room.hostUserId) !== String(socket.data.userId) && !room.authorizedUsers?.has(socket.data.userId)) return;
     const p = room.participants.get(socket.id);
     if (cursor && typeof cursor === "object") {
       p.cursor = {
@@ -702,6 +781,7 @@ io.on("connection", (socket) => {
     if (!roomId || socket.data.codingRoomId !== roomId || !codingRooms.has(roomId)) return;
     const room = codingRooms.get(roomId);
     if (!room.participants.has(socket.id)) return;
+    if (String(room.hostUserId) !== String(socket.data.userId) && !room.authorizedUsers?.has(socket.data.userId)) return;
     const cleanText = String(text || "").trim();
     if (!cleanText || cleanText.length > 2000) return;
     const p = room.participants.get(socket.id);
@@ -718,6 +798,7 @@ io.on("connection", (socket) => {
     if (!roomId || socket.data.codingRoomId !== roomId || !codingRooms.has(roomId)) return;
     const room = codingRooms.get(roomId);
     if (!room.participants.has(socket.id)) return;
+    if (String(room.hostUserId) !== String(socket.data.userId) && !room.authorizedUsers?.has(socket.data.userId)) return;
     const p = room.participants.get(socket.id);
 
     io.to(`coding_room_${roomId}`).emit("coding_execution_event", {
@@ -741,18 +822,6 @@ io.on("connection", (socket) => {
     const room = codingRooms.get(roomId);
     const participant = room.participants.get(socket.id);
     room.participants.delete(socket.id);
-
-    io.to(roomKey).emit("coding_room_participants", Array.from(room.participants.values()));
-    if (participant) {
-      io.to(roomKey).emit("coding_system_msg", {
-        text: `${participant.user?.fullName || "A developer"} left the session`,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      });
-    }
-
-    if (room.participants.size === 0) {
-      codingRooms.delete(roomId);
-    }
 
     io.to(roomKey).emit("coding_room_participants", Array.from(room.participants.values()));
     if (participant) {

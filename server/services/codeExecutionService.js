@@ -260,11 +260,7 @@ const judge0LangMap = {
 };
 
 function isProductionExecutionRestricted() {
-  return (
-    process.env.NODE_ENV === "production" &&
-    process.env.ALLOW_LOCAL_FALLBACK !== "true" &&
-    !process.env.JUDGE0_API_HOST
-  );
+  return process.env.NODE_ENV === "production";
 }
 
 async function executeViaJudge0(lang, code, stdin = "", timeoutMs = 5000) {
@@ -537,10 +533,7 @@ async function executeCode({ language, code, stdin = "", timeoutMs = 5000, files
         };
       }
     } catch (j0Err) {
-      if (
-        process.env.JUDGE0_REQUIRED === "true" ||
-        (process.env.NODE_ENV === "production" && process.env.ALLOW_LOCAL_FALLBACK !== "true")
-      ) {
+      if (process.env.NODE_ENV === "production" || process.env.JUDGE0_REQUIRED === "true") {
         return {
           output: "",
           error: "Isolated execution sandbox is temporarily unavailable. Please retry shortly.",
@@ -554,7 +547,7 @@ async function executeCode({ language, code, stdin = "", timeoutMs = 5000, files
   }
 
   // Fail-closed check if local execution restricted
-  if (isProductionExecutionRestricted() || (process.env.NODE_ENV === "production" && process.env.ALLOW_LOCAL_FALLBACK !== "true")) {
+  if (process.env.NODE_ENV === "production" || isProductionExecutionRestricted()) {
     return {
       output: "",
       error: "Production execution requires a configured isolated execution environment (Judge0).",
@@ -768,7 +761,7 @@ async function evaluateTestCasesBatch(language, code, testCases) {
         return results;
       }
     } catch (j0Err) {
-      if (process.env.NODE_ENV === "production" && process.env.ALLOW_LOCAL_FALLBACK !== "true") {
+      if (process.env.NODE_ENV === "production" || process.env.JUDGE0_REQUIRED === "true") {
         return testCases.map((tc) => ({
           passed: false,
           actual: "",
@@ -780,7 +773,7 @@ async function evaluateTestCasesBatch(language, code, testCases) {
     }
   }
 
-  if (process.env.NODE_ENV === "production" && process.env.ALLOW_LOCAL_FALLBACK !== "true") {
+  if (process.env.NODE_ENV === "production") {
     return testCases.map((tc) => ({
       passed: false,
       actual: "",
