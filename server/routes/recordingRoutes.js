@@ -174,6 +174,13 @@ async function validateMediaIntegrity(filePath, buffer) {
       if (!hasVideo) {
         return { valid: false, error: "Recording missing required video stream. Audio-only uploads are not accepted as meeting video recordings." };
       }
+      if (!hasAudio) {
+        return { valid: false, error: "Recording missing required audio stream. Meeting recordings require both audio and video streams." };
+      }
+      const duration = Number(probeData.format?.duration) || 0;
+      if (probeData.format?.duration !== undefined && duration <= 0) {
+        return { valid: false, error: "Recording duration must be greater than zero seconds." };
+      }
       const frameCheck = await verifyFrameDecodability(filePath);
       if (frameCheck && !frameCheck.valid) {
         return { valid: false, error: frameCheck.error };
@@ -839,5 +846,10 @@ router.delete("/:recordingId", authenticateToken, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+router.validateMediaIntegrity = validateMediaIntegrity;
+router.probeWithFfprobe = probeWithFfprobe;
+router.inspectMediaBinary = inspectMediaBinary;
+router.verifyFrameDecodability = verifyFrameDecodability;
 
 module.exports = router;

@@ -28,37 +28,118 @@ const NODE_BIN = fs.existsSync("/usr/local/bin/node") ? "/usr/local/bin/node" : 
 function parseAndValidatePdfStructure(filePath) {
   if (!filePath || typeof filePath !== "string" || !fs.existsSync(filePath)) return false;
   try {
+    if (!fs.existsSync(filePath)) return false;
     const stat = fs.statSync(filePath);
     if (!stat.isFile() || stat.size < 500) return false;
 
-    // 1. Verify %PDF- magic signature in header
-    const headerBuf = Buffer.alloc(1024);
-    const fd = fs.openSync(filePath, "r");
-    const bytesRead = fs.readSync(fd, headerBuf, 0, Math.min(1024, stat.size), 0);
-    const headerStr = headerBuf.toString("utf8", 0, bytesRead);
-    if (!headerStr.includes("%PDF-")) {
-      fs.closeSync(fd);
+    const buffer = fs.readFileSync(filePath);
+
+    // 1. Validate %PDF- header magic signature
+    if (buffer.subarray(0, 5).toString("ascii") !== "%PDF-") {
       return false;
     }
 
-    // 2. Verify %%EOF trailer marker in trailing bytes
-    const tailSize = Math.min(2048, stat.size);
-    const tailBuf = Buffer.alloc(tailSize);
-    fs.readSync(fd, tailBuf, 0, tailSize, stat.size - tailSize);
-    fs.closeSync(fd);
-    const tailStr = tailBuf.toString("utf8");
-    if (!tailStr.includes("%%EOF") && !tailStr.includes("%EOF")) {
+    // 2. Locate startxref marker near the end of the file
+    const tailSearchLimit = Math.min(buffer.length, 2048);
+    const tailStr = buffer.subarray(buffer.length - tailSearchLimit).toString("latin1");
+    if (!tailStr.includes("%%EOF")) {
       return false;
     }
 
-    // 3. Verify real structural objects (/Catalog, /Pages, xref, and /Page or stream)
-    const content = fs.readFileSync(filePath, "binary");
-    const hasCatalog = content.includes("/Catalog");
-    const hasPages = content.includes("/Pages");
-    const hasXRef = content.includes("xref") || content.includes("/XRef");
-    const hasStreamOrPage = content.includes("/Page") || content.includes("stream");
+    const startXrefMatch = tailStr.match(/startxref\s+(\d+)\s+%%EOF/);
+    if (!startXrefMatch) {
+      return false;
+    }
+    const startXrefOffset = parseInt(startXrefMatch[1], 10);
+    if (isNaN(startXrefOffset) || startXrefOffset <= 0 || startXrefOffset >= buffer.length) {
+      return false;
+    }
 
-    return hasCatalog && hasPages && hasXRef && hasStreamOrPage;
+    // 3. Parse XRef table or cross-reference objects
+    const xrefChunk = buffer.subarray(startXrefOffset).toString("latin1");
+    const objectOffsets = new Map();
+
+    if (xrefChunk.startsWith("xref")) {
+      const xrefLines = xrefChunk.split(/\r?\n/);
+      let i = 1;
+      while (i < xrefLines.length && !xrefLines[i].startsWith("trailer")) {
+        const headerMatch = xrefLines[i].trim().match(/^(\d+)\s+(\d+)$/);
+        if (headerMatch) {
+          let startObj = parseInt(headerMatch[1], 10);
+          const count = parseInt(headerMatch[2], 10);
+          i++;
+          for (let j = 0; j < count && i < xrefLines.length; j++, i++) {
+            const entryMatch = xrefLines[i].trim().match(/^(\d{10})\s+(\d{5})\s+([nf])/);
+            if (entryMatch) {
+              const offset = parseInt(entryMatch[1], 10);
+              const type = entryMatch[3];
+              if (type === "n" && offset < buffer.length) {
+                objectOffsets.set(startObj + j, offset);
+              }
+            }
+          }
+        } else {
+          i++;
+        }
+      }
+    } else {
+      const objRegex = /(\d+)\s+(\d+)\s+obj/g;
+      let match;
+      const fullText = buffer.toString("latin1");
+      while ((match = objRegex.exec(fullText)) !== null) {
+        objectOffsets.set(parseInt(match[1], 10), match.index);
+      }
+    }
+
+    if (objectOffsets.size === 0) return false;
+
+    // 4. Resolve Document Catalog (/Root)
+    const fullText = buffer.toString("latin1");
+    const rootMatch = fullText.match(/\/Root\s+(\d+)\s+(\d+)\s+R/);
+    if (!rootMatch) return false;
+    const catalogObjId = parseInt(rootMatch[1], 10);
+    const catalogOffset = objectOffsets.get(catalogObjId);
+    if (catalogOffset === undefined || catalogOffset >= buffer.length) return false;
+
+    const catalogSnippet = fullText.slice(catalogOffset, catalogOffset + 1500);
+    if (!catalogSnippet.includes("/Type") || !catalogSnippet.includes("/Catalog")) return false;
+
+    // 5. Resolve Page Tree root (/Pages)
+    const pagesMatch = catalogSnippet.match(/\/Pages\s+(\d+)\s+(\d+)\s+R/);
+    if (!pagesMatch) return false;
+    const pagesObjId = parseInt(pagesMatch[1], 10);
+    const pagesOffset = objectOffsets.get(pagesObjId);
+    if (pagesOffset === undefined || pagesOffset >= buffer.length) return false;
+
+    const pagesSnippet = fullText.slice(pagesOffset, pagesOffset + 2000);
+    if (!pagesSnippet.includes("/Type") || !pagesSnippet.includes("/Pages")) return false;
+
+    // 6. Verify page count >= 1
+    const countMatch = pagesSnippet.match(/\/Count\s+(\d+)/);
+    if (!countMatch || parseInt(countMatch[1], 10) < 1) return false;
+
+    const kidsMatch = pagesSnippet.match(/\/Kids\s*\[\s*(\d+)\s+(\d+)\s+R/);
+    if (!kidsMatch) return false;
+    const firstPageObjId = parseInt(kidsMatch[1], 10);
+    const firstPageOffset = objectOffsets.get(firstPageObjId);
+    if (firstPageOffset === undefined || firstPageOffset >= buffer.length) return false;
+
+    // 7. Verify Page object has valid structure and content stream
+    const pageSnippet = fullText.slice(firstPageOffset, firstPageOffset + 2000);
+    if (!pageSnippet.includes("/Type") || !pageSnippet.includes("/Page")) return false;
+
+    const contentsMatch = pageSnippet.match(/\/Contents\s+(\d+)\s+(\d+)\s+R/);
+    if (!contentsMatch) return false;
+    const contentsObjId = parseInt(contentsMatch[1], 10);
+    const contentsOffset = objectOffsets.get(contentsObjId);
+    if (contentsOffset === undefined || contentsOffset >= buffer.length) return false;
+
+    const contentsSnippet = fullText.slice(contentsOffset, contentsOffset + 3000);
+    const streamStart = contentsSnippet.indexOf("stream");
+    const streamEnd = contentsSnippet.indexOf("endstream");
+    if (streamStart === -1 || streamEnd === -1 || streamEnd <= streamStart) return false;
+
+    return true;
   } catch {
     return false;
   }

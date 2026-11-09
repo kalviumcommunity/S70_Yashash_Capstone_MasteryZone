@@ -404,66 +404,77 @@ io.on("connection", (socket) => {
   });
 
   // When a user sends a direct message (invite)
-  socket.on("send_dm", async ({ toUser, fromUser, roomCode }) => {
-    const verifiedSender = onlineUsers.get(socket.id) || socket.data.meetingUser?.fullName || socket.data.userEmail || fromUser;
+  socket.on("send_dm", async ({ toUser, roomCode }) => {
+    const verifiedSender = onlineUsers.get(socket.id) || socket.data.meetingUser?.fullName || socket.data.userEmail;
+    if (!verifiedSender) {
+      socket.emit("chat_error", { message: "Authenticated session required to send direct messages." });
+      return;
+    }
+    if (!toUser || typeof toUser !== "string" || toUser.length > 100) return;
+    const cleanRoomCode = String(roomCode || "").slice(0, 50);
+
     for (const [id, username] of onlineUsers.entries()) {
       if (username === toUser) {
-        io.to(id).emit("receive_dm", { fromUser: verifiedSender, roomCode });
+        io.to(id).emit("receive_dm", { fromUser: verifiedSender, roomCode: cleanRoomCode });
         break;
       }
     }
-    if (toUser) {
-      try {
-        const recipient = await User.findOne({
-          $or: [{ username: toUser }, { fullName: toUser }, { email: toUser.toLowerCase() }],
-        }).select("_id").lean();
-        if (recipient?._id) {
-          await pushNotification(io, {
-            userId: recipient._id,
-            title: "Collaboration Room Invite",
-            message: `${verifiedSender || "A teammate"} invited you to join room ${roomCode || ""}.`,
-            type: "collaboration",
-            severity: "info",
-            actionUrl: "/coding",
-            actionLabel: "Join Session",
-          });
-        }
-      } catch {}
-    }
+    try {
+      const recipient = await User.findOne({
+        $or: [{ username: toUser }, { fullName: toUser }, { email: toUser.toLowerCase() }],
+      }).select("_id").lean();
+      if (recipient?._id) {
+        await pushNotification(io, {
+          userId: recipient._id,
+          title: "Collaboration Room Invite",
+          message: `${verifiedSender} invited you to join room ${cleanRoomCode}.`,
+          type: "collaboration",
+          severity: "info",
+          actionUrl: "/coding",
+          actionLabel: "Join Session",
+        });
+      }
+    } catch {}
   });
 
   // When a user sends a private 1-on-1 chat message
   socket.on("send_private_msg", async (messageData) => {
-    const { toUser, fromUser, text, time } = messageData || {};
-    const verifiedSender = onlineUsers.get(socket.id) || socket.data.meetingUser?.fullName || socket.data.userEmail || fromUser;
+    const verifiedSender = onlineUsers.get(socket.id) || socket.data.meetingUser?.fullName || socket.data.userEmail;
+    if (!verifiedSender) {
+      socket.emit("chat_error", { message: "Authenticated session required to send private messages." });
+      return;
+    }
+    const { toUser, text } = messageData || {};
+    if (!toUser || typeof toUser !== "string" || toUser.length > 100) return;
+    const cleanText = String(text || "").trim();
+    if (!cleanText || cleanText.length > 2000) return;
+
     for (const [id, username] of onlineUsers.entries()) {
       if (username === toUser) {
         io.to(id).emit("receive_private_msg", {
           id: Date.now().toString(),
           fromUser: verifiedSender,
-          text,
-          time,
+          text: cleanText,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         });
         break;
       }
     }
-    if (toUser && text) {
-      try {
-        const recipient = await User.findOne({
-          $or: [{ username: toUser }, { fullName: toUser }, { email: toUser.toLowerCase() }],
-        }).select("_id").lean();
-        if (recipient?._id) {
-          const preview = String(text).length > 72 ? `${String(text).slice(0, 70)}…` : String(text);
-          await pushNotification(io, {
-            userId: recipient._id,
-            title: `Message from ${verifiedSender || "Teammate"}`,
-            message: preview,
-            type: "collaboration",
-            severity: "info",
-          });
-        }
-      } catch {}
-    }
+    try {
+      const recipient = await User.findOne({
+        $or: [{ username: toUser }, { fullName: toUser }, { email: toUser.toLowerCase() }],
+      }).select("_id").lean();
+      if (recipient?._id) {
+        const preview = cleanText.length > 72 ? `${cleanText.slice(0, 70)}…` : cleanText;
+        await pushNotification(io, {
+          userId: recipient._id,
+          title: `Message from ${verifiedSender}`,
+          message: preview,
+          type: "collaboration",
+          severity: "info",
+        });
+      }
+    } catch {}
   });
 
   // When a user sends a global chat message
@@ -471,20 +482,77 @@ io.on("connection", (socket) => {
     if (!messageData || typeof messageData !== "object") return;
     const text = String(messageData.text || "").trim();
     if (!text || text.length > 2000) return;
-    const verifiedUser = onlineUsers.get(socket.id) || socket.data.meetingUser?.fullName || socket.data.userEmail || String(messageData.user || "Learner").slice(0, 50);
+    const verifiedUser = onlineUsers.get(socket.id) || socket.data.meetingUser?.fullName || socket.data.userEmail;
+    if (!verifiedUser) {
+      socket.emit("chat_error", { message: "Authenticated session required to send global messages." });
+      return;
+    }
     io.emit("receive_global_message", {
-      ...messageData,
+      id: Date.now().toString(),
       text,
       user: verifiedUser,
-      time: messageData.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      zone: String(messageData.zone || "Global").slice(0, 50),
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     });
   });
 
   // =========================================================
   // REAL-TIME COLLABORATIVE CODING ROOMS
   // =========================================================
-  socket.on("join_coding_room", ({ roomId, user, language, initialCode }) => {
-    if (!roomId) return;
+  socket.on("join_coding_room", ({ roomId, user, language, initialCode, token }) => {
+    if (!roomId || typeof roomId !== "string" || !/^[a-zA-Z0-9_\-]{3,64}$/.test(roomId)) {
+      socket.emit("coding_room_error", { message: "Invalid room identifier." });
+      return;
+    }
+
+    let authUser = null;
+    if (token && typeof token === "string") {
+      try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        if (decoded) {
+          authUser = {
+            userId: String(decoded.userId || decoded.id),
+            fullName: decoded.fullName || decoded.username || decoded.email,
+            email: decoded.email,
+          };
+          socket.data.userId = authUser.userId;
+          socket.data.userEmail = authUser.email;
+        }
+      } catch {}
+    }
+
+    if (!authUser && socket.data.userId) {
+      authUser = {
+        userId: String(socket.data.userId),
+        fullName: socket.data.meetingUser?.fullName || onlineUsers.get(socket.id) || socket.data.userEmail || "Developer",
+        email: socket.data.userEmail || "",
+      };
+    }
+
+    if (!authUser && onlineUsers.has(socket.id)) {
+      const username = onlineUsers.get(socket.id);
+      authUser = {
+        userId: socket.id,
+        fullName: username,
+        email: `${username}@masteryzone.com`,
+      };
+    }
+
+    if (!authUser && user && typeof user === "object" && typeof user.fullName === "string") {
+      if (user.fullName.startsWith("guest_") || (user.email && String(user.email).includes("@masteryzone.com"))) {
+        authUser = {
+          userId: socket.id,
+          fullName: user.fullName.slice(0, 50),
+          email: user.email || `guest_${socket.id.slice(0, 6)}@masteryzone.com`,
+        };
+      }
+    }
+
+    if (!authUser) {
+      socket.emit("coding_room_error", { message: "Authentication required to access collaborative coding room." });
+      return;
+    }
+
     if (socket.data.codingRoomId && socket.data.codingRoomId !== roomId) {
       const prevRoomKey = `coding_room_${socket.data.codingRoomId}`;
       socket.leave(prevRoomKey);
@@ -492,25 +560,37 @@ io.on("connection", (socket) => {
       if (prevRoom) {
         prevRoom.participants.delete(socket.id);
         io.to(prevRoomKey).emit("coding_room_participants", Array.from(prevRoom.participants.values()));
+        io.to(prevRoomKey).emit("coding_system_msg", {
+          text: `${authUser.fullName} left the session`,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        });
       }
     }
+
     socket.data.codingRoomId = roomId;
     const roomKey = `coding_room_${roomId}`;
     socket.join(roomKey);
 
+    const safeLanguage = ["python", "py", "javascript", "js", "node", "cpp", "c++", "c", "java", "html", "css"].includes(String(language).toLowerCase())
+      ? String(language).toLowerCase()
+      : "python";
+
     if (!codingRooms.has(roomId)) {
       codingRooms.set(roomId, {
-        code: initialCode || "",
-        language: language || "python",
+        code: typeof initialCode === "string" ? initialCode.slice(0, 500000) : "",
+        language: safeLanguage,
+        hostUserId: authUser.userId,
         participants: new Map(),
       });
     }
 
     const room = codingRooms.get(roomId);
+    const isHost = String(room.hostUserId) === String(authUser.userId) || room.participants.size === 0;
     const participantInfo = {
       socketId: socket.id,
-      user: user || { fullName: "Anonymous Developer", email: "" },
-      role: room.participants.size === 0 ? "Host" : "Collaborator",
+      userId: authUser.userId,
+      user: { fullName: authUser.fullName, email: authUser.email },
+      role: isHost ? "Host" : "Collaborator",
       joinedAt: new Date().toISOString(),
       cursor: null,
     };
@@ -528,17 +608,22 @@ io.on("connection", (socket) => {
 
     // Broadcast system message
     io.to(roomKey).emit("coding_system_msg", {
-      text: `${user?.fullName || "A developer"} joined the session`,
+      text: `${authUser.fullName} joined the session`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     });
   });
 
   socket.on("code_change", ({ roomId, code, language, cursor }) => {
-    if (!roomId || !codingRooms.has(roomId)) return;
+    if (!roomId || socket.data.codingRoomId !== roomId || !codingRooms.has(roomId)) return;
     const room = codingRooms.get(roomId);
     if (!room.participants.has(socket.id)) return;
     room.code = typeof code === "string" ? code.slice(0, 500000) : "";
-    if (language) room.language = String(language).slice(0, 30);
+    if (language) {
+      const safeLang = ["python", "py", "javascript", "js", "node", "cpp", "c++", "c", "java", "html", "css"].includes(String(language).toLowerCase())
+        ? String(language).toLowerCase()
+        : room.language;
+      room.language = safeLang;
+    }
 
     // Broadcast code updates to all other participants in the room
     socket.to(`coding_room_${roomId}`).emit("code_update", {
@@ -549,49 +634,79 @@ io.on("connection", (socket) => {
     });
   });
 
-  socket.on("cursor_move", ({ roomId, cursor, user }) => {
-    if (!roomId || !codingRooms.has(roomId)) return;
+  socket.on("cursor_move", ({ roomId, cursor }) => {
+    if (!roomId || socket.data.codingRoomId !== roomId || !codingRooms.has(roomId)) return;
     const room = codingRooms.get(roomId);
     if (!room.participants.has(socket.id)) return;
-    room.participants.get(socket.id).cursor = cursor;
+    const p = room.participants.get(socket.id);
+    if (cursor && typeof cursor === "object") {
+      p.cursor = {
+        line: Number(cursor.line) || 0,
+        ch: Number(cursor.ch) || 0,
+      };
+    }
     socket.to(`coding_room_${roomId}`).emit("cursor_update", {
-      cursor,
-      user: socket.data.meetingUser || user,
+      cursor: p.cursor,
+      user: p.user,
       socketId: socket.id,
     });
   });
 
-  socket.on("coding_chat_message", ({ roomId, text, user, time }) => {
-    if (!roomId || !codingRooms.has(roomId)) return;
+  socket.on("coding_chat_message", ({ roomId, text }) => {
+    if (!roomId || socket.data.codingRoomId !== roomId || !codingRooms.has(roomId)) return;
     const room = codingRooms.get(roomId);
     if (!room.participants.has(socket.id)) return;
+    const cleanText = String(text || "").trim();
+    if (!cleanText || cleanText.length > 2000) return;
+    const p = room.participants.get(socket.id);
+
     io.to(`coding_room_${roomId}`).emit("coding_chat_message", {
       id: Date.now().toString(),
-      text,
-      user,
-      time: time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      text: cleanText,
+      user: p.user,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     });
   });
 
-  socket.on("coding_execution_event", ({ roomId, status, user, result }) => {
-    if (!roomId || !codingRooms.has(roomId)) return;
+  socket.on("coding_execution_event", ({ roomId, status, result }) => {
+    if (!roomId || socket.data.codingRoomId !== roomId || !codingRooms.has(roomId)) return;
     const room = codingRooms.get(roomId);
     if (!room.participants.has(socket.id)) return;
+    const p = room.participants.get(socket.id);
+
     io.to(`coding_room_${roomId}`).emit("coding_execution_event", {
-      status,
-      user,
-      result,
+      status: String(status || "completed").slice(0, 50),
+      user: p.user,
+      result: result ? {
+        output: String(result.output || "").slice(0, 50000),
+        error: String(result.error || "").slice(0, 50000),
+        ok: Boolean(result.ok),
+        durationMs: Number(result.durationMs) || 0,
+      } : null,
       timestamp: new Date().toISOString(),
     });
   });
 
   socket.on("leave_coding_room", ({ roomId }) => {
-    if (!roomId || !codingRooms.has(roomId)) return;
+    if (!roomId || socket.data.codingRoomId !== roomId || !codingRooms.has(roomId)) return;
     const roomKey = `coding_room_${roomId}`;
     socket.leave(roomKey);
+    socket.data.codingRoomId = null;
     const room = codingRooms.get(roomId);
     const participant = room.participants.get(socket.id);
     room.participants.delete(socket.id);
+
+    io.to(roomKey).emit("coding_room_participants", Array.from(room.participants.values()));
+    if (participant) {
+      io.to(roomKey).emit("coding_system_msg", {
+        text: `${participant.user?.fullName || "A developer"} left the session`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      });
+    }
+
+    if (room.participants.size === 0) {
+      codingRooms.delete(roomId);
+    }
 
     io.to(roomKey).emit("coding_room_participants", Array.from(room.participants.values()));
     if (participant) {
