@@ -4,6 +4,7 @@
   "description": "MasteryZone Capstone Project",
   "scripts": {
     "build": "cd client && npm install && npm run build && cd ../server && npm install",
+    "test": "cd server && npm test",
     "start": "cd server && node server.js"
   },
   "dependencies": {

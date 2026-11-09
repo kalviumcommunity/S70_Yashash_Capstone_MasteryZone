@@ -1378,6 +1378,84 @@ async function runSuite() {
     }
   });
 
+  await it("Compiler: C++ Solution class without main() is wrapped with main harness for Judge0", async () => {
+    let capturedBody = null;
+    const mockJudge0 = http.createServer((req, res) => {
+      let b = "";
+      req.on("data", (c) => (b += c));
+      req.on("end", () => {
+        capturedBody = JSON.parse(b);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(
+          JSON.stringify({
+            status: { id: 3, description: "Accepted" },
+            stdout: Buffer.from("0 1\n").toString("base64"),
+            time: "0.02",
+          })
+        );
+      });
+    });
+
+    const mockPort = 8995;
+    await new Promise((r) => mockJudge0.listen(mockPort, r));
+    const origHost = process.env.JUDGE0_API_HOST;
+    process.env.JUDGE0_API_HOST = `http://127.0.0.1:${mockPort}`;
+
+    try {
+      const cppSolution = "class Solution { public: std::vector<int> twoSum(std::vector<int>& nums, int target) { return {0, 1}; } };";
+      const result = await executeViaJudge0("cpp", cppSolution, "[2, 7, 11, 15]\n9");
+      assert.strictEqual(result.exitCode, 0);
+      assert(capturedBody && capturedBody.source_code, "Must send C++ submission to Judge0");
+      const decodedSource = Buffer.from(capturedBody.source_code, "base64").toString("utf8");
+      assert(
+        decodedSource.includes("int main()") && decodedSource.includes("Solution sol;"),
+        `C++ solution without main must be wrapped with main harness, got: ${decodedSource}`
+      );
+    } finally {
+      process.env.JUDGE0_API_HOST = origHost;
+      mockJudge0.close();
+    }
+  });
+
+  await it("Compiler: JavaScript function without stdin is wrapped with stdin harness for Judge0", async () => {
+    let capturedBody = null;
+    const mockJudge0 = http.createServer((req, res) => {
+      let b = "";
+      req.on("data", (c) => (b += c));
+      req.on("end", () => {
+        capturedBody = JSON.parse(b);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(
+          JSON.stringify({
+            status: { id: 3, description: "Accepted" },
+            stdout: Buffer.from("[0,1]\n").toString("base64"),
+            time: "0.03",
+          })
+        );
+      });
+    });
+
+    const mockPort = 8996;
+    await new Promise((r) => mockJudge0.listen(mockPort, r));
+    const origHost = process.env.JUDGE0_API_HOST;
+    process.env.JUDGE0_API_HOST = `http://127.0.0.1:${mockPort}`;
+
+    try {
+      const jsSolution = "function twoSum(nums, target) { return [0, 1]; }";
+      const result = await executeViaJudge0("javascript", jsSolution, "[2, 7, 11, 15]\n9");
+      assert.strictEqual(result.exitCode, 0);
+      assert(capturedBody && capturedBody.source_code, "Must send JS submission to Judge0");
+      const decodedSource = Buffer.from(capturedBody.source_code, "base64").toString("utf8");
+      assert(
+        decodedSource.includes("fs.readFileSync(0, \"utf8\")") && decodedSource.includes("targetFn(...parsedArgs)"),
+        `JavaScript solution must be wrapped with stdin harness for Judge0, got: ${decodedSource}`
+      );
+    } finally {
+      process.env.JUDGE0_API_HOST = origHost;
+      mockJudge0.close();
+    }
+  });
+
   await it("Compiler: Curriculum exercise submission succeeds and resolves activeSession without ReferenceError", async () => {
     // Valid python function solution to python curriculum module 0 (filter_and_square)
     const pythonCode = [

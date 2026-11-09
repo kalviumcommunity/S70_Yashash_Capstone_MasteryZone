@@ -1107,6 +1107,11 @@ export default function MasteryZoneLiveMeeting({
       if (existingAudioTrack) {
         existingAudioTrack.enabled = true;
         setIsMuted(false);
+        peerConnectionsRef.current.forEach((pc) => {
+          const sender = pc.getSenders().find((s) => s.track?.kind === "audio") ||
+                         (pc.getTransceivers ? pc.getTransceivers().find((t) => t.receiver?.track?.kind === "audio")?.sender : null);
+          if (sender) sender.replaceTrack(existingAudioTrack).catch(() => {});
+        });
       } else {
         const track = await acquireRealMicrophone();
         if (track) {
@@ -1155,6 +1160,11 @@ export default function MasteryZoneLiveMeeting({
       if (existingVideoTrack) {
         existingVideoTrack.enabled = true;
         setIsVideoOff(false);
+        peerConnectionsRef.current.forEach((pc) => {
+          const sender = pc.getSenders().find((s) => s.track?.kind === "video") ||
+                         (pc.getTransceivers ? pc.getTransceivers().find((t) => t.receiver?.track?.kind === "video")?.sender : null);
+          if (sender) sender.replaceTrack(existingVideoTrack).catch(() => {});
+        });
       } else {
         const track = await acquireRealCamera();
         if (track) {
@@ -1400,19 +1410,29 @@ export default function MasteryZoneLiveMeeting({
         };
       }
 
-      // 4. Initialize MediaRecorder with standard WebM VP8/VP9 and Opus audio
-      const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp8,opus")
-        ? "video/webm;codecs=vp8,opus"
-        : MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")
-        ? "video/webm;codecs=vp9,opus"
-        : MediaRecorder.isTypeSupported("video/webm")
-        ? "video/webm"
-        : "video/mp4";
-
-      const recorder = new MediaRecorder(captureStream, {
-        mimeType,
-        videoBitsPerSecond: 2500000,
+      // 4. Initialize MediaRecorder with standard WebM VP8/VP9 and Opus audio, or browser-native default
+      const candidateMimeTypes = [
+        "video/webm;codecs=vp8,opus",
+        "video/webm;codecs=vp9,opus",
+        "video/webm;codecs=h264,opus",
+        "video/webm",
+        "video/mp4;codecs=avc1,mp4a.40.2",
+        "video/mp4",
+      ];
+      const supportedMimeType = candidateMimeTypes.find((t) => {
+        try {
+          return typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(t);
+        } catch {
+          return false;
+        }
       });
+
+      const recorderOptions = {
+        videoBitsPerSecond: 2500000,
+        ...(supportedMimeType ? { mimeType: supportedMimeType } : {}),
+      };
+
+      const recorder = new MediaRecorder(captureStream, recorderOptions);
 
       recorder.ondataavailable = (e) => {
         if (e.data && e.data.size > 0) {
@@ -1421,6 +1441,20 @@ export default function MasteryZoneLiveMeeting({
       };
 
       recorder.onstop = async () => {
+        // Safe cleanup: Audio context and hardware display tracks must stay alive until
+        // recorder has finished flushing all frames and trailing metadata into ondataavailable.
+        if (recordingAudioCtxRef.current) {
+          try {
+            recordingAudioCtxRef.current.close();
+          } catch (e) {}
+          recordingAudioCtxRef.current = null;
+        }
+        if (recordingDisplayStreamRef.current) {
+          try {
+            recordingDisplayStreamRef.current.getTracks().forEach((t) => t.stop());
+          } catch {}
+          recordingDisplayStreamRef.current = null;
+        }
         await finalizeAndUploadRecording();
       };
 
@@ -1486,8 +1520,13 @@ export default function MasteryZoneLiveMeeting({
   };
 
   const handleStopRecording = () => {
-    // 1. Stop MediaRecorder first so it flushes the final audio/video frame chunk
+    // 1. Request final buffered chunk and stop MediaRecorder
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      try {
+        if (typeof mediaRecorderRef.current.requestData === "function") {
+          mediaRecorderRef.current.requestData();
+        }
+      } catch (e) {}
       try {
         mediaRecorderRef.current.stop();
       } catch (e) {
@@ -1496,7 +1535,10 @@ export default function MasteryZoneLiveMeeting({
     }
 
     // 2. Clear intervals and timers
-    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
     if (recCompositorIntervalRef.current) {
       clearInterval(recCompositorIntervalRef.current);
       recCompositorIntervalRef.current = null;
@@ -1506,21 +1548,8 @@ export default function MasteryZoneLiveMeeting({
       recordingAnimFrameRef.current = null;
     }
 
-    // 3. Close audio context after flushing
-    if (recordingAudioCtxRef.current) {
-      try {
-        recordingAudioCtxRef.current.close();
-      } catch (e) {}
-      recordingAudioCtxRef.current = null;
-    }
-
-    // 4. Safely stop hardware display tracks
-    if (recordingDisplayStreamRef.current) {
-      try {
-        recordingDisplayStreamRef.current.getTracks().forEach((t) => t.stop());
-      } catch {}
-      recordingDisplayStreamRef.current = null;
-    }
+    // NOTE: AudioContext and hardware display tracks remain alive until recorder.onstop
+    // has completed receiving the final frames. They are cleaned up inside recorder.onstop.
 
     setRecordingStatus("uploading");
     if (socket) {
@@ -1631,6 +1660,15 @@ export default function MasteryZoneLiveMeeting({
       if (res && res.ok) {
         const data = await res.json();
         const savedRecording = data.recording;
+
+        // Verify recording is retrieveable from server before celebrating success
+        if (savedRecording && (savedRecording.streamUrl || savedRecording.fileUrl)) {
+          try {
+            const checkUrl = `${API_BASE}${savedRecording.streamUrl || savedRecording.fileUrl}?token=${encodeURIComponent(token)}`;
+            await fetch(checkUrl, { headers: { Range: "bytes=0-10" } });
+          } catch {}
+        }
+
         toast.success("Meeting recording saved and published to Home → Recordings!");
         setRecordingStatus("idle");
         setRecordingSeconds(0);
