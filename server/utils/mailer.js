@@ -1639,10 +1639,10 @@ async function sendSubmissionEvaluationEmail({
   assessmentTitle = "",
   assessmentType = "coding", // "coding" | "module" | "certification"
   language = "Python",
-  score = 100,
+  score = 0,
   maxScore = 100,
   percentage = null,
-  verdict = "ACCEPTED",
+  verdict = "EVALUATED",
   adminComment = "",
   reviewedAt = new Date(),
   reportUrl = "",
@@ -1653,7 +1653,7 @@ async function sendSubmissionEvaluationEmail({
     if (isGuestAccount(userEmail)) return { success: true, status: 'skipped_guest' };
 
     const resolvedTitle = assessmentTitle || challengeTitle;
-    const isPassed = verdict === "ACCEPTED" || verdict === "PASSED" || verdict === "Passed" || Number(percentage || score) >= 70;
+    const isPassed = verdict === "ACCEPTED" || verdict === "PASSED" || verdict === "Passed";
     const badgeColor = isPassed ? "#059669" : "#d97706";
     const badgeBg = isPassed ? "#ecfdf5" : "#fffbeb";
     const statusText = isPassed ? "PASSED" : verdict;
@@ -2365,8 +2365,8 @@ async function sendModuleCompletionEmail({
     });
 
     const displayCodingMarks = codingMarks !== null && codingMarks !== undefined && codingMarks !== ""
-      ? `${codingMarks}`
-      : "100 / 100";
+      ? (String(codingMarks).includes("/") ? String(codingMarks) : `${codingMarks} / ${codingMaxMarks}`)
+      : "Not Attempted (0 / 100)";
 
     const contentHtml = `
       <div style="padding: 18px 0 16px;">

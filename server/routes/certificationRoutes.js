@@ -1442,9 +1442,13 @@ router.get("/attempt/:attemptId/report", authenticateToken, async (req, res) => 
       ? await IssuedCertificate.findOne({ certificateId: attempt.certificateId })
       : null;
 
+    const selectedCodingQuestions = Array.isArray(attempt.selectedCodingQuestions) ? attempt.selectedCodingQuestions : [];
+    const codingSubmissions = Array.isArray(attempt.codingSubmissions) ? attempt.codingSubmissions : [];
+    const selectedMcqs = Array.isArray(attempt.selectedMcqs) ? attempt.selectedMcqs : [];
+
     // Rich coding questions list for AssessmentReportPage
-    const codingQuestionsReport = attempt.selectedCodingQuestions.map((q, idx) => {
-      const sub = attempt.codingSubmissions[idx] || {};
+    const codingQuestionsReport = selectedCodingQuestions.map((q, idx) => {
+      const sub = codingSubmissions[idx] || {};
       const tResults = Array.isArray(sub.testResults) ? sub.testResults : [];
       return {
         questionId: q.questionId,
@@ -1478,7 +1482,7 @@ router.get("/attempt/:attemptId/report", authenticateToken, async (req, res) => 
     });
 
     // Rich MCQ breakdown for AssessmentReportPage
-    const reviewBreakdown = attempt.selectedMcqs.map((mcq, idx) => {
+    const reviewBreakdown = selectedMcqs.map((mcq, idx) => {
       const answersMap = attempt.mcqAnswers;
       const selected =
         answersMap instanceof Map
@@ -1505,26 +1509,20 @@ router.get("/attempt/:attemptId/report", authenticateToken, async (req, res) => 
       };
     });
 
-    const isPassed = attempt.status === "PASSED" || attempt.finalVerdict === "PASSED";
-    const totalPassedCodingTests = attempt.codingSubmissions.reduce((acc, s) => acc + (s.passedTests || 0), 0);
-    const totalCodingTests = attempt.codingSubmissions.reduce((acc, s) => acc + (s.totalTests || 10), 0);
-    const calculatedMarks = (attempt.mcqScore || 0) + totalPassedCodingTests;
-    const totalMaxMarks = 40;
-    const calculatedPct = Math.round((calculatedMarks / totalMaxMarks) * 100);
-    const overallPercentage =
-      attempt.finalScorePercentage != null && attempt.finalScorePercentage > 0
-        ? attempt.finalScorePercentage
-        : attempt.percentage != null && attempt.percentage > 0
-        ? attempt.percentage
-        : calculatedPct;
-    const marksObtainedFinal =
-      attempt.totalMarksObtained != null && attempt.totalMarksObtained > 0
-        ? attempt.totalMarksObtained
-        : attempt.score != null && attempt.score > 0
-        ? attempt.score
-        : calculatedMarks;
+    const verdict = calculateCertificationVerdict(attempt);
+    const isPassed = attempt.status === "PASSED" || attempt.finalVerdict === "PASSED" || verdict.passed;
+    const marksObtainedFinal = attempt.totalMarksObtained != null && attempt.totalMarksObtained > 0
+      ? attempt.totalMarksObtained
+      : verdict.totalMarksObtained;
+    const overallPercentage = attempt.finalScorePercentage != null && attempt.finalScorePercentage > 0
+      ? attempt.finalScorePercentage
+      : verdict.finalScorePercentage;
+    const totalMaxMarks = verdict.totalMarksMax || 40;
 
-    const answeredMcqsCount = attempt.selectedMcqs.filter((m) => {
+    const totalPassedCodingTests = codingSubmissions.reduce((acc, s) => acc + (s.passedTests || 0), 0);
+    const totalCodingTests = codingSubmissions.reduce((acc, s) => acc + (s.totalTests || 10), 0);
+
+    const answeredMcqsCount = selectedMcqs.filter((m) => {
       const answersMap = attempt.mcqAnswers;
       const sel =
         answersMap instanceof Map
@@ -1534,9 +1532,9 @@ router.get("/attempt/:attemptId/report", authenticateToken, async (req, res) => 
           : undefined;
       return sel !== undefined && sel !== null && sel !== -1;
     }).length;
-    const answeredCodingCount = attempt.codingSubmissions.filter((s) => s.solved || s.passedTests > 0).length;
+    const answeredCodingCount = codingSubmissions.filter((s) => s.solved || s.passedTests > 0).length;
     const totalAttemptedQuestions = answeredMcqsCount + answeredCodingCount;
-    const totalQuestionsCount = attempt.selectedMcqs.length + attempt.selectedCodingQuestions.length;
+    const totalQuestionsCount = selectedMcqs.length + selectedCodingQuestions.length;
 
     res.json({
       success: true,
@@ -1590,8 +1588,8 @@ router.get("/attempt/:attemptId/report", authenticateToken, async (req, res) => 
           marksObtained: marksObtainedFinal,
           totalMarks: totalMaxMarks,
           mcqScore: attempt.mcqScore,
-          mcqTotal: attempt.selectedMcqs.length,
-          codingSolvedCount: attempt.codingSubmissions.filter((s) => s.solved).length,
+          mcqTotal: selectedMcqs.length,
+          codingSolvedCount: codingSubmissions.filter((s) => s.solved).length,
           passingThreshold: 80,
         },
         adminNote: attempt.adminNote || "",
