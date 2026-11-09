@@ -29,6 +29,7 @@ const {
   validateCodeSafety,
   isCodeEmptyOrComments,
   isProductionExecutionRestricted,
+  executeViaJudge0,
 } = require("../services/codeExecutionService");
 
 const {
@@ -1278,6 +1279,87 @@ async function runSuite() {
     assert(Array.isArray(dataA.notifications));
     const leaked = dataA.notifications.some((n) => n.title === "Malicious Injection");
     assert.strictEqual(leaked, false, "User A's notifications must never contain User B's injected alert");
+  });
+
+  console.log("\n--- Category 7: Compiler Normalization & Large Recording Payload Support ---");
+
+  await it("Compiler: HTML and CSS executions return web preview without throwing unsupported language error", async () => {
+    const htmlRes = await executeCode({
+      language: "html",
+      code: "<h1>Mastery Zone</h1>",
+    });
+    assert.strictEqual(htmlRes.exitCode, 0);
+    assert.strictEqual(htmlRes.engine, "Frontend Web Preview");
+    assert.strictEqual(htmlRes.output, "<h1>Mastery Zone</h1>");
+
+    const cssRes = await executeCode({
+      language: "css",
+      code: "body { background: #000; }",
+    });
+    assert.strictEqual(cssRes.exitCode, 0);
+    assert.strictEqual(cssRes.engine, "Frontend Web Preview");
+  });
+
+  await it("Compiler: Java public class Solution is normalized for Judge0 compilation", async () => {
+    let capturedBody = null;
+    const mockJudge0 = http.createServer((req, res) => {
+      let b = "";
+      req.on("data", (c) => (b += c));
+      req.on("end", () => {
+        capturedBody = JSON.parse(b);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(
+          JSON.stringify({
+            status: { id: 3, description: "Accepted" },
+            stdout: Buffer.from("Normalized Java Execution Success\n").toString("base64"),
+            time: "0.08",
+          })
+        );
+      });
+    });
+
+    const mockPort = 8993;
+    await new Promise((r) => mockJudge0.listen(mockPort, r));
+    const origHost = process.env.JUDGE0_API_HOST;
+    process.env.JUDGE0_API_HOST = `http://127.0.0.1:${mockPort}`;
+
+    try {
+      const codeWithSolution = "public class Solution { public static void main(String[] args) { System.out.println(42); } }";
+      const result = await executeViaJudge0("java", codeWithSolution, "");
+      assert.strictEqual(result.exitCode, 0);
+      assert(capturedBody && capturedBody.source_code, "Must send submission to Judge0");
+      const decodedSource = Buffer.from(capturedBody.source_code, "base64").toString("utf8");
+      assert(
+        decodedSource.includes("public class Main"),
+        `Java source class must be normalized to Main for Judge0, got: ${decodedSource}`
+      );
+    } finally {
+      process.env.JUDGE0_API_HOST = origHost;
+      mockJudge0.close();
+    }
+  });
+
+  await it("Recording Upload: Large payload (>2MB) does NOT trigger HTTP 413 Payload Too Large", async () => {
+    // Generate a 2.5MB payload string to verify express.json({ limit: '100mb' }) in server.js
+    const largeDummyBase64 = "A".repeat(2500000);
+    const res = await fetch(`${baseUrl}/api/recordings/upload`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${tokenA}`,
+      },
+      body: JSON.stringify({
+        meetingId: "mtg_large_payload_check",
+        base64Data: `data:video/webm;base64,${largeDummyBase64}`,
+      }),
+    });
+
+    // It may fail validation (e.g. 404 meeting or 400 corrupted binary), but must NEVER fail with 413 Payload Too Large!
+    assert.notStrictEqual(
+      res.status,
+      413,
+      "Express body parser must NOT reject 2.5MB+ recording payloads with 413 Payload Too Large"
+    );
   });
 
   console.log("\n================================================================================");
