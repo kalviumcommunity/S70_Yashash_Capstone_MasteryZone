@@ -30,6 +30,7 @@ const {
   isCodeEmptyOrComments,
   isProductionExecutionRestricted,
   executeViaJudge0,
+  validateTestCaseOutput,
 } = require("../services/codeExecutionService");
 
 const {
@@ -1578,6 +1579,170 @@ async function runSuite() {
       413,
       "Express body parser must NOT reject 2.5MB+ recording payloads with 413 Payload Too Large"
     );
+  });
+
+  console.log("\n--- Category 8: Advanced Compiler Execution Engine Verification ---");
+
+  await it("Compiler: Python harness avoids helper methods like swap() and targets solution function", async () => {
+    const pythonCode = [
+      "class Solution:",
+      "    def swap(self, arr, i, j):",
+      "        arr[i], arr[j] = arr[j], arr[i]",
+      "    def twoSum(self, nums, target):",
+      "        lookup = {}",
+      "        for i, n in enumerate(nums):",
+      "            if target - n in lookup:",
+      "                return [lookup[target - n], i]",
+      "            lookup[n] = i",
+      "        return []",
+    ].join("\n");
+
+    const batch = await evaluateTestCasesBatch("python", pythonCode, [
+      { input: "[2, 7, 11, 15]\n9", expectedOutput: "[0, 1]" },
+    ]);
+    assert.strictEqual(batch[0].passed, true, `Expected passed=true, got error: ${batch[0].error}`);
+    assert(batch[0].actual === "[0, 1]" || batch[0].actual === "[0,1]");
+  });
+
+  await it("Compiler: JavaScript harness avoids helper methods like swap() and targets solution function", async () => {
+    const jsCode = [
+      "class Solution {",
+      "    swap(arr, i, j) {",
+      "        const t = arr[i]; arr[i] = arr[j]; arr[j] = t;",
+      "    }",
+      "    twoSum(nums, target) {",
+      "        const map = new Map();",
+      "        for (let i = 0; i < nums.length; i++) {",
+      "            const comp = target - nums[i];",
+      "            if (map.has(comp)) return [map.get(comp), i];",
+      "            map.set(nums[i], i);",
+      "        }",
+      "        return [];",
+      "    }",
+      "}",
+    ].join("\n");
+
+    const batch = await evaluateTestCasesBatch("javascript", jsCode, [
+      { input: "[2, 7, 11, 15]\n9", expectedOutput: "[0, 1]" },
+    ]);
+    assert.strictEqual(batch[0].passed, true, `Expected passed=true, got error: ${batch[0].error}`);
+    assert(batch[0].actual === "[0,1]" || batch[0].actual === "[0, 1]");
+  });
+
+  await it("Compiler: Java harness avoids helper methods and invokes solution method", async () => {
+    const javaCode = [
+      "import java.util.*;",
+      "class Solution {",
+      "    public void swap(int[] arr, int i, int j) {",
+      "        int t = arr[i]; arr[i] = arr[j]; arr[j] = t;",
+      "    }",
+      "    public int[] twoSum(int[] nums, int target) {",
+      "        Map<Integer, Integer> map = new HashMap<>();",
+      "        for (int i = 0; i < nums.length; i++) {",
+      "            int comp = target - nums[i];",
+      "            if (map.containsKey(comp)) return new int[]{ map.get(comp), i };",
+      "            map.put(nums[i], i);",
+      "        }",
+      "        return new int[0];",
+      "    }",
+      "}",
+    ].join("\n");
+
+    const batch = await evaluateTestCasesBatch("java", javaCode, [
+      { input: "[2, 7, 11, 15]\n9", expectedOutput: "[0, 1]" },
+    ]);
+    assert.strictEqual(batch[0].passed, true, `Expected passed=true, got error: ${batch[0].error}`);
+  });
+
+  await it("Compiler: C++ harness dynamically parses method and return type without hardcoded solve()", async () => {
+    const cppCode = [
+      "#include <vector>",
+      "#include <algorithm>",
+      "using namespace std;",
+      "class Solution {",
+      "public:",
+      "    int maxSubArray(vector<int>& nums) {",
+      "        int max_so_far = nums[0], curr_max = nums[0];",
+      "        for (size_t i = 1; i < nums.size(); i++) {",
+      "            curr_max = max(nums[i], curr_max + nums[i]);",
+      "            max_so_far = max(max_so_far, curr_max);",
+      "        }",
+      "        return max_so_far;",
+      "    }",
+      "};",
+    ].join("\n");
+
+    const batch = await evaluateTestCasesBatch("cpp", cppCode, [
+      { input: "[-2, 1, -3, 4, -1, 2, 1, -5, 4]", expectedOutput: "6" },
+    ]);
+    assert.strictEqual(batch[0].passed, true, `Expected passed=true, got error: ${batch[0].error}`);
+    assert.strictEqual(batch[0].actual, "6");
+  });
+
+  await it("Compiler: User selected language is authoritative and never silently switched based on syntax", async () => {
+    // If user submits Python code but selected Java, javac MUST fail with a Java compilation error
+    const batchJava = await evaluateTestCasesBatch("java", "def solve():\n    pass\n", [
+      { input: "1", expectedOutput: "1" },
+    ]);
+    assert.strictEqual(batchJava[0].passed, false);
+    assert(batchJava[0].error.includes("Compilation Error (Java)") || batchJava[0].error.includes("class, interface, enum, or record expected"));
+
+    // If user submits JavaScript code but selected Python, python3 MUST fail with syntax error
+    const batchPython = await evaluateTestCasesBatch("python", "function test() { console.log(42); }", [
+      { input: "1", expectedOutput: "42" },
+    ]);
+    assert.strictEqual(batchPython[0].passed, false);
+    assert(batchPython[0].error.includes("SyntaxError") || batchPython[0].error.includes("invalid syntax") || batchPython[0].error.includes("Error"));
+  });
+
+  await it("Compiler: validateTestCaseOutput strictly compares arrays, floats, booleans, and rejects invalid outputs", () => {
+    // Array order matters
+    assert.strictEqual(validateTestCaseOutput("[1, 2, 3]", "[1, 2, 3]"), true);
+    assert.strictEqual(validateTestCaseOutput("[1, 2, 3]", "1 2 3"), true);
+    assert.strictEqual(validateTestCaseOutput("[1, 2, 3]", "[3, 2, 1]"), false);
+
+    // Empty output vs zero
+    assert.strictEqual(validateTestCaseOutput("", "0"), false);
+    assert.strictEqual(validateTestCaseOutput("0", "0"), true);
+
+    // Floating-point tolerance
+    assert.strictEqual(validateTestCaseOutput("20.0", "20"), true);
+    assert.strictEqual(validateTestCaseOutput("3.1415926", "3.141593"), true);
+    assert.strictEqual(validateTestCaseOutput("3.14", "3.20"), false);
+
+    // Booleans
+    assert.strictEqual(validateTestCaseOutput("True", "true"), true);
+    assert.strictEqual(validateTestCaseOutput("false", "False"), true);
+    assert.strictEqual(validateTestCaseOutput("false", "true"), false);
+  });
+
+  await it("Compiler: Run Code (/test) does NOT record challenge submission or award solved status", async () => {
+    const ChallengeSubmission = require("../models/ChallengeSubmission");
+    const initSubmissionsCount = await ChallengeSubmission.countDocuments({ challengeId: "ch_tight_bound", userId: userA._id });
+
+    const runRes = await fetch(`${baseUrl}/api/coding/challenges/ch_tight_bound/test`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${tokenA}`,
+      },
+      body: JSON.stringify({
+        language: "python",
+        code: [
+          "k = int(input())",
+          "coeffs = [int(x) for x in input().split()]",
+          "print(f'{coeffs[0]} {sum(coeffs)} 1')",
+        ].join("\n"),
+      }),
+    });
+
+    assert.strictEqual(runRes.status, 200);
+    const runData = await runRes.json();
+    assert.strictEqual(runData.status, "ACCEPTED");
+
+    // Must NOT have created a ChallengeSubmission record!
+    const postSubmissionsCount = await ChallengeSubmission.countDocuments({ challengeId: "ch_tight_bound", userId: userA._id });
+    assert.strictEqual(postSubmissionsCount, initSubmissionsCount, "Run Code (/test) must NEVER create a ChallengeSubmission document");
   });
 
   console.log("\n================================================================================");

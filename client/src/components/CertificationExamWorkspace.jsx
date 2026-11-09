@@ -2448,7 +2448,7 @@ export default function CertificationExamWorkspace({
                   return handleRunCode(code, lang, customInput);
                 }}
                 onRunTests={async (code, lang) => {
-                  return handleSubmitCode(code, lang);
+                  return handleRunCode(code, lang);
                 }}
                 onSubmit={async (code, lang) => {
                   return handleSubmitCode(code, lang);

@@ -263,28 +263,200 @@ const judge0LangMap = {
   c: 50,
 };
 
-function isProductionExecutionRestricted() {
-  return process.env.NODE_ENV === "production";
-}
+const COMMON_HELPER_NAMES = [
+  "swap",
+  "helper",
+  "util",
+  "dfs",
+  "bfs",
+  "gcd",
+  "lcm",
+  "print",
+  "display",
+  "tostring",
+  "equals",
+  "hashcode",
+];
 
-async function executeViaJudge0(lang, code, stdin = "", timeoutMs = 5000) {
-  if (!process.env.JUDGE0_API_HOST) return null;
-  const langId = judge0LangMap[lang];
-  if (!langId) {
-    throw new Error(`Language '${lang}' is not supported by Judge0`);
+function parseCppSolution(code, targetMethodName = "") {
+  const classMatch = code.match(/class\s+Solution\s*\{([\s\S]*?)\};/);
+  if (!classMatch) return null;
+  const body = classMatch[1];
+
+  const methodRegex = /([a-zA-Z0-9_:<>&*]+(?:\s+[a-zA-Z0-9_:<>&*]+)?)\s+([a-zA-Z0-9_]+)\s*\(([^)]*)\)\s*\{/g;
+  const methods = [];
+  let m;
+  while ((m = methodRegex.exec(body)) !== null) {
+    const rawRet = m[1].replace(/public:|private:|protected:/g, "").trim();
+    const name = m[2].trim();
+    const paramsRaw = m[3].trim();
+    if (!["if", "while", "for", "switch", "catch"].includes(name)) {
+      const params = paramsRaw
+        ? paramsRaw.split(",").map((p) => {
+            const parts = p.trim().split(/\s+/);
+            const pName = parts.pop().replace(/^[&*]+/, "");
+            const pType = parts.join(" ");
+            return { type: pType, name: pName };
+          })
+        : [];
+      methods.push({ retType: rawRet, name, params });
+    }
   }
 
-  let normalizedCode = code;
-  if (lang === "python" || lang === "py") {
-    const hasStdin = /sys\.stdin|input\s*\(/.test(normalizedCode);
-    if (!hasStdin && (/\bdef\s+[a-zA-Z0-9_]+|\bclass\s+Solution/.test(normalizedCode))) {
-      normalizedCode = `${normalizedCode}\n\n${PYTHON_FUNCTION_HARNESS}`;
+  if (targetMethodName) {
+    const found = methods.find((m) => m.name.toLowerCase() === targetMethodName.toLowerCase());
+    if (found) return found;
+  }
+  const nonHelpers = methods.filter((m) => !COMMON_HELPER_NAMES.includes(m.name.toLowerCase()));
+  return nonHelpers[0] || methods[0] || null;
+}
+
+function generateCppExecutable(code, options = {}) {
+  const codeNoComments = code
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/\/\/.*$/gm, "")
+    .trim();
+
+  const hasMain = /(int|void)\s+main\s*\(/.test(codeNoComments);
+  if (hasMain) {
+    return code;
+  }
+
+  const targetMethodName = options.functionName || "";
+  const method = parseCppSolution(codeNoComments, targetMethodName);
+
+  if (!method) {
+    return `#include <iostream>
+#include <string>
+#include <vector>
+#include <sstream>
+#include <algorithm>
+#include <map>
+#include <unordered_map>
+#include <set>
+#include <unordered_set>
+${code}
+
+int main() {
+    return 0;
+}
+`;
+  }
+
+  let paramSetup = "";
+  const callArgs = [];
+
+  method.params.forEach((p, idx) => {
+    const argName = `arg_${idx}`;
+    if (p.type.includes("vector<int>") || p.type.includes("vector<long long>")) {
+      paramSetup += `
+    std::vector<int> ${argName};
+    {
+        std::string line;
+        if (std::getline(std::cin, line)) {
+            for (size_t ci = 0; ci < line.size(); ci++) {
+                char c = line[ci];
+                if (c == 91 || c == 93 || c == 44 || c == 34) line[ci] = 32;
+            }
+            std::stringstream ss(line);
+            int v;
+            while (ss >> v) ${argName}.push_back(v);
+        }
+    }`;
+      callArgs.push(argName);
+    } else if (p.type.includes("vector<string>")) {
+      paramSetup += `
+    std::vector<std::string> ${argName};
+    {
+        std::string line;
+        if (std::getline(std::cin, line)) {
+            for (size_t ci = 0; ci < line.size(); ci++) {
+                char c = line[ci];
+                if (c == 91 || c == 93 || c == 44 || c == 34) line[ci] = 32;
+            }
+            std::stringstream ss(line);
+            std::string s;
+            while (ss >> s) ${argName}.push_back(s);
+        }
+    }`;
+      callArgs.push(argName);
+    } else if (p.type.includes("int") || p.type.includes("long")) {
+      paramSetup += `
+    int ${argName} = 0;
+    std::cin >> ${argName};`;
+      callArgs.push(argName);
+    } else if (p.type.includes("double") || p.type.includes("float")) {
+      paramSetup += `
+    double ${argName} = 0.0;
+    std::cin >> ${argName};`;
+      callArgs.push(argName);
+    } else if (p.type.includes("bool")) {
+      paramSetup += `
+    bool ${argName} = false;
+    std::cin >> std::boolalpha >> ${argName};`;
+      callArgs.push(argName);
+    } else if (p.type.includes("string")) {
+      paramSetup += `
+    std::string ${argName};
+    std::getline(std::cin, ${argName});
+    if (${argName}.empty()) std::cin >> ${argName};`;
+      callArgs.push(argName);
+    } else {
+      paramSetup += `
+    std::string ${argName};
+    std::getline(std::cin, ${argName});`;
+      callArgs.push(argName);
     }
-  } else if (lang === "java") {
-    const hasMain = /public\s+static\s+void\s+main\s*\(|static\s+public\s+void\s+main\s*\(/.test(normalizedCode);
-    if (!hasMain && /\bclass\s+Solution\b/.test(normalizedCode)) {
-      const nonPublicCode = normalizedCode.replace(/public\s+class\s+Solution/g, "class Solution");
-      normalizedCode = `import java.util.*;
+  });
+
+  let outputStmt = "";
+  if (method.retType.includes("vector<int>") || method.retType.includes("vector<long long>")) {
+    outputStmt = `for (size_t i = 0; i < res.size(); i++) std::cout << res[i] << (i + 1 < res.size() ? " " : ""); std::cout << std::endl;`;
+  } else if (method.retType.includes("vector<string>")) {
+    outputStmt = `for (size_t i = 0; i < res.size(); i++) std::cout << res[i] << (i + 1 < res.size() ? " " : ""); std::cout << std::endl;`;
+  } else if (method.retType.includes("bool")) {
+    outputStmt = `std::cout << (res ? "true" : "false") << std::endl;`;
+  } else {
+    outputStmt = `std::cout << res << std::endl;`;
+  }
+
+  return `#include <iostream>
+#include <string>
+#include <vector>
+#include <sstream>
+#include <algorithm>
+#include <map>
+#include <unordered_map>
+#include <set>
+#include <unordered_set>
+
+${code}
+
+int main() {
+${paramSetup}
+    Solution sol;
+    auto res = sol.${method.name}(${callArgs.join(", ")});
+    ${outputStmt}
+    return 0;
+}
+`;
+}
+
+function generateJavaExecutable(code, options = {}) {
+  const codeNoComments = code
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/\/\/.*$/gm, "")
+    .trim();
+
+  const hasMain = /public\s+static\s+void\s+main\s*\(|static\s+public\s+void\s+main\s*\(/.test(codeNoComments);
+  if (hasMain) {
+    return { code, hasMain: true };
+  }
+
+  const targetMethodName = options.functionName || "";
+  const nonPublicCode = code.replace(/public\s+class\s+Solution/g, "class Solution");
+
+  const driver = `import java.util.*;
 import java.lang.reflect.*;
 
 ${nonPublicCode}
@@ -301,14 +473,37 @@ public class Main {
 
         Solution sol = new Solution();
         Method[] methods = Solution.class.getDeclaredMethods();
+        final String preferredName = ${JSON.stringify(targetMethodName)};
+        List<String> helpers = Arrays.asList("swap", "helper", "util", "dfs", "bfs", "gcd", "lcm", "print", "display", "tostring", "equals", "hashcode");
+
         Method target = null;
-        for (Method m : methods) {
-            if (Modifier.isPublic(m.getModifiers())) {
-                target = m;
-                break;
+        if (preferredName != null && !preferredName.isEmpty()) {
+            for (Method m : methods) {
+                if (Modifier.isPublic(m.getModifiers()) && m.getName().equalsIgnoreCase(preferredName)) {
+                    target = m;
+                    break;
+                }
             }
         }
-        if (target == null && methods.length > 0) target = methods[0];
+
+        if (target == null) {
+            for (Method m : methods) {
+                if (Modifier.isPublic(m.getModifiers()) && !helpers.contains(m.getName().toLowerCase())) {
+                    target = m;
+                    break;
+                }
+            }
+        }
+
+        if (target == null && methods.length > 0) {
+            for (Method m : methods) {
+                if (Modifier.isPublic(m.getModifiers())) {
+                    target = m;
+                    break;
+                }
+            }
+            if (target == null) target = methods[0];
+        }
         if (target == null) return;
 
         Class<?>[] pTypes = target.getParameterTypes();
@@ -326,12 +521,23 @@ public class Main {
                 callArgs[i] = arr;
             } else if (pt == int.class || pt == Integer.class) {
                 callArgs[i] = Integer.parseInt(token);
+            } else if (pt == long.class || pt == Long.class) {
+                callArgs[i] = Long.parseLong(token);
             } else if (pt == double.class || pt == Double.class) {
                 callArgs[i] = Double.parseDouble(token);
             } else if (pt == boolean.class || pt == Boolean.class) {
                 callArgs[i] = Boolean.parseBoolean(token);
+            } else if (pt == String[].class) {
+                String clean = token.replace("[", "").replace("]", "").replace("\\\"", "").replace("\x27", "").trim();
+                callArgs[i] = clean.isEmpty() ? new String[0] : clean.split("[,\\\\s]+");
             } else {
-                callArgs[i] = token.replaceAll("^[\"']|[\"']$", "");
+                String sTok = token;
+                if (sTok.startsWith("\\\"") && sTok.endsWith("\\\"") && sTok.length() >= 2) {
+                    sTok = sTok.substring(1, sTok.length() - 1);
+                } else if (sTok.startsWith("\x27") && sTok.endsWith("\x27") && sTok.length() >= 2) {
+                    sTok = sTok.substring(1, sTok.length() - 1);
+                }
+                callArgs[i] = sTok;
             }
         }
 
@@ -348,8 +554,294 @@ public class Main {
     }
 }
 `;
+  return { code: driver, hasMain: false };
+}
+
+function generatePythonExecutable(code, options = {}) {
+  const codeNoComments = code
+    .replace(/#.*$/gm, "")
+    .replace(/'''[\s\S]*?'''/g, "")
+    .replace(/"""[\s\S]*?"""/g, "")
+    .trim();
+
+  const hasStdin = /sys\.stdin|input\s*\(/.test(codeNoComments);
+  if (hasStdin) {
+    return code;
+  }
+
+  const targetName = options.functionName || "";
+  const harness = `
+# --- MASTERY ZONE RUNNER HARNESS ---
+import sys, json, inspect
+
+def _mz_auto_runner():
+    target_name = ${JSON.stringify(targetName)}
+    helpers = {"swap", "helper", "util", "dfs", "bfs", "gcd", "lcm", "print", "display"}
+    candidates = []
+
+    if "Solution" in globals() and inspect.isclass(globals()["Solution"]):
+        try:
+            sol_inst = globals()["Solution"]()
+            methods = [m for m in dir(sol_inst) if not m.startswith("_") and callable(getattr(sol_inst, m))]
+            if target_name and hasattr(sol_inst, target_name) and callable(getattr(sol_inst, target_name)):
+                candidates.append(getattr(sol_inst, target_name))
+            else:
+                non_helpers = [m for m in methods if m.lower() not in helpers]
+                if non_helpers:
+                    candidates.append(getattr(sol_inst, non_helpers[0]))
+                elif methods:
+                    candidates.append(getattr(sol_inst, methods[0]))
+        except Exception:
+            pass
+
+    if not candidates:
+        if target_name and target_name in globals() and callable(globals()[target_name]):
+            candidates.append(globals()[target_name])
+        else:
+            funcs = []
+            for name, obj in list(globals().items()):
+                if callable(obj) and not name.startswith("_") and not inspect.isclass(obj):
+                    if getattr(obj, "__module__", None) == "__main__":
+                        funcs.append((name, obj))
+            non_helpers = [obj for name, obj in funcs if name.lower() not in helpers]
+            if non_helpers:
+                candidates.append(non_helpers[0])
+            elif funcs:
+                candidates.append(funcs[0][1])
+
+    if not candidates:
+        return
+
+    func = candidates[0]
+    raw = sys.stdin.read()
+    if raw is None:
+        return
+    raw_str = str(raw).strip()
+
+    sig = None
+    param_count = 1
+    try:
+        sig = inspect.signature(func)
+        param_count = len([p for p in sig.parameters.values() if p.default == inspect.Parameter.empty and p.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)])
+        if param_count == 0:
+            param_count = len(sig.parameters)
+    except Exception:
+        pass
+
+    def parse_token(s):
+        s = s.strip()
+        if not s:
+            return s
+        try:
+            return json.loads(s)
+        except Exception:
+            pass
+        if s.lower() == "true":
+            return True
+        if s.lower() == "false":
+            return False
+        try:
+            return int(s)
+        except Exception:
+            try:
+                return float(s)
+            except Exception:
+                return s
+
+    args = []
+    if param_count == 0:
+        args = []
+    elif param_count == 1:
+        if not raw_str:
+            args = []
+        else:
+            try:
+                args = [json.loads(raw_str)]
+            except Exception:
+                args = [parse_token(raw_str)]
+    else:
+        try:
+            parsed = json.loads(raw_str)
+            if isinstance(parsed, (list, tuple)) and len(parsed) == param_count:
+                args = list(parsed)
+            else:
+                lines = [l.strip() for l in raw_str.splitlines() if l.strip()]
+                if len(lines) >= param_count:
+                    args = [parse_token(lines[i]) for i in range(param_count)]
+                else:
+                    args = [parse_token(t) for t in raw_str.split()[:param_count]]
+        except Exception:
+            lines = [l.strip() for l in raw_str.splitlines() if l.strip()]
+            if len(lines) >= param_count:
+                args = [parse_token(lines[i]) for i in range(param_count)]
+            else:
+                tokens = raw_str.split()
+                if len(tokens) >= param_count:
+                    args = [parse_token(tokens[i]) for i in range(param_count)]
+                else:
+                    args = [parse_token(raw_str)]
+
+    try:
+        res = func(*args)
+        if res is not None:
+            if isinstance(res, bool):
+                print("true" if res else "false")
+            elif isinstance(res, (dict, list, tuple)):
+                print(json.dumps(res, separators=(',', ':')))
+            else:
+                print(res)
+    except Exception as e:
+        sys.stderr.write(f"Runtime Exception: {e}\\n")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    _mz_auto_runner()
+`;
+  return `${code}\n\n${harness}`;
+}
+
+function generateJsExecutable(code, options = {}) {
+  const codeNoComments = code
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/\/\/.*$/gm, "")
+    .trim();
+
+  const hasStdin = /fs\.readFileSync|readline|process\.stdin/.test(codeNoComments);
+  if (hasStdin) {
+    return code;
+  }
+
+  const targetName = options.functionName || "";
+  const fnMatches = [...code.matchAll(/(?:function\s+([a-zA-Z0-9_$]+)|(?:const|let|var)\s+([a-zA-Z0-9_$]+)\s*=\s*(?:function|\([^)]*\)\s*=>))/g)];
+  const extractedNames = fnMatches.map((m) => m[1] || m[2]).filter(Boolean);
+
+  const jsHarness = `
+;(() => {
+  const fs = require("fs");
+  let raw = "";
+  try { raw = fs.readFileSync(0, "utf8"); } catch(e) { return; }
+  if (raw === undefined || raw === null || !raw.trim()) return;
+  const rawStr = raw.trim();
+
+  const targetName = ${JSON.stringify(targetName)};
+  const helpers = ["swap", "helper", "util", "dfs", "bfs", "gcd", "lcm", "print", "display"];
+  let targetFn = null;
+
+  if (typeof Solution === "function") {
+    try {
+      const s = new Solution();
+      const proto = Object.getPrototypeOf(s);
+      const methods = Object.getOwnPropertyNames(proto).filter(m => m !== "constructor" && typeof s[m] === "function");
+      if (targetName && typeof s[targetName] === "function") {
+        targetFn = s[targetName].bind(s);
+      } else {
+        const nonHelpers = methods.filter(m => !helpers.includes(m.toLowerCase()));
+        const chosen = nonHelpers[0] || methods[0];
+        if (chosen) targetFn = s[chosen].bind(s);
+      }
+    } catch(e) {}
+  }
+
+  if (!targetFn) {
+    const candidateNames = ${JSON.stringify(extractedNames)};
+    if (targetName) {
+      try {
+        if (typeof eval(targetName) === "function") targetFn = eval(targetName);
+      } catch(e) {}
+    }
+    if (!targetFn) {
+      const nonHelpers = candidateNames.filter(n => !helpers.includes(n.toLowerCase()));
+      for (const name of (nonHelpers.length > 0 ? nonHelpers : candidateNames)) {
+        try {
+          if (typeof eval(name) === "function") {
+            targetFn = eval(name);
+            break;
+          }
+        } catch(e) {}
+      }
+    }
+  }
+
+  if (!targetFn) return;
+
+  function parseToken(s) {
+    s = s.trim();
+    if (!s) return s;
+    try { return JSON.parse(s); } catch(e) {}
+    if (s.toLowerCase() === "true") return true;
+    if (s.toLowerCase() === "false") return false;
+    if (!isNaN(Number(s)) && s !== "") return Number(s);
+    return s;
+  }
+
+  const lines = rawStr.split("\\n").map(l => l.trim()).filter(Boolean);
+  const paramCount = typeof targetFn.length === "number" ? targetFn.length : 1;
+  let parsedArgs = [];
+
+  if (paramCount === 0) {
+    parsedArgs = [];
+  } else if (paramCount === 1) {
+    if (lines.length === 1) {
+      parsedArgs = [parseToken(lines[0])];
+    } else if (lines.length > 1) {
+      try { parsedArgs = [JSON.parse(rawStr)]; } catch(e) { parsedArgs = [parseToken(lines[0])]; }
     } else {
-      // Judge0 compiles Java in Main.java, so the public class name must be Main
+      parsedArgs = rawStr ? [parseToken(rawStr)] : [];
+    }
+  } else if (paramCount > 1 && lines.length >= paramCount) {
+    parsedArgs = lines.slice(0, paramCount).map(parseToken);
+  } else if (paramCount > 1 && lines.length === 1) {
+    try {
+      const parsed = JSON.parse(rawStr);
+      if (Array.isArray(parsed) && parsed.length === paramCount) parsedArgs = parsed;
+      else {
+        const tokens = rawStr.split(/\\s+/);
+        parsedArgs = tokens.length === paramCount ? tokens.map(parseToken) : [parseToken(rawStr)];
+      }
+    } catch(e) {
+      const tokens = rawStr.split(/\\s+/);
+      parsedArgs = tokens.length === paramCount ? tokens.map(parseToken) : [parseToken(rawStr)];
+    }
+  } else {
+    parsedArgs = lines.map(parseToken);
+  }
+
+  try {
+    const res = targetFn(...parsedArgs);
+    if (res !== undefined) {
+      if (typeof res === "object" && res !== null) {
+        console.log(JSON.stringify(res));
+      } else {
+        console.log(String(res));
+      }
+    }
+  } catch(e) {
+    console.error(e);
+    process.exit(1);
+  }
+})();
+`;
+  return `${code}\n\n${jsHarness}`;
+}
+
+function isProductionExecutionRestricted() {
+  return process.env.NODE_ENV === "production";
+}
+
+async function executeViaJudge0(lang, code, stdin = "", timeoutMs = 5000, options = {}) {
+  if (!process.env.JUDGE0_API_HOST) return null;
+  const langId = judge0LangMap[lang];
+  if (!langId) {
+    throw new Error(`Language '${lang}' is not supported by Judge0`);
+  }
+
+  let normalizedCode = code;
+  if (lang === "python" || lang === "py") {
+    normalizedCode = generatePythonExecutable(normalizedCode, options);
+  } else if (lang === "java") {
+    const javaExec = generateJavaExecutable(normalizedCode, options);
+    normalizedCode = javaExec.code;
+    if (javaExec.hasMain) {
       if (/public\s+class\s+[A-Za-z0-9_]+/i.test(normalizedCode)) {
         normalizedCode = normalizedCode.replace(/public\s+class\s+[A-Za-z0-9_]+/g, "public class Main");
       } else if (/\bclass\s+([A-Za-z0-9_]+)/i.test(normalizedCode)) {
@@ -357,110 +849,9 @@ public class Main {
       }
     }
   } else if (lang === "cpp" || lang === "c++") {
-    const hasMain = /(int|void)\s+main\s*\(/.test(normalizedCode);
-    if (!hasMain && /class\s+Solution/.test(normalizedCode)) {
-      let callStatement = "Solution sol; sol.solve();";
-      if (/twoSum/.test(normalizedCode)) {
-        callStatement = "Solution sol; int target = nums.empty() ? 0 : nums.back(); if (!nums.empty()) nums.pop_back(); std::vector<int> res = sol.twoSum(nums, target); for(size_t i = 0; i < res.size(); i++) std::cout << res[i] << (i + 1 < res.size() ? \" \" : \"\"); std::cout << std::endl;";
-      } else if (/findPeakElement/.test(normalizedCode)) {
-        callStatement = "Solution sol; std::cout << sol.findPeakElement(nums) << std::endl;";
-      } else if (/lengthOfLongestSubstring/.test(normalizedCode)) {
-        callStatement = "Solution sol; std::cout << sol.lengthOfLongestSubstring(rawAll) << std::endl;";
-      }
-
-      normalizedCode = `#include <iostream>
-#include <string>
-#include <vector>
-#include <sstream>
-${normalizedCode}
-
-int main() {
-    std::string line;
-    std::vector<int> nums;
-    std::string rawAll = "";
-    while (std::getline(std::cin, line)) {
-        rawAll += line + "\\n";
-        for (int i = 0; i < (int)line.size(); i++) {
-            char c = line[i];
-            if (c == 91 || c == 93 || c == 44 || c == 34) line[i] = 32;
-        }
-        std::stringstream ss(line);
-        int val;
-        while (ss >> val) {
-            nums.push_back(val);
-        }
-    }
-    ${callStatement}
-    return 0;
-}
-`;
-    }
+    normalizedCode = generateCppExecutable(normalizedCode, options);
   } else if (lang === "javascript" || lang === "js" || lang === "node") {
-    const hasStdin = /fs\.readFileSync|readline|process\.stdin/.test(normalizedCode);
-    if (!hasStdin && (/\bfunction\s+[a-zA-Z0-9_$]+|\bclass\s+Solution|const\s+[a-zA-Z0-9_$]+\s*=\s*(?:function|\([^)]*\)\s*=>)/.test(normalizedCode))) {
-      const fnMatches = [...normalizedCode.matchAll(/(?:function\s+([a-zA-Z0-9_$]+)|(?:const|let|var)\s+([a-zA-Z0-9_$]+)\s*=\s*(?:function|\([^)]*\)\s*=>))/g)];
-      const extractedNames = fnMatches.map((m) => m[1] || m[2]).filter(Boolean);
-      normalizedCode = `${normalizedCode}\n\n;(() => {
-  const fs = require("fs");
-  let raw = "";
-  try { raw = fs.readFileSync(0, "utf8"); } catch(e) { return; }
-  if (raw === undefined || raw === null || !raw.trim()) return;
-  const rawStr = raw.trim();
-
-  let targetFn = null;
-  if (typeof Solution === "function") {
-    try {
-      const s = new Solution();
-      const proto = Object.getPrototypeOf(s);
-      const methods = Object.getOwnPropertyNames(proto).filter(m => m !== "constructor" && typeof s[m] === "function");
-      if (methods.length > 0) targetFn = s[methods[0]].bind(s);
-    } catch(e) {}
-  }
-
-  if (!targetFn) {
-    const candidateNames = ${JSON.stringify(extractedNames)};
-    for (const name of candidateNames) {
-      try {
-        if (typeof eval(name) === "function") {
-          targetFn = eval(name);
-          break;
-        }
-      } catch(e) {}
-    }
-  }
-
-  if (!targetFn) return;
-
-  let parsedArgs = [];
-  try {
-    const parsed = JSON.parse(rawStr);
-    if (Array.isArray(parsed) && targetFn.length > 1 && parsed.length === targetFn.length) {
-      parsedArgs = parsed;
-    } else {
-      parsedArgs = [parsed];
-    }
-  } catch(e) {
-    const lines = rawStr.split(/\\r?\\n/).filter(l => l.trim().length > 0);
-    parsedArgs = lines.map(l => {
-      try { return JSON.parse(l); } catch(e2) {
-        const num = Number(l);
-        return isNaN(num) ? l : num;
-      }
-    });
-  }
-
-  try {
-    const res = targetFn(...parsedArgs);
-    if (res !== undefined) {
-      if (typeof res === "object") console.log(JSON.stringify(res));
-      else console.log(res);
-    }
-  } catch(e) {
-    console.error(e);
-  }
-})();
-`;
-    }
+    normalizedCode = generateJsExecutable(normalizedCode, options);
   }
 
   const url = new URL("/submissions?wait=true", process.env.JUDGE0_API_HOST);
@@ -540,24 +931,45 @@ function isCodeEmptyOrComments(code) {
   return stripped.length === 0;
 }
 
+function deepEqualStructural(a, b) {
+  if (a === b) return true;
+  if (typeof a === "number" && typeof b === "number") {
+    return Math.abs(a - b) <= 1e-6;
+  }
+  if (typeof a !== "object" || a === null || typeof b !== "object" || b === null) {
+    return false;
+  }
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  if (Array.isArray(a)) {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (!deepEqualStructural(a[i], b[i])) return false;
+    }
+    return true;
+  }
+  const keysA = Object.keys(a);
+  const keysB = Object.keys(b);
+  if (keysA.length !== keysB.length) return false;
+  for (const k of keysA) {
+    if (!Object.prototype.hasOwnProperty.call(b, k)) return false;
+    if (!deepEqualStructural(a[k], b[k])) return false;
+  }
+  return true;
+}
+
 function validateTestCaseOutput(actual, expected) {
-  if (actual === undefined || actual === null) actual = "";
-  if (expected === undefined || expected === null) expected = "";
+  if (actual === undefined || actual === null || expected === undefined || expected === null) return false;
 
   const cleanAct = String(actual).trim().replace(/\r\n/g, "\n");
   const cleanExp = String(expected).trim().replace(/\r\n/g, "\n");
 
   if (cleanAct === cleanExp) return true;
+  if (cleanAct === "" || cleanExp === "") return false;
 
-  const normalize = (s) =>
-    s
-      .split("\n")
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0)
-      .join(" ");
-
-  const normAct = normalize(cleanAct);
-  const normExp = normalize(cleanExp);
+  const linesAct = cleanAct.split("\n").map((l) => l.trim()).filter((l) => l.length > 0);
+  const linesExp = cleanExp.split("\n").map((l) => l.trim()).filter((l) => l.length > 0);
+  const normAct = linesAct.join("\n");
+  const normExp = linesExp.join("\n");
   if (normAct === normExp) return true;
 
   if (normAct.toLowerCase() === normExp.toLowerCase()) return true;
@@ -566,40 +978,58 @@ function validateTestCaseOutput(actual, expected) {
   const strippedAct = stripPrefix(normAct);
   if (strippedAct === normExp || strippedAct.toLowerCase() === normExp.toLowerCase()) return true;
 
-  try {
-    const actJson = JSON.parse(normAct);
-    const expJson = JSON.parse(normExp);
-    if (JSON.stringify(actJson) === JSON.stringify(expJson)) return true;
-  } catch {}
+  const isBoolExp = /^(true|false)$/i.test(normExp);
+  if (isBoolExp) {
+    const bExp = normExp.toLowerCase() === "true";
+    const bAct = strippedAct.toLowerCase() === "true" || strippedAct === "1";
+    const bActFalse = strippedAct.toLowerCase() === "false" || strippedAct === "0";
+    if (bExp && bAct) return true;
+    if (!bExp && bActFalse) return true;
+    return false;
+  }
 
-  const unquote = (s) => s.replace(/^["']|["']$/g, "").trim();
-  if (unquote(normAct) === unquote(normExp)) return true;
-  if (unquote(strippedAct) === unquote(normExp)) return true;
-
-  const stripPunct = (s) => s.replace(/[\[\],]/g, " ").replace(/\s+/g, " ").trim();
-  if (stripPunct(normAct) === stripPunct(normExp) && stripPunct(normExp).length > 0) return true;
-  if (stripPunct(strippedAct) === stripPunct(normExp) && stripPunct(normExp).length > 0) return true;
-
-  const numAct = Number(strippedAct || normAct);
-  const numExp = Number(normExp);
-  if (!isNaN(numAct) && !isNaN(numExp) && normExp !== "") {
-    if (Math.abs(numAct - numExp) < 1e-4) return true;
+  if (
+    /^[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?$/.test(normExp) &&
+    /^[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?$/.test(strippedAct)
+  ) {
+    const numAct = Number(strippedAct);
+    const numExp = Number(normExp);
+    if (!isNaN(numAct) && !isNaN(numExp)) {
+      if (Math.abs(numAct - numExp) <= 1e-6) return true;
+    }
   }
 
   try {
-    const actArr = JSON.parse(normAct);
-    const expArr = JSON.parse(normExp);
-    if (Array.isArray(actArr) && Array.isArray(expArr) && actArr.length === expArr.length) {
-      const sortedAct = [...actArr].sort();
-      const sortedExp = [...expArr].sort();
-      if (JSON.stringify(sortedAct) === JSON.stringify(sortedExp)) return true;
-    }
+    const parsedAct = JSON.parse(strippedAct);
+    const parsedExp = JSON.parse(normExp);
+    if (deepEqualStructural(parsedAct, parsedExp)) return true;
   } catch {}
+
+  const unquote = (s) => s.replace(/^["'\x27]|["'\x27]$/g, "").trim();
+  if (unquote(strippedAct) === unquote(normExp)) return true;
+
+  const tokenizeList = (s) => {
+    const clean = s.replace(/^\[|\]$/g, "").replace(/,/g, " ").trim();
+    return clean.length === 0 ? [] : clean.split(/\s+/);
+  };
+  const tokensAct = tokenizeList(strippedAct);
+  const tokensExp = tokenizeList(normExp);
+  if (tokensAct.length > 0 && tokensAct.length === tokensExp.length) {
+    const allMatch = tokensAct.every((tok, idx) => {
+      const expTok = tokensExp[idx];
+      if (tok === expTok || tok.toLowerCase() === expTok.toLowerCase()) return true;
+      const nAct = Number(tok);
+      const nExp = Number(expTok);
+      if (!isNaN(nAct) && !isNaN(nExp) && Math.abs(nAct - nExp) <= 1e-6) return true;
+      return false;
+    });
+    if (allMatch) return true;
+  }
 
   return false;
 }
 
-// Universal Python function test harness
+// Universal Python function test harness (kept for backwards compatibility)
 const PYTHON_FUNCTION_HARNESS = `
 # --- MASTERY ZONE RUNNER HARNESS ---
 import sys, json, inspect
@@ -609,17 +1039,28 @@ def _mz_auto_runner():
     if "Solution" in globals() and inspect.isclass(globals()["Solution"]):
         try:
             sol_inst = globals()["Solution"]()
+            helpers = {"swap", "helper", "util", "dfs", "bfs", "gcd", "lcm", "print", "display"}
             methods = [m for m in dir(sol_inst) if not m.startswith("_") and callable(getattr(sol_inst, m))]
-            if methods:
+            non_helpers = [m for m in methods if m.lower() not in helpers]
+            if non_helpers:
+                candidates.append(getattr(sol_inst, non_helpers[0]))
+            elif methods:
                 candidates.append(getattr(sol_inst, methods[0]))
         except Exception:
             pass
 
     if not candidates:
+        helpers = {"swap", "helper", "util", "dfs", "bfs", "gcd", "lcm", "print", "display"}
+        funcs = []
         for name, obj in list(globals().items()):
             if callable(obj) and not name.startswith("_") and not inspect.isclass(obj):
                 if getattr(obj, "__module__", None) == "__main__":
-                    candidates.append(obj)
+                    funcs.append((name, obj))
+        non_helpers = [obj for name, obj in funcs if name.lower() not in helpers]
+        if non_helpers:
+            candidates.append(non_helpers[0])
+        elif funcs:
+            candidates.append(funcs[0][1])
 
     if not candidates:
         return
@@ -893,7 +1334,7 @@ async function executeCode({ language, code, stdin = "", timeoutMs = 5000, files
 /**
  * Universal Batch Test Evaluation
  */
-async function evaluateTestCasesBatch(language, code, testCases) {
+async function evaluateTestCasesBatch(language, code, testCases, options = {}) {
   if (!Array.isArray(testCases) || testCases.length === 0) return [];
   const safeCode = typeof code === "string" ? code : "";
 
@@ -907,7 +1348,7 @@ async function evaluateTestCasesBatch(language, code, testCases) {
     }));
   }
 
-  let lang = (language || "").toLowerCase().trim();
+  const lang = (language || "").toLowerCase().trim();
 
   const safety = validateCodeSafety(lang, safeCode);
   if (!safety.safe) {
@@ -922,7 +1363,7 @@ async function evaluateTestCasesBatch(language, code, testCases) {
 
   let cacheKey = "";
   try {
-    const hash = crypto.createHash("sha256").update(`${lang}:::${safeCode}:::${JSON.stringify(testCases)}`).digest("hex");
+    const hash = crypto.createHash("sha256").update(`${lang}:::${safeCode}:::${JSON.stringify(testCases)}:::${JSON.stringify(options)}`).digest("hex");
     cacheKey = hash;
     if (batchEvaluationCache.has(cacheKey)) {
       return JSON.parse(JSON.stringify(batchEvaluationCache.get(cacheKey)));
@@ -942,7 +1383,7 @@ async function evaluateTestCasesBatch(language, code, testCases) {
   if (process.env.JUDGE0_API_HOST) {
     try {
       const j0Results = await Promise.all(
-        testCases.map((tc) => executeViaJudge0(lang, safeCode, tc.input || "", 4000))
+        testCases.map((tc) => executeViaJudge0(lang, safeCode, tc.input || "", 4000, options))
       );
       if (j0Results.every((r) => r !== null)) {
         const results = testCases.map((tc, i) => {
@@ -994,125 +1435,18 @@ async function evaluateTestCasesBatch(language, code, testCases) {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "mz_judge_"));
   const timeoutMs = 4000;
 
-  const codeNoComments = safeCode
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/\/\/.*$/gm, "")
-    .replace(/#.*$/gm, "")
-    .trim();
-
-  const hasPythonDef = /^\s*def\s+[a-zA-Z0-9_]+\s*\(|import\s+sys|import\s+json/m.test(codeNoComments);
-  const hasJsSyntax = /function\s+[a-zA-Z0-9_$]+|console\.log|const\s+[a-zA-Z0-9_$]+\s*=|let\s+[a-zA-Z0-9_$]+\s*=/m.test(codeNoComments);
-  const hasJavaSyntax = /(public\s+)?class\s+[A-Za-z0-9_]+|System\.out\.print/m.test(codeNoComments);
-  const hasCppSyntax = /#include\s*<[a-z]+>|std::|using\s+namespace\s+std/m.test(codeNoComments);
-
-  if ((lang === "javascript" || lang === "js") && hasPythonDef && !hasJsSyntax) {
-    lang = "python";
-  } else if ((lang === "python" || lang === "py") && hasJsSyntax && !hasPythonDef) {
-    lang = "javascript";
-  } else if ((lang === "python" || lang === "py") && hasCppSyntax && !hasPythonDef) {
-    lang = "cpp";
-  } else if ((lang === "python" || lang === "py") && hasJavaSyntax && !hasPythonDef) {
-    lang = "java";
-  }
-
   try {
     let runner = null;
 
     if (lang === "python" || lang === "py") {
       const p = path.join(tmpDir, "solution.py");
-      const hasStdin = /sys\.stdin|input\s*\(/.test(codeNoComments);
-      const executableCode = hasStdin ? safeCode : `${safeCode}\n\n${PYTHON_FUNCTION_HARNESS}`;
+      const executableCode = generatePythonExecutable(safeCode, options);
       fs.writeFileSync(p, executableCode, "utf8");
 
       runner = (input) => runSandboxedProcess(PYTHON_BIN, ["-u", "-I", p], input, timeoutMs, tmpDir);
     } else if (lang === "javascript" || lang === "js" || lang === "node") {
       const p = path.join(tmpDir, "solution.js");
-      const hasStdin = /fs\.readFileSync|readline|process\.stdin/.test(codeNoComments);
-
-      const fnMatches = [...safeCode.matchAll(/(?:function\s+([a-zA-Z0-9_$]+)|(?:const|let|var)\s+([a-zA-Z0-9_$]+)\s*=\s*(?:function|\([^)]*\)\s*=>))/g)];
-      const extractedNames = fnMatches.map((m) => m[1] || m[2]).filter(Boolean);
-
-      const jsHarness = `
-;(() => {
-  const fs = require("fs");
-  let raw = "";
-  try { raw = fs.readFileSync(0, "utf8"); } catch(e) { return; }
-  if (raw === undefined || raw === null || !raw.trim()) return;
-  const rawStr = raw.trim();
-
-  let targetFn = null;
-  if (typeof Solution === "function") {
-    try {
-      const s = new Solution();
-      const proto = Object.getPrototypeOf(s);
-      const methods = Object.getOwnPropertyNames(proto).filter(m => m !== "constructor" && typeof s[m] === "function");
-      if (methods.length > 0) targetFn = s[methods[0]].bind(s);
-    } catch(e) {}
-  }
-
-  if (!targetFn) {
-    const candidateNames = ${JSON.stringify(extractedNames)};
-    for (const name of candidateNames) {
-      try {
-        if (typeof eval(name) === "function") {
-          targetFn = eval(name);
-          break;
-        }
-      } catch(e) {}
-    }
-  }
-
-  if (!targetFn) return;
-
-  function parseToken(s) {
-    s = s.trim();
-    if (!s) return s;
-    try { return JSON.parse(s); } catch(e) {}
-    if (s.toLowerCase() === "true") return true;
-    if (s.toLowerCase() === "false") return false;
-    if (!isNaN(Number(s)) && s !== "") return Number(s);
-    return s;
-  }
-
-  const lines = rawStr.split("\\n").map(l => l.trim()).filter(Boolean);
-  const paramCount = typeof targetFn.length === "number" ? targetFn.length : 1;
-  let args = [];
-
-  if (paramCount === 0) {
-    args = [];
-  } else if (paramCount === 1) {
-    if (lines.length === 1) {
-      args = [parseToken(lines[0])];
-    } else if (lines.length > 1) {
-      try { args = [JSON.parse(rawStr)]; } catch(e) { args = [parseToken(lines[0])]; }
-    } else {
-      args = rawStr ? [parseToken(rawStr)] : [];
-    }
-  } else if (paramCount > 1 && lines.length >= paramCount) {
-    args = lines.slice(0, paramCount).map(parseToken);
-  } else if (paramCount > 1 && lines.length === 1) {
-    const tokens = rawStr.split(/\\s+/);
-    if (tokens.length === paramCount) {
-      args = tokens.map(parseToken);
-    } else {
-      args = lines.map(parseToken);
-    }
-  } else {
-    args = lines.map(parseToken);
-  }
-
-  const res = targetFn(...args);
-  if (res !== undefined) {
-    if (typeof res === "object" && res !== null) {
-      console.log(JSON.stringify(res));
-    } else {
-      console.log(String(res));
-    }
-  }
-})();
-`;
-
-      const executableCode = hasStdin ? safeCode : `${safeCode}\n\n${jsHarness}`;
+      const executableCode = generateJsExecutable(safeCode, options);
       fs.writeFileSync(p, executableCode, "utf8");
 
       runner = (input) =>
@@ -1138,46 +1472,7 @@ async function evaluateTestCasesBatch(language, code, testCases) {
     } else if (lang === "cpp" || lang === "c++") {
       const p = path.join(tmpDir, "solution.cpp");
       const bin = path.join(tmpDir, "sol_bin");
-      const hasMain = /(int|void)\s+main\s*\(/.test(codeNoComments);
-
-      let cppFullCode = safeCode;
-      if (!hasMain && /class\s+Solution/.test(codeNoComments)) {
-        let callStatement = "Solution sol; sol.solve();";
-        if (/twoSum/.test(codeNoComments)) {
-          callStatement = "Solution sol; int target = nums.empty() ? 0 : nums.back(); if (!nums.empty()) nums.pop_back(); std::vector<int> res = sol.twoSum(nums, target); for(size_t i = 0; i < res.size(); i++) std::cout << res[i] << (i + 1 < res.size() ? \" \" : \"\"); std::cout << std::endl;";
-        } else if (/findPeakElement/.test(codeNoComments)) {
-          callStatement = "Solution sol; std::cout << sol.findPeakElement(nums) << std::endl;";
-        } else if (/lengthOfLongestSubstring/.test(codeNoComments)) {
-          callStatement = "Solution sol; std::cout << sol.lengthOfLongestSubstring(rawAll) << std::endl;";
-        }
-
-        cppFullCode = `#include <iostream>
-#include <string>
-#include <vector>
-#include <sstream>
-${safeCode}
-
-int main() {
-    std::string line;
-    std::vector<int> nums;
-    std::string rawAll = "";
-    while (std::getline(std::cin, line)) {
-        rawAll += line + "\\n";
-        for (int i = 0; i < (int)line.size(); i++) {
-            char c = line[i];
-            if (c == 91 || c == 93 || c == 44 || c == 34) line[i] = 32;
-        }
-        std::stringstream ss(line);
-        int val;
-        while (ss >> val) {
-            nums.push_back(val);
-        }
-    }
-    ${callStatement}
-    return 0;
-}
-`;
-      }
+      const cppFullCode = generateCppExecutable(safeCode, options);
 
       fs.writeFileSync(p, cppFullCode, "utf8");
 
@@ -1195,10 +1490,10 @@ int main() {
 
       runner = (input) => runSandboxedProcess(bin, [], input, timeoutMs, tmpDir);
     } else if (lang === "java") {
-      const hasMain = /public\s+static\s+void\s+main\s*\(|static\s+public\s+void\s+main\s*\(/.test(codeNoComments);
+      const javaExec = generateJavaExecutable(safeCode, options);
       let className = "Main";
 
-      if (hasMain) {
+      if (javaExec.hasMain) {
         const match = safeCode.match(/public\s+class\s+([A-Za-z0-9_]+)/);
         if (match && match[1]) className = match[1];
         const p = path.join(tmpDir, `${className}.java`);
@@ -1223,70 +1518,8 @@ int main() {
             tmpDir
           );
       } else {
-        const nonPublicCode = safeCode.replace(/public\s+class\s+Solution/g, "class Solution");
-        const javaDriver = `
-import java.util.*;
-import java.lang.reflect.*;
-
-${nonPublicCode}
-
-public class Main {
-    public static void main(String[] args) throws Exception {
-        Scanner sc = new Scanner(System.in);
-        StringBuilder sb = new StringBuilder();
-        while (sc.hasNextLine()) {
-            sb.append(sc.nextLine()).append("\\n");
-        }
-        String raw = sb.toString().trim();
-        if (raw.isEmpty()) return;
-
-        Solution sol = new Solution();
-        Method[] methods = Solution.class.getDeclaredMethods();
-        Method target = null;
-        for (Method m : methods) {
-            if (Modifier.isPublic(m.getModifiers())) {
-                target = m;
-                break;
-            }
-        }
-        if (target == null && methods.length > 0) target = methods[0];
-        if (target == null) return;
-
-        Class<?>[] pTypes = target.getParameterTypes();
-        Object[] callArgs = new Object[pTypes.length];
-        String[] lines = raw.split("\\\\n");
-
-        for (int i = 0; i < pTypes.length; i++) {
-            String token = (i < lines.length) ? lines[i].trim() : (pTypes.length == 1 ? raw : "");
-            Class<?> pt = pTypes[i];
-            if (pt == int[].class) {
-                String clean = token.replace("[", " ").replace("]", " ").replace(",", " ").trim();
-                String[] parts = clean.isEmpty() ? new String[0] : clean.split("\\\\s+");
-                int[] arr = new int[parts.length];
-                for (int j = 0; j < parts.length; j++) arr[j] = Integer.parseInt(parts[j]);
-                callArgs[i] = arr;
-            } else if (pt == int.class || pt == Integer.class) {
-                callArgs[i] = Integer.parseInt(token);
-            } else if (pt == String.class) {
-                callArgs[i] = token.replaceAll("^\\\"|\\\"$", "");
-            } else {
-                callArgs[i] = token;
-            }
-        }
-
-        Object res = target.invoke(sol, callArgs);
-        if (res != null) {
-            if (res instanceof int[]) {
-                System.out.println(Arrays.toString((int[]) res));
-            } else {
-                System.out.println(res);
-            }
-        }
-    }
-}
-`;
         const p = path.join(tmpDir, "Main.java");
-        fs.writeFileSync(p, javaDriver, "utf8");
+        fs.writeFileSync(p, javaExec.code, "utf8");
         const cRes = await runSandboxedProcess(JAVAC_BIN, [p], "", 5000, tmpDir);
         if (cRes.exitCode !== 0) {
           const compErr = `Compilation Error (Java):\n${cRes.error || cRes.output}`;
@@ -1358,8 +1591,8 @@ public class Main {
 /**
  * Universal Single Test Case Evaluation
  */
-async function evaluateSingleTestCase(language, code, input, expectedOutput) {
-  const batch = await evaluateTestCasesBatch(language, code, [{ input, expectedOutput }]);
+async function evaluateSingleTestCase(language, code, input, expectedOutput, options = {}) {
+  const batch = await evaluateTestCasesBatch(language, code, [{ input, expectedOutput }], options);
   return batch[0] || {
     passed: false,
     actual: "",
@@ -1385,6 +1618,12 @@ module.exports = {
   isProductionExecutionRestricted,
   isCodeEmptyOrComments,
   validateTestCaseOutput,
+  deepEqualStructural,
+  generatePythonExecutable,
+  generateJsExecutable,
+  generateJavaExecutable,
+  generateCppExecutable,
+  parseCppSolution,
   executeCode,
   evaluateTestCasesBatch,
   evaluateSingleTestCase,

@@ -349,14 +349,7 @@ export default function PracticalAssignmentModal({
         }}
         onRunTests={async (runCode, lang) => {
           const token = localStorage.getItem("token");
-          const activeSid = sessionStorage.getItem("mz_active_proctored_session") || localStorage.getItem("mz_active_proctored_session");
-          if (runCode) {
-            try {
-              localStorage.setItem("mz_recent_submitted_code", runCode);
-              if (activeSid) localStorage.setItem(`mz_draft_${activeSid}`, runCode);
-            } catch {}
-          }
-          const res = await fetch(`${API_BASE}/api/coding/curriculum/exercise/submit`, {
+          const res = await fetch(`${API_BASE}/api/coding/curriculum/exercise/run`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -367,7 +360,6 @@ export default function PracticalAssignmentModal({
               moduleIndex: mIdx,
               code: runCode,
               language: lang,
-              sessionId: activeSid || undefined,
             }),
           });
           const text = await res.text();
@@ -376,10 +368,6 @@ export default function PracticalAssignmentModal({
             data = text ? JSON.parse(text) : {};
           } catch {
             data = { error: text || `Server error (${res.status})` };
-          }
-          if (data.status === "PASSED" || data.passed || data.score >= 80) {
-            notifyAssignmentCompletion(data);
-            if (onAssignmentPassed) onAssignmentPassed(data);
           }
           return data;
         }}
