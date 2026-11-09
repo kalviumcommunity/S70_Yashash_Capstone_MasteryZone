@@ -2276,7 +2276,23 @@ async function sendCertificateAwardedEmail({
         targetPdf = flatPath;
       }
     }
-    if (targetPdf && fs.existsSync(targetPdf)) {
+
+    function isReadablePdf(p) {
+      if (!p || !fs.existsSync(p)) return false;
+      try {
+        const stat = fs.statSync(p);
+        if (stat.size < 500) return false;
+        const fd = fs.openSync(p, "r");
+        const buf = Buffer.alloc(5);
+        fs.readSync(fd, buf, 0, 5, 0);
+        fs.closeSync(fd);
+        return buf.toString("utf8") === "%PDF-";
+      } catch {
+        return false;
+      }
+    }
+
+    if (targetPdf && isReadablePdf(targetPdf)) {
       attachments.push({
         filename: `MasteryZone_${certTitle.replace(/[^a-zA-Z0-9]/g, '_')}_${certificateId}.pdf`,
         path: targetPdf,

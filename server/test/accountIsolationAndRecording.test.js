@@ -3,6 +3,7 @@ const path = require("path");
 const fs = require("fs");
 const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
+const { io: ioClient } = require("socket.io-client");
 
 process.env.NODE_ENV = "test";
 require("dotenv").config({ path: path.join(__dirname, "../.env") });
@@ -14,6 +15,7 @@ const Meeting = require("../models/Meeting");
 const Recording = require("../models/Recording");
 const CodingProgress = require("../models/CodingProgress");
 const ModuleAssessmentAttempt = require("../models/ModuleAssessmentAttempt");
+const IssuedCertificate = require("../models/IssuedCertificate");
 const { app, server } = require("../server");
 
 let testServer;
@@ -28,13 +30,18 @@ let tokenAdmin;
 const createdFiles = [];
 
 async function setup() {
-  const mongoUri = process.env.TEST_MONGODB_URI || "mongodb://127.0.0.1:27017/masteryzone";
+  const mongoUri = process.env.TEST_MONGODB_URI;
+  if (!mongoUri) {
+    console.error("FATAL: TEST_MONGODB_URI is required to run tests safely. Tests will not run against production or development database.");
+    process.exit(1);
+  }
+  const appDb = process.env.MONGODB_URI || process.env.db_url;
+  if (appDb && mongoUri.trim() === appDb.trim()) {
+    console.error("FATAL: TEST_MONGODB_URI cannot point to the application production/development database!");
+    process.exit(1);
+  }
   if (mongoose.connection.readyState === 0) {
-    try {
-      await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 3000 });
-    } catch {
-      await mongoose.connect("mongodb://127.0.0.1:27017/masteryzone", { serverSelectionTimeoutMS: 3000 });
-    }
+    await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 5000 });
   }
 
   const secret = getJwtSecret();
@@ -993,7 +1000,7 @@ async function runTests() {
         candidateName: userA.fullName,
         candidateEmail: userA.email,
         selectedMcqs: Array.from({ length: 20 }, (_, i) => ({ id: `mcq_${i}`, question: `Q${i}`, answer: "A", correctAnswer: 0 })),
-        mcqAnswers: Object.fromEntries(Array.from({ length: 20 }, (_, i) => [String(i), 0])), // 20/20 on MCQ
+        mcqAnswers: Object.fromEntries(Array.from({ length: 20 }, (_, i) => [`mcq_${i}`, 0])), // 20/20 on MCQ
         selectedCodingQuestions: [
           {
             questionId: "q_1",
@@ -1028,6 +1035,259 @@ async function runTests() {
       const data = await res.json();
       assert.strictEqual(data.finalVerdict, "FAILED", "Candidate with < 16 on Coding must FAIL even if total score is 32/40 (80%)");
       assert.strictEqual(data.certificate, null, "No certificate should be issued when coding section cutoff is not met");
+    });
+
+    await it("Compiler terminates infinite loops safely within timeout and handles runaway execution", async () => {
+      const res = await fetch(`${baseUrl}/api/coding/execute`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${tokenA}`,
+        },
+        body: JSON.stringify({
+          language: "python",
+          code: "while True:\n    pass",
+        }),
+      });
+      assert.strictEqual(res.status, 200);
+      const data = await res.json();
+      assert.strictEqual(data.exitCode, -1, "Timed out process must return exitCode -1");
+      assert.ok(data.error.includes("timed out"), "Error message must indicate timeout");
+    });
+
+    await it("Fail-closed production mode rejects unshielded execution when Judge0 is unconfigured", async () => {
+      const origEnv = process.env.NODE_ENV;
+      const origFallback = process.env.ALLOW_LOCAL_FALLBACK;
+      const origHost = process.env.JUDGE0_API_HOST;
+
+      try {
+        process.env.NODE_ENV = "production";
+        delete process.env.ALLOW_LOCAL_FALLBACK;
+        delete process.env.JUDGE0_API_HOST;
+
+        const res = await fetch(`${baseUrl}/api/coding/execute`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${tokenA}`,
+          },
+          body: JSON.stringify({
+            language: "python",
+            code: "print('production test')",
+          }),
+        });
+        assert.strictEqual(res.status, 503, "Production execution must return 503 when Judge0 is unconfigured");
+      } finally {
+        process.env.NODE_ENV = origEnv;
+        if (origFallback) process.env.ALLOW_LOCAL_FALLBACK = origFallback;
+        if (origHost) process.env.JUDGE0_API_HOST = origHost;
+      }
+    });
+
+    await it("Cross-meeting socket events are blocked: socket in Meeting A cannot access Meeting B", async () => {
+      const meetingAId = `mtg_room_alpha_${Date.now()}`;
+      const meetingBId = `mtg_room_beta_${Date.now()}`;
+
+      await Meeting.create({
+        meetingId: meetingAId,
+        title: "Meeting Alpha",
+        hostUserId: String(userA._id),
+        hostName: userA.fullName,
+        isPrivate: false,
+        status: "active",
+      });
+      await Meeting.create({
+        meetingId: meetingBId,
+        title: "Meeting Beta",
+        hostUserId: String(userB._id),
+        hostName: userB.fullName,
+        isPrivate: false,
+        status: "active",
+      });
+
+      const clientSock = ioClient(baseUrl, {
+        auth: { token: tokenA },
+        transports: ["websocket"],
+      });
+
+      await new Promise((resolve) => clientSock.on("connect", resolve));
+
+      // Join Meeting A
+      await new Promise((resolve) => {
+        clientSock.emit("join_meeting", { meetingId: meetingAId });
+        clientSock.on("meeting_joined_success", resolve);
+      });
+
+      // Attempt to send chat to Meeting B while joined in Meeting A
+      let leakedToB = false;
+      const listenerSock = ioClient(baseUrl, {
+        auth: { token: tokenB },
+        transports: ["websocket"],
+      });
+      await new Promise((resolve) => listenerSock.on("connect", resolve));
+      await new Promise((resolve) => {
+        listenerSock.emit("join_meeting", { meetingId: meetingBId });
+        listenerSock.on("meeting_joined_success", resolve);
+      });
+      listenerSock.on("meeting_chat_message_received", () => {
+        leakedToB = true;
+      });
+
+      // Socket A attempts to emit chat into meeting B
+      clientSock.emit("meeting_chat_message", { meetingId: meetingBId, text: "Unauthorized cross-meeting chat" });
+      await new Promise((r) => setTimeout(r, 200));
+
+      assert.strictEqual(leakedToB, false, "Socket in Meeting A must not be allowed to broadcast to Meeting B");
+
+      clientSock.disconnect();
+      listenerSock.disconnect();
+    });
+
+    await it("Client identity spoofing is rejected: unauthenticated client cannot claim host role by passing host userId in user payload", async () => {
+      const spoofMeetingId = `mtg_spoof_test_${Date.now()}`;
+      await Meeting.create({
+        meetingId: spoofMeetingId,
+        title: "Spoof Test Meeting",
+        hostUserId: String(userA._id),
+        hostName: userA.fullName,
+        isPrivate: false,
+        status: "active",
+      });
+
+      const unauthSock = ioClient(baseUrl, {
+        transports: ["websocket"],
+      });
+      await new Promise((resolve) => unauthSock.on("connect", resolve));
+
+      const joinResult = await new Promise((resolve) => {
+        unauthSock.emit("join_meeting", {
+          meetingId: spoofMeetingId,
+          user: { _id: String(userA._id), fullName: userA.fullName, role: "admin" },
+        });
+        unauthSock.on("meeting_joined_success", resolve);
+      });
+
+      assert.strictEqual(joinResult.isHost, false, "Unauthenticated client spoofing user._id must NOT be granted host permissions");
+      unauthSock.disconnect();
+    });
+
+    await it("Unauthorized meeting host action: participant cannot mute or kick peers", async () => {
+      const hostActionMtgId = `mtg_host_action_${Date.now()}`;
+      await Meeting.create({
+        meetingId: hostActionMtgId,
+        title: "Host Action Meeting",
+        hostUserId: String(userA._id),
+        hostName: userA.fullName,
+        isPrivate: false,
+        status: "active",
+      });
+
+      const partSock = ioClient(baseUrl, {
+        auth: { token: tokenB },
+        transports: ["websocket"],
+      });
+      await new Promise((resolve) => partSock.on("connect", resolve));
+
+      await new Promise((resolve) => {
+        partSock.emit("join_meeting", { meetingId: hostActionMtgId });
+        partSock.on("meeting_joined_success", resolve);
+      });
+
+      const errReceived = await new Promise((resolve) => {
+        partSock.emit("meeting_host_action", {
+          meetingId: hostActionMtgId,
+          action: "end_meeting",
+        });
+        partSock.on("meeting_error", (data) => resolve(data.message));
+        setTimeout(() => resolve(null), 500);
+      });
+
+      assert.ok(errReceived && errReceived.includes("host"), "Non-host action must trigger meeting_error");
+      partSock.disconnect();
+    });
+
+    await it("Certification retry & duplicate prevention: passed assessment without PDF retries cleanly and generates exactly 1 certificate", async () => {
+      const retryAttemptId = `att_retry_cert_${Date.now()}`;
+      await CertificationAttempt.create({
+        userId: userA._id,
+        attemptId: retryAttemptId,
+        certId: "cert_dsa",
+        certTitle: "DSA Certification",
+        status: "PASSED",
+        finalVerdict: "PASSED",
+        candidateName: userA.fullName,
+        candidateEmail: userA.email,
+        selectedMcqs: Array.from({ length: 20 }, (_, i) => ({ id: `mcq_${i}`, question: `Q${i}`, answer: "A", correctAnswer: 0 })),
+        mcqAnswers: Object.fromEntries(Array.from({ length: 20 }, (_, i) => [`mcq_${i}`, 0])), // 20/20 on MCQ
+        selectedCodingQuestions: [
+          {
+            questionId: "q_1",
+            title: "Question 1",
+            publicTests: [{ input: "1", expectedOutput: "1" }],
+            hiddenTests: [],
+          },
+        ],
+        codingSubmissions: [
+          {
+            questionId: "q_1",
+            code: "def solve(): return 1",
+            solved: true,
+            passedTests: 20, // 20/20 on Coding
+            totalTests: 20,
+            submittedAt: new Date(),
+          },
+        ],
+        proctoring: { status: "COMPLIANT", violationsCount: 0 },
+        certificateId: null, // PDF was not generated initially
+      });
+
+      // 1. First finalization: triggers certificate and PDF generation
+      const res1 = await fetch(`${baseUrl}/api/certifications/attempt/${retryAttemptId}/finalize`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${tokenA}`,
+        },
+        body: JSON.stringify({}),
+      });
+      assert.strictEqual(res1.status, 200);
+      const data1 = await res1.json();
+      assert.strictEqual(data1.finalVerdict, "PASSED");
+      assert.ok(data1.certificate, "Certificate must be generated and returned");
+      const generatedCertId = data1.certificate.certificateId;
+
+      // 2. Second finalization: idempotent, reuses the existing certificate without creating a duplicate
+      const res2 = await fetch(`${baseUrl}/api/certifications/attempt/${retryAttemptId}/finalize`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${tokenA}`,
+        },
+        body: JSON.stringify({}),
+      });
+      assert.strictEqual(res2.status, 200);
+      const data2 = await res2.json();
+      assert.strictEqual(data2.alreadyFinalized, true);
+      assert.strictEqual(data2.certificate.certificateId, generatedCertId);
+
+      const certCount = await IssuedCertificate.countDocuments({ attemptId: retryAttemptId });
+      assert.strictEqual(certCount, 1, "Duplicate finalization must NOT create duplicate certificate records");
+    });
+
+    await it("Recording download endpoint rejects unauthorized downloads with 403 Forbidden", async () => {
+      const res = await fetch(`${baseUrl}/api/recordings/download/${recordingAFile}`, {
+        headers: {
+          Authorization: `Bearer ${tokenB}`,
+        },
+      });
+      assert.strictEqual(res.status, 403, "User B must be forbidden from downloading User A's private recording");
+    });
+
+    await it("Test database safety: verify test isolation refuses to run if test URI matches app production URI", async () => {
+      const testUri = process.env.TEST_MONGODB_URI;
+      const appUri = process.env.MONGODB_URI || process.env.db_url;
+      assert.ok(testUri, "TEST_MONGODB_URI must be configured");
+      assert.notStrictEqual(testUri.trim(), appUri ? appUri.trim() : "", "TEST_MONGODB_URI must be strictly isolated from production DB");
     });
 
   } finally {

@@ -271,6 +271,91 @@ function runSandboxedProcess(command, args, stdinInput = "", timeoutMs = 5000, c
   });
 }
 
+const judge0LangMap = {
+  python: 71,
+  py: 71,
+  javascript: 63,
+  js: 63,
+  node: 63,
+  java: 62,
+  cpp: 54,
+  "c++": 54,
+  c: 50,
+};
+
+function isProductionExecutionRestricted() {
+  return (
+    process.env.NODE_ENV === "production" &&
+    process.env.ALLOW_LOCAL_FALLBACK !== "true" &&
+    !process.env.JUDGE0_API_HOST
+  );
+}
+
+async function executeViaJudge0(lang, code, stdin = "", timeoutMs = 5000) {
+  if (!process.env.JUDGE0_API_HOST) return null;
+  const langId = judge0LangMap[lang];
+  if (!langId) return null;
+
+  const url = new URL("/submissions?wait=true", process.env.JUDGE0_API_HOST);
+  const headers = {
+    "Content-Type": "application/json",
+  };
+  if (process.env.JUDGE0_API_KEY) {
+    headers["X-RapidAPI-Key"] = process.env.JUDGE0_API_KEY;
+    headers["X-RapidAPI-Host"] = new URL(process.env.JUDGE0_API_HOST).hostname;
+  }
+
+  const bodyData = JSON.stringify({
+    source_code: Buffer.from(code).toString("base64"),
+    language_id: langId,
+    stdin: Buffer.from(stdin || "").toString("base64"),
+    cpu_time_limit: Math.min(Math.max(Math.ceil(timeoutMs / 1000), 1), 10),
+    wall_time_limit: Math.min(Math.max(Math.ceil((timeoutMs + 2000) / 1000), 2), 15),
+    memory_limit: 128000,
+    max_file_size: 1024,
+  });
+
+  const j0Result = await new Promise((resolve, reject) => {
+    const reqModule = url.protocol === "https:" ? https : http;
+    const jReq = reqModule.request(
+      url,
+      { method: "POST", headers, timeout: timeoutMs + 3000 },
+      (jRes) => {
+        let resData = "";
+        jRes.on("data", (c) => (resData += c));
+        jRes.on("end", () => {
+          try {
+            resolve(JSON.parse(resData));
+          } catch (e) {
+            reject(e);
+          }
+        });
+      }
+    );
+    jReq.on("error", reject);
+    jReq.on("timeout", () => {
+      jReq.destroy();
+      reject(new Error("Judge0 timeout"));
+    });
+    jReq.write(bodyData);
+    jReq.end();
+  });
+
+  if (j0Result && j0Result.status) {
+    const stdout = j0Result.stdout ? Buffer.from(j0Result.stdout, "base64").toString("utf8") : "";
+    const stderr = j0Result.stderr ? Buffer.from(j0Result.stderr, "base64").toString("utf8") : "";
+    const compileOutput = j0Result.compile_output ? Buffer.from(j0Result.compile_output, "base64").toString("utf8") : "";
+    return {
+      output: stdout,
+      error: stderr || compileOutput || (j0Result.status.id > 3 ? j0Result.status.description : ""),
+      duration: Math.round(Number(j0Result.time || 0) * 1000) || 0,
+      exitCode: j0Result.status.id === 3 ? 0 : 1,
+      engine: "Judge0",
+    };
+  }
+  return null;
+}
+
 // -------------------------------------------------------------
 // POST /api/coding/execute
 // Universal Sandboxed Code Execution Service (Python, JS, Java, C, C++)
@@ -320,76 +405,15 @@ router.post("/execute", authenticateToken, async (req, res) => {
   const startTime = Date.now();
   const TIMEOUT_MS = 5000;
 
-  // 1. Optional External Judge0 Integration
+  // 1. External Judge0 Integration
   if (process.env.JUDGE0_API_HOST) {
     try {
-      const judge0LangMap = {
-        python: 71,
-        py: 71,
-        javascript: 63,
-        js: 63,
-        java: 62,
-        cpp: 54,
-        "c++": 54,
-        c: 50,
-      };
-
-      const langId = judge0LangMap[lang];
-      if (langId) {
-        const url = new URL("/submissions?wait=true", process.env.JUDGE0_API_HOST);
-        const headers = {
-          "Content-Type": "application/json",
-        };
-        if (process.env.JUDGE0_API_KEY) {
-          headers["X-RapidAPI-Key"] = process.env.JUDGE0_API_KEY;
-          headers["X-RapidAPI-Host"] = new URL(process.env.JUDGE0_API_HOST).hostname;
-        }
-
-        const bodyData = JSON.stringify({
-          source_code: Buffer.from(code).toString("base64"),
-          language_id: langId,
-          stdin: Buffer.from(stdin).toString("base64"),
+      const j0Result = await executeViaJudge0(lang, code, stdin, TIMEOUT_MS);
+      if (j0Result) {
+        return res.json({
+          ...j0Result,
+          duration: j0Result.duration || Date.now() - startTime,
         });
-
-        const j0Result = await new Promise((resolve, reject) => {
-          const reqModule = url.protocol === "https:" ? https : http;
-          const jReq = reqModule.request(
-            url,
-            { method: "POST", headers, timeout: 1800 },
-            (jRes) => {
-              let resData = "";
-              jRes.on("data", (c) => (resData += c));
-              jRes.on("end", () => {
-                try {
-                  resolve(JSON.parse(resData));
-                } catch (e) {
-                  reject(e);
-                }
-              });
-            }
-          );
-          jReq.on("error", reject);
-          jReq.on("timeout", () => {
-            jReq.destroy();
-            reject(new Error("Judge0 timeout"));
-          });
-          jReq.write(bodyData);
-          jReq.end();
-        });
-
-        if (j0Result && j0Result.status) {
-          const stdout = j0Result.stdout ? Buffer.from(j0Result.stdout, "base64").toString("utf8") : "";
-          const stderr = j0Result.stderr ? Buffer.from(j0Result.stderr, "base64").toString("utf8") : "";
-          const compileOutput = j0Result.compile_output ? Buffer.from(j0Result.compile_output, "base64").toString("utf8") : "";
-
-          return res.json({
-            output: stdout,
-            error: stderr || compileOutput || (j0Result.status.id > 3 ? j0Result.status.description : ""),
-            duration: Math.round(Number(j0Result.time || 0) * 1000) || Date.now() - startTime,
-            exitCode: j0Result.status.id === 3 ? 0 : 1,
-            engine: "Judge0",
-          });
-        }
       }
     } catch (j0Err) {
       console.warn("Judge0 call failed:", j0Err.message);
@@ -402,16 +426,12 @@ router.post("/execute", authenticateToken, async (req, res) => {
           engine: "Judge0",
         });
       }
-      // Fall through to local sandboxed execution with isolated environment
+      // Fall through to local sandboxed execution if permitted
     }
   }
 
   // Production sandbox check: require Judge0 unless local fallback explicitly enabled
-  if (
-    process.env.NODE_ENV === "production" &&
-    process.env.ALLOW_LOCAL_FALLBACK !== "true" &&
-    !process.env.JUDGE0_API_HOST
-  ) {
+  if (isProductionExecutionRestricted()) {
     return res.status(503).json({
       error: "Production execution requires a configured isolated execution environment (Judge0).",
       engine: "Security Sandbox Validator",
@@ -1004,6 +1024,51 @@ async function evaluateTestCasesBatch(language, code, testCases) {
       return JSON.parse(JSON.stringify(batchEvaluationCache.get(cacheKey)));
     }
   } catch {}
+
+  // Fail-closed production policy check
+  if (isProductionExecutionRestricted()) {
+    return testCases.map((tc) => ({
+      passed: false,
+      actual: "",
+      expected: String(tc.expectedOutput !== undefined ? tc.expectedOutput : (tc.expected || "")).trim(),
+      error: "Production execution requires a configured isolated execution environment (Judge0). Local fallback is disabled.",
+      duration: 0,
+    }));
+  }
+
+  // Remote Judge0 execution when configured
+  if (process.env.JUDGE0_API_HOST) {
+    try {
+      const j0Results = await Promise.all(
+        testCases.map((tc) => executeViaJudge0(lang, safeCode, tc.input || "", 4000))
+      );
+      if (j0Results.every((r) => r !== null)) {
+        return testCases.map((tc, i) => {
+          const res = j0Results[i];
+          const actual = (res.output || "").trim();
+          const expected = String(tc.expectedOutput !== undefined ? tc.expectedOutput : (tc.expected || "")).trim();
+          const passed = res.exitCode === 0 && !res.error && actual === expected;
+          return {
+            passed,
+            actual,
+            expected,
+            error: res.error,
+            duration: res.duration,
+          };
+        });
+      }
+    } catch (j0Err) {
+      if (process.env.NODE_ENV === "production" && process.env.ALLOW_LOCAL_FALLBACK !== "true") {
+        return testCases.map((tc) => ({
+          passed: false,
+          actual: "",
+          expected: String(tc.expectedOutput !== undefined ? tc.expectedOutput : (tc.expected || "")).trim(),
+          error: "Isolated execution sandbox (Judge0) is temporarily unavailable.",
+          duration: 0,
+        }));
+      }
+    }
+  }
 
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "mz_judge_"));
   const timeoutMs = 4000;
@@ -6177,5 +6242,7 @@ router.evaluateTestCasesBatch = evaluateTestCasesBatch;
 router.runSandboxedProcess = runSandboxedProcess;
 router.terminateProcessTree = terminateProcessTree;
 router.validateCodeSafety = validateCodeSafety;
+router.executeViaJudge0 = executeViaJudge0;
+router.isProductionExecutionRestricted = isProductionExecutionRestricted;
 
 module.exports = router;

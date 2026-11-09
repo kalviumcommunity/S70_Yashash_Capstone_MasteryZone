@@ -2,7 +2,7 @@ const PDFDocument = require("pdfkit");
 const fs = require("fs");
 const path = require("path");
 
-const CERTIFICATES_DIR = path.join(__dirname, "../uploads/certificates");
+const CERTIFICATES_DIR = process.env.CERTIFICATES_STORAGE_PATH || process.env.CERTIFICATES_DIR || path.join(__dirname, "../uploads/certificates");
 if (!fs.existsSync(CERTIFICATES_DIR)) {
   fs.mkdirSync(CERTIFICATES_DIR, { recursive: true });
 }

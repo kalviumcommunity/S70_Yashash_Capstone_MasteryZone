@@ -25,6 +25,67 @@ const runSandboxedProcess = codingRoutes.runSandboxedProcess;
 const PYTHON_BIN = fs.existsSync("/usr/bin/python3") ? "/usr/bin/python3" : "python3";
 const NODE_BIN = fs.existsSync("/usr/local/bin/node") ? "/usr/local/bin/node" : "node";
 
+function isValidPdfFile(filePath) {
+  if (!filePath || !fs.existsSync(filePath)) return false;
+  try {
+    const stat = fs.statSync(filePath);
+    if (stat.size < 500) return false;
+    const buf = Buffer.alloc(5);
+    const fd = fs.openSync(filePath, "r");
+    fs.readSync(fd, buf, 0, 5, 0);
+    fs.closeSync(fd);
+    return buf.toString("utf8") === "%PDF-";
+  } catch {
+    return false;
+  }
+}
+
+function calculateCertificationVerdict(attempt) {
+  let mcqScore = 0;
+  const totalMcqs = attempt.selectedMcqs?.length || 20;
+  const mcqAnswersMap = attempt.mcqAnswers || new Map();
+
+  (attempt.selectedMcqs || []).forEach((q) => {
+    const candidateAns = mcqAnswersMap.get ? mcqAnswersMap.get(String(q.id)) : mcqAnswersMap[String(q.id)];
+    if (candidateAns !== undefined && candidateAns !== null && Number(candidateAns) === Number(q.correctAnswer)) {
+      mcqScore++;
+    }
+  });
+
+  const mcqPercentage = Math.round((mcqScore / totalMcqs) * 100);
+
+  const codingSubmissions = attempt.codingSubmissions || [];
+  let passedCodingTests = 0;
+  codingSubmissions.forEach((s) => {
+    passedCodingTests += Number(s.passedTests || 0);
+  });
+
+  const totalMaxMarks = 40;
+  const totalMarksObtained = mcqScore + passedCodingTests;
+  const finalScorePercentage = Math.round((totalMarksObtained / totalMaxMarks) * 100);
+
+  const mcqPassed = mcqScore >= 16;
+  const codingPassed = passedCodingTests >= 16;
+  const violationsCount = attempt.proctoring?.violationsCount || 0;
+  const proctoringPassed = attempt.proctoring?.status !== "FLAGGED" && violationsCount <= 5;
+  const passed = finalScorePercentage >= 80 && mcqPassed && codingPassed && proctoringPassed;
+  const finalVerdict = passed ? "PASSED" : "FAILED";
+
+  return {
+    mcqScore,
+    mcqPercentage,
+    passedCodingTests,
+    totalMaxMarks,
+    totalMarksObtained,
+    finalScorePercentage,
+    mcqPassed,
+    codingPassed,
+    proctoringPassed,
+    passed,
+    finalVerdict,
+  };
+}
+
 // -------------------------------------------------------------
 // HELPER: Shuffle array without replacement (Fisher-Yates)
 // -------------------------------------------------------------
@@ -960,59 +1021,68 @@ router.post("/attempt/:attemptId/finalize", authenticateToken, async (req, res) 
       }
     }
 
-    // Idempotency: if already submitted, return the final result
-    if (attempt.status === "PASSED" || attempt.status === "FAILED") {
-      const existingCert = attempt.certificateId
-        ? await IssuedCertificate.findOne({ certificateId: attempt.certificateId })
-        : null;
+    const verdict = calculateCertificationVerdict(attempt);
 
-      return res.json({
-        success: true,
-        alreadyFinalized: true,
-        attemptId: attempt.attemptId,
-        finalVerdict: attempt.finalVerdict,
-        score: attempt.score || attempt.totalMarksObtained,
-        percentage: attempt.percentage || attempt.finalScorePercentage,
-        mcqScore: attempt.mcqScore,
-        mcqPassed: attempt.mcqPassed,
-        codingPassed: attempt.codingSubmissions.every((s) => s.solved),
-        proctoringPassed: attempt.proctoring.status === "COMPLIANT",
-        certificate: existingCert,
-      });
+    // Idempotency: if already finalized with valid certificate and valid PDF on disk
+    if (attempt.status === "PASSED" || attempt.status === "FAILED") {
+      let existingCert = attempt.certificateId
+        ? await IssuedCertificate.findOne({ certificateId: attempt.certificateId })
+        : await IssuedCertificate.findOne({ attemptId: attempt.attemptId });
+
+      let certPdfValid = false;
+      if (existingCert) {
+        const userScopedDir = attempt.userId ? path.join(CERTIFICATES_DIR, String(attempt.userId)) : null;
+        const userScopedPath = userScopedDir ? path.join(userScopedDir, `${existingCert.certificateId}.pdf`) : null;
+        const flatPath = path.join(CERTIFICATES_DIR, `${existingCert.certificateId}.pdf`);
+        certPdfValid = (userScopedPath && isValidPdfFile(userScopedPath)) || isValidPdfFile(flatPath);
+      }
+
+      if (attempt.status === "FAILED" || (attempt.finalVerdict === "FAILED" && !verdict.passed)) {
+        return res.json({
+          success: true,
+          alreadyFinalized: true,
+          attemptId: attempt.attemptId,
+          finalVerdict: "FAILED",
+          score: verdict.totalMarksObtained,
+          percentage: verdict.finalScorePercentage,
+          mcqScore: verdict.mcqScore,
+          mcqPassed: verdict.mcqPassed,
+          codingPassed: verdict.codingPassed,
+          proctoringPassed: verdict.proctoringPassed,
+          certificate: null,
+        });
+      }
+
+      if (attempt.status === "PASSED" && existingCert && certPdfValid) {
+        return res.json({
+          success: true,
+          alreadyFinalized: true,
+          attemptId: attempt.attemptId,
+          finalVerdict: "PASSED",
+          score: verdict.totalMarksObtained,
+          percentage: verdict.finalScorePercentage,
+          mcqScore: verdict.mcqScore,
+          mcqPassed: verdict.mcqPassed,
+          codingPassed: verdict.codingPassed,
+          proctoringPassed: verdict.proctoringPassed,
+          certificate: existingCert,
+        });
+      }
+      // Passed assessment without valid generated PDF is retryable!
     }
 
-    // 1. Grade MCQs against server-side stored answer keys (20 MCQs = 20 Marks)
-    let mcqScore = 0;
-    const totalMcqs = attempt.selectedMcqs.length || 20;
-    const mcqAnswersMap = attempt.mcqAnswers || new Map();
-
-    attempt.selectedMcqs.forEach((q) => {
-      const candidateAns = mcqAnswersMap.get ? mcqAnswersMap.get(String(q.id)) : mcqAnswersMap[String(q.id)];
-      if (candidateAns !== undefined && candidateAns !== null && Number(candidateAns) === Number(q.correctAnswer)) {
-        mcqScore++;
-      }
-    });
-
-    const mcqPercentage = Math.round((mcqScore / totalMcqs) * 100);
-
-    // 2. Grade Coding Questions (2 Coding Questions with 10 Test Cases each = 20 Marks)
-    const codingSubmissions = attempt.codingSubmissions || [];
-    let passedCodingTests = 0;
-    codingSubmissions.forEach((s) => {
-      passedCodingTests += Number(s.passedTests || 0);
-    });
-
-    // 3. Combined Grading (20 MCQs + 20 Coding Tests = 40 Total Marks)
-    const totalMaxMarks = 40;
-    const totalMarksObtained = mcqScore + passedCodingTests;
-    const finalScorePercentage = Math.round((totalMarksObtained / totalMaxMarks) * 100);
-
-    // 4. Combined Passing Threshold: Combined Result >= 80% (>= 32/40 marks) + MCQ >= 16 + Coding >= 16 + Proctoring <= 5 violations
-    const mcqPassed = mcqScore >= 16;
-    const codingPassed = passedCodingTests >= 16;
-    const proctoringPassed = attempt.proctoring.status !== "FLAGGED" && (attempt.proctoring.violationsCount || 0) <= 5;
-    const passed = finalScorePercentage >= 80 && mcqPassed && codingPassed && proctoringPassed;
-    const finalVerdict = passed ? "PASSED" : "FAILED";
+    // Authoritative grading using single standard calculation
+    const mcqScore = verdict.mcqScore;
+    const mcqPercentage = verdict.mcqPercentage;
+    const passedCodingTests = verdict.passedCodingTests;
+    const totalMaxMarks = verdict.totalMaxMarks;
+    const totalMarksObtained = verdict.totalMarksObtained;
+    const finalScorePercentage = verdict.finalScorePercentage;
+    const mcqPassed = verdict.mcqPassed;
+    const codingPassed = verdict.codingPassed;
+    const proctoringPassed = verdict.proctoringPassed;
+    const passed = verdict.passed;
+    const finalVerdict = verdict.finalVerdict;
 
     attempt.status = finalVerdict;
     attempt.finalVerdict = finalVerdict;
@@ -1024,56 +1094,62 @@ router.post("/attempt/:attemptId/finalize", authenticateToken, async (req, res) 
     attempt.totalMarksObtained = totalMarksObtained;
     attempt.totalMaxMarks = totalMaxMarks;
     attempt.finalScorePercentage = finalScorePercentage;
-    attempt.submittedAt = new Date();
+    attempt.submittedAt = attempt.submittedAt || new Date();
 
     let issuedCert = null;
 
     if (passed) {
       // 5. Issue Certificate (Idempotent: check if already exists for this attempt)
       let certificate = await IssuedCertificate.findOne({ attemptId: attempt.attemptId });
-
-      if (!certificate) {
+      let certificateId = certificate?.certificateId;
+      if (!certificateId) {
         const uniqueSuffix = Math.random().toString(36).substring(2, 8).toUpperCase();
-        const certificateId = `MZ-DSA-2026-${uniqueSuffix}`;
-        const verificationUrl = `${req.protocol}://${req.get("host")}/verify/${certificateId}`;
+        certificateId = `MZ-DSA-2026-${uniqueSuffix}`;
+      }
+      const verificationUrl = `${req.protocol}://${req.get("host")}/verify/${certificateId}`;
 
-        // Generate and physically verify the PDF file BEFORE creating the certificate record or marking completed
-        let fileWritten = false;
+      const userScopedDir = attempt.userId ? path.join(CERTIFICATES_DIR, String(attempt.userId)) : null;
+      const userScopedPath = userScopedDir ? path.join(userScopedDir, `${certificateId}.pdf`) : null;
+      const flatPath = path.join(CERTIFICATES_DIR, `${certificateId}.pdf`);
+
+      let fileWritten = (userScopedPath && isValidPdfFile(userScopedPath)) || isValidPdfFile(flatPath);
+
+      if (!fileWritten) {
         try {
           await generateCertificatePDF({
             certificateId,
             userId: attempt.userId,
             recipientName: attempt.candidateName,
             certificationTitle: attempt.certTitle,
-            issueDate: new Date(),
+            issueDate: certificate?.issueDate || new Date(),
             mcqScore,
             mcqPercentage,
             codingScore: `${passedCodingTests}/20 Tests Passed`,
             finalGradePercentage: finalScorePercentage,
             verificationUrl,
           });
-          const userScopedDir = attempt.userId ? path.join(CERTIFICATES_DIR, String(attempt.userId)) : null;
-          const userScopedPath = userScopedDir ? path.join(userScopedDir, `${certificateId}.pdf`) : null;
-          const flatPath = path.join(CERTIFICATES_DIR, `${certificateId}.pdf`);
-          fileWritten = (userScopedPath && fs.existsSync(userScopedPath)) || fs.existsSync(flatPath);
+          fileWritten = (userScopedPath && isValidPdfFile(userScopedPath)) || isValidPdfFile(flatPath);
         } catch (pdfErr) {
           console.warn("PDF generation error:", pdfErr.message);
           fileWritten = false;
         }
+      }
 
-        if (!fileWritten) {
-          // If PDF generation fails, do not mark completed or issue certificate; return recoverable error
-          await attempt.save();
-          return res.status(500).json({
-            success: false,
-            error: "Certificate PDF generation failed. Your assessment score has been saved; please retry finalization to issue your certificate.",
-            retryable: true,
-            finalVerdict,
-            score: totalMarksObtained,
-            percentage: finalScorePercentage,
-          });
-        }
+      if (!fileWritten) {
+        // If PDF generation fails, do not mark completed or issue certificate; return recoverable error
+        attempt.status = "IN_PROGRESS";
+        await attempt.save();
+        return res.status(500).json({
+          success: false,
+          error: "Certificate PDF generation failed. Your assessment score has been saved; please retry finalization to issue your certificate.",
+          retryable: true,
+          finalVerdict,
+          score: totalMarksObtained,
+          percentage: finalScorePercentage,
+        });
+      }
 
+      if (!certificate) {
         certificate = new IssuedCertificate({
           certificateId,
           attemptId: attempt.attemptId,
@@ -1090,7 +1166,9 @@ router.post("/attempt/:attemptId/finalize", authenticateToken, async (req, res) 
           pdfGenerated: true,
           status: "VALID",
         });
-
+        await certificate.save();
+      } else {
+        certificate.pdfGenerated = true;
         await certificate.save();
       }
 
@@ -1148,7 +1226,7 @@ router.post("/attempt/:attemptId/finalize", authenticateToken, async (req, res) 
         const userScopedDir = attempt.userId ? path.join(CERTIFICATES_DIR, String(attempt.userId)) : null;
         const userScopedPath = userScopedDir ? path.join(userScopedDir, `${certificate.certificateId}.pdf`) : null;
         const flatPath = path.join(CERTIFICATES_DIR, `${certificate.certificateId}.pdf`);
-        const targetPdf = (userScopedPath && fs.existsSync(userScopedPath)) ? userScopedPath : flatPath;
+        const targetPdf = (userScopedPath && isValidPdfFile(userScopedPath)) ? userScopedPath : (isValidPdfFile(flatPath) ? flatPath : null);
 
         if (recipientEmail && !isGuestAccount(recipientEmail)) {
           dispatchMailBackground(async () => {
@@ -1265,12 +1343,12 @@ router.post("/attempt/:attemptId/finalize", authenticateToken, async (req, res) 
         mcqTotal: 20,
         mcqPercentage,
         mcqPassed,
-        codingSolvedCount: codingSubmissions.filter((s) => s.solved).length,
+        codingSolvedCount: (attempt.codingSubmissions || []).filter((s) => s.solved).length,
         codingPassed,
         passedAll: passed,
       },
       proctoringAudit: attempt.proctoring,
-      codingSubmissions: attempt.codingSubmissions.map((s) => ({
+      codingSubmissions: (attempt.codingSubmissions || []).map((s) => ({
         questionId: s.questionId,
         solved: s.solved,
         passedTests: s.passedTests,
@@ -1279,7 +1357,7 @@ router.post("/attempt/:attemptId/finalize", authenticateToken, async (req, res) 
       certificate: issuedCert,
       message: passed
         ? `Congratulations ${attempt.candidateName}! You have successfully earned your official ${attempt.certTitle} credential.`
-        : `Assessment not passed. You scored ${mcqScore}/20 on MCQs (min 16 required) and solved ${codingSubmissions.filter((s) => s.solved).length}/2 coding challenges. Review the syllabus and try again.`,
+        : `Assessment not passed. You scored ${mcqScore}/20 on MCQs (min 16 required) and solved ${(attempt.codingSubmissions || []).filter((s) => s.solved).length}/2 coding challenges. Review the syllabus and try again.`,
     });
   } catch (err) {
     console.error("Finalization error:", err);
