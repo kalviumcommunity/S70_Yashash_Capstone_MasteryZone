@@ -25,20 +25,45 @@ const runSandboxedProcess = codingRoutes.runSandboxedProcess;
 const PYTHON_BIN = fs.existsSync("/usr/bin/python3") ? "/usr/bin/python3" : "python3";
 const NODE_BIN = fs.existsSync("/usr/local/bin/node") ? "/usr/local/bin/node" : "node";
 
-function isValidPdfFile(filePath) {
-  if (!filePath || !fs.existsSync(filePath)) return false;
+function parseAndValidatePdfStructure(filePath) {
+  if (!filePath || typeof filePath !== "string" || !fs.existsSync(filePath)) return false;
   try {
     const stat = fs.statSync(filePath);
-    if (stat.size < 500) return false;
-    const buf = Buffer.alloc(5);
+    if (!stat.isFile() || stat.size < 500) return false;
+
+    // 1. Verify %PDF- magic signature in header
+    const headerBuf = Buffer.alloc(1024);
     const fd = fs.openSync(filePath, "r");
-    fs.readSync(fd, buf, 0, 5, 0);
+    const bytesRead = fs.readSync(fd, headerBuf, 0, Math.min(1024, stat.size), 0);
+    const headerStr = headerBuf.toString("utf8", 0, bytesRead);
+    if (!headerStr.includes("%PDF-")) {
+      fs.closeSync(fd);
+      return false;
+    }
+
+    // 2. Verify %%EOF trailer marker in trailing bytes
+    const tailSize = Math.min(2048, stat.size);
+    const tailBuf = Buffer.alloc(tailSize);
+    fs.readSync(fd, tailBuf, 0, tailSize, stat.size - tailSize);
     fs.closeSync(fd);
-    return buf.toString("utf8") === "%PDF-";
+    const tailStr = tailBuf.toString("utf8");
+    if (!tailStr.includes("%%EOF") && !tailStr.includes("%EOF")) {
+      return false;
+    }
+
+    // 3. Verify real structural objects (/Catalog, /Pages, and xref)
+    const content = fs.readFileSync(filePath, "binary");
+    const hasCatalog = content.includes("/Catalog");
+    const hasPages = content.includes("/Pages");
+    const hasXRef = content.includes("xref") || content.includes("/XRef");
+
+    return hasCatalog && hasPages && hasXRef;
   } catch {
     return false;
   }
 }
+
+const isValidPdfFile = parseAndValidatePdfStructure;
 
 function calculateCertificationVerdict(attempt) {
   let mcqScore = 0;
@@ -1369,7 +1394,7 @@ router.post("/attempt/:attemptId/finalize", authenticateToken, async (req, res) 
 // 9. GET /api/certifications/attempt/:attemptId/report
 // Returns complete verified assessment report
 // -------------------------------------------------------------
-router.get("/attempt/:attemptId/report", optionalAuthenticateToken, async (req, res) => {
+router.get("/attempt/:attemptId/report", authenticateToken, async (req, res) => {
   try {
     const mongoose = require("mongoose");
     const rawAttemptId = (req.params.attemptId || "").trim();
@@ -1390,12 +1415,11 @@ router.get("/attempt/:attemptId/report", optionalAuthenticateToken, async (req, 
 
     // Strict account isolation: verify candidate ownership or admin privileges
     const callerUserId = req.user ? String(req.user.userId || req.user.id || req.user._id || "") : null;
-    const isPrivileged = req.user?.role === "admin" || req.user?.role === "SUPER_ADMIN";
-    if (attempt.userId) {
-      const ownerId = String(attempt.userId);
-      if (!callerUserId || (!isPrivileged && callerUserId !== ownerId)) {
-        return res.status(403).json({ error: "Access denied. You do not have permission to view this certification report." });
-      }
+    const isPrivileged = req.user?.role === "admin" || req.user?.role === "SUPER_ADMIN" || req.user?.isMainAdmin;
+    const ownerId = attempt.userId ? String(attempt.userId) : null;
+
+    if (!isPrivileged && (!ownerId || callerUserId !== ownerId)) {
+      return res.status(403).json({ error: "Access denied. You do not have permission to view this certification report." });
     }
 
     // Enrich candidate details with actual registered user if available

@@ -22,22 +22,15 @@ const { pushNotification } = require("../utils/notificationService");
 const { pushAdminNotification } = require("../utils/adminNotificationService");
 const { sendSubmissionEvaluationEmail, dispatchMailBackground, isGuestAccount } = require("../utils/mailer");
 
-const JAVAC_BIN = fs.existsSync("/opt/homebrew/Cellar/openjdk/26.0.2.1/bin/javac")
-  ? "/opt/homebrew/Cellar/openjdk/26.0.2.1/bin/javac"
-  : fs.existsSync("/usr/local/bin/javac")
-  ? "/usr/local/bin/javac"
-  : "javac";
-
-const JAVA_BIN = fs.existsSync("/opt/homebrew/Cellar/openjdk/26.0.2.1/bin/java")
-  ? "/opt/homebrew/Cellar/openjdk/26.0.2.1/bin/java"
-  : fs.existsSync("/usr/local/bin/java")
-  ? "/usr/local/bin/java"
-  : "java";
-
-const PYTHON_BIN = fs.existsSync("/usr/bin/python3") ? "/usr/bin/python3" : "python3";
-const NODE_BIN = fs.existsSync("/usr/local/bin/node") ? "/usr/local/bin/node" : "node";
-
-const { runSandboxedProcess, validateCodeSafety } = require("./codingRoutes");
+const {
+  runSandboxedProcess,
+  validateCodeSafety,
+  isProductionExecutionRestricted,
+  JAVAC_BIN,
+  JAVA_BIN,
+  PYTHON_BIN,
+  NODE_BIN,
+} = require("../services/codeExecutionService");
 
 function resolveUserId(req) {
   return String(req.user?.userId || req.user?.id || req.user?._id || "").trim();
@@ -95,6 +88,17 @@ function isStarterOrEmpty(project, submittedFiles) {
 async function prepareMultiFileSandbox(project, files) {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "mz_proj_"));
   const lang = String(project.starterLanguage || "javascript").toLowerCase();
+
+  if (isProductionExecutionRestricted()) {
+    return {
+      ok: false,
+      isUnavailable: true,
+      compileError: "Production execution requires a configured isolated execution environment (Judge0).",
+      cleanup: () => {
+        try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+      },
+    };
+  }
 
   try {
     for (const file of files) {
@@ -157,7 +161,7 @@ async function prepareMultiFileSandbox(project, files) {
       }
       return {
         ok: true,
-        runInput: (stdin) => runSandboxedProcess(JAVA_BIN, ["-cp", tmpDir, "Main"], stdin, 4000, tmpDir),
+        runInput: (stdin) => runSandboxedProcess(JAVA_BIN, ["-Xmx128m", "-cp", tmpDir, "Main"], stdin, 4000, tmpDir),
         cleanup: () => {
           try {
             fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -192,7 +196,7 @@ async function prepareMultiFileSandbox(project, files) {
     return {
       ok: true,
       runInput: (stdin) =>
-        runSandboxedProcess(NODE_BIN, [path.join(tmpDir, path.basename(entryFile))], stdin, 4000, tmpDir),
+        runSandboxedProcess(NODE_BIN, ["--max-old-space-size=128", path.join(tmpDir, path.basename(entryFile))], stdin, 4000, tmpDir),
       cleanup: () => {
         try {
           fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -1067,6 +1071,15 @@ router.post("/:projectId/run", authenticateToken, async (req, res) => {
       const sandbox = await prepareMultiFileSandbox(project, normalizedFiles);
       try {
         if (!sandbox.ok) {
+          if (sandbox.isUnavailable) {
+            return res.status(503).json({
+              success: false,
+              mode: "custom",
+              output: "",
+              error: sandbox.compileError,
+              durationMs: 0,
+            });
+          }
           return res.json({
             success: false,
             mode: "custom",

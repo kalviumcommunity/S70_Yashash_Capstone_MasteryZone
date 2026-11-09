@@ -189,6 +189,13 @@ async function validateMediaIntegrity(filePath, buffer) {
     return { valid: false, error: "No decodable media streams found in recording." };
   }
 
+  if (process.env.NODE_ENV === "production") {
+    return {
+      valid: false,
+      error: "Production media validation requires FFprobe/FFmpeg. Binary fallback disabled in production.",
+    };
+  }
+
   return inspectMediaBinary(buffer);
 }
 
