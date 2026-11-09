@@ -82,6 +82,24 @@ io.on("connection", (socket) => {
       const decoded = jwt.verify(cleanToken, getJwtSecret());
       const uid = String(decoded.userId || decoded.id || decoded._id || "").trim();
       if (uid) {
+        const oldUid = socket.data.userId;
+        if (oldUid && oldUid !== uid) {
+          // Leave old user's private notification and session room
+          socket.leave(`user_${oldUid}`);
+          console.log(`🔌 Socket ${socket.id} left previous room user_${oldUid} on account switch`);
+          // Leave any user-specific ticket rooms or admin rooms previously joined
+          for (const roomName of socket.rooms) {
+            if (roomName.startsWith("ticket_") || roomName === "super_admin_room") {
+              socket.leave(roomName);
+            }
+          }
+          // Clean up old user session in super admin monitor
+          if (activeUserSessions.has(socket.id)) {
+            const sess = activeUserSessions.get(socket.id);
+            activeUserSessions.delete(socket.id);
+            io.to("super_admin_room").emit("live_session_ended", { socketId: socket.id, userId: sess?.userId });
+          }
+        }
         socket.data.userId = uid;
         socket.data.userRole = decoded.role || "user";
         socket.data.userEmail = decoded.email || "";
@@ -99,6 +117,28 @@ io.on("connection", (socket) => {
   if (socket.handshake?.auth?.token) {
     joinUserRoomFromToken(socket.handshake.auth.token);
   }
+
+  // Explicit socket logout & room purge on sign out
+  socket.on("logout_user_session", () => {
+    const oldUid = socket.data.userId;
+    if (oldUid) {
+      socket.leave(`user_${oldUid}`);
+      for (const roomName of socket.rooms) {
+        if (roomName.startsWith("ticket_") || roomName === "super_admin_room") {
+          socket.leave(roomName);
+        }
+      }
+      if (activeUserSessions.has(socket.id)) {
+        const sess = activeUserSessions.get(socket.id);
+        activeUserSessions.delete(socket.id);
+        io.to("super_admin_room").emit("live_session_ended", { socketId: socket.id, userId: sess?.userId });
+      }
+      delete socket.data.userId;
+      delete socket.data.userRole;
+      delete socket.data.userEmail;
+      console.log(`🔌 Socket ${socket.id} logged out and purged private rooms for user_${oldUid}`);
+    }
+  });
 
   // Authenticated user room registration for real-time notifications & progress updates
   socket.on("register_user_session", (payload) => {

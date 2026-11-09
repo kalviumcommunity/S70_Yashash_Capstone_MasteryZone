@@ -1,5 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import { performGlobalLogout } from "../utils/sessionAuth";
 import {
   LuUser,
   LuTrendingUp,
@@ -227,9 +228,7 @@ export default function UserProfileDropdown({
           if (typeof onLogout === "function") {
             onLogout();
           } else {
-            localStorage.removeItem("token");
-            localStorage.removeItem("Step2Dev_token");
-            navigate("/login");
+            performGlobalLogout();
           }
         }}
       >
