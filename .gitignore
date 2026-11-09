@@ -3,3 +3,15 @@ scratch/
 *.env
 *.env.*
 .DS_Store
+
+# User generated uploads (Strictly private)
+server/uploads/recordings/*
+!server/uploads/recordings/.gitkeep
+server/uploads/certificates/*
+!server/uploads/certificates/.gitkeep
+server/uploads/evidence/*
+!server/uploads/evidence/.gitkeep
+server/uploads/support_attachments/*
+!server/uploads/support_attachments/.gitkeep
+uploads/
+

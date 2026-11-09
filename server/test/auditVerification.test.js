@@ -142,11 +142,26 @@ async function runTests() {
     assert.strictEqual(req.user.userId, "user_abc");
   });
 
-  // --- 4. Database Config Safety ---
+  // --- 4. Database Config & Secret Safety ---
   test("Database URI avoids hardcoded production Atlas credentials in tracked code", () => {
     const fs = require("fs");
     const serverCode = fs.readFileSync(path.join(__dirname, "../server.js"), "utf8");
     assert.strictEqual(serverCode.includes("ATLAS_FALLBACK_URI"), false);
+  });
+
+  test("Admin Bootstrap does not contain hardcoded default password", () => {
+    const fs = require("fs");
+    const bootstrapCode = fs.readFileSync(path.join(__dirname, "../bootstrap/adminBootstrap.js"), "utf8");
+    assert.strictEqual(bootstrapCode.includes("miqtinlszsdfayvi"), false, "Insecure password must be removed");
+  });
+
+  test("Gitignore blocks user uploaded recordings, certificates, and evidence", () => {
+    const fs = require("fs");
+    const gitignore = fs.readFileSync(path.join(__dirname, "../../.gitignore"), "utf8");
+    assert(gitignore.includes("server/uploads/recordings/*"));
+    assert(gitignore.includes("server/uploads/certificates/*"));
+    assert(gitignore.includes("server/uploads/evidence/*"));
+    assert(gitignore.includes("server/uploads/support_attachments/*"));
   });
 
   // --- 5. Proctoring Rules & Constraints ---

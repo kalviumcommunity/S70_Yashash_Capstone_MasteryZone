@@ -1164,14 +1164,19 @@ app.use('/proctoring-evidence', (req, res, next) => {
   }
 });
 
-// Generic Uploads: Prevent Direct Access to Evidence/Recordings/Certificates subdirectories
+// Generic Uploads: Prevent Direct Access to Evidence/Recordings/Certificates/Support subdirectories
 app.use('/uploads', (req, res, next) => {
   const norm = path.normalize(req.path);
-  if (norm.startsWith('/evidence') || norm.startsWith('/recordings') || norm.startsWith('/certificates')) {
+  if (
+    norm.startsWith('/evidence') ||
+    norm.startsWith('/recordings') ||
+    norm.startsWith('/certificates') ||
+    norm.startsWith('/support_attachments')
+  ) {
     return res.status(403).json({ message: "Access forbidden. Use dedicated authorized endpoints." });
   }
-  next();
-}, express.static(path.join(__dirname, 'uploads')));
+  return res.status(403).json({ message: "Direct public upload access forbidden." });
+});
 app.use("/api", router);
 
 const PRIMARY_MONGO_URI = process.env.MONGODB_URI || process.env.db_url;

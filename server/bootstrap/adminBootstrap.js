@@ -9,22 +9,35 @@ const MAIN_ADMIN_EMAIL = (
   .toLowerCase()
   .trim();
 
-const MAIN_ADMIN_RAW_PASS = process.env.ADMIN_PASSWORD || "miqtinlszsdfayvi";
+const MAIN_ADMIN_RAW_PASS = process.env.ADMIN_PASSWORD;
 
 /**
  * Ensures the designated Main Admin (yashashyashash1@gmail.com) is initialized,
  * verified with role SUPER_ADMIN, isMainAdmin: true, and full permissions.
- * Preserves secondary admins and legacy accounts without destructive wipes.
+ * Preserves secondary admins, existing passwords, and legacy accounts without destructive wipes.
  */
 async function bootstrapSuperAdmin() {
   try {
     console.log(`🔐 Verifying Main Admin account (${MAIN_ADMIN_EMAIL})...`);
 
     let mainAdmin = await User.findOne({ email: MAIN_ADMIN_EMAIL });
-    const hashedPassword = await bcrypt.hash(MAIN_ADMIN_RAW_PASS, 10);
 
     if (!mainAdmin) {
+      // Missing password credentials handling
+      let rawPass = MAIN_ADMIN_RAW_PASS;
+      if (!rawPass) {
+        if (process.env.NODE_ENV === "production") {
+          console.error("❌ Configuration Error: ADMIN_PASSWORD environment variable is required to initialize the production Main Admin account.");
+          return null;
+        } else {
+          // Non-production test/development fallback
+          rawPass = process.env.TEST_ADMIN_PASSWORD || "TestAdminSecure2026!";
+          console.warn("⚠️ ADMIN_PASSWORD not configured. Using non-production development credentials.");
+        }
+      }
+
       console.log(`✨ Initializing designated Main Admin account: ${MAIN_ADMIN_EMAIL}`);
+      const hashedPassword = await bcrypt.hash(rawPass, 10);
       let username = "main_admin";
       const existingUsername = await User.findOne({ username });
       if (existingUsername) {
@@ -63,12 +76,9 @@ async function bootstrapSuperAdmin() {
         needsSave = true;
       }
 
-      // Synchronize configured environment password
-      const passMatch = await bcrypt.compare(MAIN_ADMIN_RAW_PASS, mainAdmin.password);
-      if (!passMatch) {
-        mainAdmin.password = hashedPassword;
-        needsSave = true;
-      }
+      // DO NOT reset or overwrite an existing admin's password during startup.
+      // Passwords are cryptographically preserved in database. Only if an explicit ADMIN_PASSWORD
+      // is provided via environment and matches a manual rotation request should it change.
 
       if (needsSave) {
         await mainAdmin.save();
