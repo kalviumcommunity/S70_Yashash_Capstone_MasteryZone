@@ -631,7 +631,7 @@ router.post("/:meetingId/join", optionalAuthToken, async (req, res) => {
     }
 
     const existingIdx = meeting.participants.findIndex(
-      (p) => String(p.userId) === String(userId) && !p.leftAt
+      (p) => !p.leftAt && (String(p.userId) === String(userId) || (callerName !== "Guest" && p.fullName === callerName))
     );
 
     if (existingIdx === -1) {
@@ -639,6 +639,7 @@ router.post("/:meetingId/join", optionalAuthToken, async (req, res) => {
         userId: String(userId),
         fullName: callerName,
         username: user?.username || callerName.toLowerCase().replace(/\s+/g, "_"),
+        email: user?.email || "",
         avatarUrl: user?.avatarUrl || "",
         role: isHost ? "host" : "participant",
         isMuted: false,

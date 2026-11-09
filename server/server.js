@@ -514,9 +514,19 @@ io.on("connection", (socket) => {
           await m.save();
         }
 
-        const activeRemaining = m.participants.filter(
-          (p) => !p.leftAt && p.socketId && currentSockets.has(p.socketId)
-        );
+        const seenActive = new Set();
+        const activeRemaining = [];
+        for (let i = m.participants.length - 1; i >= 0; i--) {
+          const p = m.participants[i];
+          if (p.leftAt || !p.socketId || !currentSockets.has(p.socketId)) continue;
+          const uKey = String(p.userId || p.socketId);
+          const nameKey = (p.fullName || "").trim().toLowerCase();
+          if (seenActive.has(uKey) || (nameKey && nameKey !== "learner" && seenActive.has(nameKey))) continue;
+          seenActive.add(uKey);
+          if (nameKey && nameKey !== "learner") seenActive.add(nameKey);
+          activeRemaining.unshift(p);
+        }
+
         io.to(roomName).emit("meeting_participants_updated", activeRemaining);
       }
     } catch (err) {
@@ -575,18 +585,27 @@ io.on("connection", (socket) => {
       const roomSockets = io.sockets.adapter.rooms.get(roomName) || new Set();
 
       // Clean up stale or disconnected participants from this meeting record
+      // And mark any previous participant records for this user as left so a user never has multiple active tiles
       meeting.participants.forEach((p) => {
-        if (!p.leftAt && p.socketId && p.socketId !== socket.id && !roomSockets.has(p.socketId)) {
-          p.leftAt = new Date();
+        if (!p.leftAt) {
+          const isSameUser =
+            (targetUid && String(p.userId) === targetUid) ||
+            (!p.socketId && targetUid && String(p.userId) === targetUid) ||
+            (targetName && targetName !== "Learner" && p.fullName === targetName);
+          const isSameSocket = p.socketId === socket.id;
+          const isStaleSocket = p.socketId && !roomSockets.has(p.socketId);
+
+          if (isStaleSocket || (!isSameSocket && isSameUser) || (!p.socketId && isSameUser)) {
+            p.leftAt = new Date();
+          }
         }
       });
 
-      // Find existing record by socketId, userId, or matching name if socket disconnected
+      // Find existing record by socketId, or active matching user
       const existingIdx = meeting.participants.findIndex(
         (p) =>
           p.socketId === socket.id ||
-          (targetUid && String(p.userId) === targetUid) ||
-          (!p.socketId && String(p.userId) === targetUid) ||
+          (targetUid && String(p.userId) === targetUid && !p.leftAt) ||
           (!p.leftAt && targetName !== "Learner" && p.fullName === targetName)
       );
 
@@ -601,6 +620,7 @@ io.on("connection", (socket) => {
         socketId: socket.id,
         fullName: targetName,
         username: user?.username || "learner",
+        email: user?.email || "",
         avatarUrl: user?.avatarUrl || "",
         role: isHost ? "host" : "participant",
         isMuted: mediaState?.isMuted ?? false,
@@ -624,10 +644,19 @@ io.on("connection", (socket) => {
       const liveSockets = io.sockets.adapter.rooms.get(roomName) || new Set();
       liveSockets.add(socket.id);
 
-      // Return only participants with active live sockets in this room
-      const activeParticipants = meeting.participants.filter(
-        (p) => !p.leftAt && p.socketId && liveSockets.has(p.socketId)
-      );
+      // Return strictly unique active participants (deduplicated by userId and fullName)
+      const seenRoster = new Set();
+      const activeParticipants = [];
+      for (let i = meeting.participants.length - 1; i >= 0; i--) {
+        const p = meeting.participants[i];
+        if (p.leftAt || !p.socketId || !liveSockets.has(p.socketId)) continue;
+        const uKey = String(p.userId || p.socketId);
+        const nameKey = (p.fullName || "").trim().toLowerCase();
+        if (seenRoster.has(uKey) || (nameKey && nameKey !== "learner" && seenRoster.has(nameKey))) continue;
+        seenRoster.add(uKey);
+        if (nameKey && nameKey !== "learner") seenRoster.add(nameKey);
+        activeParticipants.unshift(p);
+      }
 
       socket.emit("meeting_joined_success", {
         meetingId: canonicalId,

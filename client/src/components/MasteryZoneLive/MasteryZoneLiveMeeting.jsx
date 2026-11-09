@@ -1613,8 +1613,10 @@ export default function MasteryZoneLiveMeeting({
   // Assemble participant tile list (Strictly 1 local tile + unique remote tiles)
   const allTileUsers = useMemo(() => {
     const currentSocId = socket?.id;
-    const currentUid = String(currentUser?._id || currentUser?.id || "");
-    const localName = currentUser?.fullName || currentUser?.username || "You";
+    const currentUid = String(currentUser?._id || currentUser?.id || currentUser?.userId || "");
+    const localName = (currentUser?.fullName || currentUser?.name || currentUser?.username || "You").trim();
+    const localEmail = (currentUser?.email || "").trim().toLowerCase();
+    const localUsername = (currentUser?.username || "").trim().toLowerCase();
 
     const activeLocalStream = isScreenSharing
       ? screenStreamRef.current
@@ -1634,8 +1636,16 @@ export default function MasteryZoneLiveMeeting({
 
     const seenSockets = new Set();
     const seenUserIds = new Set();
+    const seenNames = new Set();
     if (currentSocId) seenSockets.add(currentSocId);
     if (currentUid) seenUserIds.add(currentUid);
+    if (localName && localName.toLowerCase() !== "you") seenNames.add(localName.toLowerCase());
+
+    const isLocalUserHost = Boolean(
+      meetingData.isHost ||
+      (currentUid && String(meetingData.hostUserId) === currentUid) ||
+      (localName && meetingData.hostName && localName.toLowerCase() === String(meetingData.hostName).toLowerCase())
+    );
 
     const remoteTiles = [];
     if (Array.isArray(participants)) {
@@ -1646,17 +1656,31 @@ export default function MasteryZoneLiveMeeting({
         // Never duplicate the exact local socket
         if (currentSocId && p.socketId === currentSocId) continue;
 
-        // Never duplicate the local user by userId or email
+        // Never duplicate the local user by userId
         const pUid = String(p.userId || p._id || p.id || "");
         if (currentUid && pUid && pUid === currentUid) continue;
-        if (currentUser?.email && p.email && p.email.toLowerCase() === currentUser.email.toLowerCase()) continue;
 
-        // Deduplicate remote participants strictly by socketId and userId
+        // Never duplicate the local user by email
+        if (localEmail && p.email && p.email.toLowerCase() === localEmail) continue;
+
+        // Never duplicate the local user by name
+        const pName = (p.fullName || p.username || "").trim();
+        if (localName && pName && localName.toLowerCase() !== "you" && pName.toLowerCase() === localName.toLowerCase()) continue;
+
+        // Never duplicate the local user by username
+        if (localUsername && p.username && p.username.toLowerCase() === localUsername) continue;
+
+        // If local user is host, never render another host tile as a remote tile
+        if (isLocalUserHost && (p.role === "host" || (meetingData.hostUserId && String(p.userId) === String(meetingData.hostUserId)))) continue;
+
+        // Deduplicate remote participants strictly by socketId, userId, and name
         if (seenSockets.has(p.socketId)) continue;
         if (pUid && seenUserIds.has(pUid)) continue;
+        if (pName && seenNames.has(pName.toLowerCase())) continue;
 
         seenSockets.add(p.socketId);
         if (pUid) seenUserIds.add(pUid);
+        if (pName) seenNames.add(pName.toLowerCase());
 
         remoteTiles.push({
           ...p,
@@ -1678,6 +1702,9 @@ export default function MasteryZoneLiveMeeting({
     localStreamState,
     participants,
     remoteStreams,
+    meetingData.isHost,
+    meetingData.hostUserId,
+    meetingData.hostName,
   ]);
 
   // Spotlight participant
