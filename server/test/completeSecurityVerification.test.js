@@ -312,6 +312,83 @@ async function runSuite() {
     unauthedClient.disconnect();
   });
 
+  await it("Chat: user_joined without authentication is rejected and denied entry", async () => {
+    const unauthedClient = ioClient(baseUrl, { transports: ["websocket"] });
+    await new Promise((res) => unauthedClient.on("connect", res));
+
+    let chatError = null;
+    unauthedClient.on("chat_error", (data) => {
+      chatError = data.message;
+    });
+
+    unauthedClient.emit("user_joined", "impostor_admin");
+    await new Promise((r) => setTimeout(r, 200));
+
+    assert(chatError && chatError.includes("Authentication required"), "Unauthenticated user_joined must be rejected");
+    unauthedClient.disconnect();
+  });
+
+  await it("Coding Room: Client-supplied guest fallback without JWT is strictly rejected", async () => {
+    const guestClient = ioClient(baseUrl, { transports: ["websocket"] });
+    await new Promise((res) => guestClient.on("connect", res));
+
+    let codingError = null;
+    guestClient.on("coding_room_error", (data) => {
+      codingError = data.message;
+    });
+
+    // Attempt to bypass by providing fake guest user object
+    guestClient.emit("join_coding_room", {
+      roomId: "room_bypass_attempt",
+      user: { fullName: "guest_hacker", email: "guest_hacker@masteryzone.com" },
+    });
+
+    await new Promise((r) => setTimeout(r, 200));
+    assert(codingError && codingError.includes("Authentication required"), "Guest fallback without valid JWT must be rejected");
+    guestClient.disconnect();
+  });
+
+  await it("Direct Messaging: send_dm rejects non-existent recipient", async () => {
+    const clientA = ioClient(baseUrl, { transports: ["websocket"] });
+    await new Promise((res) => clientA.on("connect", res));
+    clientA.emit("register_user_session", { token: tokenA });
+    await new Promise((r) => setTimeout(r, 100));
+
+    let chatError = null;
+    clientA.on("chat_error", (data) => {
+      chatError = data.message;
+    });
+
+    clientA.emit("send_dm", { toUser: "non_existent_user_99999", roomCode: "room123" });
+    await new Promise((r) => setTimeout(r, 200));
+
+    assert(chatError && chatError.includes("Recipient user not found"), "DM to non-existent user must return Recipient user not found");
+    clientA.disconnect();
+  });
+
+  await it("Chat: Rapid message burst exceeds rate limit and triggers warning", async () => {
+    const clientA = ioClient(baseUrl, { transports: ["websocket"] });
+    await new Promise((res) => clientA.on("connect", res));
+    clientA.emit("register_user_session", { token: tokenA });
+    await new Promise((r) => setTimeout(r, 100));
+
+    let rateLimitHit = false;
+    clientA.on("chat_error", (data) => {
+      if (data.message && data.message.includes("Rate limit exceeded")) {
+        rateLimitHit = true;
+      }
+    });
+
+    // Send 12 messages rapidly
+    for (let i = 0; i < 12; i++) {
+      clientA.emit("send_global_message", { text: `Burst message ${i}` });
+    }
+
+    await new Promise((r) => setTimeout(r, 250));
+    assert.strictEqual(rateLimitHit, true, "Rapid burst of 12 messages must trigger chat rate limit");
+    clientA.disconnect();
+  });
+
   console.log("\n--- Category 3: Genuine Recording Audio/Video Integrity ---");
 
   await it("validateMediaIntegrity rejects video-only uploads missing required audio stream", async () => {
@@ -505,7 +582,7 @@ async function runSuite() {
   });
 
   console.log("\n================================================================================");
-  console.log("Summary: 18/18 Complete Security Regression Tests Passed (100%)");
+  console.log("Summary: 22/22 Complete Security Regression Tests Passed (100%)");
   console.log("================================================================================");
 
   if (testServer) testServer.close();

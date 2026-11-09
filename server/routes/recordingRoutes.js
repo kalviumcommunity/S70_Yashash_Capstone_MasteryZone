@@ -91,6 +91,7 @@ function inspectMediaBinary(buffer) {
     let hasTracks = false;
     let hasCluster = false;
     let hasVideoTrack = false;
+    let hasAudioTrack = false;
     let hasWebmDocType = false;
     let hasSegment = false;
 
@@ -131,12 +132,14 @@ function inspectMediaBinary(buffer) {
       if (buffer[i] === 0x83 && (buffer[i + 1] === 0x01 || buffer[i + 1] === 0x81)) {
         if (buffer[i + 2] === 0x01) {
           hasVideoTrack = true;
+        } else if (buffer[i + 2] === 0x02) {
+          hasAudioTrack = true;
         }
       }
     }
 
     if (hasWebmDocType || hasSegment || hasTracks || hasCluster || hasVideoTrack) {
-      return { valid: true, container: "webm", hasVideo: true };
+      return { valid: true, container: "webm", hasVideo: true, hasAudio: hasAudioTrack };
     }
     return { valid: false, error: "WebM container is missing track headers or cluster data" };
   }
@@ -146,15 +149,18 @@ function inspectMediaBinary(buffer) {
   if (isMp4) {
     const scanLimit = Math.min(buffer.length - 4, 65536);
     let hasMoovOrMdat = false;
+    let hasAudioTrack = false;
     for (let i = 0; i < scanLimit; i++) {
       const box = buffer.toString("ascii", i, i + 4);
       if (box === "moov" || box === "moof" || box === "mdat" || box === "trak") {
         hasMoovOrMdat = true;
-        break;
+      }
+      if (box === "soun" || box === "mp4a") {
+        hasAudioTrack = true;
       }
     }
     if (hasMoovOrMdat) {
-      return { valid: true, container: "mp4", hasVideo: true };
+      return { valid: true, container: "mp4", hasVideo: true, hasAudio: hasAudioTrack };
     }
     return { valid: false, error: "MP4 container is missing moov/mdat payload atoms" };
   }
