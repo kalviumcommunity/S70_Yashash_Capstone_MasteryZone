@@ -1007,13 +1007,13 @@ router.post("/attempt/:attemptId/finalize", authenticateToken, async (req, res) 
     const totalMarksObtained = mcqScore + passedCodingTests;
     const finalScorePercentage = Math.round((totalMarksObtained / totalMaxMarks) * 100);
 
-    // 4. Combined Passing Threshold: Combined Result >= 80% (>= 32/40 marks) + Proctoring <= 5 violations
-    const proctoringPassed = attempt.proctoring.status !== "FLAGGED" && (attempt.proctoring.violationsCount || 0) <= 5;
-    const passed = finalScorePercentage >= 80 && proctoringPassed;
-    const finalVerdict = passed ? "PASSED" : "FAILED";
-
+    // 4. Combined Passing Threshold: Combined Result >= 80% (>= 32/40 marks) + MCQ >= 16 + Coding >= 16 + Proctoring <= 5 violations
     const mcqPassed = mcqScore >= 16;
     const codingPassed = passedCodingTests >= 16;
+    const proctoringPassed = attempt.proctoring.status !== "FLAGGED" && (attempt.proctoring.violationsCount || 0) <= 5;
+    const passed = finalScorePercentage >= 80 && mcqPassed && codingPassed && proctoringPassed;
+    const finalVerdict = passed ? "PASSED" : "FAILED";
+
     attempt.status = finalVerdict;
     attempt.finalVerdict = finalVerdict;
     attempt.mcqScore = mcqScore;
@@ -1037,6 +1037,43 @@ router.post("/attempt/:attemptId/finalize", authenticateToken, async (req, res) 
         const certificateId = `MZ-DSA-2026-${uniqueSuffix}`;
         const verificationUrl = `${req.protocol}://${req.get("host")}/verify/${certificateId}`;
 
+        // Generate and physically verify the PDF file BEFORE creating the certificate record or marking completed
+        let fileWritten = false;
+        try {
+          await generateCertificatePDF({
+            certificateId,
+            userId: attempt.userId,
+            recipientName: attempt.candidateName,
+            certificationTitle: attempt.certTitle,
+            issueDate: new Date(),
+            mcqScore,
+            mcqPercentage,
+            codingScore: `${passedCodingTests}/20 Tests Passed`,
+            finalGradePercentage: finalScorePercentage,
+            verificationUrl,
+          });
+          const userScopedDir = attempt.userId ? path.join(CERTIFICATES_DIR, String(attempt.userId)) : null;
+          const userScopedPath = userScopedDir ? path.join(userScopedDir, `${certificateId}.pdf`) : null;
+          const flatPath = path.join(CERTIFICATES_DIR, `${certificateId}.pdf`);
+          fileWritten = (userScopedPath && fs.existsSync(userScopedPath)) || fs.existsSync(flatPath);
+        } catch (pdfErr) {
+          console.warn("PDF generation error:", pdfErr.message);
+          fileWritten = false;
+        }
+
+        if (!fileWritten) {
+          // If PDF generation fails, do not mark completed or issue certificate; return recoverable error
+          await attempt.save();
+          return res.status(500).json({
+            success: false,
+            error: "Certificate PDF generation failed. Your assessment score has been saved; please retry finalization to issue your certificate.",
+            retryable: true,
+            finalVerdict,
+            score: totalMarksObtained,
+            percentage: finalScorePercentage,
+          });
+        }
+
         certificate = new IssuedCertificate({
           certificateId,
           attemptId: attempt.attemptId,
@@ -1050,36 +1087,11 @@ router.post("/attempt/:attemptId/finalize", authenticateToken, async (req, res) 
           codingScore: `${passedCodingTests}/20 Tests Passed`,
           finalGradePercentage: finalScorePercentage,
           verificationUrl,
+          pdfGenerated: true,
           status: "VALID",
         });
 
         await certificate.save();
-
-        // Generate and physically verify the PDF file before marking certificate ready
-        try {
-          await generateCertificatePDF({
-            certificateId,
-            userId: attempt.userId,
-            recipientName: attempt.candidateName,
-            certificationTitle: attempt.certTitle,
-            issueDate: certificate.issueDate,
-            mcqScore,
-            mcqPercentage,
-            codingScore: `${passedCodingTests}/20 Tests Passed`,
-            finalGradePercentage: finalScorePercentage,
-            verificationUrl,
-          });
-          const userScopedDir = attempt.userId ? path.join(CERTIFICATES_DIR, String(attempt.userId)) : null;
-          const userScopedPath = userScopedDir ? path.join(userScopedDir, `${certificateId}.pdf`) : null;
-          const flatPath = path.join(CERTIFICATES_DIR, `${certificateId}.pdf`);
-          const fileWritten = (userScopedPath && fs.existsSync(userScopedPath)) || fs.existsSync(flatPath);
-          certificate.pdfGenerated = fileWritten;
-          await certificate.save();
-        } catch (pdfErr) {
-          console.warn("PDF generation error:", pdfErr.message);
-          certificate.pdfGenerated = false;
-          await certificate.save();
-        }
       }
 
       attempt.certificateId = certificate.certificateId;
@@ -1128,11 +1140,16 @@ router.post("/attempt/:attemptId/finalize", authenticateToken, async (req, res) 
         meta: { certificateId: certificate.certificateId },
       });
 
-      // Dispatch Official Certificate Email in background
+      // Dispatch Official Certificate Email in background with attached PDF
       try {
         const userObj = await User.findById(userId).select("fullName username email role").lean();
         const recipientEmail = attempt.candidateEmail || userObj?.email || req.user?.email;
         const recipientName = attempt.candidateName || userObj?.fullName || userObj?.username || "Candidate";
+        const userScopedDir = attempt.userId ? path.join(CERTIFICATES_DIR, String(attempt.userId)) : null;
+        const userScopedPath = userScopedDir ? path.join(userScopedDir, `${certificate.certificateId}.pdf`) : null;
+        const flatPath = path.join(CERTIFICATES_DIR, `${certificate.certificateId}.pdf`);
+        const targetPdf = (userScopedPath && fs.existsSync(userScopedPath)) ? userScopedPath : flatPath;
+
         if (recipientEmail && !isGuestAccount(recipientEmail)) {
           dispatchMailBackground(async () => {
             return await sendCertificateAwardedEmail({
@@ -1141,6 +1158,7 @@ router.post("/attempt/:attemptId/finalize", authenticateToken, async (req, res) 
               certTitle: attempt.certTitle,
               certificateId: certificate.certificateId,
               score: finalScorePercentage,
+              pdfPath: targetPdf,
               req,
             });
           }, { type: "certificate_awarded", recipient: recipientEmail });

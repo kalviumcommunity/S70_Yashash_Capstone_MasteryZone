@@ -364,7 +364,7 @@ router.get("/reports", authenticateToken, async (req, res) => {
 // Returns detailed read-only audit attempt report for an MCQ exam
 // (Placed BEFORE parameterized routes to prevent route collision)
 // -------------------------------------------------------------
-router.get("/assessment-attempt/:attemptId", optionalAuthenticateToken, async (req, res) => {
+router.get("/assessment-attempt/:attemptId", authenticateToken, async (req, res) => {
   const userId = req.user ? (req.user.userId || req.user.id || req.user._id) : null;
   const rawId = (req.params.attemptId || "").trim();
   const cleanId = rawId.startsWith("attempt_") ? rawId.replace("attempt_", "") : rawId;
@@ -424,10 +424,13 @@ router.get("/assessment-attempt/:attemptId", optionalAuthenticateToken, async (r
 
     // Strict account isolation: verify candidate ownership or admin privileges
     const callerUserId = req.user ? String(req.user.userId || req.user.id || req.user._id || "") : null;
-    const isPrivileged = req.user?.role === "admin" || req.user?.role === "SUPER_ADMIN";
+    const isPrivileged = req.user?.role === "admin" || req.user?.role === "SUPER_ADMIN" || req.user?.isMainAdmin;
+    if (!callerUserId) {
+      return res.status(401).json({ error: "Authentication required to view this assessment report." });
+    }
     if (attempt.userId) {
       const ownerId = String(attempt.userId);
-      if (!callerUserId || (!isPrivileged && callerUserId !== ownerId)) {
+      if (!isPrivileged && callerUserId !== ownerId) {
         return res.status(403).json({ error: "Access denied. You do not have permission to view this assessment report." });
       }
     }
