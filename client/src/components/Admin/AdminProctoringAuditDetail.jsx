@@ -150,7 +150,13 @@ const AdminProctoringAuditDetail = () => {
 
   const videoSrc = useMemo(() => {
     if (!recording?.url) return "";
-    return recording.url.startsWith("http") ? recording.url : `${API_BASE}${recording.url}`;
+    let fullUrl = recording.url.startsWith("http") ? recording.url : `${API_BASE}${recording.url.startsWith("/") ? recording.url : `/${recording.url}`}`;
+    const token = typeof localStorage !== "undefined" ? localStorage.getItem("token") : null;
+    if (token && !fullUrl.includes("token=")) {
+      const sep = fullUrl.includes("?") ? "&" : "?";
+      fullUrl = `${fullUrl}${sep}token=${encodeURIComponent(token)}`;
+    }
+    return fullUrl;
   }, [recording?.url]);
 
   if (loading) {

@@ -1339,6 +1339,146 @@ async function runSuite() {
     }
   });
 
+  await it("Compiler: Java Solution class without main() is wrapped with reflection test harness for Judge0", async () => {
+    let capturedBody = null;
+    const mockJudge0 = http.createServer((req, res) => {
+      let b = "";
+      req.on("data", (c) => (b += c));
+      req.on("end", () => {
+        capturedBody = JSON.parse(b);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(
+          JSON.stringify({
+            status: { id: 3, description: "Accepted" },
+            stdout: Buffer.from("42\n").toString("base64"),
+            time: "0.05",
+          })
+        );
+      });
+    });
+
+    const mockPort = 8994;
+    await new Promise((r) => mockJudge0.listen(mockPort, r));
+    const origHost = process.env.JUDGE0_API_HOST;
+    process.env.JUDGE0_API_HOST = `http://127.0.0.1:${mockPort}`;
+
+    try {
+      const solutionWithoutMain = "class Solution { public int add(int a, int b) { return a + b; } }";
+      const result = await executeViaJudge0("java", solutionWithoutMain, "20\n22");
+      assert.strictEqual(result.exitCode, 0);
+      assert(capturedBody && capturedBody.source_code, "Must send submission to Judge0");
+      const decodedSource = Buffer.from(capturedBody.source_code, "base64").toString("utf8");
+      assert(
+        decodedSource.includes("public class Main") && decodedSource.includes("Solution sol = new Solution()"),
+        `Java LeetCode solution must be injected with reflection harness, got: ${decodedSource}`
+      );
+    } finally {
+      process.env.JUDGE0_API_HOST = origHost;
+      mockJudge0.close();
+    }
+  });
+
+  await it("Compiler: Curriculum exercise submission succeeds and resolves activeSession without ReferenceError", async () => {
+    // Valid python function solution to python curriculum module 0 (filter_and_square)
+    const pythonCode = [
+      "def filter_and_square(nums):",
+      "    return sorted([x ** 2 for x in nums if x > 0 and x % 2 == 0])",
+    ].join("\n");
+
+    const res = await fetch(`${baseUrl}/api/coding/curriculum/exercise/submit`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${tokenA}`,
+      },
+      body: JSON.stringify({
+        trackId: "python",
+        moduleIndex: 0,
+        language: "python",
+        code: pythonCode,
+      }),
+    });
+
+    assert.strictEqual(res.status, 200, `Expected 200 OK, got ${res.status}`);
+    const data = await res.json();
+    assert.strictEqual(data.status, "PASSED", "All 10 test cases must pass");
+    assert.strictEqual(data.passed, true);
+    assert.strictEqual(data.score, 100);
+    assert.strictEqual(data.passedCount, 10);
+    assert.strictEqual(data.totalTests, 10);
+    assert(data.sessionId, "Must return activeSession sessionId without ReferenceError");
+
+    // Verify ProctoredCodingSession was actually created/updated in the database
+    const ProctoredCodingSession = require("../models/ProctoredCodingSession");
+    const sessionDoc = await ProctoredCodingSession.findOne({ sessionId: data.sessionId });
+    assert(sessionDoc, "ProctoredCodingSession document must exist for the submission");
+    assert.strictEqual(sessionDoc.userId.toString(), userA._id.toString());
+  });
+
+  await it("Storage Engine: Centralized storage path honors RECORDINGS_STORAGE_PATH and streaming handles ?token query param", async () => {
+    const { getRecordingsDir, resolveRecordingFilePath } = require("../config/recordingStorage");
+    const customTestDir = path.join(__dirname, `custom_rec_test_${Date.now()}`);
+    fs.mkdirSync(customTestDir, { recursive: true });
+
+    const prevEnv = process.env.RECORDINGS_STORAGE_PATH;
+    process.env.RECORDINGS_STORAGE_PATH = customTestDir;
+
+    try {
+      assert.strictEqual(getRecordingsDir(), path.resolve(customTestDir), "getRecordingsDir must honor RECORDINGS_STORAGE_PATH");
+
+      // Create a genuine playable webm in the custom directory
+      const media = createPlayableMedia({ format: "webm", duration: 1, video: true, audio: true });
+      const testFilename = `rec_central_storage_test_${Date.now()}.webm`;
+      const finalDest = path.join(customTestDir, testFilename);
+      fs.writeFileSync(finalDest, media.buffer);
+      media.cleanup();
+
+      // Create recording record in DB
+      const Recording = require("../models/Recording");
+      const recDoc = await Recording.create({
+        recordingId: `rec_test_${Date.now()}`,
+        meetingId: `mtg_custom_${Date.now()}`,
+        hostUserId: userA._id.toString(),
+        hostEmail: userA.email,
+        fileName: testFilename,
+        filePath: finalDest,
+        streamUrl: `/api/recordings/stream/${testFilename}`,
+        fileUrl: `/recordings/${testFilename}`,
+        status: "ready",
+        durationSeconds: 1,
+        fileSize: fs.statSync(finalDest).size,
+      });
+
+      const resolved = resolveRecordingFilePath(testFilename, recDoc);
+      assert.strictEqual(resolved, finalDest, "resolveRecordingFilePath must resolve to custom storage dir file");
+
+      // Verify streaming via GET /api/recordings/stream/:filename?token=... with Range
+      const streamRes = await fetch(`${baseUrl}/api/recordings/stream/${testFilename}?token=${encodeURIComponent(tokenA)}`, {
+        headers: { Range: "bytes=0-100" },
+      });
+      assert.strictEqual(streamRes.status, 206, `Stream endpoint with token query param must return 206, got ${streamRes.status}`);
+      assert.strictEqual(streamRes.headers.get("content-type"), "video/webm");
+      assert(streamRes.headers.get("content-range"), "Must return Content-Range header");
+
+      // Verify direct streaming via GET /recordings/:filename?token=... with Range
+      const directRes = await fetch(`${baseUrl}/recordings/${testFilename}?token=${encodeURIComponent(tokenA)}`, {
+        headers: { Range: "bytes=0-100" },
+      });
+      assert.strictEqual(directRes.status, 206, `Direct /recordings route with token query param must return 206, got ${directRes.status}`);
+
+      // Clean up test file and doc
+      await Recording.deleteOne({ _id: recDoc._id });
+      try { fs.unlinkSync(finalDest); } catch {}
+    } finally {
+      if (prevEnv !== undefined) {
+        process.env.RECORDINGS_STORAGE_PATH = prevEnv;
+      } else {
+        delete process.env.RECORDINGS_STORAGE_PATH;
+      }
+      try { fs.rmSync(customTestDir, { recursive: true, force: true }); } catch {}
+    }
+  });
+
   await it("Recording Upload: Large payload (>2MB) does NOT trigger HTTP 413 Payload Too Large", async () => {
     // Generate a 2.5MB payload string to verify express.json({ limit: '100mb' }) in server.js
     const largeDummyBase64 = "A".repeat(2500000);

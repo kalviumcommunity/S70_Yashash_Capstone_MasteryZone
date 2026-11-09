@@ -18,6 +18,7 @@ const PlatformSettings = require("../models/PlatformSettings");
 const EmailLog = require("../models/EmailLog");
 const { verifySuperAdmin, recordAdminAudit } = require("../middleware/adminAuth");
 const { pushAdminNotification } = require("../utils/adminNotificationService");
+const { getRecordingsDir, resolveRecordingFilePath } = require("../config/recordingStorage");
 
 const router = express.Router();
 
@@ -273,7 +274,7 @@ router.get("/overview", async (req, res) => {
     const totalAssessmentsAllTime = certAllTime + moduleAllTime;
 
     // 4. Cached Storage Calculation
-    const recordingsDir = path.join(__dirname, "../uploads/recordings");
+    const recordingsDir = getRecordingsDir();
     const certificatesDir = path.join(__dirname, "../uploads/certificates");
     const { recordingsBytes, certsBytes } = getCachedDirSize(recordingsDir, certificatesDir);
     const totalStorageBytes = recordingsBytes + certsBytes;
@@ -2348,7 +2349,7 @@ router.get("/proctoring", async (req, res) => {
     });
 
     // Check available recordings in uploads/recordings
-    const recordingsDir = path.join(__dirname, "../uploads/recordings");
+    const recordingsDir = getRecordingsDir();
     let availableRecFiles = [];
     if (fs.existsSync(recordingsDir)) {
       availableRecFiles = fs
@@ -2440,7 +2441,7 @@ router.get("/proctoring/session/:sessionId", async (req, res) => {
     }
 
     // Check recording file on disk
-    const recordingsDir = path.join(__dirname, "../uploads/recordings");
+    const recordingsDir = getRecordingsDir();
     let recordingInfo = {
       url: session.recordingUrl || "",
       durationSeconds: session.recordingDurationSeconds || 120,
@@ -2804,7 +2805,7 @@ router.get("/reports", async (req, res) => {
 router.get("/recordings", async (req, res) => {
   try {
     const { q, type } = req.query;
-    const recordingsDir = path.join(__dirname, "../uploads/recordings");
+    const recordingsDir = getRecordingsDir();
     let totalBytes = 0;
 
     // 1. Fetch genuine database recording records
@@ -3129,7 +3130,7 @@ router.get("/recordings", async (req, res) => {
 router.delete("/recordings/:recordingId", async (req, res) => {
   try {
     const { recordingId } = req.params;
-    const recordingsDir = path.join(__dirname, "../uploads/recordings");
+    const recordingsDir = getRecordingsDir();
     
     // 1. Search in DB
     const query = {
@@ -3142,11 +3143,9 @@ router.delete("/recordings/:recordingId", async (req, res) => {
     };
     const rec = await Recording.findOne(query);
     if (rec) {
-      if (rec.filePath) {
-        const p = path.join(__dirname, "../uploads", rec.filePath.replace("/recordings/", "recordings/"));
-        if (fs.existsSync(p)) {
-          try { fs.unlinkSync(p); } catch (e) {}
-        }
+      const p = resolveRecordingFilePath(rec.fileName || rec.recordingId, rec);
+      if (p && fs.existsSync(p)) {
+        try { fs.unlinkSync(p); } catch (e) {}
       }
       await Recording.deleteOne({ _id: rec._id });
     }
@@ -3179,7 +3178,7 @@ router.delete("/recordings/:recordingId", async (req, res) => {
 // Purge corrupted/0-byte recordings
 router.post("/recordings/purge-corrupted", async (req, res) => {
   try {
-    const recordingsDir = path.join(__dirname, "../uploads/recordings");
+    const recordingsDir = getRecordingsDir();
     let purgedFiles = 0;
     let purgedDb = 0;
 
@@ -3228,7 +3227,7 @@ router.post("/recordings/purge-corrupted", async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 router.get("/storage", async (req, res) => {
   try {
-    const recordingsDir = path.join(__dirname, "../uploads/recordings");
+    const recordingsDir = getRecordingsDir();
     const certsDir = path.join(__dirname, "../uploads/certificates");
 
     const recBytes = getDirSizeBytes(recordingsDir);

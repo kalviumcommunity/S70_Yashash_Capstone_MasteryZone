@@ -1112,6 +1112,11 @@ export default function MasteryZoneLiveMeeting({
         if (track) {
           track.enabled = true;
           setIsMuted(false);
+          peerConnectionsRef.current.forEach((pc) => {
+            const sender = pc.getSenders().find((s) => s.track?.kind === "audio") ||
+                           (pc.getTransceivers ? pc.getTransceivers().find((t) => t.receiver?.track?.kind === "audio")?.sender : null);
+            if (sender) sender.replaceTrack(track).catch(() => {});
+          });
         } else {
           return;
         }
@@ -1155,6 +1160,11 @@ export default function MasteryZoneLiveMeeting({
         if (track) {
           track.enabled = true;
           setIsVideoOff(false);
+          peerConnectionsRef.current.forEach((pc) => {
+            const sender = pc.getSenders().find((s) => s.track?.kind === "video") ||
+                           (pc.getTransceivers ? pc.getTransceivers().find((t) => t.receiver?.track?.kind === "video")?.sender : null);
+            if (sender) sender.replaceTrack(track).catch(() => {});
+          });
         } else {
           return;
         }
@@ -1196,15 +1206,14 @@ export default function MasteryZoneLiveMeeting({
       }
       setIsScreenSharing(false);
 
-      if (localStreamRef.current) {
-        const camTrack = localStreamRef.current.getVideoTracks()[0];
-        if (camTrack) {
-          peerConnectionsRef.current.forEach((pc) => {
-            const sender = pc.getSenders().find((s) => s.track && s.track.kind === "video");
-            if (sender) sender.replaceTrack(camTrack);
-          });
+      peerConnectionsRef.current.forEach((pc) => {
+        const sender = pc.getSenders().find((s) => s.track?.kind === "video") ||
+                       (pc.getTransceivers ? pc.getTransceivers().find((t) => t.receiver?.track?.kind === "video")?.sender : null);
+        if (sender) {
+          const camTrack = (!isVideoOff && localStreamRef.current) ? localStreamRef.current.getVideoTracks()[0] : null;
+          sender.replaceTrack(camTrack).catch(() => {});
         }
-      }
+      });
 
       if (socket) {
         socket.emit("meeting_media_toggle", {
@@ -1228,8 +1237,9 @@ export default function MasteryZoneLiveMeeting({
         };
 
         peerConnectionsRef.current.forEach((pc) => {
-          const sender = pc.getSenders().find((s) => s.track && s.track.kind === "video");
-          if (sender) sender.replaceTrack(screenTrack);
+          const sender = pc.getSenders().find((s) => s.track?.kind === "video") ||
+                         (pc.getTransceivers ? pc.getTransceivers().find((t) => t.receiver?.track?.kind === "video")?.sender : null);
+          if (sender) sender.replaceTrack(screenTrack).catch(() => {});
         });
 
         if (socket) {
