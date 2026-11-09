@@ -97,15 +97,54 @@ router.post("/upload", authenticateToken, async (req, res) => {
 
 /**
  * GET /api/support/attachments/:filename
- * Securely stream support attachment files
+ * Securely stream support attachment files with ownership verification
  */
-router.get("/attachments/:filename", (req, res) => {
-  const safeFilename = path.basename(req.params.filename);
-  const filePath = path.join(__dirname, "../uploads/support_attachments", safeFilename);
-  if (!fs.existsSync(filePath)) {
-    return res.status(404).json({ success: false, message: "Attachment not found" });
+router.get("/attachments/:filename", async (req, res) => {
+  try {
+    const rawToken = (req.headers.authorization && req.headers.authorization.split(" ")[1]) ||
+                     req.query.token ||
+                     req.cookies?.token;
+    if (!rawToken) {
+      return res.status(401).json({ success: false, message: "Authentication required to access support attachments." });
+    }
+
+    let decoded;
+    try {
+      const { getJwtSecret } = require("../config/jwtConfig");
+      decoded = jwt.verify(rawToken, getJwtSecret());
+    } catch {
+      return res.status(403).json({ success: false, message: "Invalid or expired session token." });
+    }
+
+    const safeFilename = path.basename(req.params.filename);
+    const filePath = path.join(__dirname, "../uploads/support_attachments", safeFilename);
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ success: false, message: "Attachment not found." });
+    }
+
+    const currentUserId = String(decoded.userId || decoded.id || decoded._id || "");
+    const isAdmin = Boolean(decoded.role === "admin" || decoded.role === "SUPER_ADMIN" || decoded.isMainAdmin);
+
+    // Verify ownership: user must own the ticket or be admin
+    if (!isAdmin) {
+      const ticket = await SupportTicket.findOne({
+        $or: [
+          { "attachments.fileName": safeFilename },
+          { "messages.attachments.fileName": safeFilename },
+          { "attachments.fileUrl": { $regex: safeFilename } },
+          { "messages.attachments.fileUrl": { $regex: safeFilename } },
+        ],
+      }).select("userId").lean();
+
+      if (ticket && String(ticket.userId) !== currentUserId) {
+        return res.status(403).json({ success: false, message: "Access denied. You do not own this ticket attachment." });
+      }
+    }
+
+    res.sendFile(filePath);
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Error retrieving attachment", error: err.message });
   }
-  res.sendFile(filePath);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
