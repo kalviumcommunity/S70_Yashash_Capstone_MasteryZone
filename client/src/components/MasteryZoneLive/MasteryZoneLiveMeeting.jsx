@@ -61,7 +61,7 @@ const API_BASE = getApiBase();
 
 const EMOJI_OPTIONS = ["💖", "👍", "🎉", "👏", "😂", "🔥", "🚀", "💡"];
 
-function PersistentVideoTile({ stream, isLocal, isMuted, isScreenSharing, isVideoOff, isBlurred, style = {} }) {
+function PersistentVideoTile({ stream, isLocal, isMuted, isScreenSharing, isVideoOff, isBlurred, selectedAudioOutput, style = {} }) {
   const videoRef = useRef(null);
 
   useEffect(() => {
@@ -70,7 +70,8 @@ function PersistentVideoTile({ stream, isLocal, isMuted, isScreenSharing, isVide
     if (isLocal) {
       el.muted = true;
     }
-    if (stream && !isVideoOff) {
+    // Keep MediaStream attached even when video is toggled off so remote audio continues playing uninterrupted
+    if (stream) {
       if (el.srcObject !== stream) {
         el.srcObject = stream;
       }
@@ -79,6 +80,13 @@ function PersistentVideoTile({ stream, isLocal, isMuted, isScreenSharing, isVide
       el.srcObject = null;
     }
   }, [stream, isVideoOff, isScreenSharing, isLocal]);
+
+  useEffect(() => {
+    const el = videoRef.current;
+    if (el && !isLocal && selectedAudioOutput && typeof el.setSinkId === "function") {
+      el.setSinkId(selectedAudioOutput).catch(() => {});
+    }
+  }, [selectedAudioOutput, isLocal]);
 
   return (
     <video
@@ -138,9 +146,12 @@ export default function MasteryZoneLiveMeeting({
   // Audio & Device selector states
   const [audioInputDevices, setAudioInputDevices] = useState([]);
   const [videoInputDevices, setVideoInputDevices] = useState([]);
+  const [audioOutputDevices, setAudioOutputDevices] = useState([]);
   const [selectedAudioDevice, setSelectedAudioDevice] = useState("");
   const [selectedVideoDevice, setSelectedVideoDevice] = useState("");
+  const [selectedAudioOutputDevice, setSelectedAudioOutputDevice] = useState("");
   const [localMicLevel, setLocalMicLevel] = useState(0);
+  const iceCandidateQueuesRef = useRef(new Map());
 
   // Recording State
   const [recordingStatus, setRecordingStatus] = useState("idle"); // "idle" | "recording" | "paused" | "uploading"
@@ -268,6 +279,25 @@ export default function MasteryZoneLiveMeeting({
         } catch {}
       });
       peerConnectionsRef.current.clear();
+      if (iceCandidateQueuesRef.current) {
+        iceCandidateQueuesRef.current.clear();
+      }
+
+      setRemoteStreams((prev) => {
+        if (prev && typeof prev === "object") {
+          Object.values(prev).forEach((rStream) => {
+            if (rStream && typeof rStream.getTracks === "function") {
+              rStream.getTracks().forEach((t) => {
+                try {
+                  t.enabled = false;
+                  t.stop();
+                } catch {}
+              });
+            }
+          });
+        }
+        return {};
+      });
 
       // Detach and stop any leftover tracks on all media elements
       document.querySelectorAll("video, audio").forEach((mediaEl) => {
@@ -397,7 +427,7 @@ export default function MasteryZoneLiveMeeting({
   };
 
   // -------------------------------------------------------------
-  // Device Enumeration
+  // Device Enumeration & Switching
   // -------------------------------------------------------------
   useEffect(() => {
     async function getDevices() {
@@ -406,11 +436,89 @@ export default function MasteryZoneLiveMeeting({
           const devs = await navigator.mediaDevices.enumerateDevices();
           setAudioInputDevices(devs.filter((d) => d.kind === "audioinput"));
           setVideoInputDevices(devs.filter((d) => d.kind === "videoinput"));
+          setAudioOutputDevices(devs.filter((d) => d.kind === "audiooutput"));
         }
       } catch {}
     }
     getDevices();
+    if (navigator.mediaDevices?.addEventListener) {
+      navigator.mediaDevices.addEventListener("devicechange", getDevices);
+      return () => {
+        navigator.mediaDevices.removeEventListener("devicechange", getDevices);
+      };
+    }
   }, []);
+
+  const switchAudioInputDevice = async (deviceId) => {
+    setSelectedAudioDevice(deviceId);
+    if (!deviceId) return;
+    try {
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        audio: { deviceId: { exact: deviceId } },
+      });
+      const newAudioTrack = newStream.getAudioTracks()[0];
+      if (newAudioTrack && localStreamRef.current) {
+        const oldTrack = localStreamRef.current.getAudioTracks()[0];
+        if (oldTrack) {
+          localStreamRef.current.removeTrack(oldTrack);
+          oldTrack.stop();
+        }
+        localStreamRef.current.addTrack(newAudioTrack);
+        newAudioTrack.enabled = !isMuted;
+
+        peerConnectionsRef.current.forEach((pc) => {
+          const sender = pc.getSenders().find((s) => s.track && s.track.kind === "audio");
+          if (sender) {
+            sender.replaceTrack(newAudioTrack).catch(() => {});
+          }
+        });
+      }
+    } catch (err) {
+      console.warn("Could not switch audio input device:", err);
+    }
+  };
+
+  const switchVideoInputDevice = async (deviceId) => {
+    setSelectedVideoDevice(deviceId);
+    if (!deviceId) return;
+    try {
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        video: { deviceId: { exact: deviceId } },
+      });
+      const newVideoTrack = newStream.getVideoTracks()[0];
+      if (newVideoTrack && localStreamRef.current) {
+        const oldTrack = localStreamRef.current.getVideoTracks()[0];
+        if (oldTrack) {
+          localStreamRef.current.removeTrack(oldTrack);
+          oldTrack.stop();
+        }
+        localStreamRef.current.addTrack(newVideoTrack);
+        newVideoTrack.enabled = !isVideoOff;
+
+        peerConnectionsRef.current.forEach((pc) => {
+          const sender = pc.getSenders().find((s) => s.track && s.track.kind === "video");
+          if (sender) {
+            sender.replaceTrack(newVideoTrack).catch(() => {});
+          }
+        });
+      }
+    } catch (err) {
+      console.warn("Could not switch video input device:", err);
+    }
+  };
+
+  const switchAudioOutputDevice = async (deviceId) => {
+    setSelectedAudioOutputDevice(deviceId);
+    try {
+      document.querySelectorAll("video, audio").forEach((el) => {
+        if (typeof el.setSinkId === "function") {
+          el.setSinkId(deviceId).catch(() => {});
+        }
+      });
+    } catch (err) {
+      console.warn("Could not switch audio output device:", err);
+    }
+  };
 
   // -------------------------------------------------------------
   // Web Audio Level Analyser for Local Microphone & Active Speaker
@@ -734,6 +842,17 @@ export default function MasteryZoneLiveMeeting({
       });
     }
 
+    // Ensure audio & video transceivers are configured with sendrecv so SDP includes full audio & video media lines
+    try {
+      if (typeof pc.getTransceivers === "function") {
+        const transceivers = pc.getTransceivers();
+        const hasAudio = transceivers.some((t) => t.receiver?.track?.kind === "audio");
+        const hasVideo = transceivers.some((t) => t.receiver?.track?.kind === "video");
+        if (!hasAudio) pc.addTransceiver("audio", { direction: "sendrecv" });
+        if (!hasVideo) pc.addTransceiver("video", { direction: "sendrecv" });
+      }
+    } catch (e) {}
+
     pc.onicecandidate = (event) => {
       if (event.candidate && socket) {
         socket.emit("webrtc_ice_candidate", {
@@ -744,13 +863,33 @@ export default function MasteryZoneLiveMeeting({
       }
     };
 
-    pc.ontrack = (event) => {
-      if (event.streams && event.streams[0]) {
-        setRemoteStreams((prev) => ({
-          ...prev,
-          [peerSocketId]: event.streams[0],
-        }));
+    pc.oniceconnectionstatechange = () => {
+      if (pc.iceConnectionState === "failed") {
+        console.warn(`ICE connection failed for ${peerSocketId}, attempting restart...`);
+        try {
+          pc.restartIce();
+        } catch (e) {}
       }
+    };
+
+    pc.ontrack = (event) => {
+      let inboundStream = event.streams && event.streams[0];
+      if (!inboundStream) {
+        inboundStream = new MediaStream([event.track]);
+      }
+      setRemoteStreams((prev) => {
+        const existing = prev[peerSocketId];
+        if (existing) {
+          if (!existing.getTracks().some((t) => t.id === event.track.id)) {
+            existing.addTrack(event.track);
+          }
+          return { ...prev, [peerSocketId]: new MediaStream(existing.getTracks()) };
+        }
+        return {
+          ...prev,
+          [peerSocketId]: inboundStream,
+        };
+      });
     };
 
     peerConnectionsRef.current.set(peerSocketId, pc);
@@ -762,6 +901,20 @@ export default function MasteryZoneLiveMeeting({
   // -------------------------------------------------------------
   useEffect(() => {
     if (!socket) return;
+
+    const processQueuedCandidates = async (peerSocketId, pc) => {
+      const queue = iceCandidateQueuesRef.current.get(peerSocketId);
+      if (queue && queue.length > 0) {
+        while (queue.length > 0) {
+          const cand = queue.shift();
+          try {
+            await pc.addIceCandidate(new RTCIceCandidate(cand));
+          } catch (e) {
+            console.warn("Error processing queued ICE candidate:", e);
+          }
+        }
+      }
+    };
 
     socket.on("meeting_joined_success", (data) => {
       const m = data.meeting || data;
@@ -803,6 +956,7 @@ export default function MasteryZoneLiveMeeting({
       const pc = createPeerConnection(fromSocketId);
       try {
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
+        await processQueuedCandidates(fromSocketId, pc);
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
         socket.emit("webrtc_answer", {
@@ -820,6 +974,7 @@ export default function MasteryZoneLiveMeeting({
       if (pc) {
         try {
           await pc.setRemoteDescription(new RTCSessionDescription(answer));
+          await processQueuedCandidates(fromSocketId, pc);
         } catch (err) {
           console.error("Set remote description failed:", err);
         }
@@ -827,15 +982,25 @@ export default function MasteryZoneLiveMeeting({
     });
 
     socket.on("webrtc_ice_candidate_received", async ({ fromSocketId, candidate }) => {
+      if (!candidate) return;
       const pc = peerConnectionsRef.current.get(fromSocketId);
-      if (pc && candidate) {
+      if (pc && pc.remoteDescription && pc.remoteDescription.type) {
         try {
           await pc.addIceCandidate(new RTCIceCandidate(candidate));
-        } catch (err) {}
+        } catch (err) {
+          console.warn("Error adding received ICE candidate:", err);
+        }
+      } else {
+        // Queue candidates until remote description is set to avoid RTCPeerConnection race failures
+        if (!iceCandidateQueuesRef.current.has(fromSocketId)) {
+          iceCandidateQueuesRef.current.set(fromSocketId, []);
+        }
+        iceCandidateQueuesRef.current.get(fromSocketId).push(candidate);
       }
     });
 
     socket.on("meeting_peer_left", ({ socketId }) => {
+      iceCandidateQueuesRef.current.delete(socketId);
       if (peerConnectionsRef.current.has(socketId)) {
         peerConnectionsRef.current.get(socketId).close();
         peerConnectionsRef.current.delete(socketId);
@@ -2205,6 +2370,7 @@ export default function MasteryZoneLiveMeeting({
                       isScreenSharing={tile.isScreenSharing}
                       isVideoOff={!hasVideo}
                       isBlurred={tile.isLocal && isBlurActive}
+                      selectedAudioOutput={selectedAudioOutputDevice}
                     />
 
                     {!hasVideo && (
@@ -2417,6 +2583,7 @@ export default function MasteryZoneLiveMeeting({
                   isMuted={spotlightUser.isMuted}
                   isScreenSharing={spotlightUser.isScreenSharing}
                   isVideoOff={spotlightUser.isLocal ? isVideoOff : (!spotlightUser.stream || spotlightUser.isVideoOff)}
+                  selectedAudioOutput={selectedAudioOutputDevice}
                   style={{ width: "100%", height: "100%", objectFit: "contain" }}
                 />
                 {(spotlightUser.isLocal ? isVideoOff : (!spotlightUser.stream || spotlightUser.isVideoOff)) && (
@@ -2455,6 +2622,7 @@ export default function MasteryZoneLiveMeeting({
                   isScreenSharing={false}
                   isVideoOff={isVideoOff}
                   isBlurred={isBlurActive}
+                  selectedAudioOutput={selectedAudioOutputDevice}
                   style={{ width: "100%", height: "100%", objectFit: "cover" }}
                 />
                 {isVideoOff && (
@@ -2503,6 +2671,7 @@ export default function MasteryZoneLiveMeeting({
                   isScreenSharing={spotlightUser.isScreenSharing}
                   isVideoOff={spotlightUser.isLocal ? isVideoOff : (!spotlightUser.stream || spotlightUser.isVideoOff)}
                   isBlurred={spotlightUser.isLocal && isBlurActive}
+                  selectedAudioOutput={selectedAudioOutputDevice}
                   style={{ width: "100%", height: "100%", objectFit: "contain" }}
                 />
                 {(spotlightUser.isLocal ? isVideoOff : (!spotlightUser.stream || spotlightUser.isVideoOff)) && (
@@ -2561,6 +2730,7 @@ export default function MasteryZoneLiveMeeting({
                       isMuted={tile.isMuted}
                       isScreenSharing={tile.isScreenSharing}
                       isVideoOff={tile.isLocal ? isVideoOff : !tile.stream}
+                      selectedAudioOutput={selectedAudioOutputDevice}
                     />
                     <span
                       style={{
@@ -3597,6 +3767,99 @@ export default function MasteryZoneLiveMeeting({
                   {recordingStatus === "recording"
                     ? "This meeting is currently being recorded by the host."
                     : "Only the host can start recording this session."}
+                </div>
+              )}
+            </div>
+
+            {/* Audio & Video Device Settings */}
+            <div
+              style={{
+                background: "#f8fafc",
+                border: "1px solid #e2e8f0",
+                borderRadius: 12,
+                padding: 14,
+                marginBottom: 16,
+                display: "flex",
+                flexDirection: "column",
+                gap: 10,
+              }}
+            >
+              <div style={{ fontWeight: 700, fontSize: 13, color: "#1e293b" }}>Device & Audio Settings</div>
+
+              {/* Microphone Input */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b" }}>Microphone</label>
+                <select
+                  value={selectedAudioDevice}
+                  onChange={(e) => switchAudioInputDevice(e.target.value)}
+                  style={{
+                    background: "#ffffff",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: 6,
+                    padding: "6px 8px",
+                    fontSize: 12,
+                    color: "#0f172a",
+                    outline: "none",
+                  }}
+                >
+                  {audioInputDevices.length === 0 && <option value="">Default Microphone</option>}
+                  {audioInputDevices.map((d, i) => (
+                    <option key={d.deviceId || i} value={d.deviceId}>
+                      {d.label || `Microphone ${i + 1}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Camera Input */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b" }}>Camera</label>
+                <select
+                  value={selectedVideoDevice}
+                  onChange={(e) => switchVideoInputDevice(e.target.value)}
+                  style={{
+                    background: "#ffffff",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: 6,
+                    padding: "6px 8px",
+                    fontSize: 12,
+                    color: "#0f172a",
+                    outline: "none",
+                  }}
+                >
+                  {videoInputDevices.length === 0 && <option value="">Default Camera</option>}
+                  {videoInputDevices.map((d, i) => (
+                    <option key={d.deviceId || i} value={d.deviceId}>
+                      {d.label || `Camera ${i + 1}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Speaker Output */}
+              {audioOutputDevices.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b" }}>Speaker / Output</label>
+                  <select
+                    value={selectedAudioOutputDevice}
+                    onChange={(e) => switchAudioOutputDevice(e.target.value)}
+                    style={{
+                      background: "#ffffff",
+                      border: "1px solid #cbd5e1",
+                      borderRadius: 6,
+                      padding: "6px 8px",
+                      fontSize: 12,
+                      color: "#0f172a",
+                      outline: "none",
+                    }}
+                  >
+                    <option value="">Default Speaker</option>
+                    {audioOutputDevices.map((d, i) => (
+                      <option key={d.deviceId || i} value={d.deviceId}>
+                        {d.label || `Speaker ${i + 1}`}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               )}
             </div>

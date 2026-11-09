@@ -270,6 +270,16 @@ async function executeViaJudge0(lang, code, stdin = "", timeoutMs = 5000) {
     throw new Error(`Language '${lang}' is not supported by Judge0`);
   }
 
+  let normalizedCode = code;
+  if (lang === "java") {
+    // Judge0 compiles Java in Main.java, so the public class name must be Main
+    if (/public\s+class\s+[A-Za-z0-9_]+/i.test(normalizedCode)) {
+      normalizedCode = normalizedCode.replace(/public\s+class\s+[A-Za-z0-9_]+/g, "public class Main");
+    } else if (/\bclass\s+([A-Za-z0-9_]+)/i.test(normalizedCode)) {
+      normalizedCode = normalizedCode.replace(/\bclass\s+[A-Za-z0-9_]+/i, "public class Main");
+    }
+  }
+
   const url = new URL("/submissions?wait=true", process.env.JUDGE0_API_HOST);
   const headers = {
     "Content-Type": "application/json",
@@ -280,7 +290,7 @@ async function executeViaJudge0(lang, code, stdin = "", timeoutMs = 5000) {
   }
 
   const bodyData = JSON.stringify({
-    source_code: Buffer.from(code).toString("base64"),
+    source_code: Buffer.from(normalizedCode).toString("base64"),
     language_id: langId,
     stdin: Buffer.from(stdin || "").toString("base64"),
     cpu_time_limit: Math.min(Math.max(Math.ceil(timeoutMs / 1000), 1), 10),
@@ -640,9 +650,14 @@ async function executeCode({ language, code, stdin = "", timeoutMs = 5000, files
 
     if (lang === "java") {
       let className = "Main";
-      const classMatch = code.match(/public\s+class\s+([A-Za-z0-9_]+)/);
-      if (classMatch && classMatch[1]) {
-        className = classMatch[1];
+      const publicClassMatch = code.match(/public\s+class\s+([A-Za-z0-9_]+)/);
+      if (publicClassMatch && publicClassMatch[1]) {
+        className = publicClassMatch[1];
+      } else {
+        const anyClassMatch = code.match(/\bclass\s+([A-Za-z0-9_]+)/);
+        if (anyClassMatch && anyClassMatch[1]) {
+          className = anyClassMatch[1];
+        }
       }
 
       const srcPath = path.join(tmpDir, `${className}.java`);
@@ -667,6 +682,16 @@ async function executeCode({ language, code, stdin = "", timeoutMs = 5000, files
         tmpDir
       );
       return { ...execRes, engine: "OpenJDK 26" };
+    }
+
+    if (lang === "html" || lang === "htm" || lang === "css") {
+      return {
+        output: code,
+        error: "",
+        duration: Date.now() - startTime,
+        exitCode: 0,
+        engine: "Frontend Web Preview",
+      };
     }
 
     return {
