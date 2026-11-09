@@ -545,23 +545,27 @@ io.on("connection", (socket) => {
         $or: [{ meetingId: cleanId }, { meetingId: nonDashed }, { invitationCode: cleanId }],
       });
 
-      const targetUid = String(user?._id || user?.id || user?.userId || "");
+      const targetUid = String(socket.data?.userId || user?._id || user?.id || user?.userId || "");
       const targetName = user?.fullName || user?.username || "Learner";
 
-      // If meeting doesn't exist yet, auto-create it so link/code joining never fails
+      // 1. Validate that the meeting genuinely exists before allowing a socket to join
       if (!meeting) {
-        meeting = await Meeting.create({
-          meetingId: cleanId,
-          title: "Live Meeting Session",
-          groupKey: "general",
-          groupTitle: "Live Meeting",
-          hostUserId: targetUid || String(socket.id),
-          hostName: targetName !== "Learner" ? targetName : "Host",
-          hostEmail: user?.email || "",
-          status: "active",
-          invitationCode: nonDashed,
-          participants: [],
-        });
+        socket.emit("meeting_error", { message: "Meeting session not found. Please verify the meeting ID or link." });
+        return;
+      }
+
+      // 2. Enforce private meeting access authorization
+      const isHost =
+        meeting.hostUserId &&
+        ((targetUid && String(meeting.hostUserId) === targetUid) ||
+          (user?.id && String(meeting.hostUserId) === String(user.id)) ||
+          meeting.hostName === (user?.fullName || user?.username));
+      const isAdmin = Boolean(socket.data?.role === "admin" || socket.data?.role === "SUPER_ADMIN" || socket.data?.isMainAdmin);
+      const isAdmitted = (meeting.participants || []).some((p) => String(p.userId) === targetUid);
+
+      if (meeting.isPrivate && !isHost && !isAdmitted && !isAdmin) {
+        socket.emit("meeting_error", { message: "Access denied. This is a private meeting." });
+        return;
       }
 
       // If meeting was ended and creator re-joins, reactivate it
@@ -570,6 +574,9 @@ io.on("connection", (socket) => {
           meeting.status = "active";
           meeting.endedAt = null;
           await meeting.save();
+        } else {
+          socket.emit("meeting_error", { message: "This meeting session has ended." });
+          return;
         }
       }
 
@@ -608,12 +615,6 @@ io.on("connection", (socket) => {
           (targetUid && String(p.userId) === targetUid && !p.leftAt) ||
           (!p.leftAt && targetName !== "Learner" && p.fullName === targetName)
       );
-
-      const isHost =
-        meeting.hostUserId &&
-        ((targetUid && String(meeting.hostUserId) === targetUid) ||
-          (user?.id && String(meeting.hostUserId) === String(user.id)) ||
-          meeting.hostName === (user?.fullName || user?.username));
 
       const pData = {
         userId: targetUid || String(socket.id),

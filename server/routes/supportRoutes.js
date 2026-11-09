@@ -1,4 +1,5 @@
 const express = require("express");
+const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
 const fs = require("fs");
 const path = require("path");
@@ -59,7 +60,19 @@ router.post("/upload", authenticateToken, async (req, res) => {
       return res.status(400).json({ success: false, message: "Missing file payload or file name." });
     }
 
-    const ext = path.extname(originalName) || "";
+    const ext = (path.extname(originalName) || "").toLowerCase();
+    const ALLOWED_EXTS = [
+      ".png", ".jpg", ".jpeg", ".webp", ".gif",
+      ".pdf", ".txt", ".log", ".json", ".csv",
+      ".py", ".js", ".java", ".cpp", ".c", ".md"
+    ];
+    if (!ALLOWED_EXTS.includes(ext)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid attachment file type. Allowed formats: images, documents, logs, and source code files.",
+      });
+    }
+
     const cleanBase = path.basename(originalName, ext).replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 40);
     const uniqueFileName = `tkt_att_${Date.now()}_${Math.random().toString(36).substring(2, 8)}_${cleanBase}${ext}`;
     const uploadDir = path.join(__dirname, "../uploads/support_attachments");
@@ -136,7 +149,11 @@ router.get("/attachments/:filename", async (req, res) => {
         ],
       }).select("userId").lean();
 
-      if (ticket && String(ticket.userId) !== currentUserId) {
+      if (!ticket) {
+        return res.status(404).json({ success: false, message: "Support ticket reference for attachment not found." });
+      }
+
+      if (String(ticket.userId) !== currentUserId) {
         return res.status(403).json({ success: false, message: "Access denied. You do not own this ticket attachment." });
       }
     }

@@ -57,6 +57,9 @@ const NODE_BIN = fs.existsSync("/usr/local/bin/node") ? "/usr/local/bin/node" : 
 // SECURE CODE RUNNER HELPER WITH STDIN, TIMEOUT & BUFFER LIMITS
 // -------------------------------------------------------------
 const executionRateLimits = new Map();
+let activeExecutions = 0;
+const MAX_CONCURRENT_EXECUTIONS = 8;
+
 function checkExecutionRateLimit(identifier) {
   const now = Date.now();
   const windowMs = 60 * 1000;
@@ -74,19 +77,99 @@ function checkExecutionRateLimit(identifier) {
   return true;
 }
 
+function validateCodeSafety(language, code) {
+  if (typeof code !== "string") return { safe: false, reason: "Invalid code payload." };
+  const lang = (language || "").toLowerCase().trim();
+
+  if (lang === "python" || lang === "py") {
+    const dangerousPatterns = [
+      /\bimport\s+(os|sys|subprocess|shutil|socket|urllib|requests|http|asyncio|multiprocessing|threading|ctypes|importlib|builtins|posix|pty|platform)\b/i,
+      /\bfrom\s+(os|sys|subprocess|shutil|socket|urllib|requests|http|asyncio|multiprocessing|threading|ctypes|importlib|builtins|posix|pty|platform)\b/i,
+      /\b(__import__|eval|exec|open|breakpoint|globals|locals|getattr|setattr)\s*\(/i,
+      /\bos\.(system|popen|spawn|exec|remove|unlink|rmdir|mkdir|chmod|chown)\b/i,
+    ];
+    for (const pat of dangerousPatterns) {
+      if (pat.test(code)) {
+        return {
+          safe: false,
+          reason: "Security Violation: Source code contains restricted system call or forbidden module.",
+        };
+      }
+    }
+  } else if (lang === "javascript" || lang === "js" || lang === "node") {
+    const dangerousPatterns = [
+      /\brequire\s*\(\s*['"`](child_process|fs|net|http|https|vm|cluster|worker_threads|dgram|dns|tls)['"`]\s*\)/i,
+      /\bimport\s+.*?\s+from\s+['"`](child_process|fs|net|http|https|vm|cluster|worker_threads|dgram|dns|tls)['"`]/i,
+      /\bprocess\.(env|exit|kill|binding|dlopen|mainModule)\b/i,
+      /\b(eval|Function)\s*\(/i,
+    ];
+    for (const pat of dangerousPatterns) {
+      if (pat.test(code)) {
+        return {
+          safe: false,
+          reason: "Security Violation: Source code contains restricted Node.js module or forbidden execution pattern.",
+        };
+      }
+    }
+  } else if (lang === "java") {
+    const dangerousPatterns = [
+      /\b(java\.lang\.Runtime|ProcessBuilder|java\.io\.File|java\.net\.|java\.nio\.file)\b/i,
+      /\bSystem\.(exit|getenv|getProperty|load|loadLibrary)\b/i,
+      /\b(ClassLoader|Reflection)\b/i,
+    ];
+    for (const pat of dangerousPatterns) {
+      if (pat.test(code)) {
+        return {
+          safe: false,
+          reason: "Security Violation: Source code contains restricted Java system API or reflection call.",
+        };
+      }
+    }
+  } else if (lang === "cpp" || lang === "c++" || lang === "c") {
+    const dangerousPatterns = [
+      /#\s*include\s*[<"](unistd\.h|sys\/|windows\.h|dirent\.h|fstream)[>"]/i,
+      /\b(system|fork|exec|popen|kill|fopen|remove|unlink)\s*\(/i,
+    ];
+    for (const pat of dangerousPatterns) {
+      if (pat.test(code)) {
+        return {
+          safe: false,
+          reason: "Security Violation: Source code contains restricted C/C++ system header or execution call.",
+        };
+      }
+    }
+  }
+
+  return { safe: true };
+}
+
 function runSandboxedProcess(command, args, stdinInput = "", timeoutMs = 5000, cwd = os.tmpdir()) {
   return new Promise((resolve) => {
+    if (activeExecutions >= MAX_CONCURRENT_EXECUTIONS) {
+      return resolve({
+        output: "",
+        error: "Execution concurrency limit reached. Please wait a moment before running more code.",
+        duration: 0,
+        exitCode: 1,
+      });
+    }
+
+    activeExecutions++;
     const startTime = Date.now();
     let stdout = "";
     let stderr = "";
     let isSettled = false;
+
+    const cleanup = () => {
+      activeExecutions = Math.max(0, activeExecutions - 1);
+    };
 
     let proc;
     try {
       proc = spawn(command, args, {
         cwd,
         env: {
-          PATH: process.env.PATH,
+          PATH: "/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin",
           HOME: cwd,
           TMPDIR: cwd,
           LANG: "en_US.UTF-8",
@@ -94,6 +177,7 @@ function runSandboxedProcess(command, args, stdinInput = "", timeoutMs = 5000, c
         stdio: ["pipe", "pipe", "pipe"],
       });
     } catch (err) {
+      cleanup();
       return resolve({
         output: "",
         error: `Failed to spawn process: ${err.message}`,
@@ -105,6 +189,7 @@ function runSandboxedProcess(command, args, stdinInput = "", timeoutMs = 5000, c
     const timer = setTimeout(() => {
       if (!isSettled) {
         isSettled = true;
+        cleanup();
         try {
           proc.kill("SIGKILL");
         } catch {}
@@ -129,13 +214,13 @@ function runSandboxedProcess(command, args, stdinInput = "", timeoutMs = 5000, c
     }
 
     proc.stdout.on("data", (chunk) => {
-      if (stdout.length < 1024 * 128) {
+      if (stdout.length < 1024 * 64) {
         stdout += chunk.toString();
       }
     });
 
     proc.stderr.on("data", (chunk) => {
-      if (stderr.length < 1024 * 128) {
+      if (stderr.length < 1024 * 64) {
         stderr += chunk.toString();
       }
     });
@@ -144,6 +229,7 @@ function runSandboxedProcess(command, args, stdinInput = "", timeoutMs = 5000, c
       if (!isSettled) {
         isSettled = true;
         clearTimeout(timer);
+        cleanup();
         resolve({
           output: stdout,
           error: `Execution error: ${err.message}`,
@@ -157,6 +243,7 @@ function runSandboxedProcess(command, args, stdinInput = "", timeoutMs = 5000, c
       if (!isSettled) {
         isSettled = true;
         clearTimeout(timer);
+        cleanup();
         resolve({
           output: stdout,
           error: stderr,
@@ -173,7 +260,7 @@ function runSandboxedProcess(command, args, stdinInput = "", timeoutMs = 5000, c
 // Universal Sandboxed Code Execution Service (Python, JS, Java, C, C++)
 // With optional Judge0 remote execution when configured
 // -------------------------------------------------------------
-router.post("/execute", async (req, res) => {
+router.post("/execute", authenticateToken, async (req, res) => {
   const clientIp = req.ip || req.connection.remoteAddress || "client";
   if (!checkExecutionRateLimit(clientIp)) {
     return res.status(429).json({ error: "Execution rate limit exceeded. Please wait a moment before running more code." });
@@ -200,6 +287,18 @@ router.post("/execute", async (req, res) => {
   const lang = (language || "").toLowerCase().trim();
   if (!ALLOWED_LANGUAGES.includes(lang)) {
     return res.status(400).json({ error: `Unsupported execution language: ${language}. Supported languages are Python, JavaScript, Java, C, and C++.` });
+  }
+
+  // Mandatory source code security inspection
+  const safety = validateCodeSafety(lang, code);
+  if (!safety.safe) {
+    return res.status(403).json({
+      error: safety.reason,
+      output: "",
+      exitCode: 1,
+      duration: 0,
+      engine: "Security Sandbox Validator",
+    });
   }
 
   const startTime = Date.now();
@@ -6027,5 +6126,6 @@ router.get("/proctored-session/:sessionId/report", optionalAuthenticateToken, as
 router.evaluateSingleTestCase = evaluateSingleTestCase;
 router.evaluateTestCasesBatch = evaluateTestCasesBatch;
 router.runSandboxedProcess = runSandboxedProcess;
+router.validateCodeSafety = validateCodeSafety;
 
 module.exports = router;

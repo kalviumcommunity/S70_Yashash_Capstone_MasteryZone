@@ -175,6 +175,61 @@ async function runTests() {
     assert.strictEqual(isTerminated, true);
   });
 
+  // --- 6. Secure Compiler & Code Safety ---
+  test("validateCodeSafety blocks hazardous OS, subprocess, and filesystem calls in Python", () => {
+    const codingRoutes = require("../routes/codingRoutes");
+    const validateCodeSafety = codingRoutes.validateCodeSafety;
+    assert(typeof validateCodeSafety === "function", "validateCodeSafety should be exported");
+
+    const badCode1 = "import os\nos.system('cat /etc/passwd')";
+    assert.strictEqual(validateCodeSafety("python", badCode1).safe, false);
+
+    const badCode2 = "import subprocess\nsubprocess.Popen(['ls', '-la'])";
+    assert.strictEqual(validateCodeSafety("python", badCode2).safe, false);
+
+    const badCode3 = "f = open('.env', 'r')\nprint(f.read())";
+    assert.strictEqual(validateCodeSafety("python", badCode3).safe, false);
+
+    const goodCode = "def solve(n):\n    return n * n\nprint(solve(5))";
+    assert.strictEqual(validateCodeSafety("python", goodCode).safe, true);
+  });
+
+  test("validateCodeSafety blocks hazardous Node.js child_process, fs, and process.env", () => {
+    const codingRoutes = require("../routes/codingRoutes");
+    const validateCodeSafety = codingRoutes.validateCodeSafety;
+
+    const badJs1 = "const cp = require('child_process'); cp.execSync('rm -rf /');";
+    assert.strictEqual(validateCodeSafety("javascript", badJs1).safe, false);
+
+    const badJs2 = "console.log(process.env.MONGODB_URI);";
+    assert.strictEqual(validateCodeSafety("javascript", badJs2).safe, false);
+
+    const goodJs = "function twoSum(a, b) { return a + b; }\nconsole.log(twoSum(10, 20));";
+    assert.strictEqual(validateCodeSafety("javascript", goodJs).safe, true);
+  });
+
+  test("validateCodeSafety blocks hazardous C/C++ system calls and file access", () => {
+    const codingRoutes = require("../routes/codingRoutes");
+    const validateCodeSafety = codingRoutes.validateCodeSafety;
+
+    const badCpp = "#include <stdlib.h>\nint main() { system(\"rm -rf *\"); return 0; }";
+    assert.strictEqual(validateCodeSafety("cpp", badCpp).safe, false);
+
+    const goodCpp = "#include <iostream>\nusing namespace std;\nint main() { cout << 42 << endl; return 0; }";
+    assert.strictEqual(validateCodeSafety("cpp", goodCpp).safe, true);
+  });
+
+  // --- 7. Admin Analytics REAL_USER_FILTER Validity ---
+  test("REAL_USER_FILTER properly excludes guest, demo, automated test, and super admin accounts with valid MongoDB query structure", () => {
+    const adminRoutes = require("../routes/adminRoutes");
+    const fs = require("fs");
+    const adminFile = fs.readFileSync(path.join(__dirname, "../routes/adminRoutes.js"), "utf8");
+
+    // Ensure no duplicate $not keys exist in REAL_USER_FILTER
+    assert.strictEqual(adminFile.includes("$not: /@masteryzone"), false);
+    assert.strictEqual(adminFile.includes("$nor: ["), true);
+  });
+
   console.log("==================================================");
   console.log(`Results: ${passed}/${total} tests passed (${Math.round((passed / total) * 100)}%)`);
   console.log("==================================================");

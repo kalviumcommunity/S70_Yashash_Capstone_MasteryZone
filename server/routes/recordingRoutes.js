@@ -395,7 +395,7 @@ router.get("/", authenticateToken, async (req, res) => {
   }
 });
 
-// 3. Add chapter to recording
+// 3. Add chapter to recording (Host or Admin only)
 router.post("/:recordingId/chapters", authenticateToken, async (req, res) => {
   try {
     const { timestampSeconds, title } = req.body;
@@ -403,8 +403,16 @@ router.post("/:recordingId/chapters", authenticateToken, async (req, res) => {
       return res.status(400).json({ error: "Timestamp and chapter title required" });
     }
 
+    const currentUserId = String(req.user?.userId || req.user?.id || req.user?._id || "");
+    const isAdmin = Boolean(req.user?.role === "admin" || req.user?.role === "SUPER_ADMIN" || req.user?.isMainAdmin);
+
     const recording = await Recording.findOne({ recordingId: req.params.recordingId });
     if (!recording) return res.status(404).json({ error: "Recording not found" });
+
+    const isHost = String(recording.hostUserId) === currentUserId;
+    if (!isAdmin && !isHost) {
+      return res.status(403).json({ error: "Access denied. Only the meeting host or administrator can add chapters." });
+    }
 
     const newChapter = { timestampSeconds: Number(timestampSeconds), title: title.trim() };
     recording.chapters.push(newChapter);
@@ -417,17 +425,25 @@ router.post("/:recordingId/chapters", authenticateToken, async (req, res) => {
   }
 });
 
-// 4. Add personal bookmark
+// 4. Add personal bookmark (Authorized participants, host, or admin)
 router.post("/:recordingId/bookmarks", authenticateToken, async (req, res) => {
   try {
     const { timestampSeconds, note } = req.body;
-    const currentUserId = req.user?.userId || req.user?.id || "user";
+    const currentUserId = String(req.user?.userId || req.user?.id || req.user?._id || "");
+    const isAdmin = Boolean(req.user?.role === "admin" || req.user?.role === "SUPER_ADMIN" || req.user?.isMainAdmin);
 
     const recording = await Recording.findOne({ recordingId: req.params.recordingId });
     if (!recording) return res.status(404).json({ error: "Recording not found" });
 
+    const isHost = String(recording.hostUserId) === currentUserId;
+    const isParticipant = (recording.participantUserIds || []).includes(currentUserId);
+
+    if (!isAdmin && !isHost && !isParticipant) {
+      return res.status(403).json({ error: "Access denied. You do not have permission to bookmark this recording." });
+    }
+
     const newBookmark = {
-      userId: String(currentUserId),
+      userId: currentUserId,
       timestampSeconds: Number(timestampSeconds) || 0,
       note: (note || "").trim(),
       createdAt: new Date(),
