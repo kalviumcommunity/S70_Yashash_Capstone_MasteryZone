@@ -906,20 +906,21 @@ router.post("/attempt/:attemptId/finalize", authenticateToken, async (req, res) 
       attempt.markModified("mcqAnswers");
     }
 
-    // Merge any latest coding submissions if provided in payload
+    // Merge any latest coding code/language updates, but strictly derive grading from server execution
     if (Array.isArray(req.body.codingSubmissions) && req.body.codingSubmissions.length > 0) {
       req.body.codingSubmissions.forEach((sub, idx) => {
         if (sub && sub.code) {
           if (!attempt.codingSubmissions[idx]) attempt.codingSubmissions[idx] = {};
+          // Preserve authoritative backend evaluation results; reject client-submitted claims of tests passed
           attempt.codingSubmissions[idx] = {
             ...attempt.codingSubmissions[idx],
-            questionId: sub.questionId || attempt.selectedCodingQuestions[idx]?.questionId,
+            questionId: attempt.selectedCodingQuestions[idx]?.questionId || sub.questionId,
             code: sub.code,
-            language: sub.language || "python",
-            solved: Boolean(sub.solved),
-            passedTests: sub.passedTests !== undefined ? sub.passedTests : attempt.codingSubmissions[idx]?.passedTests || 0,
-            totalTests: sub.totalTests !== undefined ? sub.totalTests : 10,
-            testResults: sub.testResults || attempt.codingSubmissions[idx]?.testResults || [],
+            language: sub.language || attempt.codingSubmissions[idx]?.language || "python",
+            solved: Boolean(attempt.codingSubmissions[idx]?.solved),
+            passedTests: Number(attempt.codingSubmissions[idx]?.passedTests || 0),
+            totalTests: Number(attempt.codingSubmissions[idx]?.totalTests || 10),
+            testResults: attempt.codingSubmissions[idx]?.testResults || [],
             submittedAt: new Date(),
           };
         }
