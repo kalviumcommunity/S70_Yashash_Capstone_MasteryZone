@@ -2337,6 +2337,7 @@ export default function MasteryZoneCompilerWorkspace({
 
   // Run Button (Sample or Custom STDIN)
   const handleRun = async () => {
+    if (isRunning) return;
     setIsRunning(true);
     setIsDrawerOpen(true);
     setActiveTab("run");
@@ -2416,6 +2417,7 @@ export default function MasteryZoneCompilerWorkspace({
 
   // Run Tests Button (Executes solution against all test cases in runner)
   const handleRunTests = async () => {
+    if (isRunningTests) return;
     setIsRunningTests(true);
     setIsDrawerOpen(true);
     setActiveTab("run_tests");
