@@ -924,10 +924,7 @@ router.post("/assignment/submit", authenticateToken, async (req, res) => {
       totalTests = testCases.length;
       const lang = normTrack === "cpp" ? "cpp" : normTrack === "java" ? "java" : normTrack === "python" ? "python" : "javascript";
 
-      const codingRoutes = require("./codingRoutes");
-      const outcomes = await (codingRoutes.evaluateTestCasesBatch
-        ? codingRoutes.evaluateTestCasesBatch(lang, code, testCases)
-        : Promise.all(testCases.map((tc) => executeInSandbox(lang, code, tc.input, 4000))));
+      const outcomes = await evaluateTestCasesBatch(lang, code, testCases);
 
       testResults = testCases.map((tc, i) => {
         const out = outcomes[i] || { passed: false, actual: "", expected: tc.expectedOutput, error: "Evaluation failed", duration: 0 };

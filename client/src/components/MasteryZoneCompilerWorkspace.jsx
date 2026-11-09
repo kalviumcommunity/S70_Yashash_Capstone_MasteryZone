@@ -2335,6 +2335,42 @@ export default function MasteryZoneCompilerWorkspace({
     }
   };
 
+  // Check if an error is a real language compilation / syntax error vs an internal server/API failure
+  const isCompilationOrSyntaxError = (err) => {
+    if (!err || typeof err !== "string") return false;
+    const lower = err.toLowerCase();
+    if (
+      lower.includes("activesession is not defined") ||
+      lower.includes("internal server error") ||
+      lower.includes("server error (5") ||
+      lower.includes("failed to fetch") ||
+      lower.includes("networkerror") ||
+      lower.includes("cannot access") ||
+      lower.includes("referenceerror") ||
+      lower.includes("typeerror: cannot") ||
+      lower.includes("database error") ||
+      lower.includes("unauthorized") ||
+      lower.includes("forbidden") ||
+      lower.includes("jwt")
+    ) {
+      return false;
+    }
+    return (
+      lower.includes("syntaxerror") ||
+      lower.includes("indentationerror") ||
+      lower.includes("compilation error") ||
+      lower.includes("compile error") ||
+      lower.includes("error: ") ||
+      lower.includes("; expected") ||
+      lower.includes("cannot find symbol") ||
+      lower.includes("reached end of file while parsing") ||
+      lower.includes("illegal start of expression") ||
+      lower.includes("invalid syntax") ||
+      lower.includes("unexpected token") ||
+      lower.includes("security violation")
+    );
+  };
+
   // Run Button (Sample or Custom STDIN)
   const handleRun = async () => {
     if (isRunning) return;
@@ -2451,18 +2487,24 @@ export default function MasteryZoneCompilerWorkspace({
       }
 
       if (result?.error) {
-        // Strict compiler/syntax error surfaced immediately
-        toast.error(result.error.split("\n")[0] || "Language Syntax / Compilation Error");
-        setAllTestCases((prev) =>
-          prev.map((tc) => ({
-            ...tc,
-            passed: false,
-            actualOutput: "[Compilation / Syntax Error]",
-            error: result.error,
-          }))
-        );
-        setPassedCount(0);
-        setHasEvaluated(true);
+        if (isCompilationOrSyntaxError(result.error)) {
+          // Genuine compiler / syntax error from language toolchain
+          toast.error(result.error.split("\n")[0] || "Language Syntax / Compilation Error");
+          setAllTestCases((prev) =>
+            prev.map((tc) => ({
+              ...tc,
+              passed: false,
+              actualOutput: "[Compilation / Syntax Error]",
+              error: result.error,
+            }))
+          );
+          setPassedCount(0);
+          setHasEvaluated(true);
+        } else {
+          // Internal API or server connection error — NEVER mark candidate's test cases failed!
+          toast.error(`Execution service error: ${result.error.split("\n")[0]}`);
+          setCustomError(`Execution Error: ${result.error}`);
+        }
         return;
       }
 
@@ -2490,21 +2532,8 @@ export default function MasteryZoneCompilerWorkspace({
               expectedOutput: r.expected || r.expectedOutput || updated[i]?.expectedOutput || "Expected Output",
               isHidden: r.isHidden !== undefined ? r.isHidden : (updated[i]?.isHidden !== undefined ? updated[i].isHidden : i >= 3),
             };
-          } else if (result?.passedCount === (base.length || 10) || result?.status === "ACCEPTED" || result?.status === "PASSED" || result?.allPassed) {
-            pCount++;
-            updated[i] = {
-              ...(updated[i] || {}),
-              index: i + 1,
-              passed: true,
-              actualOutput: "[Passed]",
-              duration: 35,
-              error: null,
-              input: updated[i]?.input || `Test Case #${i + 1}`,
-              expectedOutput: updated[i]?.expectedOutput || "Expected Output",
-              isHidden: updated[i]?.isHidden !== undefined ? updated[i].isHidden : i >= 3,
-            };
           } else {
-            // Unexecuted case in sample run remains neutral (passed: null), not falsely marked failed!
+            // Unexecuted case in sample run remains neutral (passed: null), not falsely marked failed or passed!
             updated[i] = {
               ...(updated[i] || {}),
               index: i + 1,
@@ -2638,6 +2667,29 @@ export default function MasteryZoneCompilerWorkspace({
         : Array.isArray(result?.testResults)
         ? result.testResults
         : [];
+
+      // If an internal server / API error occurs during submit without results, do not fabricate 0-mark failure
+      if (result?.error && resultsArray.length === 0) {
+        if (isCompilationOrSyntaxError(result.error)) {
+          toast.error(result.error.split("\n")[0] || "Language Syntax / Compilation Error");
+          setAllTestCases((prev) =>
+            prev.map((tc) => ({
+              ...tc,
+              passed: false,
+              actualOutput: "[Compilation / Syntax Error]",
+              error: result.error,
+            }))
+          );
+          setPassedCount(0);
+          setHasEvaluated(true);
+        } else {
+          toast.error(`Submission error: ${result.error.split("\n")[0]}`);
+          setCustomError(`Submission Service Error: ${result.error}`);
+        }
+        setSubmissionFlowStage(null);
+        return;
+      }
+
       let pCount = 0;
 
       const baseCases = (allTestCases && allTestCases.length > 0)
@@ -2662,7 +2714,7 @@ export default function MasteryZoneCompilerWorkspace({
             expectedOutput: r.expected || r.expectedOutput || tc?.expectedOutput || "Expected Output",
             isHidden: r.isHidden !== undefined ? r.isHidden : (tc?.isHidden !== undefined ? tc.isHidden : i >= 3),
           };
-        } else if (result?.passedCount === baseCases.length || result?.status === "ACCEPTED" || result?.status === "PASSED" || result?.allPassed || result?.isSolved) {
+        } else if (result?.passedCount !== undefined && i < result.passedCount) {
           pCount++;
           return {
             ...(tc || {}),

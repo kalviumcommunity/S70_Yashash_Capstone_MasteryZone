@@ -356,6 +356,111 @@ public class Main {
         normalizedCode = normalizedCode.replace(/\bclass\s+[A-Za-z0-9_]+/i, "public class Main");
       }
     }
+  } else if (lang === "cpp" || lang === "c++") {
+    const hasMain = /(int|void)\s+main\s*\(/.test(normalizedCode);
+    if (!hasMain && /class\s+Solution/.test(normalizedCode)) {
+      let callStatement = "Solution sol; sol.solve();";
+      if (/twoSum/.test(normalizedCode)) {
+        callStatement = "Solution sol; int target = nums.empty() ? 0 : nums.back(); if (!nums.empty()) nums.pop_back(); std::vector<int> res = sol.twoSum(nums, target); for(size_t i = 0; i < res.size(); i++) std::cout << res[i] << (i + 1 < res.size() ? \" \" : \"\"); std::cout << std::endl;";
+      } else if (/findPeakElement/.test(normalizedCode)) {
+        callStatement = "Solution sol; std::cout << sol.findPeakElement(nums) << std::endl;";
+      } else if (/lengthOfLongestSubstring/.test(normalizedCode)) {
+        callStatement = "Solution sol; std::cout << sol.lengthOfLongestSubstring(rawAll) << std::endl;";
+      }
+
+      normalizedCode = `#include <iostream>
+#include <string>
+#include <vector>
+#include <sstream>
+${normalizedCode}
+
+int main() {
+    std::string line;
+    std::vector<int> nums;
+    std::string rawAll = "";
+    while (std::getline(std::cin, line)) {
+        rawAll += line + "\\n";
+        for (int i = 0; i < (int)line.size(); i++) {
+            char c = line[i];
+            if (c == 91 || c == 93 || c == 44 || c == 34) line[i] = 32;
+        }
+        std::stringstream ss(line);
+        int val;
+        while (ss >> val) {
+            nums.push_back(val);
+        }
+    }
+    ${callStatement}
+    return 0;
+}
+`;
+    }
+  } else if (lang === "javascript" || lang === "js" || lang === "node") {
+    const hasStdin = /fs\.readFileSync|readline|process\.stdin/.test(normalizedCode);
+    if (!hasStdin && (/\bfunction\s+[a-zA-Z0-9_$]+|\bclass\s+Solution|const\s+[a-zA-Z0-9_$]+\s*=\s*(?:function|\([^)]*\)\s*=>)/.test(normalizedCode))) {
+      const fnMatches = [...normalizedCode.matchAll(/(?:function\s+([a-zA-Z0-9_$]+)|(?:const|let|var)\s+([a-zA-Z0-9_$]+)\s*=\s*(?:function|\([^)]*\)\s*=>))/g)];
+      const extractedNames = fnMatches.map((m) => m[1] || m[2]).filter(Boolean);
+      normalizedCode = `${normalizedCode}\n\n;(() => {
+  const fs = require("fs");
+  let raw = "";
+  try { raw = fs.readFileSync(0, "utf8"); } catch(e) { return; }
+  if (raw === undefined || raw === null || !raw.trim()) return;
+  const rawStr = raw.trim();
+
+  let targetFn = null;
+  if (typeof Solution === "function") {
+    try {
+      const s = new Solution();
+      const proto = Object.getPrototypeOf(s);
+      const methods = Object.getOwnPropertyNames(proto).filter(m => m !== "constructor" && typeof s[m] === "function");
+      if (methods.length > 0) targetFn = s[methods[0]].bind(s);
+    } catch(e) {}
+  }
+
+  if (!targetFn) {
+    const candidateNames = ${JSON.stringify(extractedNames)};
+    for (const name of candidateNames) {
+      try {
+        if (typeof eval(name) === "function") {
+          targetFn = eval(name);
+          break;
+        }
+      } catch(e) {}
+    }
+  }
+
+  if (!targetFn) return;
+
+  let parsedArgs = [];
+  try {
+    const parsed = JSON.parse(rawStr);
+    if (Array.isArray(parsed) && targetFn.length > 1 && parsed.length === targetFn.length) {
+      parsedArgs = parsed;
+    } else {
+      parsedArgs = [parsed];
+    }
+  } catch(e) {
+    const lines = rawStr.split(/\\r?\\n/).filter(l => l.trim().length > 0);
+    parsedArgs = lines.map(l => {
+      try { return JSON.parse(l); } catch(e2) {
+        const num = Number(l);
+        return isNaN(num) ? l : num;
+      }
+    });
+  }
+
+  try {
+    const res = targetFn(...parsedArgs);
+    if (res !== undefined) {
+      if (typeof res === "object") console.log(JSON.stringify(res));
+      else console.log(res);
+    }
+  } catch(e) {
+    console.error(e);
+  }
+})();
+`;
+    }
   }
 
   const url = new URL("/submissions?wait=true", process.env.JUDGE0_API_HOST);

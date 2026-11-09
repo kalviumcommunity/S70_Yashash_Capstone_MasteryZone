@@ -1860,7 +1860,18 @@ app.use('/recordings', async (req, res, next) => {
   if (recording && !isAdmin) {
     const isHost = String(recording.hostUserId) === currentUserId;
     const isParticipant = (recording.participantUserIds || []).includes(currentUserId);
-    if (!isHost && !isParticipant) {
+    let isMeetingAttendee = false;
+    if (recording.meetingId) {
+      try {
+        const Meeting = require("./models/Meeting");
+        const meeting = await Meeting.findOne({
+          meetingId: recording.meetingId,
+          $or: [{ hostUserId: currentUserId }, { "participants.userId": currentUserId }],
+        }).lean();
+        if (meeting) isMeetingAttendee = true;
+      } catch {}
+    }
+    if (!isHost && !isParticipant && !isMeetingAttendee) {
       return res.status(403).send("Forbidden: You do not have permission to access this recording");
     }
   } else if (!recording && !isAdmin) {

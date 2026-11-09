@@ -343,7 +343,8 @@ router.post("/upload", express.json({ limit: "100mb" }), authenticateToken, asyn
     const recordingId = `rec_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const ext = mimeType.includes("mp4") ? "mp4" : "webm";
     const fileName = `${recordingId}.${ext}`;
-    const filePath = path.join(RECORDINGS_DIR, fileName);
+    const targetDir = getRecordingsDir();
+    const filePath = path.join(targetDir, fileName);
 
     // Strip data URL header safely (handles video/webm;codecs=vp9,opus, video/webm, video/mp4, etc.)
     const cleanBase64 = base64Data.includes(";base64,") ? base64Data.split(";base64,").pop() : base64Data;
