@@ -51,13 +51,14 @@ function parseAndValidatePdfStructure(filePath) {
       return false;
     }
 
-    // 3. Verify real structural objects (/Catalog, /Pages, and xref)
+    // 3. Verify real structural objects (/Catalog, /Pages, xref, and /Page or stream)
     const content = fs.readFileSync(filePath, "binary");
     const hasCatalog = content.includes("/Catalog");
     const hasPages = content.includes("/Pages");
     const hasXRef = content.includes("xref") || content.includes("/XRef");
+    const hasStreamOrPage = content.includes("/Page") || content.includes("stream");
 
-    return hasCatalog && hasPages && hasXRef;
+    return hasCatalog && hasPages && hasXRef && hasStreamOrPage;
   } catch {
     return false;
   }
@@ -1638,7 +1639,7 @@ router.get("/my-history", authenticateToken, async (req, res) => {
 
     let attemptsQuery = CertificationAttempt.find({ userId })
       .sort({ createdAt: -1 })
-      .select("attemptId certId certTitle attemptNumber status percentage score adminNote mcqScore mcqPassed finalVerdict certificateId startTime submittedAt codingSubmissions.solved proctoring.status proctoring.violationsCount")
+      .select("attemptId certId certTitle attemptNumber status percentage finalScorePercentage score totalMarksObtained adminNote mcqScore mcqPassed finalVerdict certificateId startTime submittedAt codingSubmissions.solved proctoring.status proctoring.violationsCount")
       .lean();
 
     if (limit > 0) {
@@ -1666,7 +1667,7 @@ router.get("/my-history", authenticateToken, async (req, res) => {
       finalVerdict: att.finalVerdict,
       mcqScore: att.mcqScore,
       mcqPercentage: att.percentage != null ? att.percentage : Math.round(((att.mcqScore || 0) / 20) * 100),
-      percentage: att.percentage != null ? att.percentage : Math.round(((att.mcqScore || 0) / 20) * 100),
+      percentage: att.finalScorePercentage != null ? att.finalScorePercentage : (att.percentage != null ? att.percentage : Math.round(((att.mcqScore || 0) / 20) * 100)),
       score: {
         mcqScore: att.mcqScore ?? 0,
         mcqTotal: 20,
@@ -1991,5 +1992,8 @@ router.put("/progress", authenticateToken, async (req, res) => {
     res.status(500).json({ message: "Server Error", error: err.message });
   }
 });
+
+router.calculateCertificationVerdict = calculateCertificationVerdict;
+router.parseAndValidatePdfStructure = parseAndValidatePdfStructure;
 
 module.exports = router;

@@ -11,7 +11,7 @@ const Progress = require("../models/ProgressSchema");
 const User = require("../models/User");
 const { pushNotification } = require("../utils/notificationService");
 const { sendSubmissionEvaluationEmail, sendModuleCompletionEmail, dispatchMailBackground, isGuestAccount } = require("../utils/mailer");
-const { spawn } = require("child_process");
+
 const fs = require("fs");
 const path = require("path");
 const os = require("os");

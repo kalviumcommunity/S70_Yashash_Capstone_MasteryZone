@@ -270,7 +270,9 @@ function isProductionExecutionRestricted() {
 async function executeViaJudge0(lang, code, stdin = "", timeoutMs = 5000) {
   if (!process.env.JUDGE0_API_HOST) return null;
   const langId = judge0LangMap[lang];
-  if (!langId) return null;
+  if (!langId) {
+    throw new Error(`Language '${lang}' is not supported by Judge0`);
+  }
 
   const url = new URL("/submissions?wait=true", process.env.JUDGE0_API_HOST);
   const headers = {
@@ -300,10 +302,17 @@ async function executeViaJudge0(lang, code, stdin = "", timeoutMs = 5000) {
         let resData = "";
         jRes.on("data", (c) => (resData += c));
         jRes.on("end", () => {
+          if (jRes.statusCode < 200 || jRes.statusCode >= 300) {
+            return reject(new Error(`Judge0 HTTP Error ${jRes.statusCode}: ${resData || "Unexpected response"}`));
+          }
           try {
-            resolve(JSON.parse(resData));
+            const parsed = JSON.parse(resData);
+            if (!parsed || typeof parsed !== "object" || !parsed.status) {
+              return reject(new Error("Judge0 returned malformed response or missing status"));
+            }
+            resolve(parsed);
           } catch (e) {
-            reject(e);
+            reject(new Error(`Judge0 JSON parsing failed: ${e.message}`));
           }
         });
       }
@@ -311,7 +320,7 @@ async function executeViaJudge0(lang, code, stdin = "", timeoutMs = 5000) {
     jReq.on("error", reject);
     jReq.on("timeout", () => {
       jReq.destroy();
-      reject(new Error("Judge0 timeout"));
+      reject(new Error("Judge0 execution request timed out"));
     });
     jReq.write(bodyData);
     jReq.end();
@@ -329,7 +338,7 @@ async function executeViaJudge0(lang, code, stdin = "", timeoutMs = 5000) {
       engine: "Judge0",
     };
   }
-  return null;
+  throw new Error("Incomplete or empty Judge0 submission result");
 }
 
 function isCodeEmptyOrComments(code) {
@@ -545,7 +554,7 @@ async function executeCode({ language, code, stdin = "", timeoutMs = 5000, files
   }
 
   // Fail-closed check if local execution restricted
-  if (isProductionExecutionRestricted()) {
+  if (isProductionExecutionRestricted() || (process.env.NODE_ENV === "production" && process.env.ALLOW_LOCAL_FALLBACK !== "true")) {
     return {
       output: "",
       error: "Production execution requires a configured isolated execution environment (Judge0).",
@@ -769,6 +778,16 @@ async function evaluateTestCasesBatch(language, code, testCases) {
         }));
       }
     }
+  }
+
+  if (process.env.NODE_ENV === "production" && process.env.ALLOW_LOCAL_FALLBACK !== "true") {
+    return testCases.map((tc) => ({
+      passed: false,
+      actual: "",
+      expected: String(tc.expectedOutput !== undefined ? tc.expectedOutput : (tc.expected || "")).trim(),
+      error: "Production execution requires a configured isolated execution environment (Judge0). Local fallback is disabled.",
+      duration: 0,
+    }));
   }
 
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "mz_judge_"));

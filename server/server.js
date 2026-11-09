@@ -468,8 +468,16 @@ io.on("connection", (socket) => {
 
   // When a user sends a global chat message
   socket.on("send_global_message", (messageData) => {
-    // messageData: { user: string, text: string, time: string, zone: string }
-    io.emit("receive_global_message", messageData);
+    if (!messageData || typeof messageData !== "object") return;
+    const text = String(messageData.text || "").trim();
+    if (!text || text.length > 2000) return;
+    const verifiedUser = onlineUsers.get(socket.id) || socket.data.meetingUser?.fullName || socket.data.userEmail || String(messageData.user || "Learner").slice(0, 50);
+    io.emit("receive_global_message", {
+      ...messageData,
+      text,
+      user: verifiedUser,
+      time: messageData.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    });
   });
 
   // =========================================================
@@ -528,12 +536,13 @@ io.on("connection", (socket) => {
   socket.on("code_change", ({ roomId, code, language, cursor }) => {
     if (!roomId || !codingRooms.has(roomId)) return;
     const room = codingRooms.get(roomId);
-    room.code = code;
-    if (language) room.language = language;
+    if (!room.participants.has(socket.id)) return;
+    room.code = typeof code === "string" ? code.slice(0, 500000) : "";
+    if (language) room.language = String(language).slice(0, 30);
 
     // Broadcast code updates to all other participants in the room
     socket.to(`coding_room_${roomId}`).emit("code_update", {
-      code,
+      code: room.code,
       language: room.language,
       cursor,
       fromSocket: socket.id,
@@ -543,12 +552,11 @@ io.on("connection", (socket) => {
   socket.on("cursor_move", ({ roomId, cursor, user }) => {
     if (!roomId || !codingRooms.has(roomId)) return;
     const room = codingRooms.get(roomId);
-    if (room.participants.has(socket.id)) {
-      room.participants.get(socket.id).cursor = cursor;
-    }
+    if (!room.participants.has(socket.id)) return;
+    room.participants.get(socket.id).cursor = cursor;
     socket.to(`coding_room_${roomId}`).emit("cursor_update", {
       cursor,
-      user,
+      user: socket.data.meetingUser || user,
       socketId: socket.id,
     });
   });
@@ -991,16 +999,23 @@ io.on("connection", (socket) => {
   socket.on("meeting_code_change", async ({ meetingId, code, language, user, cursor }) => {
     const mid = socket.data.meetingId;
     if (!mid || !isAuthorizedMeetingMember(socket, meetingId || mid)) return;
-    const u = socket.data.meetingUser || {};
-    socket.to(`meeting_${mid}`).emit("meeting_code_updated", {
-      code,
-      language,
-      user: u,
-      cursor,
-      fromSocketId: socket.id,
-    });
 
     try {
+      const meeting = await Meeting.findOne({ meetingId: mid }).select("codingPermission hostUserId").lean();
+      if (meeting && (meeting.codingPermission === "host-only" || meeting.codingPermission === "read-only") && !isMeetingHostOrAdmin(socket, meeting)) {
+        socket.emit("meeting_error", { message: "Only the host can modify code in this workspace." });
+        return;
+      }
+
+      const u = socket.data.meetingUser || {};
+      socket.to(`meeting_${mid}`).emit("meeting_code_updated", {
+        code,
+        language,
+        user: u,
+        cursor,
+        fromSocketId: socket.id,
+      });
+
       const updateDoc = {};
       if (code !== undefined) updateDoc["sharedCode.code"] = code;
       if (language !== undefined) updateDoc["sharedCode.language"] = language;
