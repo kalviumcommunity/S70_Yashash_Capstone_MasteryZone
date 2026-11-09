@@ -162,21 +162,29 @@ async function runTests() {
     // =========================================================================
     console.log("\n--- Section 1: Meeting Video & Audio Recording Pipeline ---");
 
-    // Valid WebM container with real EBML header, Segment, Info, Tracks (Video + Audio), and Cluster
-    const ebmlHeader = Buffer.from([
-      0x1a, 0x45, 0xdf, 0xa3, 0x9f, 0x42, 0x86, 0x81, 0x01, 0x42, 0xf7, 0x81, 0x01, 0x42, 0xf2, 0x81, 0x04,
-      0x42, 0xf3, 0x81, 0x08, 0x42, 0x82, 0x84, 0x77, 0x65, 0x62, 0x6d, 0x42, 0x87, 0x81, 0x04, 0x42, 0x85, 0x81, 0x02,
-    ]);
-    const segmentHeader = Buffer.from([0x18, 0x53, 0x80, 0x67, 0x01, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]);
-    const segmentInfo = Buffer.from([0x15, 0x49, 0xa9, 0x66, 0x8b, 0x2a, 0xd7, 0xb1, 0x83, 0x0f, 0x42, 0x40]);
-    const tracks = Buffer.from([
-      0x16, 0x54, 0xae, 0x6b, 0xa0,
-      0xae, 0x8d, 0xd7, 0x81, 0x01, 0x73, 0xc5, 0x81, 0x01, 0x83, 0x81, 0x01, 0x86, 0x85, 0x56, 0x5f, 0x56, 0x50, 0x39,
-      0xae, 0x8e, 0xd7, 0x81, 0x02, 0x73, 0xc5, 0x81, 0x02, 0x83, 0x81, 0x02, 0x86, 0x86, 0x41, 0x5f, 0x4f, 0x50, 0x55, 0x53,
-    ]);
-    const cluster = Buffer.from([0x1f, 0x43, 0xb6, 0x75, 0x90, 0xe7, 0x81, 0x00, 0xa3, 0x8a, 0x81, 0x00, 0x00, 0x80, 0x01, 0x02, 0x03, 0x04, 0x05]);
-    const totalWebm = Buffer.concat([ebmlHeader, segmentHeader, segmentInfo, tracks, cluster]);
-    const validWebmBytes = Buffer.concat([totalWebm, Buffer.alloc(Math.max(512 - totalWebm.length, 32), 0x00)]);
+    const ffmpegInstaller = require("@ffmpeg-installer/ffmpeg");
+    const { execFileSync } = require("child_process");
+
+    function generatePlayableWebmBuffer(duration = 1) {
+      const tmpFile = path.join(__dirname, `tmp_playable_${Date.now()}_${Math.random().toString(36).slice(2)}.webm`);
+      execFileSync(
+        ffmpegInstaller.path,
+        [
+          "-y",
+          "-f", "lavfi", "-i", `testsrc=duration=${duration}:size=320x240:rate=10`,
+          "-f", "lavfi", "-i", `sine=frequency=1000:duration=${duration}`,
+          "-c:v", "libvpx",
+          "-c:a", "libvorbis",
+          tmpFile,
+        ],
+        { stdio: "ignore" }
+      );
+      const buf = fs.readFileSync(tmpFile);
+      try { fs.unlinkSync(tmpFile); } catch {}
+      return buf;
+    }
+
+    const validWebmBytes = generatePlayableWebmBuffer(1);
     const b64WithCodecs = `data:video/webm;codecs=vp9,opus;base64,${validWebmBytes.toString("base64")}`;
 
     let recordingAId = "";

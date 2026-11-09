@@ -39,12 +39,61 @@ const {
 const {
   validateMediaIntegrity,
   inspectMediaBinary,
+  probeWithFfprobe,
+  verifyFrameDecodability,
 } = require("../routes/recordingRoutes");
 
 const { generateCertificatePDF } = require("../utils/certificateGenerator");
 
 const { app, server } = require("../server");
 let testServer, baseUrl;
+
+const ffmpegInstaller = require("@ffmpeg-installer/ffmpeg");
+const ffprobeInstaller = require("@ffprobe-installer/ffprobe");
+const { execFileSync } = require("child_process");
+
+function createPlayableMedia({ format = "webm", duration = 1, video = true, audio = true } = {}) {
+  const ext = format === "mp4" ? "mp4" : "webm";
+  const tmpFile = path.join(__dirname, `test_playable_${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`);
+  const args = ["-y"];
+
+  if (video) {
+    args.push("-f", "lavfi", "-i", `testsrc=duration=${duration}:size=320x240:rate=10`);
+  }
+  if (audio) {
+    args.push("-f", "lavfi", "-i", `sine=frequency=1000:duration=${duration}`);
+  }
+
+  if (format === "mp4") {
+    if (video && audio) {
+      args.push("-c:v", "libx264", "-preset", "ultrafast", "-c:a", "aac");
+    } else if (video) {
+      args.push("-c:v", "libx264", "-preset", "ultrafast");
+    } else if (audio) {
+      args.push("-c:a", "aac");
+    }
+  } else {
+    // webm
+    if (video && audio) {
+      args.push("-c:v", "libvpx", "-c:a", "libvorbis");
+    } else if (video) {
+      args.push("-c:v", "libvpx");
+    } else if (audio) {
+      args.push("-c:a", "libvorbis");
+    }
+  }
+
+  args.push(tmpFile);
+  execFileSync(ffmpegInstaller.path, args, { stdio: "ignore" });
+  const buffer = fs.readFileSync(tmpFile);
+  return {
+    filePath: tmpFile,
+    buffer,
+    cleanup: () => {
+      try { fs.unlinkSync(tmpFile); } catch {}
+    },
+  };
+}
 
 // Fixture helpers for genuine media buffers
 function box(type, payload) {
@@ -401,29 +450,67 @@ async function runSuite() {
     client.disconnect();
   });
 
-  await it("Coding Room: Private room unauthorized entry rejection (guessing roomId fails)", async () => {
-    // User A creates private room
-    const clientA = ioClient(baseUrl, { transports: ["websocket"] });
-    await new Promise((res) => clientA.on("connect", res));
-    clientA.emit("join_coding_room", { roomId: "private_room_guessing_test", token: tokenA });
-    await new Promise((r) => setTimeout(r, 150));
-
-    // User B attempts to join User A's private room by guessing its ID
+  await it("Coding Room: Room creation is authorized; room guessing and squatting are strictly rejected", async () => {
+    // 1. User B attempts to join a non-existent room by guessing an uncreated roomId
     const clientB = ioClient(baseUrl, { transports: ["websocket"] });
     await new Promise((res) => clientB.on("connect", res));
 
-    let roomError = null;
+    let nonExistentError = null;
     clientB.on("coding_room_error", (data) => {
-      roomError = data.message;
+      nonExistentError = data.message;
     });
 
+    clientB.emit("join_coding_room", {
+      roomId: "uncreated_guessed_room_xyz",
+      token: tokenB,
+    });
+    await new Promise((r) => setTimeout(r, 200));
+    assert(
+      nonExistentError && nonExistentError.includes("does not exist"),
+      "Joining an uncreated room must fail; arbitrary room creation via join is disallowed"
+    );
+
+    // 2. User A explicitly creates a private coding room
+    const clientA = ioClient(baseUrl, { transports: ["websocket"] });
+    await new Promise((res) => clientA.on("connect", res));
+
+    let aCreatedState = null;
+    clientA.on("coding_room_created", (data) => {
+      aCreatedState = data;
+    });
+
+    clientA.emit("create_coding_room", {
+      roomId: "private_room_guessing_test",
+      token: tokenA,
+      language: "python",
+      initialCode: "# Initial Authoritative Code",
+    });
+    await new Promise((r) => setTimeout(r, 200));
+    assert(aCreatedState && aCreatedState.roomId === "private_room_guessing_test", "Host must receive room created confirmation");
+
+    // 3. User B attempts to squat/overwrite User A's created room
+    let squatError = null;
+    clientB.on("coding_room_error", (data) => {
+      squatError = data.message;
+    });
+    clientB.emit("create_coding_room", {
+      roomId: "private_room_guessing_test",
+      token: tokenB,
+    });
+    await new Promise((r) => setTimeout(r, 200));
+    assert(squatError && squatError.includes("already exists"), "User cannot overwrite or squat an existing room");
+
+    // 4. User B attempts to join User A's private room without invitation
+    let joinDeniedError = null;
+    clientB.on("coding_room_error", (data) => {
+      joinDeniedError = data.message;
+    });
     clientB.emit("join_coding_room", {
       roomId: "private_room_guessing_test",
       token: tokenB,
     });
-
     await new Promise((r) => setTimeout(r, 200));
-    assert(roomError && roomError.includes("not authorized"), "Unauthorized user guessing roomId must be rejected with Access denied");
+    assert(joinDeniedError && joinDeniedError.includes("not authorized"), "Uninvited user must be rejected with Access denied");
 
     clientA.disconnect();
     clientB.disconnect();
@@ -433,11 +520,15 @@ async function runSuite() {
     // User A creates room as host
     const clientA = ioClient(baseUrl, { transports: ["websocket"] });
     await new Promise((res) => clientA.on("connect", res));
-    clientA.emit("join_coding_room", { roomId: "room_host_immutability", token: tokenA });
+    clientA.emit("create_coding_room", { roomId: "room_host_immutability", token: tokenA });
     await new Promise((r) => setTimeout(r, 150));
 
-    // User A invites User B via send_dm
-    clientA.emit("send_dm", { toUser: userB.username, roomCode: "room_host_immutability" });
+    // User A invites User B via invite_coding_participant
+    clientA.emit("invite_coding_participant", {
+      roomId: "room_host_immutability",
+      targetUserId: userB._id.toString(),
+      targetEmail: userB.email,
+    });
     await new Promise((r) => setTimeout(r, 150));
 
     // User B joins with claim of being Host
@@ -452,7 +543,7 @@ async function runSuite() {
     clientB.emit("join_coding_room", {
       roomId: "room_host_immutability",
       token: tokenB,
-      role: "Host", // Attempted override
+      role: "Host", // Attempted client-side privilege escalation
     });
 
     await new Promise((r) => setTimeout(r, 200));
@@ -470,10 +561,10 @@ async function runSuite() {
   });
 
   await it("Coding Room: Non-member cannot broadcast code_change or cursor_move into room", async () => {
-    // User A joins room_A
+    // User A creates room_broadcast_prot
     const clientA = ioClient(baseUrl, { transports: ["websocket"] });
     await new Promise((res) => clientA.on("connect", res));
-    clientA.emit("join_coding_room", { roomId: "room_broadcast_prot", token: tokenA });
+    clientA.emit("create_coding_room", { roomId: "room_broadcast_prot", token: tokenA });
     await new Promise((r) => setTimeout(r, 150));
 
     let receivedUpdate = null;
@@ -500,7 +591,7 @@ async function runSuite() {
   await it("Coding Room: Valid invited participant can join and collaborate", async () => {
     const clientA = ioClient(baseUrl, { transports: ["websocket"] });
     await new Promise((res) => clientA.on("connect", res));
-    clientA.emit("join_coding_room", { roomId: "room_valid_collab", token: tokenA });
+    clientA.emit("create_coding_room", { roomId: "room_valid_collab", token: tokenA });
     await new Promise((r) => setTimeout(r, 100));
 
     // User A explicitly invites User B
@@ -532,10 +623,34 @@ async function runSuite() {
     clientB.disconnect();
   });
 
+  await it("Coding Room: Rate limiting prevents rapid chat spamming in collaborative room", async () => {
+    const clientA = ioClient(baseUrl, { transports: ["websocket"] });
+    await new Promise((res) => clientA.on("connect", res));
+    clientA.emit("create_coding_room", { roomId: "room_rate_limit_test", token: tokenA });
+    await new Promise((r) => setTimeout(r, 150));
+
+    let errorReceived = null;
+    clientA.on("coding_room_error", (data) => {
+      errorReceived = data.message;
+    });
+
+    // Send 7 messages in rapid succession (limit is 5)
+    for (let i = 0; i < 7; i++) {
+      clientA.emit("coding_chat_message", {
+        roomId: "room_rate_limit_test",
+        text: `Spam attempt ${i}`,
+      });
+    }
+
+    await new Promise((r) => setTimeout(r, 200));
+    assert(errorReceived && errorReceived.includes("too quickly"), "Burst of chat messages must trigger rate limit warning");
+    clientA.disconnect();
+  });
+
   await it("Coding Room: Logout and disconnect remove access and update participants correctly", async () => {
     const clientA = ioClient(baseUrl, { transports: ["websocket"] });
     await new Promise((res) => clientA.on("connect", res));
-    clientA.emit("join_coding_room", { roomId: "room_cleanup_test", token: tokenA });
+    clientA.emit("create_coding_room", { roomId: "room_cleanup_test", token: tokenA });
     await new Promise((r) => setTimeout(r, 100));
 
     clientA.emit("invite_coding_participant", {
@@ -662,68 +777,161 @@ async function runSuite() {
 
   console.log("\n--- Category 3: Genuine Recording Audio/Video Integrity ---");
 
-  await it("Media: Real valid WebM with audio and video passes inspectMediaBinary and validateMediaIntegrity", async () => {
-    const dualWebm = buildDualStreamWebM();
-    const resBinary = inspectMediaBinary(dualWebm, 60);
-    assert.strictEqual(resBinary.valid, true, "Real dual-stream WebM must pass inspectMediaBinary");
-    assert.strictEqual(resBinary.hasVideo, true);
-    assert.strictEqual(resBinary.hasAudio, true);
-
-    const tmpFile = path.join(__dirname, `valid_dual_test_${Date.now()}.webm`);
-    fs.writeFileSync(tmpFile, dualWebm);
+  await it("Media: Genuine playable WebM generated via ffmpeg passes probeWithFfprobe, verifyFrameDecodability, and validateMediaIntegrity", async () => {
+    const media = createPlayableMedia({ format: "webm", duration: 1, video: true, audio: true });
     try {
-      const resInteg = await validateMediaIntegrity(tmpFile, dualWebm, 60);
-      assert.strictEqual(resInteg.valid, true, "Real dual-stream WebM must pass validateMediaIntegrity");
-      assert.strictEqual(resInteg.hasVideo, true);
-      assert.strictEqual(resInteg.hasAudio, true);
+      const probeRes = await probeWithFfprobe(media.filePath);
+      assert(probeRes && Array.isArray(probeRes.streams), "FFprobe must return streams for genuine WebM");
+      const hasV = probeRes.streams.some((s) => s.codec_type === "video");
+      const hasA = probeRes.streams.some((s) => s.codec_type === "audio");
+      assert.strictEqual(hasV, true, "Playable WebM must have video stream");
+      assert.strictEqual(hasA, true, "Playable WebM must have audio stream");
+
+      const frameRes = await verifyFrameDecodability(media.filePath);
+      assert(frameRes && frameRes.valid, "Frame decodability must succeed on playable WebM");
+
+      const integRes = await validateMediaIntegrity(media.filePath, media.buffer, 1);
+      assert.strictEqual(integRes.valid, true, "validateMediaIntegrity must pass for genuine playable WebM");
+      assert.strictEqual(integRes.hasVideo, true);
+      assert.strictEqual(integRes.hasAudio, true);
     } finally {
-      try { fs.unlinkSync(tmpFile); } catch {}
+      media.cleanup();
     }
   });
 
-  await it("Media: Real valid MP4 with audio and video passes inspectMediaBinary and validateMediaIntegrity", async () => {
-    const dualMp4 = buildMP4();
-    const resBinary = inspectMediaBinary(dualMp4, 30);
-    assert.strictEqual(resBinary.valid, true, "Real dual-stream MP4 must pass inspectMediaBinary");
-    assert.strictEqual(resBinary.hasVideo, true);
-    assert.strictEqual(resBinary.hasAudio, true);
-
-    const tmpFile = path.join(__dirname, `valid_mp4_test_${Date.now()}.mp4`);
-    fs.writeFileSync(tmpFile, dualMp4);
+  await it("Media: Genuine playable MP4 generated via ffmpeg passes probeWithFfprobe, verifyFrameDecodability, and validateMediaIntegrity", async () => {
+    const media = createPlayableMedia({ format: "mp4", duration: 1, video: true, audio: true });
     try {
-      const resInteg = await validateMediaIntegrity(tmpFile, dualMp4, 30);
-      assert.strictEqual(resInteg.valid, true, "Real dual-stream MP4 must pass validateMediaIntegrity");
+      const probeRes = await probeWithFfprobe(media.filePath);
+      assert(probeRes && Array.isArray(probeRes.streams), "FFprobe must return streams for genuine MP4");
+      const hasV = probeRes.streams.some((s) => s.codec_type === "video");
+      const hasA = probeRes.streams.some((s) => s.codec_type === "audio");
+      assert.strictEqual(hasV, true, "Playable MP4 must have video stream");
+      assert.strictEqual(hasA, true, "Playable MP4 must have audio stream");
+
+      const frameRes = await verifyFrameDecodability(media.filePath);
+      assert(frameRes && frameRes.valid, "Frame decodability must succeed on playable MP4");
+
+      const integRes = await validateMediaIntegrity(media.filePath, media.buffer, 1);
+      assert.strictEqual(integRes.valid, true, "validateMediaIntegrity must pass for genuine playable MP4");
     } finally {
-      try { fs.unlinkSync(tmpFile); } catch {}
+      media.cleanup();
     }
   });
 
-  await it("Media: Video-only WebM rejected with missing audio stream error", async () => {
-    const videoOnlyWebm = buildDualStreamWebM({ audio: false });
-    const res = inspectMediaBinary(videoOnlyWebm, 60);
-    assert.strictEqual(res.valid, false);
-    assert(res.error.includes("missing required audio stream"));
+  await it("Media: Genuine playable WebM upload succeeds via POST /api/recordings/upload and creates database record", async () => {
+    const meetingId = `mtg_playable_upload_${Date.now()}`;
+    await Meeting.create({
+      meetingId,
+      title: "Playable WebM Upload Meeting",
+      hostUserId: String(userA._id),
+      hostName: userA.fullName,
+      status: "active",
+      participants: [{ userId: String(userA._id), name: userA.fullName }],
+    });
+
+    const media = createPlayableMedia({ format: "webm", duration: 1, video: true, audio: true });
+    try {
+      const res = await fetch(`${baseUrl}/api/recordings/upload`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${tokenA}`,
+        },
+        body: JSON.stringify({
+          meetingId,
+          title: "Playable Upload Verification",
+          durationSeconds: 1,
+          base64Data: `data:video/webm;base64,${media.buffer.toString("base64")}`,
+        }),
+      });
+
+      assert.strictEqual(res.status, 201, "Valid playable recording upload must return 201 Created");
+      const json = await res.json();
+      assert.strictEqual(json.success, true);
+      assert(json.recording && json.recording.recordingId, "Recording record must be returned");
+
+      const Recording = require("../models/Recording");
+      const saved = await Recording.findOne({ recordingId: json.recording.recordingId }).lean();
+      assert(saved, "Recording must be persisted in database");
+      assert.strictEqual(String(saved.hostUserId), String(userA._id));
+      assert.strictEqual(saved.status, "ready");
+      assert(saved.durationSeconds > 0, "Saved duration must be positive");
+      const expectedDiskFile = path.join(__dirname, "../uploads/recordings", `${json.recording.recordingId}.webm`);
+      assert(fs.existsSync(expectedDiskFile), "Saved video file must exist on disk");
+    } finally {
+      media.cleanup();
+    }
   });
 
-  await it("Media: Audio-only WebM rejected with missing video stream error", async () => {
-    const audioOnlyWebm = buildDualStreamWebM({ video: false });
-    const res = inspectMediaBinary(audioOnlyWebm, 60);
-    assert.strictEqual(res.valid, false);
-    assert(res.error.includes("missing required video stream"));
+  await it("Media: Video-only genuine media upload fails with missing audio stream (400)", async () => {
+    const meetingId = `mtg_video_only_${Date.now()}`;
+    await Meeting.create({
+      meetingId,
+      title: "Video Only Meeting",
+      hostUserId: String(userA._id),
+      hostName: userA.fullName,
+      status: "active",
+      participants: [{ userId: String(userA._id), name: userA.fullName }],
+    });
+
+    const media = createPlayableMedia({ format: "webm", duration: 1, video: true, audio: false });
+    try {
+      const res = await fetch(`${baseUrl}/api/recordings/upload`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${tokenA}`,
+        },
+        body: JSON.stringify({
+          meetingId,
+          title: "Video-Only Attempt",
+          durationSeconds: 1,
+          base64Data: `data:video/webm;base64,${media.buffer.toString("base64")}`,
+        }),
+      });
+
+      assert.strictEqual(res.status, 400);
+      const json = await res.json();
+      assert(json.error && json.error.includes("missing required audio stream"), "Must reject video-only recording with missing audio error");
+    } finally {
+      media.cleanup();
+    }
   });
 
-  await it("Media: Video-only MP4 rejected with missing audio stream error", async () => {
-    const videoOnlyMp4 = buildMP4({ audio: false });
-    const res = inspectMediaBinary(videoOnlyMp4, 30);
-    assert.strictEqual(res.valid, false);
-    assert(res.error.includes("missing required audio stream"));
-  });
+  await it("Media: Audio-only genuine media upload fails with missing video stream (400)", async () => {
+    const meetingId = `mtg_audio_only_${Date.now()}`;
+    await Meeting.create({
+      meetingId,
+      title: "Audio Only Meeting",
+      hostUserId: String(userA._id),
+      hostName: userA.fullName,
+      status: "active",
+      participants: [{ userId: String(userA._id), name: userA.fullName }],
+    });
 
-  await it("Media: Audio-only MP4 rejected with missing video stream error", async () => {
-    const audioOnlyMp4 = buildMP4({ video: false });
-    const res = inspectMediaBinary(audioOnlyMp4, 30);
-    assert.strictEqual(res.valid, false);
-    assert(res.error.includes("missing required video stream"));
+    const media = createPlayableMedia({ format: "webm", duration: 1, video: false, audio: true });
+    try {
+      const res = await fetch(`${baseUrl}/api/recordings/upload`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${tokenA}`,
+        },
+        body: JSON.stringify({
+          meetingId,
+          title: "Audio-Only Attempt",
+          durationSeconds: 1,
+          base64Data: `data:video/webm;base64,${media.buffer.toString("base64")}`,
+        }),
+      });
+
+      assert.strictEqual(res.status, 400);
+      const json = await res.json();
+      assert(json.error && json.error.includes("missing required video stream"), "Must reject audio-only recording with missing video error");
+    } finally {
+      media.cleanup();
+    }
   });
 
   await it("Media: Missing, zero, and negative duration values are rejected", async () => {
@@ -749,16 +957,25 @@ async function runSuite() {
 
   await it("Media: Production mode fail-closed when FFprobe is unavailable", async () => {
     const prevEnv = process.env.NODE_ENV;
+    const prevProbe = process.env.FFPROBE_PATH;
     try {
       process.env.NODE_ENV = "production";
+      process.env.FFPROBE_PATH = "/bin/nonexistent_ffprobe_binary_path";
       const tmpFile = path.join(__dirname, `prod_probe_test_${Date.now()}.webm`);
       fs.writeFileSync(tmpFile, buildDualStreamWebM());
       const res = await validateMediaIntegrity(tmpFile, buildDualStreamWebM(), 60);
       assert.strictEqual(res.valid, false);
-      assert(res.error.includes("Production media validation requires FFprobe"));
+      assert(
+        res.error.includes("Production media validation requires FFprobe") ||
+        res.error.includes("unavailable") ||
+        res.error.includes("disabled in production"),
+        "Must fail closed in production when ffprobe is missing"
+      );
       try { fs.unlinkSync(tmpFile); } catch {}
     } finally {
       process.env.NODE_ENV = prevEnv;
+      if (prevProbe) process.env.FFPROBE_PATH = prevProbe;
+      else delete process.env.FFPROBE_PATH;
     }
   });
 
@@ -766,8 +983,9 @@ async function runSuite() {
     const recDir = path.join(__dirname, "../uploads/recordings");
     const countBefore = fs.existsSync(recDir) ? fs.readdirSync(recDir).length : 0;
 
+    const cleanupMeetingId = `mtg_failed_cleanup_${Date.now()}`;
     await Meeting.create({
-      meetingId: "mtg_failed_cleanup_test",
+      meetingId: cleanupMeetingId,
       title: "Test Meeting Cleanup",
       hostUserId: String(userA._id),
       hostName: userA.fullName,
@@ -782,7 +1000,7 @@ async function runSuite() {
         Authorization: `Bearer ${tokenA}`,
       },
       body: JSON.stringify({
-        meetingId: "mtg_failed_cleanup_test",
+        meetingId: cleanupMeetingId,
         title: "Failed Recording Attempt",
         durationSeconds: 60,
         base64Data: `data:video/webm;base64,${buildDualStreamWebM({ audio: false }).toString("base64")}`, // Missing audio!

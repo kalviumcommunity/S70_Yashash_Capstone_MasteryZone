@@ -92,6 +92,8 @@ const onlineUsers = new Map();
 
 // Real-Time Collaborative Coding Rooms: roomId => { code, language, hostUserId, hostSocketId, authorizedUsers, authorizedEmails, participants, createdAt }
 const codingRooms = new Map();
+const codingChatLimitMap = new Map();
+const codingEditLimitMap = new Map();
 app.set("codingRooms", codingRooms);
 server.codingRooms = codingRooms;
 
@@ -591,12 +593,7 @@ io.on("connection", (socket) => {
   // =========================================================
   // REAL-TIME COLLABORATIVE CODING ROOMS
   // =========================================================
-  socket.on("join_coding_room", async ({ roomId, user, language, initialCode, token }) => {
-    if (!roomId || typeof roomId !== "string" || !/^[a-zA-Z0-9_\-]{3,64}$/.test(roomId)) {
-      socket.emit("coding_room_error", { message: "Invalid room identifier." });
-      return;
-    }
-
+  const authenticateCodingSocket = (token) => {
     let authUser = null;
     if (token && typeof token === "string") {
       try {
@@ -622,39 +619,199 @@ io.on("connection", (socket) => {
         email: socket.data.userEmail || "",
       };
     }
+    return authUser;
+  };
 
+  // 1. Explicit Room Creation (Authorized operation)
+  socket.on("create_coding_room", async ({ roomId, language, initialCode, token, invitedUserIds = [], invitedEmails = [] }) => {
+    const authUser = authenticateCodingSocket(token);
+    if (!authUser) {
+      socket.emit("coding_room_error", { message: "Authentication required to create a collaborative coding room." });
+      return;
+    }
+
+    let targetRoomId = roomId;
+    if (!targetRoomId || typeof targetRoomId !== "string") {
+      targetRoomId = `room_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    }
+
+    if (!/^[a-zA-Z0-9_\-]{3,64}$/.test(targetRoomId)) {
+      socket.emit("coding_room_error", { message: "Invalid room identifier format. Room ID must be 3-64 alphanumeric characters." });
+      return;
+    }
+
+    if (codingRooms.has(targetRoomId)) {
+      socket.emit("coding_room_error", { message: "Room already exists. You cannot overwrite or squat an existing room." });
+      return;
+    }
+
+    const safeLanguage = ["python", "py", "javascript", "js", "node", "cpp", "c++", "c", "java", "html", "css"].includes(String(language).toLowerCase())
+      ? String(language).toLowerCase()
+      : "python";
+
+    const authorizedUsers = new Set([authUser.userId]);
+    const authorizedEmails = new Set([authUser.email ? authUser.email.toLowerCase() : ""]);
+
+    // If invitations were specified, validate them against real User records in MongoDB
+    if (Array.isArray(invitedUserIds) && invitedUserIds.length > 0) {
+      const User = require("./models/User");
+      const validUsers = await User.find({ _id: { $in: invitedUserIds.filter(id => mongoose.Types.ObjectId.isValid(id)) } }).select("_id email").lean();
+      for (const u of validUsers) {
+        authorizedUsers.add(String(u._id));
+        if (u.email) authorizedEmails.add(u.email.toLowerCase());
+      }
+    }
+
+    if (Array.isArray(invitedEmails) && invitedEmails.length > 0) {
+      const User = require("./models/User");
+      const validEmails = await User.find({ email: { $in: invitedEmails.map(e => String(e).toLowerCase().trim()) } }).select("_id email").lean();
+      for (const u of validEmails) {
+        authorizedUsers.add(String(u._id));
+        if (u.email) authorizedEmails.add(u.email.toLowerCase());
+      }
+    }
+
+    // Leave any previous coding room
+    if (socket.data.codingRoomId && socket.data.codingRoomId !== targetRoomId) {
+      const prevRoomKey = `coding_room_${socket.data.codingRoomId}`;
+      socket.leave(prevRoomKey);
+      const prevRoom = codingRooms.get(socket.data.codingRoomId);
+      if (prevRoom) {
+        prevRoom.participants.delete(socket.id);
+        io.to(prevRoomKey).emit("coding_room_participants", Array.from(prevRoom.participants.values()));
+        io.to(prevRoomKey).emit("coding_system_msg", {
+          text: `${authUser.fullName} left the session`,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        });
+      }
+    }
+
+    const newRoom = {
+      roomId: targetRoomId,
+      code: typeof initialCode === "string" ? initialCode.slice(0, 500000) : "",
+      language: safeLanguage,
+      hostUserId: authUser.userId,
+      hostSocketId: socket.id,
+      authorizedUsers,
+      authorizedEmails,
+      participants: new Map(),
+      createdAt: new Date(),
+    };
+
+    codingRooms.set(targetRoomId, newRoom);
+    socket.data.codingRoomId = targetRoomId;
+    const roomKey = `coding_room_${targetRoomId}`;
+    socket.join(roomKey);
+
+    const participantInfo = {
+      socketId: socket.id,
+      userId: authUser.userId,
+      user: { fullName: authUser.fullName, email: authUser.email },
+      role: "Host",
+      joinedAt: new Date().toISOString(),
+      cursor: null,
+    };
+    newRoom.participants.set(socket.id, participantInfo);
+
+    socket.emit("coding_room_created", {
+      roomId: targetRoomId,
+      hostUserId: authUser.userId,
+    });
+
+    socket.emit("coding_room_state", {
+      code: newRoom.code,
+      language: newRoom.language,
+      participants: Array.from(newRoom.participants.values()),
+    });
+
+    io.to(roomKey).emit("coding_room_participants", Array.from(newRoom.participants.values()));
+  });
+
+  // 2. Room Joining (Requires existing authorized room)
+  socket.on("join_coding_room", async ({ roomId, user, language, initialCode, token }) => {
+    if (!roomId || typeof roomId !== "string" || !/^[a-zA-Z0-9_\-]{3,64}$/.test(roomId)) {
+      socket.emit("coding_room_error", { message: "Invalid room identifier." });
+      return;
+    }
+
+    const authUser = authenticateCodingSocket(token);
     if (!authUser) {
       socket.emit("coding_room_error", { message: "Authentication required to access collaborative coding room." });
       return;
     }
 
-    // Verify room authorization if room already exists
-    if (codingRooms.has(roomId)) {
-      const room = codingRooms.get(roomId);
-      const isHost = String(room.hostUserId) === String(authUser.userId);
-      const isAuthorizedUser = room.authorizedUsers && room.authorizedUsers.has(authUser.userId);
-      const isAuthorizedEmail = authUser.email && room.authorizedEmails && room.authorizedEmails.has(authUser.email.toLowerCase());
+    let room = codingRooms.get(roomId);
 
-      let isMeetingAuthorized = false;
+    // If room does not exist in memory, verify if it corresponds to an active Meeting in DB where user is host
+    if (!room) {
       try {
         const Meeting = require("./models/Meeting");
         const meeting = await Meeting.findOne({
           $or: [{ meetingId: roomId }, { meetingId: roomId.replace(/-/g, "") }],
+          status: { $ne: "ended" },
         }).lean();
-        if (meeting) {
-          isMeetingAuthorized =
-            String(meeting.hostUserId) === String(authUser.userId) ||
-            (Array.isArray(meeting.participants) &&
-              meeting.participants.some((p) => String(p.userId || p._id || "") === String(authUser.userId)));
+
+        if (meeting && String(meeting.hostUserId) === String(authUser.userId)) {
+          // Initialize meeting coding room
+          const authorizedUsers = new Set([authUser.userId]);
+          const authorizedEmails = new Set([authUser.email ? authUser.email.toLowerCase() : ""]);
+          if (Array.isArray(meeting.participants)) {
+            meeting.participants.forEach(p => {
+              if (p.userId) authorizedUsers.add(String(p.userId));
+            });
+          }
+          const safeLanguage = ["python", "py", "javascript", "js", "node", "cpp", "c++", "c", "java", "html", "css"].includes(String(language).toLowerCase())
+            ? String(language).toLowerCase()
+            : "python";
+
+          room = {
+            roomId,
+            code: typeof initialCode === "string" ? initialCode.slice(0, 500000) : "",
+            language: safeLanguage,
+            hostUserId: authUser.userId,
+            hostSocketId: socket.id,
+            authorizedUsers,
+            authorizedEmails,
+            participants: new Map(),
+            createdAt: new Date(),
+          };
+          codingRooms.set(roomId, room);
         }
       } catch {}
 
-      if (!isHost && !isAuthorizedUser && !isAuthorizedEmail && !isMeetingAuthorized) {
+      if (!room) {
         socket.emit("coding_room_error", {
-          message: "Access denied. You are not authorized to join this private collaborative coding room.",
+          message: "Coding room does not exist. Rooms must be created via create_coding_room before joining.",
         });
         return;
       }
+    }
+
+    // Verify room authorization
+    const isHost = String(room.hostUserId) === String(authUser.userId);
+    const isAuthorizedUser = room.authorizedUsers && room.authorizedUsers.has(authUser.userId);
+    const isAuthorizedEmail = authUser.email && room.authorizedEmails && room.authorizedEmails.has(authUser.email.toLowerCase());
+
+    let isMeetingAuthorized = false;
+    try {
+      const Meeting = require("./models/Meeting");
+      const meeting = await Meeting.findOne({
+        $or: [{ meetingId: roomId }, { meetingId: roomId.replace(/-/g, "") }],
+        status: { $ne: "ended" },
+      }).lean();
+      if (meeting) {
+        isMeetingAuthorized =
+          String(meeting.hostUserId) === String(authUser.userId) ||
+          (Array.isArray(meeting.participants) &&
+            meeting.participants.some((p) => String(p.userId || p._id || "") === String(authUser.userId)));
+      }
+    } catch {}
+
+    if (!isHost && !isAuthorizedUser && !isAuthorizedEmail && !isMeetingAuthorized) {
+      socket.emit("coding_room_error", {
+        message: "Access denied. You are not authorized to join this private collaborative coding room.",
+      });
+      return;
     }
 
     if (socket.data.codingRoomId && socket.data.codingRoomId !== roomId) {
@@ -675,25 +832,6 @@ io.on("connection", (socket) => {
     const roomKey = `coding_room_${roomId}`;
     socket.join(roomKey);
 
-    const safeLanguage = ["python", "py", "javascript", "js", "node", "cpp", "c++", "c", "java", "html", "css"].includes(String(language).toLowerCase())
-      ? String(language).toLowerCase()
-      : "python";
-
-    if (!codingRooms.has(roomId)) {
-      codingRooms.set(roomId, {
-        code: typeof initialCode === "string" ? initialCode.slice(0, 500000) : "",
-        language: safeLanguage,
-        hostUserId: authUser.userId,
-        hostSocketId: socket.id,
-        authorizedUsers: new Set([authUser.userId]),
-        authorizedEmails: new Set([authUser.email ? authUser.email.toLowerCase() : ""]),
-        participants: new Map(),
-        createdAt: new Date(),
-      });
-    }
-
-    const room = codingRooms.get(roomId);
-    const isHost = String(room.hostUserId) === String(authUser.userId);
     const participantInfo = {
       socketId: socket.id,
       userId: authUser.userId,
@@ -728,12 +866,53 @@ io.on("connection", (socket) => {
       socket.emit("coding_room_error", { message: "Only the room host can invite collaborators." });
       return;
     }
-    if (targetUserId) room.authorizedUsers.add(String(targetUserId));
-    if (targetEmail) room.authorizedEmails.add(String(targetEmail).toLowerCase());
-    socket.emit("coding_system_msg", {
-      text: "Collaborator invited to session",
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    });
+
+    const User = require("./models/User");
+    let added = false;
+    if (targetUserId) {
+      const cleanId = String(targetUserId).trim();
+      if (mongoose.Types.ObjectId.isValid(cleanId)) {
+        const u = await User.findById(cleanId).select("_id email fullName").lean();
+        if (u) {
+          room.authorizedUsers.add(String(u._id));
+          if (u.email) room.authorizedEmails.add(u.email.toLowerCase());
+          added = true;
+          io.to(`user_${u._id}`).emit("coding_room_invitation", {
+            roomId,
+            inviterName: socket.data.userFullName || "The Host",
+          });
+        }
+      } else {
+        room.authorizedUsers.add(cleanId);
+        added = true;
+      }
+    }
+
+    if (targetEmail) {
+      const cleanEmail = String(targetEmail).toLowerCase().trim();
+      const u = await User.findOne({ email: cleanEmail }).select("_id email fullName").lean();
+      if (u) {
+        room.authorizedUsers.add(String(u._id));
+        room.authorizedEmails.add(cleanEmail);
+        added = true;
+        io.to(`user_${u._id}`).emit("coding_room_invitation", {
+          roomId,
+          inviterName: socket.data.userFullName || "The Host",
+        });
+      } else {
+        room.authorizedEmails.add(cleanEmail);
+        added = true;
+      }
+    }
+
+    if (added) {
+      socket.emit("coding_system_msg", {
+        text: "Collaborator invited to session",
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      });
+    } else {
+      socket.emit("coding_room_error", { message: "Could not find user to invite." });
+    }
   });
 
   socket.on("code_change", ({ roomId, code, language, cursor }) => {
@@ -741,6 +920,14 @@ io.on("connection", (socket) => {
     const room = codingRooms.get(roomId);
     if (!room.participants.has(socket.id)) return;
     if (String(room.hostUserId) !== String(socket.data.userId) && !room.authorizedUsers?.has(socket.data.userId)) return;
+
+    // Rate limit edits: max 50 edits per 1 second per socket
+    const now = Date.now();
+    const editHistory = (codingEditLimitMap.get(socket.id) || []).filter((t) => now - t < 1000);
+    if (editHistory.length >= 50) return;
+    editHistory.push(now);
+    codingEditLimitMap.set(socket.id, editHistory);
+
     room.code = typeof code === "string" ? code.slice(0, 500000) : "";
     if (language) {
       const safeLang = ["python", "py", "javascript", "js", "node", "cpp", "c++", "c", "java", "html", "css"].includes(String(language).toLowerCase())
@@ -765,9 +952,11 @@ io.on("connection", (socket) => {
     if (String(room.hostUserId) !== String(socket.data.userId) && !room.authorizedUsers?.has(socket.data.userId)) return;
     const p = room.participants.get(socket.id);
     if (cursor && typeof cursor === "object") {
+      const line = Number(cursor.line);
+      const ch = Number(cursor.ch);
       p.cursor = {
-        line: Number(cursor.line) || 0,
-        ch: Number(cursor.ch) || 0,
+        line: Number.isFinite(line) && line >= 0 ? line : 0,
+        ch: Number.isFinite(ch) && ch >= 0 ? ch : 0,
       };
     }
     socket.to(`coding_room_${roomId}`).emit("cursor_update", {
@@ -782,6 +971,17 @@ io.on("connection", (socket) => {
     const room = codingRooms.get(roomId);
     if (!room.participants.has(socket.id)) return;
     if (String(room.hostUserId) !== String(socket.data.userId) && !room.authorizedUsers?.has(socket.data.userId)) return;
+
+    // Rate limit chat: max 5 messages per 3 seconds
+    const now = Date.now();
+    const chatHistory = (codingChatLimitMap.get(socket.id) || []).filter((t) => now - t < 3000);
+    if (chatHistory.length >= 5) {
+      socket.emit("coding_room_error", { message: "You are sending messages too quickly. Please wait a moment." });
+      return;
+    }
+    chatHistory.push(now);
+    codingChatLimitMap.set(socket.id, chatHistory);
+
     const cleanText = String(text || "").trim();
     if (!cleanText || cleanText.length > 2000) return;
     const p = room.participants.get(socket.id);
@@ -1560,6 +1760,8 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     console.log("🔌 User disconnected:", socket.id);
     onlineUsers.delete(socket.id);
+    codingChatLimitMap.delete(socket.id);
+    codingEditLimitMap.delete(socket.id);
     io.emit("update_online_users", Array.from(onlineUsers.values()));
 
     handleUserLeavingMeeting(socket);
