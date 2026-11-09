@@ -768,6 +768,129 @@ async function runTests() {
       sock2.disconnect();
     });
 
+    await it("Certificate download requires authentication and strictly prevents cross-user access (401/403)", async () => {
+      const IssuedCertificate = require("../models/IssuedCertificate");
+      const certId = `MZ-DSA-TEST-${Date.now()}`;
+      await IssuedCertificate.create({
+        certificateId: certId,
+        attemptId: `att_${Date.now()}`,
+        userId: userA._id,
+        recipientName: userA.fullName,
+        certificationId: "cert_dsa",
+        certificationTitle: "Data Structures & Algorithms",
+        issueDate: new Date(),
+        mcqScore: 20,
+        mcqScorePercentage: 100,
+        codingScore: "2/2 Challenges Passed",
+        finalGradePercentage: 100,
+        verificationUrl: `https://masteryzone.com/verify/${certId}`,
+        status: "VALID",
+      });
+
+      // 1. Unauthenticated request -> 401
+      const resUnauth = await fetch(`${baseUrl}/api/certifications/certificate/${certId}/download`);
+      assert.strictEqual(resUnauth.status, 401, "Unauthenticated download must return 401");
+
+      // 2. User B requests User A's certificate -> 403 Forbidden
+      const resUserB = await fetch(`${baseUrl}/api/certifications/certificate/${certId}/download`, {
+        headers: { Authorization: `Bearer ${tokenB}` },
+      });
+      assert.strictEqual(resUserB.status, 403, "User B must be rejected with 403 Forbidden");
+
+      // 3. User A requests their own certificate -> Permitted (200 OK)
+      const resUserA = await fetch(`${baseUrl}/api/certifications/certificate/${certId}/download`, {
+        headers: { Authorization: `Bearer ${tokenA}` },
+      });
+      assert.strictEqual(resUserA.status, 200, "Owner User A must be allowed to download certificate");
+    });
+
+    await it("Proctoring evidence route strictly blocks cross-user access (401/403)", async () => {
+      // Create confidential snapshot linked to User A's attempt
+      const attemptWithEvidence = `att_ev_${Date.now()}`;
+      await CertificationAttempt.create({
+        userId: userA._id,
+        attemptId: attemptWithEvidence,
+        certId: "cert_dsa",
+        certTitle: "DSA Exam",
+        status: "IN_PROGRESS",
+        proctoring: {
+          status: "COMPLIANT",
+          violationsCount: 0,
+          snapshots: ["snapshot_userA_confidential.jpg"],
+        },
+      });
+
+      // 1. Unauthenticated request to /proctoring-evidence -> 401
+      const resUnauth = await fetch(`${baseUrl}/proctoring-evidence/snapshot_userA_confidential.jpg`);
+      assert.strictEqual(resUnauth.status, 401, "Unauthenticated evidence access must return 401");
+
+      // 2. User B requests evidence belonging to User A's attempt -> 403 Forbidden
+      const resUserB = await fetch(`${baseUrl}/proctoring-evidence/snapshot_userA_confidential.jpg`, {
+        headers: { Authorization: `Bearer ${tokenB}` },
+      });
+      assert.strictEqual(resUserB.status, 403, "User B must be blocked with 403 Forbidden");
+    });
+
+    await it("Certification finalization re-evaluates modified code and refuses to inherit old test results", async () => {
+      const attemptId = `att_cert_reeval_${Date.now()}`;
+      await CertificationAttempt.create({
+        userId: userA._id,
+        attemptId,
+        certId: "cert_dsa",
+        certTitle: "DSA Certification",
+        status: "IN_PROGRESS",
+        candidateName: userA.fullName,
+        candidateEmail: userA.email,
+        selectedMcqs: Array.from({ length: 20 }, (_, i) => ({ id: `mcq_${i}`, question: `Q${i}`, answer: "A", correctAnswer: 0 })),
+        mcqAnswers: Object.fromEntries(Array.from({ length: 20 }, (_, i) => [String(i), 0])),
+        selectedCodingQuestions: [
+          {
+            questionId: "q_1",
+            title: "Sum Two Numbers",
+            publicTests: [{ input: "1 2", expectedOutput: "3" }],
+            hiddenTests: [{ input: "5 5", expectedOutput: "10" }],
+          },
+        ],
+        codingSubmissions: [
+          {
+            questionId: "q_1",
+            code: "def solve(a, b): return a + b",
+            solved: true,
+            passedTests: 2,
+            totalTests: 2,
+            submittedAt: new Date(Date.now() - 60000),
+          },
+        ],
+        proctoring: { status: "COMPLIANT", violationsCount: 0 },
+      });
+
+      // User A submits different broken code in finalize payload: "broken code"
+      const resFin = await fetch(`${baseUrl}/api/certifications/attempt/${attemptId}/finalize`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${tokenA}`,
+        },
+        body: JSON.stringify({
+          codingSubmissions: [
+            {
+              questionId: "q_1",
+              code: "def solve(a, b): return -9999", // Intentional wrong code
+              language: "python",
+            },
+          ],
+        }),
+      });
+
+      assert.strictEqual(resFin.status, 200);
+      const finData = await resFin.json();
+
+      // Check updated attempt: passedTests must NOT remain 2!
+      const updated = await CertificationAttempt.findOne({ attemptId });
+      assert.notStrictEqual(updated.codingSubmissions[0].passedTests, 2, "Replaced code must not inherit previous 100% passed tests");
+      assert.strictEqual(updated.codingSubmissions[0].solved, false, "Broken code must not be marked solved");
+    });
+
   } finally {
     await teardown();
   }

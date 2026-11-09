@@ -908,23 +908,47 @@ router.post("/attempt/:attemptId/finalize", authenticateToken, async (req, res) 
 
     // Merge any latest coding code/language updates, but strictly derive grading from server execution
     if (Array.isArray(req.body.codingSubmissions) && req.body.codingSubmissions.length > 0) {
-      req.body.codingSubmissions.forEach((sub, idx) => {
+      for (let idx = 0; idx < req.body.codingSubmissions.length; idx++) {
+        const sub = req.body.codingSubmissions[idx];
         if (sub && sub.code) {
           if (!attempt.codingSubmissions[idx]) attempt.codingSubmissions[idx] = {};
-          // Preserve authoritative backend evaluation results; reject client-submitted claims of tests passed
+          const prevCode = attempt.codingSubmissions[idx]?.code;
+          const isCodeChanged = prevCode !== undefined && prevCode !== sub.code;
+
+          const question = attempt.selectedCodingQuestions[idx];
+          const allTests = question ? [...(question.publicTests || []), ...(question.hiddenTests || [])] : [];
+
+          let solved = Boolean(attempt.codingSubmissions[idx]?.solved);
+          let passedTests = Number(attempt.codingSubmissions[idx]?.passedTests || 0);
+          let testResults = attempt.codingSubmissions[idx]?.testResults || [];
+
+          // If code was replaced or never evaluated, re-evaluate authoritative test results on the server
+          if (isCodeChanged || (!attempt.codingSubmissions[idx]?.submittedAt && allTests.length > 0)) {
+            const evaluateTestCasesBatch = codingRoutes.evaluateTestCasesBatch;
+            if (typeof evaluateTestCasesBatch === "function" && allTests.length > 0) {
+              const outcomes = await evaluateTestCasesBatch(sub.language || "python", sub.code, allTests);
+              passedTests = outcomes.filter((o) => o.passed).length;
+              solved = passedTests === allTests.length && allTests.length > 0;
+              testResults = outcomes;
+            } else {
+              solved = false;
+              passedTests = 0;
+              testResults = [];
+            }
+          }
+
           attempt.codingSubmissions[idx] = {
-            ...attempt.codingSubmissions[idx],
             questionId: attempt.selectedCodingQuestions[idx]?.questionId || sub.questionId,
             code: sub.code,
             language: sub.language || attempt.codingSubmissions[idx]?.language || "python",
-            solved: Boolean(attempt.codingSubmissions[idx]?.solved),
-            passedTests: Number(attempt.codingSubmissions[idx]?.passedTests || 0),
-            totalTests: Number(attempt.codingSubmissions[idx]?.totalTests || 10),
-            testResults: attempt.codingSubmissions[idx]?.testResults || [],
+            solved,
+            passedTests,
+            totalTests: allTests.length || Number(attempt.codingSubmissions[idx]?.totalTests || 10),
+            testResults,
             submittedAt: new Date(),
           };
         }
-      });
+      }
       attempt.markModified("codingSubmissions");
     }
 
@@ -1031,21 +1055,25 @@ router.post("/attempt/:attemptId/finalize", authenticateToken, async (req, res) 
 
         await certificate.save();
 
-        // Generate the PDF file asynchronously in the background (non-blocking)
-        generateCertificatePDF({
-          certificateId,
-          userId: attempt.userId,
-          recipientName: attempt.candidateName,
-          certificationTitle: attempt.certTitle,
-          issueDate: certificate.issueDate,
-          mcqScore,
-          mcqPercentage,
-          codingScore: `${passedCodingTests}/20 Tests Passed`,
-          finalGradePercentage: finalScorePercentage,
-          verificationUrl,
-        }).catch((pdfErr) => {
-          console.warn("PDF generation background note:", pdfErr.message);
-        });
+        // Generate the PDF file before marking certificate ready and sending email
+        try {
+          await generateCertificatePDF({
+            certificateId,
+            userId: attempt.userId,
+            recipientName: attempt.candidateName,
+            certificationTitle: attempt.certTitle,
+            issueDate: certificate.issueDate,
+            mcqScore,
+            mcqPercentage,
+            codingScore: `${passedCodingTests}/20 Tests Passed`,
+            finalGradePercentage: finalScorePercentage,
+            verificationUrl,
+          });
+          certificate.pdfGenerated = true;
+          await certificate.save();
+        } catch (pdfErr) {
+          console.warn("PDF generation error:", pdfErr.message);
+        }
       }
 
       attempt.certificateId = certificate.certificateId;
@@ -1182,9 +1210,9 @@ router.post("/attempt/:attemptId/finalize", authenticateToken, async (req, res) 
           userId: String(userId),
           passed,
         });
-        if (certificate) {
+        if (issuedCert) {
           io.emit("NEW_CERTIFICATE", {
-            certificateId: certificate.certificateId,
+            certificateId: issuedCert.certificateId,
             recipient: attempt.candidateName,
           });
         }
@@ -1675,6 +1703,25 @@ router.get(["/certificate/:certificateId/download", "/download/:certificateId"],
       return res.status(400).send("Certificate ID is required.");
     }
 
+    // Strict Authentication: Token required via Authorization header or ?token= query parameter
+    const authHeader = req.headers["authorization"];
+    const rawToken = (authHeader && authHeader.split(" ")[1]) || req.query.token;
+    if (!rawToken) {
+      return res.status(401).send("Authentication required to download certificate.");
+    }
+
+    let decoded;
+    try {
+      const jwt = require("jsonwebtoken");
+      const { getJwtSecret } = require("../config/jwtConfig");
+      decoded = jwt.verify(rawToken, getJwtSecret());
+    } catch {
+      return res.status(401).send("Invalid or expired session token.");
+    }
+
+    const currentUserId = String(decoded.userId || decoded.id || decoded._id || "");
+    const isAdmin = Boolean(decoded.role === "admin" || decoded.role === "SUPER_ADMIN" || decoded.isMainAdmin);
+
     const regexCertId = new RegExp(`^${rawCertId}$`, "i");
 
     let cert = await IssuedCertificate.findOne({
@@ -1723,6 +1770,11 @@ router.get(["/certificate/:certificateId/download", "/download/:certificateId"],
 
     if (!cert) {
       return res.status(404).send("Valid certificate record not found.");
+    }
+
+    // Strict Ownership Verification: requester must be certificate owner or administrator
+    if (!isAdmin && cert.userId && String(cert.userId) !== currentUserId) {
+      return res.status(403).send("Forbidden: You do not have permission to download this certificate.");
     }
 
     const userScopedDir = cert.userId ? path.join(CERTIFICATES_DIR, String(cert.userId)) : null;

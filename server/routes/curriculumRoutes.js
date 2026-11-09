@@ -35,131 +35,81 @@ const GPP_BIN = fs.existsSync("/usr/bin/clang++")
   ? "/usr/bin/g++"
   : "g++";
 
-// Sandboxed execution helper for coding exercises
-function executeInSandbox(language, code, stdinInput = "", timeoutMs = 8000) {
-  return new Promise((resolve) => {
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "mz_curriculum_sandbox_"));
-    let cmd = "";
-    let args = [];
-    let codeFilePath = "";
+const { validateCodeSafety, runSandboxedProcess } = require("./codingRoutes");
 
-    const cleanUp = () => {
-      try {
-        fs.rmSync(tempDir, { recursive: true, force: true });
-      } catch {}
-    };
+// Sandboxed execution helper for coding exercises with isolated environment and safety checks
+async function executeInSandbox(language, code, stdinInput = "", timeoutMs = 8000) {
+  const safety = validateCodeSafety(language, code);
+  if (!safety.safe) {
+    return { output: "", error: `Security Violation: ${safety.reason}`, duration: 0, exitCode: 1 };
+  }
 
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "mz_curriculum_sandbox_"));
+
+  const cleanUp = () => {
     try {
-      if (language === "python" || language === "py") {
-        codeFilePath = path.join(tempDir, "solution.py");
-        fs.writeFileSync(codeFilePath, code);
-        cmd = PYTHON_BIN;
-        args = [codeFilePath];
-      } else if (language === "javascript" || language === "js" || language === "node") {
-        codeFilePath = path.join(tempDir, "solution.js");
-        fs.writeFileSync(codeFilePath, code);
-        cmd = NODE_BIN;
-        args = [codeFilePath];
-      } else if (language === "java") {
-        let className = "Main";
-        const classMatch = code.match(/public\s+class\s+([A-Za-z0-9_]+)/);
-        if (classMatch && classMatch[1]) className = classMatch[1];
-        codeFilePath = path.join(tempDir, `${className}.java`);
-        fs.writeFileSync(codeFilePath, code);
-        try {
-          const { execSync } = require("child_process");
-          execSync(`${JAVAC_BIN} "${codeFilePath}"`, { timeout: 6000 });
-        } catch (compileErr) {
-          cleanUp();
-          return resolve({
-            output: "",
-            error: `Compilation Error:\n${compileErr.stderr?.toString() || compileErr.message}`,
-            duration: 0,
-            exitCode: 1,
-          });
-        }
-        cmd = JAVA_BIN;
-        args = ["-cp", tempDir, className];
-      } else if (language === "cpp" || language === "c++") {
-        codeFilePath = path.join(tempDir, "solution.cpp");
-        const binPath = path.join(tempDir, "solution_bin");
-        fs.writeFileSync(codeFilePath, code);
-        try {
-          const { execSync } = require("child_process");
-          execSync(`${GPP_BIN} -std=c++17 "${codeFilePath}" -O2 -o "${binPath}"`, { timeout: 6000 });
-        } catch (compileErr) {
-          cleanUp();
-          return resolve({
-            output: "",
-            error: `C++ Compilation Error:\n${compileErr.stderr?.toString() || compileErr.message}`,
-            duration: 0,
-            exitCode: 1,
-          });
-        }
-        cmd = binPath;
-        args = [];
-      } else {
-        cleanUp();
-        return resolve({ output: "", error: `Unsupported language: ${language}`, duration: 0, exitCode: 1 });
-      }
-    } catch (writeErr) {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    } catch {}
+  };
+
+  try {
+    const lang = (language || "").toLowerCase().trim();
+    if (lang === "python" || lang === "py") {
+      const codeFilePath = path.join(tempDir, "solution.py");
+      fs.writeFileSync(codeFilePath, code, "utf8");
+      const res = await runSandboxedProcess(PYTHON_BIN, ["-u", "-I", codeFilePath], stdinInput, timeoutMs, tempDir);
       cleanUp();
-      return resolve({ output: "", error: `Setup error: ${writeErr.message}`, duration: 0, exitCode: 1 });
+      return res;
+    } else if (lang === "javascript" || lang === "js" || lang === "node") {
+      const codeFilePath = path.join(tempDir, "solution.js");
+      fs.writeFileSync(codeFilePath, code, "utf8");
+      const res = await runSandboxedProcess(NODE_BIN, [codeFilePath], stdinInput, timeoutMs, tempDir);
+      cleanUp();
+      return res;
+    } else if (lang === "java") {
+      let className = "Main";
+      const classMatch = code.match(/public\s+class\s+([A-Za-z0-9_]+)/);
+      if (classMatch && classMatch[1]) className = classMatch[1];
+      const codeFilePath = path.join(tempDir, `${className}.java`);
+      fs.writeFileSync(codeFilePath, code, "utf8");
+      const compileRes = await runSandboxedProcess(JAVAC_BIN, [codeFilePath], "", 6000, tempDir);
+      if (compileRes.exitCode !== 0) {
+        cleanUp();
+        return {
+          output: "",
+          error: `Compilation Error:\n${compileRes.error || compileRes.output}`,
+          duration: 0,
+          exitCode: 1,
+        };
+      }
+      const execRes = await runSandboxedProcess(JAVA_BIN, ["-cp", tempDir, className], stdinInput, timeoutMs, tempDir);
+      cleanUp();
+      return execRes;
+    } else if (lang === "cpp" || lang === "c++") {
+      const codeFilePath = path.join(tempDir, "solution.cpp");
+      const binPath = path.join(tempDir, "solution_bin");
+      fs.writeFileSync(codeFilePath, code, "utf8");
+      const compileRes = await runSandboxedProcess(GPP_BIN, ["-std=c++17", codeFilePath, "-O2", "-o", binPath], "", 6000, tempDir);
+      if (compileRes.exitCode !== 0) {
+        cleanUp();
+        return {
+          output: "",
+          error: `C++ Compilation Error:\n${compileRes.error || compileRes.output}`,
+          duration: 0,
+          exitCode: 1,
+        };
+      }
+      const execRes = await runSandboxedProcess(binPath, [], stdinInput, timeoutMs, tempDir);
+      cleanUp();
+      return execRes;
+    } else {
+      cleanUp();
+      return { output: "", error: `Unsupported language: ${language}`, duration: 0, exitCode: 1 };
     }
-
-    const startTime = Date.now();
-    let stdout = "";
-    let stderr = "";
-    let isSettled = false;
-
-    const proc = spawn(cmd, args, { cwd: tempDir, env: { PATH: process.env.PATH, HOME: os.tmpdir() } });
-
-    const timer = setTimeout(() => {
-      if (!isSettled) {
-        isSettled = true;
-        proc.kill("SIGKILL");
-        cleanUp();
-        resolve({ output: stdout, error: "Time Limit Exceeded (> 8.0s)", duration: 8000, exitCode: 124 });
-      }
-    }, timeoutMs);
-
-    if (stdinInput && proc.stdin) {
-      try {
-        proc.stdin.write(stdinInput);
-        proc.stdin.end();
-      } catch {}
-    } else if (proc.stdin) {
-      try {
-        proc.stdin.end();
-      } catch {}
-    }
-
-    proc.stdout.on("data", (chunk) => {
-      if (stdout.length < 1024 * 512) stdout += chunk.toString();
-    });
-
-    proc.stderr.on("data", (chunk) => {
-      if (stderr.length < 1024 * 512) stderr += chunk.toString();
-    });
-
-    proc.on("error", (err) => {
-      if (!isSettled) {
-        isSettled = true;
-        clearTimeout(timer);
-        cleanUp();
-        resolve({ output: stdout, error: err.message, duration: Date.now() - startTime, exitCode: 1 });
-      }
-    });
-
-    proc.on("close", (code) => {
-      if (!isSettled) {
-        isSettled = true;
-        clearTimeout(timer);
-        cleanUp();
-        resolve({ output: stdout, error: stderr, duration: Date.now() - startTime, exitCode: code || 0 });
-      }
-    });
-  });
+  } catch (err) {
+    cleanUp();
+    return { output: "", error: `Sandbox error: ${err.message}`, duration: 0, exitCode: 1 };
+  }
 }
 
 // -------------------------------------------------------------

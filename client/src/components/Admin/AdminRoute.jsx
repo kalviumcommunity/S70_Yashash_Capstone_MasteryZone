@@ -57,17 +57,8 @@ const AdminRoute = ({ children }) => {
         }
       } catch (err) {
         console.error("Admin route verification error:", err);
-        // Check local storage fallback if server temporarily unreachable
-        const cachedUser = JSON.parse(localStorage.getItem("user") || "{}");
-        const cachedEmail = cachedUser?.email?.toLowerCase().trim();
-        const isCachedMain = cachedEmail === MAIN_ADMIN_EMAIL || cachedEmail === LEGACY_ADMIN_EMAIL || cachedUser?.isMainAdmin;
-        const isCachedSecondary = cachedUser?.role === "SUPER_ADMIN" || cachedUser?.role === "admin";
-
-        if (isCachedMain || isCachedSecondary) {
-          if (isMounted) setAuthState("authorized");
-        } else {
-          if (isMounted) setAuthState("unauthorized");
-        }
+        // Fail-closed: Never trust cached local storage when server verification fails
+        if (isMounted) setAuthState("unauthorized");
       }
     };
 
