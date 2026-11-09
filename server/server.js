@@ -102,6 +102,8 @@ io.on("connection", (socket) => {
         }
         socket.data.userId = uid;
         socket.data.userRole = decoded.role || "user";
+        socket.data.role = decoded.role || "user";
+        socket.data.isMainAdmin = Boolean(decoded.isMainAdmin || decoded.role === "admin" || decoded.role === "SUPER_ADMIN");
         socket.data.userEmail = decoded.email || "";
         socket.join(`user_${uid}`);
         console.log(`📡 Socket ${socket.id} authenticated into room user_${uid}`);
@@ -135,6 +137,8 @@ io.on("connection", (socket) => {
       }
       delete socket.data.userId;
       delete socket.data.userRole;
+      delete socket.data.role;
+      delete socket.data.isMainAdmin;
       delete socket.data.userEmail;
       console.log(`🔌 Socket ${socket.id} logged out and purged private rooms for user_${oldUid}`);
     }
@@ -535,6 +539,45 @@ io.on("connection", (socket) => {
     sock.data.meetingId = null;
   };
 
+  const isAuthorizedMeetingMember = (sock, meetingId) => {
+    const mid = sock.data?.meetingId || meetingId;
+    if (!mid) return false;
+    const cleanMid = String(mid).trim().toLowerCase();
+    const nonDashed = cleanMid.replace(/-/g, "");
+    return (
+      sock.rooms.has(`meeting_${mid}`) ||
+      sock.rooms.has(`meeting_${cleanMid}`) ||
+      sock.rooms.has(`meeting_${nonDashed}`)
+    );
+  };
+
+  const isMeetingHostOrAdmin = (sock, meeting) => {
+    if (!sock || !meeting) return false;
+    const role = sock.data?.role || sock.data?.userRole;
+    if (role === "admin" || role === "SUPER_ADMIN" || sock.data?.isMainAdmin) return true;
+    const uid = sock.data?.userId;
+    if (uid && meeting.hostUserId && String(meeting.hostUserId) === String(uid)) return true;
+    return false;
+  };
+
+  const canRelayBetweenSockets = (srcSocket, targetSocketId, meetingId) => {
+    if (!targetSocketId || !srcSocket) return false;
+    const targetSocket = io.sockets.sockets.get(targetSocketId);
+    if (!targetSocket) return false;
+
+    const mid = meetingId || srcSocket.data?.meetingId;
+    if (!mid) return false;
+
+    const cleanMid = String(mid).trim().toLowerCase();
+    const nonDashed = cleanMid.replace(/-/g, "");
+    const roomMatches = (s) =>
+      s.rooms.has(`meeting_${mid}`) ||
+      s.rooms.has(`meeting_${cleanMid}`) ||
+      s.rooms.has(`meeting_${nonDashed}`);
+
+    return roomMatches(srcSocket) && roomMatches(targetSocket);
+  };
+
   socket.on("join_meeting", async ({ meetingId, user, mediaState }) => {
     if (!meetingId) return;
     const cleanId = String(meetingId).trim().toLowerCase();
@@ -554,13 +597,12 @@ io.on("connection", (socket) => {
         return;
       }
 
-      // 2. Enforce private meeting access authorization
+      // 2. Enforce private meeting access authorization (Strict server session / verified token identity)
       const isHost =
-        meeting.hostUserId &&
-        ((targetUid && String(meeting.hostUserId) === targetUid) ||
-          (user?.id && String(meeting.hostUserId) === String(user.id)) ||
-          meeting.hostName === (user?.fullName || user?.username));
-      const isAdmin = Boolean(socket.data?.role === "admin" || socket.data?.role === "SUPER_ADMIN" || socket.data?.isMainAdmin);
+        Boolean(meeting.hostUserId) &&
+        Boolean(targetUid) &&
+        String(meeting.hostUserId) === targetUid;
+      const isAdmin = Boolean(socket.data?.role === "admin" || socket.data?.userRole === "admin" || socket.data?.role === "SUPER_ADMIN" || socket.data?.userRole === "SUPER_ADMIN" || socket.data?.isMainAdmin);
       const isAdmitted = (meeting.participants || []).some((p) => String(p.userId) === targetUid);
 
       if (meeting.isPrivate && !isHost && !isAdmitted && !isAdmin) {
@@ -705,54 +747,63 @@ io.on("connection", (socket) => {
     }
   });
 
-  // WebRTC mesh signaling relays (Offer, Answer, ICE Candidate)
+  // WebRTC mesh signaling relays (Offer, Answer, ICE Candidate) - Strictly Authorized & Isolated to Same Room
   socket.on("webrtc_offer", ({ targetSocketId, toSocketId, offer, meetingId }) => {
     const target = targetSocketId || toSocketId;
     if (!target || !offer) return;
+    const mid = meetingId || socket.data.meetingId;
+    if (!canRelayBetweenSockets(socket, target, mid)) return;
     io.to(target).emit("webrtc_offer_received", {
       fromSocketId: socket.id,
       user: socket.data.meetingUser,
       offer,
-      meetingId: meetingId || socket.data.meetingId,
+      meetingId: mid,
     });
   });
 
   socket.on("webrtc_answer", ({ targetSocketId, toSocketId, answer, meetingId }) => {
     const target = targetSocketId || toSocketId;
     if (!target || !answer) return;
+    const mid = meetingId || socket.data.meetingId;
+    if (!canRelayBetweenSockets(socket, target, mid)) return;
     io.to(target).emit("webrtc_answer_received", {
       fromSocketId: socket.id,
       user: socket.data.meetingUser,
       answer,
-      meetingId: meetingId || socket.data.meetingId,
+      meetingId: mid,
     });
   });
 
   socket.on("webrtc_ice_candidate", ({ targetSocketId, toSocketId, candidate, meetingId }) => {
     const target = targetSocketId || toSocketId;
     if (!target || !candidate) return;
+    const mid = meetingId || socket.data.meetingId;
+    if (!canRelayBetweenSockets(socket, target, mid)) return;
     io.to(target).emit("webrtc_ice_candidate_received", {
       fromSocketId: socket.id,
       candidate,
-      meetingId: meetingId || socket.data.meetingId,
+      meetingId: mid,
     });
   });
 
-  socket.on("webrtc_signal", ({ toSocketId, targetSocketId, signal, type }) => {
+  socket.on("webrtc_signal", ({ toSocketId, targetSocketId, signal, type, meetingId }) => {
     const target = toSocketId || targetSocketId;
     if (!target) return;
+    const mid = meetingId || socket.data.meetingId;
+    if (!canRelayBetweenSockets(socket, target, mid)) return;
     io.to(target).emit("webrtc_signal", {
       fromSocketId: socket.id,
       user: socket.data.meetingUser,
       signal,
       type,
+      meetingId: mid,
     });
   });
 
   // Media toggle (mic, camera, screenshare, raise-hand)
   socket.on("meeting_media_toggle", async ({ meetingId, mediaState }) => {
     const mid = socket.data.meetingId || meetingId;
-    if (!mid) return;
+    if (!mid || !isAuthorizedMeetingMember(socket, mid)) return;
     const roomName = `meeting_${mid}`;
     socket.to(roomName).emit("meeting_peer_media_changed", {
       socketId: socket.id,
@@ -778,7 +829,7 @@ io.on("connection", (socket) => {
   // Reactions (emojis floating on peer screens)
   socket.on("meeting_reaction", ({ meetingId, emoji, user }) => {
     const mid = socket.data.meetingId || meetingId;
-    if (!mid) return;
+    if (!mid || !isAuthorizedMeetingMember(socket, mid)) return;
     const reactionPayload = {
       id: Date.now() + "-" + Math.random().toString(36).substr(2, 4),
       emoji: emoji || "👏",
@@ -793,7 +844,7 @@ io.on("connection", (socket) => {
 
   // Live Chat messages
   socket.on("meeting_chat_message", async ({ meetingId, text, user }) => {
-    if (!meetingId || !text) return;
+    if (!meetingId || !text || !isAuthorizedMeetingMember(socket, meetingId)) return;
     const msgObj = {
       id: Date.now() + "-" + Math.random().toString(36).substr(2, 5),
       senderId: String(user?._id || user?.id || socket.id),
@@ -813,7 +864,7 @@ io.on("connection", (socket) => {
 
   // Collaborative Shared Code Sync
   socket.on("meeting_code_change", async ({ meetingId, code, language, user, cursor }) => {
-    if (!meetingId) return;
+    if (!meetingId || !isAuthorizedMeetingMember(socket, meetingId)) return;
     socket.to(`meeting_${meetingId}`).emit("meeting_code_updated", {
       code,
       language,
@@ -834,13 +885,13 @@ io.on("connection", (socket) => {
 
   // Collaborative Multi-File Operations
   socket.on("meeting_file_select", ({ meetingId, fileId, user }) => {
-    if (!meetingId) return;
+    if (!meetingId || !isAuthorizedMeetingMember(socket, meetingId)) return;
     socket.to(`meeting_${meetingId}`).emit("meeting_file_selected", { fileId, user, fromSocketId: socket.id });
     Meeting.updateOne({ meetingId }, { $set: { activeFileId: fileId } }).catch(() => {});
   });
 
   socket.on("meeting_file_update", async ({ meetingId, fileId, name, content, language, user }) => {
-    if (!meetingId) return;
+    if (!meetingId || !isAuthorizedMeetingMember(socket, meetingId)) return;
     socket.to(`meeting_${meetingId}`).emit("meeting_file_updated", {
       fileId,
       name,
@@ -865,7 +916,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("meeting_file_create", async ({ meetingId, file, user }) => {
-    if (!meetingId || !file) return;
+    if (!meetingId || !file || !isAuthorizedMeetingMember(socket, meetingId)) return;
     io.to(`meeting_${meetingId}`).emit("meeting_file_created", { file, user });
     try {
       await Meeting.updateOne({ meetingId }, { $push: { workspaceFiles: file } });
@@ -873,7 +924,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("meeting_file_delete", async ({ meetingId, fileId, user }) => {
-    if (!meetingId || !fileId) return;
+    if (!meetingId || !fileId || !isAuthorizedMeetingMember(socket, meetingId)) return;
     io.to(`meeting_${meetingId}`).emit("meeting_file_deleted", { fileId, user });
     try {
       await Meeting.updateOne({ meetingId }, { $pull: { workspaceFiles: { id: fileId } } });
@@ -882,7 +933,7 @@ io.on("connection", (socket) => {
 
   // Live Peer Cursors & Typing Telemetry
   socket.on("meeting_cursor_move", ({ meetingId, fileId, cursor, user }) => {
-    if (!meetingId) return;
+    if (!meetingId || !isAuthorizedMeetingMember(socket, meetingId)) return;
     socket.to(`meeting_${meetingId}`).emit("meeting_peer_cursor", {
       socketId: socket.id,
       fileId,
@@ -892,7 +943,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("meeting_typing_status", ({ meetingId, user, isTyping, fileId }) => {
-    if (!meetingId) return;
+    if (!meetingId || !isAuthorizedMeetingMember(socket, meetingId)) return;
     socket.to(`meeting_${meetingId}`).emit("meeting_typing_status", {
       socketId: socket.id,
       user,
@@ -901,9 +952,14 @@ io.on("connection", (socket) => {
     });
   });
 
-  // Workspace Permissions (collaborative | host-only | read-only)
+  // Workspace Permissions (collaborative | host-only | read-only) - Host or Admin only
   socket.on("meeting_permission_change", async ({ meetingId, permission, user }) => {
-    if (!meetingId) return;
+    if (!meetingId || !isAuthorizedMeetingMember(socket, meetingId)) return;
+    const meeting = await Meeting.findOne({ meetingId }).select("hostUserId").lean();
+    if (!meeting || !isMeetingHostOrAdmin(socket, meeting)) {
+      socket.emit("meeting_error", { message: "Only the host can modify workspace permissions." });
+      return;
+    }
     io.to(`meeting_${meetingId}`).emit("meeting_permission_changed", { permission, user });
     try {
       await Meeting.updateOne({ meetingId }, { $set: { codingPermission: permission } });
@@ -912,7 +968,7 @@ io.on("connection", (socket) => {
 
   // Collaborative Whiteboard
   socket.on("meeting_whiteboard_stroke", async ({ meetingId, stroke, clearAll, allStrokes }) => {
-    if (!meetingId) return;
+    if (!meetingId || !isAuthorizedMeetingMember(socket, meetingId)) return;
     socket.to(`meeting_${meetingId}`).emit("meeting_whiteboard_updated", { stroke, clearAll });
     if (allStrokes !== undefined) {
       try {
@@ -923,7 +979,7 @@ io.on("connection", (socket) => {
 
   // Code Reviews & Inline Discussions
   socket.on("meeting_code_review_add", async ({ meetingId, review }) => {
-    if (!meetingId || !review) return;
+    if (!meetingId || !review || !isAuthorizedMeetingMember(socket, meetingId)) return;
     io.to(`meeting_${meetingId}`).emit("meeting_code_review_added", { review });
     try {
       await Meeting.updateOne({ meetingId }, { $push: { codeReviews: review } });
@@ -931,7 +987,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("meeting_code_review_toggle", async ({ meetingId, reviewId, status }) => {
-    if (!meetingId || !reviewId) return;
+    if (!meetingId || !reviewId || !isAuthorizedMeetingMember(socket, meetingId)) return;
     io.to(`meeting_${meetingId}`).emit("meeting_code_review_toggled", { reviewId, status });
     try {
       await Meeting.updateOne(
@@ -943,7 +999,7 @@ io.on("connection", (socket) => {
 
   // Collaborative Tasks
   socket.on("meeting_task_toggle", async ({ meetingId, taskId, completed }) => {
-    if (!meetingId || !taskId) return;
+    if (!meetingId || !taskId || !isAuthorizedMeetingMember(socket, meetingId)) return;
     io.to(`meeting_${meetingId}`).emit("meeting_task_toggled", { taskId, completed });
     try {
       await Meeting.updateOne(
@@ -954,7 +1010,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("meeting_task_create", async ({ meetingId, task }) => {
-    if (!meetingId || !task) return;
+    if (!meetingId || !task || !isAuthorizedMeetingMember(socket, meetingId)) return;
     io.to(`meeting_${meetingId}`).emit("meeting_task_created", { task });
     try {
       await Meeting.updateOne({ meetingId }, { $push: { sharedTasks: task } });
@@ -963,7 +1019,7 @@ io.on("connection", (socket) => {
 
   // Collaborative Notes Sync
   socket.on("meeting_notes_change", async ({ meetingId, notes, user }) => {
-    if (!meetingId) return;
+    if (!meetingId || !isAuthorizedMeetingMember(socket, meetingId)) return;
     socket.to(`meeting_${meetingId}`).emit("meeting_notes_updated", {
       notes,
       user,
@@ -986,7 +1042,7 @@ io.on("connection", (socket) => {
 
   // Shared Code Execution Broadcast
   socket.on("meeting_code_run_status", ({ meetingId, status, user, result }) => {
-    if (!meetingId) return;
+    if (!meetingId || !isAuthorizedMeetingMember(socket, meetingId)) return;
     io.to(`meeting_${meetingId}`).emit("meeting_code_run_status", {
       status,
       user,
@@ -995,18 +1051,14 @@ io.on("connection", (socket) => {
     });
   });
 
-  // Host Controls (mute / kick / end) - Authorized to Meeting Host or Admin
+  // Host Controls (mute / kick / end) - Authorized strictly to verified Meeting Host or Admin
   socket.on("meeting_host_action", async ({ meetingId, action, targetSocketId }) => {
     if (!meetingId) return;
     try {
       const meeting = await Meeting.findOne({ meetingId }).select("hostUserId hostName").lean();
       if (!meeting) return;
 
-      const isHost =
-        (socket.data.userId && String(meeting.hostUserId) === String(socket.data.userId)) ||
-        socket.data.userRole === "admin" ||
-        socket.data.userRole === "SUPER_ADMIN" ||
-        (socket.data.meetingUser?.fullName && socket.data.meetingUser.fullName === meeting.hostName);
+      const isHost = isMeetingHostOrAdmin(socket, meeting);
 
       if (!isHost) {
         console.warn(`🚨 Unauthorized socket ${socket.id} attempted host action ${action} on meeting ${meetingId}`);
@@ -1032,7 +1084,7 @@ io.on("connection", (socket) => {
 
   // Meeting Recording Telemetry (Host controls, Peer indicator)
   socket.on("meeting_recording_status", ({ meetingId, isRecording, isPaused, recordingStartedAt, hostName }) => {
-    if (!meetingId) return;
+    if (!meetingId || !isAuthorizedMeetingMember(socket, meetingId)) return;
     io.to(`meeting_${meetingId}`).emit("meeting_recording_status", {
       isRecording,
       isPaused,
@@ -1041,9 +1093,14 @@ io.on("connection", (socket) => {
     });
   });
 
-  // Participant Permissions (screen share, code editing, chat)
-  socket.on("meeting_settings_update", ({ meetingId, settings, user }) => {
-    if (!meetingId) return;
+  // Participant Permissions (screen share, code editing, chat) - Host or Admin only
+  socket.on("meeting_settings_update", async ({ meetingId, settings, user }) => {
+    if (!meetingId || !isAuthorizedMeetingMember(socket, meetingId)) return;
+    const meeting = await Meeting.findOne({ meetingId }).select("hostUserId").lean();
+    if (!meeting || !isMeetingHostOrAdmin(socket, meeting)) {
+      socket.emit("meeting_error", { message: "Only the host can modify meeting settings." });
+      return;
+    }
     io.to(`meeting_${meetingId}`).emit("meeting_settings_updated", {
       settings,
       user,
