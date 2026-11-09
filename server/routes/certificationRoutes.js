@@ -128,16 +128,24 @@ function parseAndValidatePdfStructure(filePath) {
     const pageSnippet = fullText.slice(firstPageOffset, firstPageOffset + 2000);
     if (!pageSnippet.includes("/Type") || !pageSnippet.includes("/Page")) return false;
 
-    const contentsMatch = pageSnippet.match(/\/Contents\s+(\d+)\s+(\d+)\s+R/);
-    if (!contentsMatch) return false;
-    const contentsObjId = parseInt(contentsMatch[1], 10);
-    const contentsOffset = objectOffsets.get(contentsObjId);
-    if (contentsOffset === undefined || contentsOffset >= buffer.length) return false;
+    let hasValidContentStream = false;
+    const contentsMatch = pageSnippet.match(/\/Contents\s+(?:\[\s*)?(\d+)\s+(\d+)\s+R/);
+    if (contentsMatch) {
+      const contentsObjId = parseInt(contentsMatch[1], 10);
+      const contentsOffset = objectOffsets.get(contentsObjId);
+      if (contentsOffset !== undefined && contentsOffset < buffer.length) {
+        const contentsSnippet = fullText.slice(contentsOffset, contentsOffset + 3000);
+        const streamStart = contentsSnippet.indexOf("stream");
+        const streamEnd = contentsSnippet.indexOf("endstream");
+        if (streamStart !== -1 && streamEnd > streamStart) {
+          hasValidContentStream = true;
+        }
+      }
+    } else if (pageSnippet.indexOf("stream") !== -1 && pageSnippet.indexOf("endstream") > pageSnippet.indexOf("stream")) {
+      hasValidContentStream = true;
+    }
 
-    const contentsSnippet = fullText.slice(contentsOffset, contentsOffset + 3000);
-    const streamStart = contentsSnippet.indexOf("stream");
-    const streamEnd = contentsSnippet.indexOf("endstream");
-    if (streamStart === -1 || streamEnd === -1 || streamEnd <= streamStart) return false;
+    if (!hasValidContentStream) return false;
 
     return true;
   } catch {

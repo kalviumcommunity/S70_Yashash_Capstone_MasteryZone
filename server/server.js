@@ -188,6 +188,11 @@ io.on("connection", (socket) => {
         socket.data.role = decoded.role || "user";
         socket.data.isMainAdmin = Boolean(decoded.isMainAdmin || decoded.role === "admin" || decoded.role === "SUPER_ADMIN");
         socket.data.userEmail = decoded.email || "";
+        socket.data.userFullName = decoded.fullName || decoded.name || decoded.username || decoded.email || "";
+        socket.data.username = decoded.username || "";
+        const verifiedName = socket.data.userFullName || socket.data.username || socket.data.userEmail || `User_${uid.slice(-4)}`;
+        onlineUsers.set(socket.id, verifiedName);
+        io.emit("update_online_users", Array.from(new Set(onlineUsers.values())));
         socket.join(`user_${uid}`);
         console.log(`📡 Socket ${socket.id} authenticated into room user_${uid}`);
         return uid;
@@ -231,8 +236,12 @@ io.on("connection", (socket) => {
       delete socket.data.role;
       delete socket.data.isMainAdmin;
       delete socket.data.userEmail;
+      delete socket.data.userFullName;
+      delete socket.data.username;
       delete socket.data.meetingId;
       delete socket.data.meetingUser;
+      onlineUsers.delete(socket.id);
+      io.emit("update_online_users", Array.from(new Set(onlineUsers.values())));
       console.log(`🔌 Socket ${socket.id} logged out and purged private rooms for user_${oldUid}`);
     }
   });
@@ -254,10 +263,24 @@ io.on("connection", (socket) => {
     }
   });
 
-  // When a user logs into the app/chat
-  socket.on("user_joined", (username) => {
-    onlineUsers.set(socket.id, username);
-    io.emit("update_online_users", Array.from(onlineUsers.values()));
+  // When a user logs into the app/chat (Strictly Authenticated)
+  socket.on("user_joined", (payload) => {
+    let token = null;
+    if (typeof payload === "object" && payload !== null) {
+      token = payload.token;
+    } else if (typeof payload === "string" && payload.split(".").length === 3) {
+      token = payload;
+    }
+    if (token) {
+      joinUserRoomFromToken(token);
+    }
+    if (!socket.data.userId) {
+      socket.emit("chat_error", { message: "Authentication required to join online users." });
+      return;
+    }
+    const verifiedName = socket.data.userFullName || socket.data.username || socket.data.userEmail || `User_${socket.data.userId.slice(-4)}`;
+    onlineUsers.set(socket.id, verifiedName);
+    io.emit("update_online_users", Array.from(new Set(onlineUsers.values())));
   });
 
   // Real-time Support Ticket Chat & Typing Rooms (Strictly Authenticated & Authorized)
@@ -403,54 +426,93 @@ io.on("connection", (socket) => {
     socket.emit("live_sessions_snapshot", validSessions);
   });
 
+  // Rate limiting helper for chat and direct messaging
+  const checkChatRateLimit = (sock) => {
+    const now = Date.now();
+    sock.data.msgTimestamps = (sock.data.msgTimestamps || []).filter((t) => now - t < 5000);
+    if (sock.data.msgTimestamps.length >= 10) {
+      return false;
+    }
+    sock.data.msgTimestamps.push(now);
+    return true;
+  };
+
   // When a user sends a direct message (invite)
   socket.on("send_dm", async ({ toUser, roomCode }) => {
-    const verifiedSender = onlineUsers.get(socket.id) || socket.data.meetingUser?.fullName || socket.data.userEmail;
-    if (!verifiedSender) {
+    if (!socket.data.userId) {
       socket.emit("chat_error", { message: "Authenticated session required to send direct messages." });
       return;
     }
+    if (!checkChatRateLimit(socket)) {
+      socket.emit("chat_error", { message: "Rate limit exceeded. Please wait a few seconds before sending another message." });
+      return;
+    }
+    const verifiedSender = socket.data.userFullName || socket.data.username || socket.data.meetingUser?.fullName || socket.data.userEmail || `User_${socket.data.userId.slice(-4)}`;
     if (!toUser || typeof toUser !== "string" || toUser.length > 100) return;
     const cleanRoomCode = String(roomCode || "").slice(0, 50);
 
+    let recipient = null;
+    try {
+      recipient = await User.findOne({
+        $or: [{ username: toUser }, { fullName: toUser }, { email: toUser.toLowerCase() }],
+      }).select("_id username fullName email").lean();
+    } catch {}
+
+    if (!recipient) {
+      socket.emit("chat_error", { message: "Recipient user not found." });
+      return;
+    }
+
     for (const [id, username] of onlineUsers.entries()) {
-      if (username === toUser) {
+      if (username === toUser || username === recipient.fullName || username === recipient.username) {
         io.to(id).emit("receive_dm", { fromUser: verifiedSender, roomCode: cleanRoomCode });
         break;
       }
     }
+
     try {
-      const recipient = await User.findOne({
-        $or: [{ username: toUser }, { fullName: toUser }, { email: toUser.toLowerCase() }],
-      }).select("_id").lean();
-      if (recipient?._id) {
-        await pushNotification(io, {
-          userId: recipient._id,
-          title: "Collaboration Room Invite",
-          message: `${verifiedSender} invited you to join room ${cleanRoomCode}.`,
-          type: "collaboration",
-          severity: "info",
-          actionUrl: "/coding",
-          actionLabel: "Join Session",
-        });
-      }
+      await pushNotification(io, {
+        userId: recipient._id,
+        title: "Collaboration Room Invite",
+        message: `${verifiedSender} invited you to join room ${cleanRoomCode}.`,
+        type: "collaboration",
+        severity: "info",
+        actionUrl: "/coding",
+        actionLabel: "Join Session",
+      });
     } catch {}
   });
 
   // When a user sends a private 1-on-1 chat message
   socket.on("send_private_msg", async (messageData) => {
-    const verifiedSender = onlineUsers.get(socket.id) || socket.data.meetingUser?.fullName || socket.data.userEmail;
-    if (!verifiedSender) {
+    if (!socket.data.userId) {
       socket.emit("chat_error", { message: "Authenticated session required to send private messages." });
       return;
     }
+    if (!checkChatRateLimit(socket)) {
+      socket.emit("chat_error", { message: "Rate limit exceeded. Please wait a few seconds before sending another message." });
+      return;
+    }
+    const verifiedSender = socket.data.userFullName || socket.data.username || socket.data.meetingUser?.fullName || socket.data.userEmail || `User_${socket.data.userId.slice(-4)}`;
     const { toUser, text } = messageData || {};
     if (!toUser || typeof toUser !== "string" || toUser.length > 100) return;
     const cleanText = String(text || "").trim();
     if (!cleanText || cleanText.length > 2000) return;
 
+    let recipient = null;
+    try {
+      recipient = await User.findOne({
+        $or: [{ username: toUser }, { fullName: toUser }, { email: toUser.toLowerCase() }],
+      }).select("_id username fullName email").lean();
+    } catch {}
+
+    if (!recipient) {
+      socket.emit("chat_error", { message: "Recipient user not found." });
+      return;
+    }
+
     for (const [id, username] of onlineUsers.entries()) {
-      if (username === toUser) {
+      if (username === toUser || username === recipient.fullName || username === recipient.username) {
         io.to(id).emit("receive_private_msg", {
           id: Date.now().toString(),
           fromUser: verifiedSender,
@@ -460,33 +522,34 @@ io.on("connection", (socket) => {
         break;
       }
     }
+
     try {
-      const recipient = await User.findOne({
-        $or: [{ username: toUser }, { fullName: toUser }, { email: toUser.toLowerCase() }],
-      }).select("_id").lean();
-      if (recipient?._id) {
-        const preview = cleanText.length > 72 ? `${cleanText.slice(0, 70)}…` : cleanText;
-        await pushNotification(io, {
-          userId: recipient._id,
-          title: `Message from ${verifiedSender}`,
-          message: preview,
-          type: "collaboration",
-          severity: "info",
-        });
-      }
+      const preview = cleanText.length > 72 ? `${cleanText.slice(0, 70)}…` : cleanText;
+      await pushNotification(io, {
+        userId: recipient._id,
+        title: `Message from ${verifiedSender}`,
+        message: preview,
+        type: "collaboration",
+        severity: "info",
+      });
     } catch {}
   });
 
   // When a user sends a global chat message
   socket.on("send_global_message", (messageData) => {
-    if (!messageData || typeof messageData !== "object") return;
-    const text = String(messageData.text || "").trim();
-    if (!text || text.length > 2000) return;
-    const verifiedUser = onlineUsers.get(socket.id) || socket.data.meetingUser?.fullName || socket.data.userEmail;
-    if (!verifiedUser) {
+    if (!socket.data.userId) {
       socket.emit("chat_error", { message: "Authenticated session required to send global messages." });
       return;
     }
+    if (!checkChatRateLimit(socket)) {
+      socket.emit("chat_error", { message: "Rate limit exceeded. Please wait a few seconds before sending another message." });
+      return;
+    }
+    if (!messageData || typeof messageData !== "object") return;
+    const text = String(messageData.text || "").trim();
+    if (!text || text.length > 2000) return;
+    const verifiedUser = socket.data.userFullName || socket.data.username || socket.data.meetingUser?.fullName || socket.data.userEmail || `User_${socket.data.userId.slice(-4)}`;
+
     io.emit("receive_global_message", {
       id: Date.now().toString(),
       text,
@@ -508,15 +571,17 @@ io.on("connection", (socket) => {
     let authUser = null;
     if (token && typeof token === "string") {
       try {
-        const decoded = jwt.verify(token, JWT_SECRET);
+        const cleanToken = token.startsWith("Bearer ") ? token.slice(7) : token;
+        const decoded = jwt.verify(cleanToken, getJwtSecret());
         if (decoded) {
           authUser = {
-            userId: String(decoded.userId || decoded.id),
-            fullName: decoded.fullName || decoded.username || decoded.email,
-            email: decoded.email,
+            userId: String(decoded.userId || decoded.id || decoded._id),
+            fullName: decoded.fullName || decoded.username || decoded.name || decoded.email,
+            email: decoded.email || "",
           };
           socket.data.userId = authUser.userId;
           socket.data.userEmail = authUser.email;
+          socket.data.userFullName = authUser.fullName;
         }
       } catch {}
     }
@@ -524,28 +589,9 @@ io.on("connection", (socket) => {
     if (!authUser && socket.data.userId) {
       authUser = {
         userId: String(socket.data.userId),
-        fullName: socket.data.meetingUser?.fullName || onlineUsers.get(socket.id) || socket.data.userEmail || "Developer",
+        fullName: socket.data.userFullName || socket.data.username || socket.data.meetingUser?.fullName || socket.data.userEmail || `User_${socket.data.userId.slice(-4)}`,
         email: socket.data.userEmail || "",
       };
-    }
-
-    if (!authUser && onlineUsers.has(socket.id)) {
-      const username = onlineUsers.get(socket.id);
-      authUser = {
-        userId: socket.id,
-        fullName: username,
-        email: `${username}@masteryzone.com`,
-      };
-    }
-
-    if (!authUser && user && typeof user === "object" && typeof user.fullName === "string") {
-      if (user.fullName.startsWith("guest_") || (user.email && String(user.email).includes("@masteryzone.com"))) {
-        authUser = {
-          userId: socket.id,
-          fullName: user.fullName.slice(0, 50),
-          email: user.email || `guest_${socket.id.slice(0, 6)}@masteryzone.com`,
-        };
-      }
     }
 
     if (!authUser) {
