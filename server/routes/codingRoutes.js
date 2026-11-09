@@ -1786,8 +1786,10 @@ router.post("/curriculum/exercise/submit", authenticateToken, async (req, res) =
     }
 
     // Synchronize submitted code and execution results directly to any active/recent ProctoredCodingSession
+    const qKey = `${trackId}_${idx}`;
+    let finalReturnSid = req.body.sessionId || `sub_${trackId}_${idx}_${Date.now()}`;
+    let activeSession = null;
     try {
-      const qKey = `${trackId}_${idx}`;
       const sessionFilter = {
         userId,
         $or: [
@@ -1798,8 +1800,9 @@ router.post("/curriculum/exercise/submit", authenticateToken, async (req, res) =
           { status: "active" },
         ],
       };
-      const activeSession = await ProctoredCodingSession.findOne(sessionFilter).sort({ createdAt: -1 });
+      activeSession = await ProctoredCodingSession.findOne(sessionFilter).sort({ createdAt: -1 });
       if (activeSession) {
+        finalReturnSid = activeSession.sessionId || finalReturnSid;
         activeSession.draftCode = code;
         activeSession.draftLanguage = lang;
         if (!activeSession.questionDrafts) activeSession.questionDrafts = new Map();
@@ -1836,7 +1839,7 @@ router.post("/curriculum/exercise/submit", authenticateToken, async (req, res) =
             accuracy: Math.round((passedCount / testCases.length) * 100),
             passed: true,
             status: score === 100 ? "ACCEPTED" : "PASSED",
-            durationSeconds: Math.max(1, Math.round(((new Date()) - activeSession.serverStartTime) / 1000)),
+            durationSeconds: Math.max(1, Math.round(((new Date()) - (activeSession.serverStartTime || activeSession.createdAt || new Date())) / 1000)),
             submittedAt: new Date(),
             testResults,
           };
@@ -1853,7 +1856,7 @@ router.post("/curriculum/exercise/submit", authenticateToken, async (req, res) =
           questionId: qKey,
           assessmentTitle: module.codingExercise?.taskTitle || module.title,
           trackId,
-          status: isAccepted ? "submitted" : "completed",
+          status: "submitted",
           candidateDetails: {
             fullName: userObj?.fullName || userObj?.username || "Candidate",
             email: userObj?.email || "",
@@ -1895,12 +1898,15 @@ router.post("/curriculum/exercise/submit", authenticateToken, async (req, res) =
           },
         });
         await newSession.save();
+        activeSession = newSession;
       }
     } catch (procSyncErr) {
       console.warn("Could not sync ProctoredCodingSession during curriculum submit:", procSyncErr);
     }
 
-    const finalReturnSid = activeSession?.sessionId || req.body.sessionId || `sub_${trackId}_${idx}_${Date.now()}`;
+    if (activeSession && activeSession.sessionId) {
+      finalReturnSid = activeSession.sessionId;
+    }
     try {
       progress.moduleProgress.set(pKey, {
         ...(progress.moduleProgress.get(pKey) || {}),

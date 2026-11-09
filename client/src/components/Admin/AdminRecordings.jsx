@@ -264,7 +264,13 @@ const AdminRecordings = () => {
   const getVideoSrc = (rec) => {
     if (!rec) return "";
     const rawUrl = rec.streamUrl || rec.fileUrl || "";
-    return rawUrl.startsWith("http") ? rawUrl : `${API_BASE}${rawUrl}`;
+    let fullUrl = rawUrl.startsWith("http") ? rawUrl : `${API_BASE}${rawUrl.startsWith("/") ? rawUrl : `/${rawUrl}`}`;
+    const token = typeof localStorage !== "undefined" ? localStorage.getItem("token") : null;
+    if (token && !fullUrl.includes("token=")) {
+      const sep = fullUrl.includes("?") ? "&" : "?";
+      fullUrl = `${fullUrl}${sep}token=${encodeURIComponent(token)}`;
+    }
+    return fullUrl;
   };
 
   return (

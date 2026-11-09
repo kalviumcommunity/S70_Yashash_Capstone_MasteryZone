@@ -1838,12 +1838,6 @@ app.use('/recordings', async (req, res, next) => {
   const isAdmin = Boolean(decoded.role === "admin" || decoded.role === "SUPER_ADMIN" || decoded.isMainAdmin);
 
   const safeFilename = path.basename(req.path);
-  const filePath = path.join(__dirname, 'uploads/recordings', safeFilename);
-  if (!fs.existsSync(filePath)) {
-    return res.status(404).send("Recording file not found");
-  }
-
-  // Exact authorization verification against database
   const escapedFilename = safeFilename.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const Recording = require("./models/Recording");
   const recording = await Recording.findOne({
@@ -1852,8 +1846,16 @@ app.use('/recordings', async (req, res, next) => {
       { fileUrl: `/recordings/${safeFilename}` },
       { fileUrl: `/uploads/recordings/${safeFilename}` },
       { filePath: { $regex: `(^|[\\\\/])${escapedFilename}$` } },
+      { fileName: safeFilename },
+      { recordingId: safeFilename.replace(/\.[^/.]+$/, "") },
     ],
   }).lean();
+
+  const { resolveRecordingFilePath } = require("./config/recordingStorage");
+  const filePath = resolveRecordingFilePath(safeFilename, recording);
+  if (!filePath || !fs.existsSync(filePath)) {
+    return res.status(404).send("Recording file not found");
+  }
 
   if (recording && !isAdmin) {
     const isHost = String(recording.hostUserId) === currentUserId;

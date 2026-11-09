@@ -69,12 +69,7 @@ const API_BASE = import.meta.env.VITE_API_URL || "";
 
 const getMediaUrl = (url) => {
   if (!url) return "";
-  if (
-    url.startsWith("http://") ||
-    url.startsWith("https://") ||
-    url.startsWith("blob:") ||
-    url.startsWith("data:")
-  ) {
+  if (url.startsWith("blob:") || url.startsWith("data:")) {
     return url;
   }
   const base =
@@ -83,8 +78,17 @@ const getMediaUrl = (url) => {
     (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
       ? "http://localhost:5012"
       : "");
-  const cleanUrl = url.startsWith("/") ? url : `/${url}`;
-  return `${base}${cleanUrl}`;
+  let fullUrl = (url.startsWith("http://") || url.startsWith("https://"))
+    ? url
+    : `${base}${url.startsWith("/") ? url : `/${url}`}`;
+
+  // Attach token for authenticated video streaming & range requests
+  const token = typeof localStorage !== "undefined" ? localStorage.getItem("token") : null;
+  if (token && !fullUrl.includes("token=")) {
+    const sep = fullUrl.includes("?") ? "&" : "?";
+    fullUrl = `${fullUrl}${sep}token=${encodeURIComponent(token)}`;
+  }
+  return fullUrl;
 };
 
 // Vector Badge Component for Coding

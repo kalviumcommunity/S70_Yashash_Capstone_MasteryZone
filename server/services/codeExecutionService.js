@@ -137,14 +137,18 @@ function terminateProcessTree(proc) {
 }
 
 function runSandboxedProcess(command, args, stdinInput = "", timeoutMs = 5000, cwd = os.tmpdir()) {
-  return new Promise((resolve) => {
-    if (activeExecutions >= MAX_CONCURRENT_EXECUTIONS) {
-      return resolve({
-        output: "",
-        error: "Execution concurrency limit reached. Please wait a moment before running more code.",
-        duration: 0,
-        exitCode: 1,
-      });
+  return new Promise(async (resolve) => {
+    const queueStart = Date.now();
+    while (activeExecutions >= MAX_CONCURRENT_EXECUTIONS) {
+      if (Date.now() - queueStart > 4000) {
+        return resolve({
+          output: "",
+          error: "Execution concurrency limit reached. Please wait a moment before running more code.",
+          duration: 0,
+          exitCode: 1,
+        });
+      }
+      await new Promise((r) => setTimeout(r, 25));
     }
 
     activeExecutions++;
@@ -271,12 +275,86 @@ async function executeViaJudge0(lang, code, stdin = "", timeoutMs = 5000) {
   }
 
   let normalizedCode = code;
-  if (lang === "java") {
-    // Judge0 compiles Java in Main.java, so the public class name must be Main
-    if (/public\s+class\s+[A-Za-z0-9_]+/i.test(normalizedCode)) {
-      normalizedCode = normalizedCode.replace(/public\s+class\s+[A-Za-z0-9_]+/g, "public class Main");
-    } else if (/\bclass\s+([A-Za-z0-9_]+)/i.test(normalizedCode)) {
-      normalizedCode = normalizedCode.replace(/\bclass\s+[A-Za-z0-9_]+/i, "public class Main");
+  if (lang === "python" || lang === "py") {
+    const hasStdin = /sys\.stdin|input\s*\(/.test(normalizedCode);
+    if (!hasStdin && (/\bdef\s+[a-zA-Z0-9_]+|\bclass\s+Solution/.test(normalizedCode))) {
+      normalizedCode = `${normalizedCode}\n\n${PYTHON_FUNCTION_HARNESS}`;
+    }
+  } else if (lang === "java") {
+    const hasMain = /public\s+static\s+void\s+main\s*\(|static\s+public\s+void\s+main\s*\(/.test(normalizedCode);
+    if (!hasMain && /\bclass\s+Solution\b/.test(normalizedCode)) {
+      const nonPublicCode = normalizedCode.replace(/public\s+class\s+Solution/g, "class Solution");
+      normalizedCode = `import java.util.*;
+import java.lang.reflect.*;
+
+${nonPublicCode}
+
+public class Main {
+    public static void main(String[] args) throws Exception {
+        Scanner sc = new Scanner(System.in);
+        StringBuilder sb = new StringBuilder();
+        while (sc.hasNextLine()) {
+            sb.append(sc.nextLine()).append("\\n");
+        }
+        String raw = sb.toString().trim();
+        if (raw.isEmpty()) return;
+
+        Solution sol = new Solution();
+        Method[] methods = Solution.class.getDeclaredMethods();
+        Method target = null;
+        for (Method m : methods) {
+            if (Modifier.isPublic(m.getModifiers())) {
+                target = m;
+                break;
+            }
+        }
+        if (target == null && methods.length > 0) target = methods[0];
+        if (target == null) return;
+
+        Class<?>[] pTypes = target.getParameterTypes();
+        Object[] callArgs = new Object[pTypes.length];
+        String[] lines = raw.split("\\\\n");
+
+        for (int i = 0; i < pTypes.length; i++) {
+            String token = (i < lines.length) ? lines[i].trim() : (pTypes.length == 1 ? raw : "");
+            Class<?> pt = pTypes[i];
+            if (pt == int[].class) {
+                String clean = token.replace("[", " ").replace("]", " ").replace(",", " ").trim();
+                String[] nums = clean.isEmpty() ? new String[0] : clean.split("\\\\s+");
+                int[] arr = new int[nums.length];
+                for (int j = 0; j < nums.length; j++) arr[j] = Integer.parseInt(nums[j]);
+                callArgs[i] = arr;
+            } else if (pt == int.class || pt == Integer.class) {
+                callArgs[i] = Integer.parseInt(token);
+            } else if (pt == double.class || pt == Double.class) {
+                callArgs[i] = Double.parseDouble(token);
+            } else if (pt == boolean.class || pt == Boolean.class) {
+                callArgs[i] = Boolean.parseBoolean(token);
+            } else {
+                callArgs[i] = token.replaceAll("^[\"']|[\"']$", "");
+            }
+        }
+
+        Object result = target.invoke(sol, callArgs);
+        if (result != null) {
+            if (result instanceof int[]) {
+                System.out.println(Arrays.toString((int[]) result));
+            } else if (result.getClass().isArray()) {
+                System.out.println(Arrays.deepToString((Object[]) result));
+            } else {
+                System.out.println(result);
+            }
+        }
+    }
+}
+`;
+    } else {
+      // Judge0 compiles Java in Main.java, so the public class name must be Main
+      if (/public\s+class\s+[A-Za-z0-9_]+/i.test(normalizedCode)) {
+        normalizedCode = normalizedCode.replace(/public\s+class\s+[A-Za-z0-9_]+/g, "public class Main");
+      } else if (/\bclass\s+([A-Za-z0-9_]+)/i.test(normalizedCode)) {
+        normalizedCode = normalizedCode.replace(/\bclass\s+[A-Za-z0-9_]+/i, "public class Main");
+      }
     }
   }
 
@@ -1134,26 +1212,25 @@ public class Main {
       }));
     }
 
-    const results = await Promise.all(
-      testCases.map(async (tc) => {
-        const tcStartTime = Date.now();
-        const input = tc.input !== undefined ? tc.input : "";
-        const expectedOutput = tc.expectedOutput !== undefined ? tc.expectedOutput : (tc.expected || "");
-        const res = await runner(input);
-        const cleanActual = (res.output || "").trim().replace(/\r\n/g, "\n");
-        const cleanExpected = (expectedOutput || "").trim().replace(/\r\n/g, "\n");
-        const effectiveError = res.error || (res.exitCode !== 0 ? (cleanActual || "Runtime error") : "");
-        const passed = res.exitCode === 0 && validateTestCaseOutput(cleanActual, cleanExpected);
+    const results = [];
+    for (const tc of testCases) {
+      const tcStartTime = Date.now();
+      const input = tc.input !== undefined ? tc.input : "";
+      const expectedOutput = tc.expectedOutput !== undefined ? tc.expectedOutput : (tc.expected || "");
+      const res = await runner(input);
+      const cleanActual = (res.output || "").trim().replace(/\r\n/g, "\n");
+      const cleanExpected = (expectedOutput || "").trim().replace(/\r\n/g, "\n");
+      const effectiveError = res.error || (res.exitCode !== 0 ? (cleanActual || "Runtime error") : "");
+      const passed = res.exitCode === 0 && validateTestCaseOutput(cleanActual, cleanExpected);
 
-        return {
-          passed,
-          actual: cleanActual,
-          expected: cleanExpected,
-          error: effectiveError,
-          duration: res.duration || (Date.now() - tcStartTime),
-        };
-      })
-    );
+      results.push({
+        passed,
+        actual: cleanActual,
+        expected: cleanExpected,
+        error: effectiveError,
+        duration: res.duration || (Date.now() - tcStartTime),
+      });
+    }
 
     try {
       if (cacheKey && results && results.length > 0) {

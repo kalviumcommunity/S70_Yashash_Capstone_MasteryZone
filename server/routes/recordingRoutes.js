@@ -8,13 +8,8 @@ const Recording = require("../models/Recording");
 const authenticateToken = require("../middleware/authMiddleware");
 
 // Uploads directory path (Supports persistent cloud disk mount via RECORDINGS_STORAGE_PATH)
-const RECORDINGS_DIR =
-  process.env.RECORDINGS_STORAGE_PATH ||
-  process.env.RECORDINGS_DIR ||
-  path.join(__dirname, "../uploads/recordings");
-if (!fs.existsSync(RECORDINGS_DIR)) {
-  fs.mkdirSync(RECORDINGS_DIR, { recursive: true });
-}
+const { getRecordingsDir, resolveRecordingFilePath } = require("../config/recordingStorage");
+const RECORDINGS_DIR = getRecordingsDir();
 
 function getFfmpegBinary() {
   if (process.env.FFMPEG_PATH) return process.env.FFMPEG_PATH;
@@ -407,7 +402,7 @@ router.post("/upload", express.json({ limit: "100mb" }), authenticateToken, asyn
       hostEmail,
       recordingType: req.body.recordingType || "Meeting",
       durationSeconds: Math.round(Number(durationSeconds) || Number(mediaCheck.duration) || 0),
-      filePath: fileUrl,
+      filePath,
       fileUrl,
       streamUrl,
       fileSize,
@@ -467,11 +462,6 @@ router.get("/stream/:filename", async (req, res) => {
       return res.status(400).send("Invalid filename");
     }
     const filename = path.basename(rawFilename);
-    const filePath = path.join(RECORDINGS_DIR, filename);
-
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).send("Video file not found");
-    }
 
     // 2. Authorize Requesting User (via Bearer header or ?token= query parameter)
     const authHeader = req.headers["authorization"];
@@ -500,8 +490,15 @@ router.get("/stream/:filename", async (req, res) => {
         { fileUrl: `/recordings/${filename}` },
         { fileUrl: `/uploads/recordings/${filename}` },
         { filePath: { $regex: `(^|[\\\\/])${escapedFilename}$` } },
+        { fileName: filename },
+        { recordingId: filename.replace(/\.[^/.]+$/, "") },
       ],
     }).lean();
+
+    const filePath = resolveRecordingFilePath(filename, recording);
+    if (!filePath || !fs.existsSync(filePath)) {
+      return res.status(404).send("Video file not found");
+    }
 
     if (!recording) {
       if (!isAdmin) {
@@ -577,7 +574,6 @@ router.get("/download/:filename", async (req, res) => {
       return res.status(400).send("Invalid filename");
     }
     const filename = path.basename(rawFilename);
-    const filePath = path.join(RECORDINGS_DIR, filename);
 
     const authHeader = req.headers["authorization"];
     const rawToken = (authHeader && authHeader.split(" ")[1]) || req.query.token;
@@ -604,8 +600,12 @@ router.get("/download/:filename", async (req, res) => {
         { fileUrl: `/recordings/${filename}` },
         { fileUrl: `/uploads/recordings/${filename}` },
         { filePath: { $regex: `(^|[\\\\/])${escapedFilename}$` } },
+        { fileName: filename },
+        { recordingId: filename.replace(/\.[^/.]+$/, "") },
       ],
     }).lean();
+
+    const filePath = resolveRecordingFilePath(filename, recording);
 
     if (!recording) {
       if (!isAdmin) return res.status(404).send("Recording record not found");
