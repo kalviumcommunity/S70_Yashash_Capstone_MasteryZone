@@ -1055,7 +1055,7 @@ router.post("/attempt/:attemptId/finalize", authenticateToken, async (req, res) 
 
         await certificate.save();
 
-        // Generate the PDF file before marking certificate ready and sending email
+        // Generate and physically verify the PDF file before marking certificate ready
         try {
           await generateCertificatePDF({
             certificateId,
@@ -1069,10 +1069,16 @@ router.post("/attempt/:attemptId/finalize", authenticateToken, async (req, res) 
             finalGradePercentage: finalScorePercentage,
             verificationUrl,
           });
-          certificate.pdfGenerated = true;
+          const userScopedDir = attempt.userId ? path.join(CERTIFICATES_DIR, String(attempt.userId)) : null;
+          const userScopedPath = userScopedDir ? path.join(userScopedDir, `${certificateId}.pdf`) : null;
+          const flatPath = path.join(CERTIFICATES_DIR, `${certificateId}.pdf`);
+          const fileWritten = (userScopedPath && fs.existsSync(userScopedPath)) || fs.existsSync(flatPath);
+          certificate.pdfGenerated = fileWritten;
           await certificate.save();
         } catch (pdfErr) {
           console.warn("PDF generation error:", pdfErr.message);
+          certificate.pdfGenerated = false;
+          await certificate.save();
         }
       }
 

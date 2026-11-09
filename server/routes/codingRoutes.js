@@ -143,6 +143,23 @@ function validateCodeSafety(language, code) {
   return { safe: true };
 }
 
+function terminateProcessTree(proc) {
+  if (!proc || !proc.pid) return;
+  try {
+    if (process.platform !== "win32") {
+      try {
+        process.kill(-proc.pid, "SIGKILL");
+      } catch (e) {
+        try {
+          proc.kill("SIGKILL");
+        } catch (e2) {}
+      }
+    } else {
+      execFile("taskkill", ["/PID", String(proc.pid), "/T", "/F"], () => {});
+    }
+  } catch {}
+}
+
 function runSandboxedProcess(command, args, stdinInput = "", timeoutMs = 5000, cwd = os.tmpdir()) {
   return new Promise((resolve) => {
     if (activeExecutions >= MAX_CONCURRENT_EXECUTIONS) {
@@ -174,6 +191,7 @@ function runSandboxedProcess(command, args, stdinInput = "", timeoutMs = 5000, c
           TMPDIR: cwd,
           LANG: "en_US.UTF-8",
         },
+        detached: process.platform !== "win32",
         stdio: ["pipe", "pipe", "pipe"],
       });
     } catch (err) {
@@ -190,9 +208,7 @@ function runSandboxedProcess(command, args, stdinInput = "", timeoutMs = 5000, c
       if (!isSettled) {
         isSettled = true;
         cleanup();
-        try {
-          proc.kill("SIGKILL");
-        } catch {}
+        terminateProcessTree(proc);
         resolve({
           output: stdout,
           error: `Execution timed out after ${timeoutMs / 1000} seconds. (Possible infinite loop or waiting for input)`,
@@ -379,7 +395,7 @@ router.post("/execute", authenticateToken, async (req, res) => {
       console.warn("Judge0 call failed:", j0Err.message);
       if (
         process.env.JUDGE0_REQUIRED === "true" ||
-        (process.env.NODE_ENV === "production" && process.env.ALLOW_LOCAL_FALLBACK === "false")
+        (process.env.NODE_ENV === "production" && process.env.ALLOW_LOCAL_FALLBACK !== "true")
       ) {
         return res.status(503).json({
           error: "Isolated execution sandbox is temporarily unavailable. Please retry shortly.",
@@ -388,6 +404,18 @@ router.post("/execute", authenticateToken, async (req, res) => {
       }
       // Fall through to local sandboxed execution with isolated environment
     }
+  }
+
+  // Production sandbox check: require Judge0 unless local fallback explicitly enabled
+  if (
+    process.env.NODE_ENV === "production" &&
+    process.env.ALLOW_LOCAL_FALLBACK !== "true" &&
+    !process.env.JUDGE0_API_HOST
+  ) {
+    return res.status(503).json({
+      error: "Production execution requires a configured isolated execution environment (Judge0).",
+      engine: "Security Sandbox Validator",
+    });
   }
 
   // 2. Local Isolated Sandbox Execution
@@ -954,6 +982,18 @@ async function evaluateTestCasesBatch(language, code, testCases) {
   }
 
   let lang = (language || "").toLowerCase().trim();
+
+  // Enforce mandatory security inspection before batch evaluation
+  const safety = validateCodeSafety(lang, safeCode);
+  if (!safety.safe) {
+    return testCases.map((tc) => ({
+      passed: false,
+      actual: "",
+      expected: String(tc.expectedOutput !== undefined ? tc.expectedOutput : (tc.expected || "")).trim(),
+      error: safety.reason,
+      duration: 0,
+    }));
+  }
 
   // Deterministic cache lookup
   let cacheKey = "";
@@ -6135,6 +6175,7 @@ router.get("/proctored-session/:sessionId/report", optionalAuthenticateToken, as
 router.evaluateSingleTestCase = evaluateSingleTestCase;
 router.evaluateTestCasesBatch = evaluateTestCasesBatch;
 router.runSandboxedProcess = runSandboxedProcess;
+router.terminateProcessTree = terminateProcessTree;
 router.validateCodeSafety = validateCodeSafety;
 
 module.exports = router;
