@@ -5,6 +5,46 @@
 const CHANNEL_NAME = "mz_auth_sync_channel";
 let authChannel = null;
 
+// Mastery Zone owned keys to isolate storage cleanup from unrelated website keys
+export const MASTERY_ZONE_STORAGE_KEYS = [
+  "token",
+  "user",
+  "mz_user",
+  "guestToken",
+  "guestUser",
+  "mz_session_active",
+  "mz_active_meeting",
+  "mz_recent_search",
+  "mz_theme",
+  "mz_code_draft",
+  "mz_workspace_state",
+  "adminToken",
+  "adminUser",
+  "activeMeetingSession",
+];
+
+export const clearMasteryZoneStorage = () => {
+  try {
+    for (const key of MASTERY_ZONE_STORAGE_KEYS) {
+      localStorage.removeItem(key);
+      sessionStorage.removeItem(key);
+    }
+    // Safely remove any prefixed keys without touching third-party storage
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (k && (k.startsWith("mz_") || k.startsWith("masteryzone_"))) {
+        localStorage.removeItem(k);
+      }
+    }
+    for (let i = sessionStorage.length - 1; i >= 0; i--) {
+      const k = sessionStorage.key(i);
+      if (k && (k.startsWith("mz_") || k.startsWith("masteryzone_"))) {
+        sessionStorage.removeItem(k);
+      }
+    }
+  } catch {}
+};
+
 try {
   if (typeof window !== "undefined" && "BroadcastChannel" in window) {
     authChannel = new BroadcastChannel(CHANNEL_NAME);
@@ -33,10 +73,7 @@ if (authChannel) {
       }
     } else if (data.type === "MZ_LOGOUT") {
       // A tab initiated logout — purge storage and navigate to /login
-      try {
-        localStorage.clear();
-        sessionStorage.clear();
-      } catch {}
+      clearMasteryZoneStorage();
       if (typeof window !== "undefined" && window.location.pathname !== "/login" && window.location.pathname !== "/" && window.location.pathname !== "/landing") {
         window.location.replace("/login");
       }
@@ -63,10 +100,7 @@ export const verifyActiveSession = async (timeoutMs = 80) => {
   // 2. If no token exists at all in storage
   const localToken = localStorage.getItem("token") || sessionStorage.getItem("token");
   if (!localToken) {
-    try {
-      localStorage.clear();
-      sessionStorage.clear();
-    } catch {}
+    clearMasteryZoneStorage();
     return false;
   }
 
@@ -117,10 +151,7 @@ export const verifyActiveSession = async (timeoutMs = 80) => {
 
   // 4. No active session confirmed — user re-entered the webpage after closing!
   // Purge all stored tokens and user details so they are not remembered.
-  try {
-    localStorage.clear();
-    sessionStorage.clear();
-  } catch {}
+  clearMasteryZoneStorage();
   return false;
 };
 
@@ -133,10 +164,7 @@ export const performGlobalLogout = () => {
       authChannel.postMessage({ type: "MZ_LOGOUT" });
     }
   } catch {}
-  try {
-    localStorage.clear();
-    sessionStorage.clear();
-  } catch {}
+  clearMasteryZoneStorage();
   if (typeof window !== "undefined") {
     window.location.replace("/login");
   }

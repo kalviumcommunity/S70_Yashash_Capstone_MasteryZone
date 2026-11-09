@@ -43,90 +43,7 @@ const JAVA_BIN = fs.existsSync("/opt/homebrew/Cellar/openjdk/26.0.2.1/bin/java")
   ? "/usr/local/bin/java"
   : "java";
 
-function runSandboxedProcess(command, args, stdinInput = "", timeoutMs = 4500, cwd = os.tmpdir()) {
-  return new Promise((resolve) => {
-    const startTime = Date.now();
-    let stdout = "";
-    let stderr = "";
-    let isSettled = false;
-
-    let proc;
-    try {
-      proc = spawn(command, args, {
-        cwd,
-        env: { PATH: process.env.PATH, HOME: os.tmpdir() },
-        stdio: ["pipe", "pipe", "pipe"],
-      });
-    } catch (err) {
-      return resolve({
-        output: "",
-        error: `Failed to spawn process: ${err.message}`,
-        duration: Date.now() - startTime,
-        exitCode: 1,
-      });
-    }
-
-    const timer = setTimeout(() => {
-      if (!isSettled) {
-        isSettled = true;
-        try {
-          proc.kill("SIGKILL");
-        } catch {}
-        resolve({
-          output: stdout,
-          error: `Execution timed out after ${timeoutMs / 1000}s.`,
-          duration: Date.now() - startTime,
-          exitCode: -1,
-        });
-      }
-    }, timeoutMs);
-
-    if (stdinInput && proc.stdin) {
-      try {
-        proc.stdin.write(stdinInput);
-        proc.stdin.end();
-      } catch {}
-    } else if (proc.stdin) {
-      try {
-        proc.stdin.end();
-      } catch {}
-    }
-
-    proc.stdout.on("data", (chunk) => {
-      if (stdout.length < 1024 * 256) stdout += chunk.toString();
-    });
-
-    proc.stderr.on("data", (chunk) => {
-      if (stderr.length < 1024 * 256) stderr += chunk.toString();
-    });
-
-    proc.on("error", (err) => {
-      if (!isSettled) {
-        isSettled = true;
-        clearTimeout(timer);
-        resolve({
-          output: stdout,
-          error: `Execution error: ${err.message}`,
-          duration: Date.now() - startTime,
-          exitCode: 1,
-        });
-      }
-    });
-
-    proc.on("close", (code) => {
-      if (!isSettled) {
-        isSettled = true;
-        clearTimeout(timer);
-        resolve({
-          output: stdout,
-          error: stderr,
-          duration: Date.now() - startTime,
-          exitCode: code || 0,
-        });
-      }
-    });
-  });
-}
+const { runSandboxedProcess, validateCodeSafety } = require("./codingRoutes");
 
 // Preset study rooms matching reference image & coding curriculum
 const STUDY_ROOMS_CATALOG = [
@@ -767,6 +684,12 @@ router.post("/:meetingId/run-code", optionalAuthToken, async (req, res) => {
     const lang = String(language).toLowerCase();
     let result = { output: "", error: "", ok: false, durationMs: 0 };
 
+    const safety = validateCodeSafety(lang, code);
+    if (!safety.safe) {
+      try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+      return res.status(400).json({ output: "", error: `Security Violation: ${safety.reason}`, ok: false, durationMs: 0 });
+    }
+
     // Write any companion workspace files to tmpDir for multi-file imports
     if (Array.isArray(files)) {
       files.forEach((f) => {
@@ -782,7 +705,7 @@ router.post("/:meetingId/run-code", optionalAuthToken, async (req, res) => {
       if (lang === "python" || lang === "py") {
         const filePath = path.join(tmpDir, "main.py");
         fs.writeFileSync(filePath, code, "utf8");
-        const exec = await runSandboxedProcess(PYTHON_BIN, ["-u", filePath], stdin, 5000, tmpDir);
+        const exec = await runSandboxedProcess(PYTHON_BIN, ["-u", "-I", filePath], stdin, 5000, tmpDir);
         result = {
           output: exec.output,
           error: exec.error,
@@ -984,7 +907,7 @@ router.post("/:meetingId/run-tests", optionalAuthToken, async (req, res) => {
           if (lang === "python" || lang === "py") {
             const filePath = path.join(tmpDir, "main.py");
             fs.writeFileSync(filePath, code, "utf8");
-            runner = (stdin) => runSandboxedProcess(PYTHON_BIN, ["-u", filePath], stdin || "", 4000, tmpDir);
+            runner = (stdin) => runSandboxedProcess(PYTHON_BIN, ["-u", "-I", filePath], stdin || "", 4000, tmpDir);
           } else if (lang === "javascript" || lang === "js" || lang === "node") {
             const filePath = path.join(tmpDir, "index.js");
             fs.writeFileSync(filePath, code, "utf8");
@@ -1155,7 +1078,7 @@ router.post("/:meetingId/submit-solution", optionalAuthToken, async (req, res) =
           if (lang === "python" || lang === "py") {
             const filePath = path.join(tmpDir, "main.py");
             fs.writeFileSync(filePath, code, "utf8");
-            runner = (stdin) => runSandboxedProcess(PYTHON_BIN, ["-u", filePath], stdin || "", 4000, tmpDir);
+            runner = (stdin) => runSandboxedProcess(PYTHON_BIN, ["-u", "-I", filePath], stdin || "", 4000, tmpDir);
           } else if (lang === "javascript" || lang === "js" || lang === "node") {
             const filePath = path.join(tmpDir, "index.js");
             fs.writeFileSync(filePath, code, "utf8");

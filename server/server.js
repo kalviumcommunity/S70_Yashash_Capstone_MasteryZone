@@ -39,13 +39,39 @@ const PORT = process.env.PORT || 5012; // Use environment variable or fallback t
 // Create HTTP Server
 const server = http.createServer(app);
 
+// Explicit Trusted Origins for Strict CORS Enforcement
+const TRUSTED_ORIGINS = [
+  process.env.CLIENT_URL,
+  process.env.FRONTEND_URL,
+  "https://mastery-zone.onrender.com",
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "http://localhost:5174",
+  "http://localhost:4173",
+].filter(Boolean);
+
+function corsOriginValidator(origin, callback) {
+  if (!origin) return callback(null, true);
+  if (
+    TRUSTED_ORIGINS.includes(origin) ||
+    /^https?:\/\/localhost(:\d+)?$/.test(origin) ||
+    /^https?:\/\/127\.0\.0\.1(:\d+)?$/.test(origin) ||
+    (process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "staging")
+  ) {
+    return callback(null, true);
+  }
+  return callback(new Error("CORS policy violation: Origin not allowed"), false);
+}
+
+const corsOptions = {
+  origin: corsOriginValidator,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  credentials: true,
+};
+
 // Initialize Socket.io with production-ready options
 const io = new Server(server, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    credentials: true,
-  },
+  cors: corsOptions,
   transports: ["websocket", "polling"],
   pingTimeout: 30000,
   pingInterval: 25000,
@@ -1107,15 +1133,20 @@ io.on("connection", (socket) => {
     });
   });
 
-  // Collaborative Problem-Solving Mode Toggle
+  // Collaborative Problem-Solving Mode Toggle - Host or Admin only, strictly authorized to meeting room
   socket.on("meeting_challenge_mode_toggle", async ({ meetingId, mode, user }) => {
-    if (!meetingId) return;
+    if (!meetingId || !isAuthorizedMeetingMember(socket, meetingId)) return;
+    const meeting = await Meeting.findOne({ meetingId }).select("hostUserId").lean();
+    if (!meeting || !isMeetingHostOrAdmin(socket, meeting)) {
+      socket.emit("meeting_error", { message: "Only the host can toggle challenge mode." });
+      return;
+    }
     io.to(`meeting_${meetingId}`).emit("meeting_challenge_mode_toggled", { mode, user });
   });
 
-  // Collaborative Solution Grading Broadcast
+  // Collaborative Solution Grading Broadcast - Authorized room members only
   socket.on("meeting_solution_submit", async ({ meetingId, result, user }) => {
-    if (!meetingId) return;
+    if (!meetingId || !isAuthorizedMeetingMember(socket, meetingId)) return;
     io.to(`meeting_${meetingId}`).emit("meeting_solution_submitted", {
       result,
       user,
@@ -1171,14 +1202,12 @@ io.on("connection", (socket) => {
   });
 });
 
-// CORS - allow requests from frontend
-app.use(cors({
-  origin: true,
-  credentials: true,
-}));
+// CORS - explicitly restricted to trusted origins with credentials
+app.use(cors(corsOptions));
 
-app.use(express.json({ limit: '100mb' })); // Middleware to parse JSON requests
-app.use(express.urlencoded({ limit: '100mb', extended: true })); // Middleware to parse URL-encoded bodies
+// Standard API request size limit (route-specific 100mb applied on video uploads)
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ limit: '2mb', extended: true }));
 app.use(cookieParser()); // Use cookie parser
 app.use('/auth', authRoutes);
 app.use('/api/auth', authRoutes);
@@ -1194,24 +1223,54 @@ app.use('/api/recordings', recordingRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/support', supportRoutes);
 app.use('/api/admin/support', supportRoutes);
-// Authenticated & Range-Supported Meeting Recordings Streaming
-app.use('/recordings', (req, res, next) => {
-  const token = (req.headers.authorization && req.headers.authorization.split(' ')[1]) ||
+
+// Authenticated & Range-Supported Meeting Recordings Streaming (Strict Database-Derived Ownership)
+app.use('/recordings', async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  const token = (authHeader && authHeader.split(' ')[1]) ||
                 req.query.token ||
                 req.cookies?.token;
 
-  if (token) {
-    try {
-      jwt.verify(token, getJwtSecret());
-    } catch (e) {
-      return res.status(403).send("Invalid or expired session token");
-    }
+  if (!token) {
+    return res.status(401).send("Authentication required to access recordings");
   }
+
+  let decoded;
+  try {
+    decoded = jwt.verify(token, getJwtSecret());
+  } catch (e) {
+    return res.status(401).send("Invalid or expired session token");
+  }
+
+  const currentUserId = String(decoded.userId || decoded.id || decoded._id || "");
+  const isAdmin = Boolean(decoded.role === "admin" || decoded.role === "SUPER_ADMIN" || decoded.isMainAdmin);
 
   const safeFilename = path.basename(req.path);
   const filePath = path.join(__dirname, 'uploads/recordings', safeFilename);
   if (!fs.existsSync(filePath)) {
     return res.status(404).send("Recording file not found");
+  }
+
+  // Exact authorization verification against database
+  const escapedFilename = safeFilename.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const Recording = require("./models/Recording");
+  const recording = await Recording.findOne({
+    $or: [
+      { streamUrl: `/api/recordings/stream/${safeFilename}` },
+      { fileUrl: `/recordings/${safeFilename}` },
+      { fileUrl: `/uploads/recordings/${safeFilename}` },
+      { filePath: { $regex: `(^|[\\\\/])${escapedFilename}$` } },
+    ],
+  }).lean();
+
+  if (recording && !isAdmin) {
+    const isHost = String(recording.hostUserId) === currentUserId;
+    const isParticipant = (recording.participantUserIds || []).includes(currentUserId);
+    if (!isHost && !isParticipant) {
+      return res.status(403).send("Forbidden: You do not have permission to access this recording");
+    }
+  } else if (!recording && !isAdmin) {
+    return res.status(404).send("Recording record not found");
   }
 
   const stat = fs.statSync(filePath);
@@ -1246,49 +1305,94 @@ app.use('/recordings', (req, res, next) => {
   }
 });
 
-// Authorized Certificate Asset Serving
-app.use('/certificates', (req, res, next) => {
-  const token = (req.headers.authorization && req.headers.authorization.split(' ')[1]) ||
+// Authorized Certificate Asset Serving (Strict Owner & Admin Verification)
+app.use('/certificates', async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  const token = (authHeader && authHeader.split(' ')[1]) ||
                 req.query.token ||
                 req.cookies?.token;
   if (!token) {
     return res.status(401).json({ message: "Authentication required to access certificate archives" });
   }
+
+  let decoded;
   try {
-    jwt.verify(token, getJwtSecret());
-    const safePath = path.normalize(req.path).replace(/^(\.\.[\/\\])+/, '');
-    const fullPath = path.join(__dirname, 'uploads/certificates', safePath);
-    if (!fullPath.startsWith(path.join(__dirname, 'uploads/certificates'))) {
-      return res.status(403).json({ message: "Directory traversal forbidden" });
-    }
-    if (!fs.existsSync(fullPath)) {
-      return res.status(404).json({ message: "Certificate file not found" });
-    }
-    return res.sendFile(fullPath);
+    decoded = jwt.verify(token, getJwtSecret());
   } catch {
-    return res.status(403).json({ message: "Invalid or expired token" });
+    return res.status(401).json({ message: "Invalid or expired token" });
   }
+
+  const currentUserId = String(decoded.userId || decoded.id || decoded._id || "");
+  const isAdmin = Boolean(decoded.role === "admin" || decoded.role === "SUPER_ADMIN" || decoded.isMainAdmin);
+
+  const safeFilename = path.basename(req.path);
+  const certId = safeFilename.replace(/\.pdf$/i, "");
+  const IssuedCertificate = require("./models/IssuedCertificate");
+  const cert = await IssuedCertificate.findOne({
+    $or: [{ certificateId: certId }, { attemptId: certId }],
+  }).lean();
+
+  if (cert && !isAdmin && String(cert.userId) !== currentUserId) {
+    return res.status(403).json({ message: "Forbidden: You do not own this certificate" });
+  } else if (!cert && !isAdmin) {
+    return res.status(404).json({ message: "Certificate record not found" });
+  }
+
+  const safePath = path.normalize(req.path).replace(/^(\.\.[\/\\])+/, '');
+  const fullPath = path.join(__dirname, 'uploads/certificates', safePath);
+  if (!fullPath.startsWith(path.join(__dirname, 'uploads/certificates'))) {
+    return res.status(403).json({ message: "Directory traversal forbidden" });
+  }
+  if (!fs.existsSync(fullPath)) {
+    return res.status(404).json({ message: "Certificate file not found" });
+  }
+  return res.sendFile(fullPath);
 });
 
-// Strictly Protected Proctoring Evidence (Webcam/Screen snapshots)
-app.use('/proctoring-evidence', (req, res, next) => {
-  const token = (req.headers.authorization && req.headers.authorization.split(' ')[1]) ||
+// Strictly Protected Proctoring Evidence (Candidate Owner & Admin Only)
+app.use('/proctoring-evidence', async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  const token = (authHeader && authHeader.split(' ')[1]) ||
                 req.query.token ||
                 req.cookies?.token;
   if (!token) {
     return res.status(401).json({ message: "Authentication required to access proctoring evidence" });
   }
+
+  let decoded;
   try {
-    jwt.verify(token, getJwtSecret());
-    const safeFilename = path.basename(req.path);
-    const filePath = path.join(__dirname, 'uploads/evidence', safeFilename);
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ message: "Evidence snapshot not found" });
-    }
-    return res.sendFile(filePath);
+    decoded = jwt.verify(token, getJwtSecret());
   } catch (err) {
-    return res.status(403).json({ message: "Invalid or expired token" });
+    return res.status(401).json({ message: "Invalid or expired token" });
   }
+
+  const currentUserId = String(decoded.userId || decoded.id || decoded._id || "");
+  const isAdmin = Boolean(decoded.role === "admin" || decoded.role === "SUPER_ADMIN" || decoded.isMainAdmin);
+
+  const safeFilename = path.basename(req.path);
+  const filePath = path.join(__dirname, 'uploads/evidence', safeFilename);
+
+  if (!isAdmin) {
+    const CertificationAttempt = require("./models/CertificationAttempt");
+    const matchedAttempt = await CertificationAttempt.findOne({
+      $or: [
+        { "proctoring.snapshots": { $regex: safeFilename } },
+        { "proctoring.candidatePhoto": { $regex: safeFilename } },
+        { attemptId: { $regex: safeFilename.split("_")[0] || "" } },
+      ],
+      userId: currentUserId,
+    }).lean();
+
+    if (!matchedAttempt) {
+      return res.status(403).json({ message: "Forbidden: You do not own this proctoring evidence" });
+    }
+  }
+
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ message: "Evidence snapshot not found" });
+  }
+
+  return res.sendFile(filePath);
 });
 
 // Generic Uploads: Prevent Direct Access to Evidence/Recordings/Certificates/Support subdirectories

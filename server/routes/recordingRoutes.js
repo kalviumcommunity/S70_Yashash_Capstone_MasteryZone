@@ -129,8 +129,8 @@ async function validateMediaIntegrity(filePath, buffer) {
   if (probeData && Array.isArray(probeData.streams) && probeData.streams.length > 0) {
     const hasVideo = probeData.streams.some((s) => s.codec_type === "video");
     const hasAudio = probeData.streams.some((s) => s.codec_type === "audio");
-    if (!hasVideo && !hasAudio) {
-      return { valid: false, error: "Recording contains neither video nor audio streams" };
+    if (!hasVideo) {
+      return { valid: false, error: "Recording missing required video stream. Audio-only uploads are not accepted as meeting video recordings." };
     }
     return {
       valid: true,
@@ -144,8 +144,8 @@ async function validateMediaIntegrity(filePath, buffer) {
   return inspectMediaBinary(buffer);
 }
 
-// 1. Upload a new recording
-router.post("/upload", authenticateToken, async (req, res) => {
+// 1. Upload a new recording (Dedicated 100mb limit for video payload)
+router.post("/upload", express.json({ limit: "100mb" }), authenticateToken, async (req, res) => {
   let createdFilePath = null;
   try {
     const {

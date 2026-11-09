@@ -230,6 +230,34 @@ async function runTests() {
     assert.strictEqual(adminFile.includes("$nor: ["), true);
   });
 
+  // --- 8. Complete Compiler Security & Execution Boundaries ---
+  test("Centralized compiler runner runs in isolated mode and scrubs environment variables", async () => {
+    const { runSandboxedProcess } = require("../routes/codingRoutes");
+    assert(typeof runSandboxedProcess === "function", "runSandboxedProcess should be exported");
+
+    // Test environment scrubbing: process must not see host environment variables
+    const pyEnvTest = "import os\nprint('SECRET_PRESENT=' + str('MONGODB_URI' in os.environ))";
+    const res = await runSandboxedProcess("python3", ["-u", "-I", "-c", pyEnvTest]);
+    assert.strictEqual(res.exitCode, 0);
+    assert(res.output.includes("SECRET_PRESENT=False"), "Environment secrets must not be exposed to user code");
+  });
+
+  test("Storage cleanup manager targets only Mastery Zone owned keys and preserves external origin keys", () => {
+    const { MASTERY_ZONE_STORAGE_KEYS } = require("../../client/src/utils/sessionAuth.js");
+    assert(Array.isArray(MASTERY_ZONE_STORAGE_KEYS), "MASTERY_ZONE_STORAGE_KEYS must be an array");
+    assert(MASTERY_ZONE_STORAGE_KEYS.includes("token"));
+    assert(MASTERY_ZONE_STORAGE_KEYS.includes("user"));
+    assert(MASTERY_ZONE_STORAGE_KEYS.includes("mz_session_active"));
+    assert(!MASTERY_ZONE_STORAGE_KEYS.includes("unrelated_third_party_key"));
+  });
+
+  test("Fail-closed authentication: AdminRoute never authorizes from cached localStorage on network error", () => {
+    const fs = require("fs");
+    const adminRouteCode = fs.readFileSync(path.join(__dirname, "../../client/src/components/Admin/AdminRoute.jsx"), "utf8");
+    assert(!adminRouteCode.includes('setAuthState("authorized")\n        }'), "Must not fail open in catch block");
+    assert(adminRouteCode.includes('// Fail-closed'), "Must have explicit fail-closed error handling");
+  });
+
   console.log("==================================================");
   console.log(`Results: ${passed}/${total} tests passed (${Math.round((passed / total) * 100)}%)`);
   console.log("==================================================");

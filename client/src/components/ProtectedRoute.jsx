@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { GlobalLoader } from "./Loaders.jsx";
-import { verifyActiveSession } from "../utils/sessionAuth.js";
+import { verifyActiveSession, clearMasteryZoneStorage } from "../utils/sessionAuth.js";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -45,17 +45,17 @@ const ProtectedRoute = ({ children }) => {
           }
           setAuthState("authenticated");
         } else if (response.status === 401 || response.status === 403) {
-          // Token is genuinely invalid or expired — purge session completely for strict isolation
-          localStorage.clear();
-          sessionStorage.clear();
+          // Token is invalid or expired — purge Mastery Zone session storage for strict isolation
+          clearMasteryZoneStorage();
           setAuthState("unauthenticated");
         } else {
-          // Non-auth server status (e.g. 500), keep valid session
-          setAuthState("authenticated");
+          // Server error or non-auth status: fail-closed, do not mark authenticated
+          setAuthState("unauthenticated");
         }
       } catch (err) {
-        // If server is temporarily unreachable in development/offline, maintain valid session
-        if (isMounted) setAuthState("authenticated");
+        // Network failure: fail-closed, do not mark authenticated
+        console.warn("Protected route verification error:", err.message);
+        if (isMounted) setAuthState("unauthenticated");
       }
     };
 

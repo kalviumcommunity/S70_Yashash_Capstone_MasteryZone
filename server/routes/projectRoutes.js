@@ -37,6 +37,8 @@ const JAVA_BIN = fs.existsSync("/opt/homebrew/Cellar/openjdk/26.0.2.1/bin/java")
 const PYTHON_BIN = fs.existsSync("/usr/bin/python3") ? "/usr/bin/python3" : "python3";
 const NODE_BIN = fs.existsSync("/usr/local/bin/node") ? "/usr/local/bin/node" : "node";
 
+const { runSandboxedProcess, validateCodeSafety } = require("./codingRoutes");
+
 function resolveUserId(req) {
   return String(req.user?.userId || req.user?.id || req.user?._id || "").trim();
 }
@@ -48,91 +50,6 @@ function calculateGrade(pct) {
   if (pct >= 60) return "C";
   if (pct >= 50) return "D";
   return "F";
-}
-
-function runSandboxedProcess(command, args, stdinInput = "", timeoutMs = 4500, cwd = os.tmpdir()) {
-  return new Promise((resolve) => {
-    const startTime = Date.now();
-    let stdout = "";
-    let stderr = "";
-    let isSettled = false;
-
-    let proc;
-    try {
-      proc = spawn(command, args, {
-        cwd,
-        env: { PATH: process.env.PATH, HOME: os.tmpdir() },
-        stdio: ["pipe", "pipe", "pipe"],
-      });
-    } catch (err) {
-      return resolve({
-        output: "",
-        error: `Failed to spawn process: ${err.message}`,
-        duration: Date.now() - startTime,
-        exitCode: 1,
-      });
-    }
-
-    const timer = setTimeout(() => {
-      if (!isSettled) {
-        isSettled = true;
-        try {
-          proc.kill("SIGKILL");
-        } catch {}
-        resolve({
-          output: stdout,
-          error: `Execution timed out after ${timeoutMs / 1000}s.`,
-          duration: Date.now() - startTime,
-          exitCode: -1,
-        });
-      }
-    }, timeoutMs);
-
-    if (stdinInput && proc.stdin) {
-      try {
-        proc.stdin.write(stdinInput);
-        proc.stdin.end();
-      } catch {}
-    } else if (proc.stdin) {
-      try {
-        proc.stdin.end();
-      } catch {}
-    }
-
-    proc.stdout.on("data", (chunk) => {
-      if (stdout.length < 1024 * 256) stdout += chunk.toString();
-    });
-
-    proc.stderr.on("data", (chunk) => {
-      if (stderr.length < 1024 * 256) stderr += chunk.toString();
-    });
-
-    proc.on("error", (err) => {
-      if (!isSettled) {
-        isSettled = true;
-        clearTimeout(timer);
-        resolve({
-          output: stdout,
-          error: `Execution error: ${err.message}`,
-          duration: Date.now() - startTime,
-          exitCode: 1,
-        });
-      }
-    });
-
-    proc.on("close", (code) => {
-      if (!isSettled) {
-        isSettled = true;
-        clearTimeout(timer);
-        resolve({
-          output: stdout,
-          error: stderr,
-          duration: Date.now() - startTime,
-          exitCode: code || 0,
-        });
-      }
-    });
-  });
 }
 
 function normalizeFilesList(project, rawFiles) {
@@ -181,6 +98,14 @@ async function prepareMultiFileSandbox(project, files) {
 
   try {
     for (const file of files) {
+      const safety = validateCodeSafety(file.language || lang, file.content || "");
+      if (!safety.safe) {
+        return {
+          ok: false,
+          compileError: `Security Violation in ${file.name}: ${safety.reason}`,
+          cleanup: () => fs.rmSync(tmpDir, { recursive: true, force: true }),
+        };
+      }
       const safeName = path.basename(file.name);
       fs.writeFileSync(path.join(tmpDir, safeName), file.content || "", "utf8");
     }
@@ -205,7 +130,7 @@ async function prepareMultiFileSandbox(project, files) {
       return {
         ok: true,
         runInput: (stdin) =>
-          runSandboxedProcess(PYTHON_BIN, ["-u", path.join(tmpDir, path.basename(entryFile))], stdin, 4000, tmpDir),
+          runSandboxedProcess(PYTHON_BIN, ["-u", "-I", path.join(tmpDir, path.basename(entryFile))], stdin, 4000, tmpDir),
         cleanup: () => {
           try {
             fs.rmSync(tmpDir, { recursive: true, force: true });
