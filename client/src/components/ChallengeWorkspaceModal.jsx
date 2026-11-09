@@ -172,18 +172,6 @@ export default function ChallengeWorkspaceModal({
         } catch {
           data = { error: text || `Server error (${res.status})` };
         }
-        if (data.status === "ACCEPTED" || data.passed || (Array.isArray(data.testResults) && data.testResults.length > 0 && data.testResults.every((t) => t.passed))) {
-          try {
-            if (currentUserId) {
-              const solvedKey = `mz_${currentUserId}_ch_solved_${challenge.id}`;
-              localStorage.setItem(solvedKey, "true");
-            }
-            window.dispatchEvent(new CustomEvent("mz_challenge_solved", { detail: { challengeId: challenge.id, userId: currentUserId } }));
-          } catch {}
-          if (onChallengeSolved) {
-            onChallengeSolved(challenge, data);
-          }
-        }
         return data;
       }}
       onSubmit={async (code, lang) => {
