@@ -28,22 +28,12 @@ function optionalAuthToken(req, res, next) {
   next();
 }
 
-const GCC_BIN = fs.existsSync("/usr/bin/gcc") ? "/usr/bin/gcc" : "gcc";
-const GPP_BIN = fs.existsSync("/usr/bin/g++") ? "/usr/bin/g++" : "g++";
-const PYTHON_BIN = fs.existsSync("/usr/bin/python3") ? "/usr/bin/python3" : "python3";
-const NODE_BIN = fs.existsSync("/usr/local/bin/node") ? "/usr/local/bin/node" : "node";
-const JAVAC_BIN = fs.existsSync("/opt/homebrew/Cellar/openjdk/26.0.2.1/bin/javac")
-  ? "/opt/homebrew/Cellar/openjdk/26.0.2.1/bin/javac"
-  : fs.existsSync("/usr/local/bin/javac")
-  ? "/usr/local/bin/javac"
-  : "javac";
-const JAVA_BIN = fs.existsSync("/opt/homebrew/Cellar/openjdk/26.0.2.1/bin/java")
-  ? "/opt/homebrew/Cellar/openjdk/26.0.2.1/bin/java"
-  : fs.existsSync("/usr/local/bin/java")
-  ? "/usr/local/bin/java"
-  : "java";
-
-const { runSandboxedProcess, validateCodeSafety, executeViaJudge0, isProductionExecutionRestricted } = require("./codingRoutes");
+const {
+  executeCode,
+  evaluateTestCasesBatch,
+  validateCodeSafety,
+  isProductionExecutionRestricted,
+} = require("../services/codeExecutionService");
 
 // Preset study rooms matching reference image & coding curriculum
 const STUDY_ROOMS_CATALOG = [
@@ -697,167 +687,34 @@ router.post("/:meetingId/run-code", authenticateToken, async (req, res) => {
       return res.status(403).json({ error: "Access denied: you are not an authorized member of this meeting." });
     }
 
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "mz_live_code_"));
     const lang = String(language).toLowerCase();
     let result = { output: "", error: "", ok: false, durationMs: 0 };
 
-    const safety = validateCodeSafety(lang, code);
-    if (!safety.safe) {
-      try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
-      return res.status(400).json({ output: "", error: `Security Violation: ${safety.reason}`, ok: false, durationMs: 0 });
-    }
-
-    if (isProductionExecutionRestricted && isProductionExecutionRestricted()) {
-      try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
-      return res.status(503).json({
-        success: false,
-        error: "Production execution requires a configured isolated execution environment (Judge0).",
-      });
-    }
-
-    if (process.env.JUDGE0_API_HOST && typeof executeViaJudge0 === "function") {
-      try {
-        const j0 = await executeViaJudge0(lang, code, stdin, 5000);
-        if (j0) {
-          result = {
-            output: j0.output,
-            error: j0.error,
-            ok: j0.exitCode === 0,
-            durationMs: j0.duration,
-          };
-        }
-      } catch (j0Err) {
-        if (process.env.NODE_ENV === "production" && process.env.ALLOW_LOCAL_FALLBACK !== "true") {
-          try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
-          return res.status(503).json({
-            success: false,
-            error: "Isolated execution sandbox (Judge0) is temporarily unavailable.",
-          });
-        }
+    if (lang === "html" || lang === "htm" || lang === "css") {
+      result = {
+        output: code,
+        error: "",
+        ok: true,
+        durationMs: 1,
+        isWebPreview: true,
+      };
+    } else {
+      const execRes = await executeCode({ language: lang, code, stdin, timeoutMs: 5000, files });
+      if (execRes.isSecurityViolation) {
+        return res.status(400).json({ output: "", error: `Security Violation: ${execRes.error}`, ok: false, durationMs: 0 });
       }
-    }
-
-    // Write any companion workspace files to tmpDir for multi-file imports
-    if (!result && Array.isArray(files)) {
-      files.forEach((f) => {
-        if (f.name && typeof f.content === "string") {
-          try {
-            fs.writeFileSync(path.join(tmpDir, path.basename(f.name)), f.content, "utf8");
-          } catch {}
-        }
-      });
-    }
-
-    try {
-      if (result) {
-        // Already executed via Judge0
-      } else if (lang === "python" || lang === "py") {
-        const filePath = path.join(tmpDir, "main.py");
-        fs.writeFileSync(filePath, code, "utf8");
-        const exec = await runSandboxedProcess(PYTHON_BIN, ["-u", "-I", filePath], stdin, 5000, tmpDir);
-        result = {
-          output: exec.output,
-          error: exec.error,
-          ok: exec.exitCode === 0,
-          durationMs: exec.duration,
-        };
-      } else if (lang === "javascript" || lang === "js" || lang === "node") {
-        const filePath = path.join(tmpDir, "index.js");
-        fs.writeFileSync(filePath, code, "utf8");
-        const exec = await runSandboxedProcess(NODE_BIN, ["--max-old-space-size=128", filePath], stdin, 5000, tmpDir);
-        result = {
-          output: exec.output,
-          error: exec.error,
-          ok: exec.exitCode === 0,
-          durationMs: exec.duration,
-        };
-      } else if (lang === "cpp" || lang === "c++") {
-        const srcPath = path.join(tmpDir, "main.cpp");
-        const binPath = path.join(tmpDir, "main_bin");
-        fs.writeFileSync(srcPath, code, "utf8");
-        const compile = await runSandboxedProcess(GPP_BIN, ["-O2", srcPath, "-o", binPath], "", 6000, tmpDir);
-        if (compile.exitCode !== 0) {
-          result = {
-            output: "",
-            error: `Compilation Error (C++):\n${compile.error || compile.output}`,
-            ok: false,
-            durationMs: compile.duration,
-          };
-        } else {
-          const exec = await runSandboxedProcess(binPath, [], stdin, 5000, tmpDir);
-          result = {
-            output: exec.output,
-            error: exec.error,
-            ok: exec.exitCode === 0,
-            durationMs: exec.duration,
-          };
-        }
-      } else if (lang === "c") {
-        const srcPath = path.join(tmpDir, "main.c");
-        const binPath = path.join(tmpDir, "main_bin");
-        fs.writeFileSync(srcPath, code, "utf8");
-        const compile = await runSandboxedProcess(GCC_BIN, ["-O2", srcPath, "-o", binPath], "", 6000, tmpDir);
-        if (compile.exitCode !== 0) {
-          result = {
-            output: "",
-            error: `Compilation Error (C):\n${compile.error || compile.output}`,
-            ok: false,
-            durationMs: compile.duration,
-          };
-        } else {
-          const exec = await runSandboxedProcess(binPath, [], stdin, 5000, tmpDir);
-          result = {
-            output: exec.output,
-            error: exec.error,
-            ok: exec.exitCode === 0,
-            durationMs: exec.duration,
-          };
-        }
-      } else if (lang === "java") {
-        let className = "Main";
-        const classMatch = code.match(/public\s+class\s+([A-Za-z0-9_]+)/);
-        if (classMatch && classMatch[1]) {
-          className = classMatch[1];
-        }
-        const filePath = path.join(tmpDir, `${className}.java`);
-        fs.writeFileSync(filePath, code, "utf8");
-        const compile = await runSandboxedProcess(JAVAC_BIN, [filePath], "", 6000, tmpDir);
-        if (compile.exitCode !== 0) {
-          result = {
-            output: "",
-            error: `Java Compilation Error:\n${compile.error || compile.output}`,
-            ok: false,
-            durationMs: compile.duration,
-          };
-        } else {
-          const exec = await runSandboxedProcess(JAVA_BIN, ["-Xmx128m", "-cp", tmpDir, className], stdin, 5000, tmpDir);
-          result = {
-            output: exec.output,
-            error: exec.error,
-            ok: exec.exitCode === 0,
-            durationMs: exec.duration,
-          };
-        }
-      } else if (lang === "html" || lang === "htm" || lang === "css") {
-        result = {
-          output: code,
-          error: "",
-          ok: true,
-          durationMs: 1,
-          isWebPreview: true,
-        };
-      } else {
-        result = {
-          output: "",
-          error: `Language '${language}' is not supported directly in sandbox.`,
-          ok: false,
-          durationMs: 0,
-        };
+      if (execRes.isUnavailable) {
+        return res.status(503).json({
+          success: false,
+          error: execRes.error || "Production execution requires a configured isolated execution environment (Judge0).",
+        });
       }
-    } finally {
-      try {
-        fs.rmSync(tmpDir, { recursive: true, force: true });
-      } catch {}
+      result = {
+        output: execRes.output || "",
+        error: execRes.error || "",
+        ok: execRes.exitCode === 0,
+        durationMs: execRes.duration || 0,
+      };
     }
 
     // Broadcast execution output to all participants in this meeting room
@@ -928,123 +785,21 @@ router.post("/:meetingId/run-tests", authenticateToken, async (req, res) => {
     }
 
     const testsToRun = testCases.length > 0 ? testCases : meeting?.testCases || [];
-    const testResults = [];
-    let passedCount = 0;
-
-    // For compiled languages (C++, C, Java), compile once in a dedicated workspace
-    let compiledBinPath = null;
-    let compileError = null;
-    let sharedTmpDir = null;
-    let javaClassName = "Main";
-
-    if (lang === "cpp" || lang === "c++" || lang === "c" || lang === "java") {
-      sharedTmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "mz_live_test_compile_"));
-      try {
-        if (lang === "cpp" || lang === "c++") {
-          const srcPath = path.join(sharedTmpDir, "main.cpp");
-          compiledBinPath = path.join(sharedTmpDir, "main_bin");
-          fs.writeFileSync(srcPath, code, "utf8");
-          const compile = await runSandboxedProcess(GPP_BIN, ["-O2", srcPath, "-o", compiledBinPath], "", 7000, sharedTmpDir);
-          if (compile.exitCode !== 0) compileError = compile.error || compile.output || "C++ compilation error";
-        } else if (lang === "c") {
-          const srcPath = path.join(sharedTmpDir, "main.c");
-          compiledBinPath = path.join(sharedTmpDir, "main_bin");
-          fs.writeFileSync(srcPath, code, "utf8");
-          const compile = await runSandboxedProcess(GCC_BIN, ["-O2", srcPath, "-o", compiledBinPath], "", 7000, sharedTmpDir);
-          if (compile.exitCode !== 0) compileError = compile.error || compile.output || "C compilation error";
-        } else if (lang === "java") {
-          const classMatch = code.match(/public\s+class\s+([A-Za-z0-9_]+)/);
-          if (classMatch && classMatch[1]) javaClassName = classMatch[1];
-          const srcPath = path.join(sharedTmpDir, `${javaClassName}.java`);
-          fs.writeFileSync(srcPath, code, "utf8");
-          const compile = await runSandboxedProcess(JAVAC_BIN, [srcPath], "", 7000, sharedTmpDir);
-          if (compile.exitCode !== 0) compileError = compile.error || compile.output || "Java compilation error";
-        }
-      } catch (cErr) {
-        compileError = cErr.message;
-      }
-    }
-
-    try {
-      if (compileError) {
-        testResults.push(...testsToRun.map((tc, i) => ({
-          id: tc.id || `tc_${i + 1}`,
-          input: tc.input,
-          expectedOutput: tc.expectedOutput,
-          actualOutput: "",
-          error: compileError,
-          passed: false,
-        })));
-      } else {
-        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "mz_live_test_"));
-        try {
-          let runner = null;
-          if (lang === "python" || lang === "py") {
-            const filePath = path.join(tmpDir, "main.py");
-            fs.writeFileSync(filePath, code, "utf8");
-            runner = (stdin) => runSandboxedProcess(PYTHON_BIN, ["-u", "-I", filePath], stdin || "", 4000, tmpDir);
-          } else if (lang === "javascript" || lang === "js" || lang === "node") {
-            const filePath = path.join(tmpDir, "index.js");
-            fs.writeFileSync(filePath, code, "utf8");
-            runner = (stdin) => runSandboxedProcess(NODE_BIN, [filePath], stdin || "", 4000, tmpDir);
-          } else if (lang === "cpp" || lang === "c++" || lang === "c") {
-            if (compiledBinPath && fs.existsSync(compiledBinPath)) {
-              runner = (stdin) => runSandboxedProcess(compiledBinPath, [], stdin || "", 4000, tmpDir);
-            }
-          } else if (lang === "java") {
-            if (sharedTmpDir) {
-              runner = (stdin) => runSandboxedProcess(JAVA_BIN, ["-cp", sharedTmpDir, javaClassName], stdin || "", 4000, tmpDir);
-            }
-          }
-
-          const evaluated = await Promise.all(
-            testsToRun.map(async (tc, i) => {
-              let actualOutput = "";
-              let error = "";
-              let passed = false;
-
-              if (!runner) {
-                error = "Execution environment unavailable";
-              } else {
-                try {
-                  const exec = await runner(tc.input || "");
-                  actualOutput = (exec.output || "").trim();
-                  error = exec.error;
-                  const expected = String(tc.expectedOutput || "").trim();
-                  passed = !error && (actualOutput === expected || actualOutput.replace(/\r\n/g, "\n") === expected.replace(/\r\n/g, "\n"));
-                } catch (e) {
-                  error = e.message;
-                }
-              }
-
-              return {
-                id: tc.id || `tc_${i + 1}`,
-                input: tc.input,
-                expectedOutput: tc.expectedOutput,
-                actualOutput,
-                error,
-                passed,
-              };
-            })
-          );
-
-          for (const item of evaluated) {
-            if (item.passed) passedCount++;
-            testResults.push(item);
-          }
-        } finally {
-          try {
-            fs.rmSync(tmpDir, { recursive: true, force: true });
-          } catch {}
-        }
-      }
-    } finally {
-      if (sharedTmpDir) {
-        try {
-          fs.rmSync(sharedTmpDir, { recursive: true, force: true });
-        } catch {}
-      }
-    }
+    const evaluated = await evaluateTestCasesBatch(lang, code, testsToRun);
+    const testResults = evaluated.map((item, i) => {
+      const tc = testsToRun[i] || {};
+      const actualOutput = item.actual !== undefined ? item.actual : (item.actualOutput || "");
+      const expectedOutput = item.expected !== undefined ? item.expected : (tc.expectedOutput || "");
+      return {
+        id: tc.id || `tc_${i + 1}`,
+        input: tc.input,
+        expectedOutput,
+        actualOutput,
+        error: item.error || "",
+        passed: Boolean(item.passed),
+      };
+    });
+    const passedCount = testResults.filter((r) => r.passed).length;
 
     // Persist updated test results
     if (meeting) {

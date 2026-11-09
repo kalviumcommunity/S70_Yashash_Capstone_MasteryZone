@@ -2327,7 +2327,7 @@ router.post("/curriculum/assessment/submit", authenticateToken, async (req, res)
           const combinedMarksStr = hasCodingRecord
             ? `${Math.round((actualCodingScore + mcqPct) / 2)}%`
             : `${mcqPct}%`;
-          const displayCodingScore = hasCodingRecord ? `${actualCodingScore} / ${actualCodingMaxScore}` : "100 / 100";
+          const displayCodingScore = hasCodingRecord ? `${actualCodingScore} / ${actualCodingMaxScore}` : "Not Attempted (0 / 100)";
 
           // Lock module completion email to prevent duplicate dispatches
           current.moduleCompletionEmailSent = true;

@@ -16,134 +16,18 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 
-// Toolchain path helpers
-const PYTHON_BIN = fs.existsSync("/usr/bin/python3") ? "/usr/bin/python3" : "python3";
-const NODE_BIN = fs.existsSync("/usr/local/bin/node") ? "/usr/local/bin/node" : "node";
-const JAVAC_BIN = fs.existsSync("/opt/homebrew/opt/openjdk/bin/javac")
-  ? "/opt/homebrew/opt/openjdk/bin/javac"
-  : fs.existsSync("/opt/homebrew/Cellar/openjdk/26.0.2.1/bin/javac")
-  ? "/opt/homebrew/Cellar/openjdk/26.0.2.1/bin/javac"
-  : "javac";
-const JAVA_BIN = fs.existsSync("/opt/homebrew/opt/openjdk/bin/java")
-  ? "/opt/homebrew/opt/openjdk/bin/java"
-  : fs.existsSync("/opt/homebrew/Cellar/openjdk/26.0.2.1/bin/java")
-  ? "/opt/homebrew/Cellar/openjdk/26.0.2.1/bin/java"
-  : "java";
-const GPP_BIN = fs.existsSync("/usr/bin/clang++")
-  ? "/usr/bin/clang++"
-  : fs.existsSync("/usr/bin/g++")
-  ? "/usr/bin/g++"
-  : "g++";
-
-const { validateCodeSafety, runSandboxedProcess, executeViaJudge0, isProductionExecutionRestricted } = require("./codingRoutes");
+const {
+  validateCodeSafety,
+  runSandboxedProcess,
+  executeViaJudge0,
+  isProductionExecutionRestricted,
+  executeCode,
+  evaluateTestCasesBatch,
+} = require("../services/codeExecutionService");
 
 // Sandboxed execution helper for coding exercises with isolated environment and safety checks
 async function executeInSandbox(language, code, stdinInput = "", timeoutMs = 8000) {
-  const safety = validateCodeSafety(language, code);
-  if (!safety.safe) {
-    return { output: "", error: `Security Violation: ${safety.reason}`, duration: 0, exitCode: 1 };
-  }
-
-  if (isProductionExecutionRestricted && isProductionExecutionRestricted()) {
-    return {
-      output: "",
-      error: "Production execution requires a configured isolated execution environment (Judge0).",
-      duration: 0,
-      exitCode: 1,
-    };
-  }
-
-  const lang = (language || "").toLowerCase().trim();
-
-  if (process.env.JUDGE0_API_HOST && typeof executeViaJudge0 === "function") {
-    try {
-      const j0 = await executeViaJudge0(lang, code, stdinInput, timeoutMs);
-      if (j0) {
-        return {
-          output: j0.output,
-          error: j0.error,
-          duration: j0.duration,
-          exitCode: j0.exitCode,
-        };
-      }
-    } catch (j0Err) {
-      if (process.env.NODE_ENV === "production" && process.env.ALLOW_LOCAL_FALLBACK !== "true") {
-        return {
-          output: "",
-          error: "Isolated execution sandbox (Judge0) is temporarily unavailable.",
-          duration: 0,
-          exitCode: 1,
-        };
-      }
-    }
-  }
-
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "mz_curriculum_sandbox_"));
-
-  const cleanUp = () => {
-    try {
-      fs.rmSync(tempDir, { recursive: true, force: true });
-    } catch {}
-  };
-
-  try {
-    const lang = (language || "").toLowerCase().trim();
-    if (lang === "python" || lang === "py") {
-      const codeFilePath = path.join(tempDir, "solution.py");
-      fs.writeFileSync(codeFilePath, code, "utf8");
-      const res = await runSandboxedProcess(PYTHON_BIN, ["-u", "-I", codeFilePath], stdinInput, timeoutMs, tempDir);
-      cleanUp();
-      return res;
-    } else if (lang === "javascript" || lang === "js" || lang === "node") {
-      const codeFilePath = path.join(tempDir, "solution.js");
-      fs.writeFileSync(codeFilePath, code, "utf8");
-      const res = await runSandboxedProcess(NODE_BIN, ["--max-old-space-size=128", codeFilePath], stdinInput, timeoutMs, tempDir);
-      cleanUp();
-      return res;
-    } else if (lang === "java") {
-      let className = "Main";
-      const classMatch = code.match(/public\s+class\s+([A-Za-z0-9_]+)/);
-      if (classMatch && classMatch[1]) className = classMatch[1];
-      const codeFilePath = path.join(tempDir, `${className}.java`);
-      fs.writeFileSync(codeFilePath, code, "utf8");
-      const compileRes = await runSandboxedProcess(JAVAC_BIN, [codeFilePath], "", 6000, tempDir);
-      if (compileRes.exitCode !== 0) {
-        cleanUp();
-        return {
-          output: "",
-          error: `Compilation Error:\n${compileRes.error || compileRes.output}`,
-          duration: 0,
-          exitCode: 1,
-        };
-      }
-      const execRes = await runSandboxedProcess(JAVA_BIN, ["-Xmx128m", "-cp", tempDir, className], stdinInput, timeoutMs, tempDir);
-      cleanUp();
-      return execRes;
-    } else if (lang === "cpp" || lang === "c++") {
-      const codeFilePath = path.join(tempDir, "solution.cpp");
-      const binPath = path.join(tempDir, "solution_bin");
-      fs.writeFileSync(codeFilePath, code, "utf8");
-      const compileRes = await runSandboxedProcess(GPP_BIN, ["-std=c++17", codeFilePath, "-O2", "-o", binPath], "", 6000, tempDir);
-      if (compileRes.exitCode !== 0) {
-        cleanUp();
-        return {
-          output: "",
-          error: `C++ Compilation Error:\n${compileRes.error || compileRes.output}`,
-          duration: 0,
-          exitCode: 1,
-        };
-      }
-      const execRes = await runSandboxedProcess(binPath, [], stdinInput, timeoutMs, tempDir);
-      cleanUp();
-      return execRes;
-    } else {
-      cleanUp();
-      return { output: "", error: `Unsupported language: ${language}`, duration: 0, exitCode: 1 };
-    }
-  } catch (err) {
-    cleanUp();
-    return { output: "", error: `Sandbox error: ${err.message}`, duration: 0, exitCode: 1 };
-  }
+  return executeCode({ language, code, stdin: stdinInput, timeoutMs });
 }
 
 // -------------------------------------------------------------
@@ -1634,7 +1518,7 @@ router.post("/assessment/submit", authenticateToken, async (req, res) => {
           const combinedMarksStr = hasCodingRecord
             ? `${Math.round((actualCodingScore + mcqPct) / 2)}%`
             : `${mcqPct}%`;
-          const displayCodingScore = hasCodingRecord ? `${actualCodingScore} / ${actualCodingMaxScore}` : "100 / 100";
+          const displayCodingScore = hasCodingRecord ? `${actualCodingScore} / ${actualCodingMaxScore}` : "Not Attempted (0 / 100)";
 
           // Lock module completion email to prevent duplicate dispatches across refreshes or multi-device logins
           curState.moduleCompletionEmailSent = true;

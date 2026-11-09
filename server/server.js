@@ -405,9 +405,10 @@ io.on("connection", (socket) => {
 
   // When a user sends a direct message (invite)
   socket.on("send_dm", async ({ toUser, fromUser, roomCode }) => {
+    const verifiedSender = onlineUsers.get(socket.id) || socket.data.meetingUser?.fullName || socket.data.userEmail || fromUser;
     for (const [id, username] of onlineUsers.entries()) {
       if (username === toUser) {
-        io.to(id).emit("receive_dm", { fromUser, roomCode });
+        io.to(id).emit("receive_dm", { fromUser: verifiedSender, roomCode });
         break;
       }
     }
@@ -420,7 +421,7 @@ io.on("connection", (socket) => {
           await pushNotification(io, {
             userId: recipient._id,
             title: "Collaboration Room Invite",
-            message: `${fromUser || "A teammate"} invited you to join room ${roomCode || ""}.`,
+            message: `${verifiedSender || "A teammate"} invited you to join room ${roomCode || ""}.`,
             type: "collaboration",
             severity: "info",
             actionUrl: "/coding",
@@ -434,11 +435,12 @@ io.on("connection", (socket) => {
   // When a user sends a private 1-on-1 chat message
   socket.on("send_private_msg", async (messageData) => {
     const { toUser, fromUser, text, time } = messageData || {};
+    const verifiedSender = onlineUsers.get(socket.id) || socket.data.meetingUser?.fullName || socket.data.userEmail || fromUser;
     for (const [id, username] of onlineUsers.entries()) {
       if (username === toUser) {
         io.to(id).emit("receive_private_msg", {
           id: Date.now().toString(),
-          fromUser,
+          fromUser: verifiedSender,
           text,
           time,
         });
@@ -454,7 +456,7 @@ io.on("connection", (socket) => {
           const preview = String(text).length > 72 ? `${String(text).slice(0, 70)}…` : String(text);
           await pushNotification(io, {
             userId: recipient._id,
-            title: `Message from ${fromUser || "Teammate"}`,
+            title: `Message from ${verifiedSender || "Teammate"}`,
             message: preview,
             type: "collaboration",
             severity: "info",
@@ -475,6 +477,16 @@ io.on("connection", (socket) => {
   // =========================================================
   socket.on("join_coding_room", ({ roomId, user, language, initialCode }) => {
     if (!roomId) return;
+    if (socket.data.codingRoomId && socket.data.codingRoomId !== roomId) {
+      const prevRoomKey = `coding_room_${socket.data.codingRoomId}`;
+      socket.leave(prevRoomKey);
+      const prevRoom = codingRooms.get(socket.data.codingRoomId);
+      if (prevRoom) {
+        prevRoom.participants.delete(socket.id);
+        io.to(prevRoomKey).emit("coding_room_participants", Array.from(prevRoom.participants.values()));
+      }
+    }
+    socket.data.codingRoomId = roomId;
     const roomKey = `coding_room_${roomId}`;
     socket.join(roomKey);
 
@@ -542,7 +554,9 @@ io.on("connection", (socket) => {
   });
 
   socket.on("coding_chat_message", ({ roomId, text, user, time }) => {
-    if (!roomId) return;
+    if (!roomId || !codingRooms.has(roomId)) return;
+    const room = codingRooms.get(roomId);
+    if (!room.participants.has(socket.id)) return;
     io.to(`coding_room_${roomId}`).emit("coding_chat_message", {
       id: Date.now().toString(),
       text,
@@ -552,7 +566,9 @@ io.on("connection", (socket) => {
   });
 
   socket.on("coding_execution_event", ({ roomId, status, user, result }) => {
-    if (!roomId) return;
+    if (!roomId || !codingRooms.has(roomId)) return;
+    const room = codingRooms.get(roomId);
+    if (!room.participants.has(socket.id)) return;
     io.to(`coding_room_${roomId}`).emit("coding_execution_event", {
       status,
       user,
@@ -1210,9 +1226,19 @@ io.on("connection", (socket) => {
           { $set: { status: "ended", endedAt: new Date() } }
         );
       } else if (action === "mute_user" && targetSocketId) {
-        io.to(targetSocketId).emit("meeting_host_muted_you");
+        const roomSockets = io.sockets.adapter.rooms.get(`meeting_${meetingId}`);
+        if (roomSockets && roomSockets.has(targetSocketId)) {
+          io.to(targetSocketId).emit("meeting_host_muted_you");
+        }
       } else if (action === "kick_user" && targetSocketId) {
-        io.to(targetSocketId).emit("meeting_host_kicked_you");
+        const roomSockets = io.sockets.adapter.rooms.get(`meeting_${meetingId}`);
+        if (roomSockets && roomSockets.has(targetSocketId)) {
+          io.to(targetSocketId).emit("meeting_host_kicked_you");
+          const targetSocket = io.sockets.sockets.get(targetSocketId);
+          if (targetSocket) {
+            targetSocket.leave(`meeting_${meetingId}`);
+          }
+        }
       }
     } catch (hostErr) {
       console.error("meeting_host_action error:", hostErr);
