@@ -53,24 +53,23 @@ const getCachedDirSize = (recordingsDir, certsDir) => {
 
 // Standard filter for genuine registered users (excludes guests, demo accounts, and automated test generators)
 const REAL_USER_FILTER = {
-  role: { $ne: "SUPER_ADMIN" },
+  role: { $nin: ["SUPER_ADMIN", "admin"] },
   isGuest: { $ne: true },
-  email: {
-    $not: /@masteryzone\.com$/i,
-    $not: /@example\.com$/i,
-    $not: /@test\.com$/i,
-    $not: /^guest_/i,
-    $not: /^candidate_/i,
-    $not: /^cert_candidate_/i,
-    $not: /^testuser_/i,
-    $not: /^host_/i,
-  },
-  username: {
-    $not: /^guest_/i,
-    $not: /^candidate_/i,
-    $not: /^testuser_/i,
-    $not: /^host_/i,
-  },
+  isAutomatedTestUser: { $ne: true },
+  $nor: [
+    { email: { $regex: /@masteryzone\.com$/i } },
+    { email: { $regex: /@example\.com$/i } },
+    { email: { $regex: /@test\.com$/i } },
+    { email: { $regex: /^guest_/i } },
+    { email: { $regex: /^candidate_/i } },
+    { email: { $regex: /^cert_candidate_/i } },
+    { email: { $regex: /^testuser_/i } },
+    { email: { $regex: /^host_/i } },
+    { username: { $regex: /^guest_/i } },
+    { username: { $regex: /^candidate_/i } },
+    { username: { $regex: /^testuser_/i } },
+    { username: { $regex: /^host_/i } },
+  ],
 };
 
 // In-memory active platform settings
