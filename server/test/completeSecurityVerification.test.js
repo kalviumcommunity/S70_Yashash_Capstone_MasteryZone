@@ -623,6 +623,57 @@ async function runSuite() {
     clientB.disconnect();
   });
 
+  await it("Coding Room: Meeting-linked authorization enables active meeting participants to collaborate while rejecting outsiders", async () => {
+    const meetingId = `mtg_linked_collab_${Date.now()}`;
+    await Meeting.create({
+      meetingId,
+      title: "Meeting Linked Collab Test",
+      hostUserId: String(userA._id),
+      hostName: userA.fullName,
+      status: "active",
+      participants: [
+        { userId: String(userA._id), name: userA.fullName },
+        { userId: String(userB._id), name: userB.fullName },
+      ],
+    });
+
+    // 1. Host User A joins meeting coding room
+    const clientA = ioClient(baseUrl, { transports: ["websocket"] });
+    await new Promise((res) => clientA.on("connect", res));
+    clientA.emit("join_coding_room", { roomId: meetingId, token: tokenA });
+    await new Promise((r) => setTimeout(r, 150));
+
+    // 2. Authorized meeting participant User B joins meeting coding room
+    const clientB = ioClient(baseUrl, { transports: ["websocket"] });
+    await new Promise((res) => clientB.on("connect", res));
+    let bState = null;
+    clientB.on("coding_room_state", (state) => {
+      bState = state;
+    });
+    clientB.emit("join_coding_room", { roomId: meetingId, token: tokenB });
+    await new Promise((r) => setTimeout(r, 200));
+    assert(bState, "Meeting participant User B must successfully join meeting coding room");
+
+    // 3. Outsider User C (unauthorized) tries to join meeting coding room
+    const unauthedToken = jwt.sign(
+      { userId: new mongoose.Types.ObjectId().toString(), email: "outsider@test.com", role: "user" },
+      JWT_SECRET
+    );
+    const clientC = ioClient(baseUrl, { transports: ["websocket"] });
+    await new Promise((res) => clientC.on("connect", res));
+    let cError = null;
+    clientC.on("coding_room_error", (data) => {
+      cError = data.message;
+    });
+    clientC.emit("join_coding_room", { roomId: meetingId, token: unauthedToken });
+    await new Promise((r) => setTimeout(r, 200));
+    assert(cError && cError.includes("not authorized"), "Outsider not in meeting must be rejected with Access denied");
+
+    clientA.disconnect();
+    clientB.disconnect();
+    clientC.disconnect();
+  });
+
   await it("Coding Room: Rate limiting prevents rapid chat spamming in collaborative room", async () => {
     const clientA = ioClient(baseUrl, { transports: ["websocket"] });
     await new Promise((res) => clientA.on("connect", res));
@@ -1193,6 +1244,40 @@ async function runSuite() {
       headers: { Authorization: `Bearer ${tokenB}` },
     });
     assert.strictEqual(resB.status, 403, "User B must receive 403 Forbidden when viewing User A's report");
+  });
+
+  await it("User B cannot inject notifications into User A's inbox or read User A's notifications", async () => {
+    // User B attempts to inject a notification into User A's inbox via body.userId
+    const resInject = await fetch(`${baseUrl}/api/notifications`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${tokenB}`,
+      },
+      body: JSON.stringify({
+        userId: String(userA._id), // Injected target
+        title: "Malicious Injection",
+        message: "Phishing Attempt",
+        type: "system",
+      }),
+    });
+
+    assert.strictEqual(resInject.status, 201);
+    const updatedUserA = await User.findById(userA._id).lean();
+    const foundInA = (updatedUserA.notifications || []).some(
+      (n) => n.title === "Malicious Injection"
+    );
+    assert.strictEqual(foundInA, false, "Injected notification must NEVER be stored in User A's inbox");
+
+    // User A reads their own notifications
+    const resA = await fetch(`${baseUrl}/api/notifications`, {
+      headers: { Authorization: `Bearer ${tokenA}` },
+    });
+    assert.strictEqual(resA.status, 200);
+    const dataA = await resA.json();
+    assert(Array.isArray(dataA.notifications));
+    const leaked = dataA.notifications.some((n) => n.title === "Malicious Injection");
+    assert.strictEqual(leaked, false, "User A's notifications must never contain User B's injected alert");
   });
 
   console.log("\n================================================================================");
