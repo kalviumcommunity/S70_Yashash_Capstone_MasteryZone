@@ -297,6 +297,50 @@ async function runTests() {
       });
     });
 
+    await it("Socket.IO: Authenticated identity switch leaves previous user's private room", async () => {
+      const { io: ioClient } = require("socket.io-client");
+      const clientSocket = ioClient(baseUrl, {
+        auth: { token: tokenA },
+        transports: ["websocket"],
+      });
+
+      let receivedForA = false;
+
+      await new Promise((resolve, reject) => {
+        clientSocket.on("connect", () => {
+          clientSocket.on("NEW_NOTIFICATION", (notif) => {
+            if (notif.title === "User A Private Alert") {
+              receivedForA = true;
+            }
+          });
+
+          // Switch socket identity to User B using tokenB
+          clientSocket.emit("register_user_session", { token: tokenB });
+
+          setTimeout(async () => {
+            // Push notification specifically to User A's room
+            const { pushNotification } = require("../utils/notificationService");
+            await pushNotification(app.get("io"), {
+              userId: userA._id,
+              title: "User A Private Alert",
+              message: "Confidential message for User A",
+            });
+
+            setTimeout(() => {
+              clientSocket.disconnect();
+              assert.strictEqual(receivedForA, false, "Socket switched to User B must NOT receive notifications sent to User A");
+              resolve();
+            }, 600);
+          }, 400);
+        });
+
+        setTimeout(() => {
+          clientSocket.disconnect();
+          reject(new Error("Timeout in socket identity switch test"));
+        }, 5000);
+      });
+    });
+
     // =========================================================================
     // SECTION 2: Strict Individual Account Data Isolation
     // =========================================================================
