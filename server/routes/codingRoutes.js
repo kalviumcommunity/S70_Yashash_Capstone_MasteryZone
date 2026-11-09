@@ -376,8 +376,17 @@ router.post("/execute", authenticateToken, async (req, res) => {
         }
       }
     } catch (j0Err) {
-      console.warn("Judge0 call failed, falling back to local sandbox:", j0Err.message);
-      // Fall through to local sandboxed execution
+      console.warn("Judge0 call failed:", j0Err.message);
+      if (
+        process.env.JUDGE0_REQUIRED === "true" ||
+        (process.env.NODE_ENV === "production" && process.env.ALLOW_LOCAL_FALLBACK === "false")
+      ) {
+        return res.status(503).json({
+          error: "Isolated execution sandbox is temporarily unavailable. Please retry shortly.",
+          engine: "Judge0",
+        });
+      }
+      // Fall through to local sandboxed execution with isolated environment
     }
   }
 
@@ -395,7 +404,7 @@ router.post("/execute", authenticateToken, async (req, res) => {
     if (lang === "python" || lang === "py") {
       const scriptPath = path.join(tmpDir, "main.py");
       fs.writeFileSync(scriptPath, code, "utf8");
-      const result = await runSandboxedProcess(PYTHON_BIN, ["-u", scriptPath], stdin, TIMEOUT_MS, tmpDir);
+      const result = await runSandboxedProcess(PYTHON_BIN, ["-u", "-I", scriptPath], stdin, TIMEOUT_MS, tmpDir);
       return res.json({ ...result, engine: "Python 3 Sandboxed" });
     }
 
@@ -991,7 +1000,7 @@ async function evaluateTestCasesBatch(language, code, testCases) {
       const executableCode = hasStdin ? safeCode : `${safeCode}\n\n${PYTHON_FUNCTION_HARNESS}`;
       fs.writeFileSync(p, executableCode, "utf8");
 
-      runner = (input) => runSandboxedProcess(PYTHON_BIN, ["-u", p], input, timeoutMs, tmpDir);
+      runner = (input) => runSandboxedProcess(PYTHON_BIN, ["-u", "-I", p], input, timeoutMs, tmpDir);
     } else if (lang === "javascript" || lang === "js" || lang === "node") {
       const p = path.join(tmpDir, "solution.js");
       const hasStdin = /fs\.readFileSync|readline|process\.stdin/.test(codeNoComments);

@@ -90,6 +90,18 @@ async function setup() {
     { expiresIn: "2h" }
   );
 
+  // Pre-create Alpha test meeting so it genuinely exists for upload verification
+  await Meeting.deleteMany({ meetingId: "mtg_alpha_video_test" });
+  await Meeting.create({
+    meetingId: "mtg_alpha_video_test",
+    title: "Alpha Video Collaboration & Code Review",
+    hostUserId: userA._id.toString(),
+    participants: [
+      { userId: userA._id, fullName: userA.fullName, email: userA.email },
+    ],
+    status: "active",
+  });
+
   // Start ephemeral HTTP server with Socket.IO attached
   await new Promise((resolve) => {
     testServer = server.listen(0, () => {
@@ -597,6 +609,163 @@ async function runTests() {
       const foundAdmin = adminRecs.find((r) => r.recordingId === recId);
       assert(foundAdmin, "Admin must be able to view all meeting recordings");
       assert.strictEqual(foundAdmin.hostName, userA.fullName);
+    });
+
+    await it("Unauthorized or invalid meeting upload leaves NO orphaned files on disk", async () => {
+      const recDir = path.join(__dirname, "../uploads/recordings");
+      const filesBefore = fs.existsSync(recDir) ? fs.readdirSync(recDir) : [];
+
+      const resInvalid = await fetch(`${baseUrl}/api/recordings/upload`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${tokenA}`,
+        },
+        body: JSON.stringify({
+          meetingId: "mtg_nonexistent_orphaned_check",
+          title: "Ghost Meeting Recording Attempt",
+          recordingType: "Meeting",
+          durationSeconds: 30,
+          base64Data: b64WithCodecs,
+        }),
+      });
+
+      assert.strictEqual(resInvalid.status, 404, "Upload for nonexistent meeting must return 404");
+      const filesAfter = fs.existsSync(recDir) ? fs.readdirSync(recDir) : [];
+      assert.strictEqual(filesAfter.length, filesBefore.length, "No orphaned files must be written on rejected uploads");
+    });
+
+    await it("Personal bookmarks are strictly isolated (User B cannot read User A's private notes)", async () => {
+      // User A adds a personal bookmark to recording A
+      const bmRes = await fetch(`${baseUrl}/api/recordings/${recordingAId}/bookmarks`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${tokenA}`,
+        },
+        body: JSON.stringify({
+          timestampSeconds: 42,
+          note: "User A confidential interview notes",
+        }),
+      });
+      assert.strictEqual(bmRes.status, 200);
+
+      // User A fetches recording -> Sees their bookmark
+      const getA = await fetch(`${baseUrl}/api/recordings/${recordingAId}`, {
+        headers: { Authorization: `Bearer ${tokenA}` },
+      });
+      const recA = (await getA.json()).recording;
+      const foundA = (recA.bookmarks || []).find((b) => b.note === "User A confidential interview notes");
+      assert(foundA, "User A must see their own bookmark");
+
+      // Shared meeting recording where User B is participant
+      const sharedRec = await Recording.findOne({ meetingId: { $regex: /^mtg_shared_/ } });
+      if (sharedRec) {
+        // User A adds personal bookmark to shared recording
+        await fetch(`${baseUrl}/api/recordings/${sharedRec.recordingId}/bookmarks`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${tokenA}`,
+          },
+          body: JSON.stringify({
+            timestampSeconds: 15,
+            note: "Host private performance note on User B",
+          }),
+        });
+
+        // User B views the shared recording -> User A's bookmark MUST be excluded
+        const getB = await fetch(`${baseUrl}/api/recordings/${sharedRec.recordingId}`, {
+          headers: { Authorization: `Bearer ${tokenB}` },
+        });
+        const recB = (await getB.json()).recording;
+        const leakedNote = (recB.bookmarks || []).find((b) => b.note === "Host private performance note on User B");
+        assert.strictEqual(leakedNote, undefined, "User B must never see User A's personal bookmark");
+      }
+    });
+
+    await it("Media validation rejects fake or corrupted video payloads", async () => {
+      const fakeVideoBuffer = Buffer.from("NOT_A_REAL_VIDEO_HEADER_JUST_TEXT_DATA".repeat(20));
+      const fakeB64 = `data:video/webm;base64,${fakeVideoBuffer.toString("base64")}`;
+
+      const resFake = await fetch(`${baseUrl}/api/recordings/upload`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${tokenA}`,
+        },
+        body: JSON.stringify({
+          meetingId: "mtg_alpha_video_test",
+          title: "Corrupted Payload Test",
+          recordingType: "Meeting",
+          durationSeconds: 10,
+          base64Data: fakeB64,
+        }),
+      });
+
+      assert.strictEqual(resFake.status, 400, "Corrupted video payload must be rejected with 400");
+    });
+
+    await it("WebRTC cross-meeting signaling is blocked between disparate meetings", async () => {
+      const { io: ClientIO } = require("socket.io-client");
+
+      const sock1 = ClientIO(baseUrl, {
+        auth: { token: tokenA },
+        transports: ["websocket"],
+      });
+      const sock2 = ClientIO(baseUrl, {
+        auth: { token: tokenB },
+        transports: ["websocket"],
+      });
+
+      await new Promise((resolve) => {
+        let connected = 0;
+        const check = () => { if (++connected === 2) resolve(); };
+        sock1.on("connect", check);
+        sock2.on("connect", check);
+      });
+
+      // Socket 1 joins meeting alpha
+      sock1.emit("join_meeting", {
+        meetingId: "mtg_alpha_video_test",
+        user: { fullName: "User Alpha", id: userA._id },
+      });
+
+      // Socket 2 joins a completely different meeting
+      const mtgBetaId = `mtg_beta_${Date.now()}`;
+      await Meeting.create({
+        meetingId: mtgBetaId,
+        title: "Beta Disparate Meeting",
+        hostUserId: userB._id.toString(),
+        participants: [{ userId: userB._id, fullName: userB.fullName }],
+        status: "active",
+      });
+
+      sock2.emit("join_meeting", {
+        meetingId: mtgBetaId,
+        user: { fullName: "User Beta", id: userB._id },
+      });
+
+      // Allow joins to complete
+      await new Promise((r) => setTimeout(r, 200));
+
+      let crossSignalReceived = false;
+      sock2.on("webrtc_offer_received", () => {
+        crossSignalReceived = true;
+      });
+
+      // Socket 1 maliciously attempts to signal Socket 2 across meeting rooms
+      sock1.emit("webrtc_offer", {
+        targetSocketId: sock2.id,
+        offer: { type: "offer", sdp: "dummy" },
+        meetingId: "mtg_alpha_video_test",
+      });
+
+      await new Promise((r) => setTimeout(r, 200));
+      assert.strictEqual(crossSignalReceived, false, "Cross-meeting WebRTC signaling must be blocked");
+
+      sock1.disconnect();
+      sock2.disconnect();
     });
 
   } finally {

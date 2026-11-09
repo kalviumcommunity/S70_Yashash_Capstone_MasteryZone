@@ -3,6 +3,7 @@ const router = express.Router();
 const fs = require("fs");
 const path = require("path");
 const mongoose = require("mongoose");
+const { execFile } = require("child_process");
 const Recording = require("../models/Recording");
 const authenticateToken = require("../middleware/authMiddleware");
 
@@ -12,8 +13,140 @@ if (!fs.existsSync(RECORDINGS_DIR)) {
   fs.mkdirSync(RECORDINGS_DIR, { recursive: true });
 }
 
+async function probeWithFfprobe(filePath) {
+  return new Promise((resolve) => {
+    execFile(
+      "ffprobe",
+      [
+        "-v", "error",
+        "-show_streams",
+        "-show_format",
+        "-of", "json",
+        filePath,
+      ],
+      { timeout: 5000 },
+      (err, stdout) => {
+        if (err || !stdout) return resolve(null);
+        try {
+          const parsed = JSON.parse(stdout);
+          resolve(parsed);
+        } catch {
+          resolve(null);
+        }
+      }
+    );
+  });
+}
+
+function inspectMediaBinary(buffer) {
+  if (!buffer || buffer.length < 500) {
+    return { valid: false, error: "Media file too small to contain valid video stream" };
+  }
+
+  // 1. WebM EBML Check
+  const isWebM =
+    buffer.length >= 4 &&
+    buffer[0] === 0x1a &&
+    buffer[1] === 0x45 &&
+    buffer[2] === 0xdf &&
+    buffer[3] === 0xa3;
+
+  if (isWebM) {
+    let hasTracks = false;
+    let hasCluster = false;
+    let hasVideoTrack = false;
+    let hasWebmDocType = false;
+    let hasSegment = false;
+
+    const scanLimit = Math.min(buffer.length - 4, 65536);
+    for (let i = 0; i < scanLimit; i++) {
+      if (
+        buffer[i] === 0x42 &&
+        buffer[i + 1] === 0x82 &&
+        buffer[i + 2] === 0x84 &&
+        buffer.toString("ascii", i + 3, i + 7) === "webm"
+      ) {
+        hasWebmDocType = true;
+      }
+      if (
+        buffer[i] === 0x18 &&
+        buffer[i + 1] === 0x53 &&
+        buffer[i + 2] === 0x80 &&
+        buffer[i + 3] === 0x67
+      ) {
+        hasSegment = true;
+      }
+      if (
+        buffer[i] === 0x16 &&
+        buffer[i + 1] === 0x54 &&
+        buffer[i + 2] === 0xae &&
+        buffer[i + 3] === 0x6b
+      ) {
+        hasTracks = true;
+      }
+      if (
+        buffer[i] === 0x1f &&
+        buffer[i + 1] === 0x43 &&
+        buffer[i + 2] === 0xb6 &&
+        buffer[i + 3] === 0x75
+      ) {
+        hasCluster = true;
+      }
+      if (buffer[i] === 0x83 && (buffer[i + 1] === 0x01 || buffer[i + 1] === 0x81)) {
+        if (buffer[i + 2] === 0x01) {
+          hasVideoTrack = true;
+        }
+      }
+    }
+
+    if (hasWebmDocType || hasSegment || hasTracks || hasCluster || hasVideoTrack) {
+      return { valid: true, container: "webm", hasVideo: true };
+    }
+  }
+
+  // 2. MP4 Check
+  const isMp4 = buffer.length >= 8 && buffer.toString("ascii", 4, 8) === "ftyp";
+  if (isMp4) {
+    const scanLimit = Math.min(buffer.length - 4, 65536);
+    let hasMoovOrMdat = false;
+    for (let i = 0; i < scanLimit; i++) {
+      const box = buffer.toString("ascii", i, i + 4);
+      if (box === "moov" || box === "moof" || box === "mdat" || box === "trak") {
+        hasMoovOrMdat = true;
+        break;
+      }
+    }
+    if (hasMoovOrMdat) {
+      return { valid: true, container: "mp4", hasVideo: true };
+    }
+  }
+
+  return { valid: false, error: "Unrecognized or corrupted video container" };
+}
+
+async function validateMediaIntegrity(filePath, buffer) {
+  const probeData = await probeWithFfprobe(filePath);
+  if (probeData && Array.isArray(probeData.streams) && probeData.streams.length > 0) {
+    const hasVideo = probeData.streams.some((s) => s.codec_type === "video");
+    const hasAudio = probeData.streams.some((s) => s.codec_type === "audio");
+    if (!hasVideo && !hasAudio) {
+      return { valid: false, error: "Recording contains neither video nor audio streams" };
+    }
+    return {
+      valid: true,
+      hasVideo,
+      hasAudio,
+      duration: Number(probeData.format?.duration) || 0,
+      format: probeData.format?.format_name || "webm",
+    };
+  }
+
+  return inspectMediaBinary(buffer);
+}
+
 // 1. Upload a new recording
 router.post("/upload", authenticateToken, async (req, res) => {
+  let createdFilePath = null;
   try {
     const {
       meetingId,
@@ -30,6 +163,42 @@ router.post("/upload", authenticateToken, async (req, res) => {
     }
 
     const hostUserId = String(req.user?.userId || req.user?.id || req.user?._id || "guest");
+    const isAdmin = Boolean(req.user?.role === "admin" || req.user?.role === "SUPER_ADMIN" || req.user?.isMainAdmin);
+
+    // 1. Pre-Upload Authorization & Meeting Existence Validation (BEFORE writing file)
+    let participantUserIds = [];
+    if (meetingId) {
+      const Meeting = require("../models/Meeting");
+      const meeting = await Meeting.findOne({
+        $or: [
+          { meetingId: meetingId },
+          { meetingId: meetingId.replace(/-/g, "") },
+        ],
+      }).lean();
+
+      if (!meeting) {
+        return res.status(404).json({ error: "Invalid meeting reference. Meeting does not exist." });
+      }
+
+      const isHost = String(meeting.hostUserId) === hostUserId;
+      const isParticipant = Array.isArray(meeting.participants) && meeting.participants.some(
+        (p) => String(p.userId || p._id || "") === hostUserId
+      );
+
+      if (!isAdmin && !isHost && !isParticipant) {
+        return res.status(403).json({ error: "Access denied. You were not an authorized host or participant of this meeting." });
+      }
+
+      if (Array.isArray(meeting.participants)) {
+        participantUserIds = meeting.participants
+          .map((p) => String(p.userId || p._id || ""))
+          .filter(Boolean);
+      }
+    }
+    if (hostUserId && !participantUserIds.includes(hostUserId)) {
+      participantUserIds.push(hostUserId);
+    }
+
     const User = require("../models/User");
     let hostName = req.user?.fullName || req.user?.name || req.body.hostName || "";
     let hostEmail = req.user?.email || req.body.hostEmail || "";
@@ -53,7 +222,7 @@ router.post("/upload", authenticateToken, async (req, res) => {
     const cleanBase64 = base64Data.includes(";base64,") ? base64Data.split(";base64,").pop() : base64Data;
     const buffer = Buffer.from(cleanBase64, "base64");
 
-    if (buffer.length < 100) {
+    if (buffer.length < 500) {
       return res.status(400).json({ error: "Recording video data is empty or too short to contain valid video frames." });
     }
 
@@ -81,40 +250,16 @@ router.post("/upload", authenticateToken, async (req, res) => {
       }
     }
 
+    // 2. Write file to disk only after all authorization and header checks succeed
     fs.writeFileSync(filePath, buffer);
+    createdFilePath = filePath;
 
-    // Retrieve active meeting participants to attach verified participantUserIds
-    const Meeting = require("../models/Meeting");
-    let participantUserIds = [];
-    if (meetingId) {
-      try {
-        const meeting = await Meeting.findOne({
-          $or: [
-            { meetingId: meetingId },
-            { meetingId: meetingId.replace(/-/g, "") },
-          ],
-        }).lean();
-        if (meeting) {
-          const isAdmin = req.user?.role === "admin" || req.user?.role === "SUPER_ADMIN" || req.user?.isMainAdmin;
-          const isHost = String(meeting.hostUserId) === hostUserId;
-          const isParticipant = Array.isArray(meeting.participants) && meeting.participants.some(
-            (p) => String(p.userId || p._id || "") === hostUserId
-          );
-          if (!isAdmin && !isHost && !isParticipant) {
-            return res.status(403).json({ error: "Access denied. You were not an authorized host or participant of this meeting." });
-          }
-          if (Array.isArray(meeting.participants)) {
-            participantUserIds = meeting.participants
-              .map((p) => String(p.userId || p._id || ""))
-              .filter(Boolean);
-          }
-        }
-      } catch (mErr) {
-        console.warn("Could not retrieve meeting participants:", mErr);
-      }
-    }
-    if (hostUserId && !participantUserIds.includes(hostUserId)) {
-      participantUserIds.push(hostUserId);
+    // 3. Media Stream Validation (Verify playable video/audio integrity)
+    const mediaCheck = await validateMediaIntegrity(filePath, buffer);
+    if (!mediaCheck.valid) {
+      try { fs.unlinkSync(filePath); } catch {}
+      createdFilePath = null;
+      return res.status(400).json({ error: mediaCheck.error || "Corrupted media file: Missing decodable video stream." });
     }
 
     const streamUrl = `/api/recordings/stream/${fileName}`;
@@ -129,7 +274,7 @@ router.post("/upload", authenticateToken, async (req, res) => {
       hostName,
       hostEmail,
       recordingType: req.body.recordingType || "Meeting",
-      durationSeconds: Math.round(Number(durationSeconds) || 0),
+      durationSeconds: Math.round(Number(durationSeconds) || Number(mediaCheck.duration) || 0),
       filePath: fileUrl,
       fileUrl,
       streamUrl,
@@ -173,6 +318,9 @@ router.post("/upload", authenticateToken, async (req, res) => {
       recording,
     });
   } catch (err) {
+    if (createdFilePath && fs.existsSync(createdFilePath)) {
+      try { fs.unlinkSync(createdFilePath); } catch {}
+    }
     console.error("Recording upload error:", err);
     res.status(500).json({ error: err.message || "Failed to save recording" });
   }
@@ -212,12 +360,14 @@ router.get("/stream/:filename", async (req, res) => {
     const currentUserId = String(decoded.userId || decoded.id || decoded._id || "");
     const isAdmin = Boolean(decoded.role === "admin" || decoded.role === "SUPER_ADMIN" || decoded.isMainAdmin);
 
-    // 3. Database Ownership & Participant Relationship Verification
+    // 3. Database Ownership & Participant Relationship Verification (Exact non-ambiguous lookup)
+    const escapedFilename = filename.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const recording = await Recording.findOne({
       $or: [
-        { streamUrl: { $regex: filename } },
-        { filePath: { $regex: filename } },
-        { fileUrl: { $regex: filename } },
+        { streamUrl: `/api/recordings/stream/${filename}` },
+        { fileUrl: `/recordings/${filename}` },
+        { fileUrl: `/uploads/recordings/${filename}` },
+        { filePath: { $regex: `(^|[\\\\/])${escapedFilename}$` } },
       ],
     }).lean();
 
@@ -451,7 +601,11 @@ router.post("/:recordingId/bookmarks", authenticateToken, async (req, res) => {
     recording.bookmarks.push(newBookmark);
     await recording.save();
 
-    res.json({ success: true, bookmarks: recording.bookmarks });
+    const userBookmarks = isAdmin
+      ? recording.bookmarks
+      : recording.bookmarks.filter((b) => String(b.userId) === currentUserId);
+
+    res.json({ success: true, bookmarks: userBookmarks });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -461,7 +615,7 @@ router.post("/:recordingId/bookmarks", authenticateToken, async (req, res) => {
 router.get("/:recordingId", authenticateToken, async (req, res) => {
   try {
     const currentUserId = String(req.user?.userId || req.user?.id || req.user?._id || "");
-    const isPrivileged = req.user?.role === "admin" || req.user?.role === "SUPER_ADMIN";
+    const isAdmin = Boolean(req.user?.role === "admin" || req.user?.role === "SUPER_ADMIN" || req.user?.isMainAdmin);
     const recording = await Recording.findOne({ recordingId: req.params.recordingId }).lean();
 
     if (!recording) {
@@ -483,8 +637,13 @@ router.get("/:recordingId", authenticateToken, async (req, res) => {
     const isHost = String(recording.hostUserId) === currentUserId;
     const isParticipant = (recording.participantUserIds || []).includes(currentUserId);
 
-    if (!isPrivileged && !isHost && !isParticipant && !isMeetingParticipant) {
+    if (!isAdmin && !isHost && !isParticipant && !isMeetingParticipant) {
       return res.status(403).json({ error: "Access denied. You do not have permission to view this private recording." });
+    }
+
+    // Isolate bookmarks so users only see their own private notes unless admin
+    if (!isAdmin && Array.isArray(recording.bookmarks)) {
+      recording.bookmarks = recording.bookmarks.filter((b) => String(b.userId) === currentUserId);
     }
 
     res.json({ success: true, recording });
@@ -507,9 +666,9 @@ router.patch("/:recordingId/rename", authenticateToken, async (req, res) => {
     }
 
     // Permission check: host or admin can rename
-    const currentUserId = req.user?.userId || req.user?.id;
-    const isOwner = recording.hostUserId && String(recording.hostUserId) === String(currentUserId);
-    const isAdmin = req.user?.role === "admin" || req.user?.isAdmin;
+    const currentUserId = String(req.user?.userId || req.user?.id || req.user?._id || "");
+    const isOwner = recording.hostUserId && String(recording.hostUserId) === currentUserId;
+    const isAdmin = Boolean(req.user?.role === "admin" || req.user?.role === "SUPER_ADMIN" || req.user?.isMainAdmin || req.user?.isAdmin);
     if (!isOwner && !isAdmin) {
       return res.status(403).json({ error: "Only the recording host or an administrator can rename this video" });
     }
