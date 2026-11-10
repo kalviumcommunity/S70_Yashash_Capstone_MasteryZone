@@ -797,9 +797,11 @@ export default function MasteryZoneLiveMeeting({
     if (!socket || !meetingId) return;
 
     const doJoin = () => {
+      const token = localStorage.getItem("token") || "";
       socket.emit("join_meeting", {
         meetingId,
         user: currentUser,
+        token,
         mediaState: {
           isMuted,
           isVideoOff,

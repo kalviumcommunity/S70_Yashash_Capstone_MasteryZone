@@ -7,7 +7,7 @@ import { GlobalLoader, FitnessLoader, CodingLoader, DrivingLoader, LanguageLoade
 
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
-import LandingPage from "./components/LandingPage.jsx";
+const LandingPage = lazy(() => import("./components/LandingPage.jsx"));
 import { NotificationProvider } from "./context/NotificationContext.jsx";
 import { LoadingProvider } from "./context/LoadingContext.jsx";
 
@@ -59,8 +59,8 @@ function App() {
           <NotificationProvider>
             <Routes>
           {/* Public Landing & Authentication Routes */}
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/landing" element={<LandingPage />} />
+          <Route path="/" element={<Suspense fallback={<GlobalLoader />}><LandingPage /></Suspense>} />
+          <Route path="/landing" element={<Suspense fallback={<GlobalLoader />}><LandingPage /></Suspense>} />
           <Route path="/login" element={<Suspense fallback={<GlobalLoader />}><Login /></Suspense>} /> 
           <Route path="/signup" element={<Suspense fallback={<GlobalLoader />}><Signup /></Suspense>} /> 
           <Route path="/forgot-password" element={<Suspense fallback={<GlobalLoader />}><ForgotPassword /></Suspense>} />

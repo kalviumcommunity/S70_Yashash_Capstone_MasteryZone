@@ -753,6 +753,10 @@ export default function MasteryZoneCompilerLive({
       }
 
       const data = await res.json();
+      if (!res.ok || data.error) {
+        toast.error(data.error || `Failed to run test cases (HTTP ${res.status})`);
+        return;
+      }
       const resList = data.results || data.testResults || [];
       if (resList.length > 0) {
         setHasEvaluated(true);
@@ -809,6 +813,10 @@ export default function MasteryZoneCompilerLive({
       }
 
       const data = await res.json();
+      if (!res.ok || data.error) {
+        toast.error(data.error || `Solution submission failed (HTTP ${res.status})`);
+        return;
+      }
       setAttemptsCount((prev) => prev + 1);
       setHasEvaluated(true);
 
