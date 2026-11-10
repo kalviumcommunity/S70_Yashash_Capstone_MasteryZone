@@ -153,12 +153,12 @@ const DEFAULT_TRACKS = [
     subtitle: "Variables, control flow, functions, OOP, and data structures.",
     icon: "python",
     totalLessons: 8,
-    completedLessons: 2,
+    completedLessons: 0,
     badgeText: "Most Popular",
     modules: [
-      { id: "py_m1", index: 1, title: "Variables, Data Types & IO", desc: "Master primitive types, f-strings, input handling, and numeric expressions.", status: "completed", duration: "45m" },
-      { id: "py_m2", index: 2, title: "Control Flow & Conditionals", desc: "Boolean logic, branching with if/elif/else, and match-case statements.", status: "completed", duration: "50m" },
-      { id: "py_m3", index: 3, title: "Loops & Iterations", desc: "for loops, range generators, while constructs, and loop control statements.", status: "in_progress", duration: "60m" },
+      { id: "py_m1", index: 1, title: "Variables, Data Types & IO", desc: "Master primitive types, f-strings, input handling, and numeric expressions.", status: "available", duration: "45m" },
+      { id: "py_m2", index: 2, title: "Control Flow & Conditionals", desc: "Boolean logic, branching with if/elif/else, and match-case statements.", status: "available", duration: "50m" },
+      { id: "py_m3", index: 3, title: "Loops & Iterations", desc: "for loops, range generators, while constructs, and loop control statements.", status: "available", duration: "60m" },
       { id: "py_m4", index: 4, title: "Functions & Scope", desc: "Function arguments (*args, **kwargs), return values, closures, and lambda expressions.", status: "available", duration: "1h 15m" },
       { id: "py_m5", index: 5, title: "Data Structures: Lists, Tuples, Dictionaries", desc: "List comprehensions, dictionary lookups, sets, and in-memory complexity.", status: "available", duration: "1h 30m" },
       { id: "py_m6", index: 6, title: "Object-Oriented Programming (OOP)", desc: "Classes, encapsulation, inheritance, polymorphism, and dunder magic methods.", status: "available", duration: "1h 45m" },
@@ -172,11 +172,11 @@ const DEFAULT_TRACKS = [
     subtitle: "DOM manipulation, async/await, closures, and ES6+ modern patterns.",
     icon: "javascript",
     totalLessons: 10,
-    completedLessons: 1,
+    completedLessons: 0,
     badgeText: "Web Core",
     modules: [
-      { id: "js_m1", index: 1, title: "ES6+ Fundamentals & Types", desc: "Let/const, arrow functions, destructuring, and template literals.", status: "completed", duration: "40m" },
-      { id: "js_m2", index: 2, title: "Async JavaScript & Promises", desc: "Event loop, microtasks, Promise chaining, and async/await.", status: "in_progress", duration: "1h" },
+      { id: "js_m1", index: 1, title: "ES6+ Fundamentals & Types", desc: "Let/const, arrow functions, destructuring, and template literals.", status: "available", duration: "40m" },
+      { id: "js_m2", index: 2, title: "Async JavaScript & Promises", desc: "Event loop, microtasks, Promise chaining, and async/await.", status: "available", duration: "1h" },
       { id: "js_m3", index: 3, title: "DOM Manipulation & Events", desc: "Query selectors, event bubbling, delegation, and DOM mutations.", status: "available", duration: "1h 15m" },
       { id: "js_m4", index: 4, title: "Closures & Functional JS", desc: "Scope chains, currying, higher-order functions (map, filter, reduce).", status: "available", duration: "1h 30m" },
     ],
@@ -525,10 +525,10 @@ export default function Coding() {
   const [resources, setResources] = useState(DEFAULT_RESOURCES);
   const [studyGroups, setStudyGroups] = useState(DEFAULT_STUDY_GROUPS);
   const [stats, setStats] = useState({
-    totalXp: 450,
-    hoursSpent: 12.5,
-    streakDays: 3,
-    solvedCount: 1,
+    totalXp: 0,
+    hoursSpent: 0,
+    streakDays: 0,
+    solvedCount: 0,
     activeTrack: "Python Track",
   });
   const [earnedCertificates, setEarnedCertificates] = useState([]);

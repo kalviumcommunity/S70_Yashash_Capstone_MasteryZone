@@ -1639,44 +1639,36 @@ export default function MasteryZoneLiveMeeting({
           throw new Error("Raw binary stream upload rejected: status " + res.status);
         }
       } catch (rawErr) {
-        // Method 2: Resilient Base64 JSON fallback for legacy proxies
-        const base64Data = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result);
-          reader.onerror = reject;
-          reader.readAsDataURL(blob);
-        });
-
-        const payload = {
-          meetingId,
-          title: meetingTitle,
-          recordingType: "Entire Screen",
-          durationSeconds: finalDuration,
-          participantNames: allNames,
-          base64Data,
-          mimeType: activeMimeType,
-          hostUserId: currentUser?._id || currentUser?.id || currentUser?.userId,
-          hostName: currentUser?.fullName || currentUser?.username || "Host",
-          hostEmail: currentUser?.email || "",
-        };
-
+        // Method 2: Resilient streaming multipart/form-data fallback (No Base64 buffering)
         try {
-          res = await fetch(`${API_BASE}/api/recordings/upload`, {
+          const formData = new FormData();
+          formData.append("file", blob, `recording_${meetingId}.webm`);
+          formData.append("meetingId", meetingId);
+          formData.append("title", meetingTitle);
+          formData.append("durationSeconds", String(finalDuration));
+          formData.append("participantNames", JSON.stringify(allNames));
+
+          res = await fetch(`${API_BASE || ""}/api/recordings/upload`, {
             method: "POST",
             headers: {
-              "Content-Type": "application/json",
               Authorization: `Bearer ${token}`,
             },
-            body: JSON.stringify(payload),
+            body: formData,
           });
         } catch {
+          const formData = new FormData();
+          formData.append("file", blob, `recording_${meetingId}.webm`);
+          formData.append("meetingId", meetingId);
+          formData.append("title", meetingTitle);
+          formData.append("durationSeconds", String(finalDuration));
+          formData.append("participantNames", JSON.stringify(allNames));
+
           res = await fetch("/api/recordings/upload", {
             method: "POST",
             headers: {
-              "Content-Type": "application/json",
               Authorization: `Bearer ${token}`,
             },
-            body: JSON.stringify(payload),
+            body: formData,
           });
         }
       }
