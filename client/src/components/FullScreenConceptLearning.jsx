@@ -155,152 +155,190 @@ export default function FullScreenConceptLearning({
     return { words, minutes };
   }, [module]);
 
-  // Isolated Sandboxed Iframe Runner for Client-Side Script Execution
+  // Isolated Terminable Web Worker Runner for Client-Side Script Execution
+  // Runs on a separate background thread: synchronous infinite loops cannot freeze the UI.
+  // Terminated on timeout to instantly kill runaway execution.
   const runJavaScriptInSandbox = (code, timeoutMs = 3000) => {
     return new Promise((resolve) => {
-      const runId = `mz_sandbox_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-      const iframe = document.createElement("iframe");
       let isSettled = false;
       let timerId = null;
+      let worker = null;
+      let blobUrl = null;
 
       const cleanup = () => {
         if (isSettled) return;
         isSettled = true;
         if (timerId) clearTimeout(timerId);
-        window.removeEventListener("message", handleMessage);
-        try {
-          if (iframe.parentNode) {
-            iframe.parentNode.removeChild(iframe);
-          }
-        } catch {}
-      };
-
-      const handleMessage = (event) => {
-        if (!event.data || event.data.type !== "MZ_SANDBOX_OUTPUT" || event.data.runId !== runId) {
-          return;
+        if (worker) {
+          try {
+            worker.terminate();
+          } catch {}
+          worker = null;
         }
-        cleanup();
-        resolve(event.data);
+        if (blobUrl) {
+          try {
+            URL.revokeObjectURL(blobUrl);
+          } catch {}
+          blobUrl = null;
+        }
       };
 
-      window.addEventListener("message", handleMessage);
+      const workerScript = `
+"use strict";
 
-      timerId = setTimeout(() => {
-        cleanup();
-        resolve({
-          logs: [],
-          error: "Execution Timed Out: Code execution exceeded the 3000ms safety limit. Please check for infinite loops (e.g., while(true)) or blocking synchronous calls.",
-          durationMs: timeoutMs,
-          isTimeout: true,
-        });
-      }, timeoutMs);
+// Restrict network and storage access inside the background worker
+self.fetch = undefined;
+self.XMLHttpRequest = undefined;
+self.WebSocket = undefined;
+self.EventSource = undefined;
+self.importScripts = undefined;
 
-      // Strict sandbox="allow-scripts" WITHOUT allow-same-origin enforces origin "null".
-      // Prevents all access to parent window, DOM, localStorage, sessionStorage, and cookies.
-      iframe.setAttribute("sandbox", "allow-scripts");
-      iframe.style.position = "fixed";
-      iframe.style.width = "0px";
-      iframe.style.height = "0px";
-      iframe.style.border = "none";
-      iframe.style.opacity = "0";
-      iframe.style.pointerEvents = "none";
-      iframe.title = "Mastery Zone Isolated Sandbox";
+const logs = [];
+const MAX_LOGS = 500;
+const MAX_CHARS = 10000;
+let totalChars = 0;
+let isTruncated = false;
 
-      const escapedCode = JSON.stringify(code);
-      const escapedRunId = JSON.stringify(runId);
-
-      iframe.srcdoc = `<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"></head>
-<body>
-<script>
-(function() {
-  const runId = ${escapedRunId};
-  const userCode = ${escapedCode};
-  const logs = [];
-  const MAX_LOGS = 500;
-  const MAX_CHARS = 10000;
-  let totalChars = 0;
-  let isTruncated = false;
-
-  function safeFormat(arg) {
-    if (arg === null) return "null";
-    if (arg === undefined) return "undefined";
-    if (typeof arg === "object") {
-      try {
-        const seen = new WeakSet();
-        return JSON.stringify(arg, function(key, val) {
-          if (typeof val === "object" && val !== null) {
-            if (seen.has(val)) return "[Circular Reference]";
-            seen.add(val);
-          }
-          return val;
-        }, 2);
-      } catch (err) {
-        return String(arg);
-      }
+function safeFormat(arg) {
+  if (arg === null) return "null";
+  if (arg === undefined) return "undefined";
+  if (typeof arg === "object") {
+    try {
+      const seen = new WeakSet();
+      return JSON.stringify(arg, function(key, val) {
+        if (typeof val === "object" && val !== null) {
+          if (seen.has(val)) return "[Circular Reference]";
+          seen.add(val);
+        }
+        return val;
+      }, 2);
+    } catch (e) {
+      return String(arg);
     }
-    return String(arg);
   }
+  return String(arg);
+}
 
-  function appendLog(args) {
-    if (logs.length >= MAX_LOGS || totalChars >= MAX_CHARS) {
-      if (!isTruncated) {
-        logs.push("[Output limit reached (10KB / 500 lines). Further output truncated.]");
-        isTruncated = true;
-      }
-      return;
+function appendLog(args) {
+  if (logs.length >= MAX_LOGS || totalChars >= MAX_CHARS) {
+    if (!isTruncated) {
+      logs.push("[Output limit reached (10KB / 500 lines). Further output truncated.]");
+      isTruncated = true;
     }
-    const line = args.map(safeFormat).join(" ");
-    totalChars += line.length;
-    logs.push(line);
+    return;
   }
+  const line = args.map(safeFormat).join(" ");
+  totalChars += line.length;
+  logs.push(line);
+}
 
-  const customConsole = {
-    log: function(...args) { appendLog(args); },
-    error: function(...args) { appendLog(["[Error]", ...args]); },
-    warn: function(...args) { appendLog(["[Warn]", ...args]); },
-    info: function(...args) { appendLog(args); },
-    debug: function(...args) { appendLog(args); }
-  };
+const customConsole = {
+  log: function(...args) { appendLog(args); },
+  error: function(...args) { appendLog(["[Error]", ...args]); },
+  warn: function(...args) { appendLog(["[Warn]", ...args]); },
+  info: function(...args) { appendLog(args); },
+  debug: function(...args) { appendLog(args); },
+  table: function(arg) { appendLog([safeFormat(arg)]); }
+};
 
-  let executionError = null;
+self.onmessage = async function(event) {
+  if (!event.data || event.data.type !== "EXECUTE") return;
+
+  const { userCode, runId } = event.data;
+  let runtimeError = null;
   const startTime = performance.now();
 
   try {
-    const wrappedScript = document.createElement("script");
-    wrappedScript.textContent = "(function(console, window, parent, top, document, localStorage, sessionStorage, fetch, XMLHttpRequest, WebSocket) {\\n" +
-      "\\"use strict\\";\\n" +
-      userCode +
-      "\\n})(customConsole, undefined, null, null, undefined, null, null, null, null, null);";
-    window.customConsole = customConsole;
-    document.body.appendChild(wrappedScript);
+    const runner = new Function(
+      "console",
+      "fetch",
+      "XMLHttpRequest",
+      "WebSocket",
+      "importScripts",
+      "indexedDB",
+      '"use strict"; return (async () => {\\n' + userCode + '\\n})();'
+    );
+    await runner(customConsole, undefined, undefined, undefined, undefined, undefined);
   } catch (err) {
-    executionError = (err && (err.stack || err.message)) ? (err.name + ": " + err.message) : String(err);
+    runtimeError = (err && (err.stack || err.message)) ? (err.name + ": " + err.message) : String(err);
   }
-
-  window.onerror = function(msg, src, lineno, colno, err) {
-    if (!executionError) {
-      executionError = err ? (err.name + ": " + err.message) : String(msg);
-    }
-    return true;
-  };
 
   const durationMs = Math.round(performance.now() - startTime);
 
-  window.parent.postMessage({
-    type: "MZ_SANDBOX_OUTPUT",
+  self.postMessage({
+    type: "RESULT",
     runId: runId,
     logs: logs,
-    error: executionError,
+    error: runtimeError,
     durationMs: durationMs
-  }, "*");
-})();
-<\/script>
-</body>
-</html>`;
+  });
+};
 
-      document.body.appendChild(iframe);
+self.addEventListener("unhandledrejection", function(e) {
+  const reason = e.reason;
+  const msg = (reason && (reason.stack || reason.message)) ? (reason.name + ": " + reason.message) : String(reason);
+  appendLog(["[Unhandled Promise Rejection]", msg]);
+});
+`;
+
+      const runId = `mz_run_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+
+      try {
+        const blob = new Blob([workerScript], { type: "application/javascript" });
+        blobUrl = URL.createObjectURL(blob);
+        worker = new Worker(blobUrl);
+
+        worker.onmessage = (event) => {
+          if (!event.data || event.data.type !== "RESULT" || event.data.runId !== runId) {
+            return;
+          }
+          const data = event.data;
+          cleanup();
+          resolve(data);
+        };
+
+        worker.onerror = (err) => {
+          const errorMsg = err?.message || "Worker execution error occurred";
+          cleanup();
+          resolve({
+            logs: [],
+            error: `Uncaught Script Error: ${errorMsg}`,
+            durationMs: 0,
+          });
+        };
+
+        worker.onmessageerror = () => {
+          cleanup();
+          resolve({
+            logs: [],
+            error: "Message serialization error in worker",
+            durationMs: 0,
+          });
+        };
+
+        timerId = setTimeout(() => {
+          cleanup();
+          resolve({
+            logs: [],
+            error: `Execution Timed Out: Code execution exceeded the ${timeoutMs}ms safety limit. Infinite loop detected or blocking asynchronous operation was terminated.`,
+            durationMs: timeoutMs,
+            isTimeout: true,
+          });
+        }, timeoutMs);
+
+        worker.postMessage({
+          type: "EXECUTE",
+          userCode: code,
+          runId: runId,
+        });
+      } catch (createErr) {
+        cleanup();
+        resolve({
+          logs: [],
+          error: `Sandbox Initialization Failed: ${createErr.message}`,
+          durationMs: 0,
+        });
+      }
     });
   };
 
@@ -320,76 +358,72 @@ export default function FullScreenConceptLearning({
             `❌ ${result.error}\n\n[Process terminated in ${result.durationMs}ms • Status: 1 Error]`;
         } else {
           const logsText = result.logs.length > 0 ? result.logs.join("\n") : "[Execution completed with no console output]";
-          out = logsText + `\n\n[Process completed in ${result.durationMs}ms • Memory: Isolated Iframe Sandbox • Status: 0 OK]`;
+          out = logsText + `\n\n[Process completed in ${result.durationMs}ms • Memory: Isolated Web Worker • Status: 0 OK]`;
         }
         setSandboxOutput(out);
         return;
       }
 
-      // Non-JS tracks: Python, Java, C++, DSA
+      // Non-JS tracks: Python, Java, C++, DSA require the active server compiler service
       const token = localStorage.getItem("token");
-      if (token) {
-        try {
-          const res = await fetch(`${API_BASE}/api/coding/execute`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              language: lang === "dsa" ? "python" : lang,
-              code: sandboxCode,
-            }),
-          });
-          if (res.ok) {
-            const data = await res.json();
-            const chunks = [];
-            if (data.compile_output) chunks.push(`[Compiler Output]:\n${data.compile_output}`);
-            if (data.stdout) chunks.push(data.stdout);
-            if (data.stderr) chunks.push(`[stderr]:\n${data.stderr}`);
-            if (chunks.length === 0) chunks.push("[Execution completed with no output]");
-            setSandboxOutput(
-              chunks.join("\n") +
-                `\n\n[Process completed in ${data.executionTimeMs || 30}ms • Status: ${data.status || "OK"}]`
-            );
-            return;
-          }
-        } catch (netErr) {
-          console.warn("Server execution note:", netErr);
-        }
+      if (!token) {
+        setSandboxOutput(
+          `⚠️ [Execution Unavailable]\n\nCompiling and executing ${lang.toUpperCase()} code requires an authenticated session connecting to the sandboxed compiler service.\n\nPlease sign in to run ${lang.toUpperCase()} code, or switch to a JavaScript/Web Development track to run in the local isolated sandbox.`
+        );
+        return;
       }
 
-      // Offline / fallback verification for compiled & scripted non-JS tracks
-      const lines = sandboxCode.split("\n");
-      const printOutputs = [];
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-      for (const line of lines) {
-        const trim = line.trim();
-        const pyMatch = trim.match(/print\s*\((.*)\)/);
-        if (pyMatch) {
-          printOutputs.push(pyMatch[1].replace(/['"]/g, "").trim());
+      try {
+        const res = await fetch(`${API_BASE}/api/coding/execute`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            language: lang === "dsa" ? "python" : lang,
+            code: sandboxCode,
+          }),
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          const errMsg = errData.error || errData.message || `HTTP ${res.status} ${res.statusText}`;
+          setSandboxOutput(
+            `❌ [Execution Failed]\n\nServer compiler returned an error:\n${errMsg}`
+          );
+          return;
         }
-        const javaMatch = trim.match(/System\.out\.println\s*\((.*)\)/);
-        if (javaMatch) {
-          printOutputs.push(javaMatch[1].replace(/['"]/g, "").trim());
-        }
-        const cppMatch = trim.match(/std::cout\s*<<\s*([^;]+);/);
-        if (cppMatch) {
-          printOutputs.push(cppMatch[1].replace(/std::endl/g, "").replace(/['"]/g, "").trim());
+
+        const data = await res.json();
+        const chunks = [];
+        if (data.compile_output) chunks.push(`[Compiler Output]:\n${data.compile_output}`);
+        if (data.stdout) chunks.push(data.stdout);
+        if (data.stderr) chunks.push(`[stderr]:\n${data.stderr}`);
+        if (chunks.length === 0) chunks.push("[Execution completed with no output]");
+        
+        setSandboxOutput(
+          chunks.join("\n") +
+            `\n\n[Process completed in ${data.executionTimeMs || 30}ms • Status: ${data.status || "OK"}]`
+        );
+      } catch (fetchErr) {
+        clearTimeout(timeoutId);
+        if (fetchErr.name === "AbortError") {
+          setSandboxOutput(
+            `⏱️ [Execution Timed Out]\n\nThe server compiler did not respond within 10 seconds. Please check your network connection or try again later.`
+          );
+        } else {
+          setSandboxOutput(
+            `⚠️ [Execution Unavailable]\n\nUnable to connect to the backend compiler service for ${lang.toUpperCase()}.\n\nError: ${fetchErr.message || "Network unreachable"}\n\nPlease ensure the backend server is running and reachable.`
+          );
         }
       }
-
-      const logs = printOutputs.length > 0 ? printOutputs : [
-        `✓ ${module?.title || "Module"} execution verified.`,
-        `Runtime Engine: ${lang.toUpperCase()} Isolated Sandbox`,
-        `Execution Trace: 0 errors detected.`,
-        `Status: Process exited with exit status code 0.`,
-      ];
-
-      setSandboxOutput(
-        logs.join("\n") +
-          `\n\n[Process completed in ${Math.floor(Math.random() * 25 + 15)}ms • Memory: 14.6 MB • Status: 0 OK]`
-      );
     } catch (err) {
       setSandboxOutput(`Execution Error: ${err.message}`);
     } finally {
