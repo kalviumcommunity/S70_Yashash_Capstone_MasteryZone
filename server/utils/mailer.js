@@ -103,13 +103,24 @@ function getOutboundEmailDedupKey(to, subject, html) {
   return `${cleanTo}::${subject}::${sample}`;
 }
 
-function isDuplicateOutboundEmail(to, subject, html) {
+function isDuplicateOutboundEmail(to, subject, html, options = {}) {
   const key = getOutboundEmailDedupKey(to, subject, html);
   const now = Date.now();
   const lastSent = sentNotificationCache.get(key);
   if (lastSent && now - lastSent < DEDUP_WINDOW_MS) {
     return true;
   }
+  if (options.checkOnly) {
+    return false;
+  }
+  if (sentNotificationCache.size > 200) {
+    for (const [k, ts] of sentNotificationCache) {
+      if (now - ts > DEDUP_WINDOW_MS * 2) {
+        sentNotificationCache.delete(k);
+      }
+    }
+  }
+  sentNotificationCache.set(key, now);
   return false;
 }
 
@@ -707,6 +718,10 @@ verifySmtpConnection().then((res) => {
 
 async function recordEmailLog(data) {
   try {
+    const mongoose = require('mongoose');
+    if (!mongoose.connection || mongoose.connection.readyState !== 1) {
+      return null;
+    }
     const EmailLog = require('../models/EmailLog');
     return await EmailLog.create({
       ...data,
@@ -746,8 +761,8 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
     };
   }
 
-  // Prevent duplicate email dispatch within rate window
-  if (isDuplicateOutboundEmail(to, mailOptions.subject, mailOptions.html)) {
+  // Prevent duplicate email dispatch within rate window (only mark sent after provider acceptance)
+  if (isDuplicateOutboundEmail(to, mailOptions.subject, mailOptions.html, { checkOnly: true })) {
     return {
       success: true,
       status: 'accepted',
