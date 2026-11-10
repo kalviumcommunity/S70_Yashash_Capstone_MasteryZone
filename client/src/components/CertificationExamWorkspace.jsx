@@ -134,19 +134,21 @@ export default function CertificationExamWorkspace({
   const certTitle = propCertTitle || CERT_INFO_MAP[certId]?.title || "Python Certified Professional";
   const language = propLanguage || CERT_INFO_MAP[certId]?.lang || "python";
 
-  const { currentUserId, currentUserEmail } = (() => {
+  const { currentUserId, currentUserEmail, currentUserName } = (() => {
     try {
       const rawUser = localStorage.getItem("user");
       if (rawUser) {
-        const u = JSON.parse(rawUser);
+        const parsed = JSON.parse(rawUser);
+        const u = parsed.user || parsed;
         const uid = u._id || u.id || u.userId || "";
         return {
           currentUserId: uid !== "guest" ? uid : "",
           currentUserEmail: u.email || "",
+          currentUserName: u.name || u.fullName || u.username || "",
         };
       }
     } catch {}
-    return { currentUserId: "", currentUserEmail: "" };
+    return { currentUserId: "", currentUserEmail: "", currentUserName: "" };
   })();
 
   // 1. Session Persistence Recovery State strictly isolated to authenticated user
@@ -175,7 +177,7 @@ export default function CertificationExamWorkspace({
   const [alreadyCertifiedInfo, setAlreadyCertifiedInfo] = useState(null);
   const [attemptId, setAttemptId] = useState(() => savedSession?.attemptId || null);
   const [attemptNumber, setAttemptNumber] = useState(1);
-  const [candidateName, setCandidateName] = useState("Candidate");
+  const [candidateName, setCandidateName] = useState(() => currentUserName || "Candidate");
   const [secondsRemaining, setSecondsRemaining] = useState(() => savedSession?.secondsRemaining || 5394); // ~89m 54s default
   const [isTimerRunning, setIsTimerRunning] = useState(true);
 
@@ -1441,7 +1443,7 @@ export default function CertificationExamWorkspace({
           assessmentTitle: `${certTitle || "Data Structures & Algorithms"} — Proctored Credential Examination`,
           certTitle: certTitle || "Data Structures & Algorithms",
           candidateDetails: {
-            fullName: candidateName || "Verified Candidate",
+            fullName: candidateName || currentUserName || "Verified Candidate",
             email: currentUserEmail || "candidate@masteryzone.com",
             candidateId: `CAND-${(currentUserId || attemptId).slice(-6).toUpperCase()}`,
             organization: "Mastery Zone Academic Accreditation",

@@ -679,15 +679,13 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
 
       // Save report summary to localStorage for immediate Homepage availability
       try {
-        if (currentUserId) {
-          const reportsKey = `mz_${currentUserId}_assessment_reports`;
-          const existingReports = JSON.parse(localStorage.getItem(reportsKey) || "[]");
-          const filtered = existingReports.filter((r) => r.sessionId !== sub.sessionId);
-          localStorage.setItem(
-            reportsKey,
-            JSON.stringify([reportEntry, ...filtered].slice(0, 50))
-          );
-        }
+        const reportsKey = currentUserId ? `mz_${currentUserId}_assessment_reports` : "mz_assessment_reports";
+        const existingReports = JSON.parse(localStorage.getItem(reportsKey) || "[]");
+        const filtered = existingReports.filter((r) => r.sessionId !== sub.sessionId);
+        localStorage.setItem(
+          reportsKey,
+          JSON.stringify([reportEntry, ...filtered].slice(0, 50))
+        );
       } catch {}
 
       const passingThreshold = projectSpec?.passingMarks || 80;
