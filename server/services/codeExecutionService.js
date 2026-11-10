@@ -1025,34 +1025,30 @@ function isPublicUntrustedEnvironment() {
   if (process.env.JUDGE0_REQUIRED === "true" || process.env.STAGING === "true") {
     return true;
   }
-  // Missing or unrecognized NODE_ENV fails closed into untrusted mode unless explicitly allowed
-  if (!TRUSTED_LOCAL_ENVS.has(env) && process.env.ALLOW_LOCAL_CODE_EXECUTION !== "true") {
-    return true;
-  }
-  return false;
+  // Any environment other than explicitly trusted local development or test
+  // is treated as untrusted and must fail closed.
+  // ALLOW_LOCAL_CODE_EXECUTION must NEVER override staging, production, preview, or unknown environments.
+  return !TRUSTED_LOCAL_ENVS.has(env);
 }
 
 /**
  * Returns true ONLY if local process execution is explicitly permitted
  * for trusted local development or automated testing.
- * Missing or unknown NODE_ENV NEVER automatically enables local execution.
+ * Unknown or preview environments must ALWAYS fail closed.
+ * Missing NODE_ENV NEVER automatically enables local execution.
+ * ALLOW_LOCAL_CODE_EXECUTION=true must NOT override staging, production, preview, or unknown environments.
  */
 function isLocalExecutionPermitted() {
   const env = getExecutionEnvironmentName();
-  // Any public, staging, or production environment strictly disables local execution
-  if (PUBLIC_OR_STAGING_ENVS.has(env) || process.env.STAGING === "true" || process.env.JUDGE0_REQUIRED === "true") {
+  // Only explicitly trusted local environments (development, test) are eligible for local process execution
+  if (!TRUSTED_LOCAL_ENVS.has(env)) {
     return false;
   }
-  // Explicit opt-in for trusted local environment
-  if (process.env.ALLOW_LOCAL_CODE_EXECUTION === "true") {
-    return true;
+  // Even in trusted environments, respect explicit disable or Judge0 requirement
+  if (process.env.ALLOW_LOCAL_CODE_EXECUTION === "false" || process.env.JUDGE0_REQUIRED === "true") {
+    return false;
   }
-  // Trusted development or test environment
-  if (TRUSTED_LOCAL_ENVS.has(env)) {
-    return true;
-  }
-  // Missing or unknown environment fails closed
-  return false;
+  return true;
 }
 
 function isProductionExecutionRestricted() {

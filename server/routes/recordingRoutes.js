@@ -416,7 +416,13 @@ function streamUploadToTempFile(req, targetDir, fileName) {
             cleanupTemp();
             return reject({ status: 413, message: "Recording exceeds maximum allowed upload size (100 MB)." });
           }
-          writeStream.write(chunk);
+          const canWrite = writeStream.write(chunk);
+          if (!canWrite) {
+            fileStream.pause();
+            writeStream.once("drain", () => {
+              if (!isAborted) fileStream.resume();
+            });
+          }
         });
 
         fileStream.on("limit", () => {
@@ -430,6 +436,12 @@ function streamUploadToTempFile(req, targetDir, fileName) {
           if (!isAborted && writeStream) {
             writeStream.end();
           }
+        });
+
+        writeStream.on("error", (err) => {
+          isAborted = true;
+          cleanupTemp();
+          reject(err);
         });
       });
 
@@ -466,6 +478,14 @@ function streamUploadToTempFile(req, targetDir, fileName) {
         isAborted = true;
         if (writeStream) writeStream.destroy();
         cleanupTemp();
+      });
+
+      req.on("close", () => {
+        if (!req.complete) {
+          isAborted = true;
+          if (writeStream) writeStream.destroy();
+          cleanupTemp();
+        }
       });
 
       req.pipe(bb);
@@ -508,7 +528,13 @@ function streamUploadToTempFile(req, targetDir, fileName) {
           cleanupTemp();
           return reject({ status: 413, message: "Recording exceeds maximum allowed upload size (100 MB)." });
         }
-        writeStream.write(chunk);
+        const canWrite = writeStream.write(chunk);
+        if (!canWrite) {
+          req.pause();
+          writeStream.once("drain", () => {
+            if (!isAborted) req.resume();
+          });
+        }
       });
 
       req.on("end", () => {
@@ -521,6 +547,20 @@ function streamUploadToTempFile(req, targetDir, fileName) {
         isAborted = true;
         writeStream.destroy();
         cleanupTemp();
+      });
+
+      req.on("close", () => {
+        if (!req.complete) {
+          isAborted = true;
+          writeStream.destroy();
+          cleanupTemp();
+        }
+      });
+
+      writeStream.on("error", (err) => {
+        isAborted = true;
+        cleanupTemp();
+        reject(err);
       });
 
       req.on("error", (err) => {
@@ -553,9 +593,28 @@ function streamUploadToTempFile(req, targetDir, fileName) {
 // 1. Upload a new recording (Supports streaming multipart, raw binary, or base64 JSON payload with 100mb limit)
 router.post(
   "/upload",
-  express.raw({ type: ["video/*", "application/octet-stream"], limit: "100mb" }),
-  express.json({ limit: "100mb" }),
   authenticateToken,
+  async (req, res, next) => {
+    // Authenticate and verify meeting authorization BEFORE writing or streaming file
+    const meetingId = req.headers["x-meeting-id"] || req.query.meetingId;
+    if (meetingId) {
+      try {
+        const Meeting = require("../models/Meeting");
+        const meeting = await Meeting.findOne({ meetingId }).lean();
+        if (meeting) {
+          const reqUserId = String(req.user?.userId || req.user?._id || req.user?.id || "");
+          const hostUserId = String(meeting.hostUserId || meeting.userId || "");
+          const isSuperAdmin = req.user?.role === "superadmin" || req.user?.role === "admin";
+          if (!isSuperAdmin && hostUserId && reqUserId !== hostUserId) {
+            return res.status(403).json({ error: "Unauthorized: Only the meeting host can upload recordings for this meeting." });
+          }
+        }
+      } catch (err) {
+        console.warn("Pre-upload meeting check warning:", err.message);
+      }
+    }
+    next();
+  },
   async (req, res) => {
     let createdFilePath = null;
     try {

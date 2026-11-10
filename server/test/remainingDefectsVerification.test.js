@@ -684,6 +684,55 @@ public class Solution {
       }
     });
 
+    await it("Execution Security: ALLOW_LOCAL_CODE_EXECUTION=true with NODE_ENV=preview strictly fails closed", async () => {
+      const prevEnv = process.env.NODE_ENV;
+      const prevAllow = process.env.ALLOW_LOCAL_CODE_EXECUTION;
+      process.env.NODE_ENV = "preview";
+      process.env.ALLOW_LOCAL_CODE_EXECUTION = "true";
+
+      try {
+        assert.strictEqual(isPublicUntrustedEnvironment(), true);
+        assert.strictEqual(isLocalExecutionPermitted(), false);
+      } finally {
+        process.env.NODE_ENV = prevEnv;
+        if (prevAllow !== undefined) process.env.ALLOW_LOCAL_CODE_EXECUTION = prevAllow;
+        else delete process.env.ALLOW_LOCAL_CODE_EXECUTION;
+      }
+    });
+
+    await it("Execution Security: ALLOW_LOCAL_CODE_EXECUTION=true with missing NODE_ENV strictly fails closed", async () => {
+      const prevEnv = process.env.NODE_ENV;
+      const prevAllow = process.env.ALLOW_LOCAL_CODE_EXECUTION;
+      delete process.env.NODE_ENV;
+      process.env.ALLOW_LOCAL_CODE_EXECUTION = "true";
+
+      try {
+        assert.strictEqual(isPublicUntrustedEnvironment(), true);
+        assert.strictEqual(isLocalExecutionPermitted(), false);
+      } finally {
+        process.env.NODE_ENV = prevEnv;
+        if (prevAllow !== undefined) process.env.ALLOW_LOCAL_CODE_EXECUTION = prevAllow;
+        else delete process.env.ALLOW_LOCAL_CODE_EXECUTION;
+      }
+    });
+
+    await it("Execution Security: ALLOW_LOCAL_CODE_EXECUTION=true with NODE_ENV=staging and production strictly fails closed", async () => {
+      const prevEnv = process.env.NODE_ENV;
+      const prevAllow = process.env.ALLOW_LOCAL_CODE_EXECUTION;
+      process.env.ALLOW_LOCAL_CODE_EXECUTION = "true";
+
+      try {
+        process.env.NODE_ENV = "staging";
+        assert.strictEqual(isLocalExecutionPermitted(), false);
+        process.env.NODE_ENV = "production";
+        assert.strictEqual(isLocalExecutionPermitted(), false);
+      } finally {
+        process.env.NODE_ENV = prevEnv;
+        if (prevAllow !== undefined) process.env.ALLOW_LOCAL_CODE_EXECUTION = prevAllow;
+        else delete process.env.ALLOW_LOCAL_CODE_EXECUTION;
+      }
+    });
+
     // -------------------------------------------------------------
     // SECTION 5: JWT Secret Hardening & Cryptographic Entropy
     // -------------------------------------------------------------
@@ -699,6 +748,24 @@ public class Solution {
       const res = validateJwtSecret("", "staging");
       assert.strictEqual(res.valid, false);
       assert.ok(res.error.includes("JWT_SECRET is missing"));
+    });
+
+    await it("JWT Security: Missing secret in preview environment fails validation", async () => {
+      const res = validateJwtSecret("", "preview");
+      assert.strictEqual(res.valid, false);
+      assert.ok(res.error.includes("JWT_SECRET is missing"));
+    });
+
+    await it("JWT Security: Missing secret with undefined NODE_ENV fails validation", async () => {
+      const prevEnv = process.env.NODE_ENV;
+      delete process.env.NODE_ENV;
+      try {
+        const res = validateJwtSecret("", "");
+        assert.strictEqual(res.valid, false);
+        assert.ok(res.error.includes("JWT_SECRET is missing"));
+      } finally {
+        process.env.NODE_ENV = prevEnv;
+      }
     });
 
     await it("JWT Security: Weak/short secret (< 32 chars) in production fails validation", async () => {
@@ -808,6 +875,16 @@ public class Solution {
     await it("CORS Security: Local development origin is allowed in development", async () => {
       const isAllowed = isOriginAllowed("http://localhost:5173", "development");
       assert.strictEqual(isAllowed, true);
+    });
+
+    await it("CORS Security: Local development origin is rejected in preview environment", async () => {
+      const isAllowed = isOriginAllowed("http://localhost:5173", "preview");
+      assert.strictEqual(isAllowed, false);
+    });
+
+    await it("CORS Security: Local development origin is rejected when NODE_ENV is missing/undefined", async () => {
+      const isAllowed = isOriginAllowed("http://localhost:5173", "");
+      assert.strictEqual(isAllowed, false);
     });
 
     await it("CORS Security: Missing origin header (curl, mobile app, server-to-server) is permitted", async () => {
@@ -1003,6 +1080,50 @@ public class Solution {
 
       const secondSent = isDuplicateOutboundEmail(to, subject, html);
       assert.strictEqual(secondSent, true); // Immediate retry is suppressed as duplicate
+    });
+
+    await it("Email Config: getHttpEmailProvider marks test sender and warns in production", async () => {
+      const prevKey = process.env.RESEND_API_KEY;
+      const prevFrom = process.env.RESEND_FROM;
+      const prevEnv = process.env.NODE_ENV;
+
+      try {
+        process.env.RESEND_API_KEY = "re_test_dummy_key_1234567890";
+        delete process.env.RESEND_FROM;
+        process.env.NODE_ENV = "production";
+
+        const provider = getHttpEmailProvider();
+        assert.ok(provider);
+        assert.strictEqual(provider.type, "resend");
+        assert.strictEqual(provider.isTestSender, true);
+        assert.strictEqual(provider.from, "Mastery Zone <onboarding@resend.dev>");
+      } finally {
+        if (prevKey) process.env.RESEND_API_KEY = prevKey; else delete process.env.RESEND_API_KEY;
+        if (prevFrom) process.env.RESEND_FROM = prevFrom; else delete process.env.RESEND_FROM;
+        process.env.NODE_ENV = prevEnv;
+      }
+    });
+
+    await it("Email Config: Verified sender domain in RESEND_FROM is recognized as non-test sender", async () => {
+      const prevKey = process.env.RESEND_API_KEY;
+      const prevFrom = process.env.RESEND_FROM;
+      const prevEnv = process.env.NODE_ENV;
+
+      try {
+        process.env.RESEND_API_KEY = "re_test_dummy_key_1234567890";
+        process.env.RESEND_FROM = "Mastery Zone <notifications@masteryzone.com>";
+        process.env.NODE_ENV = "production";
+
+        const provider = getHttpEmailProvider();
+        assert.ok(provider);
+        assert.strictEqual(provider.type, "resend");
+        assert.strictEqual(provider.isTestSender, false);
+        assert.strictEqual(provider.from, "Mastery Zone <notifications@masteryzone.com>");
+      } finally {
+        if (prevKey) process.env.RESEND_API_KEY = prevKey; else delete process.env.RESEND_API_KEY;
+        if (prevFrom) process.env.RESEND_FROM = prevFrom; else delete process.env.RESEND_FROM;
+        process.env.NODE_ENV = prevEnv;
+      }
     });
 
     console.log("\n================================================================================");
