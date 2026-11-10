@@ -24,6 +24,7 @@ const {
   executeCode,
   evaluateTestCasesBatch,
 } = require("../services/codeExecutionService");
+const { getProblemExecutionConfig } = require("../data/problemExecutionConfig");
 
 // Sandboxed execution helper for coding exercises with isolated environment and safety checks
 async function executeInSandbox(language, code, stdinInput = "", timeoutMs = 8000) {
@@ -924,7 +925,11 @@ router.post("/assignment/submit", authenticateToken, async (req, res) => {
       totalTests = testCases.length;
       const lang = normTrack === "cpp" ? "cpp" : normTrack === "java" ? "java" : normTrack === "python" ? "python" : "javascript";
 
-      const outcomes = await evaluateTestCasesBatch(lang, code, testCases);
+      const execConfig = getProblemExecutionConfig(module);
+      const outcomes = await evaluateTestCasesBatch(lang, code, testCases, {
+        functionName: execConfig.functionName,
+        problemId: module.id,
+      });
 
       testResults = testCases.map((tc, i) => {
         const out = outcomes[i] || { passed: false, actual: "", expected: tc.expectedOutput, error: "Evaluation failed", duration: 0 };

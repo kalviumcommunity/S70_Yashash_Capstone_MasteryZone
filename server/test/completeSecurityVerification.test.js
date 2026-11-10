@@ -1599,7 +1599,7 @@ async function runSuite() {
 
     const batch = await evaluateTestCasesBatch("python", pythonCode, [
       { input: "[2, 7, 11, 15]\n9", expectedOutput: "[0, 1]" },
-    ]);
+    ], { functionName: "twoSum" });
     assert.strictEqual(batch[0].passed, true, `Expected passed=true, got error: ${batch[0].error}`);
     assert(batch[0].actual === "[0, 1]" || batch[0].actual === "[0,1]");
   });
@@ -1624,7 +1624,7 @@ async function runSuite() {
 
     const batch = await evaluateTestCasesBatch("javascript", jsCode, [
       { input: "[2, 7, 11, 15]\n9", expectedOutput: "[0, 1]" },
-    ]);
+    ], { functionName: "twoSum" });
     assert.strictEqual(batch[0].passed, true, `Expected passed=true, got error: ${batch[0].error}`);
     assert(batch[0].actual === "[0,1]" || batch[0].actual === "[0, 1]");
   });
@@ -1650,7 +1650,7 @@ async function runSuite() {
 
     const batch = await evaluateTestCasesBatch("java", javaCode, [
       { input: "[2, 7, 11, 15]\n9", expectedOutput: "[0, 1]" },
-    ]);
+    ], { functionName: "twoSum" });
     assert.strictEqual(batch[0].passed, true, `Expected passed=true, got error: ${batch[0].error}`);
   });
 
@@ -1674,7 +1674,7 @@ async function runSuite() {
 
     const batch = await evaluateTestCasesBatch("cpp", cppCode, [
       { input: "[-2, 1, -3, 4, -1, 2, 1, -5, 4]", expectedOutput: "6" },
-    ]);
+    ], { functionName: "maxSubArray" });
     assert.strictEqual(batch[0].passed, true, `Expected passed=true, got error: ${batch[0].error}`);
     assert.strictEqual(batch[0].actual, "6");
   });

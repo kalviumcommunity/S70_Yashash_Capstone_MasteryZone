@@ -47,6 +47,7 @@ const {
   evaluateTestCasesBatch,
   evaluateSingleTestCase,
 } = require("../services/codeExecutionService");
+const { getProblemExecutionConfig } = require("../data/problemExecutionConfig");
 
 // -------------------------------------------------------------
 // POST /api/coding/execute
@@ -365,24 +366,8 @@ function getValidCode(...candidates) {
   return "";
 }
 
-function resolveChallengeFunctionName(challengeId = "", challengeTitle = "") {
-  if (!challengeId && !challengeTitle) return "";
-  const id = String(challengeId).toLowerCase().replace(/^ch_/, "");
-  const parts = id.split(/[_-]/).filter(Boolean);
-  if (parts.length > 0) {
-    return parts[0] + parts.slice(1).map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join("");
-  }
-  return "";
-}
-
-function resolveCurriculumFunctionName(exercise) {
-  if (!exercise) return "";
-  if (exercise.functionName) return exercise.functionName;
-  const prompt = exercise.prompt || "";
-  const match = prompt.match(/(?:function|utility function|method)\s+`?([a-zA-Z0-9_]+)\s*\(/i) ||
-                prompt.match(/`([a-zA-Z0-9_]+)\([^)]*\)`/);
-  return match && match[1] ? match[1] : "";
-}
+// Universal Problem Configuration: Replaced runtime string splitting / regex with authoritative registry
+// All callers resolve explicit configurations via getProblemExecutionConfig()
 
 // Structured configurations for dedicated language coding compilers
 const PLAYGROUND_COMPILER_CONFIGS = {
@@ -699,8 +684,11 @@ router.post("/challenges/:id/test", optionalAuthenticateToken, async (req, res) 
       : (challenge.testCases || []).filter((t) => !t.isHidden);
     const testCasesToRun = publicTests.length > 0 ? publicTests : challenge.testCases || [];
 
-    const targetFnName = challenge.functionName || resolveChallengeFunctionName(challenge.id, challenge.title);
-    const outcomes = await evaluateTestCasesBatch(effectiveLang, code, testCasesToRun, { functionName: targetFnName });
+    const execConfig = getProblemExecutionConfig(challenge);
+    const outcomes = await evaluateTestCasesBatch(effectiveLang, code, testCasesToRun, {
+      functionName: execConfig.functionName,
+      problemId: challenge.id,
+    });
     const testResults = testCasesToRun.map((test, i) => {
       const outcome = outcomes[i] || { passed: false, actual: "", expected: test.expectedOutput, error: "Evaluation failed", duration: 0 };
       return {
@@ -757,8 +745,11 @@ router.post("/challenges/:id/submit", optionalAuthenticateToken, async (req, res
   try {
     const allTests = challenge.testCases;
     const isPlayground = Boolean(id && id.startsWith("playground-"));
-    const targetFnName = challenge.functionName || resolveChallengeFunctionName(challenge.id, challenge.title);
-    const outcomes = await evaluateTestCasesBatch(effectiveLang, code, allTests, { functionName: targetFnName });
+    const execConfig = getProblemExecutionConfig(challenge);
+    const outcomes = await evaluateTestCasesBatch(effectiveLang, code, allTests, {
+      functionName: execConfig.functionName,
+      problemId: challenge.id,
+    });
     const testResults = allTests.map((test, i) => {
       const outcome = outcomes[i] || { passed: false, actual: "", expected: test.expectedOutput, error: "Evaluation failed", duration: 0 };
       const isHidden = isPlayground ? false : (test.isHidden !== undefined ? test.isHidden : i >= 3);
@@ -1608,8 +1599,11 @@ router.post("/curriculum/exercise/run", authenticateToken, async (req, res) => {
     }
 
     const publicTests = (module.codingExercise.testCases || []).filter((t) => !t.isHidden).slice(0, 3);
-    const targetFnName = resolveCurriculumFunctionName(module.codingExercise);
-    const outcomes = await evaluateTestCasesBatch(lang, code, publicTests, { functionName: targetFnName });
+    const execConfig = getProblemExecutionConfig(module);
+    const outcomes = await evaluateTestCasesBatch(lang, code, publicTests, {
+      functionName: execConfig.functionName,
+      problemId: module.id,
+    });
     const results = publicTests.map((tc, i) => {
       const outcome = outcomes[i] || { passed: false, actual: "", expected: tc.expectedOutput, error: "Evaluation failed", duration: 0 };
       return {
@@ -1659,8 +1653,11 @@ router.post("/curriculum/exercise/submit", authenticateToken, async (req, res) =
     const testCases = module.codingExercise.testCases;
     const lang = (language || (trackId === "cpp" ? "cpp" : trackId === "java" ? "java" : trackId === "python" ? "python" : "javascript")).toLowerCase().trim();
 
-    const targetFnName = resolveCurriculumFunctionName(module.codingExercise);
-    const outcomes = await evaluateTestCasesBatch(lang, code, testCases, { functionName: targetFnName });
+    const execConfig = getProblemExecutionConfig(module);
+    const outcomes = await evaluateTestCasesBatch(lang, code, testCases, {
+      functionName: execConfig.functionName,
+      problemId: module.id,
+    });
     const testResults = testCases.map((tc, i) => {
       const outcome = outcomes[i] || { passed: false, actual: "", expected: tc.expectedOutput, error: "Evaluation failed", duration: 0 };
       const isHidden = tc.isHidden !== undefined ? tc.isHidden : i >= 3;
@@ -4228,8 +4225,11 @@ router.post(["/proctored-session/:sessionId/submit", "/proctored-session/submit"
       if (Array.isArray(testResults) && testResults.length > 0) {
         evaluatedResults = testResults;
       } else {
-        const targetFnName = resolveChallengeFunctionName(session.questionId, session.assessmentTitle);
-        const outcomes = await evaluateTestCasesBatch(submissionLang, submissionCode, qTestCases, { functionName: targetFnName });
+        const execConfig = getProblemExecutionConfig(session.questionId || session.problemData);
+        const outcomes = await evaluateTestCasesBatch(submissionLang, submissionCode, qTestCases, {
+          functionName: execConfig.functionName,
+          problemId: session.questionId,
+        });
         evaluatedResults = qTestCases.map((tc, i) => {
           const outcome = outcomes[i] || { passed: false, actual: "", expected: tc.expectedOutput, error: "Evaluation failed", duration: 0 };
           const isHidden = tc.isHidden !== undefined ? tc.isHidden : i >= 3;

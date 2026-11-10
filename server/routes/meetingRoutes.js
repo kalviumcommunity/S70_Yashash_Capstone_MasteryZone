@@ -34,6 +34,7 @@ const {
   validateCodeSafety,
   isProductionExecutionRestricted,
 } = require("../services/codeExecutionService");
+const { getProblemExecutionConfig } = require("../data/problemExecutionConfig");
 
 // Preset study rooms matching reference image & coding curriculum
 const STUDY_ROOMS_CATALOG = [
@@ -747,7 +748,7 @@ router.post("/:meetingId/run-tests", authenticateToken, async (req, res) => {
   try {
     const cleanId = normalizeMeetingId(req.params.meetingId);
     const nonDashed = cleanId.replace(/-/g, "");
-    const { code, language = "python", testCases = [] } = req.body;
+    const { code, language = "python", testCases = [], problemId, functionName } = req.body;
 
     if (!code || typeof code !== "string") {
       return res.status(400).json({ error: "Code content is required" });
@@ -785,7 +786,12 @@ router.post("/:meetingId/run-tests", authenticateToken, async (req, res) => {
     }
 
     const testsToRun = testCases.length > 0 ? testCases : meeting?.testCases || [];
-    const evaluated = await evaluateTestCasesBatch(lang, code, testsToRun);
+    const execConfig = getProblemExecutionConfig(problemId || functionName || meeting.problemId || meeting.functionName);
+    const resolvedFunctionName = functionName || execConfig.functionName || "";
+    const evaluated = await evaluateTestCasesBatch(lang, code, testsToRun, {
+      functionName: resolvedFunctionName,
+      problemId: problemId || execConfig.problemId || meeting.problemId,
+    });
     const testResults = evaluated.map((item, i) => {
       const tc = testsToRun[i] || {};
       const actualOutput = item.actual !== undefined ? item.actual : (item.actualOutput || "");
@@ -823,6 +829,7 @@ router.post("/:meetingId/run-tests", authenticateToken, async (req, res) => {
       passedCount,
       totalCount: testResults.length,
       results: testResults,
+      testResults,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

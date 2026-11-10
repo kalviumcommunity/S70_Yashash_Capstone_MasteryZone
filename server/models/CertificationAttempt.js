@@ -96,6 +96,7 @@ const certificationAttemptSchema = new mongoose.Schema(
     selectedCodingQuestions: [
       {
         questionId: { type: String, required: true },
+        functionName: { type: String, default: "" },
         title: { type: String, required: true },
         difficulty: { type: String, default: "Medium" },
         category: { type: String, default: "Algorithms" },

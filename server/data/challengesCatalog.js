@@ -8,6 +8,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_tight_bound",
     "title": "Tight Bound Proof Challenge",
+    "functionName": "tightBound",
     "difficulty": "Medium",
     "category": "Asymptotic Analysis & Big-O",
     "description": "Given a polynomial f(n) = a_d*n^d + ... + a_1*n + a_0 with non-negative integer coefficients and a positive leading coefficient, compute the tight bound constants c1, c2, and n0 that prove f(n) = Θ(n^d).\n\nUse the two-step squeeze strategy:\n• Lower bound (Ω): Since all lower-order terms are non-negative, dropping them gives f(n) >= a_d*n^d. So c1 = a_d (the leading coefficient).\n• Upper bound (O): For n >= 1, n^i <= n^d for all i <= d, so each term a_i*n^i <= a_i*n^d. Summing all terms gives f(n) <= (sum a_i)*n^d. So c2 = sum of all coefficients.\n• Threshold: Both bounds hold simultaneously from n0 = 1.\n\nOutput: c1, c2, and n0 such that c1*n^d <= f(n) <= c2*n^d for all n >= n0.",
@@ -113,6 +114,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_two_sum",
     "title": "Two Sum",
+    "functionName": "twoSum",
     "difficulty": "Easy",
     "category": "Arrays",
     "description": "Given an array of integers `nums` and an integer `target`, return indices of the two numbers such that they add up to `target`.\n\nYou may assume that each input would have exactly one solution, and you may not use the same element twice.",
@@ -211,6 +213,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_valid_parentheses",
     "title": "Valid Parentheses",
+    "functionName": "isValid",
     "difficulty": "Medium",
     "category": "Stacks",
     "description": "Given a string `s` containing just the characters `'('`, `')'`, `'{'`, `'}'`, `'['` and `']'`, determine if the input string is valid.\n\nAn input string is valid if open brackets are closed by the same type of brackets and in the correct order.",
@@ -313,6 +316,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_palindrome",
     "title": "Valid Palindrome",
+    "functionName": "isPalindrome",
     "difficulty": "Easy",
     "category": "Two Pointers",
     "description": "A phrase is a palindrome if, after converting all uppercase letters into lowercase letters and removing all non-alphanumeric characters, it reads the same forward and backward.",
@@ -408,6 +412,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_max_subarray",
     "title": "Maximum Subarray (Kadane's Algorithm)",
+    "functionName": "maxSubArray",
     "difficulty": "Medium",
     "category": "Dynamic Programming",
     "description": "Given an integer array `nums`, find the subarray with the largest sum, and return its sum.",
@@ -499,6 +504,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_best_time_stock",
     "title": "Best Time to Buy and Sell Stock",
+    "functionName": "maxProfit",
     "difficulty": "Easy",
     "category": "Arrays",
     "description": "You are given an array `prices` where `prices[i]` is the price of a given stock on the `i`th day.\n\nYou want to maximize your profit by choosing a single day to buy one stock and choosing a different day in the future to sell that stock.\n\nReturn the maximum profit you can achieve from this transaction. If you cannot achieve any profit, return 0.",
@@ -595,6 +601,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_product_except_self",
     "title": "Product of Array Except Self",
+    "functionName": "productExceptSelf",
     "difficulty": "Medium",
     "category": "Arrays",
     "description": "Given an integer array `nums`, return an array `answer` such that `answer[i]` is equal to the product of all the elements of `nums` except `nums[i]`.\n\nYou must write an algorithm that runs in O(n) time and without using the division operation.",
@@ -691,6 +698,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_rotate_array",
     "title": "Rotate Array by K Steps",
+    "functionName": "rotate",
     "difficulty": "Medium",
     "category": "Arrays",
     "description": "Given an integer array `nums`, rotate the array to the right by `k` steps, where `k` is non-negative.",
@@ -787,6 +795,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_merge_sorted_arrays",
     "title": "Merge Two Sorted Arrays",
+    "functionName": "merge",
     "difficulty": "Easy",
     "category": "Arrays",
     "description": "You are given two integer arrays `nums1` and `nums2`, each sorted in non-decreasing order.\n\nMerge `nums1` and `nums2` into a single sorted array sorted in non-decreasing order.",
@@ -883,6 +892,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_longest_common_prefix",
     "title": "Longest Common Prefix",
+    "functionName": "longestCommonPrefix",
     "difficulty": "Easy",
     "category": "Strings",
     "description": "Write a function to find the longest common prefix string amongst an array of strings.\n\nIf there is no common prefix, return an empty string.",
@@ -979,6 +989,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_valid_anagram",
     "title": "Valid Anagram",
+    "functionName": "isAnagram",
     "difficulty": "Easy",
     "category": "Strings",
     "description": "Given two strings `s` and `t`, return `true` if `t` is an anagram of `s`, and `false` otherwise.\n\nAn Anagram is a word or phrase formed by rearranging the letters of a different word or phrase, typically using all the original letters exactly once.",
@@ -1075,6 +1086,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_string_compression",
     "title": "String Compression Run Length",
+    "functionName": "compress",
     "difficulty": "Medium",
     "category": "Strings",
     "description": "Given a string of characters, compress it using the following algorithm:\n\nBegin with an empty string `s`. For each group of consecutive repeating characters in the input, append the character followed by the group's length if length > 1 (if length is 1, just append the character).\n\nReturn the compressed string.",
@@ -1171,6 +1183,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_roman_to_integer",
     "title": "Roman to Integer Converter",
+    "functionName": "romanToInt",
     "difficulty": "Easy",
     "category": "Strings",
     "description": "Roman numerals are represented by seven different symbols: I (1), V (5), X (10), L (50), C (100), D (500) and M (1000).\n\nGiven a roman numeral string, convert it to an integer.",
@@ -1273,6 +1286,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_group_anagrams",
     "title": "Group Anagrams Count",
+    "functionName": "groupAnagrams",
     "difficulty": "Medium",
     "category": "Hashing",
     "description": "Given an array of strings `strs`, group the anagrams together. Return the number of distinct anagram groups formed.",
@@ -1370,6 +1384,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_longest_consecutive_seq",
     "title": "Longest Consecutive Sequence",
+    "functionName": "longestConsecutive",
     "difficulty": "Medium",
     "category": "Hashing",
     "description": "Given an unsorted array of integers `nums`, return the length of the longest consecutive elements sequence.\n\nYou must write an algorithm that runs in O(n) time.",
@@ -1466,6 +1481,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_subarray_sum_k",
     "title": "Subarray Sum Equals K",
+    "functionName": "subarraySum",
     "difficulty": "Medium",
     "category": "Hashing",
     "description": "Given an array of integers `nums` and an integer `k`, return the total number of continuous subarrays whose sum equals to `k`.",
@@ -1563,6 +1579,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_first_unique_char",
     "title": "First Unique Character in a String",
+    "functionName": "firstUniqChar",
     "difficulty": "Easy",
     "category": "Hashing",
     "description": "Given a string `s`, find the first non-repeating character in it and return its index. If it does not exist, return `-1`.",
@@ -1664,6 +1681,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_container_water",
     "title": "Container With Most Water",
+    "functionName": "maxArea",
     "difficulty": "Medium",
     "category": "Two Pointers",
     "description": "You are given an integer array `height` of length `n`. There are `n` vertical lines drawn such that the two endpoints of the `i`th line are `(i, 0)` and `(i, height[i])`.\n\nFind two lines that together with the x-axis form a container, such that the container contains the most water.\n\nReturn the maximum amount of water a container can store.",
@@ -1760,6 +1778,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_three_sum",
     "title": "3Sum Zero Triplet Count",
+    "functionName": "threeSum",
     "difficulty": "Medium",
     "category": "Two Pointers",
     "description": "Given an integer array nums, return the number of unique triplets `[nums[i], nums[j], nums[k]]` such that `i != j`, `i != k`, and `j != k`, and `nums[i] + nums[j] + nums[k] == 0`.",
@@ -1861,6 +1880,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_trapping_rain_water",
     "title": "Trapping Rain Water",
+    "functionName": "trap",
     "difficulty": "Hard",
     "category": "Two Pointers",
     "description": "Given `n` non-negative integers representing an elevation map where the width of each bar is 1, compute how much water it can trap after raining.",
@@ -1958,6 +1978,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_move_zeroes",
     "title": "Move Zeroes to End",
+    "functionName": "moveZeroes",
     "difficulty": "Easy",
     "category": "Two Pointers",
     "description": "Given an integer array `nums`, move all `0`'s to the end of it while maintaining the relative order of the non-zero elements.\n\nNote that you must do this in-place without making a copy of the array.",
@@ -2054,6 +2075,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_longest_substr_no_repeat",
     "title": "Longest Substring Without Repeating Characters",
+    "functionName": "lengthOfLongestSubstring",
     "difficulty": "Medium",
     "category": "Sliding Window",
     "description": "Given a string `s`, find the length of the longest substring without repeating characters.",
@@ -2155,6 +2177,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_min_window_substring",
     "title": "Minimum Window Substring Length",
+    "functionName": "minWindow",
     "difficulty": "Hard",
     "category": "Sliding Window",
     "description": "Given two strings `s` and `t`, return the minimum length of a substring in `s` such that every character in `t` (including duplicates) is included in the window. If there is no such substring, return `0`.",
@@ -2257,6 +2280,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_max_avg_subarray",
     "title": "Maximum Average Subarray I",
+    "functionName": "findMaxAverage",
     "difficulty": "Easy",
     "category": "Sliding Window",
     "description": "You are given an integer array `nums` consisting of `n` elements, and an integer `k`.\n\nFind a contiguous subarray whose length is equal to `k` that has the maximum average value and return this value formatted to 2 decimal places.",
@@ -2354,6 +2378,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_longest_repeating_char_replace",
     "title": "Longest Repeating Character Replacement",
+    "functionName": "characterReplacement",
     "difficulty": "Medium",
     "category": "Sliding Window",
     "description": "You are given a string `s` and an integer `k`. You can choose any character of the string and change it to any other uppercase English character. You can perform this operation at most `k` times.\n\nReturn the length of the longest substring containing the same letter you can get after performing the above operations.",
@@ -2451,6 +2476,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_min_stack",
     "title": "Min Stack Operations Simulator",
+    "functionName": "minStack",
     "difficulty": "Medium",
     "category": "Stacks",
     "description": "Design a stack that supports push, pop, top, and retrieving the minimum element in constant time O(1).\n\nSimulate operations: 'push val', 'pop', 'top', 'getMin'. Output space-separated answers for each 'top' and 'getMin' call.",
@@ -2542,6 +2568,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_daily_temperatures",
     "title": "Daily Temperatures",
+    "functionName": "dailyTemperatures",
     "difficulty": "Medium",
     "category": "Stacks",
     "description": "Given an array of integers `temperatures` represents the daily temperatures, return an array `answer` such that `answer[i]` is the number of days you have to wait after the `i`th day to get a warmer temperature. If there is no future day for which this is possible, keep `answer[i] == 0`.",
@@ -2638,6 +2665,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_eval_rpn",
     "title": "Evaluate Reverse Polish Notation",
+    "functionName": "evalRPN",
     "difficulty": "Medium",
     "category": "Stacks",
     "description": "You are given an array of strings `tokens` that represents an arithmetic expression in Reverse Polish Notation (RPN).\n\nEvaluate the expression. Return an integer that represents the value of the expression.\n\nValid operators are `+`, `-`, `*`, and `/`. Division truncates toward zero.",
@@ -2734,6 +2762,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_next_greater_elem",
     "title": "Next Greater Element I",
+    "functionName": "nextGreaterElement",
     "difficulty": "Easy",
     "category": "Stacks",
     "description": "The next greater element of some element `x` in an array is the first greater element that is to the right of `x` in the same array.\n\nYou are given two distinct 0-indexed integer arrays `nums1` and `nums2`, where `nums1` is a subset of `nums2`.\n\nFor each `0 <= i < nums1.length`, find the index `j` such that `nums1[i] == nums2[j]` and determine the next greater element of `nums2[j]` in `nums2`. If there is no next greater element, then the answer for this query is `-1`.",
@@ -2831,6 +2860,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_queue_using_stacks",
     "title": "Implement Queue using Stacks",
+    "functionName": "queueUsingStacks",
     "difficulty": "Easy",
     "category": "Queues",
     "description": "Implement a first in first out (FIFO) queue using only two stacks. The implemented queue should support normal queue operations: `push`, `pop`, `peek`, and `empty`.\n\nSimulate operations and output space-separated values for all `pop`, `peek`, and `empty` queries.",
@@ -2922,6 +2952,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_sliding_window_max",
     "title": "Sliding Window Maximum",
+    "functionName": "maxSlidingWindow",
     "difficulty": "Hard",
     "category": "Queues",
     "description": "You are given an array of integers `nums`, there is a sliding window of size `k` which is moving from the very left of the array to the very right. You can only see the `k` numbers in the window. Each time the sliding window moves right by one position.\n\nReturn the max sliding window values space-separated.",
@@ -3020,6 +3051,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_first_unique_stream",
     "title": "First Non-Repeating Character in Stream",
+    "functionName": "firstUniqueStream",
     "difficulty": "Medium",
     "category": "Queues",
     "description": "Given a stream of characters as a string, find the first non-repeating character after reading each character. If there is no non-repeating character at any point, output `#`.\n\nReturn the concatenated sequence of characters produced at each step.",
@@ -3116,6 +3148,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_circular_queue",
     "title": "Design Circular Queue Capacity",
+    "functionName": "circularQueue",
     "difficulty": "Medium",
     "category": "Queues",
     "description": "Design your implementation of the circular queue. The circular queue is a linear data structure in which the operations are performed based on FIFO principle and the last position is connected back to the first position to make a circle.\n\nSimulate operations: enQueue X, deQueue, Front, Rear, isEmpty, isFull. Output space-separated results for all non-void operations.",
@@ -3208,6 +3241,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_reverse_linked_list",
     "title": "Reverse a Singly Linked List",
+    "functionName": "reverseList",
     "difficulty": "Easy",
     "category": "Linked Lists",
     "description": "Given the head of a singly linked list, reverse the list, and return the reversed list nodes.",
@@ -3303,6 +3337,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_merge_two_sorted_lists",
     "title": "Merge Two Sorted Linked Lists",
+    "functionName": "mergeTwoLists",
     "difficulty": "Easy",
     "category": "Linked Lists",
     "description": "You are given the heads of two sorted linked lists `list1` and `list2`.\n\nMerge the two lists into one sorted list. The list should be made by splicing together the nodes of the first two lists.\n\nReturn the space-separated values of the merged linked list.",
@@ -3400,6 +3435,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_linked_list_cycle",
     "title": "Linked List Cycle Detection",
+    "functionName": "hasCycle",
     "difficulty": "Easy",
     "category": "Linked Lists",
     "description": "Given `head`, the head of a linked list, determine if the linked list has a cycle in it.\n\nThere is a cycle in a linked list if there is some node in the list that can be reached again by continuously following the `next` pointer. Return `true` if there is a cycle, or `false` otherwise.",
@@ -3496,6 +3532,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_remove_nth_from_end",
     "title": "Remove Nth Node From End of List",
+    "functionName": "removeNthFromEnd",
     "difficulty": "Medium",
     "category": "Linked Lists",
     "description": "Given the head of a linked list, remove the `n`th node from the end of the list and return its nodes.",
@@ -3592,6 +3629,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_power_of_two",
     "title": "Power of Two & Recursion",
+    "functionName": "isPowerOfTwo",
     "difficulty": "Easy",
     "category": "Recursion",
     "description": "Given an integer `n`, return `true` if it is a power of two. Otherwise, return `false`.\n\nAn integer `n` is a power of two if there exists an integer `x` such that `n == 2^x`.",
@@ -3691,6 +3729,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_generate_parentheses",
     "title": "Generate Parentheses Combinations",
+    "functionName": "generateParenthesis",
     "difficulty": "Medium",
     "category": "Recursion",
     "description": "Given `n` pairs of parentheses, write a function to generate all combinations of well-formed parentheses in lexicographical order.",
@@ -3786,6 +3825,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_combination_sum",
     "title": "Combination Sum Count",
+    "functionName": "combinationSum",
     "difficulty": "Medium",
     "category": "Recursion",
     "description": "Given an array of distinct integers `candidates` and a target integer `target`, return the number of unique combinations of `candidates` where the chosen numbers sum to `target`.\n\nThe same number may be chosen from `candidates` an unlimited number of times.",
@@ -3884,6 +3924,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_subsets",
     "title": "Subsets Power Set Count & Size",
+    "functionName": "subsets",
     "difficulty": "Medium",
     "category": "Recursion",
     "description": "Given an integer array `nums` of unique elements, return two space-separated integers: the total size of its power set (2^n) and the number of subsets with size >= 2.",
@@ -3980,6 +4021,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_binary_search",
     "title": "Binary Search in Sorted Array",
+    "functionName": "search",
     "difficulty": "Easy",
     "category": "Binary Search",
     "description": "Given an array of integers `nums` which is sorted in ascending order, and an integer `target`, write a function to search `target` in `nums`. If `target` exists, then return its index. Otherwise, return `-1`.\n\nYou must write an algorithm with O(log n) runtime complexity.",
@@ -4078,6 +4120,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_search_rotated_array",
     "title": "Search in Rotated Sorted Array",
+    "functionName": "search",
     "difficulty": "Medium",
     "category": "Binary Search",
     "description": "There is an integer array `nums` sorted in ascending order (with distinct values).\n\nPrior to being passed to your function, `nums` is possibly rotated at an unknown pivot index.\n\nGiven the array `nums` after the possible rotation and an integer `target`, return the index of `target` if it is in `nums`, or `-1` if it is not in `nums`.\n\nYou must achieve O(log n) runtime complexity.",
@@ -4175,6 +4218,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_find_min_rotated",
     "title": "Find Minimum in Rotated Sorted Array",
+    "functionName": "findMin",
     "difficulty": "Medium",
     "category": "Binary Search",
     "description": "Suppose an array of length `n` sorted in ascending order is rotated between `1` and `n` times.\n\nGiven the sorted rotated array `nums` of unique elements, return the minimum element of this array.\n\nYou must write an algorithm that runs in O(log n) time.",
@@ -4273,6 +4317,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_find_peak_element",
     "title": "Find Peak Element Index",
+    "functionName": "findPeakElement",
     "difficulty": "Medium",
     "category": "Binary Search",
     "description": "A peak element is an element that is strictly greater than its neighbors.\n\nGiven a 0-indexed integer array `nums`, find a peak element, and return its index. If the array contains multiple peaks, return the index to any of the peaks.\n\nYou may imagine that `nums[-1] = nums[n] = -∞`.\n\nYou must write an algorithm that runs in O(log n) time.",
@@ -4370,6 +4415,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_merge_intervals",
     "title": "Merge Overlapping Intervals",
+    "functionName": "merge",
     "difficulty": "Medium",
     "category": "Sorting",
     "description": "Given an array of `intervals` where `intervals[i] = [start_i, end_i]`, merge all overlapping intervals, and return an array of the non-overlapping intervals that cover all the intervals in the input.\n\nPrint the merged intervals formatted as start-end pairs separated by space, e.g. `1-6 8-10 15-18`.",
@@ -4466,6 +4512,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_sort_colors",
     "title": "Sort Colors (Dutch National Flag)",
+    "functionName": "sortColors",
     "difficulty": "Medium",
     "category": "Sorting",
     "description": "Given an array `nums` with `n` objects colored red, white, or blue, sort them in-place so that objects of the same color are adjacent, with the colors in the order red, white, and blue.\n\nWe will use the integers `0`, `1`, and `2` to represent the color red, white, and blue, respectively.\n\nYou must solve this problem without using the library's sort function and in one pass with O(1) extra memory.",
@@ -4564,6 +4611,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_kth_largest_array",
     "title": "Kth Largest Element in an Array",
+    "functionName": "findKthLargest",
     "difficulty": "Medium",
     "category": "Sorting",
     "description": "Given an integer array `nums` and an integer `k`, return the `k`th largest element in the array.\n\nNote that it is the `k`th largest element in sorted order, not the `k`th distinct element.",
@@ -4659,6 +4707,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_non_overlapping_intervals",
     "title": "Non-overlapping Intervals Min Removal",
+    "functionName": "nonOverlappingIntervals",
     "difficulty": "Medium",
     "category": "Sorting",
     "description": "Given an array of intervals `intervals` where `intervals[i] = [start_i, end_i]`, return the minimum number of intervals you need to remove to make the rest of the intervals non-overlapping.",
@@ -4755,6 +4804,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_invert_binary_tree",
     "title": "Invert Binary Tree Level Order",
+    "functionName": "invertTree",
     "difficulty": "Easy",
     "category": "Trees",
     "description": "Given the root of a binary tree in level order representation, invert the tree (swap left and right subtrees recursively), and return its inverted level-order traversal.",
@@ -4851,6 +4901,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_max_depth_binary_tree",
     "title": "Maximum Depth of Binary Tree",
+    "functionName": "maxDepth",
     "difficulty": "Easy",
     "category": "Trees",
     "description": "Given the root of a binary tree in level order, return its maximum depth.\n\nA binary tree's maximum depth is the number of nodes along the longest path from the root node down to the farthest leaf node.",
@@ -4945,6 +4996,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_validate_bst",
     "title": "Validate Binary Search Tree",
+    "functionName": "isValidBST",
     "difficulty": "Medium",
     "category": "Trees",
     "description": "Given the root of a binary tree in level order, determine if it is a valid binary search tree (BST).\n\nA valid BST is defined as follows: the left subtree of a node contains only nodes with keys strictly less than the node's key; the right subtree contains only nodes with keys strictly greater; both left and right subtrees must also be binary search trees.",
@@ -5041,6 +5093,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_lca_binary_tree",
     "title": "Lowest Common Ancestor of Binary Tree",
+    "functionName": "lowestCommonAncestor",
     "difficulty": "Medium",
     "category": "Trees",
     "description": "Given a binary tree in level order, find the lowest common ancestor (LCA) of two given nodes `p` and `q`.\n\nThe lowest common ancestor is defined between two nodes p and q as the lowest node in T that has both p and q as descendants (where we allow a node to be a descendant of itself).",
@@ -5140,6 +5193,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_number_of_islands",
     "title": "Number of Islands",
+    "functionName": "numIslands",
     "difficulty": "Medium",
     "category": "Graphs",
     "description": "Given an `m x n` 2D binary grid `grid` which represents a map of `'1'`s (land) and `'0'`s (water), return the number of islands.\n\nAn island is surrounded by water and is formed by connecting adjacent lands horizontally or vertically. You may assume all four edges of the grid are all surrounded by water.",
@@ -5238,6 +5292,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_clone_graph",
     "title": "Graph Node Reachability Count",
+    "functionName": "cloneGraph",
     "difficulty": "Medium",
     "category": "Graphs",
     "description": "Given an undirected connected graph with `n` nodes labeled `1` to `n` and `m` edges, count the total reachable nodes and edges from node `1`.\n\nOutput two space-separated integers: reachable node count and total edge count.",
@@ -5334,6 +5389,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_course_schedule",
     "title": "Course Schedule Cycle Detection",
+    "functionName": "canFinish",
     "difficulty": "Medium",
     "category": "Graphs",
     "description": "There are a total of `numCourses` courses you have to take, labeled from `0` to `numCourses - 1`. You are given an array `prerequisites` where `prerequisites[i] = [a_i, b_i]` indicates that you must take course `b_i` first if you want to take course `a_i`.\n\nReturn `true` if you can finish all courses. Otherwise, return `false`.",
@@ -5432,6 +5488,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_rotting_oranges",
     "title": "Rotting Oranges Multi-Source BFS",
+    "functionName": "orangesRotting",
     "difficulty": "Medium",
     "category": "Graphs",
     "description": "You are given an `m x n` grid where each cell can have one of three values:\n• `0` representing an empty cell,\n• `1` representing a fresh orange, or\n• `2` representing a rotten orange.\n\nEvery minute, any fresh orange that is 4-directionally adjacent to a rotten orange becomes rotten.\n\nReturn the minimum number of minutes that must elapse until no cell has a fresh orange. If this is impossible, return `-1`.",
@@ -5536,6 +5593,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_jump_game",
     "title": "Jump Game Reachability",
+    "functionName": "canJump",
     "difficulty": "Medium",
     "category": "Greedy",
     "description": "You are given an integer array `nums`. You are initially positioned at the array's first index, and each element in the array represents your maximum jump length at that position.\n\nReturn `true` if you can reach the last index, or `false` otherwise.",
@@ -5632,6 +5690,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_gas_station",
     "title": "Gas Station Circuit",
+    "functionName": "gasStation",
     "difficulty": "Medium",
     "category": "Greedy",
     "description": "There are `n` gas stations along a circular route, where the amount of gas at the `i`th station is `gas[i]`.\n\nYou have a car with an unlimited gas tank and it costs `cost[i]` of gas to travel from the `i`th station to its next `(i + 1)`th station. You begin the journey with an empty tank at one of the gas stations.\n\nGiven two integer arrays `gas` and `cost`, return the starting gas station's index if you can travel around the circuit once in the clockwise direction, otherwise return `-1`.\n\nIf there exists a solution, it is guaranteed to be unique.",
@@ -5729,6 +5788,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_assign_cookies",
     "title": "Assign Cookies to Children",
+    "functionName": "assignCookies",
     "difficulty": "Easy",
     "category": "Greedy",
     "description": "Assume you are an awesome parent and want to give your children some cookies. But, you should give each child at most one cookie.\n\nEach child `i` has a greed factor `g[i]`, which is the minimum size of a cookie that the child will be content with; and each cookie `j` has a size `s[j]`. If `s[j] >= g[i]`, we can assign the cookie `j` to the child `i`, and the child `i` will be content.\n\nYour goal is to maximize the number of your content children and output the maximum number.",
@@ -5826,6 +5886,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_partition_labels",
     "title": "Partition String Labels",
+    "functionName": "partitionLabels",
     "difficulty": "Medium",
     "category": "Greedy",
     "description": "You are given a string `s`. We want to partition the string into as many parts as possible so that each letter appears in at most one part.\n\nNote that the partition is done so that after concatenating all the parts in order, the resultant string should be `s`.\n\nReturn a space-separated list of integers representing the size of these parts.",
@@ -5922,6 +5983,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_climbing_stairs",
     "title": "Climbing Stairs Ways",
+    "functionName": "climbStairs",
     "difficulty": "Easy",
     "category": "Dynamic Programming",
     "description": "You are climbing a staircase. It takes `n` steps to reach the top.\n\nEach time you can either climb `1` or `2` steps. In how many distinct ways can you climb to the top?",
@@ -6017,6 +6079,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_coin_change",
     "title": "Coin Change Minimum Coins",
+    "functionName": "coinChange",
     "difficulty": "Medium",
     "category": "Dynamic Programming",
     "description": "You are given an integer array `coins` representing coins of different denominations and an integer `amount` representing a total amount of money.\n\nReturn the fewest number of coins that you need to make up that amount. If that amount of money cannot be made up by any combination of the coins, return `-1`.\n\nYou may assume that you have an infinite number of each kind of coin.",
@@ -6119,6 +6182,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_longest_increasing_subseq",
     "title": "Longest Increasing Subsequence",
+    "functionName": "lengthOfLIS",
     "difficulty": "Medium",
     "category": "Dynamic Programming",
     "description": "Given an integer array `nums`, return the length of the longest strictly increasing subsequence.\n\nA subsequence is an array that can be derived from another array by deleting some or no elements without changing the order of the remaining elements.",
@@ -6219,6 +6283,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_house_robber",
     "title": "House Robber Maximum Loot",
+    "functionName": "houseRobber",
     "difficulty": "Medium",
     "category": "Dynamic Programming",
     "description": "You are a professional robber planning to rob houses along a street. Each house has a certain amount of money stashed, the only constraint stopping you from robbing each of them is that adjacent houses have security systems connected and it will automatically contact the police if two adjacent houses were broken into on the same night.\n\nGiven an integer array `nums` representing the amount of money of each house, return the maximum amount of money you can rob tonight without alerting the police.",
@@ -6315,6 +6380,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_single_num",
     "title": "Single Number",
+    "functionName": "singleNum",
     "difficulty": "Easy",
     "category": "Bit Manipulation",
     "description": "Given a non-empty array of integers `nums`, every element appears twice except for one. Find that single one.\n\nYou must implement a solution with a linear runtime complexity and use only constant extra space.",
@@ -6410,6 +6476,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_counting_bits",
     "title": "Counting Bits",
+    "functionName": "countingBits",
     "difficulty": "Easy",
     "category": "Bit Manipulation",
     "description": "Given an integer `n`, return an array `ans` of length `n + 1` such that for each `i` (`0 <= i <= n`), `ans[i]` is the number of 1's in the binary representation of `i`.",
@@ -6503,6 +6570,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_hamming_dist",
     "title": "Hamming Distance",
+    "functionName": "hammingDist",
     "difficulty": "Easy",
     "category": "Bit Manipulation",
     "description": "The Hamming distance between two integers is the number of positions at which the corresponding bits are different.\n\nGiven two integers `x` and `y`, return the Hamming distance between them.",
@@ -6596,6 +6664,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_reverse_bits",
     "title": "Reverse Bits",
+    "functionName": "reverseBits",
     "difficulty": "Easy",
     "category": "Bit Manipulation",
     "description": "Reverse bits of a given 32-bit unsigned integer.",
@@ -6689,6 +6758,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_power_of_four",
     "title": "Power of Four Verification",
+    "functionName": "powerOfFour",
     "difficulty": "Easy",
     "category": "Bit Manipulation",
     "description": "Given an integer `n`, return `true` if it is a power of four. Otherwise, return `false`.\n\nAn integer `n` is a power of four if there exists an integer `x` such that `n == 4^x`.",
@@ -6782,6 +6852,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_bitwise_and_range",
     "title": "Bitwise AND of Numbers Range",
+    "functionName": "bitwiseAndRange",
     "difficulty": "Medium",
     "category": "Bit Manipulation",
     "description": "Given two integers `left` and `right` that represent the range `[left, right]`, return the bitwise AND of all numbers in this range, inclusive.",
@@ -6874,6 +6945,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_sum_two_integers",
     "title": "Sum of Two Integers Without Plus Minus",
+    "functionName": "sumTwoIntegers",
     "difficulty": "Medium",
     "category": "Bit Manipulation",
     "description": "Given two integers `a` and `b`, return the sum of the two integers without using the operators `+` and `-`.",
@@ -6966,6 +7038,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_valid_pal_ii",
     "title": "Valid Palindrome II",
+    "functionName": "validPalIi",
     "difficulty": "Easy",
     "category": "Two Pointers",
     "description": "Given a string `s`, return `true` if the `s` can be palindrome after deleting at most one character from it.",
@@ -7060,6 +7133,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_two_sum_sorted",
     "title": "Two Sum II Sorted Array",
+    "functionName": "twoSumSorted",
     "difficulty": "Medium",
     "category": "Two Pointers",
     "description": "Given a 1-indexed array of integers `numbers` that is already sorted in non-decreasing order, find two numbers such that they add up to a specific `target` number.\n\nReturn the indices of the two numbers, `index1` and `index2`, added by one as an integer array `[index1, index2]` of length 2.",
@@ -7155,6 +7229,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_reverse_vowels",
     "title": "Reverse Vowels of a String",
+    "functionName": "reverseVowels",
     "difficulty": "Easy",
     "category": "Two Pointers",
     "description": "Given a string `s`, reverse only all the vowels in the string and return it.\n\nThe vowels are 'a', 'e', 'i', 'o', and 'u', and they can appear in both lower and upper cases, more than once.",
@@ -7248,6 +7323,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_remove_duplicates_sorted",
     "title": "Remove Duplicates from Sorted Array",
+    "functionName": "removeDuplicatesSorted",
     "difficulty": "Easy",
     "category": "Two Pointers",
     "description": "Given an integer array `nums` sorted in non-decreasing order, remove the duplicates in-place such that each unique element appears only once.\n\nReturn the number of unique elements `k`.",
@@ -7343,6 +7419,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_is_subsequence",
     "title": "Is Subsequence",
+    "functionName": "isSubsequence",
     "difficulty": "Easy",
     "category": "Two Pointers",
     "description": "Given two strings `s` and `t`, return `true` if `s` is a subsequence of `t`, or `false` otherwise.\n\nA subsequence of a string is a new string that is formed from the original string by deleting some (can be none) of the characters without disturbing the relative positions of the remaining characters.",
@@ -7438,6 +7515,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_backspace_compare",
     "title": "Backspace String Compare",
+    "functionName": "backspaceCompare",
     "difficulty": "Easy",
     "category": "Two Pointers",
     "description": "Given two strings `s` and `t`, return `true` if they are equal when both are typed into empty text editors. `'#'` means a backspace character.\n\nNote that after backspacing an empty text, the text will continue empty.",
@@ -7531,6 +7609,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_squares_sorted_array",
     "title": "Squares of a Sorted Array",
+    "functionName": "squaresSortedArray",
     "difficulty": "Easy",
     "category": "Two Pointers",
     "description": "Given an integer array `nums` sorted in non-decreasing order, return an array of the squares of each number sorted in non-decreasing order.",
@@ -7625,6 +7704,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_min_size_subarray",
     "title": "Minimum Size Subarray Sum",
+    "functionName": "minSizeSubarray",
     "difficulty": "Medium",
     "category": "Sliding Window",
     "description": "Given an array of positive integers `nums` and a positive integer `target`, return the minimal length of a subarray whose sum is greater than or equal to `target`. If there is no such subarray, return 0 instead.",
@@ -7720,6 +7800,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_fruit_into_baskets",
     "title": "Fruit Into Baskets",
+    "functionName": "fruitIntoBaskets",
     "difficulty": "Medium",
     "category": "Sliding Window",
     "description": "You are visiting a farm that has a single row of fruit trees arranged from left to right. You are given an integer array `fruits` where `fruits[i]` is the type of fruit the `i-th` tree produces.\n\nYou have two baskets, and each basket can only hold a single type of fruit. Return the maximum number of fruits you can pick.",
@@ -7814,6 +7895,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_longest_ones_flip",
     "title": "Max Consecutive Ones III",
+    "functionName": "longestOnesFlip",
     "difficulty": "Medium",
     "category": "Sliding Window",
     "description": "Given a binary array `nums` and an integer `k`, return the maximum number of consecutive `1`'s in the array if you can flip at most `k` `0`'s.",
@@ -7909,6 +7991,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_sub_k_distinct",
     "title": "Subarrays with At Most K Different Integers",
+    "functionName": "subKDistinct",
     "difficulty": "Hard",
     "category": "Sliding Window",
     "description": "Given an integer array `nums` and an integer `k`, return the number of good subarrays of `nums` that contain at most `k` different integers.",
@@ -8003,6 +8086,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_permutation_in_string",
     "title": "Permutation in String",
+    "functionName": "permutationInString",
     "difficulty": "Medium",
     "category": "Sliding Window",
     "description": "Given two strings `s1` and `s2`, return `true` if `s2` contains a permutation of `s1`, or `false` otherwise.\n\nIn other words, return true if one of `s1`'s permutations is the substring of `s2`.",
@@ -8097,6 +8181,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_find_all_anagrams",
     "title": "Find All Anagrams Count",
+    "functionName": "findAllAnagrams",
     "difficulty": "Medium",
     "category": "Sliding Window",
     "description": "Given two strings `s` and `p`, return the number of start indices of `p`'s anagrams in `s`.\n\nAn Anagram is a word formed by rearranging the letters of a different word.",
@@ -8191,6 +8276,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_insert_interval",
     "title": "Insert Interval",
+    "functionName": "insertInterval",
     "difficulty": "Medium",
     "category": "Intervals",
     "description": "You are given an array of non-overlapping intervals `intervals` where `intervals[i] = [start_i, end_i]` represent the start and the end of the `i-th` interval and `intervals` is sorted in ascending order by `start_i`.\n\nYou are also given an interval `newInterval = [start, end]` that represents the start and end of another interval.\n\nInsert `newInterval` into `intervals` such that `intervals` is still sorted and non-overlapping. Return the count of intervals after merging.",
@@ -8286,6 +8372,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_min_meeting_rooms",
     "title": "Meeting Rooms II Min Conference Rooms",
+    "functionName": "minMeetingRooms",
     "difficulty": "Medium",
     "category": "Intervals",
     "description": "Given an array of meeting time intervals `intervals` where `intervals[i] = [start_i, end_i]`, return the minimum number of conference rooms required.",
@@ -8380,6 +8467,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_meeting_rooms_can_attend",
     "title": "Meeting Rooms Can Attend All",
+    "functionName": "meetingRoomsCanAttend",
     "difficulty": "Easy",
     "category": "Intervals",
     "description": "Given an array of meeting time intervals consisting of start and end times `[[s1,e1],[s2,e2],...]`, determine if a person could attend all meetings.",
@@ -8474,6 +8562,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_interval_intersection",
     "title": "Interval List Intersections Count",
+    "functionName": "intervalIntersection",
     "difficulty": "Medium",
     "category": "Intervals",
     "description": "You are given two lists of closed intervals, `firstList` and `secondList`, where `firstList[i] = [start_i, end_i]` and `secondList[j] = [start_j, end_j]`. Each list of intervals is pairwise disjoint and in sorted order.\n\nReturn the number of intersections of these two interval lists.",
@@ -8568,6 +8657,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_teemo_attacking",
     "title": "Teemo Attacking Poison Duration",
+    "functionName": "teemoAttacking",
     "difficulty": "Easy",
     "category": "Intervals",
     "description": "Our hero Teemo is attacking an enemy Ashe with poison attacks! When Teemo attacks Ashe, Ashe gets poisoned for exactly `duration` seconds.\n\nGiven a non-decreasing integer array `timeSeries` and an integer `duration`, return the total number of seconds that Ashe is poisoned.",
@@ -8662,6 +8752,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_baseball_game",
     "title": "Baseball Game Score Tracker",
+    "functionName": "baseballGame",
     "difficulty": "Easy",
     "category": "Stacks",
     "description": "You are keeping score for a baseball game with strange rules. At the beginning of the game, you start with an empty record.\n\nYou are given a list of strings `operations`, where `operations[i]` is the `i-th` operation you must apply to the record:\n- An integer `x`: Record a new score of `x`.\n- `'+'`: Record a new score that is the sum of the previous two scores.\n- `'D'`: Record a new score that is double the previous score.\n- `'C'`: Invalidate the previous score, removing it from the record.\n\nReturn the sum of all the scores on the record.",
@@ -8757,6 +8848,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_remove_adjacent_duplicates",
     "title": "Remove All Adjacent Duplicates in String",
+    "functionName": "removeAdjacentDuplicates",
     "difficulty": "Easy",
     "category": "Stacks",
     "description": "You are given a string `s` consisting of lowercase English letters. A duplicate removal consists of choosing two adjacent and equal letters and removing them.\n\nWe repeatedly make duplicate removals on `s` until we no longer can. Return the final string. If empty, return \"EMPTY\".",
@@ -8851,6 +8943,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_largest_rect_hist",
     "title": "Largest Rectangle in Histogram",
+    "functionName": "largestRectHist",
     "difficulty": "Hard",
     "category": "Stacks",
     "description": "Given an array of integers `heights` representing the histogram's bar height where the width of each bar is 1, return the area of the largest rectangle in the histogram.",
@@ -8945,6 +9038,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_asteroid_collision",
     "title": "Asteroid Collision",
+    "functionName": "asteroidCollision",
     "difficulty": "Medium",
     "category": "Stacks",
     "description": "We are given an array `asteroids` of integers representing asteroids in a row.\n\nFor each asteroid, the absolute value represents its size, and the sign represents its direction (positive meaning right, negative meaning left). Each asteroid moves at the same speed.\n\nFind out the state of the asteroids after all collisions. If two asteroids meet, the smaller one explodes. If both are the same size, both explode. Two asteroids moving in the same direction will never meet. Return space-separated integers, or \"EMPTY\".",
@@ -9040,6 +9134,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_simplify_path",
     "title": "Simplify Unix File Path",
+    "functionName": "simplifyPath",
     "difficulty": "Medium",
     "category": "Stacks",
     "description": "Given an absolute path for a Unix-style file system, simplify it. In a Unix-style file system, a period `'.'` refers to the current directory, a double period `'..'` refers to the directory up a level, and any multiple consecutive slashes are treated as a single slash `'/'`.\n\nReturn the simplified canonical path.",
@@ -9137,6 +9232,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_decode_string",
     "title": "Decode String Pattern",
+    "functionName": "decodeString",
     "difficulty": "Medium",
     "category": "Stacks",
     "description": "Given an encoded string, return its decoded string.\n\nThe encoding rule is: `k[encoded_string]`, where the `encoded_string` inside the square brackets is being repeated exactly `k` times. You may assume that `k` is a positive integer.",
@@ -9231,6 +9327,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_search_insert_position",
     "title": "Search Insert Position",
+    "functionName": "searchInsertPosition",
     "difficulty": "Easy",
     "category": "Binary Search",
     "description": "Given a sorted array of distinct integers and a target value, return the index if the target is found. If not, return the index where it would be if it were inserted in order.\n\nYou must write an algorithm with `O(log n)` runtime complexity.",
@@ -9326,6 +9423,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_first_last_position",
     "title": "Find First and Last Position in Sorted Array",
+    "functionName": "firstLastPosition",
     "difficulty": "Medium",
     "category": "Binary Search",
     "description": "Given an array of integers `nums` sorted in non-decreasing order, find the starting and ending position of a given `target` value.\n\nIf `target` is not found in the array, return `-1 -1`.\n\nYou must write an algorithm with `O(log n)` runtime complexity.",
@@ -9421,6 +9519,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_sqrt_x",
     "title": "Integer Square Root Sqrt(x)",
+    "functionName": "sqrtX",
     "difficulty": "Easy",
     "category": "Binary Search",
     "description": "Given a non-negative integer `x`, return the square root of `x` rounded down to the nearest integer. The returned integer should be non-negative as well.\n\nYou must not use any built-in exponent function or operator, such as `pow(x, 0.5)` or `x ** 0.5`.",
@@ -9514,6 +9613,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_koko_bananas",
     "title": "Koko Eating Bananas",
+    "functionName": "kokoBananas",
     "difficulty": "Medium",
     "category": "Binary Search",
     "description": "Koko loves to eat bananas. There are `n` piles of bananas, the `i-th` pile has `piles[i]` bananas. The guards have gone and will come back in `h` hours.\n\nKoko can decide her bananas-per-hour eating speed of `k`. Each hour, she chooses some pile of bananas and eats `k` bananas from that pile. If the pile has less than `k` bananas, she eats all of them instead and will not eat any more bananas during this hour.\n\nReturn the minimum integer `k` such that she can eat all the bananas within `h` hours.",
@@ -9609,6 +9709,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_ship_packages",
     "title": "Capacity To Ship Packages Within D Days",
+    "functionName": "shipPackages",
     "difficulty": "Medium",
     "category": "Binary Search",
     "description": "A conveyor belt has packages that must be shipped from one port to another within `days` days.\n\nThe `i-th` package on the conveyor belt has a weight of `weights[i]`. Each day, we load the ship with packages on the conveyor belt (in the order given by `weights`). We may not load more weight than the maximum weight capacity of the ship.\n\nReturn the least weight capacity of the ship that will result in all the packages on the conveyor belt being shipped within `days` days.",
@@ -9703,6 +9804,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_find_k_closest",
     "title": "Find K Closest Elements",
+    "functionName": "findKClosest",
     "difficulty": "Medium",
     "category": "Binary Search",
     "description": "Given a sorted integer array `arr`, two integers `k` and `x`, return the `k` closest integers to `x` in the array. The result should also be sorted in ascending order.\n\nAn integer `a` is closer to `x` than an integer `b` if `|a - x| < |b - x|`, or `|a - x| == |b - x|` and `a < b`.",
@@ -9799,6 +9901,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_middle_linked_list",
     "title": "Middle of Singly Linked List",
+    "functionName": "middleLinkedList",
     "difficulty": "Easy",
     "category": "Linked Lists",
     "description": "Given the values of a singly linked list, return the value of the middle node.\n\nIf there are two middle nodes, return the second middle node's value.",
@@ -9893,6 +9996,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_palindrome_linked_list",
     "title": "Palindrome Linked List Verification",
+    "functionName": "palindromeLinkedList",
     "difficulty": "Easy",
     "category": "Linked Lists",
     "description": "Given the values of a singly linked list, return `true` if it is a palindrome, or `false` otherwise.",
@@ -9985,6 +10089,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_remove_linked_list_elements",
     "title": "Remove Linked List Elements",
+    "functionName": "removeLinkedListElements",
     "difficulty": "Easy",
     "category": "Linked Lists",
     "description": "Given the values of a singly linked list and an integer `val`, remove all nodes of the linked list that have `Node.val == val`.\n\nReturn the space-separated values of the remaining list, or \"EMPTY\" if empty.",
@@ -10080,6 +10185,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_odd_even_linked_list",
     "title": "Odd Even Linked List",
+    "functionName": "oddEvenLinkedList",
     "difficulty": "Medium",
     "category": "Linked Lists",
     "description": "Given the head of a singly linked list, group all the nodes with odd indices together followed by the nodes with even indices, and return the reordered list.\n\nThe first node is considered odd, and the second node is even, and so on.",
@@ -10174,6 +10280,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_add_two_numbers_list",
     "title": "Add Two Numbers Stored in Lists",
+    "functionName": "addTwoNumbersList",
     "difficulty": "Medium",
     "category": "Linked Lists",
     "description": "You are given two non-empty linked lists representing two non-negative integers. The digits are stored in reverse order, and each of their nodes contains a single digit. Add the two numbers and return the sum as a space-separated linked list in reverse order.",
@@ -10268,6 +10375,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_same_tree",
     "title": "Same Binary Tree Structural Equivalence",
+    "functionName": "sameTree",
     "difficulty": "Easy",
     "category": "Trees",
     "description": "Given the roots of two binary trees `p` and `q`, write a function to check if they are the same or not.\n\nTwo binary trees are considered the same if they are structurally identical, and the nodes have the same value. Input is given as space-separated level-order traversal with 'null' representing missing children.",
@@ -10362,6 +10470,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_symmetric_tree",
     "title": "Symmetric Binary Tree Mirror",
+    "functionName": "symmetricTree",
     "difficulty": "Easy",
     "category": "Trees",
     "description": "Given the root of a binary tree, check whether it is a mirror of itself (i.e., symmetric around its center). Input is given in level-order format with 'null' for missing nodes.",
@@ -10454,6 +10563,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_diameter_of_binary_tree",
     "title": "Diameter of Binary Tree",
+    "functionName": "diameterOfBinaryTree",
     "difficulty": "Easy",
     "category": "Trees",
     "description": "Given the root of a binary tree, return the length of the diameter of the tree.\n\nThe diameter of a binary tree is the length of the longest path between any two nodes in a tree. This path may or may not pass through the root. The length of a path between two nodes is represented by the number of edges between them.",
@@ -10548,6 +10658,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_path_sum",
     "title": "Path Sum Root to Leaf",
+    "functionName": "pathSum",
     "difficulty": "Easy",
     "category": "Trees",
     "description": "Given the `root` of a binary tree and an integer `targetSum`, return `true` if the tree has a root-to-leaf path such that adding up all the values along the path equals `targetSum`.\n\nA leaf is a node with no children.",
@@ -10642,6 +10753,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_level_order_traversal",
     "title": "Binary Tree Level Order Traversal",
+    "functionName": "levelOrderTraversal",
     "difficulty": "Medium",
     "category": "Trees",
     "description": "Given the root of a binary tree, return the number of levels and total nodes in the tree.",
@@ -10736,6 +10848,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_kth_smallest_bst",
     "title": "Kth Smallest Element in a BST",
+    "functionName": "kthSmallestBst",
     "difficulty": "Medium",
     "category": "Trees",
     "description": "Given the root of a binary search tree (BST) and an integer `k`, return the `k-th` smallest value (1-indexed) of all the values of the nodes in the tree.",
@@ -10831,6 +10944,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_last_stone_weight",
     "title": "Last Stone Weight Simulation",
+    "functionName": "lastStoneWeight",
     "difficulty": "Easy",
     "category": "Heaps",
     "description": "You are given an array of integers `stones` where `stones[i]` is the weight of the `i-th` stone.\n\nWe are playing a game with the stones. On each turn, we choose the heaviest two stones and smash them together. Suppose the heaviest two stones have weights `x` and `y` with `x <= y`:\n- If `x == y`, both stones are destroyed.\n- If `x != y`, the stone of weight `x` is destroyed, and the stone of weight `y` has new weight `y - x`.\n\nAt the end of the game, there is at most one stone left. Return the weight of the last remaining stone. If there are no stones left, return `0`.",
@@ -10925,6 +11039,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_top_k_frequent",
     "title": "Top K Frequent Elements",
+    "functionName": "topKFrequent",
     "difficulty": "Medium",
     "category": "Heaps",
     "description": "Given an integer array `nums` and an integer `k`, return the `k` most frequent elements in descending order of frequency.",
@@ -11020,6 +11135,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_find_median_stream",
     "title": "Running Median of Stream",
+    "functionName": "findMedianStream",
     "difficulty": "Hard",
     "category": "Heaps",
     "description": "The median is the middle value in an ordered integer list. If the size of the list is even, the median is the mean of the two middle values.\n\nGiven a list of numbers from a data stream, return the median formatted with 1 decimal place if fractional, or integer if whole.",
@@ -11114,6 +11230,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_task_scheduler",
     "title": "Task Scheduler CPU Cooling Intervals",
+    "functionName": "taskScheduler",
     "difficulty": "Medium",
     "category": "Heaps",
     "description": "Given a characters array `tasks`, representing the tasks a CPU needs to do, where each letter represents a different task. Tasks could be done in any order. Each task is done in one unit of time. For each unit of time, the CPU could complete either one task or just be idle.\n\nHowever, there is a non-negative integer `n` that represents the cooldown period between two same tasks (the same letter in the array). Return the least number of units of times that the CPU will take to finish all the given tasks.",
@@ -11209,6 +11326,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_reorganize_string",
     "title": "Reorganize String No Adjacent",
+    "functionName": "reorganizeString",
     "difficulty": "Medium",
     "category": "Heaps",
     "description": "Given a string `s`, rearrange the characters of `s` so that any two adjacent characters are not the same.\n\nReturn true if possible, or false otherwise.",
@@ -11303,6 +11421,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_permutations_array",
     "title": "Permutations of Distinct Integers Count",
+    "functionName": "permutationsArray",
     "difficulty": "Medium",
     "category": "Backtracking",
     "description": "Given an array `nums` of distinct integers, return the number of all possible permutations.",
@@ -11398,6 +11517,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_combinations_k_of_n",
     "title": "Combinations Count of K Numbers",
+    "functionName": "combinationsKOfN",
     "difficulty": "Medium",
     "category": "Backtracking",
     "description": "Given two integers `n` and `k`, return the total number of possible combinations of `k` numbers chosen from the range `[1, n]`.",
@@ -11492,6 +11612,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_letter_combos_phone",
     "title": "Letter Combinations of a Phone Number",
+    "functionName": "letterCombosPhone",
     "difficulty": "Medium",
     "category": "Backtracking",
     "description": "Given a string containing digits from `2-9` inclusive, return the number of all possible letter combinations that the number could represent based on the telephone keypad mappings.",
@@ -11586,6 +11707,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_palindrome_partitioning",
     "title": "Palindrome Partitioning Ways",
+    "functionName": "palindromePartitioning",
     "difficulty": "Medium",
     "category": "Backtracking",
     "description": "Given a string `s`, partition `s` such that every substring of the partition is a palindrome. Return the number of possible palindrome partitionings of `s`.",
@@ -11680,6 +11802,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_n_queens_solutions",
     "title": "N-Queens Solutions Count",
+    "functionName": "nQueensSolutions",
     "difficulty": "Hard",
     "category": "Backtracking",
     "description": "The n-queens puzzle is the problem of placing `n` queens on an `n x n` chessboard such that no two queens attack each other.\n\nGiven an integer `n`, return the number of distinct solutions to the n-queens puzzle.",
@@ -11773,6 +11896,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_min_cost_climbing_stairs",
     "title": "Min Cost Climbing Stairs",
+    "functionName": "minCostClimbingStairs",
     "difficulty": "Easy",
     "category": "Dynamic Programming",
     "description": "You are given an integer array `cost` where `cost[i]` is the cost of `i-th` step on a staircase. Once you pay the cost, you can either climb one or two steps.\n\nYou can either start from the step with index 0, or the step with index 1. Return the minimum cost to reach the top of the floor.",
@@ -11867,6 +11991,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_tribonacci_number",
     "title": "N-th Tribonacci Number",
+    "functionName": "tribonacciNumber",
     "difficulty": "Easy",
     "category": "Dynamic Programming",
     "description": "The Tribonacci sequence `T_n` is defined as follows:\n`T_0 = 0`, `T_1 = 1`, `T_2 = 1`, and `T_{n+3} = T_n + T_{n+1} + T_{n+2}` for `n >= 0`.\n\nGiven `n`, return the value of `T_n`.",
@@ -11960,6 +12085,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_house_robber_ii",
     "title": "House Robber II Circular Neighborhood",
+    "functionName": "houseRobberIi",
     "difficulty": "Medium",
     "category": "Dynamic Programming",
     "description": "You are a professional robber planning to rob houses along a street. Each house has a certain amount of money stashed. All houses at this place are arranged in a circle. That means the first house is the neighbor of the last one. Adjacent houses have security systems connected.\n\nReturn the maximum amount of money you can rob tonight without alerting the police.",
@@ -12055,6 +12181,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_decode_ways",
     "title": "Decode Ways Num Decodings",
+    "functionName": "decodeWays",
     "difficulty": "Medium",
     "category": "Dynamic Programming",
     "description": "A message containing letters from A-Z can be encoded into numbers using the mapping: 'A' -> \"1\", 'B' -> \"2\", ... 'Z' -> \"26\".\n\nGiven a string `s` containing only digits, return the number of ways to decode it.",
@@ -12149,6 +12276,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_word_break_dict",
     "title": "Word Break Verification",
+    "functionName": "wordBreakDict",
     "difficulty": "Medium",
     "category": "Dynamic Programming",
     "description": "Given a string `s` and a dictionary of strings `wordDict`, return `true` if `s` can be segmented into a space-separated sequence of one or more dictionary words.",
@@ -12245,6 +12373,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_unique_paths_grid",
     "title": "Unique Paths in Grid",
+    "functionName": "uniquePathsGrid",
     "difficulty": "Medium",
     "category": "Dynamic Programming",
     "description": "There is a robot on an `m x n` grid. The robot is initially located at the top-left corner `(grid[0][0])`. The robot tries to move to the bottom-right corner `(grid[m - 1][n - 1])`. The robot can only move either down or right at any point in time.\n\nGiven the two integers `m` and `n`, return the number of possible unique paths that the robot can take to reach the bottom-right corner.",
@@ -12338,6 +12467,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_min_path_sum",
     "title": "Minimum Path Sum in Grid",
+    "functionName": "minPathSum",
     "difficulty": "Medium",
     "category": "Dynamic Programming",
     "description": "Given a `m x n` `grid` filled with non-negative numbers, find a path from top left to bottom right, which minimizes the sum of all numbers along its path.\n\nYou can only move either down or right at any point in time.",
@@ -12434,6 +12564,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_longest_common_subseq",
     "title": "Longest Common Subsequence Length",
+    "functionName": "longestCommonSubseq",
     "difficulty": "Medium",
     "category": "Dynamic Programming",
     "description": "Given two strings `text1` and `text2`, return the length of their longest common subsequence. If there is no common subsequence, return `0`.",
@@ -12528,6 +12659,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_edit_distance_lev",
     "title": "Edit Distance Levenshtein",
+    "functionName": "editDistanceLev",
     "difficulty": "Medium",
     "category": "Dynamic Programming",
     "description": "Given two strings `word1` and `word2`, return the minimum number of operations required to convert `word1` to `word2`.\n\nYou have the following three operations permitted on a word:\n- Insert a character\n- Delete a character\n- Replace a character",
@@ -12622,6 +12754,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_maximal_square",
     "title": "Maximal Square of 1s Area",
+    "functionName": "maximalSquare",
     "difficulty": "Medium",
     "category": "Dynamic Programming",
     "description": "Given an `m x n` binary `matrix` filled with `0`'s and `1`'s, find the largest square containing only `1`'s and return its area.",
@@ -12718,6 +12851,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_flood_fill",
     "title": "Flood Fill Pixel Replacement",
+    "functionName": "floodFill",
     "difficulty": "Easy",
     "category": "Graphs",
     "description": "An image is represented by an `m x n` integer grid `image` where `image[i][j]` represents the pixel value of the image.\n\nYou are also given three integers `sr`, `sc`, and `color`. You should perform a flood fill on the image starting from the pixel `image[sr][sc]`. Return the count of pixels whose color was changed.",
@@ -12816,6 +12950,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_pacific_atlantic",
     "title": "Pacific Atlantic Water Flow Count",
+    "functionName": "pacificAtlantic",
     "difficulty": "Medium",
     "category": "Graphs",
     "description": "There is an `m x n` rectangular island that borders both the Pacific Ocean and Atlantic Ocean. The Pacific Ocean touches the island's left and top edges, and the Atlantic Ocean touches the island's right and bottom edges.\n\nThe island is partitioned into a grid of square cells. You are given an `m x n` integer matrix `heights` where `heights[r][c]` represents the height above sea level of the cell at coordinate `(r, c)`.\n\nWater can flow in 4 directions to neighboring cells of equal or lower height. Return the count of grid coordinates from which water can flow to both oceans.",
@@ -12914,6 +13049,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_plus_one",
     "title": "Plus One Large Integer",
+    "functionName": "plusOne",
     "difficulty": "Easy",
     "category": "Arrays",
     "description": "You are given a large integer represented as an integer array `digits`, where each `digits[i]` is the i-th digit of the integer. The digits are ordered from most significant to least significant in left-to-right order. The large integer does not contain any leading 0's.\n\nIncrement the large integer by one and return the resulting array of digits.",
@@ -13010,6 +13146,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_remove_element",
     "title": "Remove Element in Place",
+    "functionName": "removeElement",
     "difficulty": "Easy",
     "category": "Arrays",
     "description": "Given an integer array `nums` and an integer `val`, remove all occurrences of `val` in `nums` in-place. The order of the elements may be changed. Then return the number of elements in `nums` which are not equal to `val`.\n\nOutput the remaining count k followed by the space-separated elements.",
@@ -13104,6 +13241,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_majority_element",
     "title": "Majority Element (Boyer-Moore)",
+    "functionName": "majorityElement",
     "difficulty": "Easy",
     "category": "Arrays",
     "description": "Given an array `nums` of size n, return the majority element. The majority element is the element that appears more than ⌊n / 2⌋ times. You may assume that the majority element always exists in the array.",
@@ -13198,6 +13336,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_find_pivot_index",
     "title": "Find Pivot Index",
+    "functionName": "findPivotIndex",
     "difficulty": "Easy",
     "category": "Arrays",
     "description": "Given an array of integers `nums`, calculate the pivot index of this array. The pivot index is the index where the sum of all the numbers strictly to the left of the index is equal to the sum of all the numbers strictly to the index's right. Return the leftmost pivot index. If no such index exists, return -1.",
@@ -13291,6 +13430,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_running_sum",
     "title": "Running Sum of 1D Array",
+    "functionName": "runningSum",
     "difficulty": "Easy",
     "category": "Arrays",
     "description": "Given an array `nums`. We define a running sum of an array as `runningSum[i] = sum(nums[0]…nums[i])`. Return the running sum of nums.",
@@ -13383,6 +13523,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_monotonic_array",
     "title": "Monotonic Array",
+    "functionName": "monotonicArray",
     "difficulty": "Easy",
     "category": "Arrays",
     "description": "An array is monotonic if it is either monotone increasing or monotone decreasing. Return `true` if the given array is monotonic, or `false` otherwise.",
@@ -13476,6 +13617,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_transpose_matrix",
     "title": "Transpose Matrix",
+    "functionName": "transposeMatrix",
     "difficulty": "Easy",
     "category": "Arrays",
     "description": "Given a 2D integer array `matrix`, return the transpose of `matrix`. The transpose of a matrix is the matrix flipped over its main diagonal, switching the matrix's row and column indices.",
@@ -13570,6 +13712,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_set_matrix_zeroes",
     "title": "Set Matrix Zeroes",
+    "functionName": "setMatrixZeroes",
     "difficulty": "Medium",
     "category": "Arrays",
     "description": "Given an m x n integer matrix, if an element is 0, set its entire row and column to 0's in-place.",
@@ -13663,6 +13806,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_spiral_matrix",
     "title": "Spiral Matrix Traversal",
+    "functionName": "spiralMatrix",
     "difficulty": "Medium",
     "category": "Arrays",
     "description": "Given an m x n matrix, return all elements of the matrix in spiral order (clockwise starting from top-left).",
@@ -13758,6 +13902,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_rotate_image",
     "title": "Rotate Image 90 Degrees Clockwise",
+    "functionName": "rotateImage",
     "difficulty": "Medium",
     "category": "Arrays",
     "description": "You are given an n x n 2D matrix representing an image. Rotate the image by 90 degrees (clockwise) in-place.",
@@ -13852,6 +13997,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_diagonal_traverse",
     "title": "Diagonal Traverse",
+    "functionName": "diagonalTraverse",
     "difficulty": "Medium",
     "category": "Arrays",
     "description": "Given an m x n matrix `mat`, return an array of all the elements of the array in a diagonal order (alternating up-right and down-left directions).",
@@ -13947,6 +14093,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_ransom_note",
     "title": "Ransom Note Construction",
+    "functionName": "ransomNote",
     "difficulty": "Easy",
     "category": "Strings",
     "description": "Given two strings `ransomNote` and `magazine`, return `true` if `ransomNote` can be constructed by using the letters from `magazine` and `false` otherwise. Each letter in `magazine` can only be used once in `ransomNote`.",
@@ -14040,6 +14187,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_isomorphic_strings",
     "title": "Isomorphic Strings",
+    "functionName": "isomorphicStrings",
     "difficulty": "Easy",
     "category": "Strings",
     "description": "Given two strings `s` and `t`, determine if they are isomorphic. Two strings `s` and `t` are isomorphic if the characters in `s` can be replaced to get `t`. All occurrences of a character must be replaced with another character while preserving the order of characters. No two characters may map to the same character, but a character may map to itself.",
@@ -14134,6 +14282,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_word_pattern",
     "title": "Word Pattern Bijection",
+    "functionName": "wordPattern",
     "difficulty": "Easy",
     "category": "Strings",
     "description": "Given a `pattern` and a string `s`, find if `s` follows the same pattern. Here follow means a full match, such that there is a bijection between a letter in `pattern` and a non-empty word in `s`.",
@@ -14230,6 +14379,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_reverse_words",
     "title": "Reverse Words in a String",
+    "functionName": "reverseWords",
     "difficulty": "Medium",
     "category": "Strings",
     "description": "Given an input string `s`, reverse the order of the words. A word is defined as a sequence of non-space characters. The words in `s` will be separated by at least one space. Return a string of the words in reverse order concatenated by a single space.",
@@ -14322,6 +14472,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_length_last_word",
     "title": "Length of Last Word",
+    "functionName": "lengthLastWord",
     "difficulty": "Easy",
     "category": "Strings",
     "description": "Given a string `s` consisting of words and spaces, return the length of the last word in the string. A word is a maximal substring consisting of non-space characters only.",
@@ -14414,6 +14565,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_valid_palindrome_ii",
     "title": "Valid Palindrome II (At Most One Deletion)",
+    "functionName": "validPalindromeIi",
     "difficulty": "Easy",
     "category": "Two Pointers",
     "description": "Given a string `s`, return `true` if the `s` can be palindrome after deleting at most one character from it.",
@@ -14507,6 +14659,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_four_sum",
     "title": "4Sum Quadruplets",
+    "functionName": "fourSum",
     "difficulty": "Medium",
     "category": "Two Pointers",
     "description": "Given an array `nums` of n integers, return an array of all the unique quadruplets `[nums[a], nums[b], nums[c], nums[d]]` such that `a, b, c, d` are distinct and `nums[a] + nums[b] + nums[c] + nums[d] == target`. Output the count of quadruplets on line 1, and each quadruplet on a new line (space-separated, sorted).",
@@ -14602,6 +14755,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_max_consecutive_ones",
     "title": "Max Consecutive Ones",
+    "functionName": "maxConsecutiveOnes",
     "difficulty": "Easy",
     "category": "Sliding Window",
     "description": "Given a binary array `nums`, return the maximum number of consecutive 1's in the array.",
@@ -14694,6 +14848,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_make_string_great",
     "title": "Make The String Great",
+    "functionName": "makeStringGreat",
     "difficulty": "Easy",
     "category": "Stacks",
     "description": "A good string is a string which doesn't have two adjacent characters `s[i]` and `s[i + 1]` where: `0 <= i <= s.length - 2`, and `s[i]` is a lower-case letter and `s[i + 1]` is the same letter but in upper-case or vice-versa. Return the string after making it good.",
@@ -14787,6 +14942,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_online_stock_span",
     "title": "Online Stock Span",
+    "functionName": "onlineStockSpan",
     "difficulty": "Medium",
     "category": "Stacks",
     "description": "Design an algorithm that collects daily price quotes for some stock and returns the span of that stock's price for the current day. The span of the stock's price in one day is the maximum number of consecutive days (starting from that day and going backward) for which the stock price was less than or equal to the price of that day.",
@@ -14880,6 +15036,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_dota2_senate",
     "title": "Dota2 Senate Voting Queue",
+    "functionName": "dota2Senate",
     "difficulty": "Medium",
     "category": "Queues",
     "description": "In the world of Dota2, there are two parties: the Radiant and the Dire. The senate consists of senators from both parties. Each senator can ban one senator's right or announce victory. Radiant senators are represented by 'R' and Dire senators by 'D'. Suppose every senator exercises the best strategy for his own party. Predict which party will finally announce the victory.",
@@ -14975,6 +15132,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_moving_average",
     "title": "Moving Average from Data Stream",
+    "functionName": "movingAverage",
     "difficulty": "Easy",
     "category": "Queues",
     "description": "Given a stream of integers and a window size `size`, calculate the moving average of all integers in the sliding window. Format floating point numbers to 2 decimal places.",
@@ -15068,6 +15226,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_delete_node_linked_list",
     "title": "Delete Node in a Linked List",
+    "functionName": "deleteNodeLinkedList",
     "difficulty": "Medium",
     "category": "Linked Lists",
     "description": "There is a singly-linked list `head` and we want to delete a node with value `target` in it. You are given the values of the linked list and the target value to delete. Return the list after deletion.",
@@ -15160,6 +15319,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_remove_nth_node_end",
     "title": "Remove N-th Node From End of List",
+    "functionName": "removeNthNodeEnd",
     "difficulty": "Medium",
     "category": "Linked Lists",
     "description": "Given the head of a linked list, remove the n-th node from the end of the list and return its head.",
@@ -15254,6 +15414,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_rotate_list_k",
     "title": "Rotate List by K Places",
+    "functionName": "rotateListK",
     "difficulty": "Medium",
     "category": "Linked Lists",
     "description": "Given the head of a linked list, rotate the list to the right by `k` places.",
@@ -15348,6 +15509,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_swap_nodes_in_pairs",
     "title": "Swap Nodes in Pairs",
+    "functionName": "swapNodesInPairs",
     "difficulty": "Medium",
     "category": "Linked Lists",
     "description": "Given a linked list, swap every two adjacent nodes and return its head. You must solve the problem without modifying the values in the list's nodes (i.e., only nodes themselves may be changed).",
@@ -15439,6 +15601,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_reverse_nodes_k_group",
     "title": "Reverse Nodes in K-Group",
+    "functionName": "reverseNodesKGroup",
     "difficulty": "Hard",
     "category": "Linked Lists",
     "description": "Given the head of a linked list, reverse the nodes of the list `k` at a time, and return the modified list. `k` is a positive integer and is less than or equal to the length of the linked list. If the number of nodes is not a multiple of `k` then left-out nodes, in the end, should remain as it is.",
@@ -15533,6 +15696,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_guess_number_higher_lower",
     "title": "Guess Number Higher or Lower",
+    "functionName": "guessNumberHigherLower",
     "difficulty": "Easy",
     "category": "Binary Search",
     "description": "We are playing the Guess Game. The game will pick a number from 1 to n. You have to guess which number is picked. Given n and the picked target number, simulate binary search and return the target number.",
@@ -15624,6 +15788,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_first_bad_version",
     "title": "First Bad Version (Binary Search Boundary)",
+    "functionName": "firstBadVersion",
     "difficulty": "Easy",
     "category": "Binary Search",
     "description": "You are a product manager and currently leading a team to develop a new product. Unfortunately, the latest version of your product fails the quality check. Since each version is developed based on the previous version, all the versions after a bad version are also bad. Given n versions [1, 2, ..., n] and the first bad version index, find the first bad version using binary search.",
@@ -15717,6 +15882,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_peak_index_mountain",
     "title": "Peak Index in a Mountain Array",
+    "functionName": "peakIndexMountain",
     "difficulty": "Medium",
     "category": "Binary Search",
     "description": "An array `arr` is a mountain if `arr.length >= 3` and there exists some i with `0 < i < arr.length - 1` such that `arr[0] < arr[1] < ... < arr[i - 1] < arr[i]` and `arr[i] > arr[i + 1] > ... > arr[arr.length - 1]`. Given a mountain array `arr`, return the index `i` such that arr[0] < arr[1] < ... < arr[i - 1] < arr[i] > arr[i + 1] > ... > arr[arr.length - 1] in O(log(n)) time.",
@@ -15811,6 +15977,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_search_2d_matrix",
     "title": "Search a 2D Matrix",
+    "functionName": "search2dMatrix",
     "difficulty": "Medium",
     "category": "Binary Search",
     "description": "You are given an m x n integer matrix with the following two properties:\n1. Each row is sorted in non-decreasing order.\n2. The first integer of each row is greater than the last integer of the previous row.\nGiven an integer `target`, return `true` if target is in matrix or `false` otherwise in O(log(m * n)) time.",
@@ -15904,6 +16071,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_binary_tree_paths",
     "title": "Binary Tree Root-to-Leaf Paths",
+    "functionName": "binaryTreePaths",
     "difficulty": "Easy",
     "category": "Trees",
     "description": "Given a binary tree represented as parent-child nodes (or level-order list where root is first), return all root-to-leaf paths formatted as `node1->node2->node3`. Output paths on separate lines.",
@@ -15996,6 +16164,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_sum_root_to_leaf_numbers",
     "title": "Sum Root to Leaf Numbers",
+    "functionName": "sumRootToLeafNumbers",
     "difficulty": "Medium",
     "category": "Trees",
     "description": "You are given a binary tree containing digits from 0 to 9 only. Each root-to-leaf path in the tree represents a number. For example, the root-to-leaf path 1 -> 2 -> 3 represents the number 123. Return the total sum of all root-to-leaf numbers.",
@@ -16089,6 +16258,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_path_sum_iii",
     "title": "Path Sum III Matching Target",
+    "functionName": "pathSumIii",
     "difficulty": "Medium",
     "category": "Trees",
     "description": "Given the root of a binary tree and an integer `targetSum`, return the number of paths where the sum of the values along the path equals `targetSum`. The path does not need to start or end at the root or a leaf, but it must go downwards (i.e., traveling only from parent nodes to child nodes).",
@@ -16182,6 +16352,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_lowest_common_ancestor_bt",
     "title": "Lowest Common Ancestor of a Binary Tree",
+    "functionName": "lowestCommonAncestorBt",
     "difficulty": "Medium",
     "category": "Trees",
     "description": "Given a binary tree, find the lowest common ancestor (LCA) of two given nodes `p` and `q` in the tree. The lowest common ancestor is defined between two nodes p and q as the lowest node in T that has both p and q as descendants (where we allow a node to be a descendant of itself).",
@@ -16278,6 +16449,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_construct_binary_tree_pre_in",
     "title": "Construct Tree from Preorder & Inorder",
+    "functionName": "constructBinaryTreePreIn",
     "difficulty": "Medium",
     "category": "Trees",
     "description": "Given two integer arrays `preorder` and `inorder` where preorder is the preorder traversal of a binary tree and inorder is the inorder traversal of the same tree, construct and return the binary tree's postorder traversal.",
@@ -16374,6 +16546,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_serialize_deserialize_bt",
     "title": "Serialize and Deserialize Binary Tree",
+    "functionName": "serializeDeserializeBt",
     "difficulty": "Hard",
     "category": "Trees",
     "description": "Serialization is the process of converting a data structure or object into a sequence of bits so that it can be stored in a file or memory buffer. Design an algorithm to serialize a binary tree into a string and deserialize it back, outputting the reconstructed level-order traversal.",
@@ -16466,6 +16639,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_implement_trie",
     "title": "Implement Trie (Prefix Tree)",
+    "functionName": "implementTrie",
     "difficulty": "Medium",
     "category": "Tries",
     "description": "Implement a Trie with `insert`, `search`, and `startsWith` methods.\nYou are given a series of operations:\n• `insert word`\n• `search word` -> outputs `true` or `false`\n• `startsWith prefix` -> outputs `true` or `false`\nReturn outputs of queries separated by space.",
@@ -16560,6 +16734,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_design_add_search_words",
     "title": "Design Add and Search Words with Wildcards",
+    "functionName": "designAddSearchWords",
     "difficulty": "Medium",
     "category": "Tries",
     "description": "Design a data structure that supports adding new words and finding if a string matches any previously added string. Implement the WordDictionary with `addWord(word)` and `search(word)` where `word` in search may contain dots '.' where dots can match any letter.",
@@ -16654,6 +16829,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_k_closest_points_origin",
     "title": "K Closest Points to Origin",
+    "functionName": "kClosestPointsOrigin",
     "difficulty": "Medium",
     "category": "Heaps",
     "description": "Given an array of points where `points[i] = [xi, yi]` represents a point on the X-Y plane and an integer `k`, return the `k` closest points to the origin `(0, 0)`. The distance between two points is the Euclidean distance `sqrt(x^2 + y^2)`. Output points ordered by distance ascending, one per line as `x y`.",
@@ -16746,6 +16922,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_kth_largest_stream",
     "title": "Kth Largest Element in a Stream",
+    "functionName": "kthLargestStream",
     "difficulty": "Easy",
     "category": "Heaps",
     "description": "Design a class to find the kth largest element in a stream. You are given an integer k and initial scores, followed by incoming numbers. For each incoming number, return the element representing the kth largest element in the pool.",
@@ -16840,6 +17017,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_task_scheduler_cooldown",
     "title": "Task Scheduler with Cooldown",
+    "functionName": "taskSchedulerCooldown",
     "difficulty": "Medium",
     "category": "Heaps",
     "description": "Given a characters array `tasks`, representing the tasks a CPU needs to do, where each letter represents a different task. Tasks could be done in any order. Each task is done in one unit of time. For each unit of time, the CPU could complete either one task or just be idle. However, there is a non-negative integer `n` that represents the cooldown period between two same tasks. Return the least number of units of times that the CPU will take to finish all the given tasks.",
@@ -16934,6 +17112,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_find_median_data_stream",
     "title": "Find Median from Data Stream",
+    "functionName": "findMedianDataStream",
     "difficulty": "Hard",
     "category": "Heaps",
     "description": "The median is the middle value in an ordered integer list. If the size of the list is even, there is no middle value, and the median is the mean of the two middle values. Design a data structure that supports adding numbers and finding the running median formatted to 1 decimal place.",
@@ -17027,6 +17206,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_subsets_ii",
     "title": "Subsets II with Duplicates",
+    "functionName": "subsetsIi",
     "difficulty": "Medium",
     "category": "Backtracking",
     "description": "Given an integer array `nums` that may contain duplicates, return all possible subsets (the power set). The solution set must not contain duplicate subsets. Output the count on line 1, and each subset space-separated on subsequent lines (empty line for empty subset).",
@@ -17121,6 +17301,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_permutations_ii",
     "title": "Permutations II Unique",
+    "functionName": "permutationsIi",
     "difficulty": "Medium",
     "category": "Backtracking",
     "description": "Given a collection of numbers, `nums`, that might contain duplicates, return all possible unique permutations in any order. Output the count on line 1, and each permutation on subsequent lines.",
@@ -17214,6 +17395,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_combination_sum_ii",
     "title": "Combination Sum II (Unique Elements)",
+    "functionName": "combinationSumIi",
     "difficulty": "Medium",
     "category": "Backtracking",
     "description": "Given a collection of candidate numbers (`candidates`) and a target number (`target`), find all unique combinations in `candidates` where the candidate numbers sum to `target`. Each number in `candidates` may only be used once in the combination. Output count on line 1 and each combination on subsequent lines.",
@@ -17309,6 +17491,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_combination_sum_iii",
     "title": "Combination Sum III (K Digits Sum to N)",
+    "functionName": "combinationSumIii",
     "difficulty": "Medium",
     "category": "Backtracking",
     "description": "Find all valid combinations of `k` numbers that sum up to `n` such that only numbers from 1 to 9 are used and each number is used at most once. Output count on line 1 and each combination on subsequent lines.",
@@ -17402,6 +17585,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_letter_case_permutation",
     "title": "Letter Case Permutation",
+    "functionName": "letterCasePermutation",
     "difficulty": "Medium",
     "category": "Backtracking",
     "description": "Given a string `s`, you can transform every letter individually to be lowercase or uppercase to create another string. Return a list of all possible strings we could create. Output on a single line space-separated.",
@@ -17494,6 +17678,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_surrounded_regions",
     "title": "Surrounded Regions Capture",
+    "functionName": "surroundedRegions",
     "difficulty": "Medium",
     "category": "Graphs",
     "description": "Given an m x n matrix board containing 'X' and 'O', capture all regions that are 4-directionally surrounded by 'X'. A region is captured by flipping all 'O's into 'X's in that surrounded region. An 'O' on the border cannot be captured.",
@@ -17588,6 +17773,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_course_schedule_ii",
     "title": "Course Schedule II (Kahn's Topological Sort)",
+    "functionName": "courseScheduleIi",
     "difficulty": "Medium",
     "category": "Graphs",
     "description": "There are a total of `numCourses` courses you have to take, labeled from 0 to `numCourses - 1`. You are given an array `prerequisites` where `prerequisites[i] = [ai, bi]` indicates that you must take course `bi` first if you want to take course `ai`. Return the valid ordering of courses you should take to finish all courses. If impossible due to cycles, return -1.",
@@ -17682,6 +17868,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_number_of_provinces",
     "title": "Number of Connected Provinces",
+    "functionName": "numberOfProvinces",
     "difficulty": "Medium",
     "category": "Graphs",
     "description": "There are `n` cities. Some of them are connected, while some are not. If city a is connected directly with city b, and city b is connected directly with city c, then city a is connected indirectly with city c. A province is a group of directly or indirectly connected cities and no other cities outside of the group. You are given an n x n matrix `isConnected` where `isConnected[i][j] = 1` if the i-th city and the j-th city are directly connected, and `isConnected[i][j] = 0` otherwise. Return the total number of provinces.",
@@ -17775,6 +17962,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_redundant_connection",
     "title": "Redundant Connection (Cycle in Undirected Graph)",
+    "functionName": "redundantConnection",
     "difficulty": "Medium",
     "category": "Graphs",
     "description": "In this problem, a tree is an undirected graph that is connected and has no cycles. You are given a graph that started as a tree with n nodes labeled from 1 to n, with one additional edge added. Return an edge that can be removed so that the resulting graph is a tree of n nodes. If there are multiple answers, return the answer that occurs last in the input.",
@@ -17870,6 +18058,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_network_delay_time",
     "title": "Network Delay Time (Dijkstra's Shortest Path)",
+    "functionName": "networkDelayTime",
     "difficulty": "Medium",
     "category": "Graphs",
     "description": "You are given a network of `n` nodes, labeled from 1 to `n`. You are also given `times`, a list of travel times as directed edges `times[i] = (ui, vi, wi)`, where `ui` is the source node, `vi` is the target node, and `wi` is the time it takes for a signal to travel from source to target. We will send a signal from a given node `k`. Return the minimum time it takes for all the `n` nodes to receive the signal. If it is impossible for all the `n` nodes to receive the signal, return -1.",
@@ -17966,6 +18155,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_cheapest_flights_k_stops",
     "title": "Cheapest Flights Within K Stops",
+    "functionName": "cheapestFlightsKStops",
     "difficulty": "Medium",
     "category": "Graphs",
     "description": "There are `n` cities connected by some number of flights. You are given an array `flights` where `flights[i] = [fromi, toi, pricei]` indicates that there is a flight from city `fromi` to city `toi` with cost `pricei`. You are also given three integers `src`, `dst`, and `k`, return the cheapest price from `src` to `dst` with at most `k` stops. If there is no such route, return -1.",
@@ -18061,6 +18251,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_word_break",
     "title": "Word Break Segmentation",
+    "functionName": "wordBreak",
     "difficulty": "Medium",
     "category": "Dynamic Programming",
     "description": "Given a string `s` and a dictionary of strings `wordDict`, return `true` if `s` can be segmented into a space-separated sequence of one or more dictionary words.",
@@ -18156,6 +18347,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_longest_palindromic_subseq",
     "title": "Longest Palindromic Subsequence",
+    "functionName": "longestPalindromicSubseq",
     "difficulty": "Medium",
     "category": "Dynamic Programming",
     "description": "Given a string `s`, find the longest palindromic subsequence's length in `s`. A subsequence is a sequence that can be derived from another sequence by deleting some or no elements without changing the order of the remaining elements.",
@@ -18249,6 +18441,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_target_sum",
     "title": "Target Sum (+ and - Assignments)",
+    "functionName": "targetSum",
     "difficulty": "Medium",
     "category": "Dynamic Programming",
     "description": "You are given an integer array `nums` and an integer `target`. You want to build an expression out of nums by adding one of the symbols '+' and '-' before each integer in nums and then concatenate all the integers. Return the number of different expressions that you can build, which evaluates to `target`.",
@@ -18344,6 +18537,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_partition_equal_subset_sum",
     "title": "Partition Equal Subset Sum",
+    "functionName": "partitionEqualSubsetSum",
     "difficulty": "Medium",
     "category": "Dynamic Programming",
     "description": "Given an integer array `nums`, return `true` if you can partition the array into two subsets such that the sum of the elements in both subsets is equal or `false` otherwise.",
@@ -18438,6 +18632,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_edit_distance",
     "title": "Edit Distance (Levenshtein Distance)",
+    "functionName": "editDistance",
     "difficulty": "Medium",
     "category": "Dynamic Programming",
     "description": "Given two strings `word1` and `word2`, return the minimum number of operations required to convert `word1` to `word2`. You have the following three operations permitted on a word:\n• Insert a character\n• Delete a character\n• Replace a character",
@@ -18531,6 +18726,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_burst_balloons",
     "title": "Burst Balloons Maximum Coins",
+    "functionName": "burstBalloons",
     "difficulty": "Hard",
     "category": "Dynamic Programming",
     "description": "You are given `n` balloons, indexed from 0 to n - 1. Each balloon is painted with a number on it represented by an array `nums`. You are asked to burst all the balloons. If you burst the i-th balloon, you will get `nums[i - 1] * nums[i] * nums[i + 1]` coins. If `i - 1` or `i + 1` goes out of bounds, treat it as if there is a balloon with a 1 painted on it. Return the maximum coins you can collect by bursting the balloons wisely.",
@@ -18624,6 +18820,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_lemonade_change",
     "title": "Lemonade Change Simulator",
+    "functionName": "lemonadeChange",
     "difficulty": "Easy",
     "category": "Greedy",
     "description": "At a lemonade stand, each lemonade costs $5. Customers are standing in a queue to buy from you and order one at a time. Each customer will only buy one lemonade and pay with either a $5, $10, or $20 bill. You must provide the correct change to each customer so that the net transaction is that the customer pays $5. Return `true` if you can provide every customer with the correct change, or `false` otherwise.",
@@ -18717,6 +18914,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_gas_station_circuit",
     "title": "Gas Station Circular Route",
+    "functionName": "gasStationCircuit",
     "difficulty": "Medium",
     "category": "Greedy",
     "description": "There are n gas stations along a circular route, where the amount of gas at the i-th station is `gas[i]`. You have a car with an unlimited gas tank and it costs `cost[i]` of gas to travel from the i-th station to its next `(i + 1)`-th station. You begin the journey with an empty tank at one of the gas stations. Given two integer arrays `gas` and `cost`, return the starting gas station's index if you can travel around the circuit once in the clockwise direction, otherwise return -1. If there exists a solution, it is guaranteed to be unique.",
@@ -18812,6 +19010,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_candy_distribution",
     "title": "Candy Distribution (Two-Pass Greedy)",
+    "functionName": "candyDistribution",
     "difficulty": "Hard",
     "category": "Greedy",
     "description": "There are `n` children standing in a line. Each child is assigned a rating value given in the integer array `ratings`. You are giving candies to these children subjected to the following requirements:\n1. Each child must have at least one candy.\n2. Children with a higher rating get more candies than their neighbors.\nReturn the minimum number of candies you need to have to distribute the candies to the children.",
@@ -18907,6 +19106,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_jump_game_ii",
     "title": "Jump Game II (Minimum Jumps)",
+    "functionName": "jumpGameIi",
     "difficulty": "Medium",
     "category": "Greedy",
     "description": "You are given a 0-indexed array of integers `nums` of length n. You are initially positioned at `nums[0]`. Each element `nums[i]` represents the maximum length of a forward jump from index `i`. Return the minimum number of jumps to reach `nums[n - 1]`.",
@@ -19000,6 +19200,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_summary_ranges",
     "title": "Summary Ranges Intervals",
+    "functionName": "summaryRanges",
     "difficulty": "Easy",
     "category": "Intervals",
     "description": "You are given a sorted unique integer array `nums`. A range `[a,b]` is the set of all integers from a to b, inclusive. Return the smallest sorted list of ranges that cover all the numbers in the array exactly. Output ranges formatted as `a->b` (if a != b) or `a` (if a == b), space-separated.",
@@ -19094,6 +19295,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_single_number_iii",
     "title": "Single Number III (Two Unique Elements)",
+    "functionName": "singleNumberIii",
     "difficulty": "Medium",
     "category": "Bit Manipulation",
     "description": "Given an integer array `nums`, in which exactly two elements appear only once and all the other elements appear exactly twice. Find the two elements that appear only once. You can return the answer in any order (output them sorted ascending, space-separated). You must write an algorithm that runs in linear runtime complexity and uses only constant extra space.",
@@ -19189,6 +19391,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_pascals_triangle",
     "title": "Pascal's Triangle Row Generator",
+    "functionName": "pascalsTriangle",
     "difficulty": "Easy",
     "category": "Arrays",
     "description": "Given an integer rowIndex (0-indexed), return the rowIndex-th row of Pascal's triangle.\n\nIn Pascal's triangle, each number is the sum of the two numbers directly above it.",
@@ -19281,6 +19484,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_longest_mountain",
     "title": "Longest Mountain in Array",
+    "functionName": "longestMountain",
     "difficulty": "Medium",
     "category": "Two Pointers",
     "description": "Given an integer array arr, return the length of the longest subarray, which is a mountain. Return 0 if there is no mountain subarray.\n\nRecall that arr[i] is a mountain if arr[0] < arr[1] < ... < arr[i - 1] < arr[i] > arr[i + 1] > ... > arr[arr.length - 1] and length >= 3.",
@@ -19374,6 +19578,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_container_max_consecutive_ones",
     "title": "Max Consecutive Ones Count",
+    "functionName": "containerMaxConsecutiveOnes",
     "difficulty": "Easy",
     "category": "Arrays",
     "description": "Given a binary array nums, return the maximum number of consecutive 1's in the array.",
@@ -19467,6 +19672,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_valid_mountain_array",
     "title": "Valid Mountain Array Verification",
+    "functionName": "validMountainArray",
     "difficulty": "Easy",
     "category": "Two Pointers",
     "description": "Given an array of integers arr, return true if and only if it is a valid mountain array.\n\nRecall that arr is a mountain array if and only if:\n- arr.length >= 3\n- There exists some i with 0 < i < arr.length - 1 such that:\n  arr[0] < arr[1] < ... < arr[i - 1] < arr[i]\n  arr[i] > arr[i + 1] > ... > arr[arr.length - 1]",
@@ -19561,6 +19767,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_boats_to_save_people",
     "title": "Boats to Save People",
+    "functionName": "boatsToSavePeople",
     "difficulty": "Medium",
     "category": "Two Pointers",
     "description": "You are given an array people where people[i] is the weight of the ith person, and an infinite number of boats where each boat can carry a maximum weight of limit. Each boat carries at most two people at the same time, provided the sum of the weight of those people is at most limit.\n\nReturn the minimum number of boats to carry every given person.",
@@ -19656,6 +19863,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_string_to_integer_atoi",
     "title": "String to Integer (atoi) Parser",
+    "functionName": "stringToIntegerAtoi",
     "difficulty": "Medium",
     "category": "Strings",
     "description": "Implement the myAtoi(string s) function, which converts a string to a 32-bit signed integer.\n\n1. Whitespace: Ignore any leading whitespace.\n2. Signedness: Determine the sign by checking if the next character is '-' or '+', assuming positivity if neither is present.\n3. Conversion: Read in next digits until next non-digit or end. Ignore remainder.\n4. Rounding: Clamp result to [-2^31, 2^31 - 1].",
@@ -19750,6 +19958,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_min_add_valid_parentheses",
     "title": "Minimum Add to Make Parentheses Valid",
+    "functionName": "minAddValidParentheses",
     "difficulty": "Medium",
     "category": "Stacks",
     "description": "A parentheses string is valid if and only if:\n1. It is the empty string,\n2. It can be written as AB (A concatenated with B), where A and B are valid strings, or\n3. It can be written as (A), where A is a valid string.\n\nYou are given a parentheses string s. In one move, you can insert a parenthesis at any position of the string.\n\nReturn the minimum number of moves required to make s valid.",
@@ -19844,6 +20053,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_score_of_parentheses",
     "title": "Score of Balanced Parentheses",
+    "functionName": "scoreOfParentheses",
     "difficulty": "Medium",
     "category": "Stacks",
     "description": "Given a balanced parentheses string s, return the score of the string.\n\nThe score of a balanced parentheses string is based on the following rule:\n- \"()\" has score 1.\n- AB has score A + B, where A and B are balanced parentheses strings.\n- (A) has score 2 * A, where A is a balanced parentheses string.",
@@ -19937,6 +20147,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_crawler_log_folder",
     "title": "Crawler Log Folder Operations",
+    "functionName": "crawlerLogFolder",
     "difficulty": "Easy",
     "category": "Stacks",
     "description": "The Leetcode file system keeps a log each time, some user performs a change folder operation.\n\nThe operations are described below:\n- \"../\" : Move to the parent folder of the current folder. (If you are already in the main folder, remain in the same folder).\n- \"./\" : Remain in the same folder.\n- \"x/\" : Move to the child folder named x.\n\nYou are given a list of strings logs where logs[i] is the operation performed by the user at the ith step. Return the minimum number of steps needed to go back to the main folder after all operations.",
@@ -20031,6 +20242,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_number_of_recent_calls",
     "title": "Number of Recent Calls Ping Counter",
+    "functionName": "numberOfRecentCalls",
     "difficulty": "Easy",
     "category": "Queues",
     "description": "You have a RecentCounter class which counts the number of recent requests within a certain time frame.\n\nGiven a sequence of ping timestamps t in strictly increasing order, for each ping, return the number of pings that have occurred in the past 3000 milliseconds inclusive (i.e., in the range [t - 3000, t]).",
@@ -20126,6 +20338,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_swapping_nodes_linked_list",
     "title": "Swapping Nodes in a Linked List",
+    "functionName": "swappingNodesLinkedList",
     "difficulty": "Medium",
     "category": "Linked Lists",
     "description": "You are given the head of a linked list, and an integer k.\n\nReturn the values of the list after swapping the values of the kth node from the beginning and the kth node from the end (the list is 1-indexed).",
@@ -20219,6 +20432,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_split_linked_list_in_parts",
     "title": "Split Linked List in Parts",
+    "functionName": "splitLinkedListInParts",
     "difficulty": "Medium",
     "category": "Linked Lists",
     "description": "Given the head of a singly linked list and an integer k, split the linked list into k consecutive linked list parts.\n\nThe length of each part should be as equal as possible: no two parts should have a size differing by more than one. This may lead to some parts being null.\n\nThe parts should be in the order of occurrence in the input list, and parts occurring earlier should always have a size greater than or equal to parts occurring later.\n\nOutput the size of each part separated by space.",
@@ -20312,6 +20526,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_single_element_sorted_array",
     "title": "Single Element in a Sorted Array (Log N)",
+    "functionName": "singleElementSortedArray",
     "difficulty": "Medium",
     "category": "Binary Search",
     "description": "You are given a sorted array consisting of only integers where every element appears exactly twice, except for one element which appears exactly once.\n\nReturn the single element that appears only once.\n\nYour solution must run in O(log n) time and O(1) space.",
@@ -20405,6 +20620,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_find_first_bad_version",
     "title": "First Bad Version API Simulator",
+    "functionName": "findFirstBadVersion",
     "difficulty": "Easy",
     "category": "Binary Search",
     "description": "You are a product manager and currently leading a team to develop a new product. Unfortunately, the latest version of your product fails the quality check. Since each version is developed based on the previous version, all the versions after a bad version are also bad.\n\nSuppose you have n versions [1, 2, ..., n] and you are given the first bad version target. Return the first bad version using binary search.",
@@ -20497,6 +20713,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_binary_tree_right_side_view",
     "title": "Binary Tree Right Side View",
+    "functionName": "binaryTreeRightSideView",
     "difficulty": "Medium",
     "category": "Trees",
     "description": "Given the root of a binary tree (represented as level-order array with 'null' for missing nodes), imagine yourself standing on the right side of it, return the values of the nodes you can see ordered from top to bottom.",
@@ -20589,6 +20806,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_count_complete_tree_nodes",
     "title": "Count Complete Tree Nodes in Sub-linear Time",
+    "functionName": "countCompleteTreeNodes",
     "difficulty": "Medium",
     "category": "Trees",
     "description": "Given the root of a complete binary tree, return the number of the nodes in the tree.\n\nAccording to Wikipedia, every level, except possibly the last, is completely filled in a complete binary tree, and all nodes in the last level are as far left as possible.",
@@ -20680,6 +20898,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_path_sum_ii",
     "title": "Path Sum II All Root to Leaf Paths",
+    "functionName": "pathSumIi",
     "difficulty": "Medium",
     "category": "Trees",
     "description": "Given the root of a binary tree and an integer targetSum, return the number of root-to-leaf paths where the sum of the node values in the path equals targetSum.",
@@ -20773,6 +20992,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_maximum_width_binary_tree",
     "title": "Maximum Width of Binary Tree",
+    "functionName": "maximumWidthBinaryTree",
     "difficulty": "Medium",
     "category": "Trees",
     "description": "Given the root of a binary tree, return the maximum width of the given tree.\n\nThe maximum width of a tree is the maximum width among all levels.\n\nThe width of one level is defined as the length between the end-nodes (the leftmost and rightmost non-null nodes), where the null nodes between the end-nodes that would be present in a complete binary tree extending down to that level are also counted into the length calculation.",
@@ -20866,6 +21086,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_minimum_genetic_mutation",
     "title": "Minimum Genetic Mutation BFS",
+    "functionName": "minimumGeneticMutation",
     "difficulty": "Medium",
     "category": "Graphs",
     "description": "A gene string can be represented by an 8-character long string, with choices from 'A', 'C', 'G', and 'T'.\n\nSuppose we need to investigate a mutation from a gene string startGene to a gene string endGene where one mutation is defined as one single character changed in the gene string.\n\nThere is also a gene bank bank that records all the valid gene mutations. A gene must be in bank to make it a valid mutation.\n\nReturn the minimum number of mutations needed to mutate from startGene to endGene. If there is no such a mutation, return -1.",
@@ -20962,6 +21183,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_can_place_flowers",
     "title": "Can Place Flowers Without Adjacent Conflict",
+    "functionName": "canPlaceFlowers",
     "difficulty": "Easy",
     "category": "Greedy",
     "description": "You have a long flowerbed in which some of the plots are planted, and some are not. However, flowers cannot be planted in adjacent plots.\n\nGiven an integer array flowerbed containing 0's and 1's, where 0 means empty and 1 means not empty, and an integer n, return true if n new flowers can be planted in the flowerbed without violating the no-adjacent-flowers rule and false otherwise.",
@@ -21056,6 +21278,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_contains_duplicate_ii",
     "title": "Contains Duplicate II (Within K Distance)",
+    "functionName": "containsDuplicateIi",
     "difficulty": "Easy",
     "category": "Arrays",
     "description": "Given an integer array nums and an integer k, return true if there are two distinct indices i and j in the array such that nums[i] == nums[j] and abs(i - j) <= k.",
@@ -21150,6 +21373,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_longest_harmonious_subseq",
     "title": "Longest Harmonious Subsequence",
+    "functionName": "longestHarmoniousSubseq",
     "difficulty": "Easy",
     "category": "Arrays",
     "description": "We define a harmonious array as an array where the difference between its maximum value and its minimum value is exactly 1.\n\nGiven an integer array nums, return the length of its longest harmonious subsequence among all its possible subsequences.",
@@ -21243,6 +21467,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_find_difference_two_arrays",
     "title": "Find the Difference of Two Distinct Arrays",
+    "functionName": "findDifferenceTwoArrays",
     "difficulty": "Easy",
     "category": "Arrays",
     "description": "Given two 0-indexed integer arrays nums1 and nums2, return two lines:\n- Line 1: Space-separated distinct integers in nums1 which are not present in nums2 (sorted in ascending order, or EMPTY if none).\n- Line 2: Space-separated distinct integers in nums2 which are not present in nums1 (sorted in ascending order, or EMPTY if none).",
@@ -21336,6 +21561,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_unique_number_of_occurrences",
     "title": "Unique Number of Occurrences",
+    "functionName": "uniqueNumberOfOccurrences",
     "difficulty": "Easy",
     "category": "Arrays",
     "description": "Given an array of integers arr, return true if the number of occurrences of each value in the array is unique or false otherwise.",
@@ -21428,6 +21654,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_minimum_recolors_k_consecutive",
     "title": "Minimum Recolors to Get K Consecutive Black Blocks",
+    "functionName": "minimumRecolorsKConsecutive",
     "difficulty": "Easy",
     "category": "Sliding Window",
     "description": "You are given a 0-indexed string blocks of length n, where blocks[i] is either 'W' (white) or 'B' (black), representing the color of the ith block. You are also given an integer k, which is the desired number of consecutive black blocks.\n\nIn one operation, you can recolor a white block such that it becomes a black block.\n\nReturn the minimum number of operations needed such that there is at least one occurrence of k consecutive black blocks.",
@@ -21522,6 +21749,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_defanging_ip_address",
     "title": "Defanging an IPv4 Address",
+    "functionName": "defangingIpAddress",
     "difficulty": "Easy",
     "category": "Strings",
     "description": "Given a valid (IPv4) IP address, return a defanged version of that IP address.\n\nA defanged IP address replaces every period '.' with '[.]'.",
@@ -21611,6 +21839,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_merge_strings_alternately",
     "title": "Merge Strings Alternately",
+    "functionName": "mergeStringsAlternately",
     "difficulty": "Easy",
     "category": "Strings",
     "description": "You are given two strings word1 and word2. Merge the strings by adding letters in alternating order, starting with word1. If a string is longer than the other, append the additional letters onto the end of the merged string.\n\nReturn the merged string.",
@@ -21703,6 +21932,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_greatest_common_divisor_strings",
     "title": "Greatest Common Divisor of Strings",
+    "functionName": "greatestCommonDivisorStrings",
     "difficulty": "Easy",
     "category": "Strings",
     "description": "For two strings s and t, we say \"t divides s\" if and only if s = t + t + ... + t (i.e., t is concatenated with itself one or more times).\n\nGiven two strings str1 and str2, return the largest string x such that x divides both str1 and str2. If no such string exists, return \"EMPTY\".",
@@ -21796,6 +22026,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_kids_greatest_candies",
     "title": "Kids With the Greatest Number of Candies",
+    "functionName": "kidsGreatestCandies",
     "difficulty": "Easy",
     "category": "Arrays",
     "description": "There are n kids with candies. You are given an integer array candies, where each candies[i] represents the number of candies the ith kid has, and an integer extraCandies, denoting the number of extra candies that you have.\n\nReturn a boolean array result separated by spaces, where result[i] is true if, after giving the ith kid all the extraCandies, they will have the greatest number of candies among all the kids, or false otherwise.",
@@ -21890,6 +22121,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_valid_perfect_square",
     "title": "Valid Perfect Square (Binary Search)",
+    "functionName": "validPerfectSquare",
     "difficulty": "Easy",
     "category": "Binary Search",
     "description": "Given a positive integer num, return true if num is a perfect square or false otherwise.\nA perfect square is an integer that is the square of an integer. In other words, it is the product of some integer with itself.\nYou must not use any built-in library function, such as sqrt.",
@@ -21982,6 +22214,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_arranging_coins",
     "title": "Arranging Coins Staircase Rows",
+    "functionName": "arrangingCoins",
     "difficulty": "Easy",
     "category": "Binary Search",
     "description": "You have n coins and you want to build a staircase with these coins. The staircase consists of k rows where the ith row has exactly i coins. The last row of the staircase may be incomplete.\n\nGiven the integer n, return the number of complete rows of the staircase you will build.",
@@ -22074,6 +22307,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_cousins_in_binary_tree",
     "title": "Cousins in Binary Tree Verification",
+    "functionName": "cousinsInBinaryTree",
     "difficulty": "Easy",
     "category": "Trees",
     "description": "Given the root of a binary tree with unique values and the values of two different nodes of the tree x and y, return true if the nodes corresponding to the values x and y in the tree are cousins, or false otherwise.\n\nTwo nodes of a binary tree are cousins if they have the same depth with different parents.",
@@ -22166,6 +22400,7 @@ const CHALLENGES_CATALOG = [
   {
     "id": "ch_univalued_binary_tree",
     "title": "Univalued Binary Tree Check",
+    "functionName": "univaluedBinaryTree",
     "difficulty": "Easy",
     "category": "Trees",
     "description": "A binary tree is uni-valued if every node in the tree has the same value.\n\nGiven the root of a binary tree, return true if the given tree is uni-valued, or false otherwise.",
