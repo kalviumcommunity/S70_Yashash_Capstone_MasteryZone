@@ -134,16 +134,19 @@ export default function CertificationExamWorkspace({
   const certTitle = propCertTitle || CERT_INFO_MAP[certId]?.title || "Python Certified Professional";
   const language = propLanguage || CERT_INFO_MAP[certId]?.lang || "python";
 
-  const currentUserId = (() => {
+  const { currentUserId, currentUserEmail } = (() => {
     try {
       const rawUser = localStorage.getItem("user");
       if (rawUser) {
         const u = JSON.parse(rawUser);
         const uid = u._id || u.id || u.userId || "";
-        return uid !== "guest" ? uid : "";
+        return {
+          currentUserId: uid !== "guest" ? uid : "",
+          currentUserEmail: u.email || "",
+        };
       }
     } catch {}
-    return "";
+    return { currentUserId: "", currentUserEmail: "" };
   })();
 
   // 1. Session Persistence Recovery State strictly isolated to authenticated user

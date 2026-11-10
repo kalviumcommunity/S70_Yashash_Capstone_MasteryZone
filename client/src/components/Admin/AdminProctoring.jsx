@@ -405,14 +405,14 @@ const AdminProctoring = () => {
                   <span>Sessions matching &ldquo;{searchTerm.trim()}&rdquo;</span>
                   <span className="mz-global-search-esc">Press ESC</span>
                 </div>
-                {filteredSessions.length === 0 ? (
+                {sessions.length === 0 ? (
                   <div className="mz-global-search-empty">
                     <p>No proctoring sessions match &ldquo;{searchTerm}&rdquo;</p>
                     <small>Try searching by candidate name, email, or session ID</small>
                   </div>
                 ) : (
                   <div className="mz-global-search-group">
-                    {filteredSessions.slice(0, 6).map((s) => (
+                    {sessions.slice(0, 6).map((s) => (
                       <div
                         key={s.sessionId}
                         className="mz-global-search-item"
