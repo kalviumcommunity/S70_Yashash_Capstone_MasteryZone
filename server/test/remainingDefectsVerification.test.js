@@ -42,7 +42,12 @@ const {
   isPublicUntrustedEnvironment,
   isLocalExecutionPermitted,
   runSandboxedProcess,
+  getJudge0Config,
+  getJudge0LanguageId,
+  bundleMultiFileProject,
 } = require("../services/codeExecutionService");
+const { getProjectById } = require("../data/projectsCatalog");
+const http = require("http");
 
 const TEST_DB_URI = process.env.TEST_MONGODB_URI || "mongodb://127.0.0.1:27017/masteryzone_test";
 
@@ -1123,6 +1128,455 @@ public class Solution {
         if (prevKey) process.env.RESEND_API_KEY = prevKey; else delete process.env.RESEND_API_KEY;
         if (prevFrom) process.env.RESEND_FROM = prevFrom; else delete process.env.RESEND_FROM;
         process.env.NODE_ENV = prevEnv;
+      }
+    });
+
+    // -------------------------------------------------------------
+    // SECTION 9: Production Judge0 Integration (MasteryZone Compiler & Project Compiler)
+    // -------------------------------------------------------------
+    console.log("\n--- Section 9: Production Judge0 Integration (MasteryZone & Project Compilers) ---");
+
+    await it("Judge0 Config: Validates host URL, RapidAPI key requirement, and custom language IDs", async () => {
+      const prevHost = process.env.JUDGE0_API_HOST;
+      const prevKey = process.env.JUDGE0_API_KEY;
+      const prevPy = process.env.JUDGE0_LANG_PYTHON;
+
+      try {
+        delete process.env.JUDGE0_API_HOST;
+        delete process.env.JUDGE0_API_KEY;
+        assert.strictEqual(getJudge0Config().configured, false);
+
+        process.env.JUDGE0_API_HOST = "://malformed-url";
+        const invalidCfg = getJudge0Config();
+        assert.strictEqual(invalidCfg.configured, true);
+        assert.strictEqual(invalidCfg.valid, false);
+        assert.ok(invalidCfg.error.includes("Invalid Judge0 configuration"));
+
+        process.env.JUDGE0_API_HOST = "https://judge0-ce.p.rapidapi.com";
+        delete process.env.JUDGE0_API_KEY;
+        const missingKeyCfg = getJudge0Config();
+        assert.strictEqual(missingKeyCfg.valid, false);
+        assert.ok(missingKeyCfg.error.includes("JUDGE0_API_KEY is required"));
+
+        process.env.JUDGE0_API_KEY = "test_rapidapi_key";
+        process.env.JUDGE0_LANG_PYTHON = "100";
+        const validCfg = getJudge0Config();
+        assert.strictEqual(validCfg.valid, true);
+        assert.strictEqual(getJudge0LanguageId("python", validCfg), 100);
+        assert.strictEqual(getJudge0LanguageId("javascript", validCfg), 63);
+        assert.strictEqual(getJudge0LanguageId("java", validCfg), 62);
+        assert.strictEqual(getJudge0LanguageId("cpp", validCfg), 54);
+        assert.strictEqual(getJudge0LanguageId("c", validCfg), 50);
+      } finally {
+        if (prevHost) process.env.JUDGE0_API_HOST = prevHost; else delete process.env.JUDGE0_API_HOST;
+        if (prevKey) process.env.JUDGE0_API_KEY = prevKey; else delete process.env.JUDGE0_API_KEY;
+        if (prevPy) process.env.JUDGE0_LANG_PYTHON = prevPy; else delete process.env.JUDGE0_LANG_PYTHON;
+      }
+    });
+
+    await it("Judge0 Polling & Base64: Polls queued/processing submissions and forwards stdin across Python, JS, Java, C, C++", async () => {
+      let pollCount = 0;
+      const seenQueries = [];
+      const seenLangIds = [];
+      const mockJudge0 = http.createServer((req, res) => {
+        seenQueries.push(req.url);
+        if (req.method === "POST" && req.url.startsWith("/submissions")) {
+          let body = "";
+          req.on("data", (c) => (body += c));
+          req.on("end", () => {
+            const parsed = JSON.parse(body);
+            seenLangIds.push(parsed.language_id);
+            const stdinDecoded = Buffer.from(parsed.stdin || "", "base64").toString("utf8").trim();
+            res.writeHead(201, { "Content-Type": "application/json" });
+            res.end(
+              JSON.stringify({
+                token: `tok_${parsed.language_id}_${stdinDecoded}`,
+                status: { id: 1, description: "In Queue" },
+              })
+            );
+          });
+          return;
+        }
+        if (req.method === "GET" && req.url.startsWith("/submissions/tok_")) {
+          pollCount++;
+          const parts = req.url.split("?")[0].split("_");
+          const stdinVal = parts.slice(2).join("_");
+          if (pollCount === 1) {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            return res.end(JSON.stringify({ token: "tok", status: { id: 2, description: "Processing" } }));
+          }
+          res.writeHead(200, { "Content-Type": "application/json" });
+          return res.end(
+            JSON.stringify({
+              status: { id: 3, description: "Accepted" },
+              stdout: Buffer.from(`OUT:${stdinVal}\n`).toString("base64"),
+              stderr: null,
+              time: "0.025",
+            })
+          );
+        }
+        res.writeHead(404).end();
+      });
+
+      await new Promise((r) => mockJudge0.listen(0, r));
+      const port = mockJudge0.address().port;
+      const prevHost = process.env.JUDGE0_API_HOST;
+      const prevEnv = process.env.NODE_ENV;
+
+      try {
+        process.env.JUDGE0_API_HOST = `http://127.0.0.1:${port}`;
+        process.env.NODE_ENV = "production";
+
+        for (const [lang, expectedId] of [
+          ["python", 71],
+          ["javascript", 63],
+          ["java", 62],
+          ["cpp", 54],
+          ["c", 50],
+        ]) {
+          const execRes = await executeCode({
+            language: lang,
+            code: "int main() { return 0; }",
+            stdin: "42",
+          });
+          assert.strictEqual(execRes.exitCode, 0, `Expected exitCode 0 for ${lang}`);
+          assert.strictEqual(execRes.output.trim(), "OUT:42");
+          assert.ok(seenLangIds.includes(expectedId), `Expected language_id ${expectedId} for ${lang}`);
+        }
+        assert.ok(seenQueries.some((q) => q.includes("base64_encoded=true")), "Submission URL must include base64_encoded=true");
+        assert.ok(pollCount >= 2, "Must poll GET /submissions/:token when status is In Queue (1) / Processing (2)");
+      } finally {
+        if (prevHost) process.env.JUDGE0_API_HOST = prevHost; else delete process.env.JUDGE0_API_HOST;
+        process.env.NODE_ENV = prevEnv;
+        mockJudge0.close();
+      }
+    });
+
+    await it("MasteryZone Compiler (Production Judge0): Handles Accepted, Wrong Answer, Compilation Error, Runtime Error, and Timeout", async () => {
+      let currentMode = "accepted";
+      const mockJudge0 = http.createServer((req, res) => {
+        let body = "";
+        req.on("data", (c) => (body += c));
+        req.on("end", () => {
+          const parsed = body ? JSON.parse(body) : {};
+          const stdinStr = Buffer.from(parsed.stdin || "", "base64").toString("utf8").trim();
+          res.writeHead(200, { "Content-Type": "application/json" });
+
+          if (currentMode === "compile_error") {
+            return res.end(
+              JSON.stringify({
+                status: { id: 6, description: "Compilation Error" },
+                stdout: null,
+                stderr: null,
+                compile_output: Buffer.from("main.cpp:3:12: error: expected ';' before '}' token\n").toString("base64"),
+                time: "0.00",
+              })
+            );
+          }
+          if (currentMode === "runtime_error") {
+            return res.end(
+              JSON.stringify({
+                status: { id: 11, description: "Runtime Error (NZEC)" },
+                stdout: null,
+                stderr: Buffer.from("ZeroDivisionError: division by zero\n").toString("base64"),
+                compile_output: null,
+                time: "0.02",
+              })
+            );
+          }
+          if (currentMode === "timeout") {
+            return res.end(
+              JSON.stringify({
+                status: { id: 5, description: "Time Limit Exceeded" },
+                stdout: null,
+                stderr: null,
+                compile_output: null,
+                time: "4.00",
+              })
+            );
+          }
+          if (currentMode === "wrong_answer") {
+            return res.end(
+              JSON.stringify({
+                status: { id: 3, description: "Accepted" },
+                stdout: Buffer.from("[99, 99]\n").toString("base64"),
+                stderr: null,
+                time: "0.02",
+              })
+            );
+          }
+          if (currentMode === "empty_output") {
+            return res.end(
+              JSON.stringify({
+                status: { id: 3, description: "Accepted" },
+                stdout: Buffer.from("").toString("base64"),
+                stderr: null,
+                time: "0.01",
+              })
+            );
+          }
+          // Default: accepted for ch_tight_bound test cases
+          const lines = stdinStr.split(/\r?\n/);
+          const coeffs = (lines[1] || "1 1").trim().split(/\s+/).map(Number);
+          const sum = coeffs.reduce((a, b) => a + b, 0);
+          return res.end(
+            JSON.stringify({
+              status: { id: 3, description: "Accepted" },
+              stdout: Buffer.from(`${coeffs[0]} ${sum} 1\n`).toString("base64"),
+              stderr: null,
+              time: "0.015",
+            })
+          );
+        });
+      });
+
+      await new Promise((r) => mockJudge0.listen(0, r));
+      const port = mockJudge0.address().port;
+      const prevHost = process.env.JUDGE0_API_HOST;
+      const prevEnv = process.env.NODE_ENV;
+
+      try {
+        process.env.JUDGE0_API_HOST = `http://127.0.0.1:${port}`;
+        process.env.NODE_ENV = "production";
+
+        // 1. Accepted
+        currentMode = "accepted";
+        const passRes = await fetch(`${baseUrl}/api/coding/challenges/ch_tight_bound/test`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${tokenHost}` },
+          body: JSON.stringify({ language: "python", code: "k = int(input())\nprint(k)" }),
+        });
+        assert.strictEqual(passRes.status, 200);
+        const passData = await passRes.json();
+        assert.strictEqual(passData.status, "ACCEPTED");
+        assert.strictEqual(passData.passedCount, passData.total);
+
+        // 2. Wrong Answer
+        currentMode = "wrong_answer";
+        const wrongRes = await fetch(`${baseUrl}/api/coding/challenges/ch_tight_bound/test`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${tokenHost}` },
+          body: JSON.stringify({ language: "python", code: "k = int(input())\nprint(999)" }),
+        });
+        const wrongData = await wrongRes.json();
+        assert.strictEqual(wrongData.status, "WRONG_ANSWER");
+        assert.strictEqual(wrongData.passedCount, 0);
+
+        // 3. Empty Output -> Never reported as passed
+        currentMode = "empty_output";
+        const emptyRes = await fetch(`${baseUrl}/api/coding/challenges/ch_tight_bound/test`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${tokenHost}` },
+          body: JSON.stringify({ language: "python", code: "x = 1\n" }),
+        });
+        const emptyData = await emptyRes.json();
+        assert.strictEqual(emptyData.passedCount, 0);
+        assert.ok(emptyData.results.every((r) => r.passed === false));
+
+        // 4. Compilation Error
+        currentMode = "compile_error";
+        const compRes = await fetch(`${baseUrl}/api/coding/challenges/ch_tight_bound/test`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${tokenHost}` },
+          body: JSON.stringify({ language: "cpp", code: "int main() { return 0 }" }),
+        });
+        const compData = await compRes.json();
+        assert.strictEqual(compData.passedCount, 0);
+        assert.ok(compData.results[0].error.includes("Compilation Error"));
+
+        // 5. Runtime Error
+        currentMode = "runtime_error";
+        const rtRes = await fetch(`${baseUrl}/api/coding/challenges/ch_tight_bound/test`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${tokenHost}` },
+          body: JSON.stringify({ language: "python", code: "print(1 / 0)" }),
+        });
+        const rtData = await rtRes.json();
+        assert.strictEqual(rtData.passedCount, 0);
+        assert.ok(rtData.results[0].error.includes("ZeroDivisionError"));
+
+        // 6. Timeout
+        currentMode = "timeout";
+        const toRes = await fetch(`${baseUrl}/api/coding/challenges/ch_tight_bound/test`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${tokenHost}` },
+          body: JSON.stringify({ language: "python", code: "while True:\n    pass" }),
+        });
+        const toData = await toRes.json();
+        assert.strictEqual(toData.passedCount, 0);
+        assert.ok(toData.results[0].error.includes("timed out"));
+      } finally {
+        if (prevHost) process.env.JUDGE0_API_HOST = prevHost; else delete process.env.JUDGE0_API_HOST;
+        process.env.NODE_ENV = prevEnv;
+        mockJudge0.close();
+      }
+    });
+
+    await it("Project Compiler (Production Judge0): Multi-file project bundling, Accepted, Wrong Answer, Compile Error, Runtime Error, Timeout, and Fail-Closed 503", async () => {
+      const pyProject = getProjectById("proj_trading_bot");
+      assert.ok(pyProject, "proj_trading_bot must exist in catalog");
+
+      let projectMode = "accepted";
+      const mockJudge0 = http.createServer((req, res) => {
+        let body = "";
+        req.on("data", (c) => (body += c));
+        req.on("end", () => {
+          const parsed = body ? JSON.parse(body) : {};
+          const decodedSource = Buffer.from(parsed.source_code || "", "base64").toString("utf8");
+          const decodedStdin = Buffer.from(parsed.stdin || "", "base64").toString("utf8");
+
+          res.writeHead(200, { "Content-Type": "application/json" });
+
+          if (projectMode === "compile_error") {
+            return res.end(
+              JSON.stringify({
+                status: { id: 6, description: "Compilation Error" },
+                compile_output: Buffer.from("Syntax Error in indicators.py (line 2): invalid syntax\n").toString("base64"),
+                time: "0.01",
+              })
+            );
+          }
+          if (projectMode === "runtime_error") {
+            return res.end(
+              JSON.stringify({
+                status: { id: 11, description: "Runtime Error (NZEC)" },
+                stderr: Buffer.from("KeyError: 'prices'\n").toString("base64"),
+                time: "0.02",
+              })
+            );
+          }
+          if (projectMode === "timeout") {
+            return res.end(
+              JSON.stringify({
+                status: { id: 5, description: "Time Limit Exceeded" },
+                time: "5.00",
+              })
+            );
+          }
+          if (projectMode === "wrong_answer") {
+            return res.end(
+              JSON.stringify({
+                status: { id: 3, description: "Accepted" },
+                stdout: Buffer.from('{"ok": false, "wrong": true}\n').toString("base64"),
+                time: "0.02",
+              })
+            );
+          }
+
+          // Verify multi-file bundling actually included all project modules
+          assert.ok(decodedSource.includes("_MZ_SOURCES") && decodedSource.includes("indicators") && decodedSource.includes("backtester"));
+
+          // Match test case input to expected output from proj_trading_bot
+          const matchingTc = (pyProject.testCases || []).find((tc) => (tc.input || "").trim() === decodedStdin.trim());
+          const outText = matchingTc ? matchingTc.expectedOutput : '{"ok": true}';
+          return res.end(
+            JSON.stringify({
+              status: { id: 3, description: "Accepted" },
+              stdout: Buffer.from(`${outText}\n`).toString("base64"),
+              time: "0.03",
+            })
+          );
+        });
+      });
+
+      await new Promise((r) => mockJudge0.listen(0, r));
+      const port = mockJudge0.address().port;
+      const prevHost = process.env.JUDGE0_API_HOST;
+      const prevEnv = process.env.NODE_ENV;
+
+      try {
+        process.env.JUDGE0_API_HOST = `http://127.0.0.1:${port}`;
+        process.env.NODE_ENV = "production";
+
+        // 1. Successful multi-file project execution in production via Judge0
+        projectMode = "accepted";
+        const runRes = await fetch(`${baseUrl}/api/projects/proj_trading_bot/run`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${tokenHost}` },
+          body: JSON.stringify({
+            mode: "tests",
+            files: pyProject.solutionFiles,
+          }),
+        });
+        assert.strictEqual(runRes.status, 200);
+        const runData = await runRes.json();
+        assert.strictEqual(runData.passedTests, runData.totalTests);
+        assert.strictEqual(runData.evaluation.passed, true);
+
+        // 2. Wrong answer in Project Compiler
+        projectMode = "wrong_answer";
+        const waRes = await fetch(`${baseUrl}/api/projects/proj_trading_bot/run`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${tokenHost}` },
+          body: JSON.stringify({
+            mode: "tests",
+            files: pyProject.solutionFiles,
+          }),
+        });
+        const waData = await waRes.json();
+        assert.strictEqual(waData.passedTests, 0);
+        assert.strictEqual(waData.evaluation.passed, false);
+
+        // 3. Compilation error in Project Compiler
+        projectMode = "compile_error";
+        const ceRes = await fetch(`${baseUrl}/api/projects/proj_trading_bot/run`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${tokenHost}` },
+          body: JSON.stringify({
+            mode: "tests",
+            files: pyProject.solutionFiles,
+          }),
+        });
+        const ceData = await ceRes.json();
+        assert.strictEqual(ceData.passedTests, 0);
+        assert.ok(ceData.testResults[0].error.includes("Compilation Error") || ceData.testResults[0].error.includes("Syntax Error"));
+
+        // 4. Runtime error in Project Compiler
+        projectMode = "runtime_error";
+        const reRes = await fetch(`${baseUrl}/api/projects/proj_trading_bot/run`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${tokenHost}` },
+          body: JSON.stringify({
+            mode: "tests",
+            files: pyProject.solutionFiles,
+          }),
+        });
+        const reData = await reRes.json();
+        assert.strictEqual(reData.passedTests, 0);
+        assert.ok(reData.testResults[0].error.includes("KeyError"));
+
+        // 5. Timeout in Project Compiler
+        projectMode = "timeout";
+        const toRes = await fetch(`${baseUrl}/api/projects/proj_trading_bot/run`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${tokenHost}` },
+          body: JSON.stringify({
+            mode: "tests",
+            files: pyProject.solutionFiles,
+          }),
+        });
+        const toData = await toRes.json();
+        assert.strictEqual(toData.passedTests, 0);
+        assert.ok(toData.testResults[0].error.includes("timed out"));
+
+        // 6. Missing Judge0 in production -> Fail-closed 503 in Project Compiler
+        delete process.env.JUDGE0_API_HOST;
+        const unconfRes = await fetch(`${baseUrl}/api/projects/proj_trading_bot/run`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${tokenHost}` },
+          body: JSON.stringify({
+            mode: "tests",
+            files: pyProject.solutionFiles,
+          }),
+        });
+        assert.strictEqual(unconfRes.status, 503);
+        const unconfData = await unconfRes.json();
+        assert.strictEqual(unconfData.isUnavailable, true);
+        assert.ok(unconfData.error.includes("Production execution requires a configured isolated execution environment"));
+      } finally {
+        if (prevHost) process.env.JUDGE0_API_HOST = prevHost; else delete process.env.JUDGE0_API_HOST;
+        process.env.NODE_ENV = prevEnv;
+        mockJudge0.close();
       }
     });
 

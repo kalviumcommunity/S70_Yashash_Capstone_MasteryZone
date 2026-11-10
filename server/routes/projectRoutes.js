@@ -27,6 +27,11 @@ const {
   validateCodeSafety,
   validateTestCaseOutput,
   isProductionExecutionRestricted,
+  isPublicUntrustedEnvironment,
+  isLocalExecutionPermitted,
+  getJudge0Config,
+  bundleMultiFileProject,
+  executeViaJudge0,
   JAVAC_BIN,
   JAVA_BIN,
   PYTHON_BIN,
@@ -83,34 +88,88 @@ function isStarterOrEmpty(project, submittedFiles) {
 }
 
 /**
- * Compiles/Prepares a multi-file project inside a sandboxed temp directory
- * and provides a runner function `runWithInput(stdin)` for fast multi-test execution.
+ * Compiles/Prepares a multi-file project inside a sandboxed environment
+ * (Judge0 remote isolated sandbox when configured, or local sandbox in trusted dev/test)
+ * and provides a runner function `runInput(stdin)` for multi-test execution.
  */
 async function prepareMultiFileSandbox(project, files) {
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "mz_proj_"));
   const lang = String(project.starterLanguage || "javascript").toLowerCase();
 
-  if (isProductionExecutionRestricted()) {
+  for (const file of files) {
+    const safety = validateCodeSafety(file.language || lang, file.content || "", { isProject: true });
+    if (!safety.safe) {
+      return {
+        ok: false,
+        isSecurityViolation: true,
+        compileError: `Security Violation in ${file.name}: ${safety.reason}`,
+        cleanup: () => {},
+      };
+    }
+  }
+
+  const j0Config = getJudge0Config();
+  if (j0Config.configured) {
+    if (!j0Config.valid) {
+      return {
+        ok: false,
+        isUnavailable: true,
+        compileError: j0Config.error,
+        cleanup: () => {},
+      };
+    }
+
+    const bundledCode = bundleMultiFileProject(lang, files);
     return {
-      ok: false,
-      isUnavailable: true,
-      compileError: "Production execution requires a configured isolated execution environment (Judge0).",
-      cleanup: () => {
-        try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+      ok: true,
+      engine: "Judge0",
+      runInput: async (stdin) => {
+        try {
+          const res = await executeViaJudge0(lang, bundledCode, stdin || "", 5000, {
+            rawCode: true,
+            isProject: true,
+          });
+          return res;
+        } catch (j0Err) {
+          if (isPublicUntrustedEnvironment() || !isLocalExecutionPermitted() || (j0Err && j0Err.isConfigError)) {
+            return {
+              output: "",
+              error:
+                j0Err && j0Err.isConfigError
+                  ? j0Err.message
+                  : "Isolated execution sandbox (Judge0) is temporarily unavailable. Please retry shortly.",
+              duration: 0,
+              exitCode: 1,
+              isUnavailable: true,
+              engine: "Judge0",
+            };
+          }
+          return {
+            output: "",
+            error: `Judge0 execution error: ${j0Err.message}`,
+            duration: 0,
+            exitCode: 1,
+            isUnavailable: true,
+            engine: "Judge0",
+          };
+        }
       },
+      cleanup: () => {},
     };
   }
 
+  if (isProductionExecutionRestricted() || isPublicUntrustedEnvironment() || !isLocalExecutionPermitted()) {
+    return {
+      ok: false,
+      isUnavailable: true,
+      compileError: "Production execution requires a configured isolated execution environment (Judge0). Local fallback is disabled.",
+      cleanup: () => {},
+    };
+  }
+
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "mz_proj_"));
+
   try {
     for (const file of files) {
-      const safety = validateCodeSafety(file.language || lang, file.content || "", { isProject: true });
-      if (!safety.safe) {
-        return {
-          ok: false,
-          compileError: `Security Violation in ${file.name}: ${safety.reason}`,
-          cleanup: () => fs.rmSync(tmpDir, { recursive: true, force: true }),
-        };
-      }
       const safeName = path.basename(file.name);
       fs.writeFileSync(path.join(tmpDir, safeName), file.content || "", "utf8");
     }
@@ -249,6 +308,8 @@ async function evaluateFullProject(project, rawFiles) {
 
   const sandbox = await prepareMultiFileSandbox(project, files);
   const testResults = [];
+  let runtimeUnavailableError = null;
+  let runtimeCompileError = null;
 
   try {
     if (!sandbox.ok) {
@@ -270,10 +331,56 @@ async function evaluateFullProject(project, rawFiles) {
     } else {
       for (let i = 0; i < testCases.length; i++) {
         const tc = testCases[i];
+
+        if (runtimeUnavailableError || runtimeCompileError) {
+          testResults.push({
+            testIndex: i + 1,
+            name: tc.name,
+            input: tc.isHidden ? "[Hidden Edge-Case Input]" : tc.input,
+            expectedOutput: tc.isHidden ? "[Hidden Expected Output]" : (tc.expectedOutput || "").trim(),
+            actualOutput: "",
+            passed: false,
+            durationMs: 0,
+            isHidden: Boolean(tc.isHidden),
+            isEdgeCase: Boolean(tc.isEdgeCase),
+            error: runtimeUnavailableError || runtimeCompileError,
+          });
+          continue;
+        }
+
         const res = await sandbox.runInput(tc.input);
+        if (res.isUnavailable) {
+          runtimeUnavailableError = res.error || "Isolated execution sandbox (Judge0) is temporarily unavailable.";
+          testResults.push({
+            testIndex: i + 1,
+            name: tc.name,
+            input: tc.isHidden ? "[Hidden Edge-Case Input]" : tc.input,
+            expectedOutput: tc.isHidden ? "[Hidden Expected Output]" : (tc.expectedOutput || "").trim(),
+            actualOutput: "",
+            passed: false,
+            durationMs: 0,
+            isHidden: Boolean(tc.isHidden),
+            isEdgeCase: Boolean(tc.isEdgeCase),
+            error: runtimeUnavailableError,
+          });
+          continue;
+        }
+        if (res.isCompileError) {
+          runtimeCompileError = res.error || "Compilation Error";
+        }
+
         const actualClean = (res.output || "").trim().replace(/\r\n/g, "\n");
         const expectedClean = (tc.expectedOutput || "").trim().replace(/\r\n/g, "\n");
-        const passed = res.exitCode === 0 && validateTestCaseOutput(actualClean, expectedClean);
+        const passed =
+          res.exitCode === 0 &&
+          !res.error &&
+          !res.isTimeout &&
+          !res.isCompileError &&
+          !res.isRuntimeError &&
+          !res.isUnavailable &&
+          actualClean.length > 0 &&
+          expectedClean.length > 0 &&
+          validateTestCaseOutput(actualClean, expectedClean);
 
         testResults.push({
           testIndex: i + 1,
@@ -292,6 +399,8 @@ async function evaluateFullProject(project, rawFiles) {
   } finally {
     sandbox.cleanup();
   }
+
+  const sandboxHealthy = Boolean(sandbox.ok && !runtimeUnavailableError && !runtimeCompileError);
 
   const totalTests = testResults.length || 6;
   const passedTests = testResults.filter((r) => r.passed).length;
@@ -535,9 +644,13 @@ async function evaluateFullProject(project, rawFiles) {
     percentage,
     passingMarks,
     grade,
-    passed,
-    status: passed ? "PASSED" : "NEEDS_IMPROVEMENT",
-    badgeAwarded: passed,
+    passed: Boolean(passed && sandboxHealthy),
+    status: passed && sandboxHealthy ? "PASSED" : "NEEDS_IMPROVEMENT",
+    badgeAwarded: Boolean(passed && sandboxHealthy),
+    isUnavailable: Boolean(sandbox.isUnavailable || runtimeUnavailableError),
+    isSecurityViolation: Boolean(sandbox.isSecurityViolation),
+    isCompileError: Boolean(!sandbox.ok || runtimeCompileError),
+    error: sandbox.compileError || runtimeUnavailableError || runtimeCompileError || null,
     tasksEvaluation,
     requirementsEvaluation,
     testResults,
@@ -1073,6 +1186,19 @@ router.post("/:projectId/run", optionalAuthenticateToken, async (req, res) => {
           if (sandbox.isUnavailable) {
             return res.status(503).json({
               success: false,
+              ok: false,
+              isUnavailable: true,
+              mode: "custom",
+              output: "",
+              error: sandbox.compileError,
+              durationMs: 0,
+            });
+          }
+          if (sandbox.isSecurityViolation) {
+            return res.status(403).json({
+              success: false,
+              ok: false,
+              isSecurityViolation: true,
               mode: "custom",
               output: "",
               error: sandbox.compileError,
@@ -1081,6 +1207,7 @@ router.post("/:projectId/run", optionalAuthenticateToken, async (req, res) => {
           }
           return res.json({
             success: false,
+            ok: false,
             mode: "custom",
             output: "",
             error: sandbox.compileError,
@@ -1092,9 +1219,21 @@ router.post("/:projectId/run", optionalAuthenticateToken, async (req, res) => {
             ? String(customInput)
             : project.testCases?.[0]?.input || "";
         const runRes = await sandbox.runInput(inputToRun);
+        if (runRes.isUnavailable) {
+          return res.status(503).json({
+            success: false,
+            ok: false,
+            isUnavailable: true,
+            mode: "custom",
+            inputUsed: inputToRun,
+            output: "",
+            error: runRes.error,
+            durationMs: 0,
+          });
+        }
         return res.json({
-          success: runRes.exitCode === 0,
-          ok: runRes.exitCode === 0,
+          success: runRes.exitCode === 0 && !runRes.error,
+          ok: runRes.exitCode === 0 && !runRes.error,
           mode: "custom",
           inputUsed: inputToRun,
           output: runRes.output || "",
@@ -1108,6 +1247,36 @@ router.post("/:projectId/run", optionalAuthenticateToken, async (req, res) => {
 
     // Full live test & rubric preview without creating a final submission
     const evaluation = await evaluateFullProject(project, normalizedFiles);
+    if (evaluation.isUnavailable) {
+      return res.status(503).json({
+        success: false,
+        ok: false,
+        isUnavailable: true,
+        mode: "tests",
+        output: "",
+        error: evaluation.error || "Production execution requires a configured isolated execution environment (Judge0). Local fallback is disabled.",
+        durationMs: 0,
+        testResults: evaluation.testResults || [],
+        passedTests: 0,
+        totalTests: evaluation.totalTests || 0,
+        evaluation,
+      });
+    }
+    if (evaluation.isSecurityViolation) {
+      return res.status(403).json({
+        success: false,
+        ok: false,
+        isSecurityViolation: true,
+        mode: "tests",
+        output: "",
+        error: evaluation.error,
+        durationMs: 0,
+        testResults: evaluation.testResults || [],
+        passedTests: 0,
+        totalTests: evaluation.totalTests || 0,
+        evaluation,
+      });
+    }
 
     // Persist workspace draft & lastRunSummary for registered accounts
     const isValidId = userId && mongoose.Types.ObjectId.isValid(userId);
@@ -1171,6 +1340,20 @@ router.post("/:projectId/submit", authenticateToken, async (req, res) => {
 
     const { files, checkedTasks, timeSpentSeconds, durationSeconds: bodyDuration } = req.body;
     const evaluation = await evaluateFullProject(project, files);
+    if (evaluation.isUnavailable) {
+      return res.status(503).json({
+        success: false,
+        isUnavailable: true,
+        error: evaluation.error || "Production execution requires a configured isolated execution environment (Judge0). Local fallback is disabled.",
+      });
+    }
+    if (evaluation.isSecurityViolation) {
+      return res.status(403).json({
+        success: false,
+        isSecurityViolation: true,
+        error: evaluation.error,
+      });
+    }
 
     const isValidId = userId && mongoose.Types.ObjectId.isValid(userId);
     if (!isValidId) {

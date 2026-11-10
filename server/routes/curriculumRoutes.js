@@ -930,6 +930,13 @@ router.post("/assignment/submit", authenticateToken, async (req, res) => {
         functionName: execConfig.functionName,
         problemId: module.id,
       });
+      if (outcomes.length > 0 && outcomes[0].isUnavailable) {
+        return res.status(503).json({
+          success: false,
+          isUnavailable: true,
+          error: outcomes[0].error,
+        });
+      }
 
       testResults = testCases.map((tc, i) => {
         const out = outcomes[i] || { passed: false, actual: "", expected: tc.expectedOutput, error: "Evaluation failed", duration: 0 };
