@@ -7,6 +7,7 @@
   "scripts": {
     "test": "node test/completeSecurityVerification.test.js && node test/accountIsolationAndRecording.test.js && node test/auditVerification.test.js && node test/e2eFourFixes.test.js && node test/emailSystem.test.js && node test/compilerAllLanguages.test.js && node test/criticalDefectsVerification.test.js && node test/remainingDefectsVerification.test.js && node test/finalRemainingDefectsVerification.test.js && node test/finalSecurityAndBugFixPass.test.js",
     "test:email": "node test/emailSystem.test.js",
+    "dev": "NODE_ENV=development node server.js",
     "start": "node server.js"
   },
   "keywords": [],

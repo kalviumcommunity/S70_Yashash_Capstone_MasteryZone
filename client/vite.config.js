@@ -47,6 +47,16 @@ export default defineConfig({
     }
   },
   build: {
-    cssCodeSplit: false
+    cssCodeSplit: true,
+    chunkSizeWarningLimit: 1200,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-icons': ['react-icons'],
+          'vendor-firebase': ['firebase/app', 'firebase/auth'],
+        }
+      }
+    }
   }
 })
