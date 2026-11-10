@@ -8,7 +8,11 @@ const Recording = require("../models/Recording");
 const authenticateToken = require("../middleware/authMiddleware");
 
 // Uploads directory path (Supports persistent cloud disk mount via RECORDINGS_STORAGE_PATH)
-const { getRecordingsDir, resolveRecordingFilePath } = require("../config/recordingStorage");
+const {
+  getRecordingsDir,
+  resolveRecordingFilePath,
+  safeDeleteRecordingFile,
+} = require("../config/recordingStorage");
 const RECORDINGS_DIR = getRecordingsDir();
 
 function getFfmpegBinary() {
@@ -926,18 +930,22 @@ router.delete("/:recordingId", authenticateToken, async (req, res) => {
       return res.status(403).json({ error: "Only the recording host or an administrator can delete this video" });
     }
 
-    // Safely resolve the exact file path using centralized storage resolver
-    const safeFilename = path.basename(recording.filePath || `${recording.recordingId}.${recording.mimeType?.includes("mp4") ? "mp4" : "webm"}`);
-    const diskPath = resolveRecordingFilePath(safeFilename, recording) || (recording.filePath && fs.existsSync(recording.filePath) ? recording.filePath : null);
+    // Safely delete physical file first via centralized storage service
+    const delResult = safeDeleteRecordingFile(recording);
+    if (!delResult.success) {
+      // Physical file remains on disk and could not be removed!
+      // Do not silently delete the database record when the file remains on disk.
+      recording.status = "deletion_failed";
+      recording.deletionError = delResult.error || "Filesystem unlink error";
+      await recording.save();
 
-    if (diskPath && fs.existsSync(diskPath)) {
-      try {
-        fs.unlinkSync(diskPath);
-      } catch (e) {
-        console.warn("Could not delete file from disk:", e.message);
-      }
+      return res.status(500).json({
+        error: `Failed to safely delete recording file: ${delResult.error}. Database record retained for recovery.`,
+        recordingId: recording.recordingId,
+      });
     }
 
+    // Only after physical file is safely removed (or was already missing on disk), remove the MongoDB record
     await Recording.deleteOne({ _id: recording._id });
 
     res.json({ success: true, message: "Recording deleted successfully" });
