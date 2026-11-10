@@ -888,123 +888,27 @@ router.post("/:meetingId/submit-solution", authenticateToken, async (req, res) =
     }
 
     const testsToRun = testCases.length > 0 ? testCases : meeting?.testCases || [];
-    const testResults = [];
-    let passedCount = 0;
+    const execConfig = getProblemExecutionConfig(meeting.problemId || meeting.functionName || challengeTitle);
+    const resolvedFunctionName = meeting.functionName || execConfig.functionName || "";
+    const evaluated = await evaluateTestCasesBatch(lang, code, testsToRun, {
+      functionName: resolvedFunctionName,
+      problemId: meeting.problemId || execConfig.problemId,
+    });
 
-    // Compiled language handling
-    let compiledBinPath = null;
-    let compileError = null;
-    let sharedTmpDir = null;
-    let javaClassName = "Main";
-
-    if (lang === "cpp" || lang === "c++" || lang === "c" || lang === "java") {
-      sharedTmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "mz_submit_compile_"));
-      try {
-        if (lang === "cpp" || lang === "c++") {
-          const srcPath = path.join(sharedTmpDir, "main.cpp");
-          compiledBinPath = path.join(sharedTmpDir, "main_bin");
-          fs.writeFileSync(srcPath, code, "utf8");
-          const compile = await runSandboxedProcess(GPP_BIN, ["-O2", srcPath, "-o", compiledBinPath], "", 7000, sharedTmpDir);
-          if (compile.exitCode !== 0) compileError = compile.error || compile.output || "C++ compilation error";
-        } else if (lang === "c") {
-          const srcPath = path.join(sharedTmpDir, "main.c");
-          compiledBinPath = path.join(sharedTmpDir, "main_bin");
-          fs.writeFileSync(srcPath, code, "utf8");
-          const compile = await runSandboxedProcess(GCC_BIN, ["-O2", srcPath, "-o", compiledBinPath], "", 7000, sharedTmpDir);
-          if (compile.exitCode !== 0) compileError = compile.error || compile.output || "C compilation error";
-        } else if (lang === "java") {
-          const classMatch = code.match(/public\s+class\s+([A-Za-z0-9_]+)/);
-          if (classMatch && classMatch[1]) javaClassName = classMatch[1];
-          const srcPath = path.join(sharedTmpDir, `${javaClassName}.java`);
-          fs.writeFileSync(srcPath, code, "utf8");
-          const compile = await runSandboxedProcess(JAVAC_BIN, [srcPath], "", 7000, sharedTmpDir);
-          if (compile.exitCode !== 0) compileError = compile.error || compile.output || "Java compilation error";
-        }
-      } catch (cErr) {
-        compileError = cErr.message;
-      }
-    }
-
-    try {
-      if (compileError) {
-        testResults.push(...testsToRun.map((tc, i) => ({
-          id: tc.id || `tc_${i + 1}`,
-          input: tc.input,
-          expectedOutput: tc.expectedOutput,
-          actualOutput: "",
-          error: compileError,
-          passed: false,
-        })));
-      } else {
-        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "mz_submit_run_"));
-        try {
-          let runner = null;
-          if (lang === "python" || lang === "py") {
-            const filePath = path.join(tmpDir, "main.py");
-            fs.writeFileSync(filePath, code, "utf8");
-            runner = (stdin) => runSandboxedProcess(PYTHON_BIN, ["-u", "-I", filePath], stdin || "", 4000, tmpDir);
-          } else if (lang === "javascript" || lang === "js" || lang === "node") {
-            const filePath = path.join(tmpDir, "index.js");
-            fs.writeFileSync(filePath, code, "utf8");
-            runner = (stdin) => runSandboxedProcess(NODE_BIN, [filePath], stdin || "", 4000, tmpDir);
-          } else if (lang === "cpp" || lang === "c++" || lang === "c") {
-            if (compiledBinPath && fs.existsSync(compiledBinPath)) {
-              runner = (stdin) => runSandboxedProcess(compiledBinPath, [], stdin || "", 4000, tmpDir);
-            }
-          } else if (lang === "java") {
-            if (sharedTmpDir) {
-              runner = (stdin) => runSandboxedProcess(JAVA_BIN, ["-cp", sharedTmpDir, javaClassName], stdin || "", 4000, tmpDir);
-            }
-          }
-
-          const evaluated = await Promise.all(
-            testsToRun.map(async (tc, i) => {
-              let actualOutput = "";
-              let error = "";
-              let passed = false;
-
-              if (!runner) {
-                error = "Execution environment unavailable";
-              } else {
-                try {
-                  const exec = await runner(tc.input || "");
-                  actualOutput = (exec.output || "").trim();
-                  error = exec.error;
-                  const expected = String(tc.expectedOutput || "").trim();
-                  passed = !error && (actualOutput === expected || actualOutput.replace(/\r\n/g, "\n") === expected.replace(/\r\n/g, "\n"));
-                } catch (e) {
-                  error = e.message;
-                }
-              }
-
-              return {
-                id: tc.id || `tc_${i + 1}`,
-                input: tc.input,
-                expectedOutput: tc.expectedOutput,
-                actualOutput,
-                error,
-                passed,
-              };
-            })
-          );
-
-          for (const item of evaluated) {
-            if (item.passed) passedCount++;
-            testResults.push(item);
-          }
-        } finally {
-          try {
-            fs.rmSync(tmpDir, { recursive: true, force: true });
-          } catch {}
-        }
-      }
-    } finally {
-      if (sharedTmpDir) {
-        try {
-          fs.rmSync(sharedTmpDir, { recursive: true, force: true });
-        } catch {}
-      }
-    }
+    const testResults = evaluated.map((item, i) => {
+      const tc = testsToRun[i] || {};
+      const actualOutput = item.actual !== undefined ? item.actual : (item.actualOutput || "");
+      const expectedOutput = item.expected !== undefined ? item.expected : (tc.expectedOutput || "");
+      return {
+        id: tc.id || `tc_${i + 1}`,
+        input: tc.input,
+        expectedOutput,
+        actualOutput,
+        error: item.error || "",
+        passed: Boolean(item.passed),
+      };
+    });
+    const passedCount = testResults.filter((r) => r.passed).length;
 
     const totalCount = testResults.length || 1;
     const scorePercentage = Math.round((passedCount / totalCount) * 100);

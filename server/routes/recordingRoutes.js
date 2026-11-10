@@ -271,35 +271,62 @@ async function validateMediaIntegrity(filePath, buffer, expectedDuration = null)
   return inspectMediaBinary(buffer, expectedDuration);
 }
 
-// 1. Upload a new recording (Dedicated 100mb limit for video payload)
-router.post("/upload", express.json({ limit: "100mb" }), authenticateToken, async (req, res) => {
-  let createdFilePath = null;
-  try {
-    const {
-      meetingId,
-      title,
-      durationSeconds = 0,
-      participantNames = [],
-      base64Data,
-      mimeType = "video/webm",
-      thumbnailUrl = "",
-    } = req.body;
+// 1. Upload a new recording (Supports raw binary or base64 JSON payload with 100mb limit)
+router.post(
+  "/upload",
+  express.raw({ type: ["video/*", "application/octet-stream"], limit: "100mb" }),
+  express.json({ limit: "100mb" }),
+  authenticateToken,
+  async (req, res) => {
+    let createdFilePath = null;
+    try {
+      const isRawBuffer = Buffer.isBuffer(req.body);
+      const meetingId = isRawBuffer
+        ? (req.headers["x-meeting-id"] || req.query.meetingId)
+        : req.body.meetingId;
+      const title = isRawBuffer
+        ? (req.headers["x-title"] ? decodeURIComponent(req.headers["x-title"]) : req.query.title)
+        : req.body.title;
+      const durationSeconds = isRawBuffer
+        ? Number(req.headers["x-duration-seconds"] || req.query.durationSeconds || 0)
+        : (req.body.durationSeconds || 0);
+      const participantNames = isRawBuffer
+        ? (req.headers["x-participant-names"] ? JSON.parse(decodeURIComponent(req.headers["x-participant-names"])) : [])
+        : (req.body.participantNames || []);
+      const mimeType = isRawBuffer
+        ? (req.headers["content-type"] || "video/webm")
+        : (req.body.mimeType || "video/webm");
+      const thumbnailUrl = isRawBuffer
+        ? (req.headers["x-thumbnail-url"] || "")
+        : (req.body.thumbnailUrl || "");
+      const base64Data = isRawBuffer ? null : req.body.base64Data;
 
-    if (!base64Data) {
-      return res.status(400).json({ error: "Missing recording video data" });
-    }
+      if (!meetingId || typeof meetingId !== "string" || !meetingId.trim()) {
+        return res.status(400).json({ error: "meetingId is required to associate and authorize the recording." });
+      }
 
-    const hostUserId = String(req.user?.userId || req.user?.id || req.user?._id || "guest");
-    const isAdmin = Boolean(req.user?.role === "admin" || req.user?.role === "SUPER_ADMIN" || req.user?.isMainAdmin);
+      let buffer = null;
+      if (isRawBuffer && req.body.length > 0) {
+        buffer = req.body;
+      } else if (base64Data) {
+        const cleanBase64 = base64Data.includes(";base64,") ? base64Data.split(";base64,").pop() : base64Data;
+        buffer = Buffer.from(cleanBase64, "base64");
+      } else {
+        return res.status(400).json({ error: "Missing recording video data" });
+      }
 
-    // 1. Pre-Upload Authorization & Meeting Existence Validation (BEFORE writing file)
-    let participantUserIds = [];
-    if (meetingId) {
+      const hostUserId = String(req.user?.userId || req.user?.id || req.user?._id || "guest");
+      const isAdmin = Boolean(req.user?.role === "admin" || req.user?.role === "SUPER_ADMIN" || req.user?.isMainAdmin);
+
+      // 1. Pre-Upload Authorization & Meeting Existence Validation (BEFORE writing file)
+      // Application Requirement: Host-only recording uploads. Participants cannot upload recordings.
       const Meeting = require("../models/Meeting");
+      const cleanMeetingId = meetingId.trim();
       const meeting = await Meeting.findOne({
         $or: [
-          { meetingId: meetingId },
-          { meetingId: meetingId.replace(/-/g, "") },
+          { meetingId: cleanMeetingId },
+          { meetingId: cleanMeetingId.replace(/-/g, "") },
+          { invitationCode: cleanMeetingId },
         ],
       }).lean();
 
@@ -307,24 +334,20 @@ router.post("/upload", express.json({ limit: "100mb" }), authenticateToken, asyn
         return res.status(404).json({ error: "Invalid meeting reference. Meeting does not exist." });
       }
 
-      const isHost = String(meeting.hostUserId) === hostUserId;
-      const isParticipant = Array.isArray(meeting.participants) && meeting.participants.some(
-        (p) => String(p.userId || p._id || "") === hostUserId
-      );
-
-      if (!isAdmin && !isHost && !isParticipant) {
-        return res.status(403).json({ error: "Access denied. You were not an authorized host or participant of this meeting." });
+      const isHost = meeting.hostUserId && String(meeting.hostUserId) === hostUserId;
+      if (!isAdmin && !isHost) {
+        return res.status(403).json({ error: "Access denied. Only the meeting host can record and upload meeting recordings." });
       }
 
+      let participantUserIds = [];
       if (Array.isArray(meeting.participants)) {
         participantUserIds = meeting.participants
           .map((p) => String(p.userId || p._id || ""))
           .filter(Boolean);
       }
-    }
-    if (hostUserId && !participantUserIds.includes(hostUserId)) {
-      participantUserIds.push(hostUserId);
-    }
+      if (hostUserId && !participantUserIds.includes(hostUserId)) {
+        participantUserIds.push(hostUserId);
+      }
 
     const User = require("../models/User");
     let hostName = req.user?.fullName || req.user?.name || req.body.hostName || "";
@@ -346,9 +369,7 @@ router.post("/upload", express.json({ limit: "100mb" }), authenticateToken, asyn
     const targetDir = getRecordingsDir();
     const filePath = path.join(targetDir, fileName);
 
-    // Strip data URL header safely (handles video/webm;codecs=vp9,opus, video/webm, video/mp4, etc.)
-    const cleanBase64 = base64Data.includes(";base64,") ? base64Data.split(";base64,").pop() : base64Data;
-    const buffer = Buffer.from(cleanBase64, "base64");
+
 
     if (buffer.length < 500) {
       return res.status(400).json({ error: "Recording video data is empty or too short to contain valid video frames." });
@@ -889,7 +910,12 @@ router.patch("/:recordingId/rename", authenticateToken, async (req, res) => {
 // 5. Delete recording
 router.delete("/:recordingId", authenticateToken, async (req, res) => {
   try {
-    const recording = await Recording.findOne({ recordingId: req.params.recordingId });
+    const rawId = String(req.params.recordingId || "").trim();
+    if (!rawId) {
+      return res.status(400).json({ error: "Recording ID is required" });
+    }
+
+    const recording = await Recording.findOne({ recordingId: rawId });
     if (!recording) {
       return res.status(404).json({ error: "Recording not found" });
     }
@@ -900,9 +926,11 @@ router.delete("/:recordingId", authenticateToken, async (req, res) => {
       return res.status(403).json({ error: "Only the recording host or an administrator can delete this video" });
     }
 
-    // Remove file from disk
-    const diskPath = path.join(__dirname, "../uploads", recording.filePath.replace("/recordings/", "recordings/"));
-    if (fs.existsSync(diskPath)) {
+    // Safely resolve the exact file path using centralized storage resolver
+    const safeFilename = path.basename(recording.filePath || `${recording.recordingId}.${recording.mimeType?.includes("mp4") ? "mp4" : "webm"}`);
+    const diskPath = resolveRecordingFilePath(safeFilename, recording) || (recording.filePath && fs.existsSync(recording.filePath) ? recording.filePath : null);
+
+    if (diskPath && fs.existsSync(diskPath)) {
       try {
         fs.unlinkSync(diskPath);
       } catch (e) {
@@ -910,7 +938,7 @@ router.delete("/:recordingId", authenticateToken, async (req, res) => {
       }
     }
 
-    await Recording.deleteOne({ recordingId: req.params.recordingId });
+    await Recording.deleteOne({ _id: recording._id });
 
     res.json({ success: true, message: "Recording deleted successfully" });
   } catch (err) {
