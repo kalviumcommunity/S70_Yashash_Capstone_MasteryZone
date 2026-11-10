@@ -653,7 +653,7 @@ async function runSuite() {
       bState = state;
     });
     clientB.emit("join_coding_room", { roomId: meetingId, token: tokenB });
-    await new Promise((r) => setTimeout(r, 200));
+    for (let i = 0; i < 20 && !bState; i++) await new Promise((r) => setTimeout(r, 50));
     assert(bState, "Meeting participant User B must successfully join meeting coding room");
 
     // 3. Outsider User C (unauthorized) tries to join meeting coding room
@@ -668,7 +668,7 @@ async function runSuite() {
       cError = data.message;
     });
     clientC.emit("join_coding_room", { roomId: meetingId, token: unauthedToken });
-    await new Promise((r) => setTimeout(r, 200));
+    for (let i = 0; i < 20 && !cError; i++) await new Promise((r) => setTimeout(r, 50));
     assert(cError && cError.includes("not authorized"), "Outsider not in meeting must be rejected with Access denied");
 
     clientA.disconnect();

@@ -40,8 +40,8 @@ const JAVA_BIN = resolveExecutable("java", [
   "/usr/bin/java",
 ]);
 
-const GCC_BIN = resolveExecutable("gcc", ["/usr/bin/gcc", "/usr/local/bin/gcc", "/opt/homebrew/bin/gcc"]);
-const GPP_BIN = resolveExecutable("g++", ["/usr/bin/g++", "/usr/local/bin/g++", "/opt/homebrew/bin/g++"]);
+const GCC_BIN = resolveExecutable("gcc", ["/Library/Developer/CommandLineTools/usr/bin/gcc", "/opt/homebrew/bin/gcc", "/usr/local/bin/gcc", "/usr/bin/gcc"]);
+const GPP_BIN = resolveExecutable("g++", ["/Library/Developer/CommandLineTools/usr/bin/g++", "/opt/homebrew/bin/g++", "/usr/local/bin/g++", "/usr/bin/g++"]);
 const PYTHON_BIN = resolveExecutable("python3", ["/usr/bin/python3", "/usr/local/bin/python3", "/opt/homebrew/bin/python3"]);
 const NODE_BIN = resolveExecutable("node", [
   process.execPath,
@@ -71,14 +71,15 @@ function checkExecutionRateLimit(identifier, windowMs = 60000, maxRequests = 40)
   return true;
 }
 
-function validateCodeSafety(language, code) {
+function validateCodeSafety(language, code, options = {}) {
   if (typeof code !== "string") return { safe: false, reason: "Invalid code payload." };
   const lang = (language || "").toLowerCase().trim();
+  const allowProject = Boolean(options.isProject || options.allowProjectStdio);
 
   if (lang === "python" || lang === "py") {
     const dangerousPatterns = [
-      /\bimport\s+(os|sys|subprocess|shutil|socket|urllib|requests|http|asyncio|multiprocessing|threading|ctypes|importlib|builtins|posix|pty|platform)\b/i,
-      /\bfrom\s+(os|sys|subprocess|shutil|socket|urllib|requests|http|asyncio|multiprocessing|threading|ctypes|importlib|builtins|posix|pty|platform)\b/i,
+      /\bimport\s+(os|subprocess|shutil|socket|urllib|requests|http|asyncio|multiprocessing|threading|ctypes|importlib|builtins|posix|pty|platform)\b/i,
+      /\bfrom\s+(os|subprocess|shutil|socket|urllib|requests|http|asyncio|multiprocessing|threading|ctypes|importlib|builtins|posix|pty|platform)\b/i,
       /\b(__import__|eval|exec|open|breakpoint|globals|locals|getattr|setattr)\s*\(/i,
       /\bos\.(system|popen|spawn|exec|remove|unlink|rmdir|mkdir|chmod|chown)\b/i,
     ];
@@ -91,12 +92,21 @@ function validateCodeSafety(language, code) {
       }
     }
   } else if (lang === "javascript" || lang === "js" || lang === "node") {
+    // If project code or reading standard input (descriptor 0), allow require('fs') if no hazardous methods are used
+    const isSafeFs =
+      allowProject ||
+      (/\brequire\s*\(\s*['"`]fs['"`]\s*\)/i.test(code) &&
+        !/\bfs\.(unlink|rm|mkdir|writeFile|appendFile|truncate|chmod|chown|copyFile|rename|createWriteStream)\b/i.test(code));
+
     const dangerousPatterns = [
-      /\brequire\s*\(\s*['"`](child_process|fs|net|http|https|vm|cluster|worker_threads|dgram|dns|tls)['"`]\s*\)/i,
+      /\brequire\s*\(\s*['"`](child_process|net|http|https|vm|cluster|worker_threads|dgram|dns|tls)['"`]\s*\)/i,
       /\bimport\s+.*?\s+from\s+['"`](child_process|fs|net|http|https|vm|cluster|worker_threads|dgram|dns|tls)['"`]/i,
       /\bprocess\.(env|exit|kill|binding|dlopen|mainModule)\b/i,
       /\b(eval|Function)\s*\(/i,
     ];
+    if (!isSafeFs) {
+      dangerousPatterns.unshift(/\brequire\s*\(\s*['"`]fs['"`]\s*\)/i);
+    }
     for (const pat of dangerousPatterns) {
       if (pat.test(code)) {
         return {
@@ -423,6 +433,7 @@ function generateCppExecutable(code, options = {}) {
 #include <unordered_map>
 #include <set>
 #include <unordered_set>
+using namespace std;
 ${code}
 
 int main() {
@@ -445,6 +456,7 @@ int main() {
 #include <unordered_map>
 #include <set>
 #include <unordered_set>
+using namespace std;
 ${code}
 
 int main() {
@@ -540,6 +552,7 @@ int main() {
 #include <unordered_map>
 #include <set>
 #include <unordered_set>
+using namespace std;
 
 ${code}
 
@@ -1490,7 +1503,7 @@ async function executeCode(paramsOrLang, maybeCode, maybeStdin = "", maybeTimeou
       const executableCode = generateCppExecutable(code, options);
       fs.writeFileSync(srcPath, executableCode, "utf8");
 
-      const compileRes = await runSandboxedProcess(GPP_BIN, ["-O0", srcPath, "-o", binPath], "", 6000, tmpDir);
+      const compileRes = await runSandboxedProcess(GPP_BIN, ["-O0", srcPath, "-o", binPath], "", 12000, tmpDir);
       if (compileRes.exitCode !== 0) {
         return {
           output: "",
@@ -1510,7 +1523,7 @@ async function executeCode(paramsOrLang, maybeCode, maybeStdin = "", maybeTimeou
       const binPath = path.join(tmpDir, "main_bin");
       fs.writeFileSync(srcPath, code, "utf8");
 
-      const compileRes = await runSandboxedProcess(GCC_BIN, ["-O0", srcPath, "-o", binPath], "", 6000, tmpDir);
+      const compileRes = await runSandboxedProcess(GCC_BIN, ["-O0", srcPath, "-o", binPath], "", 12000, tmpDir);
       if (compileRes.exitCode !== 0) {
         return {
           output: "",
@@ -1546,7 +1559,7 @@ async function executeCode(paramsOrLang, maybeCode, maybeStdin = "", maybeTimeou
       const srcPath = path.join(tmpDir, `${className}.java`);
       fs.writeFileSync(srcPath, codeToWrite, "utf8");
 
-      const compileRes = await runSandboxedProcess(JAVAC_BIN, [srcPath], "", 6000, tmpDir);
+      const compileRes = await runSandboxedProcess(JAVAC_BIN, [srcPath], "", 12000, tmpDir);
       if (compileRes.exitCode !== 0) {
         return {
           output: "",
@@ -1715,7 +1728,7 @@ async function evaluateTestCasesBatch(language, code, testCases, options = {}) {
       const bin = path.join(tmpDir, "sol_c_bin");
       fs.writeFileSync(p, safeCode, "utf8");
 
-      const cRes = await runSandboxedProcess(GCC_BIN, ["-Wall", "-O0", "-pipe", p, "-o", bin], "", 5000, tmpDir);
+      const cRes = await runSandboxedProcess(GCC_BIN, ["-Wall", "-O0", "-pipe", p, "-o", bin], "", 12000, tmpDir);
       if (cRes.exitCode !== 0) {
         const compErr = `Compilation Error (C):\n${cRes.error || cRes.output}`;
         return testCases.map((tc) => ({
@@ -1735,7 +1748,7 @@ async function evaluateTestCasesBatch(language, code, testCases, options = {}) {
 
       fs.writeFileSync(p, cppFullCode, "utf8");
 
-      const cRes = await runSandboxedProcess(GPP_BIN, ["-Wall", "-O0", "-pipe", p, "-o", bin], "", 5000, tmpDir);
+      const cRes = await runSandboxedProcess(GPP_BIN, ["-Wall", "-O0", "-pipe", p, "-o", bin], "", 12000, tmpDir);
       if (cRes.exitCode !== 0) {
         const compErr = `Compilation Error (C++):\n${cRes.error || cRes.output}`;
         return testCases.map((tc) => ({
@@ -1757,7 +1770,7 @@ async function evaluateTestCasesBatch(language, code, testCases, options = {}) {
         if (match && match[1]) className = match[1];
         const p = path.join(tmpDir, `${className}.java`);
         fs.writeFileSync(p, safeCode, "utf8");
-        const cRes = await runSandboxedProcess(JAVAC_BIN, [p], "", 5000, tmpDir);
+        const cRes = await runSandboxedProcess(JAVAC_BIN, [p], "", 12000, tmpDir);
         if (cRes.exitCode !== 0) {
           const compErr = `Compilation Error (Java):\n${cRes.error || cRes.output}`;
           return testCases.map((tc) => ({
@@ -1779,7 +1792,7 @@ async function evaluateTestCasesBatch(language, code, testCases, options = {}) {
       } else {
         const p = path.join(tmpDir, "Main.java");
         fs.writeFileSync(p, javaExec.code, "utf8");
-        const cRes = await runSandboxedProcess(JAVAC_BIN, [p], "", 5000, tmpDir);
+        const cRes = await runSandboxedProcess(JAVAC_BIN, [p], "", 12000, tmpDir);
         if (cRes.exitCode !== 0) {
           const compErr = `Compilation Error (Java):\n${cRes.error || cRes.output}`;
           return testCases.map((tc) => ({

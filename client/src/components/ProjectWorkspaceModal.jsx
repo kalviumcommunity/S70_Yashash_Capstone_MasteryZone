@@ -185,12 +185,12 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
 
   // Fetch full project workspace state from backend on mount
   useEffect(() => {
-    if (!projectId || !token) return;
+    if (!projectId) return;
     let cancelled = false;
     setIsLoadingWorkspace(true);
 
     fetch(`${API_BASE_URL}/api/projects/${projectId}`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
       .then((r) => r.json())
       .then((data) => {
@@ -398,13 +398,14 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
     setStatusToast(null);
 
     try {
+      const authHeaders = {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      };
       const [customRes, testsRes] = await Promise.all([
         fetch(`${API_BASE_URL}/api/projects/${projectId}/run`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
+          headers: authHeaders,
           body: JSON.stringify({
             mode: "custom",
             files,
@@ -413,10 +414,7 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
         }).then((r) => r.json()),
         fetch(`${API_BASE_URL}/api/projects/${projectId}/run`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
+          headers: authHeaders,
           body: JSON.stringify({
             mode: "tests",
             files,
@@ -458,7 +456,7 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
 
   // Run Tests specifically and focus Test Cases tab
   const handleRunTests = async () => {
-    if (!token || !projectId) return;
+    if (!projectId) return;
     setIsRunningTests(true);
     setBottomTab("testcases");
     setStatusToast(null);
@@ -467,7 +465,7 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
           mode: "tests",

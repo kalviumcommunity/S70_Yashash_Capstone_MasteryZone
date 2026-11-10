@@ -39,7 +39,7 @@ const certificationAttemptSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["IN_PROGRESS", "SUBMITTED", "PASSED", "FAILED"],
+      enum: ["IN_PROGRESS", "SUBMITTED", "PASSED", "FAILED", "EVALUATED"],
       default: "IN_PROGRESS",
       index: true,
     },

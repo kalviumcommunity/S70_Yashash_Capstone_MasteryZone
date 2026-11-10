@@ -617,14 +617,16 @@ verifySmtpConnection().then((res) => {
   }
 }).catch(() => {});
 
-function recordEmailLog(data) {
+async function recordEmailLog(data) {
   try {
     const EmailLog = require('../models/EmailLog');
-    EmailLog.create({
+    return await EmailLog.create({
       ...data,
       lastAttemptedAt: new Date(),
-    }).catch(() => {});
-  } catch {}
+    });
+  } catch {
+    return null;
+  }
 }
 
 // ── 2. SEND MAIL WITH RETRY, TIMEOUT PROTECTION AND AUDIT LOGGING ──
@@ -637,7 +639,7 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
   const to = (mailOptions.to || '').trim().toLowerCase();
   if (!validateRecipientEmail(to)) {
     const errMsg = `Invalid recipient email address: "${mailOptions.to}"`;
-    recordEmailLog({
+    await recordEmailLog({
       recipient: to || 'invalid@recipient',
       emailType,
       subject: mailOptions.subject || '',
@@ -675,7 +677,7 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
         const PlatformSettings = require('../models/PlatformSettings');
         const settings = await PlatformSettings.findOne({ key: 'global_platform_settings' }).lean();
         if (settings && settings.emailNotificationsEnabled === false) {
-          recordEmailLog({
+          await recordEmailLog({
             recipient: to,
             emailType,
             subject: mailOptions.subject || '',
@@ -705,7 +707,7 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
         console.warn(`⚠️ [Mailer] HTTP provider (${httpProvider.type}) returned unsuccessful response for "${to}": ${errMsg}`);
 
         if (!config.isConfigured) {
-          recordEmailLog({
+          await recordEmailLog({
             recipient: to,
             emailType,
             subject: mailOptions.subject || '',
@@ -730,7 +732,7 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
         const validId = typeof res.messageId === 'string' && res.messageId.trim();
         if (!validId) {
           const errMsg = 'Email provider reported acceptance but returned no valid message ID';
-          recordEmailLog({
+          await recordEmailLog({
             recipient: to,
             emailType,
             subject: mailOptions.subject || '',
@@ -749,7 +751,7 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
           };
         }
 
-        recordEmailLog({
+        await recordEmailLog({
           recipient: to,
           emailType,
           subject: mailOptions.subject || '',
@@ -769,7 +771,7 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
         console.log(`ℹ️ [Mailer] Automatically falling back to primary SMTP transport (${config.host}:${config.port})...`);
       } else {
         const diag = diagnoseSmtpError(apiErr);
-        recordEmailLog({
+        await recordEmailLog({
           recipient: to,
           emailType,
           subject: mailOptions.subject || '',
@@ -795,7 +797,7 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
     tp = await getTransporter();
   } catch (initErr) {
     const diag = diagnoseSmtpError(initErr);
-    recordEmailLog({
+    await recordEmailLog({
       recipient: to,
       emailType,
       subject: mailOptions.subject || '',
@@ -818,7 +820,7 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
   const finalFrom = mailOptions.from || getSenderAddress() || config.from;
   if (!finalFrom && !isTrustedLocal) {
     const noSenderErr = "Outbound email rejected: No verified sender address configured in production environment.";
-    recordEmailLog({
+    await recordEmailLog({
       recipient: to,
       emailType,
       subject: mailOptions.subject || '',
@@ -896,7 +898,7 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
       // Check if recipient was rejected by provider
       if (Array.isArray(info.rejected) && info.rejected.length > 0 && (!info.accepted || info.accepted.length === 0)) {
         const rejectMsg = `Recipient ${info.rejected.join(', ')} was rejected by SMTP provider.`;
-        recordEmailLog({
+        await recordEmailLog({
           recipient: to,
           emailType,
           subject: mailOptions.subject || '',
@@ -920,7 +922,7 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
       const validSmtpMsgId = typeof info?.messageId === 'string' && info.messageId.trim();
       if (!validSmtpMsgId) {
         const missingIdMsg = 'SMTP provider completed without returning a message ID';
-        recordEmailLog({
+        await recordEmailLog({
           recipient: to,
           emailType,
           subject: mailOptions.subject || '',
@@ -939,7 +941,7 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
         };
       }
 
-      recordEmailLog({
+      await recordEmailLog({
         recipient: to,
         emailType,
         subject: mailOptions.subject || '',
@@ -976,7 +978,7 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
   }
 
   const diag = diagnoseSmtpError(lastErr);
-  recordEmailLog({
+  await recordEmailLog({
     recipient: to,
     emailType,
     subject: mailOptions.subject || '',
@@ -1010,7 +1012,7 @@ function dispatchMailBackground(mailPromiseFn, meta = {}) {
     } catch (err) {
       console.error(`[Mailer Background Error] Unhandled exception in background email dispatch:`, err.message);
       if (meta.recipient) {
-        recordEmailLog({
+        await recordEmailLog({
           recipient: meta.recipient,
           emailType: meta.type || 'background_job',
           status: 'failed',

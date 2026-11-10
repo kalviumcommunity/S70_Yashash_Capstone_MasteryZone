@@ -25,6 +25,7 @@ const { sendSubmissionEvaluationEmail, dispatchMailBackground, isGuestAccount } 
 const {
   runSandboxedProcess,
   validateCodeSafety,
+  validateTestCaseOutput,
   isProductionExecutionRestricted,
   JAVAC_BIN,
   JAVA_BIN,
@@ -102,7 +103,7 @@ async function prepareMultiFileSandbox(project, files) {
 
   try {
     for (const file of files) {
-      const safety = validateCodeSafety(file.language || lang, file.content || "");
+      const safety = validateCodeSafety(file.language || lang, file.content || "", { isProject: true });
       if (!safety.safe) {
         return {
           ok: false,
@@ -134,7 +135,7 @@ async function prepareMultiFileSandbox(project, files) {
       return {
         ok: true,
         runInput: (stdin) =>
-          runSandboxedProcess(PYTHON_BIN, ["-u", "-I", path.join(tmpDir, path.basename(entryFile))], stdin, 4000, tmpDir),
+          runSandboxedProcess(PYTHON_BIN, ["-u", "-s", path.join(tmpDir, path.basename(entryFile))], stdin, 4000, tmpDir),
         cleanup: () => {
           try {
             fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -267,28 +268,26 @@ async function evaluateFullProject(project, rawFiles) {
         });
       }
     } else {
-      const parallelResults = await Promise.all(
-        testCases.map(async (tc, i) => {
-          const res = await sandbox.runInput(tc.input);
-          const actualClean = (res.output || "").trim().replace(/\r\n/g, "\n");
-          const expectedClean = (tc.expectedOutput || "").trim().replace(/\r\n/g, "\n");
-          const passed = res.exitCode === 0 && actualClean === expectedClean;
+      for (let i = 0; i < testCases.length; i++) {
+        const tc = testCases[i];
+        const res = await sandbox.runInput(tc.input);
+        const actualClean = (res.output || "").trim().replace(/\r\n/g, "\n");
+        const expectedClean = (tc.expectedOutput || "").trim().replace(/\r\n/g, "\n");
+        const passed = res.exitCode === 0 && validateTestCaseOutput(actualClean, expectedClean);
 
-          return {
-            testIndex: i + 1,
-            name: tc.name,
-            input: tc.isHidden ? "[Hidden Edge-Case Input]" : tc.input,
-            expectedOutput: tc.isHidden ? "[Hidden Expected Output]" : expectedClean,
-            actualOutput: tc.isHidden ? (passed ? "[Verified Match]" : actualClean || "[Mismatch]") : actualClean,
-            passed,
-            durationMs: res.duration || 1,
-            isHidden: Boolean(tc.isHidden),
-            isEdgeCase: Boolean(tc.isEdgeCase),
-            error: passed ? null : res.error || (actualClean ? "Output mismatch against specification" : "No output produced"),
-          };
-        })
-      );
-      testResults.push(...parallelResults);
+        testResults.push({
+          testIndex: i + 1,
+          name: tc.name,
+          input: tc.isHidden ? "[Hidden Edge-Case Input]" : tc.input,
+          expectedOutput: tc.isHidden ? "[Hidden Expected Output]" : expectedClean,
+          actualOutput: tc.isHidden ? (passed ? "[Verified Match]" : actualClean || "[Mismatch]") : actualClean,
+          passed,
+          durationMs: res.duration || 1,
+          isHidden: Boolean(tc.isHidden),
+          isEdgeCase: Boolean(tc.isEdgeCase),
+          error: passed ? null : res.error || (actualClean ? "Output mismatch against specification" : "No output produced"),
+        });
+      }
     }
   } finally {
     sandbox.cleanup();
@@ -948,7 +947,7 @@ router.get("/submissions/:sessionId/report", optionalAuthenticateToken, async (r
 // ============================================================================
 // 3. GET /api/projects/:projectId — Load workspace, saved files & attempts
 // ============================================================================
-router.get("/:projectId", authenticateToken, async (req, res) => {
+router.get("/:projectId", optionalAuthenticateToken, async (req, res) => {
   try {
     const userId = resolveUserId(req);
     const { projectId } = req.params;
@@ -1055,7 +1054,7 @@ router.post("/:projectId/save", authenticateToken, async (req, res) => {
 // ============================================================================
 // 5. POST /api/projects/:projectId/run — Execute custom input or test cases
 // ============================================================================
-router.post("/:projectId/run", authenticateToken, async (req, res) => {
+router.post("/:projectId/run", optionalAuthenticateToken, async (req, res) => {
   try {
     const userId = resolveUserId(req);
     const { projectId } = req.params;
@@ -1110,35 +1109,34 @@ router.post("/:projectId/run", authenticateToken, async (req, res) => {
     // Full live test & rubric preview without creating a final submission
     const evaluation = await evaluateFullProject(project, normalizedFiles);
 
-    // Persist workspace draft & lastRunSummary
+    // Persist workspace draft & lastRunSummary for registered accounts
     const isValidId = userId && mongoose.Types.ObjectId.isValid(userId);
-    if (!isValidId) {
-      return res.status(401).json({ error: "Invalid user session" });
+    if (isValidId) {
+      const userObjId = new mongoose.Types.ObjectId(userId);
+      let ws = await ProjectWorkspaceState.findOne({ userId: userObjId, projectId });
+      if (!ws) {
+        ws = new ProjectWorkspaceState({
+          userId: userObjId,
+          projectId,
+          status: "in_progress",
+          startedAt: new Date(),
+        });
+      }
+      ws.files = normalizedFiles;
+      if (Array.isArray(checkedTasks)) {
+        ws.checkedTasks = checkedTasks;
+      }
+      ws.lastRunSummary = {
+        marksObtained: evaluation.marksObtained,
+        totalMarks: evaluation.totalMarks,
+        passedTests: evaluation.passedTests,
+        totalTests: evaluation.totalTests,
+        rubricBreakdown: evaluation.rubricBreakdown,
+        timestamp: new Date(),
+      };
+      ws.lastUpdatedAt = new Date();
+      await ws.save();
     }
-    const userObjId = new mongoose.Types.ObjectId(userId);
-    let ws = await ProjectWorkspaceState.findOne({ userId: userObjId, projectId });
-    if (!ws) {
-      ws = new ProjectWorkspaceState({
-        userId: userObjId,
-        projectId,
-        status: "in_progress",
-        startedAt: new Date(),
-      });
-    }
-    ws.files = normalizedFiles;
-    if (Array.isArray(checkedTasks)) {
-      ws.checkedTasks = checkedTasks;
-    }
-    ws.lastRunSummary = {
-      marksObtained: evaluation.marksObtained,
-      totalMarks: evaluation.totalMarks,
-      passedTests: evaluation.passedTests,
-      totalTests: evaluation.totalTests,
-      rubricBreakdown: evaluation.rubricBreakdown,
-      timestamp: new Date(),
-    };
-    ws.lastUpdatedAt = new Date();
-    await ws.save();
 
     const firstTest = evaluation.testResults?.[0] || {};
     res.json({

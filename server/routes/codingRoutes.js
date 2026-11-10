@@ -679,10 +679,11 @@ router.post("/challenges/:id/test", optionalAuthenticateToken, async (req, res) 
     }
 
     const isPlayground = Boolean(id && id.startsWith("playground-"));
-    const publicTests = isPlayground
+    const shouldRunAll = isPlayground || req.body?.runAll === true || req.body?.includeHidden === true || req.query?.all === "true";
+    const publicTests = shouldRunAll
       ? (challenge.testCases || [])
       : (challenge.testCases || []).filter((t) => !t.isHidden);
-    const testCasesToRun = publicTests.length > 0 ? publicTests : challenge.testCases || [];
+    const testCasesToRun = (shouldRunAll || publicTests.length === 0) ? (challenge.testCases || []) : publicTests;
 
     const execConfig = getProblemExecutionConfig(challenge);
     const outcomes = await evaluateTestCasesBatch(effectiveLang, code, testCasesToRun, {
@@ -691,19 +692,20 @@ router.post("/challenges/:id/test", optionalAuthenticateToken, async (req, res) 
     });
     const testResults = testCasesToRun.map((test, i) => {
       const outcome = outcomes[i] || { passed: false, actual: "", expected: test.expectedOutput, error: "Evaluation failed", duration: 0 };
+      const isHidden = Boolean(test.isHidden);
       return {
         testIndex: i + 1,
         testNumber: i + 1,
-        input: test.input,
-        expected: test.expectedOutput,
-        expectedOutput: test.expectedOutput,
-        actual: outcome.actual,
-        actualOutput: outcome.actual,
+        input: isHidden ? "[Hidden Edge-Case Input]" : test.input,
+        expected: isHidden ? "[Hidden Expected Output]" : test.expectedOutput,
+        expectedOutput: isHidden ? "[Hidden Expected Output]" : test.expectedOutput,
+        actual: isHidden ? (outcome.passed ? "[Passed]" : "[Failed Output]") : outcome.actual,
+        actualOutput: isHidden ? (outcome.passed ? "[Passed]" : "[Failed Output]") : outcome.actual,
         passed: outcome.passed,
-        error: outcome.error,
+        error: outcome.passed ? null : (isHidden ? (outcome.error || "Output mismatch on hidden edge case") : outcome.error),
         duration: outcome.duration,
         durationMs: outcome.duration,
-        isHidden: false,
+        isHidden,
       };
     });
 
