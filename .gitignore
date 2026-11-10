@@ -15,4 +15,7 @@ server/uploads/evidence/*
 server/uploads/support_attachments/*
 !server/uploads/support_attachments/.gitkeep
 uploads/
+.dev_jwt_secret
+server/.dev_jwt_secret
+*.tmp_*
 

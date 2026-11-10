@@ -1,6 +1,7 @@
 const assert = require("assert");
 const jwt = require("jsonwebtoken");
 const path = require("path");
+process.env.NODE_ENV = "test";
 require("dotenv").config({ path: path.join(__dirname, "../.env") });
 
 const { getJwtSecret } = require("../config/jwtConfig");
@@ -231,7 +232,7 @@ async function runTests() {
   });
 
   // --- 8. Complete Compiler Security & Execution Boundaries ---
-  test("Centralized compiler runner runs in isolated mode and scrubs environment variables", async () => {
+  await testAsync("Centralized compiler runner runs in isolated mode and scrubs environment variables", async () => {
     const { runSandboxedProcess } = require("../routes/codingRoutes");
     assert(typeof runSandboxedProcess === "function", "runSandboxedProcess should be exported");
 

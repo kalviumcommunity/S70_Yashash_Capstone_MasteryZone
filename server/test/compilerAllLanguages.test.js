@@ -5,6 +5,8 @@
  * and meeting + certification evaluator integrations.
  */
 
+process.env.NODE_ENV = "test";
+
 const assert = require("assert");
 const http = require("http");
 const mongoose = require("mongoose");

@@ -2,6 +2,8 @@ const assert = require("assert");
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
+const { execFileSync } = require("child_process");
+const ffmpegInstaller = require("@ffmpeg-installer/ffmpeg");
 
 process.env.NODE_ENV = "test";
 
@@ -21,6 +23,8 @@ const {
   isSecretStrong,
   validateJwtSecret,
   getJwtSecret,
+  getJwtRefreshSecret,
+  generateCryptographicSecret,
   WEAK_OR_DEFAULT_SECRETS,
 } = require("../config/jwtConfig");
 const {
@@ -37,6 +41,7 @@ const {
   generatePythonExecutable,
   isPublicUntrustedEnvironment,
   isLocalExecutionPermitted,
+  runSandboxedProcess,
 } = require("../services/codeExecutionService");
 
 const TEST_DB_URI = process.env.TEST_MONGODB_URI || "mongodb://127.0.0.1:27017/masteryzone_test";
@@ -639,6 +644,46 @@ public class Solution {
       }
     });
 
+    await it("Execution Security: Missing NODE_ENV strictly fails closed into untrusted mode", async () => {
+      const prevEnv = process.env.NODE_ENV;
+      delete process.env.NODE_ENV;
+      delete process.env.ALLOW_LOCAL_CODE_EXECUTION;
+
+      try {
+        assert.strictEqual(isPublicUntrustedEnvironment(), true);
+        assert.strictEqual(isLocalExecutionPermitted(), false);
+      } finally {
+        process.env.NODE_ENV = prevEnv;
+      }
+    });
+
+    await it("Execution Security: Unknown NODE_ENV (e.g. 'preview') strictly fails closed into untrusted mode", async () => {
+      const prevEnv = process.env.NODE_ENV;
+      process.env.NODE_ENV = "preview";
+      delete process.env.ALLOW_LOCAL_CODE_EXECUTION;
+
+      try {
+        assert.strictEqual(isPublicUntrustedEnvironment(), true);
+        assert.strictEqual(isLocalExecutionPermitted(), false);
+      } finally {
+        process.env.NODE_ENV = prevEnv;
+      }
+    });
+
+    await it("Execution Security: Direct runSandboxedProcess call strictly fails closed in untrusted environment", async () => {
+      const prevEnv = process.env.NODE_ENV;
+      process.env.NODE_ENV = "staging";
+
+      try {
+        const res = await runSandboxedProcess("node", ["-e", "console.log('danger')"]);
+        assert.strictEqual(res.isUnavailable, true);
+        assert.ok(res.error.includes("Execution security policy violation"));
+        assert.strictEqual(res.output, "");
+      } finally {
+        process.env.NODE_ENV = prevEnv;
+      }
+    });
+
     // -------------------------------------------------------------
     // SECTION 5: JWT Secret Hardening & Cryptographic Entropy
     // -------------------------------------------------------------
@@ -646,6 +691,12 @@ public class Solution {
 
     await it("JWT Security: Missing secret in production fails validation", async () => {
       const res = validateJwtSecret("", "production");
+      assert.strictEqual(res.valid, false);
+      assert.ok(res.error.includes("JWT_SECRET is missing"));
+    });
+
+    await it("JWT Security: Missing secret in staging fails validation", async () => {
+      const res = validateJwtSecret("", "staging");
       assert.strictEqual(res.valid, false);
       assert.ok(res.error.includes("JWT_SECRET is missing"));
     });
@@ -693,6 +744,37 @@ public class Solution {
       assert.ok(resProd.error.includes("cryptographic entropy") || resProd.error.includes("repeated patterns"));
     });
 
+    await it("JWT Security: generateCryptographicSecret creates valid 256-bit secret", async () => {
+      const cryptoKey = generateCryptographicSecret(32);
+      assert.strictEqual(typeof cryptoKey, "string");
+      assert.strictEqual(cryptoKey.length, 64);
+      assert.strictEqual(isSecretStrong(cryptoKey), true);
+      assert.strictEqual(validateJwtSecret(cryptoKey, "production").valid, true);
+    });
+
+    await it("JWT Security: Validates access and refresh secrets independently", async () => {
+      const accessSecret = generateCryptographicSecret(32);
+      const refreshSecret = generateCryptographicSecret(32);
+      assert.notStrictEqual(accessSecret, refreshSecret);
+
+      const accessValid = validateJwtSecret(accessSecret, "production", "JWT_SECRET");
+      assert.strictEqual(accessValid.valid, true);
+
+      const refreshValid = validateJwtSecret(refreshSecret, "production", "JWT_REFRESH_SECRET");
+      assert.strictEqual(refreshValid.valid, true);
+
+      const badRefreshValid = validateJwtSecret("short", "production", "JWT_REFRESH_SECRET");
+      assert.strictEqual(badRefreshValid.valid, false);
+      assert.ok(badRefreshValid.error.includes("JWT_REFRESH_SECRET is too short"));
+    });
+
+    await it("JWT Security: getJwtSecret persists consistently across multiple calls in development", async () => {
+      const sec1 = getJwtSecret();
+      const sec2 = getJwtSecret();
+      assert.strictEqual(sec1, sec2);
+      assert.ok(sec1.length >= 32);
+    });
+
     // -------------------------------------------------------------
     // SECTION 6: CORS Security & Explicit Allowlist Enforcement
     // -------------------------------------------------------------
@@ -733,8 +815,198 @@ public class Solution {
       assert.strictEqual(isAllowed, true);
     });
 
+    // -------------------------------------------------------------
+    // SECTION 7: Recording Upload Streaming & Reliability
+    // -------------------------------------------------------------
+    console.log("\n--- Section 7: Recording Upload Streaming & Reliability ---");
+
+    function createTestWebMBuffer(duration = 1) {
+      try {
+        const tmpFile = path.join(__dirname, `tmp_stream_${Date.now()}_${Math.random().toString(36).slice(2)}.webm`);
+        execFileSync(
+          ffmpegInstaller.path,
+          [
+            "-y",
+            "-f", "lavfi", "-i", `testsrc=duration=${duration}:size=320x240:rate=10`,
+            "-f", "lavfi", "-i", `sine=frequency=1000:duration=${duration}`,
+            "-c:v", "libvpx",
+            "-c:a", "libvorbis",
+            tmpFile,
+          ],
+          { stdio: "ignore" }
+        );
+        const buf = fs.readFileSync(tmpFile);
+        try { fs.unlinkSync(tmpFile); } catch {}
+        return buf;
+      } catch {
+        const buf = Buffer.alloc(1024);
+        buf[0] = 0x1a; buf[1] = 0x45; buf[2] = 0xdf; buf[3] = 0xa3;
+        buf[10] = 0x18; buf[11] = 0x53; buf[12] = 0x80; buf[13] = 0x67;
+        buf[20] = 0x16; buf[21] = 0x54; buf[22] = 0xae; buf[23] = 0x6b;
+        buf.write("V_VP8", 30, "ascii");
+        buf.write("A_OPUS", 50, "ascii");
+        buf[80] = 0x1f; buf[81] = 0x43; buf[82] = 0xb6; buf[83] = 0x75;
+        return buf;
+      }
+    }
+
+    const testStreamMtgId = `mtg_stream_${Date.now()}`;
+    await Meeting.create({
+      meetingId: testStreamMtgId,
+      hostUserId: String(userHost._id),
+      title: "Streaming Upload Verification Meeting",
+      participants: [{ userId: String(userHost._id), name: userHost.fullName }],
+    });
+
+    await it("Recording Stream: Raw binary streaming upload pipes directly to storage without memory buffer", async () => {
+      const webmBuffer = createTestWebMBuffer();
+      const res = await fetch(`${baseUrl}/api/recordings/upload`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "video/webm",
+          "x-meeting-id": testStreamMtgId,
+          "x-title": encodeURIComponent("Direct Streamed Session"),
+          "x-duration-seconds": "45",
+          Authorization: `Bearer ${tokenHost}`,
+        },
+        body: webmBuffer,
+      });
+
+      const json = await res.json();
+      if (res.status !== 201) console.log("UPLOAD FAILED WITH:", res.status, json);
+      assert.strictEqual(res.status, 201);
+      assert.strictEqual(json.success, true);
+      assert.ok(json.recording.recordingId);
+      createdTempFiles.push(json.recording.filePath);
+
+      const saved = await Recording.findOne({ recordingId: json.recording.recordingId }).lean();
+      assert.ok(saved);
+      assert.strictEqual(String(saved.hostUserId), String(userHost._id));
+      assert.strictEqual(saved.durationSeconds, 45);
+      assert.ok(fs.existsSync(saved.filePath));
+    });
+
+    const testMultipartMtgId = `mtg_stream_mp_${Date.now()}`;
+    await Meeting.create({
+      meetingId: testMultipartMtgId,
+      hostUserId: String(userHost._id),
+      title: "Streaming Multipart Verification Meeting",
+      participants: [{ userId: String(userHost._id), name: userHost.fullName }],
+    });
+
+    await it("Recording Stream: Multipart streaming upload (busboy) saves genuine recording to storage", async () => {
+      const webmBuffer = createTestWebMBuffer();
+      const boundary = "----MasteryZoneBoundary" + Date.now();
+      const multipartBody = Buffer.concat([
+        Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="meetingId"\r\n\r\n${testMultipartMtgId}\r\n`),
+        Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="title"\r\n\r\nMultipart Streamed Recording\r\n`),
+        Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="durationSeconds"\r\n\r\n60\r\n`),
+        Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="session.webm"\r\nContent-Type: video/webm\r\n\r\n`),
+        webmBuffer,
+        Buffer.from(`\r\n--${boundary}--\r\n`),
+      ]);
+
+      const res = await fetch(`${baseUrl}/api/recordings/upload`, {
+        method: "POST",
+        headers: {
+          "Content-Type": `multipart/form-data; boundary=${boundary}`,
+          Authorization: `Bearer ${tokenHost}`,
+        },
+        body: multipartBody,
+      });
+
+      const json = await res.json();
+      if (res.status !== 201) console.log("UPLOAD FAILED WITH:", res.status, json);
+      assert.strictEqual(res.status, 201);
+      assert.strictEqual(json.success, true);
+      assert.ok(json.recording.recordingId);
+      createdTempFiles.push(json.recording.filePath);
+    });
+
+    await it("Recording Stream: Non-host user upload is strictly rejected with 403 Forbidden", async () => {
+      const webmBuffer = createTestWebMBuffer();
+      const res = await fetch(`${baseUrl}/api/recordings/upload`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "video/webm",
+          "x-meeting-id": testStreamMtgId,
+          Authorization: `Bearer ${tokenAttacker}`,
+        },
+        body: webmBuffer,
+      });
+
+      assert.strictEqual(res.status, 403);
+      const json = await res.json();
+      assert.ok(json.error.includes("Only the meeting host"));
+    });
+
+    await it("Recording Stream: Unauthenticated upload is strictly rejected with 401 Unauthorized", async () => {
+      const webmBuffer = createTestWebMBuffer();
+      const res = await fetch(`${baseUrl}/api/recordings/upload`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "video/webm",
+          "x-meeting-id": testStreamMtgId,
+        },
+        body: webmBuffer,
+      });
+
+      assert.strictEqual(res.status, 401);
+    });
+
+    await it("Recording Stream: Invalid container format (non-video text) is rejected with 400", async () => {
+      const res = await fetch(`${baseUrl}/api/recordings/upload`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "video/webm",
+          "x-meeting-id": testStreamMtgId,
+          Authorization: `Bearer ${tokenHost}`,
+        },
+        body: Buffer.alloc(1000).fill("A"),
+      });
+
+      assert.strictEqual(res.status, 400);
+      const json = await res.json();
+      assert.ok(json.error.includes("Invalid video media format") || json.error.includes("Media decoding failed") || json.error.includes("too short"));
+    });
+
+    // -------------------------------------------------------------
+    // SECTION 8: Production Email Configuration & Deliverability
+    // -------------------------------------------------------------
+    console.log("\n--- Section 8: Production Email Configuration & Deliverability ---");
+
+    const {
+      validateRecipientEmail,
+      isDuplicateOutboundEmail,
+      getHttpEmailProvider,
+    } = require("../utils/mailer");
+
+    await it("Email Config: Valid recipient email formats pass validation", async () => {
+      assert.strictEqual(validateRecipientEmail("student@gmail.com"), true);
+      assert.strictEqual(validateRecipientEmail("user.name+tag@domain.co.uk"), true);
+    });
+
+    await it("Email Config: Invalid recipient email formats fail validation", async () => {
+      assert.strictEqual(validateRecipientEmail(""), false);
+      assert.strictEqual(validateRecipientEmail("not-an-email"), false);
+      assert.strictEqual(validateRecipientEmail("@missinguser.com"), false);
+      assert.strictEqual(validateRecipientEmail("missingdomain@"), false);
+    });
+
+    await it("Email Config: Rapid duplicate outbound notifications are suppressed within rate window", async () => {
+      const to = "duplicate_test@example.com";
+      const subject = "System Alert";
+      const html = "<p>Your assessment results are ready.</p>";
+
+      const firstSent = isDuplicateOutboundEmail(to, subject, html);
+      assert.strictEqual(firstSent, false); // First attempt is not duplicate
+
+      const secondSent = isDuplicateOutboundEmail(to, subject, html);
+      assert.strictEqual(secondSent, true); // Immediate retry is suppressed as duplicate
+    });
+
     console.log("\n================================================================================");
-    console.log("Summary: 35/35 Remaining Defects Verification Tests Passed (100%)");
+    console.log("Summary: Comprehensive Verification Tests Passed (100%)");
     console.log("================================================================================\n");
   } finally {
     await teardown();

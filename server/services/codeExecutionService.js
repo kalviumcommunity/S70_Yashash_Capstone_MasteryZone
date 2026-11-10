@@ -187,6 +187,17 @@ function checkExecutableAvailable(command, envPath) {
 
 function runSandboxedProcess(command, args, stdinInput = "", timeoutMs = 5000, cwd = os.tmpdir()) {
   return new Promise(async (resolve) => {
+    // Fail closed: enforce execution environment security at every process spawn site
+    if (!isLocalExecutionPermitted()) {
+      return resolve({
+        output: "",
+        error: "Execution security policy violation: Local process execution is strictly disabled in untrusted/non-development environments.",
+        duration: 0,
+        exitCode: 1,
+        isUnavailable: true,
+      });
+    }
+
     const queueStart = Date.now();
     while (activeExecutions >= MAX_CONCURRENT_EXECUTIONS) {
       if (Date.now() - queueStart > 4000) {
@@ -265,14 +276,38 @@ function runSandboxedProcess(command, args, stdinInput = "", timeoutMs = 5000, c
     }
 
     proc.stdout.on("data", (chunk) => {
-      if (stdout.length < 1024 * 64) {
-        stdout += chunk.toString();
+      stdout += chunk.toString();
+      if (stdout.length > 1024 * 256) {
+        if (!isSettled) {
+          isSettled = true;
+          clearTimeout(timer);
+          cleanup();
+          terminateProcessTree(proc);
+          return resolve({
+            output: stdout.slice(0, 1024 * 64),
+            error: "Execution limit exceeded: Output size exceeded maximum allowed buffer (256 KB).",
+            duration: Date.now() - startTime,
+            exitCode: -1,
+          });
+        }
       }
     });
 
     proc.stderr.on("data", (chunk) => {
-      if (stderr.length < 1024 * 64) {
-        stderr += chunk.toString();
+      stderr += chunk.toString();
+      if (stderr.length > 1024 * 256) {
+        if (!isSettled) {
+          isSettled = true;
+          clearTimeout(timer);
+          cleanup();
+          terminateProcessTree(proc);
+          return resolve({
+            output: stdout.slice(0, 1024 * 64),
+            error: "Execution limit exceeded: Error output size exceeded maximum allowed buffer (256 KB).",
+            duration: Date.now() - startTime,
+            exitCode: -1,
+          });
+        }
       }
     });
 
@@ -971,23 +1006,53 @@ function generateJsExecutable(code, options = {}) {
   return `${code}\n\n${jsHarness}`;
 }
 
+const TRUSTED_LOCAL_ENVS = new Set(["development", "test"]);
+const PUBLIC_OR_STAGING_ENVS = new Set(["production", "staging", "prod", "stage"]);
+
+function getExecutionEnvironmentName() {
+  return (process.env.NODE_ENV || "").trim().toLowerCase();
+}
+
+/**
+ * Returns true if the environment is public, staging, production, or untrusted/unknown.
+ * Missing or unrecognized NODE_ENV strictly fails closed into untrusted mode.
+ */
 function isPublicUntrustedEnvironment() {
-  const env = (process.env.NODE_ENV || "development").trim().toLowerCase();
-  if (env === "production" || env === "staging" || env === "prod" || env === "stage") {
+  const env = getExecutionEnvironmentName();
+  if (PUBLIC_OR_STAGING_ENVS.has(env)) {
     return true;
   }
   if (process.env.JUDGE0_REQUIRED === "true" || process.env.STAGING === "true") {
     return true;
   }
+  // Missing or unrecognized NODE_ENV fails closed into untrusted mode unless explicitly allowed
+  if (!TRUSTED_LOCAL_ENVS.has(env) && process.env.ALLOW_LOCAL_CODE_EXECUTION !== "true") {
+    return true;
+  }
   return false;
 }
 
+/**
+ * Returns true ONLY if local process execution is explicitly permitted
+ * for trusted local development or automated testing.
+ * Missing or unknown NODE_ENV NEVER automatically enables local execution.
+ */
 function isLocalExecutionPermitted() {
-  if (isPublicUntrustedEnvironment()) {
+  const env = getExecutionEnvironmentName();
+  // Any public, staging, or production environment strictly disables local execution
+  if (PUBLIC_OR_STAGING_ENVS.has(env) || process.env.STAGING === "true" || process.env.JUDGE0_REQUIRED === "true") {
     return false;
   }
-  const env = (process.env.NODE_ENV || "development").trim().toLowerCase();
-  return env === "development" || env === "test" || process.env.ALLOW_LOCAL_CODE_EXECUTION === "true";
+  // Explicit opt-in for trusted local environment
+  if (process.env.ALLOW_LOCAL_CODE_EXECUTION === "true") {
+    return true;
+  }
+  // Trusted development or test environment
+  if (TRUSTED_LOCAL_ENVS.has(env)) {
+    return true;
+  }
+  // Missing or unknown environment fails closed
+  return false;
 }
 
 function isProductionExecutionRestricted() {
