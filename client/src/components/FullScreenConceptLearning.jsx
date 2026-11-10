@@ -186,16 +186,45 @@ export default function FullScreenConceptLearning({
       const workerScript = `
 "use strict";
 
-// Restrict network and storage access inside the background worker
-self.fetch = undefined;
-self.XMLHttpRequest = undefined;
-self.WebSocket = undefined;
-self.EventSource = undefined;
-self.importScripts = undefined;
+// Permanently lock down network, storage, and worker constructors on self and prototype chain
+const blockedAPIs = [
+  "fetch", "XMLHttpRequest", "WebSocket", "EventSource", "importScripts",
+  "Worker", "SharedWorker", "ServiceWorker", "indexedDB", "openDatabase",
+  "BroadcastChannel", "navigator"
+];
+
+for (let i = 0; i < blockedAPIs.length; i++) {
+  const prop = blockedAPIs[i];
+  try {
+    Object.defineProperty(self, prop, {
+      value: undefined,
+      writable: false,
+      configurable: false,
+      enumerable: false,
+    });
+  } catch (e) {}
+
+  try {
+    let proto = Object.getPrototypeOf(self);
+    while (proto && proto !== Object.prototype) {
+      if (Object.prototype.hasOwnProperty.call(proto, prop)) {
+        try {
+          Object.defineProperty(proto, prop, {
+            value: undefined,
+            writable: false,
+            configurable: false,
+            enumerable: false,
+          });
+        } catch (e) {}
+      }
+      proto = Object.getPrototypeOf(proto);
+    }
+  } catch (e) {}
+}
 
 const logs = [];
-const MAX_LOGS = 500;
-const MAX_CHARS = 10000;
+const MAX_LOGS = 300;
+const MAX_CHARS = 8000;
 let totalChars = 0;
 let isTruncated = false;
 
@@ -222,7 +251,7 @@ function safeFormat(arg) {
 function appendLog(args) {
   if (logs.length >= MAX_LOGS || totalChars >= MAX_CHARS) {
     if (!isTruncated) {
-      logs.push("[Output limit reached (10KB / 500 lines). Further output truncated.]");
+      logs.push("[Output limit reached (8KB / 300 lines). Further output truncated.]");
       isTruncated = true;
     }
     return;
@@ -348,9 +377,13 @@ self.addEventListener("unhandledrejection", function(e) {
     setSandboxOutput("Compiling & executing in isolated runtime environment...");
 
     try {
-      const lang = effectiveTrackId.toLowerCase();
+      const rawLang = effectiveTrackId.toLowerCase();
+      const isJsTrack = rawLang === "javascript" || rawLang === "webdev" || rawLang === "js" || rawLang === "node";
+      const normalizedLang = isJsTrack ? "javascript" : (rawLang === "dsa" ? "python" : rawLang);
+      const token = localStorage.getItem("token");
 
-      if (lang === "javascript" || lang === "webdev" || lang === "js" || lang === "node") {
+      // For unauthenticated JavaScript playground runs, use the locked-down local Web Worker
+      if (isJsTrack && !token) {
         const result = await runJavaScriptInSandbox(sandboxCode, 3000);
         let out = "";
         if (result.error) {
@@ -364,17 +397,18 @@ self.addEventListener("unhandledrejection", function(e) {
         return;
       }
 
-      // Non-JS tracks: Python, Java, C++, DSA require the active server compiler service
-      const token = localStorage.getItem("token");
-      if (!token) {
+      // For compiled tracks (Python, Java, C++, DSA), require an authenticated compiler session
+      if (!isJsTrack && !token) {
         setSandboxOutput(
-          `⚠️ [Execution Unavailable]\n\nCompiling and executing ${lang.toUpperCase()} code requires an authenticated session connecting to the sandboxed compiler service.\n\nPlease sign in to run ${lang.toUpperCase()} code, or switch to a JavaScript/Web Development track to run in the local isolated sandbox.`
+          `⚠️ [Execution Unavailable]\n\nCompiling and executing ${rawLang.toUpperCase()} code requires an authenticated session connecting to the sandboxed compiler service.\n\nPlease sign in to run ${rawLang.toUpperCase()} code, or switch to a JavaScript/Web Development track to run in the local isolated sandbox.`
         );
         return;
       }
 
+      // Execute via the backend isolated sandboxed runner / Judge0 service
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      // Keep AbortController active across both request headers and response-body parsing
+      const timeoutId = setTimeout(() => controller.abort(), 12000);
 
       try {
         const res = await fetch(`${API_BASE}/api/coding/execute`, {
@@ -384,43 +418,110 @@ self.addEventListener("unhandledrejection", function(e) {
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            language: lang === "dsa" ? "python" : lang,
+            language: normalizedLang,
             code: sandboxCode,
           }),
           signal: controller.signal,
         });
 
+        // Parse response body with AbortController still active to prevent body-streaming hangs
+        let data = null;
+        try {
+          data = await res.json();
+        } catch (jsonErr) {
+          clearTimeout(timeoutId);
+          setSandboxOutput(`❌ [Execution Error]\n\nFailed to read compiler response payload: ${jsonErr.message}`);
+          return;
+        }
+
         clearTimeout(timeoutId);
 
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          const errMsg = errData.error || errData.message || `HTTP ${res.status} ${res.statusText}`;
+        if (!res.ok || !data) {
+          const errMsg = data?.error || data?.message || `HTTP ${res.status} ${res.statusText}`;
           setSandboxOutput(
             `❌ [Execution Failed]\n\nServer compiler returned an error:\n${errMsg}`
           );
           return;
         }
 
-        const data = await res.json();
+        // Correctly classify execution outcome: Compilation Error, Runtime Error, Timeout, or Success
+        const isCompilationError = Boolean(
+          data.isCompilationError ||
+          data.status === "Compilation Error" ||
+          (data.compile_output && data.compile_output.trim() && data.exitCode !== 0)
+        );
+
+        const isTimeout = Boolean(
+          data.isTimeout ||
+          data.status === "Time Limit Exceeded" ||
+          data.status === "Timeout"
+        );
+
+        const isRuntimeError = Boolean(
+          data.isRuntimeError ||
+          data.status === "Runtime Error" ||
+          (data.stderr && data.stderr.trim() && !data.stdout) ||
+          (data.exitCode && data.exitCode !== 0 && !isCompilationError && !isTimeout)
+        );
+
         const chunks = [];
-        if (data.compile_output) chunks.push(`[Compiler Output]:\n${data.compile_output}`);
-        if (data.stdout) chunks.push(data.stdout);
-        if (data.stderr) chunks.push(`[stderr]:\n${data.stderr}`);
-        if (chunks.length === 0) chunks.push("[Execution completed with no output]");
-        
+
+        if (isCompilationError) {
+          chunks.push(`❌ [Compilation Error]:\n${data.compile_output || data.stderr || "Compilation failed."}`);
+          setSandboxOutput(chunks.join("\n") + `\n\n[Process terminated with compilation error • Status: Error]`);
+          return;
+        }
+
+        if (isTimeout) {
+          chunks.push(`⏱️ [Execution Timed Out]:\nCode execution exceeded the maximum allowable time limit.`);
+          setSandboxOutput(chunks.join("\n") + `\n\n[Process terminated by timeout • Status: Time Limit Exceeded]`);
+          return;
+        }
+
+        if (isRuntimeError) {
+          if (data.stdout && data.stdout.trim()) chunks.push(`[stdout]:\n${data.stdout.trim()}`);
+          chunks.push(`❌ [Runtime Error]:\n${data.stderr || "Process exited with non-zero exit code"}`);
+          setSandboxOutput(chunks.join("\n") + `\n\n[Process exited with runtime error • Status: Runtime Error]`);
+          return;
+        }
+
+        // Standard Successful Output
+        if (data.compile_output && data.compile_output.trim()) {
+          chunks.push(`[Compiler Output]:\n${data.compile_output.trim()}`);
+        }
+        if (data.stdout && data.stdout.trim()) {
+          chunks.push(data.stdout.trim());
+        }
+        if (chunks.length === 0) {
+          chunks.push("[Execution completed with no console output]");
+        }
+
         setSandboxOutput(
           chunks.join("\n") +
-            `\n\n[Process completed in ${data.executionTimeMs || 30}ms • Status: ${data.status || "OK"}]`
+            `\n\n[Process completed in ${data.executionTimeMs || 25}ms • Status: 0 OK]`
         );
       } catch (fetchErr) {
         clearTimeout(timeoutId);
         if (fetchErr.name === "AbortError") {
           setSandboxOutput(
-            `⏱️ [Execution Timed Out]\n\nThe server compiler did not respond within 10 seconds. Please check your network connection or try again later.`
+            `⏱️ [Execution Timed Out]\n\nThe server compiler did not complete within the timeout limit (including response body transmission). Please check your network connection or inspect your code for infinite loops.`
           );
+        } else if (isJsTrack) {
+          // If server was unreachable for JS track, fall back to local locked-down Web Worker
+          console.warn("Server execution unavailable, falling back to local isolated Web Worker:", fetchErr);
+          const result = await runJavaScriptInSandbox(sandboxCode, 3000);
+          let out = "";
+          if (result.error) {
+            out = (result.logs.length > 0 ? result.logs.join("\n") + "\n\n" : "") +
+              `❌ ${result.error}\n\n[Process terminated in ${result.durationMs}ms • Status: 1 Error]`;
+          } else {
+            const logsText = result.logs.length > 0 ? result.logs.join("\n") : "[Execution completed with no console output]";
+            out = logsText + `\n\n[Process completed in ${result.durationMs}ms • Memory: Isolated Web Worker • Status: 0 OK]`;
+          }
+          setSandboxOutput(out);
         } else {
           setSandboxOutput(
-            `⚠️ [Execution Unavailable]\n\nUnable to connect to the backend compiler service for ${lang.toUpperCase()}.\n\nError: ${fetchErr.message || "Network unreachable"}\n\nPlease ensure the backend server is running and reachable.`
+            `⚠️ [Execution Unavailable]\n\nUnable to connect to the backend compiler service for ${rawLang.toUpperCase()}.\n\nError: ${fetchErr.message || "Network unreachable"}\n\nPlease ensure the backend server is running and reachable.`
           );
         }
       }

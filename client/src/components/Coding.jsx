@@ -1369,8 +1369,10 @@ export default function Coding() {
 
       const localReports = (() => {
         try {
-          const reportsKey = uKey !== "guest" ? `mz_${uKey}_assessment_reports` : "mz_assessment_reports";
-          return JSON.parse(localStorage.getItem(reportsKey) || "[]");
+          if (uKey !== "guest") {
+            return JSON.parse(localStorage.getItem(`mz_${uKey}_assessment_reports`) || "[]");
+          }
+          return JSON.parse(sessionStorage.getItem("mz_guest_assessment_reports") || "[]");
         } catch {
           return [];
         }

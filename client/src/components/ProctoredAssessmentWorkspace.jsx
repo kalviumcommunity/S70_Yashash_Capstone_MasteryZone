@@ -819,8 +819,13 @@ export default function ProctoredAssessmentWorkspace({
           const u = JSON.parse(rawUser);
           uId = u._id || u.id || u.userId || "";
         }
-        const reportsKey = uId ? `mz_${uId}_assessment_reports` : "mz_assessment_reports";
-        const existing = JSON.parse(localStorage.getItem(reportsKey) || "[]");
+        localStorage.removeItem("mz_assessment_reports");
+        let existing = [];
+        if (uId) {
+          existing = JSON.parse(localStorage.getItem(`mz_${uId}_assessment_reports`) || "[]");
+        } else {
+          existing = JSON.parse(sessionStorage.getItem("mz_guest_assessment_reports") || "[]");
+        }
         localRecord = {
           id: data.attemptId || resolvedSessionId,
           sessionId: resolvedSessionId,
@@ -849,7 +854,11 @@ export default function ProctoredAssessmentWorkspace({
           reportUrl: `/assessment-report/${resolvedSessionId}`,
         };
         const updated = [localRecord, ...existing.filter((r) => r.sessionId !== resolvedSessionId && r.attemptId !== data.attemptId)];
-        localStorage.setItem(reportsKey, JSON.stringify(updated.slice(0, 30)));
+        if (uId) {
+          localStorage.setItem(`mz_${uId}_assessment_reports`, JSON.stringify(updated.slice(0, 30)));
+        } else {
+          sessionStorage.setItem("mz_guest_assessment_reports", JSON.stringify(updated.slice(0, 30)));
+        }
 
         // Clean up current attempt temporary data and locks so retakes are 100% fresh
         const userSubmittedKey = uId ? `mz_${uId}_exam_${subjectKey}_${tId}_${mIdx}_submitted` : `mz_exam_${mIdx}_submitted`;
