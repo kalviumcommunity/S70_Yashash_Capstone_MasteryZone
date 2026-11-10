@@ -97,15 +97,25 @@ function getSenderAddress(department = 'Mastery Zone') {
 const sentNotificationCache = new Map();
 const DEDUP_WINDOW_MS = 8000;
 
-function isDuplicateOutboundEmail(to, subject, html) {
+function getOutboundEmailDedupKey(to, subject, html) {
   const cleanTo = (Array.isArray(to) ? to.join(",") : String(to)).toLowerCase().trim();
   const sample = (html || "").slice(0, 80);
-  const key = `${cleanTo}::${subject}::${sample}`;
+  return `${cleanTo}::${subject}::${sample}`;
+}
+
+function isDuplicateOutboundEmail(to, subject, html) {
+  const key = getOutboundEmailDedupKey(to, subject, html);
   const now = Date.now();
   const lastSent = sentNotificationCache.get(key);
   if (lastSent && now - lastSent < DEDUP_WINDOW_MS) {
     return true;
   }
+  return false;
+}
+
+function markOutboundEmailSent(to, subject, html) {
+  const key = getOutboundEmailDedupKey(to, subject, html);
+  const now = Date.now();
   if (sentNotificationCache.size > 200) {
     for (const [k, ts] of sentNotificationCache) {
       if (now - ts > DEDUP_WINDOW_MS * 2) {
@@ -114,7 +124,10 @@ function isDuplicateOutboundEmail(to, subject, html) {
     }
   }
   sentNotificationCache.set(key, now);
-  return false;
+}
+
+function clearSentNotificationCache() {
+  sentNotificationCache.clear();
 }
 
 function validateRecipientEmail(email) {
@@ -470,11 +483,15 @@ function getTransporter() {
 async function verifySmtpConnection() {
   const env = (process.env.NODE_ENV || "").trim().toLowerCase();
   const isTrustedLocal = TRUSTED_LOCAL_ENVS.has(env);
+  const config = getSmtpConfig();
   const httpProvider = getHttpEmailProvider();
   if (httpProvider) {
     if (httpProvider.type === 'resend' && httpProvider.isTestSender && !isTrustedLocal) {
       return {
         success: false,
+        ok: false,
+        status: 'unconfigured',
+        provider: 'resend',
         configured: false,
         connected: false,
         errorCode: 'ECONFIG',
@@ -486,9 +503,16 @@ async function verifySmtpConnection() {
         const res = await fetch('https://api.resend.com/api-keys', {
           headers: { Authorization: `Bearer ${httpProvider.apiKey}` },
         });
-        if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        const errName = String(data?.name || data?.message || '').toLowerCase();
+        // A send-only restricted Resend key returns 401/403 with restricted_api_key on /api-keys, which is valid for sending
+        const isRestrictedValidKey = (res.status === 401 || res.status === 403) && errName.includes('restricted');
+        if (res.ok || isRestrictedValidKey) {
           return {
             success: true,
+            ok: true,
+            status: 'connected',
+            provider: 'resend',
             configured: true,
             connected: true,
             host: 'api.resend.com (HTTPS Port 443)',
@@ -499,6 +523,23 @@ async function verifySmtpConnection() {
             message: 'Resend HTTPS API connection verified and ready for dispatch.',
           };
         }
+        if (!config.isConfigured) {
+          return {
+            success: false,
+            ok: false,
+            status: 'failed',
+            provider: 'resend',
+            configured: true,
+            connected: false,
+            host: 'api.resend.com (HTTPS Port 443)',
+            port: 443,
+            secure: true,
+            sender: httpProvider.from,
+            user: 'Resend API Key',
+            errorCode: res.status === 401 || res.status === 403 ? 'EAUTH' : 'EPROVIDER',
+            message: sanitizeLogMessage(data?.message || `Resend API verification failed with HTTP ${res.status}.`),
+          };
+        }
       } else if (httpProvider.type === 'brevo') {
         const res = await fetch('https://api.brevo.com/v3/account', {
           headers: { 'api-key': httpProvider.apiKey },
@@ -506,6 +547,9 @@ async function verifySmtpConnection() {
         if (res.ok) {
           return {
             success: true,
+            ok: true,
+            status: 'connected',
+            provider: 'brevo',
             configured: true,
             connected: true,
             host: 'api.brevo.com (HTTPS Port 443)',
@@ -516,16 +560,51 @@ async function verifySmtpConnection() {
             message: 'Brevo HTTPS API connection verified and ready for dispatch.',
           };
         }
+        if (!config.isConfigured) {
+          return {
+            success: false,
+            ok: false,
+            status: 'failed',
+            provider: 'brevo',
+            configured: true,
+            connected: false,
+            host: 'api.brevo.com (HTTPS Port 443)',
+            port: 443,
+            secure: true,
+            sender: httpProvider.from,
+            user: 'Brevo API Key',
+            errorCode: res.status === 401 || res.status === 403 ? 'EAUTH' : 'EPROVIDER',
+            message: `Brevo API verification failed with HTTP ${res.status}.`,
+          };
+        }
       }
     } catch (e) {
       console.warn('[Mailer] HTTP Provider connection check error:', e.message);
+      if (!config.isConfigured) {
+        return {
+          success: false,
+          ok: false,
+          status: 'failed',
+          provider: httpProvider.type,
+          configured: true,
+          connected: false,
+          host: httpProvider.type === 'resend' ? 'api.resend.com' : 'api.brevo.com',
+          port: 443,
+          secure: true,
+          sender: httpProvider.from,
+          errorCode: 'ECONNECTION',
+          message: sanitizeLogMessage(e.message || 'HTTP email provider connection failed'),
+        };
+      }
     }
   }
 
-  const config = getSmtpConfig();
   if (!config.isConfigured) {
     return {
       success: false,
+      ok: false,
+      status: 'unconfigured',
+      provider: 'smtp',
       configured: false,
       connected: false,
       host: config.host,
@@ -534,7 +613,7 @@ async function verifySmtpConnection() {
       sender: config.from,
       user: config.email ? maskEmail(config.email) : null,
       errorCode: 'ECONFIG',
-      message: 'SMTP credentials missing. Please set SMTP_EMAIL and SMTP_PASSWORD in environment variables.',
+      message: 'SMTP credentials missing. Please set SMTP_EMAIL and SMTP_PASSWORD (or RESEND_API_KEY) in environment variables.',
     };
   }
 
@@ -543,6 +622,9 @@ async function verifySmtpConnection() {
     await tp.verify();
     return {
       success: true,
+      ok: true,
+      status: 'connected',
+      provider: 'smtp',
       configured: true,
       connected: true,
       host: config.host,
@@ -577,6 +659,9 @@ async function verifySmtpConnection() {
         console.log(`✅ [Mailer] Port 587 (STARTTLS) verified and established as active transporter.`);
         return {
           success: true,
+          ok: true,
+          status: 'connected',
+          provider: 'smtp',
           configured: true,
           connected: true,
           host: config.host,
@@ -595,6 +680,9 @@ async function verifySmtpConnection() {
     const diag = diagnoseSmtpError(err);
     return {
       success: false,
+      ok: false,
+      status: 'failed',
+      provider: 'smtp',
       configured: true,
       connected: false,
       host: config.host,
@@ -762,6 +850,7 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
           providerResponse: sanitizeLogMessage(res.providerResponse),
           attemptCount: 1,
         });
+        markOutboundEmailSent(to, mailOptions.subject, mailOptions.html);
         return res;
       }
     } catch (apiErr) {
@@ -952,6 +1041,8 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
         providerResponse: sanitizeLogMessage(info.response),
         attemptCount: attempt,
       });
+
+      markOutboundEmailSent(to, mailOptions.subject, mailOptions.html);
 
       return {
         success: true,
@@ -2817,6 +2908,8 @@ module.exports = {
   formatEmailDateTime,
   formatEmailTime,
   isDuplicateOutboundEmail,
+  markOutboundEmailSent,
+  clearSentNotificationCache,
   validateRecipientEmail,
   getHttpEmailProvider,
   sendViaHttpApi,

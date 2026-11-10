@@ -52,12 +52,37 @@ const getApiBase = () => {
     if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
       return "http://localhost:5012";
     }
+    if (window.location.hostname.includes("vercel.app")) {
+      return "https://mastery-zone.onrender.com";
+    }
     return window.location.origin;
   }
   return "http://localhost:5012";
 };
 
 const API_BASE = getApiBase();
+
+const getDefaultIceServers = () => {
+  const servers = [
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" },
+    { urls: "stun:global.stun.twilio.com:3478" },
+  ];
+  const envTurnUrls = import.meta.env.VITE_TURN_URLS || import.meta.env.VITE_TURN_URL || "";
+  if (envTurnUrls) {
+    const urls = String(envTurnUrls)
+      .split(",")
+      .map((u) => u.trim())
+      .filter(Boolean);
+    if (urls.length > 0) {
+      const turnEntry = { urls: urls.length === 1 ? urls[0] : urls };
+      if (import.meta.env.VITE_TURN_USERNAME) turnEntry.username = import.meta.env.VITE_TURN_USERNAME;
+      if (import.meta.env.VITE_TURN_CREDENTIAL) turnEntry.credential = import.meta.env.VITE_TURN_CREDENTIAL;
+      servers.push(turnEntry);
+    }
+  }
+  return servers;
+};
 
 const EMOJI_OPTIONS = ["💖", "👍", "🎉", "👏", "😂", "🔥", "🚀", "💡"];
 
@@ -152,6 +177,26 @@ export default function MasteryZoneLiveMeeting({
   const [selectedAudioOutputDevice, setSelectedAudioOutputDevice] = useState("");
   const [localMicLevel, setLocalMicLevel] = useState(0);
   const iceCandidateQueuesRef = useRef(new Map());
+  const iceServersRef = useRef(getDefaultIceServers());
+
+  // Fetch dynamic STUN + TURN ICE configuration from backend
+  useEffect(() => {
+    let active = true;
+    const token = localStorage.getItem("token") || "";
+    fetch(`${API_BASE}/api/meetings/ice-config`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (active && data && Array.isArray(data.iceServers) && data.iceServers.length > 0) {
+          iceServersRef.current = data.iceServers;
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Recording State
   const [recordingStatus, setRecordingStatus] = useState("idle"); // "idle" | "recording" | "paused" | "uploading"
@@ -752,17 +797,35 @@ export default function MasteryZoneLiveMeeting({
         setIsMuted(!micAvailable);
 
         // Update senders for existing peer connections
-        peerConnectionsRef.current.forEach((pc) => {
+        peerConnectionsRef.current.forEach((pc, peerSocketId) => {
+          let needsRenegotiation = false;
           stream.getTracks().forEach((track) => {
-            const sender = pc.getSenders().find((s) => s.track && s.track.kind === track.kind);
+            const sender =
+              pc.getSenders().find((s) => s.track && s.track.kind === track.kind) ||
+              (pc.getTransceivers
+                ? pc.getTransceivers().find((t) => t.receiver?.track?.kind === track.kind)?.sender
+                : null);
             if (sender) {
               sender.replaceTrack(track).catch(() => {});
             } else {
               try {
                 pc.addTrack(track, stream);
+                needsRenegotiation = true;
               } catch {}
             }
           });
+          if (needsRenegotiation && pc.signalingState === "stable" && socket?.connected) {
+            pc.createOffer()
+              .then((offer) => pc.setLocalDescription(offer).then(() => offer))
+              .then((offer) => {
+                socket.emit("webrtc_offer", {
+                  meetingId,
+                  targetSocketId: peerSocketId,
+                  offer,
+                });
+              })
+              .catch(() => {});
+          }
         });
 
         if (socket?.connected) {
@@ -831,10 +894,7 @@ export default function MasteryZoneLiveMeeting({
     }
 
     const pc = new RTCPeerConnection({
-      iceServers: [
-        { urls: "stun:stun.l.google.com:19302" },
-        { urls: "stun:global.stun.twilio.com:3478" },
-      ],
+      iceServers: iceServersRef.current || getDefaultIceServers(),
     });
 
     const streamToSend = (isScreenSharing && screenStreamRef.current) ? screenStreamRef.current : localStreamRef.current;
@@ -957,6 +1017,16 @@ export default function MasteryZoneLiveMeeting({
     socket.on("webrtc_offer_received", async ({ fromSocketId, offer }) => {
       const pc = createPeerConnection(fromSocketId);
       try {
+        // Handle WebRTC glare (simultaneous offers): polite peer yields if local signaling state is not stable
+        const isPolite = Boolean(socket.id && String(socket.id) < String(fromSocketId));
+        if (pc.signalingState !== "stable") {
+          if (!isPolite) {
+            return;
+          }
+          try {
+            await pc.setLocalDescription({ type: "rollback" });
+          } catch {}
+        }
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
         await processQueuedCandidates(fromSocketId, pc);
         const answer = await pc.createAnswer();

@@ -3367,17 +3367,19 @@ router.get("/email/status", async (req, res) => {
     const { verifySmtpConnection, getSmtpConfig, maskEmail } = require("../utils/mailer");
     const config = getSmtpConfig();
     const verification = await verifySmtpConnection();
+    const isOk = Boolean(verification.success ?? verification.ok);
 
     res.status(200).json({
-      success: verification.ok,
-      configured: config.isConfigured,
-      host: config.host || null,
-      port: config.port || null,
-      secure: config.secure,
-      sender: config.auth?.user ? maskEmail(config.auth.user) : null,
+      success: isOk,
+      configured: Boolean(verification.configured ?? config.isConfigured),
+      provider: verification.provider || "smtp",
+      host: verification.host || config.host || null,
+      port: verification.port || config.port || null,
+      secure: verification.secure !== undefined ? verification.secure : config.secure,
+      sender: verification.sender || (config.auth?.user ? maskEmail(config.auth.user) : null),
       verification: {
-        ok: verification.ok,
-        status: verification.status,
+        ok: isOk,
+        status: verification.status || (isOk ? "connected" : "failed"),
         message: verification.message,
         errorCode: verification.errorCode || null,
       },

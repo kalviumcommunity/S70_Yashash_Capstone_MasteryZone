@@ -108,27 +108,6 @@ const ALL_LEARNING_TRACKS = [
     route: "/coding",
     matchKeys: ["CODING", "Coding", "coding"],
   },
-  {
-    key: "LANGUAGE",
-    title: "Language",
-    subtitle: "English, Spanish, French",
-    route: "/language",
-    matchKeys: ["LANGUAGE", "Language", "language"],
-  },
-  {
-    key: "VEHICLES",
-    title: "Vehicles",
-    subtitle: "Automotive, Electric Vehicles",
-    route: "/driving",
-    matchKeys: ["VEHICLES", "VECHILES", "Vehicles", "vehicles", "Driving", "driving"],
-  },
-  {
-    key: "FITNESS",
-    title: "Gym & Fitness",
-    subtitle: "Strength, Nutrition, Wellness",
-    route: "/fitness",
-    matchKeys: ["FITNESS", "GYM", "Fitness", "fitness", "Gym", "gym"],
-  },
 ];
 
 const Profile = () => {
@@ -971,10 +950,7 @@ const Profile = () => {
                           else if (normalized.includes("FIT") || normalized.includes("GYM")) tagClass = "mz-tag-pink";
                           else if (normalized.includes("VEH") || normalized.includes("DRIV")) tagClass = "mz-tag-cyan";
 
-                          const route =
-                            normalized.includes("LANG") ? "/language" :
-                            normalized.includes("VEH") || normalized.includes("DRIV") ? "/driving" :
-                            normalized.includes("FIT") || normalized.includes("GYM") ? "/fitness" : "/coding";
+                          const route = "/coding";
 
                           return (
                             <div
@@ -1466,8 +1442,7 @@ const Profile = () => {
                       <LuSparkles size={24} className="mz-empty-tracks-icon" />
                       <p className="mz-empty-tracks-title">No tracks explored yet</p>
                       <p className="mz-empty-tracks-desc">
-                        Visit <strong onClick={() => navigate("/coding")} className="mz-link-text">Coding</strong> or{" "}
-                        <strong onClick={() => navigate("/language")} className="mz-link-text">Language</strong> to explore and unlock tracks on your profile.
+                        Visit <strong onClick={() => navigate("/coding")} className="mz-link-text">Coding</strong> to explore and unlock tracks on your profile.
                       </p>
                     </div>
                   )}

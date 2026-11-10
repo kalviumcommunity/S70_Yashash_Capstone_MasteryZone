@@ -544,6 +544,63 @@ async function main() {
     }
   });
 
+  // 24. Failed email is NOT marked as duplicate and can be retried immediately
+  await runTest("24. Failed email attempt does not block immediate retry via duplicate suppression", async () => {
+    const { clearSentNotificationCache } = require("../utils/mailer");
+    if (typeof clearSentNotificationCache === "function") clearSentNotificationCache();
+
+    let attemptNum = 0;
+    const origCreateTransport = nodemailer.createTransport;
+    nodemailer.createTransport = () => ({
+      verify: (cb) => cb(null, true),
+      sendMail: (opts, cb) => {
+        attemptNum++;
+        if (attemptNum === 1) {
+          const err = new Error("535 Authentication failed");
+          err.code = "EAUTH";
+          return cb(err);
+        }
+        cb(null, {
+          accepted: [opts.to],
+          rejected: [],
+          messageId: "<retry-after-fail-123@masteryzone.com>",
+          response: "250 2.0.0 OK",
+        });
+      },
+    });
+    resetTransporter();
+
+    try {
+      const firstTry = await sendMailWithRetry({
+        to: "retry_after_fail@example.com",
+        subject: "Duplicate Cache Regression Check",
+        html: "<p>Should allow retry after failure</p>",
+      }, 0);
+      assert.strictEqual(firstTry.success, false, "First attempt should fail");
+      assert.strictEqual(firstTry.errorCode, "EAUTH");
+
+      const secondTry = await sendMailWithRetry({
+        to: "retry_after_fail@example.com",
+        subject: "Duplicate Cache Regression Check",
+        html: "<p>Should allow retry after failure</p>",
+      }, 0);
+      assert.strictEqual(secondTry.success, true, "Second attempt must succeed and not be suppressed");
+      assert.strictEqual(secondTry.deduplicated, undefined, "Second attempt must actually send, not return fake deduplicated acceptance");
+      assert.strictEqual(secondTry.messageId, "<retry-after-fail-123@masteryzone.com>");
+
+      const thirdTry = await sendMailWithRetry({
+        to: "retry_after_fail@example.com",
+        subject: "Duplicate Cache Regression Check",
+        html: "<p>Should allow retry after failure</p>",
+      }, 0);
+      assert.strictEqual(thirdTry.success, true);
+      assert.strictEqual(thirdTry.deduplicated, true, "Third identical call after a real acceptance should be deduplicated");
+    } finally {
+      nodemailer.createTransport = origCreateTransport;
+      resetTransporter();
+    }
+  });
+
   // Restore environment
   for (const k of Object.keys(process.env)) {
     if (!originalEnv[k]) delete process.env[k];
