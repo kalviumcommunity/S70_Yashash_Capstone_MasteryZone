@@ -784,13 +784,20 @@ export default function Coding() {
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data.tracks) && data.tracks.length > 0) {
-          // Merge modules from default tracks if server tracks omit detailed module array
+          // Merge modules from default tracks and dynamically compute module status from genuine user progress
           const merged = data.tracks.map((t) => {
             const def = DEFAULT_TRACKS.find((dt) => dt.id === t.id);
+            const completed = Number(t.completedLessons) || 0;
+            const total = Number(t.totalLessons) || def?.totalLessons || (def?.modules || []).length || 8;
+            const rawModules = Array.isArray(t.modules) && t.modules.length > 0 ? t.modules : (def?.modules || []);
+            const modules = rawModules.map((mod, idx) => ({
+              ...mod,
+              status: idx < completed ? "completed" : (idx === completed && completed < total ? "in_progress" : "available"),
+            }));
             return {
               ...t,
               badgeText: t.badgeText || def?.badgeText || "Core",
-              modules: def?.modules || [],
+              modules,
             };
           });
           setTracks(merged);
@@ -3350,34 +3357,23 @@ export default function Coding() {
         {/* ── TAB 5: STUDY GROUPS TAB (Interactive Cover Page & Collaborative Live Pods) ── */}
         {activeTab === "study_groups" && (
           <div className="mz-c-study-groups-view mz-c-grid-anim">
-            {/* 1. Hero Cover Banner */}
-            <div className="mz-c-study-cover-hero">
-              <div className="mz-c-study-cover-hero-top">
-                <div className="mz-c-study-badges-row">
-                  <span className="mz-c-study-live-indicator">
-                    <span className="mz-c-live-pulse-dot" /> Live Collaborative Rooms Active
-                  </span>
-                  <span className="mz-c-study-tech-badge">
-                    <LuSparkles size={13} /> WebRTC P2P • Monaco Dual IDE • Infinite Whiteboard
+            {/* Collaborative Session Controls */}
+            <div className="mz-c-study-cover-hero" style={{ padding: "20px 24px", marginBottom: "20px" }}>
+              <div className="mz-c-study-cover-actions" style={{ marginTop: 0, justifyContent: "space-between" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <button
+                    type="button"
+                    className="mz-c-btn-start-meeting"
+                    onClick={() => navigate("/live")}
+                    title="Start Meeting"
+                  >
+                    <LuVideo size={16} />
+                    <span>Start Meeting</span>
+                  </button>
+                  <span style={{ fontSize: "13px", color: "#64748b" }}>
+                    Launch instant collaborative coding room
                   </span>
                 </div>
-                <h2 className="mz-c-study-cover-title">Real-Time Collaborative Coding Pods & Study Rooms</h2>
-                <p className="mz-c-study-cover-desc">
-                  Step into synchronized live rooms engineered for high-performance software developers. Pair-program with zero latency, dissect algorithmic challenges together, diagram distributed systems on an infinite whiteboard, and conduct realistic FAANG technical mock interviews.
-                </p>
-              </div>
-
-              {/* Quick Actions Console */}
-              <div className="mz-c-study-cover-actions">
-                <button
-                  type="button"
-                  className="mz-c-btn-start-meeting"
-                  onClick={() => navigate("/live")}
-                  title="Start Meeting"
-                >
-                  <LuVideo size={16} />
-                  <span>Start Meeting</span>
-                </button>
 
                 <form className="mz-c-join-code-form" onSubmit={handleJoinWithCode}>
                   <input
@@ -3391,49 +3387,6 @@ export default function Coding() {
                     Join Room
                   </button>
                 </form>
-              </div>
-            </div>
-
-            {/* 2. Real-Time Capability Highlights */}
-            <div className="mz-c-study-pillars-grid">
-              <div className="mz-c-study-pillar-card">
-                <div className="mz-c-pillar-icon-wrap" style={{ background: "rgba(37, 99, 235, 0.1)", color: "#2563eb" }}>
-                  <LuVideo size={22} />
-                </div>
-                <h4 className="mz-c-pillar-title">WebRTC Audio & HD Video</h4>
-                <p className="mz-c-pillar-desc">
-                  Low-latency peer-to-peer audio mesh, crisp camera feeds, and 60 FPS full-screen code streaming for peer reviews.
-                </p>
-              </div>
-
-              <div className="mz-c-study-pillar-card">
-                <div className="mz-c-pillar-icon-wrap" style={{ background: "rgba(14, 165, 233, 0.1)", color: "#0284c7" }}>
-                  <LuTerminal size={22} />
-                </div>
-                <h4 className="mz-c-pillar-title">Synchronized Monaco IDE</h4>
-                <p className="mz-c-pillar-desc">
-                  Multi-cursor real-time code editor with integrated compiler support for Python, C++, Java, JavaScript, and Go.
-                </p>
-              </div>
-
-              <div className="mz-c-study-pillar-card">
-                <div className="mz-c-pillar-icon-wrap" style={{ background: "rgba(16, 185, 129, 0.1)", color: "#059669" }}>
-                  <LuPenTool size={22} />
-                </div>
-                <h4 className="mz-c-pillar-title">Infinite System Whiteboard</h4>
-                <p className="mz-c-pillar-desc">
-                  Collaborative vector canvas for sketching data structure pointers, database schemas, and microservice architectures.
-                </p>
-              </div>
-
-              <div className="mz-c-study-pillar-card">
-                <div className="mz-c-pillar-icon-wrap" style={{ background: "rgba(147, 51, 234, 0.1)", color: "#9333ea" }}>
-                  <LuSparkles size={22} />
-                </div>
-                <h4 className="mz-c-pillar-title">Session Cloud Sync</h4>
-                <p className="mz-c-pillar-desc">
-                  Export session code snippets, download whiteboard architectural diagrams, and share room transcripts post-meeting.
-                </p>
               </div>
             </div>
 
