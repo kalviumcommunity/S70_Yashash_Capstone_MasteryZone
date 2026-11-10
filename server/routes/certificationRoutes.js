@@ -21,6 +21,7 @@ const codingRoutes = require("./codingRoutes");
 const evaluateSingleTestCase = codingRoutes.evaluateSingleTestCase;
 const runSandboxedProcess = codingRoutes.runSandboxedProcess;
 const { PDFDocument } = require("pdf-lib");
+const { getProblemExecutionConfig } = require("../data/problemExecutionConfig");
 
 // Supported Coding Binaries
 const PYTHON_BIN = fs.existsSync("/usr/bin/python3") ? "/usr/bin/python3" : "python3";
@@ -366,6 +367,7 @@ router.post("/attempt/start", authenticateToken, async (req, res) => {
     const formattedCodingQuestions = selectedTwoChallenges.map((c) => {
       const publicTests = (c.testCases || []).filter((tc) => !tc.isHidden).slice(0, 3);
       const hiddenTests = (c.testCases || []).filter((tc) => tc.isHidden);
+      const execConfig = getProblemExecutionConfig(c);
 
       // Default starter code if missing
       const starterCode = c.starterCode || {
@@ -375,6 +377,7 @@ router.post("/attempt/start", authenticateToken, async (req, res) => {
 
       return {
         questionId: c.id,
+        functionName: c.functionName || execConfig.functionName || "",
         title: c.title,
         difficulty: c.difficulty || "Medium",
         category: c.category || "Algorithms",
@@ -737,10 +740,15 @@ router.post("/attempt/:attemptId/run-code", authenticateToken, async (req, res) 
     // Evaluate against public visible test cases
     const testCasesToRun = question.publicTests || [];
     const testResults = [];
+    const qExecConfig = getProblemExecutionConfig(question);
+    const qFunctionName = question.functionName || qExecConfig.functionName || "";
 
     for (let i = 0; i < testCasesToRun.length; i++) {
       const tc = testCasesToRun[i];
-      const outcome = await evaluateSingleTestCase(language, code, tc.input, tc.expectedOutput);
+      const outcome = await evaluateSingleTestCase(language, code, tc.input, tc.expectedOutput, {
+        functionName: qFunctionName,
+        problemId: question.questionId,
+      });
       testResults.push({
         testIndex: i + 1,
         index: i + 1,
@@ -802,11 +810,16 @@ router.post("/attempt/:attemptId/submit-code", authenticateToken, async (req, re
     const testResults = [];
     let passedCount = 0;
     const startTime = Date.now();
+    const qExecConfig = getProblemExecutionConfig(question);
+    const qFunctionName = question.functionName || qExecConfig.functionName || "";
 
     for (let i = 0; i < allTests.length; i++) {
       const tc = allTests[i];
       const isHidden = i >= (question.publicTests || []).length;
-      const outcome = await evaluateSingleTestCase(language, code, tc.input, tc.expectedOutput);
+      const outcome = await evaluateSingleTestCase(language, code, tc.input, tc.expectedOutput, {
+        functionName: qFunctionName,
+        problemId: question.questionId,
+      });
 
       if (outcome.passed) passedCount++;
 
@@ -1003,7 +1016,12 @@ router.post("/attempt/:attemptId/finalize", authenticateToken, async (req, res) 
           if (isCodeChanged || (!attempt.codingSubmissions[idx]?.submittedAt && allTests.length > 0)) {
             const evaluateTestCasesBatch = codingRoutes.evaluateTestCasesBatch;
             if (typeof evaluateTestCasesBatch === "function" && allTests.length > 0) {
-              const outcomes = await evaluateTestCasesBatch(sub.language || "python", sub.code, allTests);
+              const qExecConfig = getProblemExecutionConfig(question);
+              const qFunctionName = question?.functionName || qExecConfig.functionName || "";
+              const outcomes = await evaluateTestCasesBatch(sub.language || "python", sub.code, allTests, {
+                functionName: qFunctionName,
+                problemId: question?.questionId,
+              });
               passedTests = outcomes.filter((o) => o.passed).length;
               solved = passedTests === allTests.length && allTests.length > 0;
               testResults = outcomes;

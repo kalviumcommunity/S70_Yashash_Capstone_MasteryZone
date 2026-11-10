@@ -5,7 +5,7 @@
   "main": "server.js",
   "type": "commonjs",
   "scripts": {
-    "test": "node test/completeSecurityVerification.test.js && node test/accountIsolationAndRecording.test.js && node test/auditVerification.test.js && node test/e2eFourFixes.test.js && node test/emailSystem.test.js",
+    "test": "node test/completeSecurityVerification.test.js && node test/accountIsolationAndRecording.test.js && node test/auditVerification.test.js && node test/e2eFourFixes.test.js && node test/emailSystem.test.js && node test/compilerAllLanguages.test.js",
     "test:email": "node test/emailSystem.test.js",
     "start": "node server.js"
   },

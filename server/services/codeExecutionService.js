@@ -307,8 +307,7 @@ function parseCppSolution(code, targetMethodName = "") {
     const found = methods.find((m) => m.name.toLowerCase() === targetMethodName.toLowerCase());
     if (found) return found;
   }
-  const nonHelpers = methods.filter((m) => !COMMON_HELPER_NAMES.includes(m.name.toLowerCase()));
-  return nonHelpers[0] || methods[0] || null;
+  return null;
 }
 
 function generateCppExecutable(code, options = {}) {
@@ -323,6 +322,26 @@ function generateCppExecutable(code, options = {}) {
   }
 
   const targetMethodName = options.functionName || "";
+  if (!targetMethodName) {
+    return `#include <iostream>
+#include <string>
+#include <vector>
+#include <sstream>
+#include <algorithm>
+#include <map>
+#include <unordered_map>
+#include <set>
+#include <unordered_set>
+${code}
+
+int main() {
+    Solution sol;
+    std::cerr << "Configuration Error: Function-based execution requires an explicit function name\\n";
+    return 1;
+}
+`;
+  }
+
   const method = parseCppSolution(codeNoComments, targetMethodName);
 
   if (!method) {
@@ -338,7 +357,8 @@ function generateCppExecutable(code, options = {}) {
 ${code}
 
 int main() {
-    return 0;
+    std::cerr << "Compilation/Link Error: Expected method '${targetMethodName}' was not found in class Solution\\n";
+    return 1;
 }
 `;
   }
@@ -471,40 +491,28 @@ public class Main {
         String raw = sb.toString().trim();
         if (raw.isEmpty()) return;
 
+        final String preferredName = ${JSON.stringify(targetMethodName)};
+        if (preferredName == null || preferredName.isEmpty()) {
+            System.err.println("Configuration Error: Function-based execution requires an explicit function name");
+            System.exit(1);
+            return;
+        }
+
         Solution sol = new Solution();
         Method[] methods = Solution.class.getDeclaredMethods();
-        final String preferredName = ${JSON.stringify(targetMethodName)};
-        List<String> helpers = Arrays.asList("swap", "helper", "util", "dfs", "bfs", "gcd", "lcm", "print", "display", "tostring", "equals", "hashcode");
-
         Method target = null;
-        if (preferredName != null && !preferredName.isEmpty()) {
-            for (Method m : methods) {
-                if (Modifier.isPublic(m.getModifiers()) && m.getName().equalsIgnoreCase(preferredName)) {
-                    target = m;
-                    break;
-                }
+        for (Method m : methods) {
+            if (Modifier.isPublic(m.getModifiers()) && m.getName().equalsIgnoreCase(preferredName)) {
+                target = m;
+                break;
             }
         }
 
         if (target == null) {
-            for (Method m : methods) {
-                if (Modifier.isPublic(m.getModifiers()) && !helpers.contains(m.getName().toLowerCase())) {
-                    target = m;
-                    break;
-                }
-            }
+            System.err.println("NoSuchMethodError: Solution does not define expected public method '" + preferredName + "'");
+            System.exit(1);
+            return;
         }
-
-        if (target == null && methods.length > 0) {
-            for (Method m : methods) {
-                if (Modifier.isPublic(m.getModifiers())) {
-                    target = m;
-                    break;
-                }
-            }
-            if (target == null) target = methods[0];
-        }
-        if (target == null) return;
 
         Class<?>[] pTypes = target.getParameterTypes();
         Object[] callArgs = new Object[pTypes.length];
@@ -569,6 +577,11 @@ function generatePythonExecutable(code, options = {}) {
     return code;
   }
 
+  const hasFunctionOrClass = /\b(def\s+[a-zA-Z0-9_]+|class\s+[a-zA-Z0-9_]+)\b/.test(codeNoComments);
+  if (!hasFunctionOrClass) {
+    return code;
+  }
+
   const targetName = options.functionName || "";
   const harness = `
 # --- MASTERY ZONE RUNNER HARNESS ---
@@ -576,41 +589,30 @@ import sys, json, inspect
 
 def _mz_auto_runner():
     target_name = ${JSON.stringify(targetName)}
-    helpers = {"swap", "helper", "util", "dfs", "bfs", "gcd", "lcm", "print", "display"}
+    if not target_name:
+        sys.stderr.write("Configuration Error: Function-based execution requires an explicit function name\\n")
+        sys.exit(1)
+
     candidates = []
 
     if "Solution" in globals() and inspect.isclass(globals()["Solution"]):
         try:
             sol_inst = globals()["Solution"]()
-            methods = [m for m in dir(sol_inst) if not m.startswith("_") and callable(getattr(sol_inst, m))]
-            if target_name and hasattr(sol_inst, target_name) and callable(getattr(sol_inst, target_name)):
+            if hasattr(sol_inst, target_name) and callable(getattr(sol_inst, target_name)):
                 candidates.append(getattr(sol_inst, target_name))
             else:
-                non_helpers = [m for m in methods if m.lower() not in helpers]
-                if non_helpers:
-                    candidates.append(getattr(sol_inst, non_helpers[0]))
-                elif methods:
-                    candidates.append(getattr(sol_inst, methods[0]))
-        except Exception:
-            pass
+                sys.stderr.write(f"AttributeError: Solution does not define required method '{target_name}'\\n")
+                sys.exit(1)
+        except Exception as e:
+            sys.stderr.write(f"Initialization Error: {e}\\n")
+            sys.exit(1)
 
     if not candidates:
-        if target_name and target_name in globals() and callable(globals()[target_name]):
+        if target_name in globals() and callable(globals()[target_name]):
             candidates.append(globals()[target_name])
         else:
-            funcs = []
-            for name, obj in list(globals().items()):
-                if callable(obj) and not name.startswith("_") and not inspect.isclass(obj):
-                    if getattr(obj, "__module__", None) == "__main__":
-                        funcs.append((name, obj))
-            non_helpers = [obj for name, obj in funcs if name.lower() not in helpers]
-            if non_helpers:
-                candidates.append(non_helpers[0])
-            elif funcs:
-                candidates.append(funcs[0][1])
-
-    if not candidates:
-        return
+            sys.stderr.write(f"NameError: Expected function '{target_name}' is not defined\\n")
+            sys.exit(1)
 
     func = candidates[0]
     raw = sys.stdin.read()
@@ -711,6 +713,11 @@ function generateJsExecutable(code, options = {}) {
     return code;
   }
 
+  const hasFunctionOrClass = /(?:function\s+[a-zA-Z0-9_$]+|(?:const|let|var)\s+[a-zA-Z0-9_$]+\s*=\s*(?:function|\([^)]*\)\s*=>)|class\s+[a-zA-Z0-9_$]+)/.test(codeNoComments);
+  if (!hasFunctionOrClass) {
+    return code;
+  }
+
   const targetName = options.functionName || "";
   const fnMatches = [...code.matchAll(/(?:function\s+([a-zA-Z0-9_$]+)|(?:const|let|var)\s+([a-zA-Z0-9_$]+)\s*=\s*(?:function|\([^)]*\)\s*=>))/g)];
   const extractedNames = fnMatches.map((m) => m[1] || m[2]).filter(Boolean);
@@ -724,45 +731,32 @@ function generateJsExecutable(code, options = {}) {
   const rawStr = raw.trim();
 
   const targetName = ${JSON.stringify(targetName)};
-  const helpers = ["swap", "helper", "util", "dfs", "bfs", "gcd", "lcm", "print", "display"];
+  if (!targetName) {
+    console.error("Configuration Error: Function-based execution requires an explicit function name");
+    process.exit(1);
+  }
+
   let targetFn = null;
 
   if (typeof Solution === "function") {
     try {
       const s = new Solution();
-      const proto = Object.getPrototypeOf(s);
-      const methods = Object.getOwnPropertyNames(proto).filter(m => m !== "constructor" && typeof s[m] === "function");
-      if (targetName && typeof s[targetName] === "function") {
+      if (typeof s[targetName] === "function") {
         targetFn = s[targetName].bind(s);
-      } else {
-        const nonHelpers = methods.filter(m => !helpers.includes(m.toLowerCase()));
-        const chosen = nonHelpers[0] || methods[0];
-        if (chosen) targetFn = s[chosen].bind(s);
       }
     } catch(e) {}
   }
 
   if (!targetFn) {
-    const candidateNames = ${JSON.stringify(extractedNames)};
-    if (targetName) {
-      try {
-        if (typeof eval(targetName) === "function") targetFn = eval(targetName);
-      } catch(e) {}
-    }
-    if (!targetFn) {
-      const nonHelpers = candidateNames.filter(n => !helpers.includes(n.toLowerCase()));
-      for (const name of (nonHelpers.length > 0 ? nonHelpers : candidateNames)) {
-        try {
-          if (typeof eval(name) === "function") {
-            targetFn = eval(name);
-            break;
-          }
-        } catch(e) {}
-      }
-    }
+    try {
+      if (typeof eval(targetName) === "function") targetFn = eval(targetName);
+    } catch(e) {}
   }
 
-  if (!targetFn) return;
+  if (!targetFn) {
+    console.error("ReferenceError: Expected function '" + targetName + "' is not defined in submitted solution");
+    process.exit(1);
+  }
 
   function parseToken(s) {
     s = s.trim();
@@ -1036,34 +1030,29 @@ import sys, json, inspect
 
 def _mz_auto_runner():
     candidates = []
+    target_name = globals().get("_MZ_TARGET_FUNCTION_NAME", "")
+    if not target_name:
+        sys.stderr.write("Configuration Error: Function-based execution requires an explicit function name\\n")
+        sys.exit(1)
+
     if "Solution" in globals() and inspect.isclass(globals()["Solution"]):
         try:
             sol_inst = globals()["Solution"]()
-            helpers = {"swap", "helper", "util", "dfs", "bfs", "gcd", "lcm", "print", "display"}
-            methods = [m for m in dir(sol_inst) if not m.startswith("_") and callable(getattr(sol_inst, m))]
-            non_helpers = [m for m in methods if m.lower() not in helpers]
-            if non_helpers:
-                candidates.append(getattr(sol_inst, non_helpers[0]))
-            elif methods:
-                candidates.append(getattr(sol_inst, methods[0]))
-        except Exception:
-            pass
+            if hasattr(sol_inst, target_name) and callable(getattr(sol_inst, target_name)):
+                candidates.append(getattr(sol_inst, target_name))
+            else:
+                sys.stderr.write(f"AttributeError: Solution does not define required method '{target_name}'\\n")
+                sys.exit(1)
+        except Exception as e:
+            sys.stderr.write(f"Initialization Error: {e}\\n")
+            sys.exit(1)
 
     if not candidates:
-        helpers = {"swap", "helper", "util", "dfs", "bfs", "gcd", "lcm", "print", "display"}
-        funcs = []
-        for name, obj in list(globals().items()):
-            if callable(obj) and not name.startswith("_") and not inspect.isclass(obj):
-                if getattr(obj, "__module__", None) == "__main__":
-                    funcs.append((name, obj))
-        non_helpers = [obj for name, obj in funcs if name.lower() not in helpers]
-        if non_helpers:
-            candidates.append(non_helpers[0])
-        elif funcs:
-            candidates.append(funcs[0][1])
-
-    if not candidates:
-        return
+        if target_name in globals() and callable(globals()[target_name]):
+            candidates.append(globals()[target_name])
+        else:
+            sys.stderr.write(f"NameError: Expected function '{target_name}' is not defined\\n")
+            sys.exit(1)
 
     func = candidates[0]
     raw = sys.stdin.read()
@@ -1140,7 +1129,7 @@ if __name__ == "__main__":
 /**
  * Universal Sandboxed Execution for a single run
  */
-async function executeCode({ language, code, stdin = "", timeoutMs = 5000, files = [] }) {
+async function executeCode({ language, code, stdin = "", timeoutMs = 5000, files = [], options = {} }) {
   const lang = (language || "").toLowerCase().trim();
   const startTime = Date.now();
 
@@ -1159,7 +1148,7 @@ async function executeCode({ language, code, stdin = "", timeoutMs = 5000, files
   // 1. External Judge0 Remote Isolation
   if (process.env.JUDGE0_API_HOST) {
     try {
-      const j0 = await executeViaJudge0(lang, code, stdin, timeoutMs);
+      const j0 = await executeViaJudge0(lang, code, stdin, timeoutMs, options);
       if (j0) {
         return {
           ...j0,
@@ -1208,7 +1197,8 @@ async function executeCode({ language, code, stdin = "", timeoutMs = 5000, files
 
     if (lang === "javascript" || lang === "js" || lang === "node") {
       const scriptPath = path.join(tmpDir, "index.js");
-      fs.writeFileSync(scriptPath, code, "utf8");
+      const executableCode = generateJsExecutable(code, options);
+      fs.writeFileSync(scriptPath, executableCode, "utf8");
       const result = await runSandboxedProcess(
         NODE_BIN,
         ["--max-old-space-size=128", scriptPath],
@@ -1221,7 +1211,8 @@ async function executeCode({ language, code, stdin = "", timeoutMs = 5000, files
 
     if (lang === "python" || lang === "py") {
       const scriptPath = path.join(tmpDir, "main.py");
-      fs.writeFileSync(scriptPath, code, "utf8");
+      const executableCode = generatePythonExecutable(code, options);
+      fs.writeFileSync(scriptPath, executableCode, "utf8");
       const result = await runSandboxedProcess(
         PYTHON_BIN,
         ["-u", "-I", scriptPath],
@@ -1235,7 +1226,8 @@ async function executeCode({ language, code, stdin = "", timeoutMs = 5000, files
     if (lang === "cpp" || lang === "c++") {
       const srcPath = path.join(tmpDir, "main.cpp");
       const binPath = path.join(tmpDir, "main_bin");
-      fs.writeFileSync(srcPath, code, "utf8");
+      const executableCode = generateCppExecutable(code, options);
+      fs.writeFileSync(srcPath, executableCode, "utf8");
 
       const compileRes = await runSandboxedProcess(GPP_BIN, ["-O0", srcPath, "-o", binPath], "", 6000, tmpDir);
       if (compileRes.exitCode !== 0) {
@@ -1273,19 +1265,25 @@ async function executeCode({ language, code, stdin = "", timeoutMs = 5000, files
     }
 
     if (lang === "java") {
+      const javaExec = generateJavaExecutable(code, options);
       let className = "Main";
-      const publicClassMatch = code.match(/public\s+class\s+([A-Za-z0-9_]+)/);
-      if (publicClassMatch && publicClassMatch[1]) {
-        className = publicClassMatch[1];
-      } else {
-        const anyClassMatch = code.match(/\bclass\s+([A-Za-z0-9_]+)/);
-        if (anyClassMatch && anyClassMatch[1]) {
-          className = anyClassMatch[1];
+      let codeToWrite = javaExec.code;
+
+      if (javaExec.hasMain) {
+        const publicClassMatch = code.match(/public\s+class\s+([A-Za-z0-9_]+)/);
+        if (publicClassMatch && publicClassMatch[1]) {
+          className = publicClassMatch[1];
+        } else {
+          const anyClassMatch = code.match(/\bclass\s+([A-Za-z0-9_]+)/);
+          if (anyClassMatch && anyClassMatch[1]) {
+            className = anyClassMatch[1];
+          }
         }
+        codeToWrite = code;
       }
 
       const srcPath = path.join(tmpDir, `${className}.java`);
-      fs.writeFileSync(srcPath, code, "utf8");
+      fs.writeFileSync(srcPath, codeToWrite, "utf8");
 
       const compileRes = await runSandboxedProcess(JAVAC_BIN, [srcPath], "", 6000, tmpDir);
       if (compileRes.exitCode !== 0) {

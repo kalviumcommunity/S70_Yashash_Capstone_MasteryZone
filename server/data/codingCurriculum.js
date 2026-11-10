@@ -39,6 +39,7 @@ const CURRICULUM = {
       ],
       "codingExercise": {
         "taskTitle": "Implement In-Place Filter & Square",
+        "functionName": "filter_and_square",
         "prompt": "Write a function `filter_and_square(nums)` that takes a list of integers from stdin (JSON array) and returns a list containing the squares of all positive even integers in ascending order.",
         "starterCode": "# Enter your code below\n",
         "testCases": [
@@ -353,6 +354,7 @@ const CURRICULUM = {
       ],
       "codingExercise": {
         "taskTitle": "Implement Custom Function Counter Decorator",
+        "functionName": "process_words",
         "prompt": "Write a Python script that takes a JSON array of words from stdin and uses a lambda with `map` and `filter` to return all words of length > 3 converted to uppercase, sorted alphabetically.",
         "starterCode": "# Enter your code below\n",
         "testCases": [
@@ -663,6 +665,7 @@ const CURRICULUM = {
       ],
       "codingExercise": {
         "taskTitle": "Build a Custom BankAccount Class",
+        "functionName": "run_bank_account",
         "prompt": "Create a class `BankAccount` with `deposit(amount)`, `withdraw(amount)`, and `get_balance()`. Withdrawals exceeding the balance should not decrease balance and return False; otherwise return True. Read JSON commands from stdin: `[[\"deposit\", 100], [\"withdraw\", 40], [\"get_balance\"]]` and output the results as a JSON array.",
         "starterCode": "# Enter your code below\n",
         "testCases": [
@@ -973,6 +976,7 @@ const CURRICULUM = {
       ],
       "codingExercise": {
         "taskTitle": "Safe JSON Parser & Property Extractor",
+        "functionName": "safe_json_parser",
         "prompt": "Write a function that parses a JSON string from stdin. If valid JSON with key `values` (a list of numbers), return the average rounded to 2 decimal places. If invalid JSON or key is missing, return -1.",
         "starterCode": "# Enter your code below\n",
         "testCases": [
@@ -1283,6 +1287,7 @@ const CURRICULUM = {
       ],
       "codingExercise": {
         "taskTitle": "Top-K Frequent Elements with Counter",
+        "functionName": "top_k_frequent",
         "prompt": "Write a Python script that reads a JSON object `{\"nums\": [1,1,1,2,2,3], \"k\": 2}` from stdin and returns the top `k` most frequent numbers in descending order of frequency as a JSON array.",
         "starterCode": "# Enter your code below\n",
         "testCases": [
@@ -1595,6 +1600,7 @@ const CURRICULUM = {
       ],
       "codingExercise": {
         "taskTitle": "Deep Clone An Object with Circular Reference Safety",
+        "functionName": "deepClone",
         "prompt": "Implement a deep clone utility function `deepClone(obj)` in JavaScript. Read a JSON object from stdin, deep-clone it, mutate a nested property on the clone without affecting the original, and return true if original remained unmutated.",
         "starterCode": "// Enter your code below\n",
         "testCases": [
@@ -1899,6 +1905,7 @@ const CURRICULUM = {
       ],
       "codingExercise": {
         "taskTitle": "Implement Memoization Cache using Closure",
+        "functionName": "memoize",
         "prompt": "Write a memoization wrapper `memoize(fn)` that caches results of a function based on stringified arguments. Read numbers from stdin, apply a memoized square function, and verify cache hit count.",
         "starterCode": "// Enter your code below\n",
         "testCases": [
@@ -2202,6 +2209,7 @@ const CURRICULUM = {
       ],
       "codingExercise": {
         "taskTitle": "Implement Promise.all Polyfill",
+        "functionName": "allPromises",
         "prompt": "Implement a function `allPromises(promises)` that behaves like `Promise.all`. It resolves with an array of values when all succeed, or rejects with the first error. Read a JSON array from stdin and output resolved array.",
         "starterCode": "// Enter your code below\n",
         "testCases": [
@@ -2506,6 +2514,7 @@ const CURRICULUM = {
       ],
       "codingExercise": {
         "taskTitle": "Parse Query Parameters into Object",
+        "functionName": "parseQueryParams",
         "prompt": "Write a utility function `parseQueryParams(url)` that extracts query parameters from a URL string into a JavaScript object. Read a URL from stdin and output the JSON string.",
         "starterCode": "// Enter your code below\n",
         "testCases": [
@@ -2811,6 +2820,7 @@ const CURRICULUM = {
       ],
       "codingExercise": {
         "taskTitle": "Group Array by Key using reduce",
+        "functionName": "groupBy",
         "prompt": "Implement a grouping function `groupBy(items, key)` using `Array.prototype.reduce`. Read a JSON array from stdin and group elements by category into a dictionary.",
         "starterCode": "// Enter your code below\n",
         "testCases": [
@@ -3117,6 +3127,7 @@ const CURRICULUM = {
       ],
       "codingExercise": {
         "taskTitle": "Word Frequency Counter with HashMap",
+        "functionName": "wordFrequency",
         "prompt": "Write a Java program that reads space-separated words from stdin and outputs the count of each unique word in JSON format, sorted alphabetically by key.",
         "starterCode": "// Enter your code below\n",
         "testCases": [
@@ -3420,6 +3431,7 @@ const CURRICULUM = {
       ],
       "codingExercise": {
         "taskTitle": "Shape Hierarchy & Area Calculation",
+        "functionName": "totalArea",
         "prompt": "Create an interface `Shape` with `double getArea()`. Implement `Circle(radius)` and `Rectangle(width, height)`. Read JSON input e.g. `[{\"type\":\"circle\",\"r\":5},{\"type\":\"rect\",\"w\":4,\"h\":6}]` from stdin and print the total area rounded to 2 decimal places.",
         "starterCode": "// Enter your code below\n",
         "testCases": [
@@ -3723,6 +3735,7 @@ const CURRICULUM = {
       ],
       "codingExercise": {
         "taskTitle": "First Unique Character in String",
+        "functionName": "firstUniqChar",
         "prompt": "Write a Java program that reads a string from stdin and returns the index of the first non-repeating character, or -1 if none exists.",
         "starterCode": "// Enter your code below\n",
         "testCases": [
@@ -4031,6 +4044,7 @@ const CURRICULUM = {
       ],
       "codingExercise": {
         "taskTitle": "Safe Integer Division with Custom Exception",
+        "functionName": "safeDivide",
         "prompt": "Write a Java program that reads two space-separated integers `a` and `b` from stdin. If `b == 0`, catch arithmetic division and print 'Error: Division by zero'. Otherwise, print the integer division result `a / b`.",
         "starterCode": "// Enter your code below\n",
         "testCases": [
@@ -4338,6 +4352,7 @@ const CURRICULUM = {
       ],
       "codingExercise": {
         "taskTitle": "Filter & Sum with Streams API",
+        "functionName": "filterAndSum",
         "prompt": "Write a Java program that reads space-separated integers from stdin, filters for positive even numbers, squares each, and prints their sum.",
         "starterCode": "// Enter your code below\n",
         "testCases": [
@@ -4643,6 +4658,7 @@ const CURRICULUM = {
       ],
       "codingExercise": {
         "taskTitle": "Array Inversion with Two Pointers",
+        "functionName": "reverseArray",
         "prompt": "Write a C++ program that reads space-separated integers from stdin, reverses them in-place using two pointer swaps, and prints the result space-separated.",
         "starterCode": "// Enter your code below\n",
         "testCases": [
@@ -4946,6 +4962,7 @@ const CURRICULUM = {
       ],
       "codingExercise": {
         "taskTitle": "Implement Scoped Timer RAII Logger",
+        "functionName": "intBufferSum",
         "prompt": "Write a C++ class `IntBuffer` that allocates dynamic memory for N integers in its constructor and deletes it in its destructor. Read integers from stdin, store in IntBuffer, and print the sum.",
         "starterCode": "// Enter your code below\n",
         "testCases": [
@@ -5248,6 +5265,7 @@ const CURRICULUM = {
       ],
       "codingExercise": {
         "taskTitle": "Exclusive Ownership Transfer with unique_ptr",
+        "functionName": "transferStrings",
         "prompt": "Write a C++ program using `std::unique_ptr` that reads strings from stdin, stores them in unique_ptrs in a vector, transfers them using `std::move`, and prints them concatenated with commas.",
         "starterCode": "// Enter your code below\n",
         "testCases": [
@@ -5550,6 +5568,7 @@ const CURRICULUM = {
       ],
       "codingExercise": {
         "taskTitle": "Filter & Sort with STL Algorithms",
+        "functionName": "filterAndSort",
         "prompt": "Write a C++ program that reads integers from stdin, filters for positive numbers, sorts them in descending order using `std::sort` with a lambda comparator, and prints them space-separated.",
         "starterCode": "// Enter your code below\n",
         "testCases": [
@@ -5853,6 +5872,7 @@ const CURRICULUM = {
       ],
       "codingExercise": {
         "taskTitle": "Parse HTTP Request Header String",
+        "functionName": "parseHeaders",
         "prompt": "Write a JavaScript function that parses a raw HTTP header text from stdin into a key-value JSON object with lowercase keys. Read stdin and output JSON.",
         "starterCode": "// Enter your code below\n",
         "testCases": [
@@ -6157,6 +6177,7 @@ const CURRICULUM = {
       ],
       "codingExercise": {
         "taskTitle": "Clamp Number Utility Function",
+        "functionName": "clamp",
         "prompt": "Write a utility function `clamp(val, min, max)` that restricts a value to lie between min and max bounds. Read a JSON array `[val, min, max]` from stdin and return the clamped value.",
         "starterCode": "// Enter your code below\n",
         "testCases": [
@@ -6464,6 +6485,7 @@ const CURRICULUM = {
       ],
       "codingExercise": {
         "taskTitle": "State Reducer Simulation",
+        "functionName": "stateReducer",
         "prompt": "Implement a state reducer simulation that processes an array of actions `[{\"type\":\"INCREMENT\"},{\"type\":\"DECREMENT\"},{\"type\":\"ADD\",\"payload\":10}]` starting from count = 0. Output the final count.",
         "starterCode": "// Enter your code below\n",
         "testCases": [
@@ -6767,6 +6789,7 @@ const CURRICULUM = {
       ],
       "codingExercise": {
         "taskTitle": "Parse and Validate JWT Payload",
+        "functionName": "parseJwtPayload",
         "prompt": "Write a function that takes a raw JWT token from stdin, extracts the Base64-encoded payload (second segment), decodes it from Base64, and returns the parsed JSON object.",
         "starterCode": "// Enter your code below\n",
         "testCases": [
@@ -7073,6 +7096,7 @@ const CURRICULUM = {
       ],
       "codingExercise": {
         "taskTitle": "Check Sorted Pair Sum (Two Pointers)",
+        "functionName": "checkSortedPairSum",
         "prompt": "Write a JavaScript program that reads a sorted JSON array of numbers and an integer target from stdin, and returns true if any two distinct elements add up to target, or false otherwise.",
         "starterCode": "// Enter your code below\n",
         "testCases": [
@@ -7381,6 +7405,7 @@ const CURRICULUM = {
       ],
       "codingExercise": {
         "taskTitle": "Longest Substring Without Repeating Characters",
+        "functionName": "lengthOfLongestSubstring",
         "prompt": "Write a function that calculates the length of the longest substring without repeating characters using the dynamic sliding window pattern. Read a string from stdin and output the integer length.",
         "starterCode": "// Enter your code below\n",
         "testCases": [
@@ -7688,6 +7713,7 @@ const CURRICULUM = {
       ],
       "codingExercise": {
         "taskTitle": "Valid Parentheses with Stack",
+        "functionName": "isValid",
         "prompt": "Write a function `isValid(s)` that determines if an input string of brackets `()[]{}` is valid using a Stack. Read a string from stdin and output true or false.",
         "starterCode": "// Enter your code below\n",
         "testCases": [
@@ -7996,6 +8022,7 @@ const CURRICULUM = {
       ],
       "codingExercise": {
         "taskTitle": "Maximum Depth of Binary Tree",
+        "functionName": "maxDepth",
         "prompt": "Write a function that calculates the maximum depth (height) of a binary tree represented as an array in breadth-first level order. Read JSON array from stdin and print the maximum integer depth.",
         "starterCode": "// Enter your code below\n",
         "testCases": [
@@ -8303,6 +8330,7 @@ const CURRICULUM = {
       ],
       "codingExercise": {
         "taskTitle": "Binary Search: Find First and Last Position",
+        "functionName": "searchRange",
         "prompt": "Write a function that finds the starting and ending position of a target in a sorted JSON array from stdin. Read input `[nums, target]`, output `[start, end]` or `[-1, -1]`.",
         "starterCode": "// Enter your code below\n",
         "testCases": [
