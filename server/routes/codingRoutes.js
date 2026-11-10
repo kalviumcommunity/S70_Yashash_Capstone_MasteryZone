@@ -3449,7 +3449,7 @@ router.post("/proctored-session/init", optionalAuthenticateToken, async (req, re
 router.post("/proctored-session/start", optionalAuthenticateToken, async (req, res) => {
   try {
     const userId = req.user
-      ? (req.user.userId || req.user.id || req.user._id)
+      ? String(req.user.userId || req.user.id || req.user._id)
       : (req.body.candidateDetails?.candidateId || req.body.userId || `guest_${Date.now()}`);
     const {
       sessionId,
@@ -3466,8 +3466,14 @@ router.post("/proctored-session/start", optionalAuthenticateToken, async (req, r
     let session = null;
     if (sessionId) {
       session = await ProctoredCodingSession.findOne({ sessionId });
-      if (!session && userId) {
-        session = await ProctoredCodingSession.findOne({ sessionId, userId });
+      if (session) {
+        const sessionOwner = String(session.userId || "");
+        const isAdmin = Boolean(req.user?.role === "admin" || req.user?.role === "SUPER_ADMIN" || req.user?.isMainAdmin);
+        if (sessionOwner && !sessionOwner.startsWith("guest_") && sessionOwner !== "guest") {
+          if (!isAdmin && sessionOwner !== userId) {
+            return res.status(403).json({ error: "Access denied. You do not own this proctored assessment session." });
+          }
+        }
       }
     }
 
@@ -4007,26 +4013,17 @@ router.post("/proctored-session/:sessionId/resume", authenticateToken, async (re
 });
 
 // 7. POST /api/coding/proctored-session/:sessionId/submit
-router.post(["/proctored-session/:sessionId/submit", "/proctored-session/submit"], optionalAuthenticateToken, async (req, res) => {
+router.post(["/proctored-session/:sessionId/submit", "/proctored-session/submit"], authenticateToken, async (req, res) => {
   try {
-    const userId = req.user
-      ? (req.user.userId || req.user.id || req.user._id)
-      : (req.body.userId || req.body.candidateDetails?.candidateId || `guest_${Date.now()}`);
+    const userId = String(req.user.userId || req.user.id || req.user._id);
     const sessionId = req.params.sessionId || req.body.sessionId;
     const {
       code,
       language,
-      testResults,
-      score: providedScore,
-      grade: providedGrade,
-      accuracy: providedAccuracy,
-      passedTests: providedPassedTests,
-      totalTests: providedTotalTests,
       questions: submittedQuestions,
-      problemData: submittedProblemData,
-      questionId: submittedQuestionId,
+      submittedProblemData,
+      submittedQuestionId,
       assessmentTitle,
-      candidateDetails,
     } = req.body;
 
     if (!sessionId) {
@@ -4034,42 +4031,26 @@ router.post(["/proctored-session/:sessionId/submit", "/proctored-session/submit"
     }
 
     let session = await ProctoredCodingSession.findOne({ sessionId });
-    if (!session && userId) {
-      session = await ProctoredCodingSession.findOne({ sessionId, userId });
-    }
-
-    // Auto-create session record if it did not exist yet so submission data is NEVER lost
     if (!session) {
-      const now = new Date();
-      const problem = resolveQuestionData(submittedQuestionId || "ch_two_sum", null, null, submittedProblemData);
-      session = await ProctoredCodingSession.create({
-        sessionId,
-        userId,
-        candidateDetails: candidateDetails || {
-          fullName: req.user?.fullName || req.user?.name || "Candidate",
-          email: req.user?.email || "",
-          candidateId: `CAND-${String(userId).slice(-6).toUpperCase()}`,
-          organization: "Mastery Zone Academy",
-        },
-        questionId: submittedQuestionId || problem.id || "ch_two_sum",
-        assessmentTitle: assessmentTitle || problem.title || "MZ-ASM Coding Assessment",
-        status: "active",
-        serverStartTime: new Date(now.getTime() - 60000),
-        serverDeadline: new Date(now.getTime() + 3540000),
-        timeLimitSeconds: 3600,
-        maxRecoveryChances: 5,
-        recoveryChancesUsed: 0,
-        draftCode: code || "",
-        draftLanguage: language || "python",
-      });
+      return res.status(404).json({ error: "Proctored assessment session not found" });
     }
 
-    // Permanent Immutability: If session is already submitted with valid code, never overwrite previous score, code, or report!
-    const prevCodeIsReal = session.questions?.some((q) => q.submittedCode && !isCodeEmptyOrComments(q.submittedCode)) || (session.submissionResult?.code && !isCodeEmptyOrComments(session.submissionResult.code));
-    if (session.status === "submitted" && session.submissionResult?.submittedAt && prevCodeIsReal) {
-      return res.json({
+    const sessionOwner = String(session.userId || "");
+    const isAdmin = Boolean(req.user?.role === "admin" || req.user?.role === "SUPER_ADMIN" || req.user?.isMainAdmin);
+    if (!isAdmin && sessionOwner !== userId) {
+      return res.status(403).json({ error: "Access denied. You do not own this proctored assessment session." });
+    }
+
+    if (session.status === "terminated") {
+      return res.status(403).json({ error: "Assessment session has been terminated due to proctoring violations.", isTerminated: true });
+    }
+
+    // Permanent Immutability: If session is already submitted, never overwrite previous score, code, or report!
+    if (session.status === "submitted" && session.submissionResult?.submittedAt) {
+      return res.status(409).json({
         success: true,
         alreadySubmitted: true,
+        message: "Assessment session has already been submitted and finalized.",
         sessionId: session.sessionId,
         status: "submitted",
         score: session.submissionResult.score || 0,
@@ -4128,9 +4109,9 @@ router.post(["/proctored-session/:sessionId/submit", "/proctored-session/submit"
       ];
     }
 
-    // Process question submissions:
+    // Process question submissions with strict authoritative server execution
+    // (Never trust browser-supplied score, passedTests, or testResults!)
     if (Array.isArray(submittedQuestions) && submittedQuestions.length > 0) {
-      // If session currently only has 1 placeholder question that has never been attempted, replace it with incoming questions
       const hasOnlyUnattemptedPlaceholder =
         session.questions.length === 1 &&
         !session.questions[0].attempted &&
@@ -4142,70 +4123,91 @@ router.post(["/proctored-session/:sessionId/submit", "/proctored-session/submit"
       }
 
       for (const subQ of submittedQuestions) {
-        const qScore = subQ.score !== undefined ? subQ.score : (subQ.passedTests !== undefined && subQ.totalTests ? Math.round((subQ.passedTests / subQ.totalTests) * 100) : 0);
-        const qTotalMarks = subQ.totalMarks || 100;
-        const qMarksObtained = subQ.marksObtained !== undefined ? subQ.marksObtained : Math.round((qScore / 100) * qTotalMarks);
-        const qTotalTests = subQ.totalTests || (subQ.testCases?.length || (subQ.testResults?.length || 10));
-        const qPassedTests = subQ.passedTests !== undefined ? subQ.passedTests : (qScore === 100 ? qTotalTests : Math.round((qScore / 100) * qTotalTests));
-        const qDraft = (session.questionDrafts && typeof session.questionDrafts.get === "function")
-          ? session.questionDrafts.get(subQ.questionId)
-          : session.questionDrafts?.[subQ.questionId];
-        const explicitSubCode = subQ.submittedCode !== undefined ? subQ.submittedCode : subQ.code;
-        const validCode = explicitSubCode !== undefined
-          ? String(explicitSubCode)
-          : (getValidCode(qDraft) || "");
-        const hasExecutableCode = !isCodeEmptyOrComments(validCode);
-        const computedStatus = subQ.status || (
-          !hasExecutableCode && qPassedTests === 0
-            ? "unattempted"
-            : qPassedTests === qTotalTests && qTotalTests > 0
-            ? "passed"
-            : qPassedTests > 0
-            ? "partially_passed"
-            : "failed"
-        );
-
         let qRecord = session.questions.find(
           (q) => q.questionId === subQ.questionId || q.title === subQ.title
         );
         if (!qRecord) {
-          session.questions.push({
+          const pData = resolveQuestionData(subQ.questionId || session.questionId, session.trackId);
+          qRecord = {
             questionId: subQ.questionId || `q_${session.questions.length + 1}`,
-            title: subQ.title || "Coding Problem",
-            difficulty: subQ.difficulty || "Medium",
-            category: subQ.category || session.trackId || "DSA",
-            description: subQ.description || "",
-            inputFormat: subQ.inputFormat || "",
-            outputFormat: subQ.outputFormat || "",
-            constraints: subQ.constraints || [],
-            examples: subQ.examples || [],
-            hints: subQ.hints || [],
-            testCases: subQ.testCases || [],
-            submittedCode: validCode,
-            language: subQ.language || "python",
-            status: computedStatus,
-            score: qScore,
-            marksObtained: qMarksObtained,
-            totalMarks: qTotalMarks,
-            passedTests: qPassedTests,
-            totalTests: qTotalTests,
-            testResults: subQ.testResults || [],
-            attempted: hasExecutableCode || qPassedTests > 0,
-            submittedAt: now,
-          });
-        } else {
-          qRecord.submittedCode = validCode;
-          qRecord.language = subQ.language || qRecord.language;
-          qRecord.score = qScore;
-          qRecord.totalMarks = qTotalMarks;
-          qRecord.marksObtained = qMarksObtained;
-          qRecord.totalTests = qTotalTests;
-          qRecord.passedTests = qPassedTests;
-          qRecord.testResults = subQ.testResults || qRecord.testResults;
-          qRecord.status = computedStatus;
-          qRecord.attempted = hasExecutableCode || qPassedTests > 0;
-          qRecord.submittedAt = now;
+            title: subQ.title || pData.title || "Coding Problem",
+            difficulty: subQ.difficulty || pData.difficulty || "Medium",
+            category: subQ.category || pData.category || session.trackId || "DSA",
+            description: pData.description || "",
+            inputFormat: pData.inputFormat || "",
+            outputFormat: pData.outputFormat || "",
+            constraints: pData.constraints || [],
+            examples: pData.examples || [],
+            hints: pData.hints || [],
+            testCases: pData.testCases || [],
+            totalMarks: Number(subQ.totalMarks) || 100,
+          };
+          session.questions.push(qRecord);
         }
+
+        const qDraft = (session.questionDrafts && typeof session.questionDrafts.get === "function")
+          ? session.questionDrafts.get(qRecord.questionId)
+          : session.questionDrafts?.[qRecord.questionId];
+        const explicitSubCode = subQ.submittedCode !== undefined ? subQ.submittedCode : (subQ.code !== undefined ? subQ.code : qRecord.submittedCode);
+        const validCode = explicitSubCode !== undefined ? String(explicitSubCode) : (getValidCode(qDraft) || "");
+        const subLang = subQ.language || qRecord.language || session.draftLanguage || "python";
+        const hasExecutableCode = !isCodeEmptyOrComments(validCode);
+
+        // Load authoritative test cases from catalog/database
+        const officialData = resolveQuestionData(qRecord.questionId, session.trackId);
+        const officialTestCases = (officialData.testCases && officialData.testCases.length > 0)
+          ? officialData.testCases
+          : (qRecord.testCases && qRecord.testCases.length > 0 ? qRecord.testCases : []);
+
+        let evaluatedResults = [];
+        let actualPassedTests = 0;
+        const totalTests = officialTestCases.length || 10;
+        const qTotalMarks = Number(qRecord.totalMarks) || 100;
+
+        if (hasExecutableCode && officialTestCases.length > 0) {
+          const execConfig = getProblemExecutionConfig(qRecord.questionId || officialData);
+          const outcomes = await evaluateTestCasesBatch(subLang, validCode, officialTestCases, {
+            functionName: execConfig.functionName,
+            problemId: qRecord.questionId,
+          });
+          actualPassedTests = outcomes.filter((o) => o.passed).length;
+          evaluatedResults = officialTestCases.map((tc, idx) => {
+            const outcome = outcomes[idx] || { passed: false, actual: "", expected: tc.expectedOutput, error: "Evaluation failed", duration: 0 };
+            const isHidden = tc.isHidden !== undefined ? tc.isHidden : idx >= 3;
+            return {
+              testIndex: idx + 1,
+              passed: outcome.passed,
+              durationMs: outcome.duration || 0,
+              input: isHidden ? "[Hidden Test Case]" : tc.input,
+              expected: isHidden ? "[Hidden Output]" : tc.expectedOutput,
+              actual: isHidden ? (outcome.passed ? "[Passed]" : "[Output Hidden]") : outcome.actual,
+              error: outcome.passed ? null : outcome.error || "Wrong output",
+              isHidden,
+            };
+          });
+        }
+
+        const qScore = totalTests > 0 ? Math.round((actualPassedTests / totalTests) * 100) : 0;
+        const qMarksObtained = totalTests > 0 ? Math.round((actualPassedTests / totalTests) * qTotalMarks) : 0;
+        const computedStatus = !hasExecutableCode && actualPassedTests === 0
+          ? "unattempted"
+          : actualPassedTests === totalTests && totalTests > 0
+          ? "passed"
+          : actualPassedTests > 0
+          ? "partially_passed"
+          : "failed";
+
+        qRecord.submittedCode = validCode;
+        qRecord.language = subLang;
+        qRecord.score = qScore;
+        qRecord.totalMarks = qTotalMarks;
+        qRecord.marksObtained = qMarksObtained;
+        qRecord.totalTests = totalTests;
+        qRecord.passedTests = actualPassedTests;
+        qRecord.testResults = evaluatedResults;
+        qRecord.status = computedStatus;
+        qRecord.attempted = hasExecutableCode;
+        qRecord.submittedAt = now;
       }
     } else {
       // Single question submission
@@ -4219,53 +4221,59 @@ router.post(["/proctored-session/:sessionId/submit", "/proctored-session/submit"
       const submissionLang = language || session.draftLanguage || targetQ?.language || "python";
       const hasExecutableCode = !isCodeEmptyOrComments(submissionCode);
 
-      const qTestCases = targetQ.testCases && targetQ.testCases.length > 0 ? targetQ.testCases : (session.problemData?.testCases || []);
+      const officialData = resolveQuestionData(session.questionId || targetQ.questionId, session.trackId);
+      const officialTestCases = (officialData.testCases && officialData.testCases.length > 0)
+        ? officialData.testCases
+        : (targetQ.testCases && targetQ.testCases.length > 0 ? targetQ.testCases : []);
 
       let evaluatedResults = [];
-      if (Array.isArray(testResults) && testResults.length > 0) {
-        evaluatedResults = testResults;
-      } else {
-        const execConfig = getProblemExecutionConfig(session.questionId || session.problemData);
-        const outcomes = await evaluateTestCasesBatch(submissionLang, submissionCode, qTestCases, {
+      let actualPassedTests = 0;
+      const totalTests = officialTestCases.length || 10;
+      const qTotalMarks = Number(targetQ.totalMarks) || 100;
+
+      if (hasExecutableCode && officialTestCases.length > 0) {
+        const execConfig = getProblemExecutionConfig(session.questionId || officialData);
+        const outcomes = await evaluateTestCasesBatch(submissionLang, submissionCode, officialTestCases, {
           functionName: execConfig.functionName,
           problemId: session.questionId,
         });
-        evaluatedResults = qTestCases.map((tc, i) => {
-          const outcome = outcomes[i] || { passed: false, actual: "", expected: tc.expectedOutput, error: "Evaluation failed", duration: 0 };
-          const isHidden = tc.isHidden !== undefined ? tc.isHidden : i >= 3;
+        actualPassedTests = outcomes.filter((o) => o.passed).length;
+        evaluatedResults = officialTestCases.map((tc, idx) => {
+          const outcome = outcomes[idx] || { passed: false, actual: "", expected: tc.expectedOutput, error: "Evaluation failed", duration: 0 };
+          const isHidden = tc.isHidden !== undefined ? tc.isHidden : idx >= 3;
           return {
-            testIndex: i + 1,
+            testIndex: idx + 1,
             passed: outcome.passed,
             durationMs: outcome.duration || 0,
             input: isHidden ? "[Hidden Test Case]" : tc.input,
             expected: isHidden ? "[Hidden Output]" : tc.expectedOutput,
-            actual: isHidden ? (outcome.passed ? "[Passed]" : "[Output Hidden]") : (outcome.actual || (hasExecutableCode ? "" : "[No Output]")),
+            actual: isHidden ? (outcome.passed ? "[Passed]" : "[Output Hidden]") : outcome.actual,
             error: outcome.passed ? null : outcome.error || "Wrong output",
             isHidden,
           };
         });
       }
 
-      const totalTests = providedTotalTests || qTestCases.length || 10;
-      const passedCount = providedPassedTests !== undefined ? providedPassedTests : evaluatedResults.filter((r) => r.passed).length;
-      const accuracy = providedAccuracy !== undefined ? providedAccuracy : (totalTests > 0 ? Math.round((passedCount / totalTests) * 100) : 0);
-      const score = providedScore !== undefined ? providedScore : accuracy;
+      const qScore = totalTests > 0 ? Math.round((actualPassedTests / totalTests) * 100) : 0;
+      const qMarksObtained = totalTests > 0 ? Math.round((actualPassedTests / totalTests) * qTotalMarks) : 0;
+      const computedStatus = !hasExecutableCode && actualPassedTests === 0
+        ? "unattempted"
+        : actualPassedTests === totalTests && totalTests > 0
+        ? "passed"
+        : actualPassedTests > 0
+        ? "partially_passed"
+        : "failed";
 
       targetQ.submittedCode = submissionCode;
       targetQ.language = submissionLang;
-      targetQ.status = !hasExecutableCode && passedCount === 0
-        ? "unattempted"
-        : passedCount === totalTests && totalTests > 0
-        ? "passed"
-        : passedCount > 0
-        ? "partially_passed"
-        : "failed";
-      targetQ.score = score;
-      targetQ.marksObtained = Math.round((score / 100) * targetQ.totalMarks);
-      targetQ.passedTests = passedCount;
+      targetQ.status = computedStatus;
+      targetQ.score = qScore;
+      targetQ.marksObtained = qMarksObtained;
+      targetQ.totalMarks = qTotalMarks;
+      targetQ.passedTests = actualPassedTests;
       targetQ.totalTests = totalTests;
       targetQ.testResults = evaluatedResults;
-      targetQ.attempted = hasExecutableCode || passedCount > 0;
+      targetQ.attempted = hasExecutableCode;
       targetQ.submittedAt = now;
     }
 
@@ -4279,7 +4287,7 @@ router.post(["/proctored-session/:sessionId/submit", "/proctored-session/submit"
     const totalPassedTests = session.questions.reduce((sum, q) => sum + (q.passedTests || 0), 0);
     const overallPercentage = totalMarks > 0 ? Math.round((marksObtained / totalMarks) * 100) : (totalTestCases > 0 ? Math.round((totalPassedTests / totalTestCases) * 100) : 0);
     const accuracy = totalTestCases > 0 ? Math.round((totalPassedTests / totalTestCases) * 100) : overallPercentage;
-    const grade = providedGrade || calculateGrade(overallPercentage);
+    const grade = calculateGrade(overallPercentage);
     const isAccepted = overallPercentage >= 80;
     const isPartiallyPassed = !isAccepted && (overallPercentage > 0 || totalPassedTests > 0);
 

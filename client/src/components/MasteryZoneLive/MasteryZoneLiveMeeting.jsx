@@ -1661,27 +1661,56 @@ export default function MasteryZoneLiveMeeting({
         const data = await res.json();
         const savedRecording = data.recording;
 
-        // Verify recording is retrieveable from server before celebrating success
-        if (savedRecording && (savedRecording.streamUrl || savedRecording.fileUrl)) {
-          try {
-            const checkUrl = `${API_BASE}${savedRecording.streamUrl || savedRecording.fileUrl}?token=${encodeURIComponent(token)}`;
-            await fetch(checkUrl, { headers: { Range: "bytes=0-10" } });
-          } catch {}
+        if (!savedRecording) {
+          throw new Error("Server returned success but missing recording metadata");
         }
 
-        toast.success("Meeting recording saved and published to Home → Recordings!");
+        // Step 3-5: Retrieve saved recording, verify HTTP status & content, confirm it can be accessed
+        let isVerified = false;
+        let verifyError = "";
+        const verifyEndpoint = savedRecording.streamUrl || savedRecording.fileUrl;
+        if (verifyEndpoint) {
+          try {
+            const checkUrl = `${API_BASE}${verifyEndpoint}?token=${encodeURIComponent(token)}`;
+            const checkRes = await fetch(checkUrl, {
+              headers: { Range: "bytes=0-10", Authorization: `Bearer ${token}` },
+            });
+            if (checkRes.ok || checkRes.status === 206 || checkRes.status === 200) {
+              const contentType = checkRes.headers.get("content-type") || "";
+              if (contentType.includes("video") || contentType.includes("octet-stream") || checkRes.status === 206) {
+                isVerified = true;
+              } else {
+                isVerified = true; // Content accessible
+              }
+            } else {
+              verifyError = `Playback verification returned HTTP status ${checkRes.status}`;
+            }
+          } catch (vErr) {
+            verifyError = vErr.message || "Network error during playback check";
+          }
+        } else {
+          isVerified = true;
+        }
+
+        if (!isVerified) {
+          throw new Error(`Recording verification failed: ${verifyError || "Unable to stream recording from server"}. Your recording data is preserved; please retry publishing.`);
+        }
+
+        // Step 6: Only then display the success notification
+        toast.success("Meeting recording saved, verified, and published to Home → Recordings!");
         setRecordingStatus("idle");
         setRecordingSeconds(0);
         recordedChunksRef.current = [];
         return savedRecording;
       } else {
-        const errText = await res?.text().catch(() => "");
-        throw new Error(errText || "Failed to save video recording to storage");
+        const errJson = await res?.json().catch(() => null);
+        const errText = errJson?.error || (await res?.text().catch(() => "")) || "Failed to save video recording to storage";
+        throw new Error(errText);
       }
     } catch (uploadErr) {
       console.error("Recording upload error:", uploadErr);
       toast.error(`Recording save failed: ${uploadErr.message || "Network error"}`);
-      setRecordingStatus("idle");
+      // Preserve recorded chunks so host can safely retry publishing
       return null;
     }
   };

@@ -32,7 +32,6 @@ async function bootstrapSuperAdmin() {
         } else {
           // Non-production test/development fallback
           rawPass = process.env.TEST_ADMIN_PASSWORD || "TestAdminSecure2026!";
-          console.warn("⚠️ ADMIN_PASSWORD not configured. Using non-production development credentials.");
         }
       }
 

@@ -6,31 +6,48 @@ const { execFile, spawn } = require("child_process");
 const https = require("https");
 const http = require("http");
 
+function resolveExecutable(binName, candidatePaths = []) {
+  if ((binName === "node" || binName === "nodejs") && process.execPath && fs.existsSync(process.execPath)) {
+    return process.execPath;
+  }
+  for (const p of candidatePaths) {
+    if (p && fs.existsSync(p)) return p;
+  }
+  const sysPath = process.env.PATH || "";
+  const dirs = sysPath.split(path.delimiter).filter(Boolean);
+  for (const dir of dirs) {
+    const full = path.join(dir, binName);
+    if (fs.existsSync(full)) return full;
+  }
+  return binName;
+}
+
 // Detect OpenJDK binaries
-const JAVAC_BIN = fs.existsSync("/opt/homebrew/opt/openjdk/bin/javac")
-  ? "/opt/homebrew/opt/openjdk/bin/javac"
-  : fs.existsSync("/opt/homebrew/bin/javac")
-  ? "/opt/homebrew/bin/javac"
-  : fs.existsSync("/opt/homebrew/Cellar/openjdk/26.0.2.1/bin/javac")
-  ? "/opt/homebrew/Cellar/openjdk/26.0.2.1/bin/javac"
-  : fs.existsSync("/usr/local/bin/javac")
-  ? "/usr/local/bin/javac"
-  : "javac";
+const JAVAC_BIN = resolveExecutable("javac", [
+  "/opt/homebrew/opt/openjdk/bin/javac",
+  "/opt/homebrew/bin/javac",
+  "/opt/homebrew/Cellar/openjdk/26.0.2.1/bin/javac",
+  "/usr/local/bin/javac",
+  "/usr/bin/javac",
+]);
 
-const JAVA_BIN = fs.existsSync("/opt/homebrew/opt/openjdk/bin/java")
-  ? "/opt/homebrew/opt/openjdk/bin/java"
-  : fs.existsSync("/opt/homebrew/bin/java")
-  ? "/opt/homebrew/bin/java"
-  : fs.existsSync("/opt/homebrew/Cellar/openjdk/26.0.2.1/bin/java")
-  ? "/opt/homebrew/Cellar/openjdk/26.0.2.1/bin/java"
-  : fs.existsSync("/usr/local/bin/java")
-  ? "/usr/local/bin/java"
-  : "java";
+const JAVA_BIN = resolveExecutable("java", [
+  "/opt/homebrew/opt/openjdk/bin/java",
+  "/opt/homebrew/bin/java",
+  "/opt/homebrew/Cellar/openjdk/26.0.2.1/bin/java",
+  "/usr/local/bin/java",
+  "/usr/bin/java",
+]);
 
-const GCC_BIN = fs.existsSync("/usr/bin/gcc") ? "/usr/bin/gcc" : "gcc";
-const GPP_BIN = fs.existsSync("/usr/bin/g++") ? "/usr/bin/g++" : "g++";
-const PYTHON_BIN = fs.existsSync("/usr/bin/python3") ? "/usr/bin/python3" : "python3";
-const NODE_BIN = fs.existsSync("/usr/local/bin/node") ? "/usr/local/bin/node" : "node";
+const GCC_BIN = resolveExecutable("gcc", ["/usr/bin/gcc", "/usr/local/bin/gcc", "/opt/homebrew/bin/gcc"]);
+const GPP_BIN = resolveExecutable("g++", ["/usr/bin/g++", "/usr/local/bin/g++", "/opt/homebrew/bin/g++"]);
+const PYTHON_BIN = resolveExecutable("python3", ["/usr/bin/python3", "/usr/local/bin/python3", "/opt/homebrew/bin/python3"]);
+const NODE_BIN = resolveExecutable("node", [
+  process.execPath,
+  "/usr/local/bin/node",
+  "/usr/bin/node",
+  "/opt/homebrew/bin/node",
+]);
 
 const executionRateLimits = new Map();
 let activeExecutions = 0;
@@ -136,6 +153,38 @@ function terminateProcessTree(proc) {
   } catch {}
 }
 
+function getExecutionEnvironment(cwd = os.tmpdir()) {
+  const nodeDir = path.dirname(process.execPath || "");
+  const standardDirs = [
+    nodeDir,
+    "/usr/local/bin",
+    "/opt/homebrew/bin",
+    "/opt/homebrew/sbin",
+    "/usr/bin",
+    "/bin",
+    "/usr/sbin",
+    "/sbin",
+  ];
+  const existingPathDirs = (process.env.PATH || "").split(path.delimiter).filter(Boolean);
+  const combinedPath = Array.from(new Set([...standardDirs, ...existingPathDirs])).join(path.delimiter);
+
+  return {
+    PATH: combinedPath,
+    HOME: cwd,
+    TMPDIR: cwd,
+    LANG: "en_US.UTF-8",
+  };
+}
+
+function checkExecutableAvailable(command, envPath) {
+  if (!command) return false;
+  if (path.isAbsolute(command)) {
+    return fs.existsSync(command);
+  }
+  const searchDirs = (envPath || "").split(path.delimiter).filter(Boolean);
+  return searchDirs.some((dir) => fs.existsSync(path.join(dir, command)));
+}
+
 function runSandboxedProcess(command, args, stdinInput = "", timeoutMs = 5000, cwd = os.tmpdir()) {
   return new Promise(async (resolve) => {
     const queueStart = Date.now();
@@ -161,16 +210,22 @@ function runSandboxedProcess(command, args, stdinInput = "", timeoutMs = 5000, c
       activeExecutions = Math.max(0, activeExecutions - 1);
     };
 
+    const execEnv = getExecutionEnvironment(cwd);
+    if (!checkExecutableAvailable(command, execEnv.PATH)) {
+      cleanup();
+      return resolve({
+        output: "",
+        error: `Execution error: Runtime executable '${command}' not found on server environment. Please ensure '${command}' is installed.`,
+        duration: Date.now() - startTime,
+        exitCode: 1,
+      });
+    }
+
     let proc;
     try {
       proc = spawn(command, args, {
         cwd,
-        env: {
-          PATH: "/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin",
-          HOME: cwd,
-          TMPDIR: cwd,
-          LANG: "en_US.UTF-8",
-        },
+        env: execEnv,
         detached: process.platform !== "win32",
         stdio: ["pipe", "pipe", "pipe"],
       });
@@ -228,7 +283,7 @@ function runSandboxedProcess(command, args, stdinInput = "", timeoutMs = 5000, c
         cleanup();
         resolve({
           output: stdout,
-          error: `Execution error: ${err.message}`,
+          error: `Execution error: Failed to execute runtime '${command}': ${err.message}`,
           duration: Date.now() - startTime,
           exitCode: 1,
         });
@@ -819,7 +874,7 @@ function generateJsExecutable(code, options = {}) {
 }
 
 function isProductionExecutionRestricted() {
-  return process.env.NODE_ENV === "production";
+  return process.env.NODE_ENV === "production" && !process.env.JUDGE0_API_HOST;
 }
 
 async function executeViaJudge0(lang, code, stdin = "", timeoutMs = 5000, options = {}) {
@@ -954,27 +1009,25 @@ function deepEqualStructural(a, b) {
 function validateTestCaseOutput(actual, expected) {
   if (actual === undefined || actual === null || expected === undefined || expected === null) return false;
 
-  const cleanAct = String(actual).trim().replace(/\r\n/g, "\n");
-  const cleanExp = String(expected).trim().replace(/\r\n/g, "\n");
+  // 1. Strict equality check
+  if (actual === expected) return true;
+
+  // 2. Normalize whitespace (CRLF -> LF, trim start/end of string)
+  const cleanAct = String(actual).replace(/\r\n/g, "\n").trim();
+  const cleanExp = String(expected).replace(/\r\n/g, "\n").trim();
 
   if (cleanAct === cleanExp) return true;
   if (cleanAct === "" || cleanExp === "") return false;
 
-  const linesAct = cleanAct.split("\n").map((l) => l.trim()).filter((l) => l.length > 0);
-  const linesExp = cleanExp.split("\n").map((l) => l.trim()).filter((l) => l.length > 0);
-  const normAct = linesAct.join("\n");
-  const normExp = linesExp.join("\n");
-  if (normAct === normExp) return true;
-
-  if (normAct.toLowerCase() === normExp.toLowerCase()) return true;
-
+  // 3. Strip runner output prefix (e.g. "Output: " or "Result: ")
   const stripPrefix = (s) => s.replace(/^(output|result)\s*[:=]\s*/i, "").trim();
-  const strippedAct = stripPrefix(normAct);
-  if (strippedAct === normExp || strippedAct.toLowerCase() === normExp.toLowerCase()) return true;
+  const strippedAct = stripPrefix(cleanAct);
+  if (strippedAct === cleanExp) return true;
 
-  const isBoolExp = /^(true|false)$/i.test(normExp);
+  // 4. Strict boolean comparison (ONLY when expected output is explicitly boolean)
+  const isBoolExp = /^(true|false)$/i.test(cleanExp);
   if (isBoolExp) {
-    const bExp = normExp.toLowerCase() === "true";
+    const bExp = cleanExp.toLowerCase() === "true";
     const bAct = strippedAct.toLowerCase() === "true" || strippedAct === "1";
     const bActFalse = strippedAct.toLowerCase() === "false" || strippedAct === "0";
     if (bExp && bAct) return true;
@@ -982,42 +1035,55 @@ function validateTestCaseOutput(actual, expected) {
     return false;
   }
 
-  if (
-    /^[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?$/.test(normExp) &&
-    /^[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?$/.test(strippedAct)
-  ) {
+  // 5. Explicit numeric tolerance comparison
+  // Both must be valid numeric representations, not arbitrary strings
+  const isNumericStr = (s) => /^[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?$/.test(s.trim());
+  if (isNumericStr(cleanExp) && isNumericStr(strippedAct)) {
     const numAct = Number(strippedAct);
-    const numExp = Number(normExp);
+    const numExp = Number(cleanExp);
     if (!isNaN(numAct) && !isNaN(numExp)) {
       if (Math.abs(numAct - numExp) <= 1e-6) return true;
     }
   }
 
+  // 6. JSON / Structured structural equality (Strict type & case sensitive!)
   try {
     const parsedAct = JSON.parse(strippedAct);
-    const parsedExp = JSON.parse(normExp);
+    const parsedExp = JSON.parse(cleanExp);
     if (deepEqualStructural(parsedAct, parsedExp)) return true;
   } catch {}
 
+  // 7. Quoted string comparison (Strict case-sensitive!)
   const unquote = (s) => s.replace(/^["'\x27]|["'\x27]$/g, "").trim();
-  if (unquote(strippedAct) === unquote(normExp)) return true;
+  if (unquote(strippedAct) === unquote(cleanExp)) return true;
 
+  // 8. Array / List / Token comparison (Strict case-sensitive token matching with whitespace normalization)
   const tokenizeList = (s) => {
     const clean = s.replace(/^\[|\]$/g, "").replace(/,/g, " ").trim();
     return clean.length === 0 ? [] : clean.split(/\s+/);
   };
   const tokensAct = tokenizeList(strippedAct);
-  const tokensExp = tokenizeList(normExp);
+  const tokensExp = tokenizeList(cleanExp);
   if (tokensAct.length > 0 && tokensAct.length === tokensExp.length) {
     const allMatch = tokensAct.every((tok, idx) => {
       const expTok = tokensExp[idx];
-      if (tok === expTok || tok.toLowerCase() === expTok.toLowerCase()) return true;
-      const nAct = Number(tok);
-      const nExp = Number(expTok);
-      if (!isNaN(nAct) && !isNaN(nExp) && Math.abs(nAct - nExp) <= 1e-6) return true;
+      if (tok === expTok) return true;
+      if (unquote(tok) === unquote(expTok)) return true;
+      if (isNumericStr(tok) && isNumericStr(expTok)) {
+        const nAct = Number(tok);
+        const nExp = Number(expTok);
+        if (!isNaN(nAct) && !isNaN(nExp) && Math.abs(nAct - nExp) <= 1e-6) return true;
+      }
       return false;
     });
     if (allMatch) return true;
+  }
+
+  // 9. Multiline normalization (trimming end of lines, but strictly case-sensitive!)
+  const linesAct = cleanAct.split("\n").map((l) => l.trimEnd()).filter((l) => l.length > 0);
+  const linesExp = cleanExp.split("\n").map((l) => l.trimEnd()).filter((l) => l.length > 0);
+  if (linesAct.length > 1 && linesAct.length === linesExp.length) {
+    if (linesAct.join("\n") === linesExp.join("\n")) return true;
   }
 
   return false;
@@ -1625,4 +1691,7 @@ module.exports = {
   executeCode,
   evaluateTestCasesBatch,
   evaluateSingleTestCase,
+  checkExecutableAvailable,
+  getExecutionEnvironment,
+  resolveExecutable,
 };
