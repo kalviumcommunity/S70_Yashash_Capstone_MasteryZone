@@ -1781,9 +1781,8 @@ const Home = () => {
                             className="mz-global-search-item"
                             onClick={() => {
                               setShowSearchDropdown(false);
-                              setActiveNavTab("recordings");
-                              setSelectedRecording(rec);
-                              setIsPlaying(true);
+                              navigate("/recordings");
+                              setActivePlayingRecording(rec);
                             }}
                           >
                             <span className="mz-global-search-item-icon">🎥</span>
@@ -1859,7 +1858,7 @@ const Home = () => {
                 onClose={() => setIsDropdownOpen(false)}
                 user={user}
                 certCount={certHistory.certificates?.length || 0}
-                onCertificatesClick={() => setActiveNavTab("certificates")}
+                onCertificatesClick={() => navigate("/certificates")}
                 onOpenSettings={() => setIsSettingsModalOpen(true)}
                 onLogout={() => setIsLogoutModalOpen(true)}
               />

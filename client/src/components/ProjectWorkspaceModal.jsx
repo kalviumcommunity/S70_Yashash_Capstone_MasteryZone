@@ -650,37 +650,38 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
         latestReportSessionId: sub.sessionId,
       }));
 
+      const reportEntry = {
+        id: sub.sessionId,
+        sessionId: sub.sessionId,
+        projectId: projectSpec?.id,
+        subjectKey: "coding",
+        type: "project_assessment",
+        typeLabel: "Project Assessment",
+        assessmentTitle: `${projectSpec?.title} — Project Evaluation`,
+        questionTitle: projectSpec?.title,
+        difficulty: projectSpec?.difficulty || "Intermediate",
+        category: projectSpec?.category || "Project Assessment",
+        submittedAt: sub.submittedAt || new Date().toISOString(),
+        score: sub.marksObtained || 0,
+        marksObtained: sub.marksObtained || 0,
+        totalMarks: sub.totalMarks || 100,
+        percentage: sub.percentage || 0,
+        passingMarks: sub.passingMarks || projectSpec?.passingMarks || 80,
+        grade: sub.grade || "F",
+        passedTests: sub.passedTests || 0,
+        totalTests: sub.totalTests || 6,
+        durationSeconds: elapsedSeconds,
+        language: projectSpec?.starterLanguage || "javascript",
+        passed: Boolean(sub.passed),
+        badgeAwarded: Boolean(sub.passed && sub.badgeAwarded),
+        reportUrl: `/assessment-report/${sub.sessionId}`,
+      };
+
       // Save report summary to localStorage for immediate Homepage availability
       try {
         if (currentUserId) {
           const reportsKey = `mz_${currentUserId}_assessment_reports`;
           const existingReports = JSON.parse(localStorage.getItem(reportsKey) || "[]");
-          const reportEntry = {
-            id: sub.sessionId,
-            sessionId: sub.sessionId,
-            projectId: projectSpec?.id,
-            subjectKey: "coding",
-            type: "project_assessment",
-            typeLabel: "Project Assessment",
-            assessmentTitle: `${projectSpec?.title} — Project Evaluation`,
-            questionTitle: projectSpec?.title,
-            difficulty: projectSpec?.difficulty || "Intermediate",
-            category: projectSpec?.category || "Project Assessment",
-            submittedAt: sub.submittedAt || new Date().toISOString(),
-            score: sub.marksObtained || 0,
-            marksObtained: sub.marksObtained || 0,
-            totalMarks: sub.totalMarks || 100,
-            percentage: sub.percentage || 0,
-            passingMarks: sub.passingMarks || projectSpec?.passingMarks || 80,
-            grade: sub.grade || "F",
-            passedTests: sub.passedTests || 0,
-            totalTests: sub.totalTests || 6,
-            durationSeconds: elapsedSeconds,
-            language: projectSpec?.starterLanguage || "javascript",
-            passed: Boolean(sub.passed),
-            badgeAwarded: Boolean(sub.passed && sub.badgeAwarded),
-            reportUrl: `/assessment-report/${sub.sessionId}`,
-          };
           const filtered = existingReports.filter((r) => r.sessionId !== sub.sessionId);
           localStorage.setItem(
             reportsKey,
