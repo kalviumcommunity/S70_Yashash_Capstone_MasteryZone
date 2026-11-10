@@ -78,6 +78,44 @@ function getSenderAddress(department = 'Mastery Zone') {
   return `"${department}" <${senderEmail}>`;
 }
 
+const sentNotificationCache = new Map();
+const DEDUP_WINDOW_MS = 8000;
+
+function isDuplicateOutboundEmail(to, subject, html) {
+  const cleanTo = (Array.isArray(to) ? to.join(",") : String(to)).toLowerCase().trim();
+  const sample = (html || "").slice(0, 80);
+  const key = `${cleanTo}::${subject}::${sample}`;
+  const now = Date.now();
+  const lastSent = sentNotificationCache.get(key);
+  if (lastSent && now - lastSent < DEDUP_WINDOW_MS) {
+    return true;
+  }
+  if (sentNotificationCache.size > 200) {
+    for (const [k, ts] of sentNotificationCache) {
+      if (now - ts > DEDUP_WINDOW_MS * 2) {
+        sentNotificationCache.delete(k);
+      }
+    }
+  }
+  sentNotificationCache.set(key, now);
+  return false;
+}
+
+function validateRecipientEmail(email) {
+  if (!email || typeof email !== "string") return false;
+  const trimmed = email.trim();
+  if (trimmed.length < 5 || trimmed.length > 254) return false;
+  return /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/.test(trimmed);
+}
+
+function sanitizeLogMessage(msg) {
+  if (!msg) return "";
+  return String(msg)
+    .replace(/(re_[a-zA-Z0-9_]{20,})/g, "[REDACTED_API_KEY]")
+    .replace(/(xkeysib-[a-zA-Z0-9]{30,})/g, "[REDACTED_API_KEY]")
+    .replace(/(Bearer\s+)[^\s]+/gi, "$1[REDACTED_TOKEN]");
+}
+
 /**
  * Detects whether an HTTPS transactional email provider is configured.
  * Cloud platforms (specifically Render Free Tier) completely block outbound
@@ -85,18 +123,29 @@ function getSenderAddress(department = 'Mastery Zone') {
  * bypasses cloud firewall restrictions without requiring paid infrastructure.
  */
 function getHttpEmailProvider() {
+  const env = (process.env.NODE_ENV || "development").trim().toLowerCase();
+  const isPublic = env === "production" || env === "staging" || env === "prod" || env === "stage";
+
   if (process.env.RESEND_API_KEY && process.env.RESEND_API_KEY.trim()) {
-    // If a custom verified domain is provided via RESEND_FROM, use it.
-    // Otherwise, default strictly to Resend's free test sender 'Mastery Zone <onboarding@resend.dev>'
-    // NEVER default to SMTP_FROM or SMTP_EMAIL (@gmail.com) because Resend rejects unverified domains with HTTP 403!
-    let from = 'Mastery Zone <onboarding@resend.dev>';
-    if (process.env.RESEND_FROM && process.env.RESEND_FROM.trim()) {
-      from = process.env.RESEND_FROM.trim();
+    let from = process.env.RESEND_FROM ? process.env.RESEND_FROM.trim() : "";
+    const isTestSender = !from || from.includes("onboarding@resend.dev");
+
+    if (isPublic && isTestSender) {
+      console.warn(
+        "[Mailer] PRODUCTION CONFIGURATION WARNING: RESEND_FROM is unconfigured or using sandbox sender 'onboarding@resend.dev'. " +
+        "Resend sandbox senders only deliver to the account owner. Configure a verified sender domain in RESEND_FROM for live deliverability."
+      );
     }
+
+    if (!from) {
+      from = 'Mastery Zone <onboarding@resend.dev>';
+    }
+
     return {
       type: 'resend',
       apiKey: process.env.RESEND_API_KEY.trim(),
       from,
+      isTestSender,
     };
   }
   if (process.env.BREVO_API_KEY && process.env.BREVO_API_KEY.trim()) {
@@ -515,13 +564,24 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
   const config = getSmtpConfig();
 
   const to = (mailOptions.to || '').trim().toLowerCase();
-  if (!to || !to.includes('@') || to.length < 5) {
+  if (!validateRecipientEmail(to)) {
     const errMsg = `Invalid recipient email address: "${mailOptions.to}"`;
     return {
       success: false,
       status: 'rejected',
       errorCode: 'EENVELOPE',
       message: errMsg,
+    };
+  }
+
+  // Prevent duplicate email dispatch within rate window
+  if (isDuplicateOutboundEmail(to, mailOptions.subject, mailOptions.html)) {
+    return {
+      success: true,
+      status: 'accepted',
+      messageId: `dedup_${Date.now()}`,
+      providerResponse: '250 Duplicate notification suppressed within rate window',
+      deduplicated: true,
     };
   }
 
@@ -2573,4 +2633,7 @@ module.exports = {
   getSenderAddress,
   formatEmailDateTime,
   formatEmailTime,
+  isDuplicateOutboundEmail,
+  validateRecipientEmail,
+  getHttpEmailProvider,
 };
