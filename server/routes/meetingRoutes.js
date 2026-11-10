@@ -48,12 +48,12 @@ const STUDY_ROOMS_CATALOG = [
     isLive: true,
   },
   {
-    key: "language",
-    title: "Language Practice",
-    category: "Communication",
-    icon: "文A",
-    description: "Improve your skills with native speakers and technical English.",
-    tags: ["English", "Technical Vocab", "Spanish"],
+    key: "system-design",
+    title: "System Design & Architecture",
+    category: "Architecture",
+    icon: "🏗️",
+    description: "Discuss distributed systems, scalability, and backend architecture.",
+    tags: ["Microservices", "Caching", "System Design"],
     isLive: true,
   },
   {
@@ -151,6 +151,51 @@ async function generateUniqueMeetingId() {
 
   return uniqueId;
 }
+
+// -------------------------------------------------------------
+// 0. GET /api/meetings/ice-config (STUN + Configurable TURN Servers)
+// -------------------------------------------------------------
+function buildIceServersConfig() {
+  const iceServers = [
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" },
+    { urls: "stun:global.stun.twilio.com:3478" },
+  ];
+
+  const turnUrlsRaw = (process.env.TURN_URLS || process.env.TURN_URL || "").trim();
+  const turnUsername = (process.env.TURN_USERNAME || "").trim();
+  const turnCredential = (process.env.TURN_CREDENTIAL || process.env.TURN_PASSWORD || "").trim();
+
+  if (turnUrlsRaw) {
+    const urls = turnUrlsRaw
+      .split(",")
+      .map((u) => u.trim())
+      .filter(Boolean);
+    if (urls.length > 0) {
+      const turnEntry = { urls: urls.length === 1 ? urls[0] : urls };
+      if (turnUsername) turnEntry.username = turnUsername;
+      if (turnCredential) turnEntry.credential = turnCredential;
+      iceServers.push(turnEntry);
+    }
+  }
+
+  return {
+    iceServers,
+    turnConfigured: Boolean(turnUrlsRaw),
+  };
+}
+
+router.get("/ice-config", optionalAuthToken, (req, res) => {
+  try {
+    const config = buildIceServersConfig();
+    res.json({
+      success: true,
+      ...config,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 // -------------------------------------------------------------
 // 1. GET /api/meetings/study-rooms
@@ -488,9 +533,14 @@ router.post("/:meetingId/join", optionalAuthToken, async (req, res) => {
       callerName = user?.fullName || user?.username || req.user?.name || "Participant";
       isHost = String(meeting.hostUserId) === String(userId);
     } else {
-      // Unauthenticated caller: NEVER trust client-supplied userId or guestId to impersonate
-      userId = "guest_" + crypto.randomBytes(6).toString("hex");
-      callerName = String(req.body?.fullName || req.query?.name || "Guest").trim();
+      // Unauthenticated caller: preserve a valid guest_* identifier for session continuity, but NEVER allow host privileges
+      const rawGuestId = String(req.body?.guestId || "").trim();
+      if (/^guest_[a-zA-Z0-9_-]{4,32}$/.test(rawGuestId)) {
+        userId = rawGuestId;
+      } else {
+        userId = "guest_" + crypto.randomBytes(6).toString("hex");
+      }
+      callerName = String(req.body?.fullName || req.query?.name || "Guest").trim() || "Guest";
       isHost = false; // Unauthenticated guest can NEVER claim host privileges
     }
 
@@ -545,6 +595,7 @@ router.post("/:meetingId/join", optionalAuthToken, async (req, res) => {
       success: true,
       meeting,
       isHost,
+      participantId: String(userId),
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -703,7 +754,7 @@ router.post("/:meetingId/run-code", authenticateToken, async (req, res) => {
     // Broadcast execution output to all participants in this meeting room
     const io = req.app.get("io");
     if (io) {
-      io.to(`meeting_${meetingId}`).emit("meeting_code_executed", {
+      io.to(`meeting_${meeting.meetingId}`).emit("meeting_code_executed", {
         language,
         result,
         executedBy: req.user?.username || req.user?.fullName || "A participant",
@@ -798,7 +849,7 @@ router.post("/:meetingId/run-tests", authenticateToken, async (req, res) => {
     // Broadcast test run results to meeting
     const io = req.app.get("io");
     if (io) {
-      io.to(`meeting_${cleanId}`).emit("meeting_tests_executed", {
+      io.to(`meeting_${meeting.meetingId}`).emit("meeting_tests_executed", {
         passedCount,
         totalCount: testResults.length,
         results: testResults,
@@ -909,7 +960,7 @@ router.post("/:meetingId/submit-solution", authenticateToken, async (req, res) =
     // Broadcast submission result to all participants in meeting room
     const io = req.app.get("io");
     if (io) {
-      io.to(`meeting_${cleanId}`).emit("meeting_solution_submitted", {
+      io.to(`meeting_${meeting.meetingId}`).emit("meeting_solution_submitted", {
         result: evaluationResult,
         user: { fullName: evaluationResult.submittedBy },
       });

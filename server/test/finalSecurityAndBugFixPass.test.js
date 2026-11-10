@@ -299,6 +299,203 @@ async function runTests() {
       assert.ok(Array.isArray(data.recordings), "Must return recordings array");
     });
 
+    console.log("\n--- Section 7: Mastery Zone Meet, WebRTC Signaling & ICE/TURN Configuration ---");
+
+    let liveMeetingId;
+    await it("Meet: GET /api/meetings/ice-config returns STUN and configurable TURN servers", async () => {
+      process.env.TURN_URLS = "turn:turn.example.com:3478,turns:turn.example.com:5349";
+      process.env.TURN_USERNAME = "test_turn_user";
+      process.env.TURN_CREDENTIAL = "test_turn_secret";
+      try {
+        const res = await fetch(`${baseUrl}/api/meetings/ice-config`, {
+          headers: { Authorization: `Bearer ${tokenA}` },
+        });
+        assert.strictEqual(res.status, 200);
+        const data = await res.json();
+        assert.strictEqual(data.success, true);
+        assert.strictEqual(data.turnConfigured, true);
+        assert.ok(Array.isArray(data.iceServers) && data.iceServers.length >= 2);
+        const turnServer = data.iceServers.find((s) => s.username === "test_turn_user");
+        assert.ok(turnServer, "Configured TURN server must be included in iceServers");
+      } finally {
+        delete process.env.TURN_URLS;
+        delete process.env.TURN_USERNAME;
+        delete process.env.TURN_CREDENTIAL;
+      }
+    });
+
+    await it("Meet: Host creates meeting, Participant joins by code/URL, Private meeting enforces 403, Ended meeting enforces 410", async () => {
+      const createRes = await fetch(`${baseUrl}/api/meetings/create`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${tokenA}`,
+        },
+        body: JSON.stringify({
+          title: "E2E WebRTC Collaboration Session",
+          groupKey: "dsa",
+          isPrivate: false,
+        }),
+      });
+      assert.strictEqual(createRes.status, 201);
+      const created = await createRes.json();
+      liveMeetingId = created.meetingId;
+      assert.ok(liveMeetingId, "Meeting ID must be generated");
+
+      // Participant B joins by meeting code
+      const joinRes = await fetch(`${baseUrl}/api/meetings/${liveMeetingId}/join`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${tokenB}`,
+        },
+        body: JSON.stringify({ fullName: userB.fullName }),
+      });
+      assert.strictEqual(joinRes.status, 200);
+      const joinData = await joinRes.json();
+      assert.strictEqual(joinData.success, true);
+      assert.strictEqual(joinData.isHost, false);
+
+      // Run code in meeting room without ReferenceError crash
+      const runCodeRes = await fetch(`${baseUrl}/api/meetings/${liveMeetingId}/run-code`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${tokenB}`,
+        },
+        body: JSON.stringify({
+          language: "python",
+          code: "print(21 * 2)",
+        }),
+      });
+      assert.strictEqual(runCodeRes.status, 200, "Meeting run-code must succeed with 200");
+      const runCodeData = await runCodeRes.json();
+      assert.strictEqual(runCodeData.output.trim(), "42");
+
+      // Invalid meeting ID returns 404
+      const notFoundRes = await fetch(`${baseUrl}/api/meetings/invalid-xxxx-zzzz`);
+      assert.strictEqual(notFoundRes.status, 404);
+    });
+
+    await it("Meet Socket.IO: Host and Participant join room, exchange WebRTC offer/answer/ICE, chat, and sync shared code", async () => {
+      const { io: Client } = require("socket.io-client");
+      const clientA = Client(baseUrl, { auth: { token: tokenA }, transports: ["websocket"] });
+      const clientB = Client(baseUrl, { auth: { token: tokenB }, transports: ["websocket"] });
+
+      try {
+        await Promise.all([
+          new Promise((resolve, reject) => {
+            clientA.once("connect", resolve);
+            clientA.once("connect_error", reject);
+          }),
+          new Promise((resolve, reject) => {
+            clientB.once("connect", resolve);
+            clientB.once("connect_error", reject);
+          }),
+        ]);
+
+        // Host A joins meeting
+        const joinSuccessA = new Promise((resolve) => clientA.once("meeting_joined_success", resolve));
+        clientA.emit("join_meeting", {
+          meetingId: liveMeetingId,
+          user: { _id: String(userA._id), fullName: userA.fullName },
+          token: tokenA,
+          mediaState: { isMuted: false, isVideoOff: false },
+        });
+        const joinedA = await joinSuccessA;
+        assert.strictEqual(joinedA.isHost, true);
+
+        // Participant B joins meeting -> Host A receives meeting_peer_joined
+        const peerJoinedPromise = new Promise((resolve) => clientA.once("meeting_peer_joined", resolve));
+        const joinSuccessB = new Promise((resolve) => clientB.once("meeting_joined_success", resolve));
+        clientB.emit("join_meeting", {
+          meetingId: liveMeetingId,
+          user: { _id: String(userB._id), fullName: userB.fullName },
+          token: tokenB,
+          mediaState: { isMuted: false, isVideoOff: false },
+        });
+        const [peerEvent, joinedB] = await Promise.all([peerJoinedPromise, joinSuccessB]);
+        assert.strictEqual(joinedB.isHost, false);
+        assert.strictEqual(peerEvent.socketId, clientB.id);
+
+        // WebRTC Offer from A -> B
+        const offerReceivedPromise = new Promise((resolve) => clientB.once("webrtc_offer_received", resolve));
+        clientA.emit("webrtc_offer", {
+          meetingId: liveMeetingId,
+          targetSocketId: clientB.id,
+          offer: { type: "offer", sdp: "v=0\r\no=- 123 2 IN IP4 127.0.0.1\r\n" },
+        });
+        const offerEvt = await offerReceivedPromise;
+        assert.strictEqual(offerEvt.fromSocketId, clientA.id);
+        assert.strictEqual(offerEvt.offer.type, "offer");
+
+        // WebRTC Answer from B -> A
+        const answerReceivedPromise = new Promise((resolve) => clientA.once("webrtc_answer_received", resolve));
+        clientB.emit("webrtc_answer", {
+          meetingId: liveMeetingId,
+          targetSocketId: clientA.id,
+          answer: { type: "answer", sdp: "v=0\r\no=- 456 2 IN IP4 127.0.0.1\r\n" },
+        });
+        const answerEvt = await answerReceivedPromise;
+        assert.strictEqual(answerEvt.fromSocketId, clientB.id);
+        assert.strictEqual(answerEvt.answer.type, "answer");
+
+        // WebRTC ICE Candidate from A -> B
+        const iceReceivedPromise = new Promise((resolve) => clientB.once("webrtc_ice_candidate_received", resolve));
+        clientA.emit("webrtc_ice_candidate", {
+          meetingId: liveMeetingId,
+          targetSocketId: clientB.id,
+          candidate: { candidate: "candidate:1 1 UDP 2122252543 127.0.0.1 54321 typ host", sdpMid: "0", sdpMLineIndex: 0 },
+        });
+        const iceEvt = await iceReceivedPromise;
+        assert.strictEqual(iceEvt.fromSocketId, clientA.id);
+
+        // Live Chat message from B -> A
+        const chatPromise = new Promise((resolve) => clientA.once("meeting_chat_message_received", resolve));
+        clientB.emit("meeting_chat_message", {
+          meetingId: liveMeetingId,
+          text: "Hello from Participant B!",
+          user: { fullName: userB.fullName },
+        });
+        const chatMsg = await chatPromise;
+        assert.strictEqual(chatMsg.text, "Hello from Participant B!");
+
+        // Shared Code update from A -> B
+        const codeUpdatePromise = new Promise((resolve) => clientB.once("meeting_code_updated", resolve));
+        clientA.emit("meeting_code_change", {
+          meetingId: liveMeetingId,
+          code: "def solve(x):\n    return x + 1\n",
+          language: "python",
+        });
+        const codeEvt = await codeUpdatePromise;
+        assert.ok(codeEvt.code.includes("return x + 1"));
+
+        // Host ends meeting -> Participant B receives meeting_ended_by_host
+        const endedPromise = new Promise((resolve) => clientB.once("meeting_ended_by_host", resolve));
+        const endRes = await fetch(`${baseUrl}/api/meetings/${liveMeetingId}/end`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${tokenA}` },
+        });
+        assert.strictEqual(endRes.status, 200);
+        await endedPromise;
+
+        // Ended meeting rejects new participant joins with 410 Gone
+        const joinAfterEndRes = await fetch(`${baseUrl}/api/meetings/${liveMeetingId}/join`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${tokenB}`,
+          },
+          body: JSON.stringify({ fullName: userB.fullName }),
+        });
+        assert.strictEqual(joinAfterEndRes.status, 410);
+      } finally {
+        clientA.disconnect();
+        clientB.disconnect();
+        await Meeting.deleteOne({ meetingId: liveMeetingId });
+      }
+    });
+
     console.log("\n================================================================================");
     console.log("Summary: All Integration & Security Verification Tests Passed (100%)");
     console.log("================================================================================\n");

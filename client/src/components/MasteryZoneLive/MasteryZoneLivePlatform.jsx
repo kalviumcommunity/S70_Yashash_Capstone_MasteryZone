@@ -168,17 +168,48 @@ export default function MasteryZoneLivePlatform({ initialMeetingId = null }) {
 
         if (!active) return;
 
+        const data = await res.json().catch(() => ({}));
+
         if (res.status === 404) {
           setMeetingError({
             type: "not_found",
             title: "Meeting Not Found",
-            message: "The meeting link or ID is invalid or does not exist. Please check your link or start a new meeting.",
+            message: data.message || "The meeting link or ID is invalid or does not exist. Please check your link or start a new meeting.",
           });
           setIsValidatingMeeting(false);
           return;
         }
 
-        const data = await res.json().catch(() => ({}));
+        if (res.status === 403) {
+          setMeetingError({
+            type: "forbidden",
+            title: "Private Meeting — Access Denied",
+            message: data.message || "This is a private meeting session. Only authorized participants or the meeting host can join.",
+          });
+          setIsValidatingMeeting(false);
+          return;
+        }
+
+        if (res.status === 401) {
+          setMeetingError({
+            type: "unauthorized",
+            title: "Authentication Required",
+            message: data.message || "Please sign in to your Mastery Zone account to join this meeting.",
+          });
+          setIsValidatingMeeting(false);
+          return;
+        }
+
+        if (!res.ok) {
+          setMeetingError({
+            type: "error",
+            title: "Unable to Join Meeting",
+            message: data.message || data.error || `Server returned HTTP ${res.status} while validating the meeting.`,
+          });
+          setIsValidatingMeeting(false);
+          return;
+        }
+
         if (data.isEnded || data.meeting?.status === "ended") {
           const currentUid = currentUser?._id || currentUser?.id || localStorage.getItem("userId");
           const isHost = String(data.meeting?.hostUserId) === String(currentUid);
@@ -196,17 +227,50 @@ export default function MasteryZoneLivePlatform({ initialMeetingId = null }) {
         // Properly register participant in backend
         const effectiveUserName = currentUser?.fullName || currentUser?.username || localStorage.getItem("userName") || "Learner";
         const effectiveUserId = currentUser?._id || currentUser?.id || localStorage.getItem("userId") || "";
+        let joinRes = null;
         try {
-          await fetch(`${API_BASE}/api/meetings/${cleanCode}/join`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            },
-            body: JSON.stringify({ fullName: effectiveUserName, guestId: effectiveUserId }),
-          });
+          try {
+            joinRes = await fetch(`${API_BASE}/api/meetings/${cleanCode}/join`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+              },
+              body: JSON.stringify({ fullName: effectiveUserName, guestId: effectiveUserId }),
+            });
+          } catch {
+            joinRes = await fetch(`/api/meetings/${cleanCode}/join`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+              },
+              body: JSON.stringify({ fullName: effectiveUserName, guestId: effectiveUserId }),
+            });
+          }
         } catch (jErr) {
           console.warn("Meeting join registration note:", jErr);
+        }
+
+        if (joinRes && !joinRes.ok) {
+          const joinErrData = await joinRes.json().catch(() => ({}));
+          if (active) {
+            setMeetingError({
+              type: joinRes.status === 403 ? "forbidden" : joinRes.status === 410 ? "ended" : "error",
+              title:
+                joinRes.status === 403
+                  ? "Private Meeting — Access Denied"
+                  : joinRes.status === 410
+                  ? "Meeting Has Ended"
+                  : "Unable to Join Meeting",
+              message:
+                joinErrData.message ||
+                joinErrData.error ||
+                "You could not be added to this meeting session.",
+            });
+            setIsValidatingMeeting(false);
+          }
+          return;
         }
 
         if (active) {
@@ -404,7 +468,7 @@ export default function MasteryZoneLivePlatform({ initialMeetingId = null }) {
       <div className="mzl-container" style={{ alignItems: "center", justifyContent: "center", padding: 24, minHeight: "100vh" }}>
         <div style={{ maxWidth: 460, width: "100%", background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 16, padding: "36px 28px", textAlign: "center", boxShadow: "0 10px 30px rgba(15, 23, 42, 0.08)" }}>
           <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#fee2e2", color: "#ef4444", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
-            <LuAlertCircle size={30} />
+            <LuCircleAlert size={30} />
           </div>
           <h2 style={{ fontSize: 20, fontWeight: 800, color: "#0f172a", margin: "0 0 8px" }}>
             {meetingError.title}

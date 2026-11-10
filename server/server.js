@@ -1155,7 +1155,12 @@ io.on("connection", (socket) => {
       }
 
       if (!targetUid) {
-        targetUid = `guest_${socket.id.slice(0, 8)}`;
+        const candidateGuestId = String(user?._id || user?.userId || user?.id || "").trim();
+        if (/^guest_[a-zA-Z0-9_-]{4,32}$/.test(candidateGuestId)) {
+          targetUid = candidateGuestId;
+        } else {
+          targetUid = `guest_${socket.id.slice(0, 8)}`;
+        }
       }
 
       const targetName = verifiedUser?.fullName || verifiedUser?.username || user?.fullName || user?.username || "Learner";

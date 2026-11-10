@@ -54,7 +54,7 @@ function sanitizeBrowserDeviceLabel(rawLabel, fallback = "Available") {
   if (!rawLabel || typeof rawLabel !== "string") return fallback;
   // Strip hardware vendor/product hex IDs like (05ac:8514) or [046d:0825] to avoid exposing raw hardware IDs
   const cleaned = rawLabel
-    .replace(/\s*[\(\[][0-9a-fA-F]{4}:[0-9a-fA-F]{4}[\)\]]\s*/g, " ")
+    .replace(/\s*[([][0-9a-fA-F]{4}:[0-9a-fA-F]{4}[)\]]\s*/g, " ")
     .replace(/\s+/g, " ")
     .trim();
   if (!cleaned) return fallback;
