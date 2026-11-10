@@ -496,6 +496,150 @@ async function runTests() {
       }
     });
 
+    console.log("--- Section 8: Meeting Invitations, Guest Access & Provider Deliverability ---");
+
+    await it("Meeting Guest Flow: Unauthenticated guest joins public meeting successfully", async () => {
+      // 1. Host creates a public meeting
+      const createRes = await fetch(`${baseUrl}/api/meetings/create`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${tokenA}`,
+        },
+        body: JSON.stringify({ title: "Public Guest Study Room", isPrivate: false }),
+      });
+      assert.strictEqual(createRes.status, 201);
+      const createData = await createRes.json();
+      const guestMeetingId = createData.meetingId;
+
+      try {
+        // 2. Unauthenticated guest joins via public link with a guestId
+        const guestJoinRes = await fetch(`${baseUrl}/api/meetings/${guestMeetingId}/join`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fullName: "Guest Reviewer", guestId: "guest_abc12345" }),
+        });
+        assert.strictEqual(guestJoinRes.status, 200);
+        const guestJoinData = await guestJoinRes.json();
+        assert.strictEqual(guestJoinData.success, true);
+        assert.strictEqual(guestJoinData.isHost, false);
+        assert.strictEqual(guestJoinData.participantId, "guest_abc12345");
+
+        // 3. Unauthenticated guest checks meeting status via GET /:meetingId
+        const guestGetRes = await fetch(`${baseUrl}/api/meetings/${guestMeetingId}`);
+        assert.strictEqual(guestGetRes.status, 200);
+        const guestGetData = await guestGetRes.json();
+        assert.strictEqual(guestGetData.success, true);
+        assert.strictEqual(guestGetData.meeting.title, "Public Guest Study Room");
+      } finally {
+        await Meeting.deleteOne({ meetingId: guestMeetingId });
+      }
+    });
+
+    await it("Meeting Guest Flow: Unauthenticated guest is strictly rejected from private meeting (403)", async () => {
+      // 1. Host creates a private meeting
+      const privCreateRes = await fetch(`${baseUrl}/api/meetings/create`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${tokenA}`,
+        },
+        body: JSON.stringify({ title: "Strict Confidential Session", isPrivate: true }),
+      });
+      assert.strictEqual(privCreateRes.status, 201);
+      const privData = await privCreateRes.json();
+      const privMeetingId = privData.meetingId;
+
+      try {
+        // 2. Unauthenticated guest attempt is blocked with 403 Forbidden
+        const blockedJoinRes = await fetch(`${baseUrl}/api/meetings/${privMeetingId}/join`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fullName: "Unauthorized Guest" }),
+        });
+        assert.strictEqual(blockedJoinRes.status, 403);
+      } finally {
+        await Meeting.deleteOne({ meetingId: privMeetingId });
+      }
+    });
+
+    await it("Meeting Invitations: Dispatches invitation emails and validates permissions", async () => {
+      const nodemailer = require("nodemailer");
+      const { sendMeetingInvitationEmail, resetTransporter } = require("../utils/mailer");
+
+      // 1. Host creates meeting
+      const meetRes = await fetch(`${baseUrl}/api/meetings/create`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${tokenA}`,
+        },
+        body: JSON.stringify({ title: "Sprint Planning Session", isPrivate: false }),
+      });
+      const meetData = await meetRes.json();
+      const sprintMeetingId = meetData.meetingId;
+
+      const origCreateTransport = nodemailer.createTransport;
+      nodemailer.createTransport = () => ({
+        verify: (cb) => cb(null, true),
+        sendMail: (opts, cb) => {
+          cb(null, {
+            accepted: [opts.to],
+            rejected: [],
+            messageId: "<test-invite-uuid@masteryzone.com>",
+            response: "250 2.0.0 OK invite accepted",
+          });
+        },
+      });
+      resetTransporter();
+
+      try {
+        // 2. Missing/invalid email rejected with 400
+        const badEmailRes = await fetch(`${baseUrl}/api/meetings/${sprintMeetingId}/invite`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${tokenA}`,
+          },
+          body: JSON.stringify({ email: "invalid-email" }),
+        });
+        assert.strictEqual(badEmailRes.status, 400);
+
+        // 3. Valid invitation dispatched via route
+        const inviteRes = await fetch(`${baseUrl}/api/meetings/${sprintMeetingId}/invite`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${tokenA}`,
+          },
+          body: JSON.stringify({
+            email: "colleague@example.com",
+            customNote: "Please join the sprint review call.",
+          }),
+        });
+        assert.strictEqual(inviteRes.status, 200);
+        const inviteData = await inviteRes.json();
+        assert.strictEqual(inviteData.success, true);
+        assert.ok(inviteData.message.includes("colleague@example.com"));
+
+        // 4. Direct mailer function verification
+        const mailRes = await sendMeetingInvitationEmail({
+          toEmail: "partner@example.com",
+          meetingId: sprintMeetingId,
+          meetingTitle: "Sprint Planning Session",
+          hostName: "Alice Host",
+          hostEmail: "alice@example.com",
+          joinUrl: `https://masteryzone.com/meeting/${sprintMeetingId}`,
+        });
+        assert.strictEqual(mailRes.success, true);
+        assert.ok(mailRes.messageId);
+      } finally {
+        nodemailer.createTransport = origCreateTransport;
+        resetTransporter();
+        await Meeting.deleteOne({ meetingId: sprintMeetingId });
+      }
+    });
+
     console.log("\n================================================================================");
     console.log("Summary: All Integration & Security Verification Tests Passed (100%)");
     console.log("================================================================================\n");

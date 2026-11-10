@@ -236,6 +236,10 @@ export default function MasteryZoneLiveLanding({
     }
     if (cleanCode.includes("/meeting/")) {
       cleanCode = cleanCode.split("/meeting/").pop().split("?")[0].split("/")[0];
+    } else if (cleanCode.includes("meetingid=")) {
+      cleanCode = cleanCode.split("meetingid=").pop().split("&")[0];
+    } else if (cleanCode.includes("/")) {
+      cleanCode = cleanCode.split("/").filter(Boolean).pop().split("?")[0];
     }
     const alphanumeric = cleanCode.replace(/[^a-z0-9]/g, "");
     if (alphanumeric.length === 10) {

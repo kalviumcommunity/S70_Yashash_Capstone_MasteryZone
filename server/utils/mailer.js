@@ -2891,6 +2891,104 @@ async function sendTestEmail({ toEmail, requestedBy = "Administrator", req = nul
   }
 }
 
+/**
+ * Send live meeting collaboration invitation email
+ */
+async function sendMeetingInvitationEmail({
+  toEmail,
+  meetingId,
+  meetingTitle = "Live Collaboration Session",
+  hostName = "The Host",
+  hostEmail = "",
+  joinUrl = null,
+  customNote = "",
+  req = null,
+}) {
+  try {
+    if (!toEmail) {
+      return { success: false, status: "rejected", errorCode: "EENVELOPE", message: "No recipient email provided" };
+    }
+    const cleanTo = String(toEmail).trim().toLowerCase();
+    if (!validateRecipientEmail(cleanTo)) {
+      return { success: false, status: "rejected", errorCode: "EENVELOPE", message: `Invalid recipient email address: "${toEmail}"` };
+    }
+
+    const clientUrl = getClientBaseUrl(req);
+    const finalJoinUrl = joinUrl || `${clientUrl}/meeting/${meetingId}`;
+    const sentTimeStr = formatEmailDateTime(new Date());
+
+    const buttonHtml = renderBulletproofButton({
+      url: finalJoinUrl,
+      label: "Join Live Meeting Now",
+      gradient: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+      bgColor: "#2563eb",
+      showDirectLink: true,
+    });
+
+    const contentHtml = `
+      <div style="padding: 16px 0;">
+        <div style="display: inline-block; padding: 4px 10px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 16px; font-size: 11px; font-weight: 700; color: #1d4ed8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">
+          ⚡ Mastery Zone Live Collaboration
+        </div>
+        <h2 style="margin: 0 0 10px; font-size: 20px; font-weight: 800; color: #0f172a;">
+          You're Invited to Join a Live Session
+        </h2>
+        <p style="margin: 0 0 16px; font-size: 14px; line-height: 1.6; color: #334155;">
+          <strong>${hostName}</strong>${hostEmail ? ` (${hostEmail})` : ""} has invited you to collaborate in real time on <strong>Mastery Zone Live</strong>.
+        </p>
+
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+            <tr>
+              <td style="padding: 6px 0; color: #64748b; font-weight: 600; width: 120px;">Session Topic:</td>
+              <td style="padding: 6px 0; color: #0f172a; font-weight: 700;">${meetingTitle}</td>
+            </tr>
+            <tr>
+              <td style="padding: 6px 0; color: #64748b; font-weight: 600;">Meeting ID:</td>
+              <td style="padding: 6px 0; color: #2563eb; font-family: monospace; font-weight: 700;">${meetingId}</td>
+            </tr>
+            <tr>
+              <td style="padding: 6px 0; color: #64748b; font-weight: 600;">Dispatched At:</td>
+              <td style="padding: 6px 0; color: #334155;">${sentTimeStr}</td>
+            </tr>
+            ${customNote ? `<tr><td style="padding: 6px 0; color: #64748b; font-weight: 600; vertical-align: top;">Note from Host:</td><td style="padding: 6px 0; color: #334155;">${customNote}</td></tr>` : ""}
+          </table>
+        </div>
+
+        <p style="margin: 0 0 16px; font-size: 13.5px; line-height: 1.5; color: #475569;">
+          Click the button below to open your camera/mic preview and enter the collaboration room:
+        </p>
+
+        ${buttonHtml}
+
+        <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #f1f5f9; font-size: 12px; color: #94a3b8; line-height: 1.5;">
+          💡 <em>Tip: You can join directly from any modern web browser without installing additional software. Ensure camera and microphone permissions are allowed when prompted.</em>
+        </div>
+      </div>
+    `;
+
+    const html = wrapHtmlEmail(contentHtml, {
+      title: `Meeting Invitation: ${meetingTitle}`,
+      preheader: `${hostName} invited you to join "${meetingTitle}" on Mastery Zone Live`,
+    });
+
+    return await sendMailWithRetry(
+      {
+        from: getSenderAddress(hostName ? `${hostName} via Mastery Zone` : "Mastery Zone Live"),
+        to: cleanTo,
+        subject: `[Live Invitation] ${hostName} invited you to "${meetingTitle}" (${meetingId})`,
+        html,
+      },
+      2,
+      { emailType: "meeting_invitation", recordId: `meeting_${meetingId}` }
+    );
+  } catch (err) {
+    const diag = diagnoseSmtpError(err);
+    console.error("sendMeetingInvitationEmail error:", err.message);
+    return { success: false, status: "failed", errorCode: diag.code, message: diag.message };
+  }
+}
+
 module.exports = {
   getTransporter,
   resetTransporter,
@@ -2917,6 +3015,7 @@ module.exports = {
   sendCertificateAwardedEmail,
   sendModuleCompletionEmail,
   sendTestEmail,
+  sendMeetingInvitationEmail,
   dispatchMailBackground,
   isGuestAccount,
   getSenderAddress,
