@@ -1499,9 +1499,20 @@ export default function Coding() {
 
   const handleJoinWithCode = (e) => {
     e?.preventDefault();
-    if (!studyRoomCodeInput.trim()) return;
-    const clean = studyRoomCodeInput.trim().replace(/^.*\/meeting\//, "").split("?")[0].split("/")[0];
-    window.open(`/meeting/${clean}`, "_blank", "noopener,noreferrer");
+    let raw = studyRoomCodeInput.trim().toLowerCase();
+    if (!raw) return;
+    if (raw.includes("/meeting/")) {
+      raw = raw.split("/meeting/").pop().split("?")[0].split("/")[0];
+    } else if (raw.includes("meetingid=")) {
+      raw = raw.split("meetingid=").pop().split("&")[0];
+    } else if (raw.includes("/")) {
+      raw = raw.split("/").filter(Boolean).pop().split("?")[0];
+    }
+    const alphanumeric = raw.replace(/[^a-z0-9]/g, "");
+    if (alphanumeric.length === 10) {
+      raw = `${alphanumeric.slice(0, 3)}-${alphanumeric.slice(3, 7)}-${alphanumeric.slice(7, 10)}`;
+    }
+    window.open(`/meeting/${raw}`, "_blank", "noopener,noreferrer");
     setStudyRoomCodeInput("");
   };
 

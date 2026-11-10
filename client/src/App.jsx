@@ -261,11 +261,9 @@ function App() {
           <Route
             path="/meeting/:meetingId"
             element={
-              <ProtectedRoute>
-                <Suspense fallback={<CodingLoader />}>
-                  <MasteryZoneLivePlatform />
-                </Suspense>
-              </ProtectedRoute>
+              <Suspense fallback={<CodingLoader />}>
+                <MasteryZoneLivePlatform />
+              </Suspense>
             }
           />
           <Route

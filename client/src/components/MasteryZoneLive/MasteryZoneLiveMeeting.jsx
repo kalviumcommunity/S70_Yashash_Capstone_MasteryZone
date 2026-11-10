@@ -40,6 +40,7 @@ import {
   LuPlay,
   LuRadio,
   LuPin,
+  LuMail,
 } from "react-icons/lu";
 import { toast } from "react-toastify";
 import MasteryZoneWhiteboard from "./MasteryZoneWhiteboard";
@@ -145,6 +146,21 @@ export default function MasteryZoneLiveMeeting({
   // Layout mode: "grid" | "spotlight" | "sidebar"
   const [layoutMode, setLayoutMode] = useState("grid");
   const [pinnedSocketId, setPinnedSocketId] = useState(null);
+
+  // Pre-join Lobby State
+  const [hasJoined, setHasJoined] = useState(() => {
+    try {
+      return sessionStorage.getItem(`mz_joined_${meetingId}`) === "true";
+    } catch {
+      return false;
+    }
+  });
+  const [participantName, setParticipantName] = useState(
+    currentUser?.fullName || currentUser?.username || localStorage.getItem("userName") || "Learner"
+  );
+  const [isJoiningRoom, setIsJoiningRoom] = useState(false);
+  const [inviteEmailInput, setInviteEmailInput] = useState("");
+  const [isSendingInvite, setIsSendingInvite] = useState(false);
 
   // Media states
   const [isMuted, setIsMuted] = useState(false);
@@ -854,16 +870,20 @@ export default function MasteryZoneLiveMeeting({
   }, [meetingId, stopAllMediaHardware]);
 
   // -------------------------------------------------------------
-  // Join Meeting via Socket.io
+  // Join Meeting via Socket.io (Invoked upon Pre-join Completion)
   // -------------------------------------------------------------
   useEffect(() => {
-    if (!socket || !meetingId) return;
+    if (!socket || !meetingId || !hasJoined) return;
 
     const doJoin = () => {
       const token = localStorage.getItem("token") || "";
+      const effectiveUser = {
+        ...currentUser,
+        fullName: participantName || currentUser?.fullName || "Learner",
+      };
       socket.emit("join_meeting", {
         meetingId,
-        user: currentUser,
+        user: effectiveUser,
         token,
         mediaState: {
           isMuted,
@@ -883,7 +903,7 @@ export default function MasteryZoneLiveMeeting({
     return () => {
       socket.off("connect", doJoin);
     };
-  }, [socket, meetingId]);
+  }, [socket, meetingId, hasJoined, participantName]);
 
   // -------------------------------------------------------------
   // WebRTC Peer Connection Helper
@@ -1939,6 +1959,10 @@ export default function MasteryZoneLiveMeeting({
     peerConnectionsRef.current.forEach((pc) => pc.close());
     peerConnectionsRef.current.clear();
 
+    try {
+      sessionStorage.removeItem(`mz_joined_${meetingId}`);
+    } catch {}
+
     onLeaveMeeting?.();
   };
 
@@ -2058,6 +2082,433 @@ export default function MasteryZoneLiveMeeting({
     const q = participantSearchQuery.toLowerCase();
     return allTileUsers.filter((u) => u.fullName.toLowerCase().includes(q));
   }, [allTileUsers, participantSearchQuery]);
+
+  const handleJoinNow = () => {
+    setIsJoiningRoom(true);
+    try {
+      sessionStorage.setItem(`mz_joined_${meetingId}`, "true");
+      if (participantName.trim()) {
+        localStorage.setItem("userName", participantName.trim());
+      }
+    } catch {}
+    setHasJoined(true);
+    setIsJoiningRoom(false);
+  };
+
+  const handleSendEmailInvite = async (e) => {
+    e?.preventDefault();
+    const cleanEmail = inviteEmailInput.trim().toLowerCase();
+    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      toast.error("Please enter a valid recipient email address.");
+      return;
+    }
+    setIsSendingInvite(true);
+    try {
+      const token = localStorage.getItem("token") || "";
+      const res = await fetch(`${API_BASE}/api/meetings/${meetingId}/invite`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ email: cleanEmail }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        toast.success(data.message || `Meeting invitation sent to ${cleanEmail}!`);
+        setInviteEmailInput("");
+      } else {
+        toast.error(data.message || "Failed to dispatch email invitation.");
+      }
+    } catch (err) {
+      toast.error("Network error while dispatching invitation: " + err.message);
+    } finally {
+      setIsSendingInvite(false);
+    }
+  };
+
+  if (!hasJoined) {
+    return (
+      <div
+        className="mzl-prejoin-root"
+        data-testid="mastery-zone-prejoin-screen"
+        style={{
+          minHeight: "100vh",
+          background: "#0f172a",
+          color: "#f8fafc",
+          display: "flex",
+          flexDirection: "column",
+          fontFamily: "Inter, -apple-system, BlinkMacSystemFont, sans-serif",
+        }}
+      >
+        <header
+          style={{
+            height: 56,
+            borderBottom: "1px solid #1e293b",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "0 24px",
+            background: "#0f172a",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#ffffff",
+                boxShadow: "0 2px 6px rgba(37,99,235,0.4)",
+              }}
+            >
+              <LuVideo size={18} />
+            </div>
+            <strong style={{ fontSize: 16, color: "#ffffff", fontWeight: 700 }}>MasteryZone Meet</strong>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <span
+              style={{
+                background: "#1e293b",
+                border: "1px solid #334155",
+                color: "#93c5fd",
+                padding: "3px 10px",
+                borderRadius: 12,
+                fontSize: 12,
+                fontFamily: "monospace",
+              }}
+            >
+              {meetingId}
+            </span>
+            <button
+              type="button"
+              onClick={onLeaveMeeting}
+              style={{
+                padding: "6px 12px",
+                borderRadius: 6,
+                background: "#1e293b",
+                border: "1px solid #334155",
+                color: "#94a3b8",
+                fontSize: 12.5,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Leave
+            </button>
+          </div>
+        </header>
+
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "32px 16px",
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: 960,
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+              gap: 36,
+              alignItems: "center",
+            }}
+          >
+            {/* Camera Preview Tile */}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
+              <div
+                style={{
+                  width: "100%",
+                  aspectRatio: "16 / 9",
+                  background: "#1e293b",
+                  borderRadius: 12,
+                  overflow: "hidden",
+                  position: "relative",
+                  border: "1px solid #334155",
+                  boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {!isVideoOff && localStreamState ? (
+                  <video
+                    ref={(el) => {
+                      if (el && localStreamRef.current) {
+                        if (el.srcObject !== localStreamRef.current) {
+                          el.srcObject = localStreamRef.current;
+                        }
+                      }
+                    }}
+                    autoPlay
+                    playsInline
+                    muted
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      transform: "scaleX(-1)",
+                    }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: 80,
+                      height: 80,
+                      borderRadius: "50%",
+                      background: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
+                      color: "#ffffff",
+                      fontSize: 32,
+                      fontWeight: 800,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    {(participantName || "L").charAt(0).toUpperCase()}
+                  </div>
+                )}
+
+                <div
+                  style={{
+                    position: "absolute",
+                    bottom: 12,
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    display: "flex",
+                    gap: 12,
+                    background: "rgba(15, 23, 42, 0.8)",
+                    backdropFilter: "blur(8px)",
+                    padding: "6px 14px",
+                    borderRadius: 24,
+                    border: "1px solid rgba(255,255,255,0.1)",
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={handleToggleMic}
+                    title={isMuted ? "Unmute microphone" : "Mute microphone"}
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: "50%",
+                      border: "none",
+                      background: isMuted ? "#ef4444" : "rgba(255,255,255,0.15)",
+                      color: "#ffffff",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    {isMuted ? <LuMicOff size={18} /> : <LuMic size={18} />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleToggleVideo}
+                    title={isVideoOff ? "Turn on camera" : "Turn off camera"}
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: "50%",
+                      border: "none",
+                      background: isVideoOff ? "#ef4444" : "rgba(255,255,255,0.15)",
+                      color: "#ffffff",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    {isVideoOff ? <LuVideoOff size={18} /> : <LuVideo size={18} />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Dynamic Mic Activity Level Indicator */}
+              <div
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "0 4px",
+                }}
+              >
+                <span style={{ fontSize: 12, color: "#94a3b8" }}>
+                  {isMuted ? "Microphone muted" : "Microphone active"}
+                </span>
+                <div
+                  style={{
+                    flex: 1,
+                    height: 5,
+                    background: "#334155",
+                    borderRadius: 3,
+                    overflow: "hidden",
+                  }}
+                >
+                  <div
+                    style={{
+                      height: "100%",
+                      width: isMuted ? "0%" : `${Math.min(100, Math.max(localMicLevel * 3, 6))}%`,
+                      background: isMuted ? "#64748b" : "#22c55e",
+                      borderRadius: 3,
+                      transition: "width 0.1s ease",
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Joining Information & Hardware Selectors */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div>
+                <h1 style={{ margin: "0 0 6px", fontSize: 24, fontWeight: 800, color: "#ffffff" }}>
+                  {meetingData.title || "Mastery Zone Meeting"}
+                </h1>
+                <p style={{ margin: 0, fontSize: 13.5, color: "#94a3b8" }}>
+                  Session code: <strong style={{ color: "#93c5fd", fontFamily: "monospace" }}>{meetingId}</strong>
+                </p>
+              </div>
+
+              {/* Display Name Input */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: "#cbd5e1" }}>
+                  Your Display Name
+                </label>
+                <input
+                  type="text"
+                  value={participantName}
+                  onChange={(e) => setParticipantName(e.target.value)}
+                  placeholder="Enter your name"
+                  maxLength={50}
+                  style={{
+                    padding: "10px 14px",
+                    borderRadius: 8,
+                    background: "#1e293b",
+                    border: "1px solid #334155",
+                    color: "#f8fafc",
+                    fontSize: 14,
+                    outline: "none",
+                  }}
+                />
+              </div>
+
+              {/* Hardware Device Selection */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8" }}>
+                    Camera
+                  </label>
+                  <select
+                    value={selectedVideoDevice}
+                    onChange={(e) => switchVideoInputDevice(e.target.value)}
+                    style={{
+                      padding: "8px 10px",
+                      borderRadius: 6,
+                      background: "#1e293b",
+                      border: "1px solid #334155",
+                      color: "#f8fafc",
+                      fontSize: 12,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <option value="">Default Camera</option>
+                    {videoInputDevices.map((d, i) => (
+                      <option key={d.deviceId || i} value={d.deviceId}>
+                        {d.label || `Camera ${i + 1}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8" }}>
+                    Microphone
+                  </label>
+                  <select
+                    value={selectedAudioDevice}
+                    onChange={(e) => switchAudioInputDevice(e.target.value)}
+                    style={{
+                      padding: "8px 10px",
+                      borderRadius: 6,
+                      background: "#1e293b",
+                      border: "1px solid #334155",
+                      color: "#f8fafc",
+                      fontSize: 12,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <option value="">Default Microphone</option>
+                    {audioInputDevices.map((d, i) => (
+                      <option key={d.deviceId || i} value={d.deviceId}>
+                        {d.label || `Microphone ${i + 1}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
+                <button
+                  type="button"
+                  disabled={isJoiningRoom || !participantName.trim()}
+                  onClick={handleJoinNow}
+                  style={{
+                    flex: 1,
+                    padding: "12px 20px",
+                    borderRadius: 8,
+                    background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+                    color: "#ffffff",
+                    border: "none",
+                    fontWeight: 700,
+                    fontSize: 15,
+                    cursor: isJoiningRoom || !participantName.trim() ? "not-allowed" : "pointer",
+                    boxShadow: "0 4px 12px rgba(37,99,235,0.3)",
+                    opacity: isJoiningRoom || !participantName.trim() ? 0.6 : 1,
+                  }}
+                >
+                  {isJoiningRoom ? "Connecting..." : "Join Now"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={onLeaveMeeting}
+                  style={{
+                    padding: "12px 18px",
+                    borderRadius: 8,
+                    background: "#1e293b",
+                    color: "#cbd5e1",
+                    border: "1px solid #334155",
+                    fontWeight: 600,
+                    fontSize: 14,
+                    cursor: "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+
+              <div style={{ fontSize: 11.5, color: "#64748b", lineHeight: 1.4 }}>
+                🔒 Encrypted live WebRTC collaboration with verified participant session security.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mzl-meeting-view" data-testid="mastery-zone-live-meeting" style={{ background: "#0f172a", color: "#f8fafc" }}>
@@ -3374,6 +3825,47 @@ export default function MasteryZoneLiveMeeting({
                 >
                   <LuCopy size={13} /> Copy joining link
                 </button>
+
+                <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid #e2e8f0", display: "flex", flexDirection: "column", gap: 6 }}>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: 0.5, display: "flex", alignItems: "center", gap: 4 }}>
+                    <LuMail size={12} /> Invite by Email
+                  </label>
+                  <form onSubmit={handleSendEmailInvite} style={{ display: "flex", gap: 6 }}>
+                    <input
+                      type="email"
+                      value={inviteEmailInput}
+                      onChange={(e) => setInviteEmailInput(e.target.value)}
+                      placeholder="peer@example.com"
+                      style={{
+                        flex: 1,
+                        padding: "7px 10px",
+                        fontSize: 12,
+                        borderRadius: 6,
+                        border: "1px solid #cbd5e1",
+                        background: "#ffffff",
+                        color: "#0f172a",
+                      }}
+                    />
+                    <button
+                      type="submit"
+                      disabled={isSendingInvite || !inviteEmailInput.trim()}
+                      style={{
+                        padding: "7px 12px",
+                        fontSize: 12,
+                        fontWeight: 600,
+                        borderRadius: 6,
+                        background: "#0f172a",
+                        color: "#ffffff",
+                        border: "none",
+                        cursor: isSendingInvite || !inviteEmailInput.trim() ? "not-allowed" : "pointer",
+                        opacity: isSendingInvite || !inviteEmailInput.trim() ? 0.6 : 1,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {isSendingInvite ? "Sending..." : "Send Invite"}
+                    </button>
+                  </form>
+                </div>
               </div>
             )}
           </aside>

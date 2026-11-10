@@ -35,6 +35,7 @@ const {
   isProductionExecutionRestricted,
 } = require("../services/codeExecutionService");
 const { getProblemExecutionConfig } = require("../data/problemExecutionConfig");
+const { sendMeetingInvitationEmail } = require("../utils/mailer");
 
 // Preset study rooms matching reference image & coding curriculum
 const STUDY_ROOMS_CATALOG = [
@@ -599,6 +600,124 @@ router.post("/:meetingId/join", optionalAuthToken, async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// -------------------------------------------------------------
+// 4b. POST /api/meetings/:meetingId/invite (Email Invitation)
+// -------------------------------------------------------------
+router.post("/:meetingId/invite", optionalAuthToken, async (req, res) => {
+  try {
+    const cleanId = normalizeMeetingId(req.params.meetingId);
+    const nonDashed = cleanId.replace(/-/g, "");
+
+    const meeting = await Meeting.findOne({
+      $or: [
+        { meetingId: cleanId },
+        { meetingId: nonDashed },
+        { invitationCode: cleanId },
+        { invitationCode: nonDashed },
+      ],
+    });
+
+    if (!meeting) {
+      return res.status(404).json({
+        success: false,
+        message: "Meeting session not found.",
+      });
+    }
+
+    if (meeting.status === "ended") {
+      return res.status(410).json({
+        success: false,
+        message: "Cannot send invitations for an ended meeting session.",
+      });
+    }
+
+    const currentUserId = req.user ? String(req.user.userId || req.user.id || req.user._id) : null;
+    const isHost = currentUserId && String(meeting.hostUserId) === currentUserId;
+    const isParticipant = currentUserId && (meeting.participants || []).some((p) => String(p.userId) === currentUserId && !p.leftAt);
+    const isAdmin = Boolean(req.user?.role === "admin" || req.user?.role === "SUPER_ADMIN" || req.user?.isMainAdmin);
+
+    // If meeting is private, only host or admin can invite new collaborators
+    if (meeting.isPrivate && !isHost && !isAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: "Only the meeting host can invite collaborators to a private meeting.",
+      });
+    }
+
+    const { email, emails, customNote } = req.body || {};
+    const rawTargetEmails = Array.isArray(emails) && emails.length > 0 ? emails : [email];
+    const targetEmails = rawTargetEmails
+      .map((e) => String(e || "").trim().toLowerCase())
+      .filter((e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
+
+    if (targetEmails.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "A valid recipient email address is required.",
+      });
+    }
+
+    let inviterName = "A collaborator";
+    let inviterEmail = "";
+    if (req.user) {
+      const u = await User.findById(currentUserId).select("fullName username email").lean();
+      inviterName = u?.fullName || u?.username || req.user.name || "Host";
+      inviterEmail = u?.email || "";
+    }
+
+    const originHeader = req.get("origin") || req.get("referer");
+    let clientBase = "";
+    if (originHeader) {
+      try {
+        const u = new URL(originHeader);
+        clientBase = u.origin;
+      } catch {}
+    }
+    if (!clientBase) {
+      clientBase = (process.env.CLIENT_URL || process.env.FRONTEND_URL || "").replace(/\/+$/, "");
+    }
+    const fullJoinUrl = clientBase ? `${clientBase}/meeting/${meeting.meetingId}` : undefined;
+
+    const results = [];
+    for (const targetEmail of targetEmails) {
+      const mailRes = await sendMeetingInvitationEmail({
+        toEmail: targetEmail,
+        meetingId: meeting.meetingId,
+        meetingTitle: meeting.title,
+        hostName: inviterName,
+        hostEmail: inviterEmail,
+        joinUrl: fullJoinUrl,
+        customNote: customNote ? String(customNote).slice(0, 300) : "",
+        req,
+      });
+
+      results.push({ email: targetEmail, ...mailRes });
+    }
+
+    const anySuccess = results.some((r) => r.success);
+    if (!anySuccess) {
+      const firstErr = results[0];
+      return res.status(502).json({
+        success: false,
+        status: "failed",
+        errorCode: firstErr?.errorCode || "DISPATCH_FAILED",
+        message: firstErr?.message || "Failed to dispatch meeting invitation email.",
+        details: results,
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      status: "accepted",
+      message: `Meeting invitation dispatched to ${targetEmails.join(", ")}.`,
+      results,
+    });
+  } catch (err) {
+    console.error("Meeting invite error:", err);
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 

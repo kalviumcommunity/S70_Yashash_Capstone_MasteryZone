@@ -447,7 +447,12 @@ export default function MasteryZoneLivePlatform({ initialMeetingId = null }) {
     setActiveMeetingId(null);
     setMeetingError(null);
     if (window.location.pathname.startsWith("/meeting")) {
-      navigate("/live", { replace: true });
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      if (token) {
+        navigate("/live", { replace: true });
+      } else {
+        navigate("/", { replace: true });
+      }
     }
   };
 
