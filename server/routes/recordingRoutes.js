@@ -339,13 +339,14 @@ function streamUploadToTempFile(req, targetDir, fileName) {
       return;
     }
 
-    // Case 2: JSON payload with base64 data
+    // Case 2: JSON payload with base64 data (Backward compatibility, subject to upload size limit)
     if (contentType.includes("application/json") && req.body && req.body.base64Data) {
       const cleanBase64 = req.body.base64Data.includes(";base64,")
         ? req.body.base64Data.split(";base64,").pop()
         : req.body.base64Data;
       const buf = Buffer.from(cleanBase64, "base64");
       if (buf.length > MAX_RECORDING_SIZE) {
+        cleanupTemp();
         return reject({ status: 413, message: "Recording exceeds maximum allowed upload size (100 MB)." });
       }
       fs.writeFile(tempFilePath, buf, (err) => {
@@ -590,28 +591,50 @@ function streamUploadToTempFile(req, targetDir, fileName) {
   });
 }
 
-// 1. Upload a new recording (Supports streaming multipart, raw binary, or base64 JSON payload with 100mb limit)
+// 1. Upload a new recording (Supports streaming multipart and raw binary stream with backpressure and 100MB limit)
 router.post(
   "/upload",
   authenticateToken,
   async (req, res, next) => {
     // Authenticate and verify meeting authorization BEFORE writing or streaming file
-    const meetingId = req.headers["x-meeting-id"] || req.query.meetingId;
-    if (meetingId) {
-      try {
-        const Meeting = require("../models/Meeting");
-        const meeting = await Meeting.findOne({ meetingId }).lean();
-        if (meeting) {
-          const reqUserId = String(req.user?.userId || req.user?._id || req.user?.id || "");
-          const hostUserId = String(meeting.hostUserId || meeting.userId || "");
-          const isSuperAdmin = req.user?.role === "superadmin" || req.user?.role === "admin";
-          if (!isSuperAdmin && hostUserId && reqUserId !== hostUserId) {
-            return res.status(403).json({ error: "Unauthorized: Only the meeting host can upload recordings for this meeting." });
-          }
-        }
-      } catch (err) {
-        console.warn("Pre-upload meeting check warning:", err.message);
+    const meetingId = (
+      req.headers["x-meeting-id"] ||
+      req.query.meetingId ||
+      (req.body && typeof req.body === "object" ? req.body.meetingId : "") ||
+      ""
+    ).trim();
+
+    if (!meetingId) {
+      if (req.headers["content-type"]?.includes("multipart/form-data")) {
+        return next();
       }
+      return res.status(400).json({ error: "meetingId is required in headers (x-meeting-id) or query parameter before uploading recording." });
+    }
+
+    try {
+      const Meeting = require("../models/Meeting");
+      const cleanMeetingId = meetingId;
+      const meeting = await Meeting.findOne({
+        $or: [
+          { meetingId: cleanMeetingId },
+          { meetingId: cleanMeetingId.replace(/-/g, "") },
+          { invitationCode: cleanMeetingId },
+        ],
+      }).lean();
+
+      if (!meeting) {
+        return res.status(404).json({ error: "Invalid meeting reference. Meeting does not exist." });
+      }
+
+      const reqUserId = String(req.user?.userId || req.user?._id || req.user?.id || "");
+      const hostUserId = String(meeting.hostUserId || meeting.userId || "");
+      const isSuperAdmin = req.user?.role === "superadmin" || req.user?.role === "admin" || req.user?.role === "SUPER_ADMIN" || req.user?.isMainAdmin;
+      if (!isSuperAdmin && hostUserId && reqUserId !== hostUserId) {
+        return res.status(403).json({ error: "Unauthorized: Only the meeting host can upload recordings for this meeting." });
+      }
+      req.validatedMeeting = meeting;
+    } catch (err) {
+      return res.status(500).json({ error: `Pre-upload meeting verification failed: ${err.message}` });
     }
     next();
   },

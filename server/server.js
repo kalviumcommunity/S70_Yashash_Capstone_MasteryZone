@@ -1831,9 +1831,9 @@ io.on("connection", (socket) => {
 // CORS - explicitly restricted to trusted origins with credentials
 app.use(cors(corsOptions));
 
-// API request size limit (100mb to support video recording uploads and large payloads without 413 rejection)
-app.use(express.json({ limit: '100mb' }));
-app.use(express.urlencoded({ limit: '100mb', extended: true }));
+// Standard JSON and URL-encoded body limit (video recording uploads use streaming multipart/binary directly)
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use(cookieParser()); // Use cookie parser
 app.use('/auth', authRoutes);
 app.use('/api/auth', authRoutes);

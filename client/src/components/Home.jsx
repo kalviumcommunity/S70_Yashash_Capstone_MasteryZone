@@ -490,9 +490,9 @@ const Home = () => {
 
   // Dedicated Coding Platform Data State
   const [codingStats, setCodingStats] = useState({
-    totalXp: 120,
-    totalHours: 4.5,
-    streak: 1,
+    totalXp: 0,
+    totalHours: 0,
+    streak: 0,
     challengesSolvedCount: 0,
     tracks: [],
   });
@@ -508,7 +508,17 @@ const Home = () => {
     setIsLoadingCodingData(true);
     try {
       const token = localStorage.getItem("token");
-      if (!token) return;
+      if (!token) {
+        setCodingStats({
+          totalXp: 0,
+          totalHours: 0,
+          streak: 0,
+          challengesSolvedCount: 0,
+          tracks: [],
+        });
+        setRecentCodingSubmissions([]);
+        return;
+      }
 
       // 1. Fetch live coding progress and stats
       try {
@@ -3434,7 +3444,7 @@ const Home = () => {
                     <span className="mz-overview-badge mz-badge-streak">Daily</span>
                   </div>
                   <div className="mz-overview-metric">
-                    {codingStats.streak || 1} <span className="mz-overview-unit">Days</span>
+                    {codingStats.streak || 0} <span className="mz-overview-unit">Days</span>
                   </div>
                   <div className="mz-overview-label">Coding Streak</div>
                   <div className="mz-overview-sub">
@@ -3456,7 +3466,7 @@ const Home = () => {
                     <span className="mz-overview-badge mz-badge-xp">{userLevelTier.tier}</span>
                   </div>
                   <div className="mz-overview-metric">
-                    {codingStats.totalXp != null ? codingStats.totalXp : 120} <span className="mz-overview-unit">XP</span>
+                    {codingStats.totalXp != null ? codingStats.totalXp : 0} <span className="mz-overview-unit">XP</span>
                   </div>
                   <div className="mz-overview-label">Engineering XP</div>
                   <div className="mz-overview-sub">

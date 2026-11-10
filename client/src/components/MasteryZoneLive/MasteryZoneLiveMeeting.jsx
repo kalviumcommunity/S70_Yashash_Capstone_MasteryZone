@@ -1648,10 +1648,11 @@ export default function MasteryZoneLiveMeeting({
           formData.append("durationSeconds", String(finalDuration));
           formData.append("participantNames", JSON.stringify(allNames));
 
-          res = await fetch(`${API_BASE || ""}/api/recordings/upload`, {
+          res = await fetch(`${API_BASE || ""}/api/recordings/upload?meetingId=${encodeURIComponent(meetingId)}`, {
             method: "POST",
             headers: {
               Authorization: `Bearer ${token}`,
+              "x-meeting-id": meetingId,
             },
             body: formData,
           });
@@ -1663,10 +1664,11 @@ export default function MasteryZoneLiveMeeting({
           formData.append("durationSeconds", String(finalDuration));
           formData.append("participantNames", JSON.stringify(allNames));
 
-          res = await fetch("/api/recordings/upload", {
+          res = await fetch(`/api/recordings/upload?meetingId=${encodeURIComponent(meetingId)}`, {
             method: "POST",
             headers: {
               Authorization: `Bearer ${token}`,
+              "x-meeting-id": meetingId,
             },
             body: formData,
           });

@@ -508,10 +508,10 @@ export default function MasteryZoneLiveLanding({
                     className="mzl-preview-avatar"
                     style={{ background: "#3b82f6" }}
                   >
-                    AC
+                    {((currentUser?.fullName || currentUser?.name || "Host")[0] || "H").toUpperCase()}
                   </div>
                   <span className="mzl-preview-speech">Compiling code... 💡</span>
-                  <span className="mzl-preview-name-tag">Alex C. (Host)</span>
+                  <span className="mzl-preview-name-tag">{currentUser?.fullName || currentUser?.name || "You"} (Host)</span>
                 </div>
 
                 <div
@@ -524,9 +524,9 @@ export default function MasteryZoneLiveLanding({
                     className="mzl-preview-avatar"
                     style={{ background: "#10b981" }}
                   >
-                    SM
+                    IDE
                   </div>
-                  <span className="mzl-preview-name-tag">Sarah M.</span>
+                  <span className="mzl-preview-name-tag">Monaco Multi-Cursor</span>
                 </div>
 
                 <div
@@ -539,9 +539,9 @@ export default function MasteryZoneLiveLanding({
                     className="mzl-preview-avatar"
                     style={{ background: "#8b5cf6" }}
                   >
-                    DK
+                    P2P
                   </div>
-                  <span className="mzl-preview-name-tag">David K.</span>
+                  <span className="mzl-preview-name-tag">Secure WebRTC Mesh</span>
                 </div>
 
                 <div
@@ -552,11 +552,11 @@ export default function MasteryZoneLiveLanding({
                 >
                   <div
                     className="mzl-preview-avatar"
-                    style={{ background: "#ec4899" }}
+                    style={{ background: "#0284c7" }}
                   >
-                    ER
+                    WB
                   </div>
-                  <span className="mzl-preview-name-tag">Emily R.</span>
+                  <span className="mzl-preview-name-tag">Shared Whiteboard</span>
                 </div>
               </div>
             </div>

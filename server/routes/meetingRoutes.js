@@ -44,8 +44,6 @@ const STUDY_ROOMS_CATALOG = [
     category: "Development",
     icon: "</>",
     description: "Practice, discuss and solve coding problems together.",
-    onlineCount: "1.2k",
-    onlineNumber: 1240,
     tags: ["Algorithms", "Problem Solving", "Clean Code"],
     isLive: true,
   },
@@ -55,8 +53,6 @@ const STUDY_ROOMS_CATALOG = [
     category: "Communication",
     icon: "文A",
     description: "Improve your skills with native speakers and technical English.",
-    onlineCount: "842",
-    onlineNumber: 842,
     tags: ["English", "Technical Vocab", "Spanish"],
     isLive: true,
   },
@@ -66,8 +62,6 @@ const STUDY_ROOMS_CATALOG = [
     category: "Engineering",
     icon: "💡",
     description: "Work on projects together in real-time.",
-    onlineCount: "987",
-    onlineNumber: 987,
     tags: ["Full-Stack", "Architecture", "Git Flow"],
     isLive: true,
   },
@@ -77,8 +71,6 @@ const STUDY_ROOMS_CATALOG = [
     category: "Algorithms",
     icon: "⚡",
     description: "Daily LeetCode & algorithmic challenges discussion.",
-    onlineCount: "650",
-    onlineNumber: 650,
     tags: ["Trees", "Dynamic Programming", "Graphs"],
     isLive: true,
   },
@@ -88,8 +80,6 @@ const STUDY_ROOMS_CATALOG = [
     category: "Backend",
     icon: "🐍",
     description: "FastAPI, Django, scripting, and machine learning pipelines.",
-    onlineCount: "520",
-    onlineNumber: 520,
     tags: ["Python 3", "AsyncIO", "Data Science"],
     isLive: true,
   },
@@ -99,8 +89,6 @@ const STUDY_ROOMS_CATALOG = [
     category: "Career",
     icon: "💼",
     description: "Mock technical interviews and live pair programming.",
-    onlineCount: "780",
-    onlineNumber: 780,
     tags: ["Mock Rounds", "System Design", "Behavioral"],
     isLive: true,
   },
@@ -176,13 +164,16 @@ router.get("/study-rooms", async (req, res) => {
     const rooms = STUDY_ROOMS_CATALOG.map((room) => {
       const activeForGroup = activeMeetings.filter((m) => m.groupKey === room.key);
       const activeMeeting = activeForGroup[0] || null;
+      const totalLive = activeForGroup.reduce((sum, m) => {
+        return sum + (Array.isArray(m.participants) ? m.participants.filter((p) => !p.leftAt).length : 0);
+      }, 0);
       return {
         ...room,
         activeMeetingId: activeMeeting ? activeMeeting.meetingId : null,
         activeMeetingsCount: activeForGroup.length,
-        liveParticipantsCount: activeMeeting
-          ? (activeMeeting.participants || []).filter((p) => !p.leftAt).length
-          : 0,
+        liveParticipantsCount: totalLive,
+        onlineCount: totalLive > 0 ? String(totalLive) : "0",
+        onlineNumber: totalLive,
       };
     });
 
@@ -199,12 +190,16 @@ router.get("/study-rooms", async (req, res) => {
 // -------------------------------------------------------------
 // 2. POST /api/meetings/create
 // -------------------------------------------------------------
-router.post("/create", optionalAuthToken, async (req, res) => {
+router.post("/create", authenticateToken, async (req, res) => {
   const mongoose = require("mongoose");
-  // Derive user identity strictly from authenticated token; never trust client-supplied userId
-  const userId = req.user
-    ? String(req.user.userId || req.user.id || req.user._id)
-    : ("guest_" + crypto.randomBytes(6).toString("hex"));
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      message: "Verified authentication required to create a meeting session.",
+    });
+  }
+  // Derive user identity strictly from verified token; never trust client-supplied userId
+  const userId = String(req.user.userId || req.user.id || req.user._id);
   const {
     title = "DSA Practice",
     groupKey = "dsa",
@@ -331,25 +326,12 @@ router.post("/create", optionalAuthToken, async (req, res) => {
     ];
 
     const initialTasks = [
-      { id: "task_1", title: "Implement core algorithmic solution", assignedTo: user?.fullName || "Collaborator", completed: true },
-      { id: "task_2", title: "Add input validation & edge-case testing", assignedTo: "Sarah M.", completed: false },
+      { id: "task_1", title: "Implement core algorithmic solution", assignedTo: user?.fullName || "Host", completed: false },
+      { id: "task_2", title: "Add input validation & edge-case testing", assignedTo: "Unassigned", completed: false },
       { id: "task_3", title: "Optimize asymptotic time complexity", assignedTo: "Team", completed: false },
     ];
 
-    const initialReviews = [
-      {
-        id: "cr_1",
-        fileId: "file_0",
-        fileName: starterFileName,
-        lineNumber: 2,
-        codeSnippet: "def solve(n):",
-        authorName: user?.fullName || "Alex C.",
-        authorId: String(userId),
-        text: "Can we optimize this solution with memoization or two-pointer approach?",
-        status: "open",
-        createdAt: new Date(),
-      },
-    ];
+    const initialReviews = [];
 
     const newMeeting = new Meeting({
       meetingId,
