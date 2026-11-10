@@ -677,15 +677,28 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
         reportUrl: `/assessment-report/${sub.sessionId}`,
       };
 
-      // Save report summary to localStorage for immediate Homepage availability
+      // Save report summary: strictly isolated per-user, or session-isolated for guests
       try {
-        const reportsKey = currentUserId ? `mz_${currentUserId}_assessment_reports` : "mz_assessment_reports";
-        const existingReports = JSON.parse(localStorage.getItem(reportsKey) || "[]");
-        const filtered = existingReports.filter((r) => r.sessionId !== sub.sessionId);
-        localStorage.setItem(
-          reportsKey,
-          JSON.stringify([reportEntry, ...filtered].slice(0, 50))
-        );
+        localStorage.removeItem("mz_assessment_reports");
+
+        if (currentUserId) {
+          const reportsKey = `mz_${currentUserId}_assessment_reports`;
+          const existingReports = JSON.parse(localStorage.getItem(reportsKey) || "[]");
+          const filtered = existingReports.filter((r) => r.sessionId !== sub.sessionId);
+          localStorage.setItem(
+            reportsKey,
+            JSON.stringify([reportEntry, ...filtered].slice(0, 50))
+          );
+        } else {
+          // Guest assessment persistence: stored in sessionStorage to prevent cross-user leakage
+          const guestKey = "mz_guest_assessment_reports";
+          const existingReports = JSON.parse(sessionStorage.getItem(guestKey) || "[]");
+          const filtered = existingReports.filter((r) => r.sessionId !== sub.sessionId);
+          sessionStorage.setItem(
+            guestKey,
+            JSON.stringify([reportEntry, ...filtered].slice(0, 50))
+          );
+        }
       } catch {}
 
       const passingThreshold = projectSpec?.passingMarks || 80;

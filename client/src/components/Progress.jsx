@@ -240,13 +240,14 @@ const Progress = () => {
           }
         } catch {}
 
-        // Merge with local account reports for real-time instant rendering
+        // Merge with isolated user or guest session reports
         try {
           const rawU = localStorage.getItem("user");
           const uObj = rawU ? JSON.parse(rawU) : null;
           const uId = uObj?._id || uObj?.id || uObj?.userId || "";
-          const localKey = uId ? `mz_${uId}_assessment_reports` : "mz_assessment_reports";
-          const localReps = JSON.parse(localStorage.getItem(localKey) || "[]");
+          const localReps = uId
+            ? JSON.parse(localStorage.getItem(`mz_${uId}_assessment_reports`) || "[]")
+            : JSON.parse(sessionStorage.getItem("mz_guest_assessment_reports") || "[]");
           repList.push(...localReps);
         } catch {}
 

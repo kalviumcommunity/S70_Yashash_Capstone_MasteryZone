@@ -2858,6 +2858,7 @@ export default function MasteryZoneCompilerWorkspace({
 
       // Save report summary permanently to localStorage for instantaneous 0ms retrieval
       try {
+        localStorage.removeItem("mz_assessment_reports");
         localStorage.setItem("mz_last_assessment_report_sid", finalSid);
         if (questionId) localStorage.setItem(`mz_report_sid_${questionId}`, finalSid);
         const rawUser = localStorage.getItem("user");
@@ -2866,12 +2867,19 @@ export default function MasteryZoneCompilerWorkspace({
           const parsed = JSON.parse(rawUser);
           uId = parsed._id || parsed.id || parsed.userId || "";
         }
-        const reportsKey = uId ? `mz_${uId}_assessment_reports` : "mz_assessment_reports";
-        const stored = JSON.parse(localStorage.getItem(reportsKey) || localStorage.getItem("mz_assessment_reports") || "[]");
-        const filtered = stored.filter((r) => r.sessionId !== finalSid);
-        const updatedList = [reportItem, ...filtered].slice(0, 50);
-        localStorage.setItem(reportsKey, JSON.stringify(updatedList));
-        localStorage.setItem("mz_assessment_reports", JSON.stringify(updatedList));
+        if (uId) {
+          const reportsKey = `mz_${uId}_assessment_reports`;
+          const stored = JSON.parse(localStorage.getItem(reportsKey) || "[]");
+          const filtered = stored.filter((r) => r.sessionId !== finalSid);
+          const updatedList = [reportItem, ...filtered].slice(0, 50);
+          localStorage.setItem(reportsKey, JSON.stringify(updatedList));
+        } else {
+          const guestKey = "mz_guest_assessment_reports";
+          const stored = JSON.parse(sessionStorage.getItem(guestKey) || "[]");
+          const filtered = stored.filter((r) => r.sessionId !== finalSid);
+          const updatedList = [reportItem, ...filtered].slice(0, 50);
+          sessionStorage.setItem(guestKey, JSON.stringify(updatedList));
+        }
         localStorage.setItem(`mz_report_${finalSid}`, JSON.stringify(reportItem));
 
         if (isAccepted) {

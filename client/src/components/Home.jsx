@@ -583,8 +583,26 @@ const Home = () => {
           const parsed = JSON.parse(rawUser);
           uId = parsed._id || parsed.id || parsed.userId || "";
         }
-        const reportsKey = uId ? `mz_${uId}_assessment_reports` : null;
-        localReports = reportsKey ? JSON.parse(localStorage.getItem(reportsKey) || "[]") : [];
+
+        // Purge any legacy shared key to prevent cross-user leakage
+        localStorage.removeItem("mz_assessment_reports");
+
+        if (uId) {
+          // If a guest report was generated in this browser session before login, migrate it into the user's isolated store
+          const guestReports = JSON.parse(sessionStorage.getItem("mz_guest_assessment_reports") || "[]");
+          const userReportsKey = `mz_${uId}_assessment_reports`;
+          if (guestReports.length > 0) {
+            const currentStored = JSON.parse(localStorage.getItem(userReportsKey) || "[]");
+            const merged = [...guestReports, ...currentStored];
+            const deduped = merged.filter((r, idx, arr) => arr.findIndex((x) => x.sessionId === r.sessionId) === idx);
+            localStorage.setItem(userReportsKey, JSON.stringify(deduped.slice(0, 50)));
+            sessionStorage.removeItem("mz_guest_assessment_reports");
+          }
+          localReports = JSON.parse(localStorage.getItem(userReportsKey) || "[]");
+        } else {
+          // Guest mode: only load session-scoped reports; never read from any shared localStorage key
+          localReports = JSON.parse(sessionStorage.getItem("mz_guest_assessment_reports") || "[]");
+        }
       } catch {}
 
       let apiReports = [];

@@ -1433,8 +1433,13 @@ export default function CertificationExamWorkspace({
 
       // Cache comprehensive report locally for instant zero-latency report page rendering
       try {
-        const reportsKey = uKey !== "guest" ? `mz_${uKey}_assessment_reports` : "mz_assessment_reports";
-        const existing = JSON.parse(localStorage.getItem(reportsKey) || "[]");
+        localStorage.removeItem("mz_assessment_reports");
+        let existing = [];
+        if (uKey !== "guest") {
+          existing = JSON.parse(localStorage.getItem(`mz_${uKey}_assessment_reports`) || "[]");
+        } else {
+          existing = JSON.parse(sessionStorage.getItem("mz_guest_assessment_reports") || "[]");
+        }
         const localReportEntry = {
           sessionId: attemptId,
           attemptId,
@@ -1524,7 +1529,11 @@ export default function CertificationExamWorkspace({
         };
 
         const updated = [localReportEntry, ...existing.filter((r) => r.sessionId !== attemptId && r.attemptId !== attemptId)];
-        localStorage.setItem(reportsKey, JSON.stringify(updated.slice(0, 30)));
+        if (uKey !== "guest") {
+          localStorage.setItem(`mz_${uKey}_assessment_reports`, JSON.stringify(updated.slice(0, 30)));
+        } else {
+          sessionStorage.setItem("mz_guest_assessment_reports", JSON.stringify(updated.slice(0, 30)));
+        }
       } catch (cacheErr) {
         console.warn("Local report sync note:", cacheErr);
       }
