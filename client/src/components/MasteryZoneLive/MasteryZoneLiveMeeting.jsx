@@ -1610,51 +1610,75 @@ export default function MasteryZoneLiveMeeting({
 
       const finalDuration = durationFromBlob || exactSeconds;
 
-      const base64Data = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
-
       const token = localStorage.getItem("token") || "";
       const allNames = [
         currentUser?.fullName || "You",
         ...participants.map((p) => p.fullName || p.username || "Participant"),
       ];
+      const meetingTitle = `${meetingData.title || "Live Meeting"} — Screen Recording (${new Date().toLocaleDateString()})`;
 
-      const payload = {
-        meetingId,
-        title: `${meetingData.title || "Live Meeting"} — Screen Recording (${new Date().toLocaleDateString()})`,
-        recordingType: "Entire Screen",
-        durationSeconds: finalDuration,
-        participantNames: allNames,
-        base64Data,
-        mimeType: activeMimeType,
-        hostUserId: currentUser?._id || currentUser?.id || currentUser?.userId,
-        hostName: currentUser?.fullName || currentUser?.username || "Host",
-        hostEmail: currentUser?.email || "",
-      };
+      let res = null;
 
-      let res;
+      // Method 1: High-performance memory-efficient raw binary stream upload
       try {
-        res = await fetch(`${API_BASE}/api/recordings/upload`, {
+        const uploadHeaders = {
+          "Content-Type": activeMimeType || "video/webm",
+          "x-meeting-id": meetingId,
+          "x-title": encodeURIComponent(meetingTitle),
+          "x-duration-seconds": String(finalDuration),
+          "x-participant-names": encodeURIComponent(JSON.stringify(allNames)),
+          Authorization: `Bearer ${token}`,
+        };
+        const uploadUrl = `${API_BASE || ""}/api/recordings/upload`;
+        res = await fetch(uploadUrl, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(payload),
+          headers: uploadHeaders,
+          body: blob,
         });
-      } catch {
-        res = await fetch("/api/recordings/upload", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(payload),
+        if (!res.ok && res.status !== 400 && res.status !== 403 && res.status !== 404) {
+          throw new Error("Raw binary stream upload rejected: status " + res.status);
+        }
+      } catch (rawErr) {
+        // Method 2: Resilient Base64 JSON fallback for legacy proxies
+        const base64Data = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
         });
+
+        const payload = {
+          meetingId,
+          title: meetingTitle,
+          recordingType: "Entire Screen",
+          durationSeconds: finalDuration,
+          participantNames: allNames,
+          base64Data,
+          mimeType: activeMimeType,
+          hostUserId: currentUser?._id || currentUser?.id || currentUser?.userId,
+          hostName: currentUser?.fullName || currentUser?.username || "Host",
+          hostEmail: currentUser?.email || "",
+        };
+
+        try {
+          res = await fetch(`${API_BASE}/api/recordings/upload`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(payload),
+          });
+        } catch {
+          res = await fetch("/api/recordings/upload", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(payload),
+          });
+        }
       }
 
       if (res && res.ok) {
