@@ -403,17 +403,23 @@ router.post(
       }
     }
 
-    // 2. Write file to disk only after all authorization and header checks succeed
-    fs.writeFileSync(filePath, buffer);
-    createdFilePath = filePath;
+    // 2. Write file to temporary staging location first
+    const tempFileName = `${fileName}.tmp_${Date.now()}`;
+    const tempFilePath = path.join(targetDir, tempFileName);
+    fs.writeFileSync(tempFilePath, buffer);
+    createdFilePath = tempFilePath;
 
     // 3. Media Stream Validation (Verify playable video/audio integrity)
-    const mediaCheck = await validateMediaIntegrity(filePath, buffer, durationSeconds);
+    const mediaCheck = await validateMediaIntegrity(tempFilePath, buffer, durationSeconds);
     if (!mediaCheck.valid) {
-      try { fs.unlinkSync(filePath); } catch {}
+      try { fs.unlinkSync(tempFilePath); } catch {}
       createdFilePath = null;
       return res.status(400).json({ error: mediaCheck.error || "Corrupted media file: Missing decodable video stream." });
     }
+
+    // Atomically promote temporary file to final path upon verification
+    fs.renameSync(tempFilePath, filePath);
+    createdFilePath = filePath;
 
     const streamUrl = `/api/recordings/stream/${fileName}`;
     const fileUrl = `/recordings/${fileName}`;
@@ -924,10 +930,18 @@ router.delete("/:recordingId", authenticateToken, async (req, res) => {
       return res.status(404).json({ error: "Recording not found" });
     }
 
-    const currentUserId = String(req.user?.userId || req.user?.id || req.user?._id || "");
+    const currentUserId = String(req.user?.userId || req.user?.id || req.user?._id || "").trim();
     const isAdmin = Boolean(req.user?.role === "admin" || req.user?.role === "SUPER_ADMIN" || req.user?.isMainAdmin);
-    if (!isAdmin && recording.hostUserId && String(recording.hostUserId) !== currentUserId) {
-      return res.status(403).json({ error: "Only the recording host or an administrator can delete this video" });
+    const hostUserId = recording.hostUserId ? String(recording.hostUserId).trim() : "";
+
+    // Ownership authorization:
+    // Administrators can manage and delete any recording (including orphaned recordings).
+    // Normal users can ONLY delete recordings where they are the verified owner.
+    // A missing or invalid hostUserId must NEVER bypass ownership validation.
+    if (!isAdmin) {
+      if (!hostUserId || !currentUserId || hostUserId !== currentUserId) {
+        return res.status(403).json({ error: "Only the recording host or an administrator can delete this video" });
+      }
     }
 
     // Safely delete physical file first via centralized storage service

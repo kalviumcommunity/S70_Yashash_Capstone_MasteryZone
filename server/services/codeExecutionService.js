@@ -537,6 +537,22 @@ import java.lang.reflect.*;
 ${nonPublicCode}
 
 public class Main {
+    static String formatValue(Object obj) {
+        if (obj == null) return "null";
+        if (obj.getClass().isArray()) {
+            int len = Array.getLength(obj);
+            StringBuilder sb = new StringBuilder("[");
+            for (int i = 0; i < len; i++) {
+                if (i > 0) sb.append(", ");
+                Object elem = Array.get(obj, i);
+                sb.append(formatValue(elem));
+            }
+            sb.append("]");
+            return sb.toString();
+        }
+        return String.valueOf(obj);
+    }
+
     public static void main(String[] args) throws Exception {
         Scanner sc = new Scanner(System.in);
         StringBuilder sb = new StringBuilder();
@@ -544,7 +560,6 @@ public class Main {
             sb.append(sc.nextLine()).append("\\n");
         }
         String raw = sb.toString().trim();
-        if (raw.isEmpty()) return;
 
         final String preferredName = ${JSON.stringify(targetMethodName)};
         if (preferredName == null || preferredName.isEmpty()) {
@@ -570,6 +585,31 @@ public class Main {
         }
 
         Class<?>[] pTypes = target.getParameterTypes();
+        if (pTypes.length == 0) {
+            try {
+                Object result = target.invoke(sol, new Object[0]);
+                if (target.getReturnType() != void.class && result != null) {
+                    System.out.println(formatValue(result));
+                }
+            } catch (InvocationTargetException ite) {
+                Throwable cause = ite.getCause() != null ? ite.getCause() : ite;
+                System.err.println("Runtime Exception: " + cause.toString());
+                cause.printStackTrace(System.err);
+                System.exit(1);
+            } catch (Exception ex) {
+                System.err.println("Runtime Exception: " + ex.toString());
+                ex.printStackTrace(System.err);
+                System.exit(1);
+            }
+            return;
+        }
+
+        if (raw.isEmpty()) {
+            System.err.println("InputError: Method '" + preferredName + "' expects " + pTypes.length + " parameter(s) but input was empty");
+            System.exit(1);
+            return;
+        }
+
         Object[] callArgs = new Object[pTypes.length];
         String[] lines = raw.split("\\\\n");
 
@@ -582,14 +622,61 @@ public class Main {
                 int[] arr = new int[nums.length];
                 for (int j = 0; j < nums.length; j++) arr[j] = Integer.parseInt(nums[j]);
                 callArgs[i] = arr;
+            } else if (pt == long[].class) {
+                String clean = token.replace("[", " ").replace("]", " ").replace(",", " ").trim();
+                String[] nums = clean.isEmpty() ? new String[0] : clean.split("\\\\s+");
+                long[] arr = new long[nums.length];
+                for (int j = 0; j < nums.length; j++) arr[j] = Long.parseLong(nums[j]);
+                callArgs[i] = arr;
+            } else if (pt == double[].class) {
+                String clean = token.replace("[", " ").replace("]", " ").replace(",", " ").trim();
+                String[] nums = clean.isEmpty() ? new String[0] : clean.split("\\\\s+");
+                double[] arr = new double[nums.length];
+                for (int j = 0; j < nums.length; j++) arr[j] = Double.parseDouble(nums[j]);
+                callArgs[i] = arr;
+            } else if (pt == float[].class) {
+                String clean = token.replace("[", " ").replace("]", " ").replace(",", " ").trim();
+                String[] nums = clean.isEmpty() ? new String[0] : clean.split("\\\\s+");
+                float[] arr = new float[nums.length];
+                for (int j = 0; j < nums.length; j++) arr[j] = Float.parseFloat(nums[j]);
+                callArgs[i] = arr;
+            } else if (pt == boolean[].class) {
+                String clean = token.replace("[", " ").replace("]", " ").replace(",", " ").trim();
+                String[] bools = clean.isEmpty() ? new String[0] : clean.split("\\\\s+");
+                boolean[] arr = new boolean[bools.length];
+                for (int j = 0; j < bools.length; j++) arr[j] = Boolean.parseBoolean(bools[j]);
+                callArgs[i] = arr;
+            } else if (pt == short[].class) {
+                String clean = token.replace("[", " ").replace("]", " ").replace(",", " ").trim();
+                String[] nums = clean.isEmpty() ? new String[0] : clean.split("\\\\s+");
+                short[] arr = new short[nums.length];
+                for (int j = 0; j < nums.length; j++) arr[j] = Short.parseShort(nums[j]);
+                callArgs[i] = arr;
+            } else if (pt == byte[].class) {
+                String clean = token.replace("[", " ").replace("]", " ").replace(",", " ").trim();
+                String[] nums = clean.isEmpty() ? new String[0] : clean.split("\\\\s+");
+                byte[] arr = new byte[nums.length];
+                for (int j = 0; j < nums.length; j++) arr[j] = Byte.parseByte(nums[j]);
+                callArgs[i] = arr;
+            } else if (pt == char[].class) {
+                String clean = token.replace("[", "").replace("]", "").replace(",", "").trim();
+                callArgs[i] = clean.toCharArray();
             } else if (pt == int.class || pt == Integer.class) {
                 callArgs[i] = Integer.parseInt(token);
             } else if (pt == long.class || pt == Long.class) {
                 callArgs[i] = Long.parseLong(token);
             } else if (pt == double.class || pt == Double.class) {
                 callArgs[i] = Double.parseDouble(token);
+            } else if (pt == float.class || pt == Float.class) {
+                callArgs[i] = Float.parseFloat(token);
             } else if (pt == boolean.class || pt == Boolean.class) {
                 callArgs[i] = Boolean.parseBoolean(token);
+            } else if (pt == short.class || pt == Short.class) {
+                callArgs[i] = Short.parseShort(token);
+            } else if (pt == byte.class || pt == Byte.class) {
+                callArgs[i] = Byte.parseByte(token);
+            } else if (pt == char.class || pt == Character.class) {
+                callArgs[i] = token.isEmpty() ? '\0' : token.charAt(0);
             } else if (pt == String[].class) {
                 String clean = token.replace("[", "").replace("]", "").replace("\\\"", "").replace("\x27", "").trim();
                 callArgs[i] = clean.isEmpty() ? new String[0] : clean.split("[,\\\\s]+");
@@ -604,15 +691,20 @@ public class Main {
             }
         }
 
-        Object result = target.invoke(sol, callArgs);
-        if (result != null) {
-            if (result instanceof int[]) {
-                System.out.println(Arrays.toString((int[]) result));
-            } else if (result.getClass().isArray()) {
-                System.out.println(Arrays.deepToString((Object[]) result));
-            } else {
-                System.out.println(result);
+        try {
+            Object result = target.invoke(sol, callArgs);
+            if (target.getReturnType() != void.class && result != null) {
+                System.out.println(formatValue(result));
             }
+        } catch (InvocationTargetException ite) {
+            Throwable cause = ite.getCause() != null ? ite.getCause() : ite;
+            System.err.println("Runtime Exception: " + cause.toString());
+            cause.printStackTrace(System.err);
+            System.exit(1);
+        } catch (Exception ex) {
+            System.err.println("Runtime Exception: " + ex.toString());
+            ex.printStackTrace(System.err);
+            System.exit(1);
         }
     }
 }
@@ -708,14 +800,14 @@ def _mz_auto_runner():
     args = []
     if param_count == 0:
         args = []
+    elif not raw_str:
+        sys.stderr.write(f"InputError: Function '{target_name}' expects {param_count} parameter(s) but input was empty\\n")
+        sys.exit(1)
     elif param_count == 1:
-        if not raw_str:
-            args = []
-        else:
-            try:
-                args = [json.loads(raw_str)]
-            except Exception:
-                args = [parse_token(raw_str)]
+        try:
+            args = [json.loads(raw_str)]
+        except Exception:
+            args = [parse_token(raw_str)]
     else:
         try:
             parsed = json.loads(raw_str)
@@ -781,9 +873,8 @@ function generateJsExecutable(code, options = {}) {
 ;(() => {
   const fs = require("fs");
   let raw = "";
-  try { raw = fs.readFileSync(0, "utf8"); } catch(e) { return; }
-  if (raw === undefined || raw === null || !raw.trim()) return;
-  const rawStr = raw.trim();
+  try { raw = fs.readFileSync(0, "utf8"); } catch(e) { raw = ""; }
+  const rawStr = typeof raw === "string" ? raw.trim() : "";
 
   const targetName = ${JSON.stringify(targetName)};
   if (!targetName) {
@@ -823,49 +914,56 @@ function generateJsExecutable(code, options = {}) {
     return s;
   }
 
-  const lines = rawStr.split("\\n").map(l => l.trim()).filter(Boolean);
-  const paramCount = typeof targetFn.length === "number" ? targetFn.length : 1;
+  const paramCount = typeof targetFn.length === "number" ? targetFn.length : 0;
   let parsedArgs = [];
 
   if (paramCount === 0) {
     parsedArgs = [];
-  } else if (paramCount === 1) {
-    if (lines.length === 1) {
-      parsedArgs = [parseToken(lines[0])];
-    } else if (lines.length > 1) {
-      try { parsedArgs = [JSON.parse(rawStr)]; } catch(e) { parsedArgs = [parseToken(lines[0])]; }
-    } else {
-      parsedArgs = rawStr ? [parseToken(rawStr)] : [];
-    }
-  } else if (paramCount > 1 && lines.length >= paramCount) {
-    parsedArgs = lines.slice(0, paramCount).map(parseToken);
-  } else if (paramCount > 1 && lines.length === 1) {
-    try {
-      const parsed = JSON.parse(rawStr);
-      if (Array.isArray(parsed) && parsed.length === paramCount) parsedArgs = parsed;
-      else {
+  } else if (!rawStr) {
+    console.error("InputError: Function '" + targetName + "' expects " + paramCount + " parameter(s) but input was empty");
+    process.exit(1);
+  } else {
+    const lines = rawStr.split("\\n").map(l => l.trim()).filter(Boolean);
+    if (paramCount === 1) {
+      if (lines.length === 1) {
+        parsedArgs = [parseToken(lines[0])];
+      } else if (lines.length > 1) {
+        try { parsedArgs = [JSON.parse(rawStr)]; } catch(e) { parsedArgs = [parseToken(lines[0])]; }
+      } else {
+        parsedArgs = rawStr ? [parseToken(rawStr)] : [];
+      }
+    } else if (paramCount > 1 && lines.length >= paramCount) {
+      parsedArgs = lines.slice(0, paramCount).map(parseToken);
+    } else if (paramCount > 1 && lines.length === 1) {
+      try {
+        const parsed = JSON.parse(rawStr);
+        if (Array.isArray(parsed) && parsed.length === paramCount) parsedArgs = parsed;
+        else {
+          const tokens = rawStr.split(/\\s+/);
+          parsedArgs = tokens.length === paramCount ? tokens.map(parseToken) : [parseToken(rawStr)];
+        }
+      } catch(e) {
         const tokens = rawStr.split(/\\s+/);
         parsedArgs = tokens.length === paramCount ? tokens.map(parseToken) : [parseToken(rawStr)];
       }
-    } catch(e) {
-      const tokens = rawStr.split(/\\s+/);
-      parsedArgs = tokens.length === paramCount ? tokens.map(parseToken) : [parseToken(rawStr)];
+    } else {
+      parsedArgs = lines.map(parseToken);
     }
-  } else {
-    parsedArgs = lines.map(parseToken);
   }
 
   try {
     const res = targetFn(...parsedArgs);
     if (res !== undefined) {
-      if (typeof res === "object" && res !== null) {
+      if (res === null) {
+        console.log("null");
+      } else if (typeof res === "object") {
         console.log(JSON.stringify(res));
       } else {
         console.log(String(res));
       }
     }
   } catch(e) {
-    console.error(e);
+    console.error("Runtime Exception: " + (e && e.stack ? e.stack : e));
     process.exit(1);
   }
 })();
@@ -873,8 +971,27 @@ function generateJsExecutable(code, options = {}) {
   return `${code}\n\n${jsHarness}`;
 }
 
+function isPublicUntrustedEnvironment() {
+  const env = (process.env.NODE_ENV || "development").trim().toLowerCase();
+  if (env === "production" || env === "staging" || env === "prod" || env === "stage") {
+    return true;
+  }
+  if (process.env.JUDGE0_REQUIRED === "true" || process.env.STAGING === "true") {
+    return true;
+  }
+  return false;
+}
+
+function isLocalExecutionPermitted() {
+  if (isPublicUntrustedEnvironment()) {
+    return false;
+  }
+  const env = (process.env.NODE_ENV || "development").trim().toLowerCase();
+  return env === "development" || env === "test" || process.env.ALLOW_LOCAL_CODE_EXECUTION === "true";
+}
+
 function isProductionExecutionRestricted() {
-  return process.env.NODE_ENV === "production" && !process.env.JUDGE0_API_HOST;
+  return isPublicUntrustedEnvironment() && !process.env.JUDGE0_API_HOST;
 }
 
 async function executeViaJudge0(lang, code, stdin = "", timeoutMs = 5000, options = {}) {
@@ -1195,7 +1312,23 @@ if __name__ == "__main__":
 /**
  * Universal Sandboxed Execution for a single run
  */
-async function executeCode({ language, code, stdin = "", timeoutMs = 5000, files = [], options = {} }) {
+async function executeCode(paramsOrLang, maybeCode, maybeStdin = "", maybeTimeoutMs = 5000, maybeFiles = [], maybeOptions = {}) {
+  let language, code, stdin, timeoutMs, files, options;
+  if (typeof paramsOrLang === "object" && paramsOrLang !== null && !Array.isArray(paramsOrLang)) {
+    language = paramsOrLang.language;
+    code = paramsOrLang.code;
+    stdin = paramsOrLang.stdin || "";
+    timeoutMs = paramsOrLang.timeoutMs || 5000;
+    files = paramsOrLang.files || [];
+    options = paramsOrLang.options || {};
+  } else {
+    language = paramsOrLang;
+    code = maybeCode;
+    stdin = maybeStdin;
+    timeoutMs = maybeTimeoutMs;
+    files = maybeFiles;
+    options = maybeOptions;
+  }
   const lang = (language || "").toLowerCase().trim();
   const startTime = Date.now();
 
@@ -1222,7 +1355,7 @@ async function executeCode({ language, code, stdin = "", timeoutMs = 5000, files
         };
       }
     } catch (j0Err) {
-      if (process.env.NODE_ENV === "production" || process.env.JUDGE0_REQUIRED === "true") {
+      if (isPublicUntrustedEnvironment() || !isLocalExecutionPermitted()) {
         return {
           output: "",
           error: "Isolated execution sandbox is temporarily unavailable. Please retry shortly.",
@@ -1236,10 +1369,10 @@ async function executeCode({ language, code, stdin = "", timeoutMs = 5000, files
   }
 
   // Fail-closed check if local execution restricted
-  if (process.env.NODE_ENV === "production" || isProductionExecutionRestricted()) {
+  if (isPublicUntrustedEnvironment() || !isLocalExecutionPermitted()) {
     return {
       output: "",
-      error: "Production execution requires a configured isolated execution environment (Judge0).",
+      error: "Production execution requires a configured isolated execution environment (Judge0). Local fallback is disabled.",
       duration: Date.now() - startTime,
       exitCode: 1,
       isUnavailable: true,
@@ -1474,7 +1607,7 @@ async function evaluateTestCasesBatch(language, code, testCases, options = {}) {
         return results;
       }
     } catch (j0Err) {
-      if (process.env.NODE_ENV === "production" || process.env.JUDGE0_REQUIRED === "true") {
+      if (isPublicUntrustedEnvironment() || !isLocalExecutionPermitted()) {
         return testCases.map((tc) => ({
           passed: false,
           actual: "",
@@ -1486,7 +1619,7 @@ async function evaluateTestCasesBatch(language, code, testCases, options = {}) {
     }
   }
 
-  if (process.env.NODE_ENV === "production") {
+  if (isPublicUntrustedEnvironment() || !isLocalExecutionPermitted()) {
     return testCases.map((tc) => ({
       passed: false,
       actual: "",
@@ -1679,6 +1812,8 @@ module.exports = {
   runSandboxedProcess,
   judge0LangMap,
   executeViaJudge0,
+  isPublicUntrustedEnvironment,
+  isLocalExecutionPermitted,
   isProductionExecutionRestricted,
   isCodeEmptyOrComments,
   validateTestCaseOutput,

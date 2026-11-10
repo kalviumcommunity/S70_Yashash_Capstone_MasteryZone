@@ -14,6 +14,9 @@ const getBackendUrl = () => {
     if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
       return "http://localhost:5012";
     }
+    if (window.location.hostname.includes("vercel.app")) {
+      return "https://mastery-zone.onrender.com";
+    }
     return window.location.origin;
   }
   return "http://localhost:5012";

@@ -40,25 +40,44 @@ const PORT = process.env.PORT || 5012; // Use environment variable or fallback t
 const server = http.createServer(app);
 
 // Explicit Trusted Origins for Strict CORS Enforcement
-const TRUSTED_ORIGINS = [
-  process.env.CLIENT_URL,
-  process.env.FRONTEND_URL,
-  "https://mastery-zone.onrender.com",
-  "http://localhost:5173",
-  "http://localhost:3000",
-  "http://localhost:5174",
-  "http://localhost:4173",
-].filter(Boolean);
+const EXPLICIT_ALLOWED_ORIGINS = new Set(
+  [
+    process.env.CLIENT_URL,
+    process.env.FRONTEND_URL,
+    process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(",") : null,
+    "https://mastery-zone.onrender.com",
+    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
+    process.env.NEXT_PUBLIC_VERCEL_URL ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}` : null,
+  ]
+    .flat()
+    .filter(Boolean)
+    .map((o) => o.trim().replace(/\/+$/, ""))
+);
+
+const LOCAL_DEV_ORIGIN_REGEX = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+
+function isOriginAllowed(origin, env = process.env.NODE_ENV) {
+  if (!origin) return true; // Mobile clients, server-to-server, curl, same-origin
+  const normalized = origin.trim().replace(/\/+$/, "");
+
+  // Check explicit production allowlist
+  if (EXPLICIT_ALLOWED_ORIGINS.has(normalized)) {
+    return true;
+  }
+
+  // Local development origins permitted ONLY in non-production, non-staging environments
+  const normEnv = (env || "development").trim().toLowerCase();
+  const isPublic = normEnv === "production" || normEnv === "staging" || normEnv === "prod" || normEnv === "stage";
+
+  if (!isPublic && LOCAL_DEV_ORIGIN_REGEX.test(normalized)) {
+    return true;
+  }
+
+  return false;
+}
 
 function corsOriginValidator(origin, callback) {
-  if (!origin) return callback(null, true);
-  if (
-    TRUSTED_ORIGINS.includes(origin) ||
-    /^https?:\/\/localhost(:\d+)?$/.test(origin) ||
-    /^https?:\/\/127\.0\.0\.1(:\d+)?$/.test(origin) ||
-    /^https:\/\/[a-zA-Z0-9_-]+\.vercel\.app$/.test(origin) ||
-    (process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "staging")
-  ) {
+  if (isOriginAllowed(origin)) {
     return callback(null, true);
   }
   return callback(new Error("CORS policy violation: Origin not allowed"), false);
@@ -67,6 +86,17 @@ function corsOriginValidator(origin, callback) {
 const corsOptions = {
   origin: corsOriginValidator,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "x-meeting-id",
+    "x-title",
+    "x-duration-seconds",
+    "x-participant-names",
+    "x-thumbnail-url",
+    "Range",
+  ],
+  exposedHeaders: ["Content-Range", "Accept-Ranges", "Content-Length", "Content-Type"],
   credentials: true,
 };
 
@@ -2138,4 +2168,13 @@ if (process.env.NODE_ENV !== "test") {
   });
 }
 
-module.exports = { app, server, isSameOrProductionDatabase, parseMongoUri };
+module.exports = {
+  app,
+  server,
+  isSameOrProductionDatabase,
+  parseMongoUri,
+  isOriginAllowed,
+  corsOriginValidator,
+  corsOptions,
+  EXPLICIT_ALLOWED_ORIGINS,
+};
