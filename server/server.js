@@ -56,7 +56,10 @@ const EXPLICIT_ALLOWED_ORIGINS = new Set(
 
 const LOCAL_DEV_ORIGIN_REGEX = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 
-function isOriginAllowed(origin, env = process.env.NODE_ENV) {
+const TRUSTED_LOCAL_ENVS = new Set(["development", "test"]);
+
+function isOriginAllowed(origin, env) {
+  const targetEnv = env !== undefined ? env : (process.env.NODE_ENV || "");
   if (!origin) return true; // Mobile clients, server-to-server, curl, same-origin
   const normalized = origin.trim().replace(/\/+$/, "");
 
@@ -65,11 +68,12 @@ function isOriginAllowed(origin, env = process.env.NODE_ENV) {
     return true;
   }
 
-  // Local development origins permitted ONLY in non-production, non-staging environments
-  const normEnv = (env || "development").trim().toLowerCase();
-  const isPublic = normEnv === "production" || normEnv === "staging" || normEnv === "prod" || normEnv === "stage";
+  // Local development origins permitted ONLY in explicitly trusted local environments (development, test)
+  // Unknown, preview, staging, production, and missing NODE_ENV environments MUST reject localhost origins
+  const normEnv = (targetEnv || "").trim().toLowerCase();
+  const isTrustedLocal = TRUSTED_LOCAL_ENVS.has(normEnv);
 
-  if (!isPublic && LOCAL_DEV_ORIGIN_REGEX.test(normalized)) {
+  if (isTrustedLocal && LOCAL_DEV_ORIGIN_REGEX.test(normalized)) {
     return true;
   }
 

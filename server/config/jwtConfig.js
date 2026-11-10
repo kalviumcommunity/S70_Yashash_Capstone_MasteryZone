@@ -82,20 +82,24 @@ function isSecretStrong(secret) {
   return true;
 }
 
+const TRUSTED_LOCAL_ENVS = new Set(["development", "test"]);
+
 /**
  * Validates the JWT secret for the specified target runtime environment.
- * In production and public staging, returns valid: false with descriptive error
+ * In production, public staging, preview, and unknown environments, returns valid: false with descriptive error
  * if the secret is missing, weak, or matches a default value.
+ * Missing or unknown environments strictly fail closed.
  */
-function validateJwtSecret(secret, env = process.env.NODE_ENV, secretName = "JWT_SECRET") {
-  const normEnv = (env || "development").trim().toLowerCase();
-  const isPublic = normEnv === "production" || normEnv === "staging" || normEnv === "prod" || normEnv === "stage";
+function validateJwtSecret(secret, env, secretName = "JWT_SECRET") {
+  const targetEnv = env !== undefined ? env : (process.env.NODE_ENV || "");
+  const normEnv = (targetEnv || "").trim().toLowerCase();
+  const isTrustedLocal = TRUSTED_LOCAL_ENVS.has(normEnv);
 
-  if (isPublic) {
+  if (!isTrustedLocal) {
     if (!secret || typeof secret !== "string" || !secret.trim()) {
       return {
         valid: false,
-        error: `${secretName} is missing. A strong 256-bit secret (minimum 32 characters) is required in public environments.`,
+        error: `${secretName} is missing. A strong 256-bit secret (minimum 32 characters) is required in public and deployed environments.`,
       };
     }
     const trimmed = secret.trim();
@@ -164,13 +168,16 @@ function getPersistentDevSecret() {
  * so local developer sessions persist across server restarts.
  */
 function getJwtSecret() {
-  const env = (process.env.NODE_ENV || "development").trim().toLowerCase();
-  const isPublic = env === "production" || env === "staging" || env === "prod" || env === "stage";
+  const env = (process.env.NODE_ENV || "").trim().toLowerCase();
+  const isTrustedLocal = TRUSTED_LOCAL_ENVS.has(env);
   const secret = process.env.JWT_SECRET;
 
   const validation = validateJwtSecret(secret, env, "JWT_SECRET");
-  if (isPublic && !validation.valid) {
+  if (!isTrustedLocal && !validation.valid) {
     console.error(`FATAL SECURITY ERROR: ${validation.error}`);
+    if (env === "test" || process.env.NODE_ENV === "test") {
+      throw new Error(validation.error);
+    }
     process.exit(1);
   }
 
@@ -178,13 +185,16 @@ function getJwtSecret() {
     return secret.trim();
   }
 
-  if (!isPublic && secret && typeof secret === "string" && secret.trim()) {
+  if (isTrustedLocal && secret && typeof secret === "string" && secret.trim()) {
     return secret.trim();
   }
 
-  // Staging / Production must never reach auto-generation
-  if (isPublic) {
+  // Staging / Production / Preview / Unknown must never reach auto-generation
+  if (!isTrustedLocal) {
     console.error("FATAL SECURITY ERROR: Insecure secret fallback blocked in public environment.");
+    if (env === "test" || process.env.NODE_ENV === "test") {
+      throw new Error("Insecure secret fallback blocked in public environment.");
+    }
     process.exit(1);
   }
 
@@ -196,20 +206,23 @@ function getJwtSecret() {
  * Validates and returns the independent refresh token secret where configured.
  */
 function getJwtRefreshSecret() {
-  const env = (process.env.NODE_ENV || "development").trim().toLowerCase();
-  const isPublic = env === "production" || env === "staging" || env === "prod" || env === "stage";
+  const env = (process.env.NODE_ENV || "").trim().toLowerCase();
+  const isTrustedLocal = TRUSTED_LOCAL_ENVS.has(env);
   const refreshSecret = process.env.JWT_REFRESH_SECRET;
 
   if (refreshSecret) {
     const validation = validateJwtSecret(refreshSecret, env, "JWT_REFRESH_SECRET");
-    if (isPublic && !validation.valid) {
+    if (!isTrustedLocal && !validation.valid) {
       console.error(`FATAL SECURITY ERROR: ${validation.error}`);
+      if (env === "test" || process.env.NODE_ENV === "test") {
+        throw new Error(validation.error);
+      }
       process.exit(1);
     }
     return refreshSecret.trim();
   }
 
-  if (isPublic) {
+  if (!isTrustedLocal) {
     return null;
   }
 

@@ -116,6 +116,8 @@ function sanitizeLogMessage(msg) {
     .replace(/(Bearer\s+)[^\s]+/gi, "$1[REDACTED_TOKEN]");
 }
 
+const TRUSTED_LOCAL_ENVS = new Set(["development", "test"]);
+
 /**
  * Detects whether an HTTPS transactional email provider is configured.
  * Cloud platforms (specifically Render Free Tier) completely block outbound
@@ -123,14 +125,14 @@ function sanitizeLogMessage(msg) {
  * bypasses cloud firewall restrictions without requiring paid infrastructure.
  */
 function getHttpEmailProvider() {
-  const env = (process.env.NODE_ENV || "development").trim().toLowerCase();
-  const isPublic = env === "production" || env === "staging" || env === "prod" || env === "stage";
+  const env = (process.env.NODE_ENV || "").trim().toLowerCase();
+  const isTrustedLocal = TRUSTED_LOCAL_ENVS.has(env);
 
   if (process.env.RESEND_API_KEY && process.env.RESEND_API_KEY.trim()) {
     let from = process.env.RESEND_FROM ? process.env.RESEND_FROM.trim() : "";
     const isTestSender = !from || from.includes("onboarding@resend.dev");
 
-    if (isPublic && isTestSender) {
+    if (!isTrustedLocal && isTestSender) {
       console.warn(
         "[Mailer] PRODUCTION CONFIGURATION WARNING: RESEND_FROM is unconfigured or using sandbox sender 'onboarding@resend.dev'. " +
         "Resend sandbox senders only deliver to the account owner. Configure a verified sender domain in RESEND_FROM for live deliverability."
@@ -167,10 +169,21 @@ function getHttpEmailProvider() {
 }
 
 async function sendViaHttpApi(mailOptions, provider) {
+  const env = (process.env.NODE_ENV || "").trim().toLowerCase();
+  const isTrustedLocal = TRUSTED_LOCAL_ENVS.has(env);
   const to = Array.isArray(mailOptions.to) ? mailOptions.to : [mailOptions.to];
   const cleanTo = to.map((e) => String(e).trim().toLowerCase());
 
   if (provider.type === 'resend') {
+    if (provider.isTestSender && !isTrustedLocal) {
+      return {
+        success: false,
+        status: 'failed',
+        errorCode: 'ECONFIG',
+        error: "Production email requires an explicitly configured verified sender domain via RESEND_FROM. Sandbox sender 'onboarding@resend.dev' is rejected in production/deployed environments.",
+      };
+    }
+
     // When using Resend without a custom verified domain, any 'from' address using
     // @gmail.com, @yahoo.com, etc. will be rejected by Resend with HTTP 403 (domain not verified).
     // Always enforce provider.from ('onboarding@resend.dev') unless RESEND_FROM was explicitly configured.
@@ -410,8 +423,19 @@ function getTransporter() {
  * Explicit health check verifying live SMTP connection and authentication
  */
 async function verifySmtpConnection() {
+  const env = (process.env.NODE_ENV || "").trim().toLowerCase();
+  const isTrustedLocal = TRUSTED_LOCAL_ENVS.has(env);
   const httpProvider = getHttpEmailProvider();
   if (httpProvider) {
+    if (httpProvider.type === 'resend' && httpProvider.isTestSender && !isTrustedLocal) {
+      return {
+        success: false,
+        configured: false,
+        connected: false,
+        errorCode: 'ECONFIG',
+        message: "Production email requires an explicitly configured verified sender domain via RESEND_FROM. Sandbox sender 'onboarding@resend.dev' is rejected in production/deployed environments.",
+      };
+    }
     try {
       if (httpProvider.type === 'resend') {
         const res = await fetch('https://api.resend.com/api-keys', {
