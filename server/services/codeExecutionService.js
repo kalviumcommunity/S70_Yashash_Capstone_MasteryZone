@@ -1066,70 +1066,278 @@ function isLocalExecutionPermitted() {
 }
 
 function isProductionExecutionRestricted() {
-  return isPublicUntrustedEnvironment() && !process.env.JUDGE0_API_HOST;
+  const cfg = getJudge0Config();
+  return isPublicUntrustedEnvironment() && (!cfg.configured || !cfg.valid);
 }
 
-async function executeViaJudge0(lang, code, stdin = "", timeoutMs = 5000, options = {}) {
-  if (!process.env.JUDGE0_API_HOST) return null;
-  const langId = judge0LangMap[lang];
-  if (!langId) {
-    throw new Error(`Language '${lang}' is not supported by Judge0`);
+function parsePositiveInt(val, fallback) {
+  if (val === undefined || val === null || String(val).trim() === "") return fallback;
+  const parsed = Number.parseInt(String(val).trim(), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+/**
+ * Validates and resolves Judge0 configuration from environment variables.
+ * Supports JUDGE0_API_HOST (or JUDGE0_API_URL), JUDGE0_API_KEY (or JUDGE0_AUTH_TOKEN),
+ * and configurable language IDs (JUDGE0_LANG_PYTHON, JUDGE0_LANG_JAVASCRIPT, JUDGE0_LANG_JAVA, JUDGE0_LANG_CPP, JUDGE0_LANG_C).
+ */
+function getJudge0Config() {
+  const rawHost = String(process.env.JUDGE0_API_HOST || process.env.JUDGE0_API_URL || "").trim();
+  if (!rawHost || rawHost === "undefined" || rawHost === "null") {
+    return {
+      configured: false,
+      valid: false,
+      baseUrl: "",
+      apiKey: "",
+      error: "Production execution requires a configured isolated execution environment (Judge0). Local fallback is disabled.",
+    };
   }
 
-  let normalizedCode = code;
-  if (lang === "python" || lang === "py") {
-    normalizedCode = generatePythonExecutable(normalizedCode, options);
-  } else if (lang === "java") {
-    const javaExec = generateJavaExecutable(normalizedCode, options);
-    normalizedCode = javaExec.code;
-    if (javaExec.hasMain) {
-      if (/public\s+class\s+[A-Za-z0-9_]+/i.test(normalizedCode)) {
-        normalizedCode = normalizedCode.replace(/public\s+class\s+[A-Za-z0-9_]+/g, "public class Main");
-      } else if (/\bclass\s+([A-Za-z0-9_]+)/i.test(normalizedCode)) {
-        normalizedCode = normalizedCode.replace(/\bclass\s+[A-Za-z0-9_]+/i, "public class Main");
-      }
+  let normalizedHost = rawHost;
+  if (!/^https?:\/\//i.test(normalizedHost)) {
+    if (/^[a-zA-Z0-9.-]+(:\d+)?(\/.*)?$/.test(normalizedHost)) {
+      const isLocal = /^(localhost|127\.0\.0\.1)(:|\/|$)/i.test(normalizedHost);
+      normalizedHost = `${isLocal ? "http" : "https"}://${normalizedHost}`;
     }
-  } else if (lang === "cpp" || lang === "c++") {
-    normalizedCode = generateCppExecutable(normalizedCode, options);
-  } else if (lang === "javascript" || lang === "js" || lang === "node") {
-    normalizedCode = generateJsExecutable(normalizedCode, options);
   }
 
-  const url = new URL("/submissions?wait=true", process.env.JUDGE0_API_HOST);
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(normalizedHost);
+    if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
+      return {
+        configured: true,
+        valid: false,
+        baseUrl: "",
+        apiKey: "",
+        error: "Invalid Judge0 configuration: JUDGE0_API_HOST must use http:// or https:// protocol.",
+      };
+    }
+  } catch {
+    return {
+      configured: true,
+      valid: false,
+      baseUrl: "",
+      apiKey: "",
+      error: `Invalid Judge0 configuration: JUDGE0_API_HOST ('${rawHost}') is not a valid URL.`,
+    };
+  }
+
+  const rawKey = String(process.env.JUDGE0_API_KEY || process.env.JUDGE0_AUTH_TOKEN || "").trim();
+  const apiKey = rawKey === "undefined" || rawKey === "null" ? "" : rawKey;
+  const isRapidApi = parsedUrl.hostname.toLowerCase().endsWith("rapidapi.com");
+
+  if (isRapidApi && !apiKey) {
+    return {
+      configured: true,
+      valid: false,
+      baseUrl: normalizedHost,
+      apiKey: "",
+      error: "Invalid Judge0 configuration: JUDGE0_API_KEY is required when JUDGE0_API_HOST is a RapidAPI endpoint.",
+    };
+  }
+
+  const languageIds = {
+    python: parsePositiveInt(process.env.JUDGE0_LANG_PYTHON, judge0LangMap.python),
+    py: parsePositiveInt(process.env.JUDGE0_LANG_PYTHON, judge0LangMap.py),
+    javascript: parsePositiveInt(process.env.JUDGE0_LANG_JAVASCRIPT, judge0LangMap.javascript),
+    js: parsePositiveInt(process.env.JUDGE0_LANG_JAVASCRIPT, judge0LangMap.js),
+    node: parsePositiveInt(process.env.JUDGE0_LANG_JAVASCRIPT, judge0LangMap.node),
+    java: parsePositiveInt(process.env.JUDGE0_LANG_JAVA, judge0LangMap.java),
+    cpp: parsePositiveInt(process.env.JUDGE0_LANG_CPP, judge0LangMap.cpp),
+    "c++": parsePositiveInt(process.env.JUDGE0_LANG_CPP, judge0LangMap["c++"]),
+    c: parsePositiveInt(process.env.JUDGE0_LANG_C, judge0LangMap.c),
+  };
+
+  return {
+    configured: true,
+    valid: true,
+    baseUrl: normalizedHost,
+    parsedUrl,
+    apiKey,
+    isRapidApi,
+    languageIds,
+    error: null,
+  };
+}
+
+function getJudge0LanguageId(lang, config = null) {
+  const norm = String(lang || "").toLowerCase().trim();
+  const cfg = config || getJudge0Config();
+  if (cfg && cfg.languageIds && cfg.languageIds[norm]) {
+    return cfg.languageIds[norm];
+  }
+  return judge0LangMap[norm] || null;
+}
+
+/**
+ * Bundles multi-file projects (Python, JavaScript, Java, C/C++) into a self-contained
+ * single-source payload suitable for isolated Judge0 execution while preserving module imports
+ * and per-file syntax diagnostics.
+ */
+function bundleMultiFileProject(lang, files) {
+  const normLang = String(lang || "javascript").toLowerCase().trim();
+  if (!Array.isArray(files) || files.length === 0) return "";
+  if (files.length === 1) return String(files[0].content || "");
+
+  if (normLang === "python" || normLang === "py") {
+    const pyFiles = files.filter((f) => String(f.name || "").endsWith(".py"));
+    const effectiveFiles = pyFiles.length > 0 ? pyFiles : files;
+    const entryFile =
+      effectiveFiles.find((f) => f.name === "main.py" || f.name === "app.py" || f.name === "server.py") ||
+      effectiveFiles[0];
+    const moduleEntries = {};
+    for (const f of effectiveFiles) {
+      const modName = String(f.name || "main.py").replace(/\.py$/i, "");
+      moduleEntries[modName] = { filename: f.name || `${modName}.py`, code: String(f.content || "") };
+    }
+    const entryModName = String(entryFile.name || "main.py").replace(/\.py$/i, "");
+    return [
+      "import sys as _mz_sys",
+      "import importlib.machinery as _mz_machinery",
+      `_MZ_SOURCES = ${JSON.stringify(moduleEntries)}`,
+      "for _mz_k, _mz_v in _MZ_SOURCES.items():",
+      "    try:",
+      '        compile(_mz_v["code"], _mz_v["filename"], "exec")',
+      "    except SyntaxError as _mz_e:",
+      '        _mz_sys.stderr.write(f"Syntax Error in {_mz_v[\'filename\']} (line {_mz_e.lineno}): {_mz_e.msg}\\n")',
+      "        _mz_sys.exit(1)",
+      "class _MZInMemoryFinder:",
+      "    def find_spec(self, fullname, path, target=None):",
+      "        if fullname in _MZ_SOURCES:",
+      "            return _mz_machinery.ModuleSpec(fullname, self)",
+      "        return None",
+      "    def create_module(self, spec):",
+      "        return None",
+      "    def exec_module(self, module):",
+      "        _info = _MZ_SOURCES[module.__name__]",
+      '        module.__file__ = _info["filename"]',
+      '        exec(compile(_info["code"], _info["filename"], "exec"), module.__dict__)',
+      "_mz_sys.meta_path.insert(0, _MZInMemoryFinder())",
+      `_mz_entry = _MZ_SOURCES[${JSON.stringify(entryModName)}]`,
+      '__file__ = _mz_entry["filename"]',
+      'exec(compile(_mz_entry["code"], _mz_entry["filename"], "exec"), globals())',
+    ].join("\n");
+  }
+
+  if (normLang === "java") {
+    const javaFiles = files.filter((f) => String(f.name || "").endsWith(".java"));
+    const effectiveFiles = javaFiles.length > 0 ? javaFiles : files;
+    const imports = new Set();
+    const classBodies = [];
+    const sorted = [...effectiveFiles].sort((a, b) =>
+      a.name === "Main.java" ? -1 : b.name === "Main.java" ? 1 : 0
+    );
+    for (const f of sorted) {
+      const lines = String(f.content || "").split(/\r?\n/);
+      const bodyLines = [];
+      for (const line of lines) {
+        if (/^\s*import\s+[\w.*]+\s*;/.test(line)) {
+          imports.add(line.trim());
+        } else if (/^\s*package\s+[\w.]+\s*;/.test(line)) {
+          // Omit package declarations in combined single-unit compilation
+        } else {
+          bodyLines.push(line);
+        }
+      }
+      let body = bodyLines.join("\n");
+      if (f.name !== "Main.java") {
+        body = body.replace(/\bpublic\s+(abstract\s+class|final\s+class|class|interface|enum)\b/g, "$1");
+      }
+      classBodies.push(`// --- File: ${f.name} ---\n${body}`);
+    }
+    return [...Array.from(imports), "", ...classBodies].join("\n");
+  }
+
+  // Default: JavaScript / Node.js
+  const jsFiles = files.filter((f) => String(f.name || "").endsWith(".js"));
+  const effectiveFiles = jsFiles.length > 0 ? jsFiles : files;
+  const entryFile =
+    effectiveFiles.find((f) => f.name === "main.js" || f.name === "server.js" || f.name === "app.js" || f.name === "index.js") ||
+    effectiveFiles[0];
+  const moduleMap = {};
+  for (const f of effectiveFiles) {
+    const key = String(f.name || "main.js").replace(/\.js$/i, "");
+    moduleMap[key] = { filename: f.name || `${key}.js`, code: String(f.content || "") };
+  }
+  const entryKey = String(entryFile.name || "main.js").replace(/\.js$/i, "");
+  return [
+    "const _mzBuiltinRequire = require;",
+    'const _mzVm = _mzBuiltinRequire("vm");',
+    `const _MZ_MODULES = ${JSON.stringify(moduleMap)};`,
+    "const _mzCache = {};",
+    "for (const [_k, _info] of Object.entries(_MZ_MODULES)) {",
+    "  try {",
+    "    new _mzVm.Script(_info.code, { filename: _info.filename });",
+    "  } catch (_err) {",
+    "    console.error(`Syntax Error in ${_info.filename}:\\n${_err.stack || _err.message}`);",
+    "    process.exit(1);",
+    "  }",
+    "}",
+    "function _mzRequire(id) {",
+    '  if (typeof id === "string" && (id.startsWith("./") || id.startsWith("../") || _MZ_MODULES[id])) {',
+    '    const clean = id.replace(/^(\\.\\/|\\.\\.\\/)+/, "").replace(/\\.js$/i, "");',
+    "    if (_mzCache[clean]) return _mzCache[clean].exports;",
+    "    const info = _MZ_MODULES[clean];",
+    "    if (!info) throw new Error(`Cannot find module '${id}'`);",
+    "    const mod = { exports: {} };",
+    "    _mzCache[clean] = mod;",
+    '    const wrapper = _mzVm.runInThisContext(`(function(exports, require, module, __filename, __dirname) { ${info.code}\\n})`, { filename: info.filename });',
+    '    wrapper(mod.exports, _mzRequire, mod, info.filename, ".");',
+    "    return mod.exports;",
+    "  }",
+    "  return _mzBuiltinRequire(id);",
+    "}",
+    `_mzRequire(${JSON.stringify("./" + entryKey)});`,
+  ].join("\n");
+}
+
+function decodeJudge0Base64(val) {
+  if (val === undefined || val === null || val === "") return "";
+  try {
+    return Buffer.from(String(val), "base64").toString("utf8");
+  } catch {
+    return String(val);
+  }
+}
+
+function buildJudge0Headers(cfg) {
   const headers = {
     "Content-Type": "application/json",
+    Accept: "application/json",
   };
-  if (process.env.JUDGE0_API_KEY) {
-    headers["X-RapidAPI-Key"] = process.env.JUDGE0_API_KEY;
-    headers["X-RapidAPI-Host"] = new URL(process.env.JUDGE0_API_HOST).hostname;
+  if (cfg.apiKey) {
+    if (cfg.isRapidApi) {
+      headers["X-RapidAPI-Key"] = cfg.apiKey;
+      headers["X-RapidAPI-Host"] = cfg.parsedUrl.hostname;
+    } else {
+      headers["X-Auth-Token"] = cfg.apiKey;
+      headers["X-RapidAPI-Key"] = cfg.apiKey;
+      headers["X-RapidAPI-Host"] = cfg.parsedUrl.hostname;
+    }
   }
+  return headers;
+}
 
-  const bodyData = JSON.stringify({
-    source_code: Buffer.from(normalizedCode).toString("base64"),
-    language_id: langId,
-    stdin: Buffer.from(stdin || "").toString("base64"),
-    cpu_time_limit: Math.min(Math.max(Math.ceil(timeoutMs / 1000), 1), 10),
-    wall_time_limit: Math.min(Math.max(Math.ceil((timeoutMs + 2000) / 1000), 2), 15),
-    memory_limit: 128000,
-    max_file_size: 1024,
-  });
-
-  const j0Result = await new Promise((resolve, reject) => {
+function judge0HttpRequest(url, method, headers, bodyData, requestTimeoutMs) {
+  return new Promise((resolve, reject) => {
     const reqModule = url.protocol === "https:" ? https : http;
     const jReq = reqModule.request(
       url,
-      { method: "POST", headers, timeout: timeoutMs + 3000 },
+      { method, headers, timeout: requestTimeoutMs },
       (jRes) => {
         let resData = "";
         jRes.on("data", (c) => (resData += c));
         jRes.on("end", () => {
           if (jRes.statusCode < 200 || jRes.statusCode >= 300) {
-            return reject(new Error(`Judge0 HTTP Error ${jRes.statusCode}: ${resData || "Unexpected response"}`));
+            return reject(
+              new Error(`Judge0 HTTP Error ${jRes.statusCode}: ${resData || "Unexpected response"}`)
+            );
           }
           try {
             const parsed = JSON.parse(resData);
-            if (!parsed || typeof parsed !== "object" || !parsed.status) {
-              return reject(new Error("Judge0 returned malformed response or missing status"));
+            if (!parsed || typeof parsed !== "object") {
+              return reject(new Error("Judge0 returned malformed response"));
             }
             resolve(parsed);
           } catch (e) {
@@ -1143,23 +1351,190 @@ async function executeViaJudge0(lang, code, stdin = "", timeoutMs = 5000, option
       jReq.destroy();
       reject(new Error("Judge0 execution request timed out"));
     });
-    jReq.write(bodyData);
+    if (bodyData) {
+      jReq.write(bodyData);
+    }
     jReq.end();
   });
+}
 
-  if (j0Result && j0Result.status) {
-    const stdout = j0Result.stdout ? Buffer.from(j0Result.stdout, "base64").toString("utf8") : "";
-    const stderr = j0Result.stderr ? Buffer.from(j0Result.stderr, "base64").toString("utf8") : "";
-    const compileOutput = j0Result.compile_output ? Buffer.from(j0Result.compile_output, "base64").toString("utf8") : "";
+async function executeViaJudge0(lang, code, stdin = "", timeoutMs = 5000, options = {}) {
+  const cfg = getJudge0Config();
+  if (!cfg.configured) return null;
+  if (!cfg.valid) {
+    const err = new Error(cfg.error);
+    err.isConfigError = true;
+    throw err;
+  }
+
+  const normLang = String(lang || "").toLowerCase().trim();
+  const langId = getJudge0LanguageId(normLang, cfg);
+  if (!langId) {
+    throw new Error(`Language '${lang}' is not supported by Judge0`);
+  }
+
+  let normalizedCode = code;
+  if (Array.isArray(options.files) && options.files.length > 0) {
+    normalizedCode = bundleMultiFileProject(normLang, options.files);
+  } else if (options.rawCode) {
+    normalizedCode = String(code || "");
+    if (normLang === "java") {
+      if (/public\s+class\s+[A-Za-z0-9_]+/i.test(normalizedCode)) {
+        normalizedCode = normalizedCode.replace(/public\s+class\s+[A-Za-z0-9_]+/g, "public class Main");
+      } else if (/\bclass\s+([A-Za-z0-9_]+)/i.test(normalizedCode)) {
+        normalizedCode = normalizedCode.replace(/\bclass\s+[A-Za-z0-9_]+/i, "public class Main");
+      }
+    }
+  } else if (normLang === "python" || normLang === "py") {
+    normalizedCode = generatePythonExecutable(normalizedCode, options);
+  } else if (normLang === "java") {
+    const javaExec = generateJavaExecutable(normalizedCode, options);
+    normalizedCode = javaExec.code;
+    if (javaExec.hasMain) {
+      if (/public\s+class\s+[A-Za-z0-9_]+/i.test(normalizedCode)) {
+        normalizedCode = normalizedCode.replace(/public\s+class\s+[A-Za-z0-9_]+/g, "public class Main");
+      } else if (/\bclass\s+([A-Za-z0-9_]+)/i.test(normalizedCode)) {
+        normalizedCode = normalizedCode.replace(/\bclass\s+[A-Za-z0-9_]+/i, "public class Main");
+      }
+    }
+  } else if (normLang === "cpp" || normLang === "c++") {
+    normalizedCode = generateCppExecutable(normalizedCode, options);
+  } else if (normLang === "javascript" || normLang === "js" || normLang === "node") {
+    normalizedCode = generateJsExecutable(normalizedCode, options);
+  }
+
+  const submitUrl = new URL("/submissions?base64_encoded=true&wait=true", cfg.baseUrl);
+  const headers = buildJudge0Headers(cfg);
+
+  const bodyData = JSON.stringify({
+    source_code: Buffer.from(String(normalizedCode || ""), "utf8").toString("base64"),
+    language_id: langId,
+    stdin: Buffer.from(String(stdin || ""), "utf8").toString("base64"),
+    cpu_time_limit: Math.min(Math.max(Math.ceil(timeoutMs / 1000), 1), 10),
+    wall_time_limit: Math.min(Math.max(Math.ceil((timeoutMs + 2000) / 1000), 2), 15),
+    memory_limit: 128000,
+    max_file_size: 1024,
+  });
+
+  const requestTimeoutMs = Math.max(timeoutMs + 4000, 7000);
+  let j0Result = await judge0HttpRequest(submitUrl, "POST", headers, bodyData, requestTimeoutMs);
+
+  // If Judge0 returned a queued/processing token (status 1 = In Queue, 2 = Processing, or token without status), poll until completion
+  if (
+    j0Result &&
+    typeof j0Result.token === "string" &&
+    j0Result.token.trim() !== "" &&
+    (!j0Result.status || j0Result.status.id === 1 || j0Result.status.id === 2)
+  ) {
+    const token = j0Result.token.trim();
+    const pollDeadline = Date.now() + Math.max(timeoutMs + 4000, 8000);
+    const pollIntervalMs = 250;
+
+    while (Date.now() < pollDeadline) {
+      await new Promise((r) => setTimeout(r, pollIntervalMs));
+      const pollUrl = new URL(
+        `/submissions/${encodeURIComponent(token)}?base64_encoded=true&fields=stdout,stderr,status,compile_output,message,time,memory,exit_code`,
+        cfg.baseUrl
+      );
+      j0Result = await judge0HttpRequest(pollUrl, "GET", headers, null, 5000);
+      if (j0Result && j0Result.status && typeof j0Result.status.id === "number" && j0Result.status.id >= 3) {
+        break;
+      }
+    }
+
+    if (!j0Result || !j0Result.status || j0Result.status.id === 1 || j0Result.status.id === 2) {
+      return {
+        output: "",
+        error: `Execution timed out after ${timeoutMs / 1000} seconds while waiting for Judge0 sandbox.`,
+        duration: timeoutMs,
+        exitCode: -1,
+        isTimeout: true,
+        engine: "Judge0",
+      };
+    }
+  }
+
+  if (!j0Result || typeof j0Result !== "object" || !j0Result.status || typeof j0Result.status.id !== "number") {
+    throw new Error("Judge0 returned malformed response or missing status");
+  }
+
+  const statusId = j0Result.status.id;
+  const statusDesc = j0Result.status.description || "Execution Error";
+  const stdout = decodeJudge0Base64(j0Result.stdout);
+  const stderr = decodeJudge0Base64(j0Result.stderr);
+  const compileOutput = decodeJudge0Base64(j0Result.compile_output);
+  const message = decodeJudge0Base64(j0Result.message);
+  const duration = Math.round(Number(j0Result.time || 0) * 1000) || 0;
+
+  // Status 13: Judge0 Internal Error -> treat as sandbox unavailability
+  if (statusId === 13) {
+    throw new Error(`Judge0 Internal Error: ${message || stderr || statusDesc}`);
+  }
+
+  // Status 5: Time Limit Exceeded
+  if (statusId === 5) {
     return {
       output: stdout,
-      error: stderr || compileOutput || (j0Result.status.id > 3 ? j0Result.status.description : ""),
-      duration: Math.round(Number(j0Result.time || 0) * 1000) || 0,
-      exitCode: j0Result.status.id === 3 ? 0 : 1,
+      error: stderr
+        ? `Execution timed out (Time Limit Exceeded):\n${stderr}`
+        : `Execution timed out after ${timeoutMs / 1000} seconds (Time Limit Exceeded).`,
+      duration: duration || timeoutMs,
+      exitCode: -1,
+      isTimeout: true,
       engine: "Judge0",
     };
   }
-  throw new Error("Incomplete or empty Judge0 submission result");
+
+  // Status 6: Compilation Error
+  if (statusId === 6) {
+    const rawCompErr = (compileOutput || stderr || message || statusDesc).trim();
+    const formattedCompErr = /^Compilation Error/i.test(rawCompErr)
+      ? rawCompErr
+      : `Compilation Error:\n${rawCompErr}`;
+    return {
+      output: "",
+      error: formattedCompErr,
+      duration,
+      exitCode: 1,
+      isCompileError: true,
+      engine: "Judge0",
+    };
+  }
+
+  // Status 7-12: Runtime Errors (SIGSEGV, SIGXFSZ, SIGFPE, SIGABRT, NZEC, Other)
+  if (statusId >= 7 && statusId <= 12) {
+    const rtErr = (stderr || compileOutput || message || `Runtime Error (${statusDesc})`).trim();
+    const isSyntaxErr = /SyntaxError|Syntax Error|IndentationError/i.test(rtErr);
+    return {
+      output: stdout,
+      error: rtErr,
+      duration,
+      exitCode: 1,
+      isRuntimeError: !isSyntaxErr,
+      isCompileError: isSyntaxErr,
+      engine: "Judge0",
+    };
+  }
+
+  // Status 3 (Accepted) or Status 4 (Wrong Answer when expected_output provided)
+  if (statusId === 3 || statusId === 4) {
+    return {
+      output: stdout,
+      error: stderr || "",
+      duration,
+      exitCode: 0,
+      engine: "Judge0",
+    };
+  }
+
+  // Other status IDs (e.g. 14 = Exec Format Error)
+  return {
+    output: stdout,
+    error: stderr || compileOutput || message || statusDesc,
+    duration,
+    exitCode: 1,
+    engine: "Judge0",
+  };
 }
 
 function isCodeEmptyOrComments(code) {
@@ -1201,15 +1576,16 @@ function deepEqualStructural(a, b) {
 function validateTestCaseOutput(actual, expected) {
   if (actual === undefined || actual === null || expected === undefined || expected === null) return false;
 
-  // 1. Strict equality check
-  if (actual === expected) return true;
-
-  // 2. Normalize whitespace (CRLF -> LF, trim start/end of string)
+  // 1. Normalize whitespace (CRLF -> LF, trim start/end of string)
   const cleanAct = String(actual).replace(/\r\n/g, "\n").trim();
   const cleanExp = String(expected).replace(/\r\n/g, "\n").trim();
 
-  if (cleanAct === cleanExp) return true;
+  // Never report a test as passed if actual or expected output is empty
   if (cleanAct === "" || cleanExp === "") return false;
+
+  // 2. Strict equality check
+  if (actual === expected) return true;
+  if (cleanAct === cleanExp) return true;
 
   // 3. Strip runner output prefix (e.g. "Output: " or "Result: ")
   const stripPrefix = (s) => s.replace(/^(output|result)\s*[:=]\s*/i, "").trim();
@@ -1407,7 +1783,7 @@ async function executeCode(paramsOrLang, maybeCode, maybeStdin = "", maybeTimeou
   const lang = (language || "").toLowerCase().trim();
   const startTime = Date.now();
 
-  const safety = validateCodeSafety(lang, code);
+  const safety = validateCodeSafety(lang, code, options);
   if (!safety.safe) {
     return {
       output: "",
@@ -1419,10 +1795,52 @@ async function executeCode(paramsOrLang, maybeCode, maybeStdin = "", maybeTimeou
     };
   }
 
+  if (Array.isArray(files) && files.length > 0) {
+    for (const f of files) {
+      const fSafety = validateCodeSafety(f.language || lang, f.content || "", { ...options, isProject: true });
+      if (!fSafety.safe) {
+        return {
+          output: "",
+          error: `Security Violation in ${f.name || "file"}: ${fSafety.reason}`,
+          exitCode: 1,
+          duration: 0,
+          engine: "Security Sandbox Validator",
+          isSecurityViolation: true,
+        };
+      }
+    }
+  }
+
+  if (lang === "html" || lang === "htm" || lang === "css") {
+    return {
+      output: code,
+      error: "",
+      duration: Date.now() - startTime,
+      exitCode: 0,
+      engine: "Frontend Web Preview",
+    };
+  }
+
+  const j0Config = getJudge0Config();
+
   // 1. External Judge0 Remote Isolation
-  if (process.env.JUDGE0_API_HOST) {
+  if (j0Config.configured) {
+    if (!j0Config.valid) {
+      return {
+        output: "",
+        error: j0Config.error,
+        duration: Date.now() - startTime,
+        exitCode: 1,
+        isUnavailable: true,
+        engine: "Judge0",
+      };
+    }
+
     try {
-      const j0 = await executeViaJudge0(lang, code, stdin, timeoutMs, options);
+      const j0 = await executeViaJudge0(lang, code, stdin, timeoutMs, {
+        ...options,
+        files: Array.isArray(files) && files.length > 0 ? files : options?.files,
+      });
       if (j0) {
         return {
           ...j0,
@@ -1430,10 +1848,21 @@ async function executeCode(paramsOrLang, maybeCode, maybeStdin = "", maybeTimeou
         };
       }
     } catch (j0Err) {
-      if (isPublicUntrustedEnvironment() || !isLocalExecutionPermitted()) {
+      if (j0Err && /not supported by Judge0/i.test(j0Err.message)) {
         return {
           output: "",
-          error: "Isolated execution sandbox is temporarily unavailable. Please retry shortly.",
+          error: `Unsupported language: ${language}`,
+          duration: Date.now() - startTime,
+          exitCode: 1,
+        };
+      }
+      if (isPublicUntrustedEnvironment() || !isLocalExecutionPermitted() || (j0Err && j0Err.isConfigError)) {
+        return {
+          output: "",
+          error:
+            j0Err && j0Err.isConfigError
+              ? j0Err.message
+              : "Isolated execution sandbox is temporarily unavailable. Please retry shortly.",
           duration: Date.now() - startTime,
           exitCode: 1,
           isUnavailable: true,
@@ -1622,7 +2051,7 @@ async function evaluateTestCasesBatch(language, code, testCases, options = {}) {
 
   const lang = (language || "").toLowerCase().trim();
 
-  const safety = validateCodeSafety(lang, safeCode);
+  const safety = validateCodeSafety(lang, safeCode, options);
   if (!safety.safe) {
     return testCases.map((tc) => ({
       passed: false,
@@ -1630,17 +2059,35 @@ async function evaluateTestCasesBatch(language, code, testCases, options = {}) {
       expected: String(tc.expectedOutput !== undefined ? tc.expectedOutput : (tc.expected || "")).trim(),
       error: safety.reason,
       duration: 0,
+      isSecurityViolation: true,
     }));
   }
 
+  const j0Config = getJudge0Config();
+  const envScope = `${getExecutionEnvironmentName()}:::${j0Config.configured ? j0Config.baseUrl : "local"}`;
+
   let cacheKey = "";
   try {
-    const hash = crypto.createHash("sha256").update(`${lang}:::${safeCode}:::${JSON.stringify(testCases)}:::${JSON.stringify(options)}`).digest("hex");
+    const hash = crypto
+      .createHash("sha256")
+      .update(`${envScope}:::${lang}:::${safeCode}:::${JSON.stringify(testCases)}:::${JSON.stringify(options)}`)
+      .digest("hex");
     cacheKey = hash;
     if (batchEvaluationCache.has(cacheKey)) {
       return JSON.parse(JSON.stringify(batchEvaluationCache.get(cacheKey)));
     }
   } catch {}
+
+  if (j0Config.configured && !j0Config.valid) {
+    return testCases.map((tc) => ({
+      passed: false,
+      actual: "",
+      expected: String(tc.expectedOutput !== undefined ? tc.expectedOutput : (tc.expected || "")).trim(),
+      error: j0Config.error,
+      duration: 0,
+      isUnavailable: true,
+    }));
+  }
 
   if (isProductionExecutionRestricted()) {
     return testCases.map((tc) => ({
@@ -1649,26 +2096,62 @@ async function evaluateTestCasesBatch(language, code, testCases, options = {}) {
       expected: String(tc.expectedOutput !== undefined ? tc.expectedOutput : (tc.expected || "")).trim(),
       error: "Production execution requires a configured isolated execution environment (Judge0). Local fallback is disabled.",
       duration: 0,
+      isUnavailable: true,
     }));
   }
 
-  if (process.env.JUDGE0_API_HOST) {
+  if (j0Config.configured && j0Config.valid) {
     try {
-      const j0Results = await Promise.all(
-        testCases.map((tc) => executeViaJudge0(lang, safeCode, tc.input || "", 4000, options))
-      );
+      const j0Results = new Array(testCases.length).fill(null);
+
+      // Run first test case to detect compilation errors immediately without firing redundant requests
+      const firstRes = await executeViaJudge0(lang, safeCode, testCases[0].input || "", 4000, options);
+      j0Results[0] = firstRes;
+
+      if (firstRes && firstRes.isCompileError) {
+        for (let i = 1; i < testCases.length; i++) {
+          j0Results[i] = { ...firstRes };
+        }
+      } else if (testCases.length > 1) {
+        // Run remaining test cases independently with bounded concurrency (max 4 concurrent requests)
+        const CONCURRENCY = 4;
+        for (let offset = 1; offset < testCases.length; offset += CONCURRENCY) {
+          const slice = testCases.slice(offset, offset + CONCURRENCY);
+          const batchRes = await Promise.all(
+            slice.map((tc) => executeViaJudge0(lang, safeCode, tc.input || "", 4000, options))
+          );
+          for (let j = 0; j < batchRes.length; j++) {
+            j0Results[offset + j] = batchRes[j];
+          }
+        }
+      }
+
       if (j0Results.every((r) => r !== null)) {
         const results = testCases.map((tc, i) => {
           const res = j0Results[i];
-          const actual = (res.output || "").trim();
-          const expected = String(tc.expectedOutput !== undefined ? tc.expectedOutput : (tc.expected || "")).trim();
-          const passed = res.exitCode === 0 && !res.error && validateTestCaseOutput(actual, expected);
+          const actual = (res.output || "").trim().replace(/\r\n/g, "\n");
+          const expected = String(tc.expectedOutput !== undefined ? tc.expectedOutput : (tc.expected || ""))
+            .trim()
+            .replace(/\r\n/g, "\n");
+          const passed =
+            res.exitCode === 0 &&
+            !res.error &&
+            !res.isTimeout &&
+            !res.isCompileError &&
+            !res.isRuntimeError &&
+            !res.isUnavailable &&
+            actual.length > 0 &&
+            expected.length > 0 &&
+            validateTestCaseOutput(actual, expected);
           return {
             passed,
             actual,
             expected,
-            error: res.error,
+            error: res.error || (res.exitCode !== 0 ? (actual || "Runtime error") : ""),
             duration: res.duration,
+            isTimeout: Boolean(res.isTimeout),
+            isCompileError: Boolean(res.isCompileError),
+            isRuntimeError: Boolean(res.isRuntimeError),
           };
         });
 
@@ -1682,13 +2165,26 @@ async function evaluateTestCasesBatch(language, code, testCases, options = {}) {
         return results;
       }
     } catch (j0Err) {
-      if (isPublicUntrustedEnvironment() || !isLocalExecutionPermitted()) {
+      if (j0Err && /not supported by Judge0/i.test(j0Err.message)) {
         return testCases.map((tc) => ({
           passed: false,
           actual: "",
           expected: String(tc.expectedOutput !== undefined ? tc.expectedOutput : (tc.expected || "")).trim(),
-          error: "Isolated execution sandbox (Judge0) is temporarily unavailable.",
+          error: `Unsupported language: ${language}. Supported languages are Python, JavaScript, Java, C, and C++.`,
           duration: 0,
+        }));
+      }
+      if (isPublicUntrustedEnvironment() || !isLocalExecutionPermitted() || (j0Err && j0Err.isConfigError)) {
+        return testCases.map((tc) => ({
+          passed: false,
+          actual: "",
+          expected: String(tc.expectedOutput !== undefined ? tc.expectedOutput : (tc.expected || "")).trim(),
+          error:
+            j0Err && j0Err.isConfigError
+              ? j0Err.message
+              : "Isolated execution sandbox (Judge0) is temporarily unavailable.",
+          duration: 0,
+          isUnavailable: true,
         }));
       }
     }
@@ -1701,6 +2197,7 @@ async function evaluateTestCasesBatch(language, code, testCases, options = {}) {
       expected: String(tc.expectedOutput !== undefined ? tc.expectedOutput : (tc.expected || "")).trim(),
       error: "Production execution requires a configured isolated execution environment (Judge0). Local fallback is disabled.",
       duration: 0,
+      isUnavailable: true,
     }));
   }
 
@@ -1831,7 +2328,13 @@ async function evaluateTestCasesBatch(language, code, testCases, options = {}) {
       const cleanActual = (res.output || "").trim().replace(/\r\n/g, "\n");
       const cleanExpected = (expectedOutput || "").trim().replace(/\r\n/g, "\n");
       const effectiveError = res.error || (res.exitCode !== 0 ? (cleanActual || "Runtime error") : "");
-      const passed = res.exitCode === 0 && validateTestCaseOutput(cleanActual, cleanExpected);
+      const passed =
+        res.exitCode === 0 &&
+        !res.error &&
+        !res.isUnavailable &&
+        cleanActual.length > 0 &&
+        cleanExpected.length > 0 &&
+        validateTestCaseOutput(cleanActual, cleanExpected);
 
       results.push({
         passed,
@@ -1886,6 +2389,9 @@ module.exports = {
   terminateProcessTree,
   runSandboxedProcess,
   judge0LangMap,
+  getJudge0Config,
+  getJudge0LanguageId,
+  bundleMultiFileProject,
   executeViaJudge0,
   isPublicUntrustedEnvironment,
   isLocalExecutionPermitted,

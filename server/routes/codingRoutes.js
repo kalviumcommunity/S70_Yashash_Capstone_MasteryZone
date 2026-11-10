@@ -653,10 +653,39 @@ router.post("/challenges/:id/test", optionalAuthenticateToken, async (req, res) 
   }
 
   const effectiveLang = language || challenge.starterLanguage || "python";
+  const execConfig = getProblemExecutionConfig(challenge);
 
   try {
     if (customInput !== undefined && customInput !== null && customInput.trim() !== "") {
-      const customRes = await evaluateSingleTestCase(effectiveLang, code, customInput, "");
+      const customRes = await evaluateSingleTestCase(effectiveLang, code, customInput, "", {
+        functionName: execConfig.functionName,
+        problemId: challenge.id,
+      });
+      if (customRes.isUnavailable) {
+        return res.status(503).json({
+          isCustom: true,
+          isUnavailable: true,
+          output: "",
+          error: customRes.error,
+          duration: 0,
+          results: [],
+          total: 1,
+          passedCount: 0,
+        });
+      }
+      if (customRes.isSecurityViolation) {
+        return res.status(403).json({
+          isCustom: true,
+          isSecurityViolation: true,
+          output: "",
+          error: customRes.error,
+          duration: 0,
+          results: [],
+          total: 1,
+          passedCount: 0,
+        });
+      }
+      const hasValidCustomOutput = !customRes.error && Boolean(customRes.actual && String(customRes.actual).trim().length > 0);
       return res.json({
         isCustom: true,
         output: customRes.actual,
@@ -668,13 +697,13 @@ router.post("/challenges/:id/test", optionalAuthenticateToken, async (req, res) 
             input: customInput,
             expected: "",
             actual: customRes.actual || "(no output)",
-            passed: !customRes.error,
+            passed: hasValidCustomOutput,
             error: customRes.error,
             duration: customRes.duration,
           },
         ],
         total: 1,
-        passedCount: customRes.error ? 0 : 1,
+        passedCount: hasValidCustomOutput ? 1 : 0,
       });
     }
 
@@ -685,7 +714,6 @@ router.post("/challenges/:id/test", optionalAuthenticateToken, async (req, res) 
       : (challenge.testCases || []).filter((t) => !t.isHidden);
     const testCasesToRun = (shouldRunAll || publicTests.length === 0) ? (challenge.testCases || []) : publicTests;
 
-    const execConfig = getProblemExecutionConfig(challenge);
     const outcomes = await evaluateTestCasesBatch(effectiveLang, code, testCasesToRun, {
       functionName: execConfig.functionName,
       problemId: challenge.id,
@@ -709,7 +737,29 @@ router.post("/challenges/:id/test", optionalAuthenticateToken, async (req, res) 
       };
     });
 
-    const allPassed = testResults.every((r) => r.passed);
+    if (outcomes.length > 0 && outcomes[0].isUnavailable) {
+      return res.status(503).json({
+        status: "SERVICE_UNAVAILABLE",
+        isUnavailable: true,
+        error: outcomes[0].error,
+        results: testResults,
+        total: testResults.length,
+        passedCount: 0,
+      });
+    }
+
+    if (outcomes.length > 0 && outcomes[0].isSecurityViolation) {
+      return res.status(403).json({
+        status: "SECURITY_VIOLATION",
+        isSecurityViolation: true,
+        error: outcomes[0].error,
+        results: testResults,
+        total: testResults.length,
+        passedCount: 0,
+      });
+    }
+
+    const allPassed = testResults.length > 0 && testResults.every((r) => r.passed);
     res.json({
       status: allPassed ? "ACCEPTED" : "WRONG_ANSWER",
       results: testResults,
@@ -752,6 +802,28 @@ router.post("/challenges/:id/submit", optionalAuthenticateToken, async (req, res
       functionName: execConfig.functionName,
       problemId: challenge.id,
     });
+    if (outcomes.length > 0 && outcomes[0].isUnavailable) {
+      return res.status(503).json({
+        status: "SERVICE_UNAVAILABLE",
+        isUnavailable: true,
+        error: outcomes[0].error,
+        results: [],
+        testResults: [],
+        total: allTests.length,
+        passedCount: 0,
+      });
+    }
+    if (outcomes.length > 0 && outcomes[0].isSecurityViolation) {
+      return res.status(403).json({
+        status: "SECURITY_VIOLATION",
+        isSecurityViolation: true,
+        error: outcomes[0].error,
+        results: [],
+        testResults: [],
+        total: allTests.length,
+        passedCount: 0,
+      });
+    }
     const testResults = allTests.map((test, i) => {
       const outcome = outcomes[i] || { passed: false, actual: "", expected: test.expectedOutput, error: "Evaluation failed", duration: 0 };
       const isHidden = isPlayground ? false : (test.isHidden !== undefined ? test.isHidden : i >= 3);
@@ -1588,10 +1660,23 @@ router.post("/curriculum/exercise/run", authenticateToken, async (req, res) => {
   }
 
   const lang = (language || (trackId === "cpp" ? "cpp" : trackId === "java" ? "java" : trackId === "python" ? "python" : "javascript")).toLowerCase();
+  const execConfig = getProblemExecutionConfig(module);
 
   try {
     if (customInput !== undefined && customInput !== null && customInput.trim() !== "") {
-      const customRes = await evaluateSingleTestCase(lang, code, customInput, "");
+      const customRes = await evaluateSingleTestCase(lang, code, customInput, "", {
+        functionName: execConfig.functionName,
+        problemId: module.id,
+      });
+      if (customRes.isUnavailable) {
+        return res.status(503).json({
+          isCustom: true,
+          isUnavailable: true,
+          output: "",
+          error: customRes.error,
+          duration: 0,
+        });
+      }
       return res.json({
         isCustom: true,
         output: customRes.actual,
@@ -1601,11 +1686,20 @@ router.post("/curriculum/exercise/run", authenticateToken, async (req, res) => {
     }
 
     const publicTests = (module.codingExercise.testCases || []).filter((t) => !t.isHidden).slice(0, 3);
-    const execConfig = getProblemExecutionConfig(module);
     const outcomes = await evaluateTestCasesBatch(lang, code, publicTests, {
       functionName: execConfig.functionName,
       problemId: module.id,
     });
+    if (outcomes.length > 0 && outcomes[0].isUnavailable) {
+      return res.status(503).json({
+        status: "SERVICE_UNAVAILABLE",
+        isUnavailable: true,
+        error: outcomes[0].error,
+        results: [],
+        total: publicTests.length,
+        passedCount: 0,
+      });
+    }
     const results = publicTests.map((tc, i) => {
       const outcome = outcomes[i] || { passed: false, actual: "", expected: tc.expectedOutput, error: "Evaluation failed", duration: 0 };
       return {
@@ -1660,6 +1754,17 @@ router.post("/curriculum/exercise/submit", authenticateToken, async (req, res) =
       functionName: execConfig.functionName,
       problemId: module.id,
     });
+    if (outcomes.length > 0 && outcomes[0].isUnavailable) {
+      return res.status(503).json({
+        status: "SERVICE_UNAVAILABLE",
+        isUnavailable: true,
+        error: outcomes[0].error,
+        results: [],
+        testResults: [],
+        total: testCases.length,
+        passedCount: 0,
+      });
+    }
     const testResults = testCases.map((tc, i) => {
       const outcome = outcomes[i] || { passed: false, actual: "", expected: tc.expectedOutput, error: "Evaluation failed", duration: 0 };
       const isHidden = tc.isHidden !== undefined ? tc.isHidden : i >= 3;

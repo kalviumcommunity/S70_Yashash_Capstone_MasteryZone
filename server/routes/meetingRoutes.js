@@ -825,6 +825,15 @@ router.post("/:meetingId/run-tests", authenticateToken, async (req, res) => {
       functionName: resolvedFunctionName,
       problemId: problemId || execConfig.problemId || meeting.problemId,
     });
+    if (evaluated.length > 0 && evaluated[0].isUnavailable) {
+      return res.status(503).json({
+        success: false,
+        isUnavailable: true,
+        error: evaluated[0].error,
+        passedCount: 0,
+        testResults: [],
+      });
+    }
     const testResults = evaluated.map((item, i) => {
       const tc = testsToRun[i] || {};
       const actualOutput = item.actual !== undefined ? item.actual : (item.actualOutput || "");
@@ -927,6 +936,16 @@ router.post("/:meetingId/submit-solution", authenticateToken, async (req, res) =
       functionName: resolvedFunctionName,
       problemId: meeting.problemId || execConfig.problemId,
     });
+    if (evaluated.length > 0 && evaluated[0].isUnavailable) {
+      return res.status(503).json({
+        success: false,
+        isUnavailable: true,
+        error: evaluated[0].error,
+        passed: false,
+        passedPercentage: 0,
+        testResults: [],
+      });
+    }
 
     const testResults = evaluated.map((item, i) => {
       const tc = testsToRun[i] || {};

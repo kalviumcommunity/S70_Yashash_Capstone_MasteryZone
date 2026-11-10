@@ -423,10 +423,17 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
         }).then((r) => r.json()),
       ]);
 
+      if (customRes?.isUnavailable || testsRes?.isUnavailable) {
+        setStatusToast({
+          type: "error",
+          text: customRes?.error || testsRes?.error || "Isolated execution service is currently unavailable.",
+        });
+      }
+
       setLiveOutputData({
-        ok: Boolean(customRes.ok ?? customRes.success),
+        ok: Boolean((customRes.ok ?? customRes.success) && !customRes.isUnavailable),
         output: customRes.output || "",
-        error: customRes.error || "",
+        error: customRes.error || testsRes?.error || "",
         durationMs: customRes.durationMs || 1,
         inputUsed: customRes.inputUsed || customInput || "",
         timestamp: new Date().toLocaleTimeString(),
@@ -474,6 +481,12 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
         }),
       });
       const data = await res.json();
+      if (data?.isUnavailable || (!res.ok && data?.error)) {
+        setStatusToast({
+          type: "error",
+          text: data.error || "Isolated execution service is currently unavailable.",
+        });
+      }
       const testResults = data?.testResults || data?.evaluation?.testResults || [];
       const passedCount = data?.passedTests ?? data?.evaluation?.passedTests ?? 0;
       const totalCount = data?.totalTests ?? data?.evaluation?.totalTests ?? testResults.length;
