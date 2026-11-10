@@ -132,8 +132,9 @@ router.post('/:zone/roster', verifyToken, async (req, res) => {
 router.delete('/:zone/roster/:memberId', verifyToken, async (req, res) => {
   try {
     const { zone, memberId } = req.params;
+    const uid = req.user.userId || req.user.id;
 
-    const membership = await Membership.findOne({ userId: req.user.id, zone: zone.toUpperCase() });
+    const membership = await Membership.findOne({ userId: uid, zone: zone.toUpperCase() });
     
     if (!membership) {
       return res.status(404).json({ error: "Membership not found." });
@@ -155,8 +156,9 @@ router.put('/:zone/theme', verifyToken, async (req, res) => {
   try {
     const { zone } = req.params;
     const { accentColor } = req.body;
+    const uid = req.user.userId || req.user.id;
 
-    const membership = await Membership.findOne({ userId: req.user.id, zone: zone.toUpperCase() });
+    const membership = await Membership.findOne({ userId: uid, zone: zone.toUpperCase() });
     
     if (!membership) {
       return res.status(404).json({ error: "Membership not found." });
