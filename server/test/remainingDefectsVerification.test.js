@@ -677,6 +677,22 @@ public class Solution {
       assert.strictEqual(resStage.valid, true);
     });
 
+    await it("JWT Security: Repeated character secret (low Shannon entropy) fails validation in production", async () => {
+      const repeatedKey = "a".repeat(32);
+      assert.strictEqual(isSecretStrong(repeatedKey), false);
+      const resProd = validateJwtSecret(repeatedKey, "production");
+      assert.strictEqual(resProd.valid, false);
+      assert.ok(resProd.error.includes("cryptographic entropy") || resProd.error.includes("repeated patterns"));
+    });
+
+    await it("JWT Security: Repetitive pattern secret fails validation in production", async () => {
+      const patternKey = "12345678123456781234567812345678";
+      assert.strictEqual(isSecretStrong(patternKey), false);
+      const resProd = validateJwtSecret(patternKey, "production");
+      assert.strictEqual(resProd.valid, false);
+      assert.ok(resProd.error.includes("cryptographic entropy") || resProd.error.includes("repeated patterns"));
+    });
+
     // -------------------------------------------------------------
     // SECTION 6: CORS Security & Explicit Allowlist Enforcement
     // -------------------------------------------------------------

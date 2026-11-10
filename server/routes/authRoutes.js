@@ -22,6 +22,40 @@ const router = express.Router();
 
 const JWT_SECRET = getJwtSecret();
 
+const MAIN_ADMIN_EMAIL = (
+  process.env.MAIN_ADMIN_EMAIL ||
+  process.env.ADMIN_EMAIL ||
+  "yashashyashash1@gmail.com"
+)
+  .toLowerCase()
+  .trim();
+
+/**
+ * Generates an authoritative, properly isolated user JWT token
+ * containing consistent identifiers (userId, id, _id) and authorization claims.
+ */
+function issueUserJwt(user, expiresIn = '1d') {
+  const userEmail = (user.email || '').toLowerCase().trim();
+  const isMainAdmin = userEmail === MAIN_ADMIN_EMAIL || user.isMainAdmin === true;
+  const role = isMainAdmin ? 'admin' : (user.role || 'user');
+  const uid = user._id ? user._id.toString() : String(user.userId || user.id || '');
+
+  return jwt.sign(
+    {
+      userId: uid,
+      id: uid,
+      _id: uid,
+      email: user.email,
+      role,
+      isMainAdmin: !!isMainAdmin,
+      username: user.username || '',
+      fullName: user.fullName || user.username || ''
+    },
+    JWT_SECRET,
+    { expiresIn }
+  );
+}
+
 const normalizeIndianPhone = (phone) => {
   if (!phone) return null;
   const digits = phone.toString().replace(/\D/g, '');
@@ -221,7 +255,7 @@ router.post('/login', async (req, res) => {
     }
     await user.save();
 
-    const token = jwt.sign({ userId: user._id, email: user.email }, JWT_SECRET, { expiresIn: '1d' });
+    const token = issueUserJwt(user, '1d');
 
     res.status(200).json({
       message: 'Login successful',
@@ -261,7 +295,7 @@ router.post('/guest-login', async (req, res) => {
       isSuspended: false
     });
 
-    const token = jwt.sign({ userId: user._id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
+    const token = issueUserJwt(user, '7d');
 
     res.status(200).json({
       message: 'Guest login successful',
@@ -564,8 +598,8 @@ router.post('/firebase-login', verifyFirebaseToken, async (req, res) => {
     }
     await user.save();
 
-    // Issue standard JWT
-    const token = jwt.sign({ userId: user._id, email: user.email }, JWT_SECRET, { expiresIn: '1d' });
+    // Issue standard JWT with complete isolation & authorization claims
+    const token = issueUserJwt(user, '1d');
 
     return res.status(200).json({
       message: 'Firebase login successful',

@@ -27,14 +27,46 @@ const WEAK_OR_DEFAULT_SECRETS = new Set([
 ]);
 
 /**
+ * Computes the Shannon entropy of a string (in bits per character).
+ */
+function calculateEntropy(str) {
+  if (!str) return 0;
+  const freq = {};
+  for (let i = 0; i < str.length; i++) {
+    const ch = str[i];
+    freq[ch] = (freq[ch] || 0) + 1;
+  }
+  let entropy = 0;
+  const len = str.length;
+  for (const ch in freq) {
+    const p = freq[ch] / len;
+    entropy -= p * Math.log2(p);
+  }
+  return entropy;
+}
+
+/**
  * Validates that a candidate secret provides sufficient cryptographic entropy
- * (at least 256 bits / 32 characters) and is not in the list of known weak templates.
+ * (at least 256 bits / 32 characters), diverse character set, and is not in the list of known weak templates.
  */
 function isSecretStrong(secret) {
   if (!secret || typeof secret !== "string") return false;
   const trimmed = secret.trim();
   if (trimmed.length < 32) return false;
   if (WEAK_OR_DEFAULT_SECRETS.has(trimmed.toLowerCase())) return false;
+
+  // Character diversity: require at least 8 unique characters
+  const uniqueChars = new Set(trimmed);
+  if (uniqueChars.size < 8) return false;
+
+  // Shannon entropy: minimum 2.5 bits/char
+  const entropy = calculateEntropy(trimmed);
+  if (entropy < 2.5) return false;
+
+  // Reject repeating single characters (runs >= 6) and repetitive sub-patterns
+  if (/(.)\1{5,}/.test(trimmed)) return false;
+  if (/^(.{1,8})\1{3,}$/.test(trimmed)) return false;
+
   return true;
 }
 
@@ -65,6 +97,12 @@ function validateJwtSecret(secret, env = process.env.NODE_ENV) {
       return {
         valid: false,
         error: `JWT_SECRET is too short (${trimmed.length} characters). A minimum of 32 characters (256 bits of entropy) is required.`,
+      };
+    }
+    if (!isSecretStrong(trimmed)) {
+      return {
+        valid: false,
+        error: "JWT_SECRET lacks sufficient cryptographic entropy or contains predictable repeated patterns.",
       };
     }
     return { valid: true };
