@@ -2615,9 +2615,13 @@ router.get("/data", authenticateToken, async (req, res) => {
         subtitle: "Variables, control flow, functions, OOP, and data structures.",
         icon: "python",
         totalLessons: 8,
-        completedLessons: Math.min(8, Math.max(userProgress.trackLessons?.get("python") || 0, (userProgress.trackLessons?.get("python") || 0) > 0 ? 8 : 0)),
+        completedLessons: Math.min(8, userProgress.trackLessons?.get("python") || 0),
         unlockedLevel: userProgress.trackUnlocks?.get("python") || 0,
-        status: (userProgress.trackLessons?.get("python") || 0) >= (CURRICULUM.python || []).length || (userProgress.trackLessons?.get("python") || 0) > 0 ? "Completed" : "Start",
+        status: (userProgress.trackLessons?.get("python") || 0) >= (CURRICULUM.python || []).length && (CURRICULUM.python || []).length > 0
+          ? "Completed"
+          : (userProgress.trackLessons?.get("python") || 0) > 0 || (userProgress.trackUnlocks?.get("python") || 0) > 0
+          ? "In Progress"
+          : "Start",
       },
       {
         id: "javascript",
@@ -2625,9 +2629,13 @@ router.get("/data", authenticateToken, async (req, res) => {
         subtitle: "DOM manipulation, async/await, closures, and ES6+ features.",
         icon: "javascript",
         totalLessons: 10,
-        completedLessons: Math.min(10, Math.max(userProgress.trackLessons?.get("javascript") || 0, (userProgress.trackLessons?.get("javascript") || 0) > 0 ? 10 : 0)),
+        completedLessons: Math.min(10, userProgress.trackLessons?.get("javascript") || 0),
         unlockedLevel: userProgress.trackUnlocks?.get("javascript") || 0,
-        status: (userProgress.trackLessons?.get("javascript") || 0) >= (CURRICULUM.javascript || []).length || (userProgress.trackLessons?.get("javascript") || 0) > 0 ? "Completed" : "Start",
+        status: (userProgress.trackLessons?.get("javascript") || 0) >= (CURRICULUM.javascript || []).length && (CURRICULUM.javascript || []).length > 0
+          ? "Completed"
+          : (userProgress.trackLessons?.get("javascript") || 0) > 0 || (userProgress.trackUnlocks?.get("javascript") || 0) > 0
+          ? "In Progress"
+          : "Start",
       },
       {
         id: "java",
@@ -2635,9 +2643,13 @@ router.get("/data", authenticateToken, async (req, res) => {
         subtitle: "OOP principles, collections, multithreading, and enterprise design.",
         icon: "java",
         totalLessons: 12,
-        completedLessons: Math.min(12, Math.max(userProgress.trackLessons?.get("java") || 0, (userProgress.trackLessons?.get("java") || 0) > 0 ? 12 : 0)),
+        completedLessons: Math.min(12, userProgress.trackLessons?.get("java") || 0),
         unlockedLevel: userProgress.trackUnlocks?.get("java") || 0,
-        status: (userProgress.trackLessons?.get("java") || 0) >= (CURRICULUM.java || []).length || (userProgress.trackLessons?.get("java") || 0) > 0 ? "Completed" : "Start",
+        status: (userProgress.trackLessons?.get("java") || 0) >= (CURRICULUM.java || []).length && (CURRICULUM.java || []).length > 0
+          ? "Completed"
+          : (userProgress.trackLessons?.get("java") || 0) > 0 || (userProgress.trackUnlocks?.get("java") || 0) > 0
+          ? "In Progress"
+          : "Start",
       },
       {
         id: "cpp",

@@ -520,9 +520,9 @@ const Home = () => {
           if (json.success) {
             const up = json.userProgress || {};
             setCodingStats({
-              totalXp: up.totalXp != null ? up.totalXp : 150,
-              totalHours: up.totalHours != null ? up.totalHours : 3.5,
-              streak: up.streak != null ? up.streak : 1,
+              totalXp: up.totalXp != null ? up.totalXp : 0,
+              totalHours: up.totalHours != null ? up.totalHours : 0,
+              streak: up.streak != null ? up.streak : 0,
               challengesSolvedCount: Array.isArray(up.challengesSolved) ? up.challengesSolved.length : 0,
               tracks: json.tracks || [],
             });
@@ -1307,19 +1307,20 @@ const Home = () => {
         };
       }
     }
-    const solved = codingStats?.challengesSolvedCount || 0;
-    const completedLessons = Math.min(24, Math.max(3, solved + 4));
-    const progressPct = Math.round((completedLessons / 24) * 100);
+    const activeTrack = (codingStats?.tracks && codingStats.tracks[0]) || null;
+    const completedLessons = activeTrack?.completedLessons || 0;
+    const totalLessons = activeTrack?.totalLessons || 24;
+    const progressPct = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
     return {
-      id: "python",
-      title: "Python Core to Advanced DSA",
-      category: "Foundations & System Architecture",
-      totalLessons: 24,
+      id: activeTrack?.id || "python",
+      title: activeTrack?.title || "Python Basics & Core",
+      category: activeTrack?.subtitle || "Foundations & System Architecture",
+      totalLessons,
       completedLessons,
       progressPct,
-      currentModule: "Module 4: Binary Search Trees & Hash Maps",
-      nextUp: "Module 5: Dynamic Programming & Recursion",
-      route: "/coding?tab=learning_path&track=python",
+      currentModule: completedLessons > 0 ? `Module ${completedLessons}: In Progress` : "Module 1: Getting Started",
+      nextUp: "Interactive Exercises & Assessment",
+      route: `/coding?tab=learning_path&track=${activeTrack?.id || "python"}`,
     };
   }, [codingStats?.tracks, codingStats?.challengesSolvedCount]);
 

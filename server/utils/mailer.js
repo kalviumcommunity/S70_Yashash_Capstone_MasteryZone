@@ -975,8 +975,10 @@ function getClientBaseUrl(req = null, overrideOrigin = null) {
     }
   }
 
-  if (process.env.CLIENT_URL && typeof process.env.CLIENT_URL === 'string' && process.env.CLIENT_URL.trim()) {
-    const envUrl = process.env.CLIENT_URL.trim().replace(/\/+$/, '');
+  // Prioritize explicit FRONTEND_URL or CLIENT_URL pointing to the user-facing web app
+  const configuredFrontend = process.env.FRONTEND_URL || process.env.CLIENT_URL;
+  if (configuredFrontend && typeof configuredFrontend === 'string' && configuredFrontend.trim()) {
+    const envUrl = configuredFrontend.trim().replace(/\/+$/, '');
     if (!envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
       return envUrl;
     }
