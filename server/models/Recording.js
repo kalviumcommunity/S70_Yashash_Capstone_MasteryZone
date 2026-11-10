@@ -79,8 +79,12 @@ const recordingSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["ready", "processing", "error"],
+      enum: ["ready", "processing", "error", "deletion_failed"],
       default: "ready",
+    },
+    deletionError: {
+      type: String,
+      default: "",
     },
     startTime: {
       type: Date,

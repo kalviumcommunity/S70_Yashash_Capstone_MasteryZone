@@ -359,7 +359,7 @@ function parseCppSolution(code, targetMethodName = "") {
   }
 
   if (targetMethodName) {
-    const found = methods.find((m) => m.name.toLowerCase() === targetMethodName.toLowerCase());
+    const found = methods.find((m) => m.name === targetMethodName);
     if (found) return found;
   }
   return null;
@@ -557,7 +557,7 @@ public class Main {
         Method[] methods = Solution.class.getDeclaredMethods();
         Method target = null;
         for (Method m : methods) {
-            if (Modifier.isPublic(m.getModifiers()) && m.getName().equalsIgnoreCase(preferredName)) {
+            if (Modifier.isPublic(m.getModifiers()) && m.getName().equals(preferredName)) {
                 target = m;
                 break;
             }

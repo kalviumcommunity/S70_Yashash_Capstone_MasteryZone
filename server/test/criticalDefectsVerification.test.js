@@ -251,6 +251,21 @@ async function runAllTests() {
       assert.strictEqual(res[0].passed, false);
     });
 
+    await it("Compiler: Exact Java method matching rejects case-mismatched method name ('TwoSum' vs 'twoSum')", async () => {
+      const code = [
+        "public class Solution {",
+        "    public int[] TwoSum(int[] nums, int target) {",
+        "        return new int[]{0, 1};",
+        "    }",
+        "}",
+      ].join("\n");
+      const res = await evaluateTestCasesBatch("java", code, [
+        { input: "[2, 7, 11, 15]\n9", expectedOutput: "[0, 1]" }
+      ], { functionName: "twoSum" });
+      assert.strictEqual(res[0].passed, false);
+      assert.ok(res[0].error.includes("NoSuchMethodError"));
+    });
+
     await it("Compiler: Correct C solution passes via standard I/O", async () => {
       const code = [
         "#include <stdio.h>",
@@ -309,6 +324,23 @@ async function runAllTests() {
         { input: "[2, 7, 11, 15]\n9", expectedOutput: "[0, 1]" }
       ], { functionName: "twoSum" });
       assert.strictEqual(res[0].passed, false);
+    });
+
+    await it("Compiler: Exact C++ method matching rejects case-mismatched method name ('TwoSum' vs 'twoSum')", async () => {
+      const code = [
+        "#include <vector>",
+        "class Solution {",
+        "public:",
+        "    std::vector<int> TwoSum(std::vector<int>& nums, int target) {",
+        "        return {0, 1};",
+        "    }",
+        "};",
+      ].join("\n");
+      const res = await evaluateTestCasesBatch("cpp", code, [
+        { input: "[2, 7, 11, 15]\n9", expectedOutput: "[0, 1]" }
+      ], { functionName: "twoSum" });
+      assert.strictEqual(res[0].passed, false);
+      assert.ok(res[0].error.toLowerCase().includes("error") || res[0].error.includes("not found"));
     });
 
     await it("Comparison: Strict string comparison preserves case sensitivity ('Hello' vs 'hello', 'ABC' vs 'abc')", async () => {
@@ -682,6 +714,91 @@ async function runAllTests() {
       assert.strictEqual(res.status, 200);
       const docAfter = await Recording.findOne({ recordingId: phantom.recordingId });
       assert.strictEqual(docAfter, null);
+    });
+
+    await it("Recording: Physical file deletion failure returns HTTP 500, preserves DB doc, and sets status to 'deletion_failed'", async () => {
+      const recId = `rec_fail_test_${Date.now()}`;
+      const fakeFileName = `${recId}.webm`;
+      const fakeFilePath = path.join(getRecordingsDir(), fakeFileName);
+      fs.writeFileSync(fakeFilePath, Buffer.from("dummy video content"));
+      createdFiles.push(fakeFileName);
+
+      const failRec = await Recording.create({
+        recordingId: recId,
+        meetingId: "mtg_crit_test_meeting",
+        hostUserId: userA._id.toString(),
+        filePath: fakeFilePath,
+        fileUrl: `/recordings/${fakeFileName}`,
+        durationSeconds: 30,
+        status: "ready",
+      });
+
+      // Temporarily mock fs.unlinkSync to simulate an EACCES / filesystem error
+      const originalUnlinkSync = fs.unlinkSync;
+      fs.unlinkSync = (target) => {
+        if (target === fakeFilePath) {
+          const err = new Error("EACCES: permission denied, unlink '" + target + "'");
+          err.code = "EACCES";
+          throw err;
+        }
+        return originalUnlinkSync(target);
+      };
+
+      try {
+        const res = await fetch(`${baseUrl}/api/recordings/${recId}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${tokenA}` },
+        });
+
+        assert.strictEqual(res.status, 500);
+        const data = await res.json();
+        assert.ok(data.error.includes("Failed to safely delete recording file"));
+
+        // Document MUST NOT be deleted from DB
+        const docAfter = await Recording.findOne({ recordingId: recId });
+        assert.ok(docAfter !== null, "Database record must be preserved when physical file deletion fails");
+        assert.strictEqual(docAfter.status, "deletion_failed");
+        assert.ok(docAfter.deletionError.includes("EACCES"));
+      } finally {
+        fs.unlinkSync = originalUnlinkSync;
+        // Clean up test file and doc
+        if (fs.existsSync(fakeFilePath)) {
+          try { fs.unlinkSync(fakeFilePath); } catch {}
+        }
+        await Recording.deleteOne({ recordingId: recId });
+      }
+    });
+
+    await it("Recording: Arbitrary path traversal outside authorized storage directory is rejected and preserves DB doc", async () => {
+      const recId = `rec_traversal_test_${Date.now()}`;
+      const traversalTarget = path.join(process.cwd(), "package.json"); // valid file outside recordings dir
+
+      const traversalRec = await Recording.create({
+        recordingId: recId,
+        meetingId: "mtg_crit_test_meeting",
+        hostUserId: userA._id.toString(),
+        filePath: traversalTarget,
+        fileUrl: `/recordings/package.json`,
+        durationSeconds: 15,
+        status: "ready",
+      });
+
+      const res = await fetch(`${baseUrl}/api/recordings/${recId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${tokenA}` },
+      });
+
+      assert.strictEqual(res.status, 500);
+      const data = await res.json();
+      assert.ok(data.error.includes("Security violation") || data.error.includes("outside the authorized recording storage boundary"));
+
+      // Document MUST NOT be deleted from DB, package.json MUST NOT be unlinked
+      const docAfter = await Recording.findOne({ recordingId: recId });
+      assert.ok(docAfter !== null);
+      assert.strictEqual(docAfter.status, "deletion_failed");
+      assert.ok(fs.existsSync(traversalTarget), "Target file outside recordings dir must not be deleted");
+
+      await Recording.deleteOne({ recordingId: recId });
     });
 
     // -------------------------------------------------------------
