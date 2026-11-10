@@ -2396,6 +2396,7 @@ export default function MasteryZoneCompilerWorkspace({
             language: selectedLang,
             code,
             customInput: customStdin?.trim() ? customStdin : undefined,
+            runAll: true,
           }),
         });
         const rawText = await resp.text();
@@ -2476,6 +2477,7 @@ export default function MasteryZoneCompilerWorkspace({
           body: JSON.stringify({
             language: selectedLang,
             code,
+            runAll: true,
           }),
         });
         const rawText = await resp.text();
@@ -2652,6 +2654,7 @@ export default function MasteryZoneCompilerWorkspace({
           body: JSON.stringify({
             language: selectedLang,
             code,
+            runAll: true,
           }),
         });
         const rawText = await res.text();
