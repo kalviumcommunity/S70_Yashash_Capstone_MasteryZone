@@ -36,7 +36,7 @@ import { ThemeProvider, useTheme } from "./context/ThemeContext.jsx";
 // Lazy load secondary/authenticated components
 const Signup = lazyWithRetry(() => import("./components/signup.jsx"));
 const Login = lazyWithRetry(() => import("./components/Login.jsx"));
-const ForgotPassword = lazyWithRetry(() => import("./components/FogotPassward.jsx")); 
+const ForgotPassword = lazyWithRetry(() => import("./components/ForgotPassword.jsx")); 
 const ResetPassword = lazyWithRetry(() => import("./components/ResetPassword.jsx")); 
 const Home = lazyWithRetry(() => import("./components/Home.jsx"));
 const Profile = lazyWithRetry(() => import("./components/Profile.jsx"));
