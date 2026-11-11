@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "react-toastify";
 import "./home.css";
 import NotificationBell from "./NotificationBell.jsx";
+import ThemeToggle from "./ThemeToggle.jsx";
 import FeaturedLearningCarousel from "./FeaturedLearningCarousel.jsx";
 import CertificationExamWorkspace from "./CertificationExamWorkspace.jsx";
 import UserProfileDropdown from "./UserProfileDropdown.jsx";
@@ -1837,6 +1838,9 @@ const Home = () => {
               <span>Log Activity</span>
             </button>
 
+            {/* Theme Toggle (Light / Dark / System) */}
+            <ThemeToggle />
+
             {/* Real-Time Notification Bell */}
             <NotificationBell />
 
@@ -2187,7 +2191,7 @@ const Home = () => {
                     <span className="mz-rep-stat-val">{recordingsList.length}</span>
                     <span className="mz-rep-stat-lbl">Total Sessions</span>
                   </div>
-                  <div className="mz-rep-stat-box" style={{ background: "#f8fafc" }}>
+                  <div className="mz-rep-stat-box" style={{ background: "var(--mz-surface-subtle)" }}>
                     <span className="mz-rep-stat-val">
                       {Math.floor(recordingsList.reduce((acc, r) => acc + (r.durationSeconds || 0), 0) / 60)}m
                     </span>
@@ -2196,11 +2200,11 @@ const Home = () => {
                   <div className="mz-rep-stat-box" style={{ minWidth: 160 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
                       <LuHardDrive size={13} color="#2563eb" />
-                      <span style={{ fontSize: 13, fontWeight: 700, color: "#0f172a" }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: "var(--mz-text-primary)" }}>
                         {(recordingsAnalytics.totalSizeBytes / (1024 * 1024)).toFixed(1)} MB / 5.0 GB
                       </span>
                     </div>
-                    <div style={{ width: "100%", height: 6, background: "#e2e8f0", borderRadius: 4, overflow: "hidden" }}>
+                    <div style={{ width: "100%", height: 6, background: "var(--mz-border)", borderRadius: 4, overflow: "hidden" }}>
                       <div
                         style={{
                           width: `${Math.min(100, Math.max(3, Math.round((recordingsAnalytics.totalSizeBytes / (recordingsAnalytics.storageQuotaBytes || 5368709120)) * 100)))}%`,
@@ -2222,11 +2226,11 @@ const Home = () => {
                   justifyContent: "space-between",
                   flexWrap: "wrap",
                   gap: 12,
-                  background: "#ffffff",
-                  border: "1px solid #e2e8f0",
+                  background: "var(--mz-surface)",
+                  border: "1px solid var(--mz-border)",
                   borderRadius: 14,
                   padding: "14px 18px",
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.03)",
+                  boxShadow: "var(--mz-shadow-sm)",
                 }}
               >
                 {/* Search & Date */}
@@ -2236,14 +2240,14 @@ const Home = () => {
                       display: "flex",
                       alignItems: "center",
                       gap: 8,
-                      background: "#f8fafc",
-                      border: "1px solid #cbd5e1",
+                      background: "var(--mz-input-bg-subtle)",
+                      border: "1px solid var(--mz-input-border)",
                       borderRadius: 8,
                       padding: "6px 12px",
                       minWidth: 240,
                     }}
                   >
-                    <LuSearch size={14} color="#64748b" />
+                    <LuSearch size={14} color="var(--mz-text-muted)" />
                     <input
                       type="text"
                       placeholder="Search..."
@@ -2255,7 +2259,7 @@ const Home = () => {
                         background: "transparent",
                         outline: "none",
                         fontSize: 13,
-                        color: "#0f172a",
+                        color: "var(--mz-input-text)",
                         width: "100%",
                       }}
                       data-testid="recordings-search-input"
@@ -2269,13 +2273,13 @@ const Home = () => {
                         }}
                         style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0 }}
                       >
-                        <LuX size={14} color="#94a3b8" />
+                        <LuX size={14} color="var(--mz-text-subtle)" />
                       </button>
                     )}
                   </div>
 
                   {/* Date Filter Tabs */}
-                  <div style={{ display: "flex", gap: 4, background: "#f1f5f9", padding: 3, borderRadius: 8 }}>
+                  <div style={{ display: "flex", gap: 4, background: "var(--mz-surface-muted)", padding: 3, borderRadius: 8 }}>
                     {[
                       { key: "all", label: "All Dates" },
                       { key: "today", label: "Today" },
@@ -2292,9 +2296,9 @@ const Home = () => {
                           border: "none",
                           fontSize: 12,
                           fontWeight: recDateFilter === df.key ? 700 : 500,
-                          background: recDateFilter === df.key ? "#ffffff" : "transparent",
-                          color: recDateFilter === df.key ? "#2563eb" : "#64748b",
-                          boxShadow: recDateFilter === df.key ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+                          background: recDateFilter === df.key ? "var(--mz-surface)" : "transparent",
+                          color: recDateFilter === df.key ? "#2563eb" : "var(--mz-text-muted)",
+                          boxShadow: recDateFilter === df.key ? "var(--mz-shadow-xs)" : "none",
                           cursor: "pointer",
                         }}
                       >
@@ -2304,7 +2308,7 @@ const Home = () => {
                   </div>
 
                   {/* Scope Tabs */}
-                  <div style={{ display: "flex", gap: 4, background: "#f1f5f9", padding: 3, borderRadius: 8 }}>
+                  <div style={{ display: "flex", gap: 4, background: "var(--mz-surface-muted)", padding: 3, borderRadius: 8 }}>
                     {[
                       { key: "all", label: "All Sessions" },
                       { key: "personal", label: "My Meetings" },
@@ -2320,9 +2324,9 @@ const Home = () => {
                           border: "none",
                           fontSize: 12,
                           fontWeight: recScope === sc.key ? 700 : 500,
-                          background: recScope === sc.key ? "#ffffff" : "transparent",
-                          color: recScope === sc.key ? "#2563eb" : "#64748b",
-                          boxShadow: recScope === sc.key ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+                          background: recScope === sc.key ? "var(--mz-surface)" : "transparent",
+                          color: recScope === sc.key ? "#2563eb" : "var(--mz-text-muted)",
+                          boxShadow: recScope === sc.key ? "var(--mz-shadow-xs)" : "none",
                           cursor: "pointer",
                         }}
                       >
@@ -2340,10 +2344,10 @@ const Home = () => {
                     style={{
                       padding: "6px 10px",
                       borderRadius: 8,
-                      border: "1px solid #cbd5e1",
-                      background: "#ffffff",
+                      border: "1px solid var(--mz-input-border)",
+                      background: "var(--mz-input-bg)",
                       fontSize: 12.5,
-                      color: "#334155",
+                      color: "var(--mz-text-secondary)",
                       fontWeight: 600,
                       outline: "none",
                       cursor: "pointer",
@@ -2379,7 +2383,7 @@ const Home = () => {
 
               {/* Cards Grid */}
               {isLoadingRecordings && recordingsList.length === 0 ? (
-                <div style={{ padding: "40px", textAlign: "center", color: "#64748b" }}>
+                <div style={{ padding: "40px", textAlign: "center", color: "var(--mz-text-muted)" }}>
                   <p style={{ marginTop: 8, fontSize: 13, fontWeight: 600 }}>Loading cloud recordings...</p>
                 </div>
               ) : recordingsList.length === 0 ? (
@@ -2387,16 +2391,16 @@ const Home = () => {
                   style={{
                     padding: "48px 24px",
                     textAlign: "center",
-                    background: "#ffffff",
-                    border: "1px dashed #cbd5e1",
+                    background: "var(--mz-surface)",
+                    border: "1px dashed var(--mz-border-strong)",
                     borderRadius: 18,
                   }}
                 >
-                  <LuVideo size={36} color="#94a3b8" style={{ marginBottom: 10 }} />
-                  <h3 style={{ margin: "0 0 6px", fontSize: 16, fontWeight: 700, color: "#0f172a" }}>
+                  <LuVideo size={36} color="var(--mz-text-subtle)" style={{ marginBottom: 10 }} />
+                  <h3 style={{ margin: "0 0 6px", fontSize: 16, fontWeight: 700, color: "var(--mz-text-primary)" }}>
                     No meeting recordings found
                   </h3>
-                  <p style={{ margin: "0 0 16px", fontSize: 13, color: "#64748b" }}>
+                  <p style={{ margin: "0 0 16px", fontSize: 13, color: "var(--mz-text-muted)" }}>
                     {recSearchQuery || recDateFilter !== "all" || recScope !== "all"
                       ? "Try adjusting your search terms or filters."
                       : "Start a Mastery Zone Live session to record video discussions and peer reviews."}
@@ -2445,14 +2449,14 @@ const Home = () => {
                       <div
                         key={rec.recordingId}
                         style={{
-                          background: "#ffffff",
-                          border: "1px solid #e2e8f0",
+                          background: "var(--mz-surface)",
+                          border: "1px solid var(--mz-border)",
                           borderRadius: 14,
                           overflow: "hidden",
                           display: "flex",
                           flexDirection: "column",
                           justifyContent: "space-between",
-                          boxShadow: "0 2px 8px rgba(0,0,0,0.03)",
+                          boxShadow: "var(--mz-shadow-sm)",
                         }}
                         data-testid={`recording-card-${rec.recordingId}`}
                       >
@@ -2529,7 +2533,7 @@ const Home = () => {
                               margin: "0 0 6px",
                               fontSize: 15,
                               fontWeight: 700,
-                              color: "#0f172a",
+                              color: "var(--mz-text-primary)",
                               lineHeight: 1.35,
                               cursor: "pointer",
                             }}
@@ -2554,7 +2558,7 @@ const Home = () => {
                           <div
                             style={{
                               fontSize: 12,
-                              color: "#64748b",
+                              color: "var(--mz-text-muted)",
                               display: "flex",
                               alignItems: "center",
                               gap: 6,
@@ -2568,7 +2572,7 @@ const Home = () => {
                           <div
                             style={{
                               fontSize: 11.5,
-                              color: "#94a3b8",
+                              color: "var(--mz-text-subtle)",
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "space-between",
@@ -2583,11 +2587,11 @@ const Home = () => {
                         <div
                           style={{
                             padding: "10px 14px",
-                            borderTop: "1px solid #f1f5f9",
+                            borderTop: "1px solid var(--mz-border-subtle)",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "space-between",
-                            background: "#fafafa",
+                            background: "var(--mz-surface-subtle)",
                           }}
                         >
                           <button
@@ -2619,8 +2623,8 @@ const Home = () => {
                                 setRenameInput(rec.title);
                               }}
                               style={{
-                                border: "1px solid #e2e8f0",
-                                background: "#ffffff",
+                                border: "1px solid var(--mz-border)",
+                                background: "var(--mz-surface)",
                                 color: "#2563eb",
                                 padding: "5px 9px",
                                 borderRadius: 6,
@@ -2640,9 +2644,9 @@ const Home = () => {
                               type="button"
                               onClick={() => handleShareRecording(rec)}
                               style={{
-                                border: "1px solid #e2e8f0",
-                                background: "#ffffff",
-                                color: "#475569",
+                                border: "1px solid var(--mz-border)",
+                                background: "var(--mz-surface)",
+                                color: "var(--mz-text-body)",
                                 padding: "5px 8px",
                                 borderRadius: 6,
                                 fontSize: 12,
@@ -2657,9 +2661,9 @@ const Home = () => {
                               href={rec.fileUrl}
                               download={`${rec.title || "recording"}.webm`}
                               style={{
-                                border: "1px solid #e2e8f0",
-                                background: "#ffffff",
-                                color: "#475569",
+                                border: "1px solid var(--mz-border)",
+                                background: "var(--mz-surface)",
+                                color: "var(--mz-text-body)",
                                 padding: "5px 8px",
                                 borderRadius: 6,
                                 fontSize: 12,
@@ -2679,9 +2683,9 @@ const Home = () => {
                                 setRenameInput(rec.title);
                               }}
                               style={{
-                                border: "1px solid #e2e8f0",
-                                background: "#ffffff",
-                                color: "#475569",
+                                border: "1px solid var(--mz-border)",
+                                background: "var(--mz-surface)",
+                                color: "var(--mz-text-body)",
                                 padding: "5px 8px",
                                 borderRadius: 6,
                                 fontSize: 12,
@@ -2695,9 +2699,9 @@ const Home = () => {
                               type="button"
                               onClick={() => handleDeleteRecording(rec.recordingId)}
                               style={{
-                                border: "1px solid #fecaca",
-                                background: "#fef2f2",
-                                color: "#dc2626",
+                                border: "1px solid var(--mz-red-border)",
+                                background: "var(--mz-red-soft)",
+                                color: "var(--mz-red-text)",
                                 padding: "5px 8px",
                                 borderRadius: 6,
                                 fontSize: 12,
@@ -2804,14 +2808,14 @@ const Home = () => {
                   style={{
                     padding: "60px 20px",
                     textAlign: "center",
-                    background: "#ffffff",
+                    background: "var(--mz-surface)",
                     borderRadius: 14,
-                    border: "1px solid #e2e8f0",
+                    border: "1px solid var(--mz-border)",
                     marginBottom: 32,
                   }}
                 >
                   <div className="mz-reports-spinner" style={{ margin: "0 auto 14px" }} />
-                  <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#64748b" }}>
+                  <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "var(--mz-text-muted)" }}>
                     Loading verified credentials & assessment transcripts...
                   </p>
                 </div>
@@ -2821,10 +2825,10 @@ const Home = () => {
                   <div style={{ marginBottom: 32 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
                   <div>
-                    <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0, color: "#0f172a" }}>
+                    <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0, color: "var(--mz-text-primary)" }}>
                       🏆 My Earned Certificates ({certHistory.certificates?.length || 0})
                     </h2>
-                    <p style={{ margin: "2px 0 0", fontSize: 13, color: "#64748b" }}>
+                    <p style={{ margin: "2px 0 0", fontSize: 13, color: "var(--mz-text-muted)" }}>
                       High-resolution vector PDF certificates verified via unique credential IDs.
                     </p>
                   </div>
@@ -2857,11 +2861,11 @@ const Home = () => {
                         <div
                           key={cert.certificateId}
                           style={{
-                            background: "#ffffff",
-                            border: "1.5px solid #e2e8f0",
+                            background: "var(--mz-surface)",
+                            border: "1.5px solid var(--mz-border)",
                             borderRadius: 14,
                             padding: 20,
-                            boxShadow: "0 4px 14px rgba(0,0,0,0.04)",
+                            boxShadow: "var(--mz-shadow-sm)",
                             display: "flex",
                             flexDirection: "column",
                             justifyContent: "space-between",
@@ -2878,9 +2882,9 @@ const Home = () => {
                             >
                               <span
                                 style={{
-                                  background: "#f0fdf4",
-                                  border: "1px solid #bbf7d0",
-                                  color: "#15803d",
+                                  background: "var(--mz-green-soft)",
+                                  border: "1px solid var(--mz-green-border)",
+                                  color: "var(--mz-green-text)",
                                   padding: "3px 10px",
                                   borderRadius: 20,
                                   fontSize: 11,
@@ -2896,7 +2900,7 @@ const Home = () => {
                                 style={{
                                   fontSize: 11,
                                   fontFamily: "monospace",
-                                  color: "#64748b",
+                                  color: "var(--mz-text-muted)",
                                   fontWeight: 600,
                                 }}
                               >
@@ -2908,23 +2912,23 @@ const Home = () => {
                               style={{
                                 fontSize: 17,
                                 fontWeight: 800,
-                                color: "#0f172a",
+                                color: "var(--mz-text-primary)",
                                 margin: "0 0 6px",
                               }}
                             >
                               {cert.certificationTitle}
                             </h3>
-                            <div style={{ fontSize: 13, color: "#475569", marginBottom: 4 }}>
+                            <div style={{ fontSize: 13, color: "var(--mz-text-body)", marginBottom: 4 }}>
                               Issued to: <strong>{cert.recipientName}</strong>
                             </div>
-                            <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 14 }}>
+                            <div style={{ fontSize: 12, color: "var(--mz-text-subtle)", marginBottom: 14 }}>
                               Issued on: {issueDateStr}
                             </div>
                           </div>
 
                           <div
                             style={{
-                              borderTop: "1px solid #f1f5f9",
+                              borderTop: "1px solid var(--mz-border-subtle)",
                               paddingTop: 12,
                               display: "flex",
                               gap: 8,
@@ -2979,9 +2983,9 @@ const Home = () => {
                               style={{
                                 padding: "7px 12px",
                                 borderRadius: 6,
-                                background: "#f8fafc",
-                                border: "1px solid #cbd5e1",
-                                color: "#334155",
+                                background: "var(--mz-surface-subtle)",
+                                border: "1px solid var(--mz-border-strong)",
+                                color: "var(--mz-text-secondary)",
                                 fontSize: 12,
                                 fontWeight: 600,
                                 textDecoration: "none",
@@ -3000,8 +3004,8 @@ const Home = () => {
                 ) : (
                   <div
                     style={{
-                      background: "#ffffff",
-                      border: "1px dashed #cbd5e1",
+                      background: "var(--mz-surface)",
+                      border: "1px dashed var(--mz-border-strong)",
                       borderRadius: 14,
                       padding: "36px 20px",
                       textAlign: "center",
@@ -3012,8 +3016,8 @@ const Home = () => {
                         width: 50,
                         height: 50,
                         borderRadius: "50%",
-                        background: "#faf5ff",
-                        color: "#7c3aed",
+                        background: "var(--mz-purple-soft)",
+                        color: "var(--mz-purple-text)",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
@@ -3022,13 +3026,13 @@ const Home = () => {
                     >
                       <LuAward size={24} />
                     </div>
-                    <h3 style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", margin: "0 0 6px" }}>
+                    <h3 style={{ fontSize: 16, fontWeight: 700, color: "var(--mz-text-primary)", margin: "0 0 6px" }}>
                       No Earned Credentials Yet
                     </h3>
                     <p
                       style={{
                         fontSize: 13,
-                        color: "#64748b",
+                        color: "var(--mz-text-muted)",
                         maxWidth: 480,
                         margin: "0 auto 16px",
                         lineHeight: 1.5,
@@ -3085,10 +3089,10 @@ const Home = () => {
 
               {/* AREA B: MY CERTIFICATION ATTEMPTS */}
               <div>
-                <h2 style={{ fontSize: 18, fontWeight: 800, margin: "0 0 4px", color: "#0f172a" }}>
+                <h2 style={{ fontSize: 18, fontWeight: 800, margin: "0 0 4px", color: "var(--mz-text-primary)" }}>
                   📋 Assessment Attempts & Proctoring Audit ({certHistory.attempts?.length || 0})
                 </h2>
-                <p style={{ margin: "0 0 16px", fontSize: 13, color: "#64748b" }}>
+                <p style={{ margin: "0 0 16px", fontSize: 13, color: "var(--mz-text-muted)" }}>
                   Complete log of each session, MCQ scores, coding challenges status, and proctoring compliance.
                 </p>
 
@@ -3111,8 +3115,8 @@ const Home = () => {
                         <div
                           key={att.attemptId}
                           style={{
-                            background: "#ffffff",
-                            border: "1px solid #e2e8f0",
+                            background: "var(--mz-surface)",
+                            border: "1px solid var(--mz-border)",
                             borderRadius: 12,
                             padding: "16px 20px",
                             display: "flex",
@@ -3124,7 +3128,7 @@ const Home = () => {
                         >
                           <div style={{ minWidth: 220 }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                              <strong style={{ fontSize: 14.5, color: "#0f172a" }}>
+                              <strong style={{ fontSize: 14.5, color: "var(--mz-text-primary)" }}>
                                 {att.certTitle || "DSA Certification"} • Attempt #{att.attemptNumber || 1}
                               </strong>
                               <span
@@ -3134,21 +3138,21 @@ const Home = () => {
                                   padding: "2px 8px",
                                   borderRadius: 12,
                                   background: isPassed
-                                    ? "#dcfce7"
+                                    ? "var(--mz-green-soft)"
                                     : isInProgress
-                                    ? "#dbeafe"
-                                    : "#fee2e2",
+                                    ? "var(--mz-blue-soft)"
+                                    : "var(--mz-red-soft)",
                                   color: isPassed
-                                    ? "#166534"
+                                    ? "var(--mz-green-text)"
                                     : isInProgress
-                                    ? "#1e40af"
-                                    : "#991b1b",
+                                    ? "var(--mz-blue-text)"
+                                    : "var(--mz-red-text)",
                                 }}
                               >
                                 {att.status}
                               </span>
                             </div>
-                            <div style={{ fontSize: 12, color: "#64748b" }}>
+                            <div style={{ fontSize: 12, color: "var(--mz-text-muted)" }}>
                               Started on {dateStr}
                             </div>
                           </div>
@@ -3156,22 +3160,22 @@ const Home = () => {
                           {/* Scores & Proctoring Telemetry */}
                           <div style={{ display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap" }}>
                             <div style={{ fontSize: 12.5 }}>
-                              <div style={{ color: "#64748b", fontSize: 11 }}>Part A: MCQs</div>
+                              <div style={{ color: "var(--mz-text-muted)", fontSize: 11 }}>Part A: MCQs</div>
                               <strong style={{ color: score.mcqPassed ? "#16a34a" : "#dc2626" }}>
                                 {score.mcqScore ?? 0} / {score.mcqTotal ?? 20} ({score.mcqPercentage ?? 0}%)
                               </strong>
                             </div>
 
                             <div style={{ fontSize: 12.5 }}>
-                              <div style={{ color: "#64748b", fontSize: 11 }}>Part B: Coding</div>
-                              <strong style={{ color: score.codingPassed ? "#16a34a" : "#475569" }}>
+                              <div style={{ color: "var(--mz-text-muted)", fontSize: 11 }}>Part B: Coding</div>
+                              <strong style={{ color: score.codingPassed ? "#16a34a" : "var(--mz-text-body)" }}>
                                 Q1: {score.codingQ1Solved ? "✓ Solved" : "✗"} • Q2:{" "}
                                 {score.codingQ2Solved ? "✓ Solved" : "✗"}
                               </strong>
                             </div>
 
                             <div style={{ fontSize: 12.5 }}>
-                              <div style={{ color: "#64748b", fontSize: 11 }}>Proctoring</div>
+                              <div style={{ color: "var(--mz-text-muted)", fontSize: 11 }}>Proctoring</div>
                               <span
                                 style={{
                                   color: (proctoring.violationsCount || 0) === 0 ? "#16a34a" : "#d97706",
@@ -3194,9 +3198,9 @@ const Home = () => {
                                 style={{
                                   padding: "6px 12px",
                                   borderRadius: 6,
-                                  background: "#f8fafc",
-                                  border: "1px solid #cbd5e1",
-                                  color: "#334155",
+                                  background: "var(--mz-surface-subtle)",
+                                  border: "1px solid var(--mz-border-strong)",
+                                  color: "var(--mz-text-secondary)",
                                   fontSize: 12,
                                   fontWeight: 600,
                                   cursor: "pointer",
@@ -3239,9 +3243,9 @@ const Home = () => {
                                 style={{
                                   padding: "6px 12px",
                                   borderRadius: 6,
-                                  background: "#dcfce7",
-                                  border: "1px solid #86efac",
-                                  color: "#166534",
+                                  background: "var(--mz-green-soft)",
+                                  border: "1px solid var(--mz-green-border)",
+                                  color: "var(--mz-green-text)",
                                   fontSize: 12,
                                   fontWeight: 700,
                                   textDecoration: "none",
@@ -3259,15 +3263,15 @@ const Home = () => {
                                   <span
                                     style={{
                                       fontSize: 12,
-                                      color: "#166534",
+                                      color: "var(--mz-green-text)",
                                       fontWeight: 700,
                                       display: "inline-flex",
                                       alignItems: "center",
                                       gap: 4,
-                                      background: "#dcfce7",
+                                      background: "var(--mz-green-soft)",
                                       padding: "5px 10px",
                                       borderRadius: 6,
-                                      border: "1px solid #86efac",
+                                      border: "1px solid var(--mz-green-border)",
                                     }}
                                   >
                                     <LuCircleCheck size={13} /> Certified
@@ -3283,9 +3287,9 @@ const Home = () => {
                                   style={{
                                     padding: "6px 14px",
                                     borderRadius: 6,
-                                    background: "#f1f5f9",
-                                    border: "1px solid #cbd5e1",
-                                    color: "#334155",
+                                    background: "var(--mz-surface-muted)",
+                                    border: "1px solid var(--mz-border-strong)",
+                                    color: "var(--mz-text-secondary)",
                                     fontSize: 12,
                                     fontWeight: 600,
                                     cursor: "pointer",
@@ -3303,12 +3307,12 @@ const Home = () => {
                 ) : (
                   <div
                     style={{
-                      background: "#f8fafc",
-                      border: "1px solid #e2e8f0",
+                      background: "var(--mz-surface-subtle)",
+                      border: "1px solid var(--mz-border)",
                       borderRadius: 10,
                       padding: 20,
                       textAlign: "center",
-                      color: "#64748b",
+                      color: "var(--mz-text-muted)",
                       fontSize: 13,
                     }}
                   >
@@ -3323,7 +3327,7 @@ const Home = () => {
             <div className="mz-reports-page-wrapper">
               <div className="mz-reports-top-banner">
                 <div className="mz-reports-top-info">
-                  <div className="mz-reports-badge-pill" style={{ color: "#2563eb", background: "#eff6ff", borderColor: "#bfdbfe" }}>
+                  <div className="mz-reports-badge-pill" style={{ color: "var(--mz-blue-text)", background: "var(--mz-blue-soft)", borderColor: "var(--mz-blue-border)" }}>
                     <LuSettings size={14} /> System Configuration
                   </div>
                   <h1 className="mz-reports-main-heading">
@@ -3337,32 +3341,39 @@ const Home = () => {
 
               <div style={{ maxWidth: 880, margin: "24px auto", display: "flex", flexDirection: "column", gap: 20 }}>
                 {/* 1. Account Details */}
-                <div style={{ background: "#ffffff", padding: "24px 28px", borderRadius: 18, border: "1px solid #e2e8f0", boxShadow: "0 2px 10px rgba(15,23,42,0.03)" }}>
-                  <h3 style={{ fontSize: "1.05rem", fontWeight: 700, margin: "0 0 4px", color: "#0f172a" }}>Profile & Candidate Identification</h3>
-                  <p style={{ fontSize: "0.85rem", color: "#64748b", margin: "0 0 16px" }}>Your verified credentials on Mastery Zone.</p>
+                <div style={{ background: "var(--mz-surface)", padding: "24px 28px", borderRadius: 18, border: "1px solid var(--mz-border)", boxShadow: "var(--mz-shadow-sm)" }}>
+                  <h3 style={{ fontSize: "1.05rem", fontWeight: 700, margin: "0 0 4px", color: "var(--mz-text-primary)" }}>Profile & Candidate Identification</h3>
+                  <p style={{ fontSize: "0.85rem", color: "var(--mz-text-muted)", margin: "0 0 16px" }}>Your verified credentials on Mastery Zone.</p>
                   
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14 }}>
-                    <div style={{ padding: 14, background: "#f8fafc", borderRadius: 12, border: "1px solid #e2e8f0" }}>
-                      <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Full Name</span>
-                      <div style={{ fontSize: "0.92rem", fontWeight: 600, color: "#0f172a", marginTop: 4 }}>{user?.fullName || displayName || "Verified Candidate"}</div>
+                    <div style={{ padding: 14, background: "var(--mz-surface-subtle)", borderRadius: 12, border: "1px solid var(--mz-border)" }}>
+                      <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--mz-text-muted)", textTransform: "uppercase" }}>Full Name</span>
+                      <div style={{ fontSize: "0.92rem", fontWeight: 600, color: "var(--mz-text-primary)", marginTop: 4 }}>{user?.fullName || displayName || "Verified Candidate"}</div>
                     </div>
-                    <div style={{ padding: 14, background: "#f8fafc", borderRadius: 12, border: "1px solid #e2e8f0" }}>
-                      <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Email Address</span>
-                      <div style={{ fontSize: "0.92rem", fontWeight: 600, color: "#0f172a", marginTop: 4 }}>{user?.email || localStorage.getItem("userEmail") || "user@masteryzone.com"}</div>
+                    <div style={{ padding: 14, background: "var(--mz-surface-subtle)", borderRadius: 12, border: "1px solid var(--mz-border)" }}>
+                      <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--mz-text-muted)", textTransform: "uppercase" }}>Email Address</span>
+                      <div style={{ fontSize: "0.92rem", fontWeight: 600, color: "var(--mz-text-primary)", marginTop: 4 }}>{user?.email || localStorage.getItem("userEmail") || "user@masteryzone.com"}</div>
                     </div>
-                    <div style={{ padding: 14, background: "#f8fafc", borderRadius: 12, border: "1px solid #e2e8f0" }}>
-                      <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Candidate ID</span>
-                      <div style={{ fontSize: "0.92rem", fontWeight: 600, color: "#2563eb", marginTop: 4 }}>{`CAND-${String(user?._id || user?.id || "7CA59D").slice(-6).toUpperCase()}`}</div>
+                    <div style={{ padding: 14, background: "var(--mz-surface-subtle)", borderRadius: 12, border: "1px solid var(--mz-border)" }}>
+                      <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--mz-text-muted)", textTransform: "uppercase" }}>Candidate ID</span>
+                      <div style={{ fontSize: "0.92rem", fontWeight: 600, color: "var(--mz-blue-text)", marginTop: 4 }}>{`CAND-${String(user?._id || user?.id || "7CA59D").slice(-6).toUpperCase()}`}</div>
                     </div>
                   </div>
                 </div>
 
+                {/* 1.5. Appearance & Theme */}
+                <div style={{ background: "var(--mz-surface)", padding: "24px 28px", borderRadius: 18, border: "1px solid var(--mz-border)", boxShadow: "var(--mz-shadow-sm)" }}>
+                  <h3 style={{ fontSize: "1.05rem", fontWeight: 700, margin: "0 0 4px", color: "var(--mz-text-primary)" }}>Appearance & Theme</h3>
+                  <p style={{ fontSize: "0.85rem", color: "var(--mz-text-muted)", margin: "0 0 16px" }}>Choose between Light Mode, Dark Mode, or follow your System setting across all pages and workspaces.</p>
+                  <ThemeToggle variant="cards" />
+                </div>
+
                 {/* 2. Notification Preferences */}
-                <div style={{ background: "#ffffff", padding: "24px 28px", borderRadius: 18, border: "1px solid #e2e8f0", boxShadow: "0 2px 10px rgba(15,23,42,0.03)" }}>
-                  <h3 style={{ fontSize: "1.05rem", fontWeight: 700, margin: "0 0 4px", color: "#0f172a" }}>Preferences & Notifications</h3>
-                  <p style={{ fontSize: "0.85rem", color: "#64748b", margin: "0 0 16px" }}>Control notification channels, exam reminders, and progress telemetry.</p>
+                <div style={{ background: "var(--mz-surface)", padding: "24px 28px", borderRadius: 18, border: "1px solid var(--mz-border)", boxShadow: "var(--mz-shadow-sm)" }}>
+                  <h3 style={{ fontSize: "1.05rem", fontWeight: 700, margin: "0 0 4px", color: "var(--mz-text-primary)" }}>Preferences & Notifications</h3>
+                  <p style={{ fontSize: "0.85rem", color: "var(--mz-text-muted)", margin: "0 0 16px" }}>Control notification channels, exam reminders, and progress telemetry.</p>
                   
-                  <div className="mz-setting-row" style={{ padding: "14px 0", borderBottom: "1px solid #f1f5f9" }}>
+                  <div className="mz-setting-row" style={{ padding: "14px 0", borderBottom: "1px solid var(--mz-border-subtle)" }}>
                     <div className="mz-setting-info">
                       <span className="mz-setting-name">Email Notifications</span>
                       <span className="mz-setting-desc">Receive assessment receipts, certificate alerts, and learning track milestones.</span>
@@ -3393,9 +3404,9 @@ const Home = () => {
                 </div>
 
                 {/* 3. Security & Account Controls */}
-                <div style={{ background: "#ffffff", padding: "24px 28px", borderRadius: 18, border: "1px solid #e2e8f0", boxShadow: "0 2px 10px rgba(15,23,42,0.03)" }}>
-                  <h3 style={{ fontSize: "1.05rem", fontWeight: 700, margin: "0 0 4px", color: "#0f172a" }}>Security & Account Controls</h3>
-                  <p style={{ fontSize: "0.85rem", color: "#64748b", margin: "0 0 16px" }}>Manage password security and permanent account removal.</p>
+                <div style={{ background: "var(--mz-surface)", padding: "24px 28px", borderRadius: 18, border: "1px solid var(--mz-border)", boxShadow: "var(--mz-shadow-sm)" }}>
+                  <h3 style={{ fontSize: "1.05rem", fontWeight: 700, margin: "0 0 4px", color: "var(--mz-text-primary)" }}>Security & Account Controls</h3>
+                  <p style={{ fontSize: "0.85rem", color: "var(--mz-text-muted)", margin: "0 0 16px" }}>Manage password security and permanent account removal.</p>
 
                   <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 8 }}>
                     <button
@@ -3410,7 +3421,7 @@ const Home = () => {
                       type="button"
                       className="mz-report-btn"
                       onClick={handleDeleteAccount}
-                      style={{ padding: "9px 18px", fontSize: "13px", color: "#dc2626", borderColor: "#fecaca", background: "#fef2f2" }}
+                      style={{ padding: "9px 18px", fontSize: "13px", color: "var(--mz-red-text)", borderColor: "var(--mz-red-border)", background: "var(--mz-red-soft)" }}
                     >
                       Delete Account
                     </button>
@@ -3922,12 +3933,12 @@ const Home = () => {
               <>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    <div style={{ width: "36px", height: "36px", borderRadius: "10px", background: "#eff6ff", color: "#2563eb", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <div style={{ width: "36px", height: "36px", borderRadius: "10px", background: "var(--mz-blue-soft)", color: "#2563eb", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <LuPlus size={20} />
                     </div>
                     <div>
                       <h3 className="mz-modal-title" style={{ margin: 0, fontSize: "17px" }}>Log Learning Activity</h3>
-                      <p style={{ margin: "2px 0 0", fontSize: "12px", color: "#64748b" }}>Record verified lessons, study hours, or workouts</p>
+                      <p style={{ margin: "2px 0 0", fontSize: "12px", color: "var(--mz-text-muted)" }}>Record verified lessons, study hours, or workouts</p>
                     </div>
                   </div>
                   <button
@@ -3935,7 +3946,7 @@ const Home = () => {
                     className="mz-search-clear-btn"
                     onClick={handleCloseLogActivityModal}
                     title="Close"
-                    style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b" }}
+                    style={{ background: "none", border: "none", cursor: "pointer", color: "var(--mz-text-muted)" }}
                   >
                     <LuX size={18} />
                   </button>
@@ -3943,7 +3954,7 @@ const Home = () => {
 
                 <form onSubmit={handleLogActivitySubmit} className="mz-p-modal-form">
                   <div style={{ marginBottom: "14px" }}>
-                    <label style={{ display: "block", fontSize: "12.5px", fontWeight: 600, color: "#334155", marginBottom: "6px" }}>
+                    <label style={{ display: "block", fontSize: "12.5px", fontWeight: 600, color: "var(--mz-text-secondary)", marginBottom: "6px" }}>
                       Learning Track
                     </label>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "8px" }}>
@@ -3963,9 +3974,9 @@ const Home = () => {
                             gap: "8px",
                             padding: "8px 12px",
                             borderRadius: "10px",
-                            border: logActivityForm.track === t.key ? "1.5px solid #2563eb" : "1px solid #e2e8f0",
-                            background: logActivityForm.track === t.key ? "#eff6ff" : "#ffffff",
-                            color: logActivityForm.track === t.key ? "#2563eb" : "#475569",
+                            border: logActivityForm.track === t.key ? "1.5px solid #2563eb" : "1px solid var(--mz-border)",
+                            background: logActivityForm.track === t.key ? "var(--mz-blue-soft)" : "var(--mz-surface)",
+                            color: logActivityForm.track === t.key ? "#2563eb" : "var(--mz-text-body)",
                             fontWeight: logActivityForm.track === t.key ? 700 : 500,
                             cursor: "pointer",
                             fontSize: "13px",
@@ -3980,12 +3991,12 @@ const Home = () => {
                   </div>
 
                   <div style={{ marginBottom: "14px" }}>
-                    <label style={{ display: "block", fontSize: "12.5px", fontWeight: 600, color: "#334155", marginBottom: "6px" }}>
+                    <label style={{ display: "block", fontSize: "12.5px", fontWeight: 600, color: "var(--mz-text-secondary)", marginBottom: "6px" }}>
                       Activity Type
                     </label>
                     <select
                       className="mz-search-bar-input"
-                      style={{ padding: "8px 12px", borderRadius: "10px", width: "100%", background: "#f8fafc", boxSizing: "border-box" }}
+                      style={{ padding: "8px 12px", borderRadius: "10px", width: "100%", background: "var(--mz-input-bg-subtle)", color: "var(--mz-input-text)", boxSizing: "border-box" }}
                       value={logActivityForm.task}
                       onChange={(e) => setLogActivityForm({ ...logActivityForm, task: e.target.value })}
                     >
@@ -3999,13 +4010,13 @@ const Home = () => {
                   </div>
 
                   <div style={{ marginBottom: "14px" }}>
-                    <label style={{ display: "block", fontSize: "12.5px", fontWeight: 600, color: "#334155", marginBottom: "6px" }}>
+                    <label style={{ display: "block", fontSize: "12.5px", fontWeight: 600, color: "var(--mz-text-secondary)", marginBottom: "6px" }}>
                       Lesson / Topic Name
                     </label>
                     <input
                       type="text"
                       className="mz-search-bar-input"
-                      style={{ padding: "8px 12px", borderRadius: "10px", width: "100%", background: "#f8fafc", boxSizing: "border-box" }}
+                      style={{ padding: "8px 12px", borderRadius: "10px", width: "100%", background: "var(--mz-input-bg-subtle)", color: "var(--mz-input-text)", boxSizing: "border-box" }}
                       placeholder="e.g. Python - Control Flow & Conditionals"
                       value={logActivityForm.moduleName}
                       onChange={(e) => setLogActivityForm({ ...logActivityForm, moduleName: e.target.value })}
@@ -4015,12 +4026,12 @@ const Home = () => {
 
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "18px" }}>
                     <div>
-                      <label style={{ display: "block", fontSize: "12.5px", fontWeight: 600, color: "#334155", marginBottom: "6px" }}>
+                      <label style={{ display: "block", fontSize: "12.5px", fontWeight: 600, color: "var(--mz-text-secondary)", marginBottom: "6px" }}>
                         Study Hours
                       </label>
                       <select
                         className="mz-search-bar-input"
-                        style={{ padding: "8px 12px", borderRadius: "10px", width: "100%", background: "#f8fafc", boxSizing: "border-box" }}
+                        style={{ padding: "8px 12px", borderRadius: "10px", width: "100%", background: "var(--mz-input-bg-subtle)", color: "var(--mz-input-text)", boxSizing: "border-box" }}
                         value={logActivityForm.hoursSpent}
                         onChange={(e) => setLogActivityForm({ ...logActivityForm, hoursSpent: e.target.value })}
                       >
@@ -4034,12 +4045,12 @@ const Home = () => {
                     </div>
 
                     <div>
-                      <label style={{ display: "block", fontSize: "12.5px", fontWeight: 600, color: "#334155", marginBottom: "6px" }}>
+                      <label style={{ display: "block", fontSize: "12.5px", fontWeight: 600, color: "var(--mz-text-secondary)", marginBottom: "6px" }}>
                         XP Earned
                       </label>
                       <select
                         className="mz-search-bar-input"
-                        style={{ padding: "8px 12px", borderRadius: "10px", width: "100%", background: "#f8fafc", boxSizing: "border-box" }}
+                        style={{ padding: "8px 12px", borderRadius: "10px", width: "100%", background: "var(--mz-input-bg-subtle)", color: "var(--mz-input-text)", boxSizing: "border-box" }}
                         value={logActivityForm.xpEarned}
                         onChange={(e) => setLogActivityForm({ ...logActivityForm, xpEarned: e.target.value })}
                       >
@@ -4077,8 +4088,16 @@ const Home = () => {
       {/* ================= APP SETTINGS MODAL ================= */}
       {isSettingsModalOpen && (
         <div className="mz-modal-backdrop" onClick={() => setIsSettingsModalOpen(false)}>
-          <div className="mz-modal-box mz-settings-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="mz-modal-box mz-settings-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
             <h2 className="mz-modal-title">App Settings</h2>
+
+            <div style={{ padding: "12px 0", borderBottom: "1px solid var(--mz-border-subtle)" }}>
+              <div className="mz-setting-info" style={{ marginBottom: 10 }}>
+                <span className="mz-setting-name">Appearance & Theme</span>
+                <span className="mz-setting-desc">Switch between Light, Dark, or System preference</span>
+              </div>
+              <ThemeToggle variant="cards" />
+            </div>
 
             <div className="mz-setting-row">
               <div className="mz-setting-info">
@@ -4510,7 +4529,9 @@ const Home = () => {
                   width: "100%",
                   padding: "9px 12px",
                   borderRadius: 8,
-                  border: "1px solid #cbd5e1",
+                  border: "1px solid var(--mz-input-border)",
+                  background: "var(--mz-input-bg)",
+                  color: "var(--mz-input-text)",
                   fontSize: 14,
                   marginTop: 10,
                   marginBottom: 16,

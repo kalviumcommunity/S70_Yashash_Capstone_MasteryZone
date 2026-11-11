@@ -9,6 +9,7 @@ import {
   LuSettings,
   LuLogOut,
 } from "react-icons/lu";
+import ThemeToggle from "./ThemeToggle.jsx";
 import "./UserProfileDropdown.css";
 
 export default function UserProfileDropdown({
@@ -183,12 +184,12 @@ export default function UserProfileDropdown({
         >
           <span
             className="mz-c-dropdown-item-icon"
-            style={{ background: "#eef2ff", color: "#6366f1" }}
+            style={{ background: "var(--mz-indigo-bg, #eef2ff)", color: "var(--mz-indigo-text, #6366f1)" }}
           >
             <LuShieldCheck size={16} />
           </span>
           <div className="mz-c-dropdown-item-content">
-            <span className="mz-c-dropdown-item-title" style={{ color: "#4f46e5" }}>
+            <span className="mz-c-dropdown-item-title" style={{ color: "var(--mz-indigo-text, #4f46e5)" }}>
               Super Admin Portal
             </span>
             <span className="mz-c-dropdown-item-desc">System moderation & control</span>
@@ -217,6 +218,9 @@ export default function UserProfileDropdown({
           <span className="mz-c-dropdown-item-desc">Theme, preferences & security</span>
         </div>
       </div>
+
+      {/* Quick Theme Switcher (Light / Dark / System) */}
+      <ThemeToggle variant="menu-row" />
 
       <div className="mz-c-dropdown-divider" />
 

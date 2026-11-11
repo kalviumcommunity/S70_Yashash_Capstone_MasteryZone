@@ -9,6 +9,24 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <title>Mastery Zone - Learn • Grow • Achieve</title>
+    <script>
+      (function () {
+        try {
+          var pref = localStorage.getItem("mz_theme_preference") || localStorage.getItem("mz_theme") || "light";
+          var isDark =
+            pref === "dark" ||
+            (pref === "system" && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+          var resolved = isDark ? "dark" : "light";
+          var root = document.documentElement;
+          root.setAttribute("data-theme", resolved);
+          root.setAttribute("data-theme-preference", pref);
+          root.classList.toggle("mz-theme-dark", isDark);
+          root.classList.toggle("mz-theme-light", !isDark);
+          root.classList.toggle("mz-c-dark", isDark);
+          root.style.colorScheme = resolved;
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
    

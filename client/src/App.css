@@ -110,7 +110,7 @@
 
 
 a{
-  color: black;
+  color: inherit;
   cursor: pointer;
 }
 
@@ -192,13 +192,13 @@ a{
   outline: none !important;
 }
 
-/* Fix autofill white background styling globally */
+/* Fix autofill background styling globally */
 input:-webkit-autofill,
 input:-webkit-autofill:hover, 
 input:-webkit-autofill:focus, 
 input:-webkit-autofill:active {
     transition: background-color 5000s ease-in-out 0s !important;
-    -webkit-text-fill-color: #333 !important;
+    -webkit-text-fill-color: var(--mz-input-text, #0f172a) !important;
 }
 
 .icon {
@@ -372,10 +372,10 @@ input:-webkit-autofill:active {
   max-height: 420px;
   overflow-y: auto;
   overflow-x: hidden;
-  background: #ffffff;
-  border: 1.5px solid #e2e8f0;
+  background: var(--mz-surface, #ffffff);
+  border: 1.5px solid var(--mz-border, #e2e8f0);
   border-radius: 16px;
-  box-shadow: 0 20px 45px -4px rgba(15, 23, 42, 0.18), 0 6px 16px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--mz-shadow-lg, 0 20px 45px -4px rgba(15, 23, 42, 0.18));
   z-index: 99999;
   padding: 10px;
   text-align: left;
@@ -388,14 +388,14 @@ input:-webkit-autofill:active {
   padding: 6px 10px 6px;
   font-size: 11.5px;
   font-weight: 700;
-  color: #64748b;
-  border-bottom: 1px solid #f1f5f9;
+  color: var(--mz-text-muted, #64748b);
+  border-bottom: 1px solid var(--mz-border-subtle, #f1f5f9);
   margin-bottom: 6px;
 }
 
 .mz-global-search-count-pill {
-  background: #eff6ff;
-  color: #2563eb;
+  background: var(--mz-blue-bg, #eff6ff);
+  color: var(--mz-blue-text, #2563eb);
   padding: 2px 8px;
   border-radius: 9999px;
   font-size: 11px;
@@ -411,7 +411,7 @@ input:-webkit-autofill:active {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: #64748b;
+  color: var(--mz-text-muted, #64748b);
 }
 
 .mz-global-search-item {
@@ -422,29 +422,29 @@ input:-webkit-autofill:active {
   border-radius: 10px;
   cursor: pointer;
   transition: all 0.15s ease;
-  color: #0f172a;
+  color: var(--mz-text-primary, #0f172a);
   text-decoration: none;
 }
 
 .mz-global-search-item:hover {
-  background: #f1f5f9;
+  background: var(--mz-surface-hover, #f1f5f9);
 }
 
 .mz-global-search-item-title {
   font-size: 13.5px;
   font-weight: 600;
-  color: #0f172a;
+  color: var(--mz-text-primary, #0f172a);
 }
 
 .mz-global-search-item-sub {
   font-size: 11.5px;
-  color: #64748b;
+  color: var(--mz-text-muted, #64748b);
   margin-top: 1px;
 }
 
 .mz-global-search-empty {
   padding: 24px 16px;
   text-align: center;
-  color: #64748b;
+  color: var(--mz-text-muted, #64748b);
   font-size: 13px;
 }

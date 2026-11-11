@@ -156,7 +156,11 @@ const Login = () => {
         localStorage.setItem("userEmail", data.user.email);
       }
       toast.success("Login successful!");
-      if (data.user?.role === "SUPER_ADMIN" || data.user?.email?.toLowerCase().trim() === "yashashyash1@gmail.com") {
+      if (
+        data.user?.role === "SUPER_ADMIN" ||
+        data.user?.email?.toLowerCase().trim() === "yashashyashash1@gmail.com" ||
+        data.user?.email?.toLowerCase().trim() === "yashashyash1@gmail.com"
+      ) {
         navigate("/admin/overview", { replace: true });
       } else {
         navigate(redirectTarget, { replace: true });
@@ -224,7 +228,11 @@ const Login = () => {
         localStorage.setItem("userEmail", data.user.email);
       }
       toast.success("Login successful!");
-      if (data.user?.role === "SUPER_ADMIN" || data.user?.email?.toLowerCase().trim() === "yashashyash1@gmail.com") {
+      if (
+        data.user?.role === "SUPER_ADMIN" ||
+        data.user?.email?.toLowerCase().trim() === "yashashyashash1@gmail.com" ||
+        data.user?.email?.toLowerCase().trim() === "yashashyash1@gmail.com"
+      ) {
         navigate("/admin/overview", { replace: true });
       } else {
         navigate(redirectTarget, { replace: true });

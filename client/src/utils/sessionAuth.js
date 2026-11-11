@@ -15,7 +15,6 @@ export const MASTERY_ZONE_STORAGE_KEYS = [
   "mz_session_active",
   "mz_active_meeting",
   "mz_recent_search",
-  "mz_theme",
   "mz_code_draft",
   "mz_workspace_state",
   "adminToken",
@@ -23,22 +22,30 @@ export const MASTERY_ZONE_STORAGE_KEYS = [
   "activeMeetingSession",
 ];
 
+const PRESERVED_THEME_KEYS = new Set([
+  "mz_theme",
+  "mz_theme_preference",
+  "mz_editor_theme",
+]);
+
 export const clearMasteryZoneStorage = () => {
   try {
     for (const key of MASTERY_ZONE_STORAGE_KEYS) {
-      localStorage.removeItem(key);
-      sessionStorage.removeItem(key);
+      if (!PRESERVED_THEME_KEYS.has(key)) {
+        localStorage.removeItem(key);
+        sessionStorage.removeItem(key);
+      }
     }
-    // Safely remove any prefixed keys without touching third-party storage
+    // Safely remove any prefixed keys without touching third-party storage or theme preferences
     for (let i = localStorage.length - 1; i >= 0; i--) {
       const k = localStorage.key(i);
-      if (k && (k.startsWith("mz_") || k.startsWith("masteryzone_"))) {
+      if (k && !PRESERVED_THEME_KEYS.has(k) && (k.startsWith("mz_") || k.startsWith("masteryzone_"))) {
         localStorage.removeItem(k);
       }
     }
     for (let i = sessionStorage.length - 1; i >= 0; i--) {
       const k = sessionStorage.key(i);
-      if (k && (k.startsWith("mz_") || k.startsWith("masteryzone_"))) {
+      if (k && !PRESERVED_THEME_KEYS.has(k) && (k.startsWith("mz_") || k.startsWith("masteryzone_"))) {
         sessionStorage.removeItem(k);
       }
     }

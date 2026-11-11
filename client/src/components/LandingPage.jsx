@@ -34,6 +34,7 @@ import ctaMortarboardCap from "../assets/cta_mortarboard_cap.png";
 
 import "./LandingPage.css";
 import { verifyActiveSession } from "../utils/sessionAuth.js";
+import ThemeToggle from "./ThemeToggle.jsx";
 
 const LandingPage = () => {
   const navigate = useNavigate();
@@ -93,7 +94,7 @@ const LandingPage = () => {
     {
       id: "expert-courses",
       icon: <LuBookOpen size={22} color="#4f46e5" />,
-      iconBg: "#eef2ff",
+      iconBg: "var(--mz-indigo-bg)",
       title: "Expert-Led Courses",
       description: "Master DSA and core programming concepts.",
       onClick: scrollToCourses,
@@ -101,7 +102,7 @@ const LandingPage = () => {
     {
       id: "coding-challenges",
       icon: <LuZap size={22} color="#2563eb" />,
-      iconBg: "#eff6ff",
+      iconBg: "var(--mz-blue-bg)",
       title: "Coding Challenges",
       description: "Sharpen your problem-solving skills with real challenges.",
       onClick: () => navigate(isAuthenticated ? "/coding?tab=challenges" : "/login", { state: { from: { pathname: "/coding?tab=challenges" } } }),
@@ -109,7 +110,7 @@ const LandingPage = () => {
     {
       id: "coding-competitions",
       icon: <LuTrophy size={22} color="#d97706" />,
-      iconBg: "#fffbeb",
+      iconBg: "var(--mz-amber-bg)",
       title: "Coding Competitions",
       description: "Test your skills in exciting competitions.",
       onClick: () => navigate(isAuthenticated ? "/certificates" : "/login", { state: { from: { pathname: "/certificates" } } }),
@@ -117,7 +118,7 @@ const LandingPage = () => {
     {
       id: "real-projects",
       icon: <LuRocket size={22} color="#7c3aed" />,
-      iconBg: "#f5f3ff",
+      iconBg: "var(--mz-purple-bg)",
       title: "Real Projects",
       description: "Build real-world projects and boost your portfolio.",
       onClick: () => navigate(isAuthenticated ? "/coding?tab=projects" : "/login", { state: { from: { pathname: "/coding?tab=projects" } } }),
@@ -125,7 +126,7 @@ const LandingPage = () => {
     {
       id: "secure-trusted",
       icon: <LuShieldCheck size={22} color="#16a34a" />,
-      iconBg: "#f0fdf4",
+      iconBg: "var(--mz-green-bg)",
       title: "Secure & Trusted",
       description: "A safe and reliable platform for your learning journey.",
       onClick: () => navigate("/verify/demo"),
@@ -236,6 +237,7 @@ const LandingPage = () => {
 
           {/* Prominent "Go to Dashboard" Button on Right */}
           <div className="mz-ref-nav-right">
+            <ThemeToggle />
             <button
               type="button"
               className="mz-ref-dashboard-btn"
@@ -341,7 +343,7 @@ const LandingPage = () => {
             <div
               key={feat.id}
               className={`mz-feature-card ${feat.id === "coding-challenges" ? "active-featured" : ""}`}
-              style={feat.id === "coding-challenges" ? { border: "1.5px solid #93c5fd" } : undefined}
+              style={feat.id === "coding-challenges" ? { border: "1.5px solid var(--mz-blue-border)" } : undefined}
               onClick={feat.onClick}
               role="button"
               tabIndex={0}

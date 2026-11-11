@@ -304,6 +304,8 @@ export default function MasteryZoneCompilerWorkspace({
     return "python";
   };
 
+  const isRetakeRequested = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("retake") === "true";
+
   const [selectedLang, setSelectedLang] = useState(normalizeLang(defaultLanguage));
   const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
   const [editorFontSize, setEditorFontSize] = useState(13);
@@ -449,7 +451,7 @@ export default function MasteryZoneCompilerWorkspace({
           if (data.bestScore !== undefined) setBestScore(data.bestScore);
 
           // Restore Report Ready screen if assignment was already completed/submitted
-          if (data.exercisePassed || (data.bestScore !== undefined && data.bestScore >= 80)) {
+          if (!isRetakeRequested && (data.exercisePassed || (data.bestScore !== undefined && data.bestScore >= 80))) {
             const attempts = Array.isArray(data.attempts) ? data.attempts : [];
             const lastAttempt = attempts.slice(-1)[0] || {};
             const scoreVal = data.bestScore !== undefined ? data.bestScore : (lastAttempt.score || 100);
@@ -474,11 +476,11 @@ export default function MasteryZoneCompilerWorkspace({
         }
       })
       .catch(() => {});
-  }, [historyUrl, questionId]);
+  }, [historyUrl, questionId, isRetakeRequested]);
 
   // Restore Report Ready screen from initialHistory if passed via props
   useEffect(() => {
-    if (!initialHistory) return;
+    if (!initialHistory || isRetakeRequested) return;
     if (initialHistory.exercisePassed || (initialHistory.bestScore !== undefined && initialHistory.bestScore >= 80)) {
       const attempts = Array.isArray(initialHistory.attempts) ? initialHistory.attempts : [];
       const lastAttempt = attempts.slice(-1)[0] || {};
@@ -987,9 +989,9 @@ export default function MasteryZoneCompilerWorkspace({
   const { sessionId: routeSessionId } = useParams() || {};
   const navigate = useNavigate();
 
-  const effectiveSessionId = sessionId || routeSessionId || null;
+  const effectiveSessionId = !isRetakeRequested ? (sessionId || routeSessionId || null) : null;
   const [proctoringStage, setProctoringStage] = useState(
-    initialProctoringStage || (effectiveSessionId ? "active" : (isProctored ? "gate" : "active"))
+    initialProctoringStage || (isRetakeRequested ? (isProctored ? "gate" : "active") : (effectiveSessionId ? "active" : (isProctored ? "gate" : "active")))
   );
   const [proctoredSessionId, setProctoredSessionId] = useState(effectiveSessionId);
   const [candidateDetails, setCandidateDetails] = useState({
@@ -2688,6 +2690,9 @@ export default function MasteryZoneCompilerWorkspace({
         } else {
           toast.error(`Submission error: ${result.error.split("\n")[0]}`);
           setCustomError(`Submission Service Error: ${result.error}`);
+          isSubmittedRef.current = false;
+          setIsSubmittedReadOnly(false);
+          setIsTimerRunning(true);
         }
         setSubmissionFlowStage(null);
         return;
@@ -3061,7 +3066,7 @@ export default function MasteryZoneCompilerWorkspace({
   // =========================================================================
   // PRE-ASSESSMENT SECURITY GATE ENFORCEMENT
   // =========================================================================
-  if (isProctored && proctoringStage === "gate" && !routeSessionId) {
+  if (isProctored && proctoringStage === "gate") {
     return (
       <AssessmentSecurityGate
         assessmentTitle={title || questionDetails.title}
@@ -3135,10 +3140,40 @@ export default function MasteryZoneCompilerWorkspace({
           navigate(`/assessment-report/${reportSid}`, { replace: true });
         }}
         onRetake={() => {
+          cleanupAllMediaAndProctoring();
+          try {
+            sessionStorage.removeItem("mz_active_proctored_session");
+            localStorage.removeItem("mz_active_proctored_session");
+            if (questionId) localStorage.removeItem(`mz_report_sid_${questionId}`);
+            localStorage.removeItem("mz_last_assessment_report_sid");
+          } catch {}
           setSubmissionFlowStage(null);
           setIsSubmittedReadOnly(false);
           isSubmittedRef.current = false;
           setIsSubmitting(false);
+          setIsTerminated(false);
+          setRecoveryChancesRemaining(5);
+          setIsRecoveryModalOpen(false);
+          setSubmissionSummary(null);
+          setSubmissionSuccessData(null);
+          setProctoredSessionId(null);
+          setSecondsRemaining(timeLimitMinutes ? timeLimitMinutes * 60 : 3600);
+          setElapsedSeconds(0);
+          setIsTimerRunning(true);
+          setPassedCount(0);
+          setHasEvaluated(false);
+          setAllTestCases((prev) =>
+            prev.map((tc) => ({
+              ...tc,
+              actualOutput: "",
+              error: null,
+              durationMs: null,
+              passed: null,
+            }))
+          );
+          if (isProctored) {
+            setProctoringStage("gate");
+          }
         }}
         onReturn={() => {
           if (onClose) onClose();
@@ -3157,10 +3192,40 @@ export default function MasteryZoneCompilerWorkspace({
         errorMessage={submissionError}
         sessionId={submissionReportSid}
         onRetake={() => {
+          cleanupAllMediaAndProctoring();
+          try {
+            sessionStorage.removeItem("mz_active_proctored_session");
+            localStorage.removeItem("mz_active_proctored_session");
+            if (questionId) localStorage.removeItem(`mz_report_sid_${questionId}`);
+            localStorage.removeItem("mz_last_assessment_report_sid");
+          } catch {}
           setSubmissionFlowStage(null);
           setIsSubmittedReadOnly(false);
           isSubmittedRef.current = false;
           setIsSubmitting(false);
+          setIsTerminated(false);
+          setRecoveryChancesRemaining(5);
+          setIsRecoveryModalOpen(false);
+          setSubmissionSummary(null);
+          setSubmissionSuccessData(null);
+          setProctoredSessionId(null);
+          setSecondsRemaining(timeLimitMinutes ? timeLimitMinutes * 60 : 3600);
+          setElapsedSeconds(0);
+          setIsTimerRunning(true);
+          setPassedCount(0);
+          setHasEvaluated(false);
+          setAllTestCases((prev) =>
+            prev.map((tc) => ({
+              ...tc,
+              actualOutput: "",
+              error: null,
+              durationMs: null,
+              passed: null,
+            }))
+          );
+          if (isProctored) {
+            setProctoringStage("gate");
+          }
         }}
         onReturn={() => {
           if (onClose) onClose();
