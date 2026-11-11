@@ -3396,36 +3396,13 @@ router.get("/email/status", async (req, res) => {
 });
 
 router.get("/email/test-smtp-direct", async (req, res) => {
-  const tls = require("tls");
-  const net = require("net");
-  const results = {};
-
-  // Test 465 TLS
-  results.port465 = await new Promise((resolve) => {
-    const s = tls.connect(465, "smtp.gmail.com", { timeout: 5000 }, () => {
-      s.once("data", (d) => {
-        s.end();
-        resolve({ ok: true, banner: d.toString().trim() });
-      });
-    });
-    s.on("error", (e) => resolve({ ok: false, error: e.message }));
-    s.on("timeout", () => { s.destroy(); resolve({ ok: false, error: "timeout" }); });
+  const apiKey = process.env.BREVO_API_KEY;
+  if (!apiKey) return res.json({ error: "No BREVO_API_KEY" });
+  const bRes = await fetch("https://api.brevo.com/v3/smtp/statistics/events?limit=5", {
+    headers: { "api-key": apiKey },
   });
-
-  // Test 587 TCP
-  results.port587 = await new Promise((resolve) => {
-    const s = net.connect(587, "smtp.gmail.com", () => {
-      s.once("data", (d) => {
-        s.end();
-        resolve({ ok: true, banner: d.toString().trim() });
-      });
-    });
-    s.setTimeout(5000);
-    s.on("error", (e) => resolve({ ok: false, error: e.message }));
-    s.on("timeout", () => { s.destroy(); resolve({ ok: false, error: "timeout" }); });
-  });
-
-  res.json(results);
+  const data = await bRes.json();
+  res.json({ events: data });
 });
 
 router.post("/email/test", async (req, res) => {
