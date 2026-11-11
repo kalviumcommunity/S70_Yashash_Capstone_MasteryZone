@@ -43,7 +43,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 32px;
-  padding: 28px 48px;
+  padding: 30px 76px;
   box-sizing: border-box;
   overflow: hidden;
   user-select: none;
@@ -617,34 +617,36 @@
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(10, 12, 18, 0.72);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   z-index: 10;
-  transition: all 0.2s ease;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.55);
 }
 
 .mzc-nav-btn:hover {
-  background: rgba(255, 255, 255, 0.26);
-  transform: translateY(-50%) scale(1.08);
-  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+  background: #2563eb;
+  border-color: #3b82f6;
+  transform: translateY(-50%) scale(1.1);
+  box-shadow: 0 6px 22px rgba(37, 99, 235, 0.45);
 }
 
 .mzc-nav-btn.mzc-nav-prev {
-  left: 18px;
+  left: 20px;
 }
 
 .mzc-nav-btn.mzc-nav-next {
-  right: 18px;
+  right: 20px;
 }
 
 /* Indicators Capsule with Glowing Expanding Pill */

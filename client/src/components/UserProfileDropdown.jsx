@@ -60,7 +60,7 @@ export default function UserProfileDropdown({
     email === "yashashyash1@gmail.com";
 
   const roleLabel = isGuest
-    ? "Guest Session"
+    ? "Guest"
     : isAdmin
     ? (resolvedUser?.role === "SUPER_ADMIN" ? "Super Admin" : "Admin")
     : "Learner";
