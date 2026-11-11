@@ -136,41 +136,41 @@
 .mz-theme-dark {
   color-scheme: dark;
 
-  /* Core Backgrounds & Surfaces */
-  --mz-bg-primary: #0b0f19;
-  --mz-bg-secondary: #111827;
-  --mz-bg-tertiary: #1e293b;
-  --mz-surface: #111827;
-  --mz-surface-2: #161f30;
-  --mz-surface-subtle: #0f172a;
-  --mz-surface-muted: #1e293b;
-  --mz-surface-hover: #1e293b;
-  --mz-surface-elevated: #182234;
-  --mz-surface-glass: rgba(15, 23, 42, 0.92);
-  --mz-topbar-bg: rgba(15, 23, 42, 0.92);
-  --mz-sidebar-bg: #0f172a;
-  --mz-backdrop: rgba(2, 6, 23, 0.78);
+  /* Core Backgrounds & Surfaces (True Obsidian Black Foundation) */
+  --mz-bg-primary: #000000;
+  --mz-bg-secondary: #08080a;
+  --mz-bg-tertiary: #101014;
+  --mz-surface: #0c0d12;
+  --mz-surface-2: #121319;
+  --mz-surface-subtle: #090a0e;
+  --mz-surface-muted: #15161e;
+  --mz-surface-hover: #1a1b24;
+  --mz-surface-elevated: #111218;
+  --mz-surface-glass: rgba(10, 11, 16, 0.88);
+  --mz-topbar-bg: rgba(0, 0, 0, 0.88);
+  --mz-sidebar-bg: #050608;
+  --mz-backdrop: rgba(0, 0, 0, 0.85);
 
-  /* Typography & Ink */
-  --mz-text-primary: #f8fafc;
-  --mz-text-secondary: #cbd5e1;
-  --mz-text-body: #94a3b8;
-  --mz-text-muted: #94a3b8;
-  --mz-text-subtle: #64748b;
-  --mz-text-inverse: #0f172a;
+  /* Typography & Ink (High-Contrast Crisp Render) */
+  --mz-text-primary: #f4f4f6;
+  --mz-text-secondary: #d4d4d8;
+  --mz-text-body: #a1a1aa;
+  --mz-text-muted: #8e8e99;
+  --mz-text-subtle: #63636e;
+  --mz-text-inverse: #050608;
 
-  /* Borders & Dividers */
-  --mz-border: #1e293b;
-  --mz-border-subtle: #172033;
-  --mz-border-strong: #334155;
-  --mz-border-accent: rgba(59, 130, 246, 0.35);
+  /* Borders & Dividers (Subtle Graphite Precision) */
+  --mz-border: #20222a;
+  --mz-border-subtle: #171820;
+  --mz-border-strong: #2e303d;
+  --mz-border-accent: rgba(59, 130, 246, 0.4);
 
   /* Inputs & Form Controls */
-  --mz-input-bg: #0f172a;
-  --mz-input-bg-subtle: #0b1120;
-  --mz-input-border: #334155;
-  --mz-input-text: #f8fafc;
-  --mz-input-placeholder: #64748b;
+  --mz-input-bg: #090a0e;
+  --mz-input-bg-subtle: #050508;
+  --mz-input-border: #232530;
+  --mz-input-text: #f4f4f6;
+  --mz-input-placeholder: #63636e;
 
   /* Brand & Accents */
   --mz-accent-primary: #3b82f6;
@@ -215,14 +215,14 @@
   --mz-cyan-text: #22d3ee;
 
   /* Shadows */
-  --mz-shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.35);
-  --mz-shadow-md: 0 10px 28px -4px rgba(0, 0, 0, 0.5);
-  --mz-shadow-lg: 0 24px 54px -8px rgba(0, 0, 0, 0.65);
-  --mz-shadow-card: 0 4px 24px -2px rgba(0, 0, 0, 0.45);
+  --mz-shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.45);
+  --mz-shadow-md: 0 10px 28px -4px rgba(0, 0, 0, 0.65);
+  --mz-shadow-lg: 0 24px 54px -8px rgba(0, 0, 0, 0.85);
+  --mz-shadow-card: 0 4px 24px -2px rgba(0, 0, 0, 0.6);
 
   /* Banner Gradients */
-  --mz-hero-gradient: linear-gradient(135deg, #111827 0%, #162032 50%, #172554 100%);
-  --mz-header-gradient: linear-gradient(180deg, #0f172a 0%, #111827 100%);
+  --mz-hero-gradient: linear-gradient(135deg, #0e0f14 0%, #13141c 50%, #171822 100%);
+  --mz-header-gradient: linear-gradient(180deg, #050608 0%, #0c0d12 100%);
 
   /* Module-Specific Token Aliases */
   --mz-c-bg: var(--mz-bg-primary);
