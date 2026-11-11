@@ -13,6 +13,26 @@ class ErrorBoundary extends React.Component {
   componentDidCatch(error, errorInfo) {
     this.setState({ error, errorInfo });
     console.error("React Error Boundary Caught an Error:", error, errorInfo);
+
+    // If a chunk failed to fetch (e.g., after a new production deployment changed asset hashes),
+    // automatically reload the window once to pull the latest index.html and module chunks.
+    const errorMessage = error?.message || String(error || "");
+    const isChunkFailure =
+      errorMessage.includes("Failed to fetch dynamically imported module") ||
+      errorMessage.includes("Loading chunk") ||
+      errorMessage.includes("error loading dynamically imported module") ||
+      error?.name === "ChunkLoadError";
+
+    if (isChunkFailure && typeof window !== "undefined") {
+      const retryKey = "mz_chunk_auto_reload";
+      const lastRetry = sessionStorage.getItem(retryKey);
+      const now = Date.now();
+      if (!lastRetry || now - parseInt(lastRetry, 10) > 12000) {
+        sessionStorage.setItem(retryKey, String(now));
+        console.warn("[ErrorBoundary] Automatically reloading page to fetch updated application chunks...");
+        window.location.reload();
+      }
+    }
   }
 
   render() {

@@ -7,50 +7,71 @@ import { GlobalLoader, FitnessLoader, CodingLoader, DrivingLoader, LanguageLoade
 
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
-const LandingPage = lazy(() => import("./components/LandingPage.jsx"));
+// Resilient lazy loader: handles Vite deployment chunk invalidation seamlessly
+const lazyWithRetry = (importFn) =>
+  lazy(async () => {
+    try {
+      return await importFn();
+    } catch (err) {
+      console.warn("[App] Lazy component import failed, attempting reload...", err);
+      const retryKey = "mz_lazy_retry_" + (typeof window !== "undefined" ? window.location.pathname : "root");
+      const alreadyRetried = typeof window !== "undefined" ? sessionStorage.getItem(retryKey) : null;
+      if (!alreadyRetried && typeof window !== "undefined") {
+        sessionStorage.setItem(retryKey, "true");
+        window.location.reload();
+        return new Promise(() => {}); // Halt promise until browser reload
+      }
+      if (typeof window !== "undefined") {
+        sessionStorage.removeItem(retryKey);
+      }
+      throw err;
+    }
+  });
+
+const LandingPage = lazyWithRetry(() => import("./components/LandingPage.jsx"));
 import { NotificationProvider } from "./context/NotificationContext.jsx";
 import { LoadingProvider } from "./context/LoadingContext.jsx";
 import { ThemeProvider, useTheme } from "./context/ThemeContext.jsx";
 
 // Lazy load secondary/authenticated components
-const Signup = lazy(() => import("./components/signup.jsx"));
-const Login = lazy(() => import("./components/Login.jsx"));
-const ForgotPassword = lazy(() => import("./components/FogotPassward.jsx")); 
-const ResetPassword = lazy(() => import("./components/ResetPassword.jsx")); 
-const Home = lazy(() => import("./components/Home.jsx"));
-const Profile = lazy(() => import("./components/Profile.jsx"));
-const Progress = lazy(() => import("./components/Progress.jsx"));
-const Fitness = lazy(() => import("./components/Fitness.jsx"));
-const Coding = lazy(() => import("./components/Coding.jsx"));
-const Driving = lazy(() => import("./components/Driving.jsx"));
-const Language = lazy(() => import("./components/Language.jsx"));
-const MasteryZoneCompilerWorkspace = lazy(() => import("./components/MasteryZoneCompilerWorkspace.jsx"));
-const AssessmentReportPage = lazy(() => import("./components/AssessmentReportPage.jsx"));
-const MasteryZoneLivePlatform = lazy(() => import("./components/MasteryZoneLive/MasteryZoneLivePlatform.jsx"));
-const CertificateVerificationPage = lazy(() => import("./components/CertificateVerificationPage.jsx"));
-const ProjectWorkspaceModal = lazy(() => import("./components/ProjectWorkspaceModal.jsx"));
-const ChallengeWorkspaceModal = lazy(() => import("./components/ChallengeWorkspaceModal.jsx"));
-const FullScreenConceptLearning = lazy(() => import("./components/FullScreenConceptLearning.jsx"));
-const PracticalAssignmentModal = lazy(() => import("./components/PracticalAssignmentModal.jsx"));
-const ProctoredAssessmentWorkspace = lazy(() => import("./components/ProctoredAssessmentWorkspace.jsx"));
-const CertificationExamWorkspace = lazy(() => import("./components/CertificationExamWorkspace.jsx"));
-const HelpSupport = lazy(() => import("./components/HelpSupport.jsx"));
+const Signup = lazyWithRetry(() => import("./components/signup.jsx"));
+const Login = lazyWithRetry(() => import("./components/Login.jsx"));
+const ForgotPassword = lazyWithRetry(() => import("./components/FogotPassward.jsx")); 
+const ResetPassword = lazyWithRetry(() => import("./components/ResetPassword.jsx")); 
+const Home = lazyWithRetry(() => import("./components/Home.jsx"));
+const Profile = lazyWithRetry(() => import("./components/Profile.jsx"));
+const Progress = lazyWithRetry(() => import("./components/Progress.jsx"));
+const Fitness = lazyWithRetry(() => import("./components/Fitness.jsx"));
+const Coding = lazyWithRetry(() => import("./components/Coding.jsx"));
+const Driving = lazyWithRetry(() => import("./components/Driving.jsx"));
+const Language = lazyWithRetry(() => import("./components/Language.jsx"));
+const MasteryZoneCompilerWorkspace = lazyWithRetry(() => import("./components/MasteryZoneCompilerWorkspace.jsx"));
+const AssessmentReportPage = lazyWithRetry(() => import("./components/AssessmentReportPage.jsx"));
+const MasteryZoneLivePlatform = lazyWithRetry(() => import("./components/MasteryZoneLive/MasteryZoneLivePlatform.jsx"));
+const CertificateVerificationPage = lazyWithRetry(() => import("./components/CertificateVerificationPage.jsx"));
+const ProjectWorkspaceModal = lazyWithRetry(() => import("./components/ProjectWorkspaceModal.jsx"));
+const ChallengeWorkspaceModal = lazyWithRetry(() => import("./components/ChallengeWorkspaceModal.jsx"));
+const FullScreenConceptLearning = lazyWithRetry(() => import("./components/FullScreenConceptLearning.jsx"));
+const PracticalAssignmentModal = lazyWithRetry(() => import("./components/PracticalAssignmentModal.jsx"));
+const ProctoredAssessmentWorkspace = lazyWithRetry(() => import("./components/ProctoredAssessmentWorkspace.jsx"));
+const CertificationExamWorkspace = lazyWithRetry(() => import("./components/CertificationExamWorkspace.jsx"));
+const HelpSupport = lazyWithRetry(() => import("./components/HelpSupport.jsx"));
 
 import AdminRoute from "./components/Admin/AdminRoute.jsx";
-const AdminLayout = lazy(() => import("./components/Admin/AdminLayout.jsx"));
-const AdminOverview = lazy(() => import("./components/Admin/AdminOverview.jsx"));
-const AdminUsers = lazy(() => import("./components/Admin/AdminUsers.jsx"));
-const AdminLiveActivity = lazy(() => import("./components/Admin/AdminLiveActivity.jsx"));
-const AdminLearningAnalytics = lazy(() => import("./components/Admin/AdminLearningAnalytics.jsx"));
-const AdminCodingAnalytics = lazy(() => import("./components/Admin/AdminCodingAnalytics.jsx"));
-const AdminAssessments = lazy(() => import("./components/Admin/AdminAssessments.jsx"));
-const AdminProctoring = lazy(() => import("./components/Admin/AdminProctoring.jsx"));
-const AdminProctoringAuditDetail = lazy(() => import("./components/Admin/AdminProctoringAuditDetail.jsx"));
-const AdminReports = lazy(() => import("./components/Admin/AdminReports.jsx"));
-const AdminRecordings = lazy(() => import("./components/Admin/AdminRecordings.jsx"));
-const AdminStorage = lazy(() => import("./components/Admin/AdminStorage.jsx"));
-const AdminHelpSupport = lazy(() => import("./components/Admin/AdminHelpSupport.jsx"));
-const AdminSettings = lazy(() => import("./components/Admin/AdminSettings.jsx"));
+const AdminLayout = lazyWithRetry(() => import("./components/Admin/AdminLayout.jsx"));
+const AdminOverview = lazyWithRetry(() => import("./components/Admin/AdminOverview.jsx"));
+const AdminUsers = lazyWithRetry(() => import("./components/Admin/AdminUsers.jsx"));
+const AdminLiveActivity = lazyWithRetry(() => import("./components/Admin/AdminLiveActivity.jsx"));
+const AdminLearningAnalytics = lazyWithRetry(() => import("./components/Admin/AdminLearningAnalytics.jsx"));
+const AdminCodingAnalytics = lazyWithRetry(() => import("./components/Admin/AdminCodingAnalytics.jsx"));
+const AdminAssessments = lazyWithRetry(() => import("./components/Admin/AdminAssessments.jsx"));
+const AdminProctoring = lazyWithRetry(() => import("./components/Admin/AdminProctoring.jsx"));
+const AdminProctoringAuditDetail = lazyWithRetry(() => import("./components/Admin/AdminProctoringAuditDetail.jsx"));
+const AdminReports = lazyWithRetry(() => import("./components/Admin/AdminReports.jsx"));
+const AdminRecordings = lazyWithRetry(() => import("./components/Admin/AdminRecordings.jsx"));
+const AdminStorage = lazyWithRetry(() => import("./components/Admin/AdminStorage.jsx"));
+const AdminHelpSupport = lazyWithRetry(() => import("./components/Admin/AdminHelpSupport.jsx"));
+const AdminSettings = lazyWithRetry(() => import("./components/Admin/AdminSettings.jsx"));
 
 function ThemedToastContainer() {
   const { resolvedTheme } = useTheme();
