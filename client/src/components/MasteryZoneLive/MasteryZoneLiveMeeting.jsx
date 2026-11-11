@@ -43,6 +43,8 @@ import {
   LuMail,
 } from "react-icons/lu";
 import { toast } from "react-toastify";
+import ThemeToggle from "../ThemeToggle.jsx";
+import { useTheme } from "../../context/ThemeContext";
 import MasteryZoneWhiteboard from "./MasteryZoneWhiteboard";
 import useNavigationLock from "../../hooks/useNavigationLock";
 import "./masteryZoneLive.css";
@@ -136,6 +138,7 @@ export default function MasteryZoneLiveMeeting({
   socket,
   onLeaveMeeting,
 }) {
+  const { isDark } = useTheme();
   // Meeting metadata
   const [meetingData, setMeetingData] = useState({
     title: "General Discussion Session",
@@ -2821,6 +2824,8 @@ export default function MasteryZoneLiveMeeting({
             <LuMaximize2 size={16} />
           </button>
 
+          <ThemeToggle />
+
           <button
             type="button"
             onClick={() => setShowSettingsModal(true)}
@@ -4090,6 +4095,8 @@ export default function MasteryZoneLiveMeeting({
           </button>
 
           {/* Three-dot Options Menu */}
+          <ThemeToggle />
+
           <button
             type="button"
             onClick={() => setShowSettingsModal(true)}
