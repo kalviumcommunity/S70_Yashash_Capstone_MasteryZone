@@ -79,12 +79,15 @@ import {
 } from "react-icons/vsc";
 import AssessmentSecurityGate from "./AssessmentSecurityGate";
 import AssessmentSubmissionFlow from "./AssessmentSubmissionFlow";
+import ThemeToggle from "./ThemeToggle.jsx";
+import { useTheme } from "../context/ThemeContext.jsx";
 import "./MasteryZoneCompiler.css";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
 // MasteryZone Playground Theme Specifications
 const VSCODE_THEMES = [
+  { id: "mz-midnight", label: "MasteryZone Midnight" },
   { id: "vs-dark", label: "MasteryZone Dark+" },
   { id: "vs", label: "MasteryZone Light+" },
   { id: "one-dark-pro", label: "One Dark Pro" },
@@ -666,10 +669,23 @@ export default function MasteryZoneCompilerWorkspace({
   const [customError, setCustomError] = useState("");
   const [customDuration, setCustomDuration] = useState(null);
 
+  const { resolvedTheme } = useTheme();
+
   // VS Code Real IDE States
   const [editorTheme, setEditorTheme] = useState(() => {
-    return localStorage.getItem("mz_editor_theme") || "vs-dark";
+    if (resolvedTheme === "light") return "vs";
+    const stored = localStorage.getItem("mz_editor_theme");
+    return stored === "vs" ? "mz-midnight" : (stored || "mz-midnight");
   });
+
+  useEffect(() => {
+    if (resolvedTheme === "light") {
+      setEditorTheme("vs");
+    } else if (resolvedTheme === "dark") {
+      const stored = localStorage.getItem("mz_editor_theme");
+      setEditorTheme(stored === "vs" ? "mz-midnight" : (stored || "mz-midnight"));
+    }
+  }, [resolvedTheme]);
   const [isThemeDropdownOpen, setIsThemeDropdownOpen] = useState(false);
   const [activeVsCodeSidebar, setActiveVsCodeSidebar] = useState("explorer"); // "explorer" | "search" | "snippets" | "ai" | "settings" | "shortcuts" | null
   const [activeEditorFile, setActiveEditorFile] = useState("solution"); // "solution" | "input" | "scratchpad"
@@ -722,6 +738,27 @@ export default function MasteryZoneCompilerWorkspace({
   };
 
   const handleEditorBeforeMount = (monaco) => {
+    monaco.editor.defineTheme("mz-midnight", {
+      base: "vs-dark",
+      inherit: true,
+      rules: [
+        { token: "comment", foreground: "64748b", fontStyle: "italic" },
+        { token: "keyword", foreground: "c084fc" },
+        { token: "string", foreground: "4ade80" },
+        { token: "number", foreground: "fb923c" },
+        { token: "type", foreground: "38bdf8" },
+        { token: "function", foreground: "60a5fa" },
+      ],
+      colors: {
+        "editor.background": "#0f172a",
+        "editor.foreground": "#e2e8f0",
+        "editorCursor.foreground": "#3b82f6",
+        "editor.lineHighlightBackground": "#1e293b",
+        "editorLineNumber.foreground": "#475569",
+        "editor.selectionBackground": "#1e3a8a",
+      },
+    });
+
     monaco.editor.defineTheme("one-dark-pro", {
       base: "vs-dark",
       inherit: true,
@@ -3506,7 +3543,7 @@ export default function MasteryZoneCompilerWorkspace({
             </span>
           </div>
 
-
+          <ThemeToggle />
         </div>
       </header>
 
@@ -4246,10 +4283,10 @@ export default function MasteryZoneCompilerWorkspace({
                     <>
                       <div className="mz-vscode-sidebar-header">
                         <span>Explorer</span>
-                        <span style={{ fontSize: "10px", color: "#858585" }}>WORKSPACE</span>
+                        <span style={{ fontSize: "10px", color: "var(--mz-text-muted)" }}>WORKSPACE</span>
                       </div>
                       <div className="mz-vscode-sidebar-body">
-                        <div style={{ fontSize: "11px", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase" }}>
+                        <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--mz-text-muted)", textTransform: "uppercase" }}>
                           Open Editors
                         </div>
                         <div
@@ -4277,13 +4314,13 @@ export default function MasteryZoneCompilerWorkspace({
                           <span>scratchpad.md</span>
                         </div>
 
-                        <div style={{ marginTop: "16px", fontSize: "11px", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase" }}>
+                        <div style={{ marginTop: "16px", fontSize: "11px", fontWeight: 700, color: "var(--mz-text-muted)", textTransform: "uppercase" }}>
                           Problem Info
                         </div>
-                        <div style={{ padding: "8px 10px", background: "rgba(255,255,255,0.03)", borderRadius: "4px", fontSize: "11.5px" }}>
-                          <div style={{ fontWeight: 700, color: "#38bdf8", marginBottom: "4px" }}>{questionDetails.title}</div>
-                          <div style={{ color: "#94a3b8" }}>Level: {questionDetails.difficulty}</div>
-                          <div style={{ color: "#94a3b8" }}>Target: 80% passing</div>
+                        <div style={{ padding: "8px 10px", background: "var(--mz-surface-subtle)", border: "1px solid var(--mz-border)", borderRadius: "4px", fontSize: "11.5px" }}>
+                          <div style={{ fontWeight: 700, color: "var(--mz-accent-primary)", marginBottom: "4px" }}>{questionDetails.title}</div>
+                          <div style={{ color: "var(--mz-text-muted)" }}>Level: {questionDetails.difficulty}</div>
+                          <div style={{ color: "var(--mz-text-muted)" }}>Target: 80% passing</div>
                         </div>
                       </div>
                     </>
@@ -4294,7 +4331,7 @@ export default function MasteryZoneCompilerWorkspace({
                     <>
                       <div className="mz-vscode-sidebar-header">
                         <span>Search & Replace</span>
-                        {searchResultsCount > 0 && <span style={{ color: "#38bdf8" }}>{searchResultsCount} found</span>}
+                        {searchResultsCount > 0 && <span style={{ color: "var(--mz-accent-primary)" }}>{searchResultsCount} found</span>}
                       </div>
                       <div className="mz-vscode-sidebar-body">
                         <div className="mz-vscode-search-box">
@@ -4341,7 +4378,7 @@ export default function MasteryZoneCompilerWorkspace({
                     <>
                       <div className="mz-vscode-sidebar-header">
                         <span>Algorithms & Snippets</span>
-                        <span style={{ fontSize: "10px", color: "#38bdf8" }}>{selectedLang.toUpperCase()}</span>
+                        <span style={{ fontSize: "10px", color: "var(--mz-accent-primary)" }}>{selectedLang.toUpperCase()}</span>
                       </div>
                       <div className="mz-vscode-sidebar-body">
                         {(ALGORITHM_SNIPPETS[selectedLang] || ALGORITHM_SNIPPETS.python).map((snip, idx) => (
@@ -4381,21 +4418,21 @@ export default function MasteryZoneCompilerWorkspace({
 
                         {aiAnalysis && (
                           <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "8px" }}>
-                            <div style={{ padding: "8px", background: "rgba(255,255,255,0.05)", borderRadius: "4px" }}>
-                              <div style={{ color: "#38bdf8", fontWeight: 700, fontSize: "11px" }}>TIME COMPLEXITY</div>
-                              <div style={{ fontSize: "14px", fontWeight: 800, color: "#ffffff", fontFamily: "monospace" }}>
+                            <div style={{ padding: "8px", background: "var(--mz-surface-subtle)", border: "1px solid var(--mz-border)", borderRadius: "4px" }}>
+                              <div style={{ color: "var(--mz-accent-primary)", fontWeight: 700, fontSize: "11px" }}>TIME COMPLEXITY</div>
+                              <div style={{ fontSize: "14px", fontWeight: 800, color: "var(--mz-text-primary)", fontFamily: "monospace" }}>
                                 {aiAnalysis.timeComplexity}
                               </div>
                             </div>
 
-                            <div style={{ padding: "8px", background: "rgba(255,255,255,0.05)", borderRadius: "4px" }}>
-                              <div style={{ color: "#38bdf8", fontWeight: 700, fontSize: "11px" }}>SPACE COMPLEXITY</div>
-                              <div style={{ fontSize: "13px", fontWeight: 700, color: "#ffffff", fontFamily: "monospace" }}>
+                            <div style={{ padding: "8px", background: "var(--mz-surface-subtle)", border: "1px solid var(--mz-border)", borderRadius: "4px" }}>
+                              <div style={{ color: "var(--mz-accent-primary)", fontWeight: 700, fontSize: "11px" }}>SPACE COMPLEXITY</div>
+                              <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--mz-text-primary)", fontFamily: "monospace" }}>
                                 {aiAnalysis.spaceComplexity}
                               </div>
                             </div>
 
-                            <div style={{ fontSize: "11.5px", color: "#cbd5e1", lineHeight: "1.4" }}>
+                            <div style={{ fontSize: "11.5px", color: "var(--mz-text-secondary)", lineHeight: "1.4" }}>
                               {aiAnalysis.explanation}
                             </div>
                           </div>
@@ -4409,7 +4446,7 @@ export default function MasteryZoneCompilerWorkspace({
                     <>
                       <div className="mz-vscode-sidebar-header">
                         <span>Editor Settings</span>
-                        <span style={{ fontSize: "10px", color: "#94a3b8" }}>PREFERENCES</span>
+                        <span style={{ fontSize: "10px", color: "var(--mz-text-muted)" }}>PREFERENCES</span>
                       </div>
                       <div className="mz-vscode-sidebar-body">
                         <div>
@@ -4479,29 +4516,29 @@ export default function MasteryZoneCompilerWorkspace({
                     <>
                       <div className="mz-vscode-sidebar-header">
                         <span>Shortcuts</span>
-                        <span style={{ fontSize: "10px", color: "#94a3b8" }}>CHEATSHEET</span>
+                        <span style={{ fontSize: "10px", color: "var(--mz-text-muted)" }}>CHEATSHEET</span>
                       </div>
                       <div className="mz-vscode-sidebar-body">
                         <div style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "11.5px" }}>
                           <div style={{ display: "flex", justifyContent: "space-between" }}>
                             <span>Run Program</span>
-                            <kbd style={{ background: "#3c3c3c", padding: "2px 5px", borderRadius: "3px" }}>Ctrl + Enter</kbd>
+                            <kbd style={{ background: "var(--mz-surface-muted)", color: "var(--mz-text-primary)", border: "1px solid var(--mz-border)", padding: "2px 5px", borderRadius: "3px" }}>Ctrl + Enter</kbd>
                           </div>
                           <div style={{ display: "flex", justifyContent: "space-between" }}>
                             <span>Format Document</span>
-                            <kbd style={{ background: "#3c3c3c", padding: "2px 5px", borderRadius: "3px" }}>Shift + Alt + F</kbd>
+                            <kbd style={{ background: "var(--mz-surface-muted)", color: "var(--mz-text-primary)", border: "1px solid var(--mz-border)", padding: "2px 5px", borderRadius: "3px" }}>Shift + Alt + F</kbd>
                           </div>
                           <div style={{ display: "flex", justifyContent: "space-between" }}>
                             <span>Save Draft</span>
-                            <kbd style={{ background: "#3c3c3c", padding: "2px 5px", borderRadius: "3px" }}>Ctrl + S</kbd>
+                            <kbd style={{ background: "var(--mz-surface-muted)", color: "var(--mz-text-primary)", border: "1px solid var(--mz-border)", padding: "2px 5px", borderRadius: "3px" }}>Ctrl + S</kbd>
                           </div>
                           <div style={{ display: "flex", justifyContent: "space-between" }}>
                             <span>Find in File</span>
-                            <kbd style={{ background: "#3c3c3c", padding: "2px 5px", borderRadius: "3px" }}>Ctrl + F</kbd>
+                            <kbd style={{ background: "var(--mz-surface-muted)", color: "var(--mz-text-primary)", border: "1px solid var(--mz-border)", padding: "2px 5px", borderRadius: "3px" }}>Ctrl + F</kbd>
                           </div>
                           <div style={{ display: "flex", justifyContent: "space-between" }}>
                             <span>Toggle Word Wrap</span>
-                            <kbd style={{ background: "#3c3c3c", padding: "2px 5px", borderRadius: "3px" }}>Alt + Z</kbd>
+                            <kbd style={{ background: "var(--mz-surface-muted)", color: "var(--mz-text-primary)", border: "1px solid var(--mz-border)", padding: "2px 5px", borderRadius: "3px" }}>Alt + Z</kbd>
                           </div>
                         </div>
                       </div>
@@ -4686,7 +4723,7 @@ export default function MasteryZoneCompilerWorkspace({
                   {bottomPanelTab === "terminal" && (
                     <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ fontSize: "11.5px", color: "#94a3b8" }}>Standard Input (STDIN) Stream:</span>
+                        <span style={{ fontSize: "11.5px", color: "var(--mz-text-muted)" }}>Standard Input (STDIN) Stream:</span>
                         <button
                           type="button"
                           className="mz-vscode-snippet-btn"
@@ -4704,13 +4741,13 @@ export default function MasteryZoneCompilerWorkspace({
                         placeholder="Enter custom input (passed via standard input to solution)..."
                         value={customStdin}
                         onChange={(e) => setCustomStdin(e.target.value)}
-                        style={{ height: "60px", background: editorTheme === "vs" ? "#ffffff" : "#222222", color: editorTheme === "vs" ? "#0f172a" : "#e2e8f0" }}
+                        style={{ height: "60px", background: "var(--mz-input-bg)", color: "var(--mz-input-text)", borderColor: "var(--mz-border)" }}
                       />
 
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "4px" }}>
-                        <span style={{ fontSize: "11.5px", color: "#94a3b8" }}>Terminal Execution Result:</span>
+                        <span style={{ fontSize: "11.5px", color: "var(--mz-text-muted)" }}>Terminal Execution Result:</span>
                         {customDuration !== null && (
-                          <span style={{ fontSize: "11px", color: "#38bdf8", fontFamily: "monospace" }}>
+                          <span style={{ fontSize: "11px", color: "var(--mz-accent-primary)", fontFamily: "monospace" }}>
                             ⏱ Execution time: {customDuration}ms
                           </span>
                         )}
@@ -4718,7 +4755,7 @@ export default function MasteryZoneCompilerWorkspace({
 
                       <div
                         className={`mz-compiler-io-box ${customError ? "error-box" : ""}`}
-                        style={{ background: editorTheme === "vs" ? "#ffffff" : "#1a1a1a", border: "1px solid #333333" }}
+                        style={{ background: "var(--mz-surface)", border: "1px solid var(--mz-border)" }}
                       >
                         {customOutput || (customError ? customError : "[No output produced yet. Click 'Execute with STDIN' or 'Run Solution' to execute.]")}
                       </div>
@@ -4727,17 +4764,17 @@ export default function MasteryZoneCompilerWorkspace({
 
                   {/* TAB 2: OUTPUT */}
                   {bottomPanelTab === "output" && (
-                    <div style={{ fontFamily: "monospace", fontSize: "12px", whiteSpace: "pre-wrap", color: editorTheme === "vs" ? "#0f172a" : "#e2e8f0" }}>
+                    <div style={{ fontFamily: "monospace", fontSize: "12px", whiteSpace: "pre-wrap", color: "var(--mz-text-primary)" }}>
                       {customOutput || customError ? (
                         <>
-                          <div style={{ color: "#94a3b8", marginBottom: "8px" }}>
+                          <div style={{ color: "var(--mz-text-muted)", marginBottom: "8px" }}>
                             [MasteryZone Sandboxed Runner — {selectedLang.toUpperCase()} 64-bit runtime]
                           </div>
                           {customOutput && <div>{customOutput}</div>}
                           {customError && <div style={{ color: "#ef4444", marginTop: "6px" }}>{customError}</div>}
                         </>
                       ) : (
-                        <div style={{ color: "#64748b" }}>
+                        <div style={{ color: "var(--mz-text-muted)" }}>
                           [Execution output console is empty. Click Run or Run Tests to view standard output.]
                         </div>
                       )}
@@ -5039,7 +5076,7 @@ export default function MasteryZoneCompilerWorkspace({
 
                   {/* TAB 6: AI COPILOT */}
                   {bottomPanelTab === "ai" && (
-                    <div style={{ fontSize: "12.5px", color: editorTheme === "vs" ? "#0f172a" : "#e2e8f0" }}>
+                    <div style={{ fontSize: "12.5px", color: "var(--mz-text-primary)" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                           <VscSparkle size={18} color="#a855f7" />
@@ -5058,16 +5095,16 @@ export default function MasteryZoneCompilerWorkspace({
 
                       {aiAnalysis ? (
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-                          <div style={{ padding: "10px", background: "rgba(255,255,255,0.04)", borderRadius: "6px", border: "1px solid rgba(255,255,255,0.08)" }}>
-                            <div style={{ color: "#38bdf8", fontWeight: 700, marginBottom: "4px" }}>TIME & SPACE COMPLEXITY</div>
+                          <div style={{ padding: "10px", background: "var(--mz-surface-subtle)", borderRadius: "6px", border: "1px solid var(--mz-border)" }}>
+                            <div style={{ color: "var(--mz-accent-primary)", fontWeight: 700, marginBottom: "4px" }}>TIME & SPACE COMPLEXITY</div>
                             <div style={{ fontSize: "13px", fontFamily: "monospace" }}>Time: <strong>{aiAnalysis.timeComplexity}</strong></div>
                             <div style={{ fontSize: "13px", fontFamily: "monospace", marginTop: "2px" }}>Space: <strong>{aiAnalysis.spaceComplexity}</strong></div>
-                            <p style={{ margin: "8px 0 0 0", fontSize: "12px", color: "#94a3b8" }}>{aiAnalysis.explanation}</p>
+                            <p style={{ margin: "8px 0 0 0", fontSize: "12px", color: "var(--mz-text-muted)" }}>{aiAnalysis.explanation}</p>
                           </div>
 
-                          <div style={{ padding: "10px", background: "rgba(255,255,255,0.04)", borderRadius: "6px", border: "1px solid rgba(255,255,255,0.08)" }}>
+                          <div style={{ padding: "10px", background: "var(--mz-surface-subtle)", borderRadius: "6px", border: "1px solid var(--mz-border)" }}>
                             <div style={{ color: "#10b981", fontWeight: 700, marginBottom: "4px" }}>OPTIMIZATION HINTS & EDGE CASES</div>
-                            <ul style={{ margin: 0, paddingLeft: "16px", fontSize: "12px", color: "#cbd5e1" }}>
+                            <ul style={{ margin: 0, paddingLeft: "16px", fontSize: "12px", color: "var(--mz-text-secondary)" }}>
                               {aiAnalysis.optimizations.map((opt, i) => (
                                 <li key={i} style={{ marginBottom: "4px" }}>{opt}</li>
                               ))}
@@ -5078,7 +5115,7 @@ export default function MasteryZoneCompilerWorkspace({
                           </div>
                         </div>
                       ) : (
-                        <div style={{ color: "#94a3b8", textAlign: "center", padding: "20px" }}>
+                        <div style={{ color: "var(--mz-text-muted)", textAlign: "center", padding: "20px" }}>
                           Click &quot;Re-Analyze Code&quot; to inspect your solution with the built-in AI code evaluator.
                         </div>
                       )}

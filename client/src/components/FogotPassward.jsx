@@ -9,6 +9,7 @@ import logoIcon from "../assets/logo_icon_transparent.png";
 import mailIcon from "../assets/forgot_password_mail_icon.png";
 import illustrationImg from "../assets/forgot_password_illustration.png";
 import "./ForgotPassword.css";
+import ThemeToggle from "./ThemeToggle.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 const AUTH_BASE = API_BASE ? `${API_BASE}/auth` : "/auth";
@@ -115,10 +116,13 @@ const ForgotPassword = () => {
           </div>
         </Link>
 
-        <Link to="/login" className="mz-forgot-nav-back-btn">
-          <LuArrowLeft size={16} className="mz-back-arrow" />
-          <span>Back to Login</span>
-        </Link>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <ThemeToggle />
+          <Link to="/login" className="mz-forgot-nav-back-btn">
+            <LuArrowLeft size={16} className="mz-back-arrow" />
+            <span>Back to Login</span>
+          </Link>
+        </div>
       </header>
 
       {/* Main Two-Column Centered Layout */}

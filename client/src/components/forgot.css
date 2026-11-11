@@ -17,8 +17,8 @@
 
 /* Scoped Login Box */
 .forgot-container .login-box {
-  background: rgb(227, 185, 240);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  background: var(--mz-surface, rgb(227, 185, 240));
+  box-shadow: var(--mz-shadow-lg, 0 4px 10px rgba(0, 0, 0, 0.2));
   width: 450px;
   min-height: 600px;
   height: auto;
@@ -58,7 +58,7 @@
   font-size: 24px;
   font-weight: bold;
   margin-bottom: 20px;
-  color: white;
+  color: var(--mz-text-primary, white);
   font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
 }
 
@@ -75,7 +75,8 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  background: #ffffff;
+  background: var(--mz-input-bg, #ffffff);
+  border: 1px solid var(--mz-input-border, transparent);
   padding: 5px;
   border-radius: 2em;
   width: 270px;
@@ -86,7 +87,7 @@
   background: transparent;
   width: 75%;
   font-size: 16px;
-  color: #4f4f4f;
+  color: var(--mz-input-text, #4f4f4f);
 }
 
 .forgot-container .input-field1 input:focus {
@@ -94,7 +95,7 @@
 }
 
 .forgot-container .icon {
-  color: #000000;
+  color: var(--mz-text-primary, #000000);
   margin-left: 15px;
 }
 
@@ -122,11 +123,11 @@
 .forgot-container .signup-text {
   margin-top: 15px;
   font-size: 14px;
-  color: black;
+  color: var(--mz-text-primary, black);
 }
 
 .forgot-container .signup-text a {
-  color: #6a0572;
+  color: var(--mz-purple-text, #6a0572);
   text-decoration: none;
   font-weight: bold;
 }

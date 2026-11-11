@@ -64,11 +64,11 @@ const AdminLearningAnalytics = () => {
             style={{
               padding: "8px 14px",
               borderRadius: 10,
-              border: "1px solid #cbd5e1",
-              background: "#ffffff",
+              border: "1px solid var(--mz-border-strong)",
+              background: "var(--mz-surface)",
               fontSize: 13,
               fontWeight: 600,
-              color: "#334155",
+              color: "var(--mz-text-secondary)",
               cursor: "pointer",
               outline: "none",
             }}
@@ -80,7 +80,7 @@ const AdminLearningAnalytics = () => {
             <option value="3m">Last 3 Months</option>
           </select>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", background: "#ede9fe", border: "1px solid #ddd6fe", borderRadius: 12, color: "#4338ca", fontSize: 13, fontWeight: 700 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", background: "var(--mz-purple-bg)", border: "1px solid var(--mz-purple-border)", borderRadius: 12, color: "#4338ca", fontSize: 13, fontWeight: 700 }}>
             <span>Average Retention: {data?.averageCompletionRate ?? 0}%</span>
           </div>
         </div>
@@ -89,7 +89,7 @@ const AdminLearningAnalytics = () => {
       {/* High-Level Overview Cards */}
       <div className="mz-admin-grid-3">
         <div className="mz-admin-stat-card">
-          <div className="mz-admin-stat-icon" style={{ background: "#ede9fe", color: "#6366f1" }}>
+          <div className="mz-admin-stat-icon" style={{ background: "var(--mz-purple-bg)", color: "#6366f1" }}>
             <LuBookOpen style={{ width: 20, height: 20 }} />
           </div>
           <div className="mz-admin-stat-info">
@@ -99,7 +99,7 @@ const AdminLearningAnalytics = () => {
         </div>
 
         <div className="mz-admin-stat-card">
-          <div className="mz-admin-stat-icon" style={{ background: "#eff6ff", color: "#2563eb" }}>
+          <div className="mz-admin-stat-icon" style={{ background: "var(--mz-blue-bg)", color: "#2563eb" }}>
             <LuClock style={{ width: 20, height: 20 }} />
           </div>
           <div className="mz-admin-stat-info">
@@ -109,7 +109,7 @@ const AdminLearningAnalytics = () => {
         </div>
 
         <div className="mz-admin-stat-card">
-          <div className="mz-admin-stat-icon" style={{ background: "#ecfdf5", color: "#059669" }}>
+          <div className="mz-admin-stat-icon" style={{ background: "var(--mz-green-bg)", color: "#059669" }}>
             <LuCircleCheck style={{ width: 20, height: 20 }} />
           </div>
           <div className="mz-admin-stat-info">
@@ -122,11 +122,11 @@ const AdminLearningAnalytics = () => {
       {/* Tracks Breakdown Grid */}
       <div className="mz-admin-grid-2">
         {loading ? (
-          <div style={{ gridColumn: "span 2", textAlign: "center", padding: 40, color: "#94a3b8" }}>
+          <div style={{ gridColumn: "span 2", textAlign: "center", padding: 40, color: "var(--mz-text-subtle)" }}>
             Loading track analytics...
           </div>
         ) : tracks.length === 0 ? (
-          <div style={{ gridColumn: "span 2", textAlign: "center", padding: 40, color: "#94a3b8" }}>
+          <div style={{ gridColumn: "span 2", textAlign: "center", padding: 40, color: "var(--mz-text-subtle)" }}>
             No Data Available for the selected time range.
           </div>
         ) : (
@@ -134,12 +134,12 @@ const AdminLearningAnalytics = () => {
             <div key={t.id} className="mz-admin-card">
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <div className="mz-admin-stat-icon" style={{ background: "#ede9fe", color: "#6366f1" }}>
+                  <div className="mz-admin-stat-icon" style={{ background: "var(--mz-purple-bg)", color: "#6366f1" }}>
                     <LuLayers style={{ width: 20, height: 20 }} />
                   </div>
                   <div>
-                    <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "#0f172a" }}>{t.name}</h3>
-                    <p style={{ margin: "2px 0 0", fontSize: 12, color: "#94a3b8" }}>
+                    <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "var(--mz-text-primary)" }}>{t.name}</h3>
+                    <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--mz-text-subtle)" }}>
                       {t.enrolled} Active Learners Enrolled
                     </p>
                   </div>
@@ -148,11 +148,11 @@ const AdminLearningAnalytics = () => {
               </div>
 
               <div style={{ marginBottom: 14 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#64748b", marginBottom: 6, fontWeight: 600 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--mz-text-muted)", marginBottom: 6, fontWeight: 600 }}>
                   <span>Track Completion Progress</span>
                   <span>{t.completionRate}% Avg</span>
                 </div>
-                <div style={{ height: 8, borderRadius: 999, background: "#f1f5f9", overflow: "hidden" }}>
+                <div style={{ height: 8, borderRadius: 999, background: "var(--mz-surface-muted)", overflow: "hidden" }}>
                   <div
                     style={{
                       height: "100%",
@@ -165,8 +165,8 @@ const AdminLearningAnalytics = () => {
                 </div>
               </div>
 
-              <div style={{ paddingTop: 12, borderTop: "1px solid #f1f5f9", display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 12, color: "#64748b" }}>
-                <span>Curriculum Hours: <strong style={{ color: "#0f172a" }}>{t.hours}h</strong></span>
+              <div style={{ paddingTop: 12, borderTop: "1px solid var(--mz-surface-muted)", display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 12, color: "var(--mz-text-muted)" }}>
+                <span>Curriculum Hours: <strong style={{ color: "var(--mz-text-primary)" }}>{t.hours}h</strong></span>
                 <span className={t.enrolled > 0 ? "mz-admin-badge-active" : "mz-admin-badge-gray"}>
                   {t.enrolled > 0 ? "Active Track" : "No Enrollment"}
                 </span>

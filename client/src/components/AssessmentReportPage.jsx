@@ -43,6 +43,8 @@ import {
 } from "react-icons/fi";
 import "./AssessmentReportPage.css";
 import MasteryZoneGlobalLoader from "./MasteryZoneGlobalLoader";
+import { useTheme } from "../context/ThemeContext";
+import ThemeToggle from "./ThemeToggle";
 
 const API_BASE = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || "";
 
@@ -99,6 +101,7 @@ function GoldenLaurelEmblem({ variant = "pass" }) {
 }
 
 export default function AssessmentReportPage() {
+  const { isDark } = useTheme();
   const { sessionId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -883,6 +886,7 @@ function formatLocalReport(matched, uObj, rawId) {
           </nav>
 
           <div className="mz-breadcrumb-meta-right">
+            <ThemeToggle />
             <button
               type="button"
               className="mz-session-chip"
@@ -2066,7 +2070,7 @@ function formatLocalReport(matched, uObj, rawId) {
                                         ? "python"
                                         : displayedLang
                                     }
-                                    theme="light"
+                                    theme={isDark ? "vs-dark" : "light"}
                                     value={displayedCode}
                                     options={{
                                       readOnly: true,
@@ -2431,7 +2435,7 @@ function formatLocalReport(matched, uObj, rawId) {
                           <Editor
                             height="100%"
                             language={q.language || "python"}
-                            theme="light"
+                            theme={isDark ? "vs-dark" : "light"}
                             value={q.submittedCode}
                             options={{
                               readOnly: true,
@@ -2814,7 +2818,7 @@ function formatLocalReport(matched, uObj, rawId) {
                     ? "python"
                     : fullscreenCodeModal.language || "python"
                 }
-                theme="light"
+                theme={isDark ? "vs-dark" : "light"}
                 value={fullscreenCodeModal.code}
                 options={{
                   readOnly: true,

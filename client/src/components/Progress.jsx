@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 import "./progress.css";
 import NotificationBell from "./NotificationBell.jsx";
 import UserProfileDropdown from "./UserProfileDropdown.jsx";
+import ThemeToggle from "./ThemeToggle.jsx";
 import logoIcon from "../assets/logo_icon_transparent.png";
 import heroIllustration from "../assets/interests_hero_illustration.png";
 import { performGlobalLogout } from "../utils/sessionAuth.js";
@@ -719,6 +720,8 @@ const Progress = () => {
               <span>Log Activity</span>
             </button>
 
+            <ThemeToggle />
+
             {/* Real-Time Notification Bell */}
             <NotificationBell />
 
@@ -1165,7 +1168,7 @@ const Progress = () => {
             <div className="mz-p-card-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
               <div>
                 <h3 className="mz-p-card-title" style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "17px" }}>
-                  <LuCodeXml color="#16a34a" size={22} />
+                  <LuCodeXml color="var(--mz-green-text)" size={22} />
                   <span>Completed Real-World Portfolio Projects ({completedProjects.length} / {projectStats.totalProjects || 14})</span>
                 </h3>
                 <p className="mz-p-card-subtitle">
@@ -1176,7 +1179,7 @@ const Progress = () => {
                 type="button"
                 className="mz-p-link-btn"
                 onClick={() => navigate("/coding")}
-                style={{ cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "6px", fontWeight: 700, color: "#15803d", background: "#dcfce7", border: "1px solid #86efac", padding: "6px 14px", borderRadius: "8px" }}
+                style={{ cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "6px", fontWeight: 700, color: "var(--mz-green-text)", background: "var(--mz-green-bg)", border: "1px solid var(--mz-green-border)", padding: "6px 14px", borderRadius: "8px" }}
               >
                 <span>Open Projects Hub (+{projectStats.totalProjectXp || 0} XP Earned)</span>
                 <LuArrowRight size={14} />
@@ -1192,8 +1195,8 @@ const Progress = () => {
                     style={{
                       padding: "16px 18px",
                       borderRadius: "14px",
-                      background: "linear-gradient(180deg, #ffffff 0%, #f0fdf4 100%)",
-                      border: "1.5px solid #86efac",
+                      background: "linear-gradient(180deg, var(--mz-surface) 0%, var(--mz-green-bg) 100%)",
+                      border: "1.5px solid var(--mz-green-border)",
                       display: "flex",
                       flexDirection: "column",
                       justifyContent: "space-between",
@@ -1202,7 +1205,7 @@ const Progress = () => {
                   >
                     <div>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px", marginBottom: "8px", flexWrap: "wrap" }}>
-                        <span style={{ fontSize: "11px", fontWeight: 800, padding: "3px 9px", borderRadius: "999px", background: "#eff6ff", color: "#1d4ed8", border: "1px solid #bfdbfe", textTransform: "uppercase" }}>
+                        <span style={{ fontSize: "11px", fontWeight: 800, padding: "3px 9px", borderRadius: "999px", background: "var(--mz-blue-bg)", color: "var(--mz-blue-text)", border: "1px solid var(--mz-blue-border)", textTransform: "uppercase" }}>
                           {proj.category}
                         </span>
                         <span
@@ -1211,9 +1214,9 @@ const Progress = () => {
                             fontWeight: 800,
                             padding: "3px 10px",
                             borderRadius: "999px",
-                            background: "#dcfce7",
-                            color: "#15803d",
-                            border: "1px solid #86efac",
+                            background: "var(--mz-green-bg)",
+                            color: "var(--mz-green-text)",
+                            border: "1px solid var(--mz-green-border)",
                             letterSpacing: "0.04em",
                           }}
                           data-testid={`progress-project-completed-badge-${proj.projectId}`}
@@ -1221,24 +1224,24 @@ const Progress = () => {
                           ✓ PROJECT COMPLETED
                         </span>
                       </div>
-                      <h4 style={{ margin: "0 0 6px", fontSize: "15.5px", fontWeight: 800, color: "#0f172a" }}>
+                      <h4 style={{ margin: "0 0 6px", fontSize: "15.5px", fontWeight: 800, color: "var(--mz-text-primary)" }}>
                         {proj.title}
                       </h4>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: "5px", marginBottom: "8px" }}>
                         {(proj.technologies || [proj.language]).slice(0, 4).map((t, i) => (
-                          <span key={i} style={{ fontSize: "11px", fontWeight: 600, padding: "2px 7px", borderRadius: "6px", background: "#f1f5f9", color: "#334155", border: "1px solid #e2e8f0" }}>
+                          <span key={i} style={{ fontSize: "11px", fontWeight: 600, padding: "2px 7px", borderRadius: "6px", background: "var(--mz-surface-subtle)", color: "var(--mz-text-secondary)", border: "1px solid var(--mz-border)" }}>
                             {t}
                           </span>
                         ))}
                       </div>
                     </div>
 
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px dashed #bbf7d0", paddingTop: "10px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px dashed var(--mz-green-border)", paddingTop: "10px" }}>
                       <div>
-                        <div style={{ fontSize: "14px", fontWeight: 800, color: "#0f172a" }}>
+                        <div style={{ fontSize: "14px", fontWeight: 800, color: "var(--mz-text-primary)" }}>
                           {proj.marksObtained} / {proj.totalMarks || 100} Marks (Grade {proj.grade})
                         </div>
-                        <div style={{ fontSize: "11.5px", color: "#15803d", fontWeight: 700 }}>
+                        <div style={{ fontSize: "11.5px", color: "var(--mz-green-text)", fontWeight: 700 }}>
                           +{proj.xpReward || 450} XP • Completed {proj.timeAgo}
                         </div>
                       </div>
@@ -1265,12 +1268,12 @@ const Progress = () => {
                   </div>
                 ))
               ) : (
-                <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: "28px 20px", background: "#f8fafc", borderRadius: "12px", border: "1px dashed #cbd5e1" }}>
-                  <LuCodeXml size={30} color="#94a3b8" style={{ margin: "0 auto 8px" }} />
-                  <p style={{ margin: "0 0 4px", fontSize: "14px", fontWeight: 700, color: "#334155" }}>
+                <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: "28px 20px", background: "var(--mz-surface-subtle)", borderRadius: "12px", border: "1px dashed var(--mz-border-strong)" }}>
+                  <LuCodeXml size={30} color="var(--mz-text-subtle)" style={{ margin: "0 auto 8px" }} />
+                  <p style={{ margin: "0 0 4px", fontSize: "14px", fontWeight: 700, color: "var(--mz-text-secondary)" }}>
                     No Portfolio Projects Completed Yet
                   </p>
-                  <p style={{ margin: "0 0 12px", fontSize: "12.5px", color: "#64748b" }}>
+                  <p style={{ margin: "0 0 12px", fontSize: "12.5px", color: "var(--mz-text-muted)" }}>
                     Build and submit any of the 14 real-world engineering projects in the Coding Projects Workspace to earn your PROJECT COMPLETED badge.
                   </p>
                   <button
@@ -1290,7 +1293,7 @@ const Progress = () => {
             <div className="mz-p-card-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
               <div>
                 <h3 className="mz-p-card-title" style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "17px" }}>
-                  <LuAward color="#2563eb" size={22} />
+                  <LuAward color="var(--mz-blue-text)" size={22} />
                   <span>Proctored Assessment Reports & Grades</span>
                 </h3>
                 <p className="mz-p-card-subtitle">
@@ -1301,7 +1304,7 @@ const Progress = () => {
                 type="button"
                 className="mz-p-link-btn"
                 onClick={() => navigate("/home", { state: { tab: "reports" } })}
-                style={{ cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "6px", fontWeight: 700, color: "#2563eb", background: "#eff6ff", border: "1px solid #dbeafe", padding: "6px 14px", borderRadius: "8px" }}
+                style={{ cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "6px", fontWeight: 700, color: "var(--mz-blue-text)", background: "var(--mz-blue-bg)", border: "1px solid var(--mz-blue-border)", padding: "6px 14px", borderRadius: "8px" }}
               >
                 <span>Centralized Archive ({assessmentReports.length})</span>
                 <LuArrowRight size={14} />
@@ -1325,8 +1328,8 @@ const Progress = () => {
                         alignItems: "center",
                         justifyContent: "space-between",
                         padding: "14px 18px",
-                        background: "#ffffff",
-                        border: "1.5px solid #e2e8f0",
+                        background: "var(--mz-surface)",
+                        border: "1.5px solid var(--mz-border)",
                         borderRadius: "12px",
                         cursor: "pointer",
                         transition: "all 0.2s ease",
@@ -1340,17 +1343,17 @@ const Progress = () => {
                         <TrackBadge type={subjKey === "DRIVING" ? "VEHICLES" : subjKey} size={40} />
                         <div>
                           <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
-                            <span style={{ fontSize: "11px", fontWeight: 800, padding: "2px 8px", borderRadius: "4px", background: "#f1f5f9", color: "#475569", textTransform: "uppercase" }}>
+                            <span style={{ fontSize: "11px", fontWeight: 800, padding: "2px 8px", borderRadius: "4px", background: "var(--mz-surface-subtle)", color: "var(--mz-text-secondary)", textTransform: "uppercase" }}>
                               {rep.typeLabel || "Proctored Exam"}
                             </span>
-                            <span style={{ fontSize: "11px", fontWeight: 700, padding: "2px 8px", borderRadius: "4px", background: isPass ? "#dcfce7" : "#fee2e2", color: isPass ? "#15803d" : "#b91c1c" }}>
+                            <span style={{ fontSize: "11px", fontWeight: 700, padding: "2px 8px", borderRadius: "4px", background: isPass ? "var(--mz-green-bg)" : "var(--mz-red-bg)", color: isPass ? "var(--mz-green-text)" : "var(--mz-red-text)" }}>
                               {isPass ? "PASSED" : "EVALUATED"}
                             </span>
                           </div>
-                          <h4 style={{ margin: 0, fontSize: "14.5px", fontWeight: 700, color: "#0f172a" }}>
+                          <h4 style={{ margin: 0, fontSize: "14.5px", fontWeight: 700, color: "var(--mz-text-primary)" }}>
                             {rep.assessmentTitle || rep.questionTitle}
                           </h4>
-                          <span style={{ fontSize: "12px", color: "#64748b" }}>
+                          <span style={{ fontSize: "12px", color: "var(--mz-text-muted)" }}>
                             Submitted: {rep.submittedAt ? new Date(rep.submittedAt).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "Recent"}
                           </span>
                         </div>
@@ -1358,10 +1361,10 @@ const Progress = () => {
 
                       <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
                         <div style={{ textAlign: "right" }}>
-                          <div style={{ fontSize: "15px", fontWeight: 800, color: "#0f172a" }}>
+                          <div style={{ fontSize: "15px", fontWeight: 800, color: "var(--mz-text-primary)" }}>
                             {marksObt} / {totalM} Marks
                           </div>
-                          <div style={{ fontSize: "12px", color: isPass ? "#059669" : "#dc2626", fontWeight: 600 }}>
+                          <div style={{ fontSize: "12px", color: isPass ? "var(--mz-emerald-text)" : "var(--mz-red-text)", fontWeight: 600 }}>
                             {rep.percentage}% ({rep.accuracy}% Accuracy)
                           </div>
                         </div>
@@ -1376,9 +1379,9 @@ const Progress = () => {
                             justifyContent: "center",
                             fontWeight: 800,
                             fontSize: "15px",
-                            background: isPass ? "rgba(16, 185, 129, 0.12)" : "rgba(239, 68, 68, 0.12)",
-                            color: isPass ? "#059669" : "#dc2626",
-                            border: `1.5px solid ${isPass ? "#a7f3d0" : "#fecaca"}`,
+                            background: isPass ? "var(--mz-emerald-bg)" : "var(--mz-red-bg)",
+                            color: isPass ? "var(--mz-emerald-text)" : "var(--mz-red-text)",
+                            border: `1.5px solid ${isPass ? "var(--mz-emerald-border)" : "var(--mz-red-border)"}`,
                           }}
                         >
                           {rep.grade || "F"}
@@ -1412,12 +1415,12 @@ const Progress = () => {
                   );
                 })
               ) : (
-                <div style={{ textAlign: "center", padding: "32px 20px", background: "#f8fafc", borderRadius: "12px", border: "1px dashed #cbd5e1" }}>
-                  <LuAward size={32} color="#94a3b8" style={{ margin: "0 auto 8px" }} />
-                  <p style={{ margin: "0 0 4px", fontSize: "14px", fontWeight: 700, color: "#334155" }}>
+                <div style={{ textAlign: "center", padding: "32px 20px", background: "var(--mz-surface-subtle)", borderRadius: "12px", border: "1px dashed var(--mz-border-strong)" }}>
+                  <LuAward size={32} color="var(--mz-text-subtle)" style={{ margin: "0 auto 8px" }} />
+                  <p style={{ margin: "0 0 4px", fontSize: "14px", fontWeight: 700, color: "var(--mz-text-secondary)" }}>
                     No Proctored Assessment Reports Saved Yet
                   </p>
-                  <p style={{ margin: 0, fontSize: "12.5px", color: "#64748b" }}>
+                  <p style={{ margin: 0, fontSize: "12.5px", color: "var(--mz-text-muted)" }}>
                     Complete a 10-MCQ accreditation exam or practical coding challenge to generate your tamper-proof report.
                   </p>
                 </div>
@@ -1466,32 +1469,32 @@ const Progress = () => {
           >
             {isLogConfirmed && confirmedLogData ? (
               <div style={{ textAlign: "center", padding: "10px 4px" }} data-testid="progress-log-confirmed-screen">
-                <div style={{ width: "64px", height: "64px", borderRadius: "50%", background: "#ecfdf5", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", border: "1.5px solid #a7f3d0" }}>
-                  <LuCircleCheck size={36} color="#10b981" />
+                <div style={{ width: "64px", height: "64px", borderRadius: "50%", background: "var(--mz-emerald-bg)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", border: "1.5px solid var(--mz-emerald-border)" }}>
+                  <LuCircleCheck size={36} color="var(--mz-emerald-text)" />
                 </div>
-                <h3 style={{ fontSize: "19px", fontWeight: 700, color: "#0f172a", margin: "0 0 6px" }}>Activity Logged Successfully!</h3>
-                <p style={{ fontSize: "13px", color: "#64748b", margin: "0 0 20px" }}>Your progress record and XP have been verified and saved.</p>
+                <h3 style={{ fontSize: "19px", fontWeight: 700, color: "var(--mz-text-primary)", margin: "0 0 6px" }}>Activity Logged Successfully!</h3>
+                <p style={{ fontSize: "13px", color: "var(--mz-text-muted)", margin: "0 0 20px" }}>Your progress record and XP have been verified and saved.</p>
 
-                <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "14px", padding: "16px", textAlign: "left", display: "flex", flexDirection: "column", gap: "10px" }}>
+                <div style={{ background: "var(--mz-surface-subtle)", border: "1px solid var(--mz-border)", borderRadius: "14px", padding: "16px", textAlign: "left", display: "flex", flexDirection: "column", gap: "10px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "13px" }}>
-                    <span style={{ color: "#64748b" }}>Learning Track</span>
-                    <span style={{ fontWeight: 700, fontSize: "11.5px", padding: "2px 8px", borderRadius: "6px", background: "#eff6ff", color: "#2563eb" }}>{confirmedLogData.track}</span>
+                    <span style={{ color: "var(--mz-text-muted)" }}>Learning Track</span>
+                    <span style={{ fontWeight: 700, fontSize: "11.5px", padding: "2px 8px", borderRadius: "6px", background: "var(--mz-blue-bg)", color: "var(--mz-blue-text)" }}>{confirmedLogData.track}</span>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "13px" }}>
-                    <span style={{ color: "#64748b" }}>Activity Type</span>
-                    <span style={{ color: "#0f172a" }}>{confirmedLogData.task}</span>
+                    <span style={{ color: "var(--mz-text-muted)" }}>Activity Type</span>
+                    <span style={{ color: "var(--mz-text-primary)" }}>{confirmedLogData.task}</span>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "13px" }}>
-                    <span style={{ color: "#64748b" }}>Topic / Lesson</span>
-                    <span style={{ color: "#0f172a", fontWeight: 600 }}>{confirmedLogData.moduleName}</span>
+                    <span style={{ color: "var(--mz-text-muted)" }}>Topic / Lesson</span>
+                    <span style={{ color: "var(--mz-text-primary)", fontWeight: 600 }}>{confirmedLogData.moduleName}</span>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "13px" }}>
-                    <span style={{ color: "#64748b" }}>Duration</span>
-                    <span style={{ color: "#0f172a" }}>{confirmedLogData.hoursSpent} hrs</span>
+                    <span style={{ color: "var(--mz-text-muted)" }}>Duration</span>
+                    <span style={{ color: "var(--mz-text-primary)" }}>{confirmedLogData.hoursSpent} hrs</span>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "13px" }}>
-                    <span style={{ color: "#64748b" }}>Earned XP</span>
-                    <span style={{ fontWeight: 700, color: "#10b981", background: "#ecfdf5", padding: "2px 8px", borderRadius: "6px" }}>+{confirmedLogData.xpEarned} XP</span>
+                    <span style={{ color: "var(--mz-text-muted)" }}>Earned XP</span>
+                    <span style={{ fontWeight: 700, color: "var(--mz-emerald-text)", background: "var(--mz-emerald-bg)", padding: "2px 8px", borderRadius: "6px" }}>+{confirmedLogData.xpEarned} XP</span>
                   </div>
                 </div>
 
@@ -1776,8 +1779,8 @@ const Progress = () => {
                     <div
                       className="mz-p-badge-icon"
                       style={{
-                        backgroundColor: isEarned ? `${ach.badgeColor}20` : "#f1f5f9",
-                        color: isEarned ? ach.badgeColor : "#94a3b8",
+                        backgroundColor: isEarned ? `${ach.badgeColor}20` : "var(--mz-surface-subtle)",
+                        color: isEarned ? ach.badgeColor : "var(--mz-text-subtle)",
                       }}
                     >
                       <LuTrophy size={26} />
@@ -1959,8 +1962,8 @@ const Progress = () => {
               >
                 Open Full Profile Settings
               </button>
-              <div style={{ marginTop: "16px", paddingTop: "14px", borderTop: "1px solid #f1f5f9" }}>
-                <p style={{ fontSize: "12px", color: "#64748b", margin: "0 0 8px 0" }}>
+              <div style={{ marginTop: "16px", paddingTop: "14px", borderTop: "1px solid var(--mz-border)" }}>
+                <p style={{ fontSize: "12px", color: "var(--mz-text-muted)", margin: "0 0 8px 0" }}>
                   Need to restart your learning paths or retake curriculum modules and tests?
                 </p>
                 <button

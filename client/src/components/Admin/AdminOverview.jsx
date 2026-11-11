@@ -254,7 +254,7 @@ const AdminOverview = () => {
       {/* ────────────────── 1. HEADER SECTION & DATE FILTER ────────────────── */}
       <div className="mz-admin-page-header">
         <div className="mz-admin-page-title-box">
-          <div className="mz-admin-page-icon" style={{ background: "#ede9fe", color: "#6366f1" }}>
+          <div className="mz-admin-page-icon" style={{ background: "var(--mz-purple-bg)", color: "#6366f1" }}>
             <LuChartBar style={{ width: 22, height: 22 }} />
           </div>
           <div>
@@ -273,7 +273,7 @@ const AdminOverview = () => {
           >
             <LuCalendar style={{ width: 16, height: 16, color: "#6366f1" }} />
             <span>{dateLabel}</span>
-            <span style={{ fontSize: 11, color: "#94a3b8" }}>▾</span>
+            <span style={{ fontSize: 11, color: "var(--mz-text-subtle)" }}>▾</span>
           </button>
 
           {showDatePicker && (
@@ -284,10 +284,10 @@ const AdminOverview = () => {
                 top: "100%",
                 marginTop: 8,
                 width: 280,
-                background: "#ffffff",
+                background: "var(--mz-surface)",
                 borderRadius: 14,
                 boxShadow: "0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)",
-                border: "1px solid #e2e8f0",
+                border: "1px solid var(--mz-border)",
                 padding: 12,
                 zIndex: 60,
               }}
@@ -306,8 +306,8 @@ const AdminOverview = () => {
                       padding: "8px 12px",
                       borderRadius: 8,
                       border: "none",
-                      background: filterRange === item.key ? "#ede9fe" : "transparent",
-                      color: filterRange === item.key ? "#6366f1" : "#334155",
+                      background: filterRange === item.key ? "var(--mz-purple-bg)" : "transparent",
+                      color: filterRange === item.key ? "#6366f1" : "var(--mz-text-secondary)",
                       fontWeight: filterRange === item.key ? 700 : 500,
                       fontSize: 13,
                       textAlign: "left",
@@ -324,25 +324,25 @@ const AdminOverview = () => {
               </div>
 
               {filterRange === "custom" && (
-                <form onSubmit={handleApplyCustom} style={{ borderTop: "1px solid #f1f5f9", paddingTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                <form onSubmit={handleApplyCustom} style={{ borderTop: "1px solid var(--mz-surface-muted)", paddingTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
                   <div>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: "#64748b" }}>Start Date</label>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: "var(--mz-text-muted)" }}>Start Date</label>
                     <input
                       type="date"
                       value={customStart}
                       onChange={(e) => setCustomStart(e.target.value)}
                       required
-                      style={{ width: "100%", padding: "6px 8px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 12, marginTop: 2, outline: "none" }}
+                      style={{ width: "100%", padding: "6px 8px", borderRadius: 8, border: "1px solid var(--mz-border)", fontSize: 12, marginTop: 2, outline: "none" }}
                     />
                   </div>
                   <div>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: "#64748b" }}>End Date</label>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: "var(--mz-text-muted)" }}>End Date</label>
                     <input
                       type="date"
                       value={customEnd}
                       onChange={(e) => setCustomEnd(e.target.value)}
                       required
-                      style={{ width: "100%", padding: "6px 8px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 12, marginTop: 2, outline: "none" }}
+                      style={{ width: "100%", padding: "6px 8px", borderRadius: 8, border: "1px solid var(--mz-border)", fontSize: 12, marginTop: 2, outline: "none" }}
                     />
                   </div>
                   <button
@@ -363,7 +363,7 @@ const AdminOverview = () => {
       <div className="mz-admin-metrics-row">
         {/* Card 1: Total Users */}
         <div className="mz-admin-metric-card">
-          <div className="mz-admin-metric-icon" style={{ background: "#eff6ff", color: "#3b82f6" }}>
+          <div className="mz-admin-metric-icon" style={{ background: "var(--mz-blue-bg)", color: "#3b82f6" }}>
             <LuUsers style={{ width: 20, height: 20 }} />
           </div>
           <p className="mz-admin-metric-label">Total Users</p>
@@ -379,7 +379,7 @@ const AdminOverview = () => {
 
         {/* Card 2: Active Today */}
         <div className="mz-admin-metric-card">
-          <div className="mz-admin-metric-icon" style={{ background: "#ecfdf5", color: "#10b981" }}>
+          <div className="mz-admin-metric-icon" style={{ background: "var(--mz-green-bg)", color: "#10b981" }}>
             <LuUserCheck style={{ width: 20, height: 20 }} />
           </div>
           <p className="mz-admin-metric-label">Active Today</p>
@@ -395,7 +395,7 @@ const AdminOverview = () => {
 
         {/* Card 3: Active Sessions */}
         <div className="mz-admin-metric-card">
-          <div className="mz-admin-metric-icon" style={{ background: "#f5f3ff", color: "#8b5cf6" }}>
+          <div className="mz-admin-metric-icon" style={{ background: "var(--mz-purple-bg)", color: "#8b5cf6" }}>
             <LuZap style={{ width: 20, height: 20 }} />
           </div>
           <p className="mz-admin-metric-label">Active Sessions</p>
@@ -411,7 +411,7 @@ const AdminOverview = () => {
 
         {/* Card 4: Assessments */}
         <div className="mz-admin-metric-card">
-          <div className="mz-admin-metric-icon" style={{ background: "#fffbeb", color: "#f59e0b" }}>
+          <div className="mz-admin-metric-icon" style={{ background: "var(--mz-amber-bg)", color: "#f59e0b" }}>
             <LuFileText style={{ width: 20, height: 20 }} />
           </div>
           <p className="mz-admin-metric-label">Assessments</p>
@@ -427,7 +427,7 @@ const AdminOverview = () => {
 
         {/* Card 5: Coding Submissions */}
         <div className="mz-admin-metric-card">
-          <div className="mz-admin-metric-icon" style={{ background: "#ecfdf5", color: "#10b981" }}>
+          <div className="mz-admin-metric-icon" style={{ background: "var(--mz-green-bg)", color: "#10b981" }}>
             <LuCode style={{ width: 20, height: 20 }} />
           </div>
           <p className="mz-admin-metric-label">Coding Submissions</p>
@@ -443,7 +443,7 @@ const AdminOverview = () => {
 
         {/* Card 6: Storage Used */}
         <div className="mz-admin-metric-card">
-          <div className="mz-admin-metric-icon" style={{ background: "#f5f3ff", color: "#8b5cf6" }}>
+          <div className="mz-admin-metric-icon" style={{ background: "var(--mz-purple-bg)", color: "#8b5cf6" }}>
             <LuDatabase style={{ width: 20, height: 20 }} />
           </div>
           <p className="mz-admin-metric-label">Storage Used</p>
@@ -451,7 +451,7 @@ const AdminOverview = () => {
             {loading ? <span className="mz-skeleton-text" style={{ width: 44, height: 26 }} /> : `${stats.storageUsed?.percentage || 0}%`}
           </h3>
           <div style={{ marginTop: 14 }}>
-            <div style={{ height: 7, background: "#f1f5f9", borderRadius: 9999, overflow: "hidden" }}>
+            <div style={{ height: 7, background: "var(--mz-surface-muted)", borderRadius: 9999, overflow: "hidden" }}>
               <div
                 style={{
                   width: `${stats.storageUsed?.percentage || 0}%`,
@@ -480,7 +480,7 @@ const AdminOverview = () => {
             <div
               className="mz-admin-filter-tabs"
               style={{
-                background: "#f1f5f9",
+                background: "var(--mz-surface-muted)",
                 padding: "3px",
                 borderRadius: 8,
                 display: "flex",
@@ -507,8 +507,8 @@ const AdminOverview = () => {
                   }
                   style={{
                     border: "none",
-                    background: activeTab === t.key ? "#ffffff" : "transparent",
-                    color: activeTab === t.key ? "#4f46e5" : "#64748b",
+                    background: activeTab === t.key ? "var(--mz-surface)" : "transparent",
+                    color: activeTab === t.key ? "#4f46e5" : "var(--mz-text-muted)",
                     fontWeight: activeTab === t.key ? 700 : 500,
                     padding: "4px 10px",
                     borderRadius: 6,
@@ -531,17 +531,17 @@ const AdminOverview = () => {
             onMouseLeave={handleChartMouseLeave}
           >
             {/* Y-axis grid lines with clean values: 1.5k, 1k, 500, 0 */}
-            <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", justifyContent: "space-between", fontSize: 11, color: "#94a3b8", pointerEvents: "none", paddingBottom: 28 }}>
-              <div style={{ borderBottom: "1px dashed #f1f5f9", display: "flex", justifyContent: "flex-start", paddingBottom: 2 }}>
+            <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", justifyContent: "space-between", fontSize: 11, color: "var(--mz-text-subtle)", pointerEvents: "none", paddingBottom: 28 }}>
+              <div style={{ borderBottom: "1px dashed var(--mz-surface-muted)", display: "flex", justifyContent: "flex-start", paddingBottom: 2 }}>
                 <span style={{ fontWeight: 500, width: 34 }}>1.5k</span>
               </div>
-              <div style={{ borderBottom: "1px dashed #f1f5f9", display: "flex", justifyContent: "flex-start", paddingBottom: 2 }}>
+              <div style={{ borderBottom: "1px dashed var(--mz-surface-muted)", display: "flex", justifyContent: "flex-start", paddingBottom: 2 }}>
                 <span style={{ fontWeight: 500, width: 34 }}>1k</span>
               </div>
-              <div style={{ borderBottom: "1px dashed #f1f5f9", display: "flex", justifyContent: "flex-start", paddingBottom: 2 }}>
+              <div style={{ borderBottom: "1px dashed var(--mz-surface-muted)", display: "flex", justifyContent: "flex-start", paddingBottom: 2 }}>
                 <span style={{ fontWeight: 500, width: 34 }}>500</span>
               </div>
-              <div style={{ borderBottom: "1px solid #f1f5f9", display: "flex", justifyContent: "flex-start", paddingBottom: 2 }}>
+              <div style={{ borderBottom: "1px solid var(--mz-surface-muted)", display: "flex", justifyContent: "flex-start", paddingBottom: 2 }}>
                 <span style={{ fontWeight: 500, width: 34 }}>0</span>
               </div>
             </div>
@@ -557,7 +557,7 @@ const AdminOverview = () => {
                 <linearGradient id="trendGradientFill" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#6366f1" stopOpacity="0.22" />
                   <stop offset="70%" stopColor="#818cf8" stopOpacity="0.06" />
-                  <stop offset="100%" stopColor="#c7d2fe" stopOpacity="0.0" />
+                  <stop offset="100%" stopColor="var(--mz-indigo-border)" stopOpacity="0.0" />
                 </linearGradient>
 
                 <filter id="trendGlowFilter" x="-20%" y="-20%" width="140%" height="140%">
@@ -594,7 +594,7 @@ const AdminOverview = () => {
                   y1={0}
                   x2={activeHighlightedPoint.x}
                   y2={chartHeight}
-                  stroke="#c7d2fe"
+                  stroke="var(--mz-indigo-border)"
                   strokeWidth="1.5"
                   strokeDasharray="4 4"
                   opacity="0.8"
@@ -608,7 +608,7 @@ const AdminOverview = () => {
                   cx={pt.x}
                   cy={pt.y}
                   r="3.5"
-                  fill="#ffffff"
+                  fill="var(--mz-surface)"
                   stroke="#6366f1"
                   strokeWidth="2.2"
                 />
@@ -629,7 +629,7 @@ const AdminOverview = () => {
                     cx={activeHighlightedPoint.x}
                     cy={activeHighlightedPoint.y}
                     r="5.5"
-                    fill="#ffffff"
+                    fill="var(--mz-surface)"
                     stroke="#4f46e5"
                     strokeWidth="3"
                   />
@@ -646,12 +646,12 @@ const AdminOverview = () => {
                   top: hoverPixel ? `${hoverPixel.y}px` : `${activeHighlightedPoint.y}px`,
                 }}
               >
-                <div style={{ fontSize: 10.5, fontWeight: 600, color: "#64748b", marginBottom: 2 }}>
+                <div style={{ fontSize: 10.5, fontWeight: 600, color: "var(--mz-text-muted)", marginBottom: 2 }}>
                   {activeHighlightedPoint.date || "Oct 21"}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                   <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#6366f1", display: "inline-block" }} />
-                  <span style={{ fontSize: 12.5, fontWeight: 800, color: "#0f172a" }}>
+                  <span style={{ fontSize: 12.5, fontWeight: 800, color: "var(--mz-text-primary)" }}>
                     {activeHighlightedPoint?.activeUsers != null ? `${activeHighlightedPoint.activeUsers.toLocaleString()} Active Users` : "0 Active Users"}
                   </span>
                 </div>
@@ -665,7 +665,7 @@ const AdminOverview = () => {
                 justifyContent: "space-between",
                 fontSize: 11,
                 fontWeight: 500,
-                color: "#94a3b8",
+                color: "var(--mz-text-subtle)",
                 marginTop: 8,
                 padding: "0 12px 0 38px",
               }}
@@ -690,7 +690,7 @@ const AdminOverview = () => {
             {/* SVG Donut */}
             <div style={{ position: "relative", width: 128, height: 128, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
               <svg style={{ width: "100%", height: "100%", transform: "rotate(-90deg)" }} viewBox="0 0 100 100">
-                <circle cx="50" cy="50" r="38" fill="transparent" stroke="#f1f5f9" strokeWidth="12" />
+                <circle cx="50" cy="50" r="38" fill="transparent" stroke="var(--mz-surface-muted)" strokeWidth="12" />
                 {(() => {
                   let accumulated = 0;
                   const circumference = 238.76;
@@ -717,10 +717,10 @@ const AdminOverview = () => {
               </svg>
 
               <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
-                <span style={{ fontSize: 20, fontWeight: 800, color: "#0f172a", lineHeight: 1 }}>
+                <span style={{ fontSize: 20, fontWeight: 800, color: "var(--mz-text-primary)", lineHeight: 1 }}>
                   {topTrack?.percentage || 0}%
                 </span>
-                <span style={{ fontSize: 11, color: "#64748b", fontWeight: 600, marginTop: 3 }}>
+                <span style={{ fontSize: 11, color: "var(--mz-text-muted)", fontWeight: 600, marginTop: 3 }}>
                   {topTrack?.name || "Python"}
                 </span>
               </div>
@@ -732,9 +732,9 @@ const AdminOverview = () => {
                 <div key={t.name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: t.color, display: "inline-block" }} />
-                    <span style={{ color: "#334155", fontWeight: 500 }}>{t.name}</span>
+                    <span style={{ color: "var(--mz-text-secondary)", fontWeight: 500 }}>{t.name}</span>
                   </div>
-                  <span style={{ fontWeight: 700, color: "#0f172a" }}>
+                  <span style={{ fontWeight: 700, color: "var(--mz-text-primary)" }}>
                     {t.percentage}%
                   </span>
                 </div>
@@ -750,7 +750,7 @@ const AdminOverview = () => {
               <LuShield style={{ width: 18, height: 18, color: "#3b82f6" }} />
               <span>Proctoring Status</span>
             </h3>
-            <span style={{ fontSize: 11, fontWeight: 600, color: "#059669", background: "#ecfdf5", padding: "4px 10px", borderRadius: 9999 }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: "#059669", background: "var(--mz-green-bg)", padding: "4px 10px", borderRadius: 9999 }}>
               All Systems Online
             </span>
           </div>
@@ -758,8 +758,8 @@ const AdminOverview = () => {
           <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: "14px 4px 10px" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <LuCamera style={{ width: 18, height: 18, color: "#64748b" }} />
-                <span style={{ fontSize: 13, fontWeight: 500, color: "#334155" }}>Camera</span>
+                <LuCamera style={{ width: 18, height: 18, color: "var(--mz-text-muted)" }} />
+                <span style={{ fontSize: 13, fontWeight: 500, color: "var(--mz-text-secondary)" }}>Camera</span>
               </div>
               <span style={{ fontSize: 12, fontWeight: 600, color: "#059669", display: "flex", alignItems: "center", gap: 6 }}>
                 <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981", display: "inline-block" }} />
@@ -769,8 +769,8 @@ const AdminOverview = () => {
 
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <LuMic style={{ width: 18, height: 18, color: "#64748b" }} />
-                <span style={{ fontSize: 13, fontWeight: 500, color: "#334155" }}>Microphone</span>
+                <LuMic style={{ width: 18, height: 18, color: "var(--mz-text-muted)" }} />
+                <span style={{ fontSize: 13, fontWeight: 500, color: "var(--mz-text-secondary)" }}>Microphone</span>
               </div>
               <span style={{ fontSize: 12, fontWeight: 600, color: "#059669", display: "flex", alignItems: "center", gap: 6 }}>
                 <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981", display: "inline-block" }} />
@@ -780,8 +780,8 @@ const AdminOverview = () => {
 
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <LuMonitor style={{ width: 18, height: 18, color: "#64748b" }} />
-                <span style={{ fontSize: 13, fontWeight: 500, color: "#334155" }}>Screen Sharing</span>
+                <LuMonitor style={{ width: 18, height: 18, color: "var(--mz-text-muted)" }} />
+                <span style={{ fontSize: 13, fontWeight: 500, color: "var(--mz-text-secondary)" }}>Screen Sharing</span>
               </div>
               <span style={{ fontSize: 12, fontWeight: 600, color: "#059669", display: "flex", alignItems: "center", gap: 6 }}>
                 <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981", display: "inline-block" }} />
@@ -796,10 +796,10 @@ const AdminOverview = () => {
       <div className="mz-admin-bottom-row">
         {/* Table 1: Recent Assessment Results */}
         <div className="mz-admin-card" style={{ padding: 0 }}>
-          <div style={{ padding: "16px 20px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--mz-surface-muted)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <LuTrophy style={{ width: 18, height: 18, color: "#f59e0b" }} />
-              <h3 style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", margin: 0 }}>
+              <h3 style={{ fontSize: 14, fontWeight: 700, color: "var(--mz-text-primary)", margin: 0 }}>
                 Recent Assessment Results
               </h3>
             </div>
@@ -824,17 +824,17 @@ const AdminOverview = () => {
               <tbody>
                 {recentAssessments.length === 0 ? (
                   <tr>
-                    <td colSpan="6" style={{ textAlign: "center", padding: "30px 0", color: "#94a3b8" }}>
+                    <td colSpan="6" style={{ textAlign: "center", padding: "30px 0", color: "var(--mz-text-subtle)" }}>
                       No assessment records found in this date range.
                     </td>
                   </tr>
                 ) : (
                   recentAssessments.map((row, idx) => (
                     <tr key={row.id || idx}>
-                      <td style={{ fontWeight: 600, color: "#0f172a" }}>{row.user}</td>
-                      <td style={{ color: "#334155", fontWeight: 500 }}>{row.assessment}</td>
-                      <td style={{ color: "#64748b" }}>{row.type}</td>
-                      <td style={{ fontWeight: 700, color: "#0f172a" }}>{row.score}</td>
+                      <td style={{ fontWeight: 600, color: "var(--mz-text-primary)" }}>{row.user}</td>
+                      <td style={{ color: "var(--mz-text-secondary)", fontWeight: 500 }}>{row.assessment}</td>
+                      <td style={{ color: "var(--mz-text-muted)" }}>{row.type}</td>
+                      <td style={{ fontWeight: 700, color: "var(--mz-text-primary)" }}>{row.score}</td>
                       <td>
                         <span
                           style={{
@@ -844,10 +844,10 @@ const AdminOverview = () => {
                             fontWeight: 600,
                             background:
                               row.status === "Passed"
-                                ? "#ecfdf5"
+                                ? "var(--mz-green-bg)"
                                 : row.status === "Partial"
-                                ? "#fffbeb"
-                                : "#fef2f2",
+                                ? "var(--mz-amber-bg)"
+                                : "var(--mz-red-bg)",
                             color:
                               row.status === "Passed"
                                 ? "#059669"
@@ -859,7 +859,7 @@ const AdminOverview = () => {
                           {row.status}
                         </span>
                       </td>
-                      <td style={{ color: "#64748b", fontSize: 12 }}>
+                      <td style={{ color: "var(--mz-text-muted)", fontSize: 12 }}>
                         {formatDateTime(row.date)}
                       </td>
                     </tr>
@@ -872,10 +872,10 @@ const AdminOverview = () => {
 
         {/* Table 2: Live Sessions */}
         <div className="mz-admin-card" style={{ padding: 0 }}>
-          <div style={{ padding: "16px 20px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--mz-surface-muted)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <LuRadio style={{ width: 18, height: 18, color: "#3b82f6" }} />
-              <h3 style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", margin: 0 }}>
+              <h3 style={{ fontSize: 14, fontWeight: 700, color: "var(--mz-text-primary)", margin: 0 }}>
                 Live Sessions
               </h3>
             </div>
@@ -899,17 +899,17 @@ const AdminOverview = () => {
               <tbody>
                 {liveSessions.length === 0 ? (
                   <tr>
-                    <td colSpan="5" style={{ textAlign: "center", padding: "30px 0", color: "#94a3b8" }}>
+                    <td colSpan="5" style={{ textAlign: "center", padding: "30px 0", color: "var(--mz-text-subtle)" }}>
                       No active sessions currently connected.
                     </td>
                   </tr>
                 ) : (
                   liveSessions.map((sess, idx) => (
                     <tr key={sess.socketId || idx}>
-                      <td style={{ fontWeight: 600, color: "#0f172a" }}>{sess.user}</td>
-                      <td style={{ color: "#334155", fontWeight: 500 }}>{sess.activity}</td>
-                      <td style={{ color: "#64748b" }}>{sess.started}</td>
-                      <td style={{ fontWeight: 600, color: "#0f172a" }}>{sess.duration}</td>
+                      <td style={{ fontWeight: 600, color: "var(--mz-text-primary)" }}>{sess.user}</td>
+                      <td style={{ color: "var(--mz-text-secondary)", fontWeight: 500 }}>{sess.activity}</td>
+                      <td style={{ color: "var(--mz-text-muted)" }}>{sess.started}</td>
+                      <td style={{ fontWeight: 600, color: "var(--mz-text-primary)" }}>{sess.duration}</td>
                       <td>
                         <span
                           style={{

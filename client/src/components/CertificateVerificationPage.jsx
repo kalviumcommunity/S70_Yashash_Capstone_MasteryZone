@@ -10,6 +10,8 @@ import {
   LuArrowLeft,
   LuCircleAlert,
 } from "react-icons/lu";
+import { useTheme } from "../context/ThemeContext";
+import ThemeToggle from "./ThemeToggle";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 

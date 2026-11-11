@@ -411,7 +411,7 @@ const AdminReports = () => {
       : [];
 
   return (
-    <div style={{ padding: "28px 36px", background: "#f8fafc", minHeight: "100vh", fontFamily: "inherit" }}>
+    <div style={{ padding: "28px 36px", background: "var(--mz-surface-subtle)", minHeight: "100vh", fontFamily: "inherit" }}>
       {/* Top Header */}
       <div
         style={{
@@ -429,7 +429,7 @@ const AdminReports = () => {
               width: 48,
               height: 48,
               borderRadius: 14,
-              background: "#ede9fe",
+              background: "var(--mz-purple-bg)",
               color: "#6366f1",
               display: "flex",
               alignItems: "center",
@@ -440,10 +440,10 @@ const AdminReports = () => {
             <LuFileText style={{ width: 24, height: 24 }} />
           </div>
           <div>
-            <h1 style={{ fontSize: 24, fontWeight: 700, color: "#0f172a", margin: 0, letterSpacing: "-0.02em" }}>
+            <h1 style={{ fontSize: 24, fontWeight: 700, color: "var(--mz-text-primary)", margin: 0, letterSpacing: "-0.02em" }}>
               Centralized Reports Management
             </h1>
-            <p style={{ fontSize: 13, color: "#64748b", margin: "4px 0 0 0" }}>
+            <p style={{ fontSize: 13, color: "var(--mz-text-muted)", margin: "4px 0 0 0" }}>
               Audit, filter, and export verified certificates, assessment scorecards, and learning transcripts.
             </p>
           </div>
@@ -461,14 +461,14 @@ const AdminReports = () => {
               borderRadius: 10,
               fontSize: 13,
               fontWeight: 600,
-              color: "#475569",
-              background: "#ffffff",
-              border: "1px solid #e2e8f0",
+              color: "var(--mz-text-secondary)",
+              background: "var(--mz-surface)",
+              border: "1px solid var(--mz-border)",
               cursor: "pointer",
               transition: "all 0.15s ease",
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "#f1f5f9")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "#ffffff")}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--mz-surface-muted)")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "var(--mz-surface)")}
           >
             <LuRefreshCw style={{ width: 15, height: 15 }} />
             Sync Now
@@ -503,10 +503,10 @@ const AdminReports = () => {
       {/* Search & Filter Bar */}
       <div
         style={{
-          background: "#ffffff",
+          background: "var(--mz-surface)",
           borderRadius: 16,
           padding: "16px 20px",
-          border: "1px solid #e2e8f0",
+          border: "1px solid var(--mz-border)",
           boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
           marginBottom: 20,
           display: "flex",
@@ -524,7 +524,7 @@ const AdminReports = () => {
               left: 14,
               top: "50%",
               transform: "translateY(-50%)",
-              color: "#94a3b8",
+              color: "var(--mz-text-subtle)",
               width: 17,
               height: 17,
             }}
@@ -539,12 +539,12 @@ const AdminReports = () => {
             }}
             onFocus={(e) => {
               e.target.style.borderColor = "#6366f1";
-              e.target.style.background = "#ffffff";
+              e.target.style.background = "var(--mz-surface)";
               if (search.trim()) setShowSearchDropdown(true);
             }}
             onBlur={(e) => {
-              e.target.style.borderColor = "#e2e8f0";
-              e.target.style.background = "#f8fafc";
+              e.target.style.borderColor = "var(--mz-border)";
+              e.target.style.background = "var(--mz-surface-subtle)";
             }}
             onKeyDown={(e) => {
               if (e.key === "Escape") setShowSearchDropdown(false);
@@ -553,11 +553,11 @@ const AdminReports = () => {
               width: "100%",
               padding: "10px 14px 10px 40px",
               borderRadius: 10,
-              border: "1px solid #e2e8f0",
+              border: "1px solid var(--mz-border)",
               fontSize: 13,
-              color: "#1e293b",
+              color: "var(--mz-text-body)",
               outline: "none",
-              background: "#f8fafc",
+              background: "var(--mz-surface-subtle)",
               transition: "all 0.15s ease",
             }}
           />
@@ -574,7 +574,7 @@ const AdminReports = () => {
                 transform: "translateY(-50%)",
                 background: "none",
                 border: "none",
-                color: "#94a3b8",
+                color: "var(--mz-text-subtle)",
                 cursor: "pointer",
               }}
             >
@@ -645,9 +645,9 @@ const AdminReports = () => {
                   display: "inline-flex",
                   alignItems: "center",
                   gap: 6,
-                  border: isActive ? "1px solid #4f46e5" : "1px solid #e2e8f0",
-                  background: isActive ? "#4f46e5" : "#ffffff",
-                  color: isActive ? "#ffffff" : "#64748b",
+                  border: isActive ? "1px solid #4f46e5" : "1px solid var(--mz-border)",
+                  background: isActive ? "#4f46e5" : "var(--mz-surface)",
+                  color: isActive ? "#ffffff" : "var(--mz-text-muted)",
                   boxShadow: isActive ? "0 2px 6px rgba(79, 70, 229, 0.2)" : "none",
                 }}
               >
@@ -657,8 +657,8 @@ const AdminReports = () => {
                     fontSize: 10,
                     padding: "2px 6px",
                     borderRadius: 10,
-                    background: isActive ? "rgba(255,255,255,0.22)" : "#f1f5f9",
-                    color: isActive ? "#ffffff" : "#475569",
+                    background: isActive ? "rgba(255,255,255,0.22)" : "var(--mz-surface-muted)",
+                    color: isActive ? "#ffffff" : "var(--mz-text-secondary)",
                     fontWeight: 700,
                   }}
                 >
@@ -673,9 +673,9 @@ const AdminReports = () => {
       {/* Main Reports Table Container */}
       <div
         style={{
-          background: "#ffffff",
+          background: "var(--mz-surface)",
           borderRadius: 16,
-          border: "1px solid #e2e8f0",
+          border: "1px solid var(--mz-border)",
           boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
           overflow: "hidden",
         }}
@@ -684,17 +684,17 @@ const AdminReports = () => {
         <div
           style={{
             padding: "16px 24px",
-            borderBottom: "1px solid #f1f5f9",
+            borderBottom: "1px solid var(--mz-surface-muted)",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
           }}
         >
           <div>
-            <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", margin: 0 }}>
+            <h2 style={{ fontSize: 15, fontWeight: 700, color: "var(--mz-text-primary)", margin: 0 }}>
               Generated Platform Reports
             </h2>
-            <p style={{ fontSize: 12, color: "#94a3b8", margin: "2px 0 0 0" }}>
+            <p style={{ fontSize: 12, color: "var(--mz-text-subtle)", margin: "2px 0 0 0" }}>
               {filteredReports.length} {filteredReports.length === 1 ? "record" : "records"} available
             </p>
           </div>
@@ -705,7 +705,7 @@ const AdminReports = () => {
                 fontSize: 11,
                 fontWeight: 600,
                 color: "#059669",
-                background: "#ecfdf5",
+                background: "var(--mz-green-bg)",
                 padding: "4px 10px",
                 borderRadius: 20,
                 display: "inline-flex",
@@ -729,7 +729,7 @@ const AdminReports = () => {
                 fontSize: 11,
                 fontWeight: 600,
                 color: "#4f46e5",
-                background: "#eef2ff",
+                background: "var(--mz-indigo-bg)",
                 padding: "4px 10px",
                 borderRadius: 20,
               }}
@@ -743,13 +743,13 @@ const AdminReports = () => {
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
             <thead>
-              <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+              <tr style={{ background: "var(--mz-surface-subtle)", borderBottom: "1px solid var(--mz-border)" }}>
                 <th
                   style={{
                     padding: "12px 24px",
                     fontSize: 11,
                     fontWeight: 700,
-                    color: "#64748b",
+                    color: "var(--mz-text-muted)",
                     letterSpacing: "0.05em",
                     textTransform: "uppercase",
                     minWidth: 280,
@@ -762,7 +762,7 @@ const AdminReports = () => {
                     padding: "12px 18px",
                     fontSize: 11,
                     fontWeight: 700,
-                    color: "#64748b",
+                    color: "var(--mz-text-muted)",
                     letterSpacing: "0.05em",
                     textTransform: "uppercase",
                     minWidth: 150,
@@ -775,7 +775,7 @@ const AdminReports = () => {
                     padding: "12px 18px",
                     fontSize: 11,
                     fontWeight: 700,
-                    color: "#64748b",
+                    color: "var(--mz-text-muted)",
                     letterSpacing: "0.05em",
                     textTransform: "uppercase",
                     minWidth: 180,
@@ -788,7 +788,7 @@ const AdminReports = () => {
                     padding: "12px 18px",
                     fontSize: 11,
                     fontWeight: 700,
-                    color: "#64748b",
+                    color: "var(--mz-text-muted)",
                     letterSpacing: "0.05em",
                     textTransform: "uppercase",
                     minWidth: 140,
@@ -801,7 +801,7 @@ const AdminReports = () => {
                     padding: "12px 18px",
                     fontSize: 11,
                     fontWeight: 700,
-                    color: "#64748b",
+                    color: "var(--mz-text-muted)",
                     letterSpacing: "0.05em",
                     textTransform: "uppercase",
                     minWidth: 120,
@@ -814,7 +814,7 @@ const AdminReports = () => {
                     padding: "12px 18px",
                     fontSize: 11,
                     fontWeight: 700,
-                    color: "#64748b",
+                    color: "var(--mz-text-muted)",
                     letterSpacing: "0.05em",
                     textTransform: "uppercase",
                     minWidth: 110,
@@ -827,7 +827,7 @@ const AdminReports = () => {
                     padding: "12px 24px",
                     fontSize: 11,
                     fontWeight: 700,
-                    color: "#64748b",
+                    color: "var(--mz-text-muted)",
                     letterSpacing: "0.05em",
                     textTransform: "uppercase",
                     textAlign: "right",
@@ -841,7 +841,7 @@ const AdminReports = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={7} style={{ padding: "48px 24px", textAlign: "center", color: "#64748b" }}>
+                  <td colSpan={7} style={{ padding: "48px 24px", textAlign: "center", color: "var(--mz-text-muted)" }}>
                     <div style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
                       <LuRefreshCw style={{ animation: "spin 1s linear infinite", width: 18, height: 18, color: "#6366f1" }} />
                       <span style={{ fontSize: 13, fontWeight: 500 }}>Loading verified platform reports...</span>
@@ -856,8 +856,8 @@ const AdminReports = () => {
                         width: 52,
                         height: 52,
                         borderRadius: "50%",
-                        background: "#f1f5f9",
-                        color: "#94a3b8",
+                        background: "var(--mz-surface-muted)",
+                        color: "var(--mz-text-subtle)",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
@@ -866,10 +866,10 @@ const AdminReports = () => {
                     >
                       <LuFileText style={{ width: 24, height: 24 }} />
                     </div>
-                    <p style={{ fontSize: 15, fontWeight: 600, color: "#1e293b", margin: "0 0 4px 0" }}>
+                    <p style={{ fontSize: 15, fontWeight: 600, color: "var(--mz-text-body)", margin: "0 0 4px 0" }}>
                       No reports found
                     </p>
-                    <p style={{ fontSize: 13, color: "#64748b", margin: 0 }}>
+                    <p style={{ fontSize: 13, color: "var(--mz-text-muted)", margin: 0 }}>
                       {search ? "Try adjusting your search keywords" : "No student reports exist in this category yet"}
                     </p>
                   </td>
@@ -881,9 +881,9 @@ const AdminReports = () => {
                   const isProj = r.type === "Project Assessment Report";
                   const isCoding = r.type === "Coding Challenge Report";
 
-                  const categoryBg = isCert ? "#eff6ff" : isMcq ? "#ecfdf5" : isProj ? "#faf5ff" : isCoding ? "#f0fdf4" : "#eef2ff";
+                  const categoryBg = isCert ? "var(--mz-blue-bg)" : isMcq ? "var(--mz-green-bg)" : isProj ? "var(--mz-purple-bg)" : isCoding ? "var(--mz-green-bg)" : "var(--mz-indigo-bg)";
                   const categoryColor = isCert ? "#2563eb" : isMcq ? "#059669" : isProj ? "#7c3aed" : isCoding ? "#16a34a" : "#4f46e5";
-                  const categoryBorder = isCert ? "#bfdbfe" : isMcq ? "#a7f3d0" : isProj ? "#e9d5ff" : isCoding ? "#bbf7d0" : "#c7d2fe";
+                  const categoryBorder = isCert ? "var(--mz-blue-border)" : isMcq ? "var(--mz-green-border)" : isProj ? "var(--mz-purple-border)" : isCoding ? "var(--mz-green-border)" : "var(--mz-indigo-border)";
 
                   const initial = (r.recipient ? r.recipient[0] : "S").toUpperCase();
                   const isPass =
@@ -900,12 +900,12 @@ const AdminReports = () => {
                       key={r.id || idx}
                       onClick={() => handleOpenReportModal(r)}
                       style={{
-                        borderBottom: "1px solid #f1f5f9",
+                        borderBottom: "1px solid var(--mz-surface-muted)",
                         cursor: "pointer",
                         transition: "background 0.15s ease",
                       }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = "#f8fafc")}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = "#ffffff")}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "var(--mz-surface-subtle)")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "var(--mz-surface)")}
                     >
                       {/* Report Title */}
                       <td style={{ padding: "16px 24px", verticalAlign: "middle" }}>
@@ -940,7 +940,7 @@ const AdminReports = () => {
                               style={{
                                 fontSize: 13,
                                 fontWeight: 600,
-                                color: "#0f172a",
+                                color: "var(--mz-text-primary)",
                                 display: "block",
                                 lineHeight: 1.4,
                               }}
@@ -948,7 +948,7 @@ const AdminReports = () => {
                               {r.title}
                             </span>
                             {isMcq && (
-                              <span style={{ fontSize: 11, color: "#64748b" }}>
+                              <span style={{ fontSize: 11, color: "var(--mz-text-muted)" }}>
                                 {r.accuracy ? `Accuracy: ${r.accuracy}` : "10 MCQs evaluated"}
                                 {r.timeSpent ? ` • Time: ${r.timeSpent}` : ""}
                               </span>
@@ -997,10 +997,10 @@ const AdminReports = () => {
                             {initial}
                           </div>
                           <div>
-                            <span style={{ fontSize: 13, fontWeight: 600, color: "#1e293b", display: "block" }}>
+                            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--mz-text-body)", display: "block" }}>
                               {r.recipient || "Candidate"}
                             </span>
-                            <span style={{ fontSize: 11, color: "#94a3b8", display: "block" }}>
+                            <span style={{ fontSize: 11, color: "var(--mz-text-subtle)", display: "block" }}>
                               {r.email || "No email"}
                             </span>
                           </div>
@@ -1010,8 +1010,8 @@ const AdminReports = () => {
                       {/* Score / Grade */}
                       <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: "#0f172a" }}>{r.score}</span>
-                          <span style={{ color: "#94a3b8", fontSize: 12 }}>•</span>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: "var(--mz-text-primary)" }}>{r.score}</span>
+                          <span style={{ color: "var(--mz-text-subtle)", fontSize: 12 }}>•</span>
                           <span
                             style={{
                               fontSize: 12,
@@ -1030,8 +1030,8 @@ const AdminReports = () => {
                           onClick={(e) => handleCopyCode(r.verificationCode, r.id, e)}
                           title="Click to copy verification code"
                           style={{
-                            background: "#eff6ff",
-                            border: "1px solid #bfdbfe",
+                            background: "var(--mz-blue-bg)",
+                            border: "1px solid var(--mz-blue-border)",
                             borderRadius: 6,
                             padding: "4px 8px",
                             fontSize: 11,
@@ -1044,8 +1044,8 @@ const AdminReports = () => {
                             gap: 5,
                             transition: "all 0.15s ease",
                           }}
-                          onMouseEnter={(e) => (e.currentTarget.style.background = "#dbeafe")}
-                          onMouseLeave={(e) => (e.currentTarget.style.background = "#eff6ff")}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--mz-blue-bg)")}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = "var(--mz-blue-bg)")}
                         >
                           {copiedCodeId === r.id ? (
                             <>
@@ -1063,7 +1063,7 @@ const AdminReports = () => {
 
                       {/* Date Issued */}
                       <td style={{ padding: "16px 18px", verticalAlign: "middle", whiteSpace: "nowrap" }}>
-                        <span style={{ fontSize: 12, color: "#64748b" }}>
+                        <span style={{ fontSize: 12, color: "var(--mz-text-muted)" }}>
                           {r.date
                             ? new Date(r.date).toLocaleDateString("en-GB", {
                                 day: "numeric",
@@ -1087,8 +1087,8 @@ const AdminReports = () => {
                             fontSize: 12,
                             fontWeight: 600,
                             color: "#4f46e5",
-                            background: "#eef2ff",
-                            border: "1px solid #c7d2fe",
+                            background: "var(--mz-indigo-bg)",
+                            border: "1px solid var(--mz-indigo-border)",
                             cursor: "pointer",
                             display: "inline-flex",
                             alignItems: "center",
@@ -1100,7 +1100,7 @@ const AdminReports = () => {
                             e.currentTarget.style.color = "#ffffff";
                           }}
                           onMouseLeave={(e) => {
-                            e.currentTarget.style.background = "#eef2ff";
+                            e.currentTarget.style.background = "var(--mz-indigo-bg)";
                             e.currentTarget.style.color = "#4f46e5";
                           }}
                         >
@@ -1137,7 +1137,7 @@ const AdminReports = () => {
         >
           <div
             style={{
-              background: "#ffffff",
+              background: "var(--mz-surface)",
               borderRadius: 20,
               width: "100%",
               maxWidth: 980,
@@ -1154,11 +1154,11 @@ const AdminReports = () => {
             <div
               style={{
                 padding: "20px 24px",
-                borderBottom: "1px solid #e2e8f0",
+                borderBottom: "1px solid var(--mz-border)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
-                background: "#f8fafc",
+                background: "var(--mz-surface-subtle)",
                 flexShrink: 0,
               }}
             >
@@ -1170,10 +1170,10 @@ const AdminReports = () => {
                     borderRadius: 12,
                     background:
                       activeReport.type === "Certification Report"
-                        ? "#eff6ff"
+                        ? "var(--mz-blue-bg)"
                         : activeReport.type === "MCQ Assessment Report"
-                        ? "#ecfdf5"
-                        : "#ede9fe",
+                        ? "var(--mz-green-bg)"
+                        : "var(--mz-purple-bg)",
                     color:
                       activeReport.type === "Certification Report"
                         ? "#2563eb"
@@ -1195,7 +1195,7 @@ const AdminReports = () => {
                 </div>
                 <div>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <h2 style={{ fontSize: 18, fontWeight: 700, color: "#0f172a", margin: 0 }}>
+                    <h2 style={{ fontSize: 18, fontWeight: 700, color: "var(--mz-text-primary)", margin: 0 }}>
                       {activeReport.title || "Candidate Assessment Report"}
                     </h2>
                     <span
@@ -1204,15 +1204,15 @@ const AdminReports = () => {
                         fontWeight: 700,
                         padding: "3px 8px",
                         borderRadius: 6,
-                        background: "#eff6ff",
+                        background: "var(--mz-blue-bg)",
                         color: "#2563eb",
-                        border: "1px solid #bfdbfe",
+                        border: "1px solid var(--mz-blue-border)",
                       }}
                     >
                       {activeReport.verificationCode || activeReport.certificateId || "MZ-VERIFIED"}
                     </span>
                   </div>
-                  <p style={{ fontSize: 12, color: "#64748b", margin: "4px 0 0 0" }}>
+                  <p style={{ fontSize: 12, color: "var(--mz-text-muted)", margin: "4px 0 0 0" }}>
                     Candidate: <strong>{activeReport.recipient || activeReport.candidateName || "Student"}</strong>{" "}
                     ({activeReport.email || activeReport.candidateEmail || "Registered"}) • Submitted on{" "}
                     {activeReport.date
@@ -1236,8 +1236,8 @@ const AdminReports = () => {
                       fontSize: 12,
                       fontWeight: 700,
                       color: "#4f46e5",
-                      background: "#eef2ff",
-                      border: "1px solid #c7d2fe",
+                      background: "var(--mz-indigo-bg)",
+                      border: "1px solid var(--mz-indigo-border)",
                       cursor: "pointer",
                       display: "inline-flex",
                       alignItems: "center",
@@ -1263,8 +1263,8 @@ const AdminReports = () => {
                       activeReport.grade === "Qualified" ||
                       activeReport.grade === "Passed" ||
                       activeReport.grade === "Accepted"
-                        ? "#dcfce7"
-                        : "#fee2e2",
+                        ? "var(--mz-green-bg)"
+                        : "var(--mz-red-bg)",
                     color:
                       activeReport.status === "PASSED" ||
                       activeReport.status === "ACCEPTED" ||
@@ -1284,9 +1284,9 @@ const AdminReports = () => {
                     width: 34,
                     height: 34,
                     borderRadius: 10,
-                    border: "1px solid #e2e8f0",
-                    background: "#ffffff",
-                    color: "#64748b",
+                    border: "1px solid var(--mz-border)",
+                    background: "var(--mz-surface)",
+                    color: "var(--mz-text-muted)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -1302,8 +1302,8 @@ const AdminReports = () => {
             <div
               style={{
                 display: "flex",
-                borderBottom: "1px solid #e2e8f0",
-                background: "#ffffff",
+                borderBottom: "1px solid var(--mz-border)",
+                background: "var(--mz-surface)",
                 padding: "0 24px",
                 flexShrink: 0,
               }}
@@ -1326,7 +1326,7 @@ const AdminReports = () => {
                       padding: "14px 18px",
                       fontSize: 13,
                       fontWeight: isSelected ? 700 : 500,
-                      color: isSelected ? "#4f46e5" : "#64748b",
+                      color: isSelected ? "#4f46e5" : "var(--mz-text-muted)",
                       borderBottom: isSelected ? "2px solid #4f46e5" : "2px solid transparent",
                       background: "none",
                       borderTop: "none",
@@ -1344,7 +1344,7 @@ const AdminReports = () => {
             </div>
 
             {/* Modal Body */}
-            <div style={{ flex: 1, overflowY: "auto", padding: 24, background: "#f8fafc" }}>
+            <div style={{ flex: 1, overflowY: "auto", padding: 24, background: "var(--mz-surface-subtle)" }}>
               {loadingReport ? (
                 <div style={{ padding: "60px 0", textAlign: "center" }}>
                   <LuRefreshCw
@@ -1356,7 +1356,7 @@ const AdminReports = () => {
                       margin: "0 auto 12px auto",
                     }}
                   />
-                  <p style={{ fontSize: 13, color: "#64748b", margin: 0 }}>
+                  <p style={{ fontSize: 13, color: "var(--mz-text-muted)", margin: 0 }}>
                     Retrieving full breakdown and source evaluation...
                   </p>
                 </div>
@@ -1376,16 +1376,16 @@ const AdminReports = () => {
                       >
                         <div
                           style={{
-                            background: "#ffffff",
+                            background: "var(--mz-surface)",
                             padding: "14px 16px",
                             borderRadius: 12,
-                            border: "1px solid #e2e8f0",
+                            border: "1px solid var(--mz-border)",
                           }}
                         >
-                          <span style={{ fontSize: 11, color: "#64748b", fontWeight: 600 }}>SCORE AWARDED</span>
-                          <p style={{ fontSize: 20, fontWeight: 700, color: "#0f172a", margin: "4px 0 0 0" }}>
+                          <span style={{ fontSize: 11, color: "var(--mz-text-muted)", fontWeight: 600 }}>SCORE AWARDED</span>
+                          <p style={{ fontSize: 20, fontWeight: 700, color: "var(--mz-text-primary)", margin: "4px 0 0 0" }}>
                             {activeReport.score != null ? activeReport.score : activeReport.rawScore || 0}
-                            <span style={{ fontSize: 13, color: "#94a3b8", fontWeight: 500 }}>
+                            <span style={{ fontSize: 13, color: "var(--mz-text-subtle)", fontWeight: 500 }}>
                               {" "}
                               / {activeReport.maxScore || 100}
                             </span>
@@ -1393,13 +1393,13 @@ const AdminReports = () => {
                         </div>
                         <div
                           style={{
-                            background: "#ffffff",
+                            background: "var(--mz-surface)",
                             padding: "14px 16px",
                             borderRadius: 12,
-                            border: "1px solid #e2e8f0",
+                            border: "1px solid var(--mz-border)",
                           }}
                         >
-                          <span style={{ fontSize: 11, color: "#64748b", fontWeight: 600 }}>PERCENTAGE / ACCURACY</span>
+                          <span style={{ fontSize: 11, color: "var(--mz-text-muted)", fontWeight: 600 }}>PERCENTAGE / ACCURACY</span>
                           <p style={{ fontSize: 20, fontWeight: 700, color: "#4f46e5", margin: "4px 0 0 0" }}>
                             {activeReport.percentage != null
                               ? `${activeReport.percentage}%`
@@ -1408,26 +1408,26 @@ const AdminReports = () => {
                         </div>
                         <div
                           style={{
-                            background: "#ffffff",
+                            background: "var(--mz-surface)",
                             padding: "14px 16px",
                             borderRadius: 12,
-                            border: "1px solid #e2e8f0",
+                            border: "1px solid var(--mz-border)",
                           }}
                         >
-                          <span style={{ fontSize: 11, color: "#64748b", fontWeight: 600 }}>TEST / QUESTION COUNT</span>
-                          <p style={{ fontSize: 20, fontWeight: 700, color: "#0f172a", margin: "4px 0 0 0" }}>
+                          <span style={{ fontSize: 11, color: "var(--mz-text-muted)", fontWeight: 600 }}>TEST / QUESTION COUNT</span>
+                          <p style={{ fontSize: 20, fontWeight: 700, color: "var(--mz-text-primary)", margin: "4px 0 0 0" }}>
                             {questionItems.length || activeReport.testResults?.length || 10} Items
                           </p>
                         </div>
                         <div
                           style={{
-                            background: "#ffffff",
+                            background: "var(--mz-surface)",
                             padding: "14px 16px",
                             borderRadius: 12,
-                            border: "1px solid #e2e8f0",
+                            border: "1px solid var(--mz-border)",
                           }}
                         >
-                          <span style={{ fontSize: 11, color: "#64748b", fontWeight: 600 }}>FINAL VERDICT</span>
+                          <span style={{ fontSize: 11, color: "var(--mz-text-muted)", fontWeight: 600 }}>FINAL VERDICT</span>
                           <p
                             style={{
                               fontSize: 16,
@@ -1456,7 +1456,7 @@ const AdminReports = () => {
                               marginBottom: 14,
                             }}
                           >
-                            <h3 style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", margin: 0 }}>
+                            <h3 style={{ fontSize: 14, fontWeight: 700, color: "var(--mz-text-primary)", margin: 0 }}>
                               Question-by-Question Evaluation ({questionItems.length} Questions)
                             </h3>
                             <div style={{ display: "flex", gap: 6 }}>
@@ -1475,9 +1475,9 @@ const AdminReports = () => {
                                     fontSize: 11,
                                     fontWeight: 600,
                                     cursor: "pointer",
-                                    border: mcqFilter === f.id ? "1px solid #4f46e5" : "1px solid #e2e8f0",
-                                    background: mcqFilter === f.id ? "#4f46e5" : "#ffffff",
-                                    color: mcqFilter === f.id ? "#ffffff" : "#64748b",
+                                    border: mcqFilter === f.id ? "1px solid #4f46e5" : "1px solid var(--mz-border)",
+                                    background: mcqFilter === f.id ? "#4f46e5" : "var(--mz-surface)",
+                                    color: mcqFilter === f.id ? "#ffffff" : "var(--mz-text-muted)",
                                   }}
                                 >
                                   {f.label}
@@ -1502,13 +1502,13 @@ const AdminReports = () => {
                                   <div
                                     key={q.id || qIdx}
                                     style={{
-                                      background: "#ffffff",
+                                      background: "var(--mz-surface)",
                                       borderRadius: 12,
                                       border: isCorrect
-                                        ? "1px solid #bbf7d0"
+                                        ? "1px solid var(--mz-green-border)"
                                         : isUnanswered
-                                        ? "1px solid #e2e8f0"
-                                        : "1px solid #fecaca",
+                                        ? "1px solid var(--mz-border)"
+                                        : "1px solid var(--mz-red-border)",
                                       padding: 16,
                                     }}
                                   >
@@ -1524,7 +1524,7 @@ const AdminReports = () => {
                                         style={{
                                           fontSize: 12,
                                           fontWeight: 700,
-                                          color: isCorrect ? "#15803d" : isUnanswered ? "#64748b" : "#b91c1c",
+                                          color: isCorrect ? "#15803d" : isUnanswered ? "var(--mz-text-muted)" : "#b91c1c",
                                           display: "inline-flex",
                                           alignItems: "center",
                                           gap: 6,
@@ -1546,8 +1546,8 @@ const AdminReports = () => {
                                           fontWeight: 600,
                                           padding: "2px 8px",
                                           borderRadius: 10,
-                                          background: isCorrect ? "#ecfdf5" : isUnanswered ? "#f1f5f9" : "#fef2f2",
-                                          color: isCorrect ? "#059669" : isUnanswered ? "#64748b" : "#dc2626",
+                                          background: isCorrect ? "var(--mz-green-bg)" : isUnanswered ? "var(--mz-surface-muted)" : "var(--mz-red-bg)",
+                                          color: isCorrect ? "#059669" : isUnanswered ? "var(--mz-text-muted)" : "#dc2626",
                                         }}
                                       >
                                         {isCorrect ? `+${q.marksAwarded} Mark` : "0 Marks"}
@@ -1558,7 +1558,7 @@ const AdminReports = () => {
                                       style={{
                                         fontSize: 13,
                                         fontWeight: 600,
-                                        color: "#1e293b",
+                                        color: "var(--mz-text-body)",
                                         margin: "0 0 12px 0",
                                         lineHeight: 1.5,
                                       }}
@@ -1572,18 +1572,18 @@ const AdminReports = () => {
                                         const isChosen = q.userChoice === oIdx || q.userChoice === opt;
                                         const isAnswerKey = q.correctKey === oIdx || q.correctKey === opt;
 
-                                        let optBg = "#f8fafc";
-                                        let optBorder = "#e2e8f0";
-                                        let optColor = "#334155";
+                                        let optBg = "var(--mz-surface-subtle)";
+                                        let optBorder = "var(--mz-border)";
+                                        let optColor = "var(--mz-text-secondary)";
 
                                         if (isAnswerKey) {
-                                          optBg = "#ecfdf5";
-                                          optBorder = "#86efac";
+                                          optBg = "var(--mz-green-bg)";
+                                          optBorder = "var(--mz-green-border)";
                                           optColor = "#166534";
                                         }
                                         if (isChosen && !isAnswerKey) {
-                                          optBg = "#fef2f2";
-                                          optBorder = "#fca5a5";
+                                          optBg = "var(--mz-red-bg)";
+                                          optBorder = "var(--mz-red-border)";
                                           optColor = "#991b1b";
                                         }
 
@@ -1613,8 +1613,8 @@ const AdminReports = () => {
                                                   justifyContent: "center",
                                                   fontSize: 10,
                                                   fontWeight: 700,
-                                                  background: isChosen ? optColor : "#e2e8f0",
-                                                  color: isChosen ? "#ffffff" : "#64748b",
+                                                  background: isChosen ? optColor : "var(--mz-border)",
+                                                  color: isChosen ? "#ffffff" : "var(--mz-text-muted)",
                                                 }}
                                               >
                                                 {String.fromCharCode(65 + oIdx)}
@@ -1657,7 +1657,7 @@ const AdminReports = () => {
                                       })}
                                     </div>
                                     {q.explanation && (
-                                      <p style={{ margin: "10px 0 0 0", fontSize: 11, color: "#64748b", fontStyle: "italic" }}>
+                                      <p style={{ margin: "10px 0 0 0", fontSize: 11, color: "var(--mz-text-muted)", fontStyle: "italic" }}>
                                         💡 Explanation: {q.explanation}
                                       </p>
                                     )}
@@ -1679,7 +1679,7 @@ const AdminReports = () => {
                               marginBottom: 10,
                             }}
                           >
-                            <h3 style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", margin: 0 }}>
+                            <h3 style={{ fontSize: 14, fontWeight: 700, color: "var(--mz-text-primary)", margin: 0 }}>
                               Submitted Source Code ({activeReport.language || "Python"})
                             </h3>
                             <button
@@ -1697,8 +1697,8 @@ const AdminReports = () => {
                                 fontSize: 11,
                                 fontWeight: 600,
                                 color: "#4f46e5",
-                                background: "#ffffff",
-                                border: "1px solid #c7d2fe",
+                                background: "var(--mz-surface)",
+                                border: "1px solid var(--mz-indigo-border)",
                                 cursor: "pointer",
                               }}
                             >
@@ -1710,14 +1710,14 @@ const AdminReports = () => {
                           <pre
                             style={{
                               background: "#0f172a",
-                              color: "#f8fafc",
+                              color: "var(--mz-surface-subtle)",
                               borderRadius: 12,
                               padding: 18,
                               fontSize: 12,
                               fontFamily: "monospace",
                               overflowX: "auto",
                               lineHeight: 1.5,
-                              border: "1px solid #1e293b",
+                              border: "1px solid var(--mz-text-body)",
                             }}
                           >
                             <code>{activeReport.code}</code>
@@ -1732,17 +1732,17 @@ const AdminReports = () => {
                     <div style={{ maxWidth: 640, margin: "0 auto" }}>
                       <div
                         style={{
-                          background: "#ffffff",
+                          background: "var(--mz-surface)",
                           borderRadius: 16,
                           padding: 24,
-                          border: "1px solid #e2e8f0",
+                          border: "1px solid var(--mz-border)",
                           boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
                         }}
                       >
-                        <h3 style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", margin: "0 0 4px 0" }}>
+                        <h3 style={{ fontSize: 16, fontWeight: 700, color: "var(--mz-text-primary)", margin: "0 0 4px 0" }}>
                           Adjust Student Marks & Add Evaluation Feedback
                         </h3>
-                        <p style={{ fontSize: 12, color: "#64748b", margin: "0 0 20px 0" }}>
+                        <p style={{ fontSize: 12, color: "var(--mz-text-muted)", margin: "0 0 20px 0" }}>
                           Modifying marks permanently updates MongoDB, sends an official notification email to the
                           candidate, and triggers an immediate in-app popup.
                         </p>
@@ -1754,7 +1754,7 @@ const AdminReports = () => {
                               display: "block",
                               fontSize: 12,
                               fontWeight: 700,
-                              color: "#334155",
+                              color: "var(--mz-text-secondary)",
                               marginBottom: 6,
                             }}
                           >
@@ -1772,10 +1772,10 @@ const AdminReports = () => {
                                 width: 140,
                                 padding: "10px 14px",
                                 borderRadius: 8,
-                                border: "1px solid #cbd5e1",
+                                border: "1px solid var(--mz-border-strong)",
                                 fontSize: 16,
                                 fontWeight: 700,
-                                color: "#0f172a",
+                                color: "var(--mz-text-primary)",
                                 outline: "none",
                               }}
                             />
@@ -1811,8 +1811,8 @@ const AdminReports = () => {
                                     fontSize: 11,
                                     fontWeight: 600,
                                     color: "#4f46e5",
-                                    background: "#eef2ff",
-                                    border: "1px solid #c7d2fe",
+                                    background: "var(--mz-indigo-bg)",
+                                    border: "1px solid var(--mz-indigo-border)",
                                     cursor: "pointer",
                                   }}
                                 >
@@ -1830,7 +1830,7 @@ const AdminReports = () => {
                               display: "block",
                               fontSize: 12,
                               fontWeight: 700,
-                              color: "#334155",
+                              color: "var(--mz-text-secondary)",
                               marginBottom: 6,
                             }}
                           >
@@ -1843,11 +1843,11 @@ const AdminReports = () => {
                               width: "100%",
                               padding: "10px 14px",
                               borderRadius: 8,
-                              border: "1px solid #cbd5e1",
+                              border: "1px solid var(--mz-border-strong)",
                               fontSize: 13,
                               fontWeight: 600,
-                              color: "#0f172a",
-                              background: "#ffffff",
+                              color: "var(--mz-text-primary)",
+                              background: "var(--mz-surface)",
                               outline: "none",
                             }}
                           >
@@ -1864,7 +1864,7 @@ const AdminReports = () => {
                               display: "block",
                               fontSize: 12,
                               fontWeight: 700,
-                              color: "#334155",
+                              color: "var(--mz-text-secondary)",
                               marginBottom: 6,
                             }}
                           >
@@ -1879,9 +1879,9 @@ const AdminReports = () => {
                               width: "100%",
                               padding: "10px 14px",
                               borderRadius: 8,
-                              border: "1px solid #cbd5e1",
+                              border: "1px solid var(--mz-border-strong)",
                               fontSize: 13,
-                              color: "#1e293b",
+                              color: "var(--mz-text-body)",
                               lineHeight: 1.5,
                               outline: "none",
                             }}
@@ -1929,17 +1929,17 @@ const AdminReports = () => {
                         <div
                           style={{
                             marginTop: 20,
-                            background: "#ffffff",
+                            background: "var(--mz-surface)",
                             borderRadius: 16,
                             padding: 20,
-                            border: "1px solid #e2e8f0",
+                            border: "1px solid var(--mz-border)",
                           }}
                         >
                           <h4
                             style={{
                               fontSize: 13,
                               fontWeight: 700,
-                              color: "#0f172a",
+                              color: "var(--mz-text-primary)",
                               margin: "0 0 12px 0",
                               display: "flex",
                               alignItems: "center",
@@ -1956,21 +1956,21 @@ const AdminReports = () => {
                                 style={{
                                   padding: "10px 14px",
                                   borderRadius: 8,
-                                  background: "#f8fafc",
-                                  border: "1px solid #e2e8f0",
+                                  background: "var(--mz-surface-subtle)",
+                                  border: "1px solid var(--mz-border)",
                                   fontSize: 12,
                                 }}
                               >
                                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                                  <span style={{ fontWeight: 700, color: "#1e293b" }}>
+                                  <span style={{ fontWeight: 700, color: "var(--mz-text-body)" }}>
                                     Score: {rev.originalScore} ➔ {rev.newScore} ({rev.newStatus})
                                   </span>
-                                  <span style={{ color: "#94a3b8" }}>
+                                  <span style={{ color: "var(--mz-text-subtle)" }}>
                                     {new Date(rev.modifiedAt || rev.date).toLocaleString()}
                                   </span>
                                 </div>
                                 {rev.adminNote && (
-                                  <p style={{ margin: "4px 0 0 0", color: "#64748b", fontStyle: "italic" }}>
+                                  <p style={{ margin: "4px 0 0 0", color: "var(--mz-text-muted)", fontStyle: "italic" }}>
                                     "{rev.adminNote}"
                                   </p>
                                 )}
@@ -1988,17 +1988,17 @@ const AdminReports = () => {
                       {/* Notification Delivery & Read Status Card */}
                       <div
                         style={{
-                          background: "#ffffff",
+                          background: "var(--mz-surface)",
                           borderRadius: 16,
                           padding: 20,
-                          border: "1px solid #e2e8f0",
+                          border: "1px solid var(--mz-border)",
                         }}
                       >
                         <h4
                           style={{
                             fontSize: 14,
                             fontWeight: 700,
-                            color: "#0f172a",
+                            color: "var(--mz-text-primary)",
                             margin: "0 0 14px 0",
                             display: "flex",
                             alignItems: "center",
@@ -2014,21 +2014,21 @@ const AdminReports = () => {
                             style={{
                               padding: "12px 14px",
                               borderRadius: 10,
-                              background: activeReport.notificationEmailSent ? "#f0fdf4" : "#f8fafc",
-                              border: activeReport.notificationEmailSent ? "1px solid #bbf7d0" : "1px solid #e2e8f0",
+                              background: activeReport.notificationEmailSent ? "var(--mz-green-bg)" : "var(--mz-surface-subtle)",
+                              border: activeReport.notificationEmailSent ? "1px solid var(--mz-green-border)" : "1px solid var(--mz-border)",
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "space-between",
                             }}
                           >
-                            <span style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>
+                            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--mz-text-body)" }}>
                               Official Email Delivery Status
                             </span>
                             <span
                               style={{
                                 fontSize: 12,
                                 fontWeight: 700,
-                                color: activeReport.notificationEmailSent ? "#16a34a" : "#64748b",
+                                color: activeReport.notificationEmailSent ? "#16a34a" : "var(--mz-text-muted)",
                               }}
                             >
                               {activeReport.notificationEmailSent
@@ -2041,14 +2041,14 @@ const AdminReports = () => {
                             style={{
                               padding: "12px 14px",
                               borderRadius: 10,
-                              background: activeReport.notificationViewed ? "#f0fdf4" : "#fffbeb",
-                              border: activeReport.notificationViewed ? "1px solid #bbf7d0" : "1px solid #fde68a",
+                              background: activeReport.notificationViewed ? "var(--mz-green-bg)" : "var(--mz-amber-bg)",
+                              border: activeReport.notificationViewed ? "1px solid var(--mz-green-border)" : "1px solid var(--mz-amber-border)",
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "space-between",
                             }}
                           >
-                            <span style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>
+                            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--mz-text-body)" }}>
                               In-App Student Notification Status
                             </span>
                             <span
@@ -2071,17 +2071,17 @@ const AdminReports = () => {
                       {/* Proctoring Integrity Summary */}
                       <div
                         style={{
-                          background: "#ffffff",
+                          background: "var(--mz-surface)",
                           borderRadius: 16,
                           padding: 20,
-                          border: "1px solid #e2e8f0",
+                          border: "1px solid var(--mz-border)",
                         }}
                       >
                         <h4
                           style={{
                             fontSize: 14,
                             fontWeight: 700,
-                            color: "#0f172a",
+                            color: "var(--mz-text-primary)",
                             margin: "0 0 14px 0",
                             display: "flex",
                             alignItems: "center",
@@ -2097,36 +2097,36 @@ const AdminReports = () => {
                             style={{
                               padding: "12px",
                               borderRadius: 8,
-                              background: "#f8fafc",
-                              border: "1px solid #e2e8f0",
+                              background: "var(--mz-surface-subtle)",
+                              border: "1px solid var(--mz-border)",
                               textAlign: "center",
                             }}
                           >
-                            <span style={{ fontSize: 11, color: "#64748b", display: "block" }}>Webcam Monitoring</span>
+                            <span style={{ fontSize: 11, color: "var(--mz-text-muted)", display: "block" }}>Webcam Monitoring</span>
                             <span style={{ fontSize: 13, fontWeight: 700, color: "#059669" }}>Active & Verified</span>
                           </div>
                           <div
                             style={{
                               padding: "12px",
                               borderRadius: 8,
-                              background: "#f8fafc",
-                              border: "1px solid #e2e8f0",
+                              background: "var(--mz-surface-subtle)",
+                              border: "1px solid var(--mz-border)",
                               textAlign: "center",
                             }}
                           >
-                            <span style={{ fontSize: 11, color: "#64748b", display: "block" }}>Tab Switches</span>
-                            <span style={{ fontSize: 13, fontWeight: 700, color: "#0f172a" }}>0 Detected</span>
+                            <span style={{ fontSize: 11, color: "var(--mz-text-muted)", display: "block" }}>Tab Switches</span>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: "var(--mz-text-primary)" }}>0 Detected</span>
                           </div>
                           <div
                             style={{
                               padding: "12px",
                               borderRadius: 8,
-                              background: "#f8fafc",
-                              border: "1px solid #e2e8f0",
+                              background: "var(--mz-surface-subtle)",
+                              border: "1px solid var(--mz-border)",
                               textAlign: "center",
                             }}
                           >
-                            <span style={{ fontSize: 11, color: "#64748b", display: "block" }}>Audio Proctor</span>
+                            <span style={{ fontSize: 11, color: "var(--mz-text-muted)", display: "block" }}>Audio Proctor</span>
                             <span style={{ fontSize: 13, fontWeight: 700, color: "#059669" }}>Normal Levels</span>
                           </div>
                         </div>

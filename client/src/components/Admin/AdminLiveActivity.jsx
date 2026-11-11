@@ -115,7 +115,7 @@ const AdminLiveActivity = () => {
           </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", background: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: 12, color: "#065f46", fontSize: 13, fontWeight: 700 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", background: "var(--mz-green-bg)", border: "1px solid var(--mz-green-border)", borderRadius: 12, color: "#065f46", fontSize: 13, fontWeight: 700 }}>
           <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#10b981", display: "inline-block" }} />
           <span>{Math.max(onlineCount, sessions.length)} Active Users Online</span>
         </div>
@@ -124,7 +124,7 @@ const AdminLiveActivity = () => {
       {/* KPI Cards */}
       <div className="mz-admin-grid-4">
         <div className="mz-admin-stat-card">
-          <div className="mz-admin-stat-icon" style={{ background: "#eff6ff", color: "#2563eb" }}>
+          <div className="mz-admin-stat-icon" style={{ background: "var(--mz-blue-bg)", color: "#2563eb" }}>
             <LuCode style={{ width: 20, height: 20 }} />
           </div>
           <div className="mz-admin-stat-info">
@@ -136,7 +136,7 @@ const AdminLiveActivity = () => {
         </div>
 
         <div className="mz-admin-stat-card">
-          <div className="mz-admin-stat-icon" style={{ background: "#ecfdf5", color: "#059669" }}>
+          <div className="mz-admin-stat-icon" style={{ background: "var(--mz-green-bg)", color: "#059669" }}>
             <LuBookOpen style={{ width: 20, height: 20 }} />
           </div>
           <div className="mz-admin-stat-info">
@@ -148,7 +148,7 @@ const AdminLiveActivity = () => {
         </div>
 
         <div className="mz-admin-stat-card">
-          <div className="mz-admin-stat-icon" style={{ background: "#ede9fe", color: "#6366f1" }}>
+          <div className="mz-admin-stat-icon" style={{ background: "var(--mz-purple-bg)", color: "#6366f1" }}>
             <LuFileText style={{ width: 20, height: 20 }} />
           </div>
           <div className="mz-admin-stat-info">
@@ -160,7 +160,7 @@ const AdminLiveActivity = () => {
         </div>
 
         <div className="mz-admin-stat-card">
-          <div className="mz-admin-stat-icon" style={{ background: "#fffbeb", color: "#d97706" }}>
+          <div className="mz-admin-stat-icon" style={{ background: "var(--mz-amber-bg)", color: "#d97706" }}>
             <LuVideo style={{ width: 20, height: 20 }} />
           </div>
           <div className="mz-admin-stat-info">
@@ -174,10 +174,10 @@ const AdminLiveActivity = () => {
 
       {/* Live Sessions Table */}
       <div className="mz-admin-card" style={{ padding: 0 }}>
-        <div style={{ padding: "16px 20px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--mz-surface-muted)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
-            <h3 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", margin: 0 }}>Connected Sessions Feed</h3>
-            <span style={{ fontSize: 12, color: "#94a3b8" }}>Real-time socket telemetry updating in milliseconds</span>
+            <h3 style={{ fontSize: 15, fontWeight: 700, color: "var(--mz-text-primary)", margin: 0 }}>Connected Sessions Feed</h3>
+            <span style={{ fontSize: 12, color: "var(--mz-text-subtle)" }}>Real-time socket telemetry updating in milliseconds</span>
           </div>
           <span className="mz-admin-badge-purple">Live Feed Active</span>
         </div>
@@ -198,13 +198,13 @@ const AdminLiveActivity = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="7" style={{ textAlign: "center", padding: "40px 0", color: "#94a3b8" }}>
+                  <td colSpan="7" style={{ textAlign: "center", padding: "40px 0", color: "var(--mz-text-subtle)" }}>
                     Connecting to live telemetry stream...
                   </td>
                 </tr>
               ) : sessions.length === 0 ? (
                 <tr>
-                  <td colSpan="7" style={{ textAlign: "center", padding: "40px 0", color: "#94a3b8" }}>
+                  <td colSpan="7" style={{ textAlign: "center", padding: "40px 0", color: "var(--mz-text-subtle)" }}>
                     No active user sessions currently connected.
                   </td>
                 </tr>
@@ -217,14 +217,14 @@ const AdminLiveActivity = () => {
                           {(s.fullName || s.username || "U")[0].toUpperCase()}
                         </div>
                         <div>
-                          <div style={{ fontWeight: 700, color: "#0f172a" }}>{s.fullName || s.username || "Candidate"}</div>
-                          <div style={{ fontSize: 11, color: "#94a3b8" }}>{s.email || "Web Session"}</div>
+                          <div style={{ fontWeight: 700, color: "var(--mz-text-primary)" }}>{s.fullName || s.username || "Candidate"}</div>
+                          <div style={{ fontSize: 11, color: "var(--mz-text-subtle)" }}>{s.email || "Web Session"}</div>
                         </div>
                       </div>
                     </td>
 
                     <td>
-                      <span style={{ fontFamily: "monospace", fontSize: 11.5, background: "#f8fafc", padding: "3px 8px", borderRadius: 6, border: "1px solid #e2e8f0", color: "#6366f1", fontWeight: 600 }}>
+                      <span style={{ fontFamily: "monospace", fontSize: 11.5, background: "var(--mz-surface-subtle)", padding: "3px 8px", borderRadius: 6, border: "1px solid var(--mz-border)", color: "#6366f1", fontWeight: 600 }}>
                         {s.currentPage || "/home"}
                       </span>
                     </td>
@@ -235,15 +235,15 @@ const AdminLiveActivity = () => {
                       </span>
                     </td>
 
-                    <td style={{ color: "#64748b" }}>
+                    <td style={{ color: "var(--mz-text-muted)" }}>
                       {new Date(s.startedAt || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                     </td>
 
-                    <td style={{ fontWeight: 700, color: "#0f172a" }}>
+                    <td style={{ fontWeight: 700, color: "var(--mz-text-primary)" }}>
                       {s.duration || `${Math.max(1, Math.round((Date.now() - new Date(s.startedAt || Date.now())) / 60000))}m`}
                     </td>
 
-                    <td style={{ color: "#64748b", fontSize: 12 }}>
+                    <td style={{ color: "var(--mz-text-muted)", fontSize: 12 }}>
                       {s.device || "Desktop / Chrome"}
                     </td>
 

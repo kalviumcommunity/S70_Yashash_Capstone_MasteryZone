@@ -3277,3 +3277,61 @@
   background-color: #00A859 !important;
   color: #fff !important;
 }
+
+/* ==========================================================================
+   LIGHT & DARK THEME ADAPTATION OVERRIDES FOR DRIVING ZONE
+   ========================================================================== */
+[data-theme="light"] .driving-content-area .product-card,
+[data-theme="light"] .driving-content-area .advisor-card,
+[data-theme="light"] .driving-content-area .cert-card,
+[data-theme="light"] .driving-content-area .faq-item,
+[data-theme="light"] .driving-content-area .calculator-card,
+[data-theme="light"] .driving-content-area .support-ticket-card,
+[data-theme="light"] .driving-content-area .cart-items-panel,
+[data-theme="light"] .driving-content-area .cart-summary-panel,
+[data-theme="light"] .driving-content-area .pricing-tier-card,
+[data-theme="light"] .driving-content-area .roster-builder-card,
+[data-theme="light"] .driving-content-area .membership-checkout-card,
+.mz-theme-light .driving-content-area .product-card,
+.mz-theme-light .driving-content-area .advisor-card,
+.mz-theme-light .driving-content-area .cert-card,
+.mz-theme-light .driving-content-area .faq-item,
+.mz-theme-light .driving-content-area .calculator-card,
+.mz-theme-light .driving-content-area .support-ticket-card,
+.mz-theme-light .driving-content-area .cart-items-panel,
+.mz-theme-light .driving-content-area .cart-summary-panel,
+.mz-theme-light .driving-content-area .pricing-tier-card,
+.mz-theme-light .driving-content-area .roster-builder-card,
+.mz-theme-light .driving-content-area .membership-checkout-card {
+  background: rgba(255, 255, 255, 0.94) !important;
+  border-color: var(--mz-border) !important;
+  color: var(--mz-text-body) !important;
+  box-shadow: var(--mz-shadow-md) !important;
+}
+
+[data-theme="light"] .driving-content-area .product-title,
+[data-theme="light"] .driving-content-area .advisor-name,
+[data-theme="light"] .driving-content-area .cert-title,
+[data-theme="light"] .driving-content-area .faq-question-text,
+[data-theme="light"] .driving-content-area .calc-box-title,
+[data-theme="light"] .driving-content-area .cart-item-title,
+.mz-theme-light .driving-content-area .product-title,
+.mz-theme-light .driving-content-area .advisor-name,
+.mz-theme-light .driving-content-area .cert-title,
+.mz-theme-light .driving-content-area .faq-question-text,
+.mz-theme-light .driving-content-area .calc-box-title,
+.mz-theme-light .driving-content-area .cart-item-title {
+  color: var(--mz-text-primary) !important;
+}
+
+[data-theme="light"] .driving-content-area .product-desc,
+[data-theme="light"] .driving-content-area .advisor-bio,
+[data-theme="light"] .driving-content-area .cert-desc,
+[data-theme="light"] .driving-content-area .faq-answer-box,
+.mz-theme-light .driving-content-area .product-desc,
+.mz-theme-light .driving-content-area .advisor-bio,
+.mz-theme-light .driving-content-area .cert-desc,
+.mz-theme-light .driving-content-area .faq-answer-box {
+  color: var(--mz-text-secondary) !important;
+}
+

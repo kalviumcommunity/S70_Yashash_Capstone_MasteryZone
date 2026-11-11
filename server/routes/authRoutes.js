@@ -323,17 +323,18 @@ router.post('/guest-login', async (req, res) => {
 
 // Forgot Password Route (Generates Secure Expiring Token & Sends Branded Email)
 router.post('/forgot-password', async (req, res) => {
-  const { usernameOrEmail, clientOrigin } = req.body;
+  const identifier = (req.body.usernameOrEmail || req.body.email || req.body.username || '').trim();
+  const { clientOrigin } = req.body;
 
-  if (!usernameOrEmail) {
+  if (!identifier) {
     return res.status(400).json({ message: 'Email or Username is required' });
   }
 
   try {
     const user = await User.findOne({
       $or: [
-        { email: usernameOrEmail.toLowerCase().trim() },
-        { username: usernameOrEmail.trim() }
+        { email: identifier.toLowerCase() },
+        { username: identifier }
       ]
     });
 

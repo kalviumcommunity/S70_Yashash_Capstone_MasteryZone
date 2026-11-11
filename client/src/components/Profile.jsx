@@ -5,6 +5,7 @@ import "./profile.css";
 import NotificationBell from "./NotificationBell.jsx";
 import IndiaLocationPicker from "./IndiaLocationPicker";
 import UserProfileDropdown from "./UserProfileDropdown.jsx";
+import ThemeToggle from "./ThemeToggle.jsx";
 import logoIcon from "../assets/logo_icon_transparent.png";
 import { getExploredTracks, isTrackExplored } from "../utils/trackExploration";
 import { performGlobalLogout } from "../utils/sessionAuth.js";
@@ -836,6 +837,7 @@ const Profile = () => {
           </div>
 
           <div className="mz-topbar-right">
+            <ThemeToggle />
             {/* Real-Time Notification Bell */}
             <NotificationBell />
 
@@ -1715,6 +1717,14 @@ const Profile = () => {
               >
                 <LuX size={18} />
               </button>
+            </div>
+
+            <div className="mz-setting-row">
+              <div className="mz-setting-info">
+                <span className="mz-setting-name">Theme &amp; Appearance</span>
+                <span className="mz-setting-desc">Switch between Light, Dark, or System Default</span>
+              </div>
+              <ThemeToggle showLabels={true} />
             </div>
 
             <div className="mz-setting-row">

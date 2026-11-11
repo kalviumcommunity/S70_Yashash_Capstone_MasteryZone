@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 import AssessmentSecurityGate from "./AssessmentSecurityGate";
 import useNavigationLock from "../hooks/useNavigationLock";
 import MasteryZoneGlobalLoader from "./MasteryZoneGlobalLoader";
+import ThemeToggle from "./ThemeToggle.jsx";
 import "./proctoredAssessment.css";
 
 // Functional icons from react-icons/lu
@@ -1018,19 +1019,20 @@ export default function ProctoredAssessmentWorkspace({
                 <span className="mz-exam-badge-proctoring">
                   <span className="mz-exam-pulse-dot" /> LIVE PROCTORED EXAM
                 </span>
-                <span style={{ fontSize: "14px", fontWeight: "700", color: "#0f172a" }}>
+                <span style={{ fontSize: "14px", fontWeight: "700", color: "var(--mz-text-primary)" }}>
                   {module.title}
                 </span>
               </div>
 
               <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-                <span style={{ fontSize: "13px", color: "#64748b" }}>
+                <span style={{ fontSize: "13px", color: "var(--mz-text-muted)" }}>
                   Question {currentQIndex + 1} of {questions.length} • {answeredCount}/{questions.length} Answered
                 </span>
                 <div className={`mz-exam-timer-box ${timeRemaining < 300 ? "urgent" : ""}`} title="30-Minute Strict Exam Limit">
                   <LuClock size={16} />
                   <span>{formatTime(timeRemaining)}</span>
                 </div>
+                <ThemeToggle />
               </div>
             </div>
 
@@ -1041,16 +1043,16 @@ export default function ProctoredAssessmentWorkspace({
                   <div className="mz-proc-recovery-icon-ring">
                     <LuTriangleAlert size={30} />
                   </div>
-                  <h3 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 800, color: isTerminated ? "#b91c1c" : "#92400e" }}>
+                  <h3 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 800, color: isTerminated ? "var(--mz-red-text)" : "var(--mz-amber-text)" }}>
                     {isTerminated ? "Assessment Terminated: Limits Exceeded" : "Assessment Interrupted — Verification Required"}
                   </h3>
-                  <p style={{ margin: 0, fontSize: "0.9rem", color: "#475569", lineHeight: "1.5" }}>
+                  <p style={{ margin: 0, fontSize: "0.9rem", color: "var(--mz-text-secondary)", lineHeight: "1.5" }}>
                     {isTerminated
                       ? "You have exhausted all 5 recovery chances. Your assessment workspace is locked and your answers have been permanently submitted for final grading."
                       : violationMessage || "Screen switch or window blur detected. Navigating away from the proctored test environment is prohibited."}
                   </p>
 
-                  <div style={{ fontSize: "11px", color: "#64748b" }}>
+                  <div style={{ fontSize: "11px", color: "var(--mz-text-muted)" }}>
                     Timestamp: {recoveryTimestamp ? new Date(recoveryTimestamp).toLocaleTimeString() : new Date().toLocaleTimeString()}
                   </div>
 
@@ -1145,7 +1147,7 @@ export default function ProctoredAssessmentWorkspace({
                         <button
                           type="button"
                           className="mz-modal-btn-cancel"
-                          style={{ padding: "10px 16px", borderRadius: "10px", fontWeight: 600, width: "100%", background: "#f1f5f9", border: "1px solid #cbd5e1", color: "#334155", cursor: "pointer" }}
+                          style={{ padding: "10px 16px", borderRadius: "10px", fontWeight: 600, width: "100%", background: "var(--mz-surface-subtle)", border: "1px solid var(--mz-border-strong)", color: "var(--mz-text-secondary)", cursor: "pointer" }}
                           onClick={() => {
                             cleanUpMediaStreams();
                             if (onClose) onClose();
@@ -1166,16 +1168,16 @@ export default function ProctoredAssessmentWorkspace({
               <div className="mz-exam-violation-overlay">
                 <div className="mz-violation-card" style={{ borderColor: "#3b82f6" }}>
                   <LuCircleCheck size={40} color="#3b82f6" />
-                  <h3 style={{ color: "#0f172a" }}>Confirm Exam Submission</h3>
-                  <p style={{ color: "#334155", fontSize: "14px" }}>
+                  <h3 style={{ color: "var(--mz-text-primary)" }}>Confirm Exam Submission</h3>
+                  <p style={{ color: "var(--mz-text-secondary)", fontSize: "14px" }}>
                     You have answered <strong>{answeredCount}</strong> of <strong>{questions.length}</strong> questions.
                     {Object.keys(markedForReview).length > 0 && (
-                      <span style={{ color: "#7c3aed", display: "block", marginTop: "6px" }}>
+                      <span style={{ color: "var(--mz-purple-text)", display: "block", marginTop: "6px" }}>
                         ★ {Object.keys(markedForReview).length} question(s) currently marked for review.
                       </span>
                     )}
                   </p>
-                  <p style={{ fontSize: "12.5px", color: "#64748b" }}>
+                  <p style={{ fontSize: "12.5px", color: "var(--mz-text-muted)" }}>
                     Once submitted, your answers will be permanently graded and saved to your audit report.
                   </p>
                   <div style={{ display: "flex", gap: "10px", justifyContent: "center", marginTop: "16px" }}>
@@ -1650,13 +1652,13 @@ export default function ProctoredAssessmentWorkspace({
                     ? `Outstanding command! You achieved an accuracy rate of ${accuracyPct}% with ${scoreCorrect} correct answers out of ${totalQ}. Your proctoring record satisfied all integrity rules. This module has been verified, your progress is updated, and the next curriculum module is now unlocked!`
                     : `Your score of ${resultsData.percentage}% is below the mandatory 80% passing threshold. To achieve accreditation, review the full-screen concept notes for this module, focus on the missed questions detailed below, and retake the exam when ready.`}
                 </p>
-                <div style={{ marginTop: "10px", fontSize: "12px", color: "#64748b" }}>
+                <div style={{ marginTop: "10px", fontSize: "12px", color: "var(--mz-text-muted)" }}>
                   Submitted on: {new Date(resultsData.submittedAt || Date.now()).toLocaleString()} • Session sealed as Read-Only
                 </div>
               </div>
 
               {/* Question-by-Question Detailed Review Breakdown */}
-              <h3 style={{ fontSize: "17px", fontWeight: "700", color: "#0f172a", marginBottom: 14 }}>
+              <h3 style={{ fontSize: "17px", fontWeight: "700", color: "var(--mz-text-primary)", marginBottom: 14 }}>
                 Question-Wise Analysis & Technical Explanations
               </h3>
 
@@ -1667,33 +1669,33 @@ export default function ProctoredAssessmentWorkspace({
                     className={`mz-review-item-card ${item.isCorrect ? "correct" : "incorrect"}`}
                   >
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                      <span style={{ fontSize: "12px", fontWeight: "700", color: item.isCorrect ? "#059669" : "#dc2626" }}>
+                      <span style={{ fontSize: "12px", fontWeight: "700", color: item.isCorrect ? "var(--mz-green-text)" : "var(--mz-red-text)" }}>
                         QUESTION {idx + 1} • {item.isCorrect ? "CORRECT (+10%)" : "INCORRECT (0%)"}
                       </span>
                     </div>
-                    <h4 style={{ fontSize: "15px", fontWeight: "600", color: "#0f172a", margin: "0 0 10px 0" }}>
+                    <h4 style={{ fontSize: "15px", fontWeight: "600", color: "var(--mz-text-primary)", margin: "0 0 10px 0" }}>
                       {item.question}
                     </h4>
 
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", fontSize: "13px" }}>
-                      <div style={{ padding: "8px 12px", borderRadius: "8px", background: "#f8fafc", border: "1px solid #e2e8f0" }}>
-                        <span style={{ color: "#64748b" }}>Your Answer: </span>
-                        <strong style={{ color: item.isCorrect ? "#059669" : "#dc2626" }}>
+                      <div style={{ padding: "8px 12px", borderRadius: "8px", background: "var(--mz-surface-subtle)", border: "1px solid var(--mz-border)" }}>
+                        <span style={{ color: "var(--mz-text-muted)" }}>Your Answer: </span>
+                        <strong style={{ color: item.isCorrect ? "var(--mz-green-text)" : "var(--mz-red-text)" }}>
                           {item.userSelected !== null && item.options?.[item.userSelected]
                             ? item.options[item.userSelected]
                             : "Unanswered"}
                         </strong>
                       </div>
 
-                      <div style={{ padding: "8px 12px", borderRadius: "8px", background: "#f8fafc", border: "1px solid #e2e8f0" }}>
-                        <span style={{ color: "#64748b" }}>Correct Answer: </span>
-                        <strong style={{ color: "#059669" }}>{item.options?.[item.correctIndex]}</strong>
+                      <div style={{ padding: "8px 12px", borderRadius: "8px", background: "var(--mz-surface-subtle)", border: "1px solid var(--mz-border)" }}>
+                        <span style={{ color: "var(--mz-text-muted)" }}>Correct Answer: </span>
+                        <strong style={{ color: "var(--mz-green-text)" }}>{item.options?.[item.correctIndex]}</strong>
                       </div>
                     </div>
 
                     {item.explanation && (
                       <div className="mz-review-explanation-box">
-                        <strong style={{ color: "#2563eb" }}>Explanation: </strong>
+                        <strong style={{ color: "var(--mz-blue-text)" }}>Explanation: </strong>
                         {item.explanation}
                       </div>
                     )}

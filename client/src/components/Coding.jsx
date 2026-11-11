@@ -43,6 +43,7 @@ import {
 } from "react-icons/lu";
 
 import NotificationBell from "./NotificationBell";
+import ThemeToggle from "./ThemeToggle";
 import FeaturedLearningCarousel from "./FeaturedLearningCarousel";
 import FeaturedVideosSlider, { DEFAULT_FEATURED_VIDEOS } from "./FeaturedVideosSlider";
 import ChallengeWorkspaceModal from "./ChallengeWorkspaceModal";
@@ -1906,6 +1907,8 @@ export default function Coding() {
             + Live Meet
           </button>
 
+          <ThemeToggle />
+
           <NotificationBell />
 
           {/* User Profile Pill */}
@@ -2065,9 +2068,9 @@ export default function Coding() {
                     cursor: "pointer",
                     padding: "8px 16px",
                     borderRadius: "20px",
-                    border: activeTrackId === tr.id ? "1.5px solid #2563eb" : "1px solid #e2e8f0",
-                    background: activeTrackId === tr.id ? "#eff6ff" : "#ffffff",
-                    color: activeTrackId === tr.id ? "#1d4ed8" : "#475569",
+                    border: activeTrackId === tr.id ? "1.5px solid #2563eb" : "1px solid var(--mz-border)",
+                    background: activeTrackId === tr.id ? "var(--mz-blue-soft)" : "var(--mz-surface)",
+                    color: activeTrackId === tr.id ? "var(--mz-blue-text)" : "var(--mz-text-secondary)",
                     fontWeight: activeTrackId === tr.id ? 700 : 500,
                     boxShadow: activeTrackId === tr.id ? "0 2px 6px rgba(37, 99, 235, 0.15)" : "none",
                     whiteSpace: "nowrap",
@@ -2217,16 +2220,16 @@ export default function Coding() {
 
                               {/* Rich Content Telemetry Badges */}
                               <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", margin: "6px 0 10px 0" }}>
-                                <span style={{ fontSize: "11px", fontWeight: 600, color: "#2563eb", background: "#eff6ff", border: "1px solid #bfdbfe", padding: "2px 8px", borderRadius: "6px" }}>
+                                <span style={{ fontSize: "11px", fontWeight: 600, color: "var(--mz-blue-text)", background: "var(--mz-blue-soft)", border: "1px solid var(--mz-blue-border)", padding: "2px 8px", borderRadius: "6px" }}>
                                   📖 {mod.sections?.length || 5} Deep Dive Topics
                                 </span>
-                                <span style={{ fontSize: "11px", fontWeight: 600, color: "#7c3aed", background: "#f5f3ff", border: "1px solid #ddd6fe", padding: "2px 8px", borderRadius: "6px" }}>
+                                <span style={{ fontSize: "11px", fontWeight: 600, color: "var(--mz-purple-text)", background: "var(--mz-purple-soft)", border: "1px solid var(--mz-purple-border)", padding: "2px 8px", borderRadius: "6px" }}>
                                   📚 {mod.references?.length || 3} Official References
                                 </span>
-                                <span style={{ fontSize: "11px", fontWeight: 600, color: "#059669", background: "#ecfdf5", border: "1px solid #a7f3d0", padding: "2px 8px", borderRadius: "6px" }}>
+                                <span style={{ fontSize: "11px", fontWeight: 600, color: "var(--mz-emerald-text)", background: "var(--mz-emerald-soft)", border: "1px solid var(--mz-emerald-border)", padding: "2px 8px", borderRadius: "6px" }}>
                                   ⚡ Interactive Sandbox
                                 </span>
-                                <span style={{ fontSize: "11px", fontWeight: 600, color: "#d97706", background: "#fffbeb", border: "1px solid #fde68a", padding: "2px 8px", borderRadius: "6px" }}>
+                                <span style={{ fontSize: "11px", fontWeight: 600, color: "var(--mz-amber-text)", background: "var(--mz-amber-soft)", border: "1px solid var(--mz-amber-border)", padding: "2px 8px", borderRadius: "6px" }}>
                                   🧠 Knowledge Check Quiz
                                 </span>
                               </div>
@@ -2630,15 +2633,15 @@ export default function Coding() {
                 gap: "16px",
                 marginBottom: "24px",
                 padding: "16px 20px",
-                background: "#ffffff",
+                background: "var(--mz-surface)",
                 borderRadius: "16px",
-                border: "1px solid #e2e8f0",
-                boxShadow: "0 2px 8px rgba(15, 23, 42, 0.04)",
+                border: "1px solid var(--mz-border)",
+                boxShadow: "var(--mz-shadow-sm)",
               }}
             >
               {/* Difficulty Filter */}
               <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <span style={{ fontSize: "12px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>
+                <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--mz-text-muted)", textTransform: "uppercase" }}>
                   Difficulty:
                 </span>
                 {["all", "easy", "medium", "hard"].map((diff) => (
@@ -2650,7 +2653,7 @@ export default function Coding() {
                       cursor: "pointer",
                       textTransform: "capitalize",
                       fontWeight: 700,
-                      border: challengeDifficulty === diff ? "1.5px solid #2563eb" : "1px solid #e2e8f0",
+                      border: challengeDifficulty === diff ? "1.5px solid #2563eb" : "1px solid var(--mz-border)",
                     }}
                   >
                     {diff}
@@ -2660,7 +2663,7 @@ export default function Coding() {
 
               {/* Category Filter */}
               <div style={{ display: "flex", alignItems: "center", gap: "8px", overflowX: "auto", maxWidth: "60%" }}>
-                <span style={{ fontSize: "12px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>
+                <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--mz-text-muted)", textTransform: "uppercase" }}>
                   Topic:
                 </span>
                 {challengeCategoriesList.slice(0, 6).map((cat) => (
@@ -2671,7 +2674,7 @@ export default function Coding() {
                     style={{
                       cursor: "pointer",
                       textTransform: "capitalize",
-                      border: challengeCategory === cat ? "1.5px solid #2563eb" : "1px solid #e2e8f0",
+                      border: challengeCategory === cat ? "1.5px solid #2563eb" : "1px solid var(--mz-border)",
                       whiteSpace: "nowrap",
                     }}
                   >
@@ -2741,7 +2744,7 @@ export default function Coding() {
                             : ch.difficulty?.toLowerCase() === "hard"
                             ? "linear-gradient(135deg, rgba(239, 68, 68, 0.07) 0%, rgba(139, 92, 246, 0.03) 100%)"
                             : "linear-gradient(135deg, rgba(37, 99, 235, 0.07) 0%, rgba(99, 102, 241, 0.03) 100%)",
-                          borderBottom: "1px solid #f1f5f9",
+                          borderBottom: "1px solid var(--mz-border-subtle)",
                           display: "flex",
                           flexDirection: "column",
                           gap: "10px",
@@ -2800,9 +2803,9 @@ export default function Coding() {
                               style={{
                                 fontSize: "11px",
                                 fontWeight: 800,
-                                color: "#15803d",
-                                background: "#dcfce7",
-                                border: "1px solid #86efac",
+                                color: "var(--mz-green-text)",
+                                background: "var(--mz-green-soft)",
+                                border: "1px solid var(--mz-green-border)",
                                 padding: "3px 9px",
                                 borderRadius: "12px",
                                 display: "inline-flex",
@@ -2815,7 +2818,7 @@ export default function Coding() {
                           ) : (
                             <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                               <TechBrandIcon type={ch.starterLanguage || "python"} size={16} />
-                              <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 700 }}>
+                              <span style={{ fontSize: "11px", color: "var(--mz-text-muted)", fontWeight: 700 }}>
                                 {ch.category || "DSA Core"}
                               </span>
                             </div>
@@ -2828,7 +2831,7 @@ export default function Coding() {
                             margin: "2px 0 0",
                             fontSize: "16px",
                             fontWeight: 800,
-                            color: "#0f172a",
+                            color: "var(--mz-text-primary)",
                             lineHeight: 1.35,
                             display: "-webkit-box",
                             WebkitLineClamp: 2,
@@ -2846,7 +2849,7 @@ export default function Coding() {
                           style={{
                             margin: "0 0 16px",
                             fontSize: "13px",
-                            color: "#64748b",
+                            color: "var(--mz-text-muted)",
                             lineHeight: 1.5,
                             display: "-webkit-box",
                             WebkitLineClamp: 2,
@@ -2857,12 +2860,12 @@ export default function Coding() {
                           {ch.description ? ch.description.slice(0, 110) + "..." : "Master algorithmic optimization and verify edge cases across automated test suites."}
                         </p>
 
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: "12px", borderTop: "1px solid #f1f5f9" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: "12px", borderTop: "1px solid var(--mz-border-subtle)" }}>
                           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                            <span style={{ fontSize: "11.5px", color: "#64748b", display: "flex", alignItems: "center", gap: "5px", fontWeight: 600 }}>
+                            <span style={{ fontSize: "11.5px", color: "var(--mz-text-muted)", display: "flex", alignItems: "center", gap: "5px", fontWeight: 600 }}>
                               <LuShieldCheck size={13} color="#2563eb" /> 10 Test Cases
                             </span>
-                            <span style={{ fontSize: "11px", color: "#d97706", background: "#fef3c7", padding: "2px 6px", borderRadius: "6px", fontWeight: 700 }}>
+                            <span style={{ fontSize: "11px", color: "var(--mz-amber-text)", background: "var(--mz-amber-soft)", padding: "2px 6px", borderRadius: "6px", fontWeight: 700 }}>
                               +40 XP
                             </span>
                           </div>
@@ -2875,9 +2878,9 @@ export default function Coding() {
                                 style={{
                                   padding: "6px 11px",
                                   fontSize: "11.5px",
-                                  background: "#eff6ff",
-                                  color: "#1d4ed8",
-                                  border: "1px solid #bfdbfe",
+                                  background: "var(--mz-blue-soft)",
+                                  color: "var(--mz-blue-text)",
+                                  border: "1px solid var(--mz-blue-border)",
                                   borderRadius: "8px",
                                   display: "inline-flex",
                                   alignItems: "center",
@@ -3705,11 +3708,11 @@ export default function Coding() {
                     position: "relative",
                     overflow: "hidden",
                     borderRadius: "16px",
-                    border: isVisited ? "1.5px solid #10b981" : "1px solid #e2e8f0",
-                    background: "#ffffff",
+                    border: isVisited ? "1.5px solid #10b981" : "1px solid var(--mz-border)",
+                    background: "var(--mz-surface)",
                     boxShadow: isVisited
                       ? "0 8px 24px -4px rgba(16, 185, 129, 0.14), 0 2px 6px rgba(15, 23, 42, 0.04)"
-                      : "0 2px 8px rgba(15, 23, 42, 0.04)",
+                      : "var(--mz-shadow-sm)",
                   }}
                   onClick={() => handleOpenResource(resItem)}
                 >
@@ -3732,11 +3735,11 @@ export default function Coding() {
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px", marginTop: "4px" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                         <TechBrandIcon type={resItem.lang} size={22} />
-                        <span style={{ fontSize: "12px", fontWeight: 700, color: isVisited ? "#059669" : "#64748b" }}>{resItem.category}</span>
+                        <span style={{ fontSize: "12px", fontWeight: 700, color: isVisited ? "var(--mz-emerald-text)" : "var(--mz-text-muted)" }}>{resItem.category}</span>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                         {resItem.official && (
-                          <span style={{ fontSize: "10.5px", fontWeight: 800, padding: "2px 7px", borderRadius: "10px", background: "#ecfeff", color: "#0891b2" }}>
+                          <span style={{ fontSize: "10.5px", fontWeight: 800, padding: "2px 7px", borderRadius: "10px", background: "var(--mz-cyan-soft)", color: "var(--mz-cyan-text)" }}>
                             OFFICIAL DOCS
                           </span>
                         )}
@@ -3744,9 +3747,9 @@ export default function Coding() {
                           <span
                             className="mz-c-card-completed-badge mz-c-badge-visited"
                             style={{
-                              background: "#ecfdf5",
-                              color: "#059669",
-                              border: "1px solid #a7f3d0",
+                              background: "var(--mz-emerald-soft)",
+                              color: "var(--mz-emerald-text)",
+                              border: "1px solid var(--mz-emerald-border)",
                               fontWeight: 800,
                               display: "inline-flex",
                               alignItems: "center",
@@ -3762,19 +3765,19 @@ export default function Coding() {
                         )}
                       </div>
                     </div>
-                    <h3 style={{ margin: "0 0 8px", fontSize: "16.5px", fontWeight: 800, color: "#0f172a", lineHeight: 1.35 }}>
+                    <h3 style={{ margin: "0 0 8px", fontSize: "16.5px", fontWeight: 800, color: "var(--mz-text-primary)", lineHeight: 1.35 }}>
                       {resItem.title}
                     </h3>
-                    <p style={{ margin: 0, fontSize: "13px", color: "#64748b", lineHeight: 1.55 }}>
+                    <p style={{ margin: 0, fontSize: "13px", color: "var(--mz-text-muted)", lineHeight: 1.55 }}>
                       {resItem.description}
                     </p>
                   </div>
 
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "16px", paddingTop: "12px", borderTop: "1px solid #f1f5f9" }}>
-                    <span style={{ fontSize: "11.5px", color: isVisited ? "#059669" : "#64748b", fontWeight: 700, display: "flex", alignItems: "center", gap: "5px" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "16px", paddingTop: "12px", borderTop: "1px solid var(--mz-border-subtle)" }}>
+                    <span style={{ fontSize: "11.5px", color: isVisited ? "var(--mz-emerald-text)" : "var(--mz-text-muted)", fontWeight: 700, display: "flex", alignItems: "center", gap: "5px" }}>
                       {isVisited ? "✓ Reference Explored" : "Reference Manual"}
                     </span>
-                    <span style={{ color: isVisited ? "#059669" : "#2563eb", fontSize: "12.5px", fontWeight: 700, display: "flex", alignItems: "center", gap: "5px" }}>
+                    <span style={{ color: isVisited ? "var(--mz-emerald-text)" : "var(--mz-blue-text)", fontSize: "12.5px", fontWeight: 700, display: "flex", alignItems: "center", gap: "5px" }}>
                       {isVisited ? "Explore Docs" : "Open Documentation"} <LuExternalLink size={13} />
                     </span>
                   </div>
@@ -3790,15 +3793,15 @@ export default function Coding() {
             {/* Top Academic & Professional Banner */}
             <div
               style={{
-                background: "linear-gradient(135deg, #ffffff 0%, #f8faff 45%, #eff6ff 100%)",
+                background: "var(--mz-gradient-hero)",
                 borderRadius: "20px",
                 padding: "32px 36px",
-                color: "#0f172a",
+                color: "var(--mz-text-primary)",
                 marginBottom: "32px",
-                boxShadow: "0 10px 30px -4px rgba(37, 99, 235, 0.08), 0 2px 8px rgba(15, 23, 42, 0.03)",
+                boxShadow: "var(--mz-shadow-md)",
                 position: "relative",
                 overflow: "hidden",
-                border: "1.5px solid #bfdbfe",
+                border: "1.5px solid var(--mz-blue-border)",
               }}
             >
               <div
@@ -3814,36 +3817,36 @@ export default function Coding() {
                 }}
               />
               <div style={{ position: "relative", zIndex: 1 }}>
-                <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: "#eff6ff", border: "1.5px solid #bfdbfe", padding: "4px 14px", borderRadius: "9999px", marginBottom: "14px", boxShadow: "0 1px 3px rgba(37, 99, 235, 0.08)" }}>
-                  <span style={{ color: "#d97706", fontSize: "13px" }}>★</span>
-                  <span style={{ fontSize: "11px", fontWeight: 800, color: "#1d4ed8", letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: "var(--mz-blue-soft)", border: "1.5px solid var(--mz-blue-border)", padding: "4px 14px", borderRadius: "9999px", marginBottom: "14px", boxShadow: "0 1px 3px rgba(37, 99, 235, 0.08)" }}>
+                  <span style={{ color: "var(--mz-amber-text)", fontSize: "13px" }}>★</span>
+                  <span style={{ fontSize: "11px", fontWeight: 800, color: "var(--mz-blue-text)", letterSpacing: "0.04em", textTransform: "uppercase" }}>
                     Official Accredited Examination Suite
                   </span>
                 </div>
-                <h1 style={{ fontSize: "26px", fontWeight: 900, margin: "0 0 10px", color: "#0f172a", letterSpacing: "-0.02em" }}>
+                <h1 style={{ fontSize: "26px", fontWeight: 900, margin: "0 0 10px", color: "var(--mz-text-primary)", letterSpacing: "-0.02em" }}>
                   Mastery Zone Professional Certifications
                 </h1>
-                <p style={{ margin: "0 0 24px", fontSize: "14px", color: "#475569", maxWidth: "800px", lineHeight: 1.6 }}>
+                <p style={{ margin: "0 0 24px", fontSize: "14px", color: "var(--mz-text-secondary)", maxWidth: "800px", lineHeight: 1.6 }}>
                   Take rigorous, proctored examinations designed to evaluate true engineering competence. Pass 20 MCQs and 2 live algorithmic coding challenges to receive official cryptographic credentials signed by Founder Yashash.
                 </p>
 
                 {/* Key Metrics Row */}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "14px", marginTop: "12px" }}>
-                  <div style={{ background: "#ffffff", padding: "14px 18px", borderRadius: "14px", border: "1px solid #e2e8f0", boxShadow: "0 2px 6px rgba(15, 23, 42, 0.04)" }}>
-                    <div style={{ fontSize: "10.5px", color: "#64748b", textTransform: "uppercase", fontWeight: 800, letterSpacing: "0.04em" }}>Pass Benchmark</div>
-                    <div style={{ fontSize: "18px", fontWeight: 800, color: "#16a34a", marginTop: "4px" }}>80% Required</div>
+                  <div style={{ background: "var(--mz-surface)", padding: "14px 18px", borderRadius: "14px", border: "1px solid var(--mz-border)", boxShadow: "var(--mz-shadow-sm)" }}>
+                    <div style={{ fontSize: "10.5px", color: "var(--mz-text-muted)", textTransform: "uppercase", fontWeight: 800, letterSpacing: "0.04em" }}>Pass Benchmark</div>
+                    <div style={{ fontSize: "18px", fontWeight: 800, color: "var(--mz-green-text)", marginTop: "4px" }}>80% Required</div>
                   </div>
-                  <div style={{ background: "#ffffff", padding: "14px 18px", borderRadius: "14px", border: "1px solid #e2e8f0", boxShadow: "0 2px 6px rgba(15, 23, 42, 0.04)" }}>
-                    <div style={{ fontSize: "10.5px", color: "#64748b", textTransform: "uppercase", fontWeight: 800, letterSpacing: "0.04em" }}>Proctoring Standard</div>
-                    <div style={{ fontSize: "18px", fontWeight: 800, color: "#2563eb", marginTop: "4px" }}>Strict (5 Lives)</div>
+                  <div style={{ background: "var(--mz-surface)", padding: "14px 18px", borderRadius: "14px", border: "1px solid var(--mz-border)", boxShadow: "var(--mz-shadow-sm)" }}>
+                    <div style={{ fontSize: "10.5px", color: "var(--mz-text-muted)", textTransform: "uppercase", fontWeight: 800, letterSpacing: "0.04em" }}>Proctoring Standard</div>
+                    <div style={{ fontSize: "18px", fontWeight: 800, color: "var(--mz-blue-text)", marginTop: "4px" }}>Strict (5 Lives)</div>
                   </div>
-                  <div style={{ background: "#ffffff", padding: "14px 18px", borderRadius: "14px", border: "1px solid #e2e8f0", boxShadow: "0 2px 6px rgba(15, 23, 42, 0.04)" }}>
-                    <div style={{ fontSize: "10.5px", color: "#64748b", textTransform: "uppercase", fontWeight: 800, letterSpacing: "0.04em" }}>Time Allowed</div>
-                    <div style={{ fontSize: "18px", fontWeight: 800, color: "#d97706", marginTop: "4px" }}>90 Minutes</div>
+                  <div style={{ background: "var(--mz-surface)", padding: "14px 18px", borderRadius: "14px", border: "1px solid var(--mz-border)", boxShadow: "var(--mz-shadow-sm)" }}>
+                    <div style={{ fontSize: "10.5px", color: "var(--mz-text-muted)", textTransform: "uppercase", fontWeight: 800, letterSpacing: "0.04em" }}>Time Allowed</div>
+                    <div style={{ fontSize: "18px", fontWeight: 800, color: "var(--mz-amber-text)", marginTop: "4px" }}>90 Minutes</div>
                   </div>
-                  <div style={{ background: "#ffffff", padding: "14px 18px", borderRadius: "14px", border: "1px solid #e2e8f0", boxShadow: "0 2px 6px rgba(15, 23, 42, 0.04)" }}>
-                    <div style={{ fontSize: "10.5px", color: "#64748b", textTransform: "uppercase", fontWeight: 800, letterSpacing: "0.04em" }}>Earned Credentials</div>
-                    <div style={{ fontSize: "18px", fontWeight: 800, color: "#7c3aed", marginTop: "4px" }}>{earnedCertificates.length} Issued</div>
+                  <div style={{ background: "var(--mz-surface)", padding: "14px 18px", borderRadius: "14px", border: "1px solid var(--mz-border)", boxShadow: "var(--mz-shadow-sm)" }}>
+                    <div style={{ fontSize: "10.5px", color: "var(--mz-text-muted)", textTransform: "uppercase", fontWeight: 800, letterSpacing: "0.04em" }}>Earned Credentials</div>
+                    <div style={{ fontSize: "18px", fontWeight: 800, color: "var(--mz-purple-text)", marginTop: "4px" }}>{earnedCertificates.length} Issued</div>
                   </div>
                 </div>
               </div>
@@ -3853,10 +3856,10 @@ export default function Coding() {
             <div style={{ marginBottom: "40px" }} data-testid="coding-my-certificates-section">
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "18px" }}>
                 <div>
-                  <h2 style={{ fontSize: "20px", fontWeight: 800, color: "#0f172a", margin: 0, display: "flex", alignItems: "center", gap: "8px" }}>
+                  <h2 style={{ fontSize: "20px", fontWeight: 800, color: "var(--mz-text-primary)", margin: 0, display: "flex", alignItems: "center", gap: "8px" }}>
                     <span>🏆</span> My Earned Certificates ({earnedCertificates.length})
                   </h2>
-                  <p style={{ margin: "3px 0 0", fontSize: "13px", color: "#64748b" }}>
+                  <p style={{ margin: "3px 0 0", fontSize: "13px", color: "var(--mz-text-muted)" }}>
                     Official verified Coursera-style credentials signed by Founder Yashash
                   </p>
                 </div>
@@ -3868,7 +3871,7 @@ export default function Coding() {
                     <div
                       key={cert.certificateId}
                       style={{
-                        background: "linear-gradient(180deg, #ffffff 0%, #fffdf8 100%)",
+                        background: "var(--mz-surface)",
                         border: "1.5px solid #d4af37",
                         borderRadius: "16px",
                         padding: "22px",
@@ -3893,22 +3896,22 @@ export default function Coding() {
                       />
                       <div>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-                          <span style={{ background: "rgba(16, 185, 129, 0.12)", color: "#059669", border: "1px solid #10b981", fontSize: "11px", fontWeight: 800, padding: "3px 9px", borderRadius: "12px", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                          <span style={{ background: "var(--mz-emerald-soft)", color: "var(--mz-emerald-text)", border: "1px solid var(--mz-emerald-border)", fontSize: "11px", fontWeight: 800, padding: "3px 9px", borderRadius: "12px", display: "inline-flex", alignItems: "center", gap: "4px" }}>
                             <LuShieldCheck size={13} /> VERIFIED CREDENTIAL
                           </span>
-                          <span style={{ fontSize: "11px", color: "#64748b", fontFamily: "monospace", background: "#f1f5f9", padding: "2px 6px", borderRadius: "4px" }}>
+                          <span style={{ fontSize: "11px", color: "var(--mz-text-muted)", fontFamily: "monospace", background: "var(--mz-surface-muted)", padding: "2px 6px", borderRadius: "4px" }}>
                             {cert.certificateId}
                           </span>
                         </div>
-                        <h3 style={{ fontSize: "17.5px", fontWeight: 800, color: "#0f172a", margin: "6px 0 4px" }}>
+                        <h3 style={{ fontSize: "17.5px", fontWeight: 800, color: "var(--mz-text-primary)", margin: "6px 0 4px" }}>
                           {cert.certTitle || "Professional Certification"}
                         </h3>
-                        <p style={{ fontSize: "13px", color: "#64748b", margin: "2px 0 14px", lineHeight: 1.5 }}>
-                          Recipient: <strong style={{ color: "#0f172a" }}>{cert.fullName || currentUser?.fullName || currentUser?.name || "Yashash"}</strong> • Grade: <strong style={{ color: "#059669" }}>{cert.grade || "A+"}</strong> ({cert.score || 95}%)
+                        <p style={{ fontSize: "13px", color: "var(--mz-text-muted)", margin: "2px 0 14px", lineHeight: 1.5 }}>
+                          Recipient: <strong style={{ color: "var(--mz-text-primary)" }}>{cert.fullName || currentUser?.fullName || currentUser?.name || "Yashash"}</strong> • Grade: <strong style={{ color: "var(--mz-emerald-text)" }}>{cert.grade || "A+"}</strong> ({cert.score || 95}%)
                         </p>
                       </div>
 
-                      <div style={{ display: "flex", gap: "8px", marginTop: "14px", paddingTop: "12px", borderTop: "1px solid #f1f5f9", flexWrap: "wrap" }}>
+                      <div style={{ display: "flex", gap: "8px", marginTop: "14px", paddingTop: "12px", borderTop: "1px solid var(--mz-border-subtle)", flexWrap: "wrap" }}>
                         <button
                           type="button"
                           className="mz-c-btn-solve"
@@ -3920,7 +3923,7 @@ export default function Coding() {
                         <button
                           type="button"
                           className="mz-c-btn-solve"
-                          style={{ background: "#ffffff", color: "#0f172a", border: "1px solid #cbd5e1", padding: "8px 12px", fontSize: "12px", borderRadius: "8px", display: "flex", alignItems: "center", gap: "5px" }}
+                          style={{ background: "var(--mz-surface-subtle)", color: "var(--mz-text-primary)", border: "1px solid var(--mz-border)", padding: "8px 12px", fontSize: "12px", borderRadius: "8px", display: "flex", alignItems: "center", gap: "5px" }}
                           onClick={() => window.open(`/certification/verify/${cert.certificateId}`, "_blank", "noopener,noreferrer")}
                         >
                           <LuExternalLink size={13} /> Verify
@@ -3928,7 +3931,7 @@ export default function Coding() {
                         <button
                           type="button"
                           className="mz-c-btn-solve"
-                          style={{ background: "#eff6ff", color: "#1d4ed8", border: "1px solid #bfdbfe", padding: "8px 12px", fontSize: "12px", borderRadius: "8px", display: "flex", alignItems: "center", gap: "5px", fontWeight: 700 }}
+                          style={{ background: "var(--mz-blue-soft)", color: "var(--mz-blue-text)", border: "1px solid var(--mz-blue-border)", padding: "8px 12px", fontSize: "12px", borderRadius: "8px", display: "flex", alignItems: "center", gap: "5px", fontWeight: 700 }}
                           onClick={() => window.open(`/assessment-report/${cert.attemptId || cert.certificateId}`, "_blank", "noopener,noreferrer")}
                         >
                           <LuAward size={13} /> View Report
@@ -3938,15 +3941,15 @@ export default function Coding() {
                   ))}
                 </div>
               ) : (
-                <div style={{ padding: "32px 24px", background: "linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)", borderRadius: "16px", border: "1.5px dashed #cbd5e1", textAlign: "center" }}>
+                <div style={{ padding: "32px 24px", background: "var(--mz-surface-subtle)", borderRadius: "16px", border: "1.5px dashed var(--mz-border-strong)", textAlign: "center" }}>
                   <div style={{ fontSize: "36px", marginBottom: "8px" }}>📜</div>
-                  <h3 style={{ margin: "0 0 6px", fontSize: "16px", fontWeight: 700, color: "#1e293b" }}>
+                  <h3 style={{ margin: "0 0 6px", fontSize: "16px", fontWeight: 700, color: "var(--mz-text-primary)" }}>
                     No Earned Credentials Yet
                   </h3>
-                  <p style={{ margin: "0 auto 12px", fontSize: "13.5px", color: "#64748b", maxWidth: "560px" }}>
+                  <p style={{ margin: "0 auto 12px", fontSize: "13.5px", color: "var(--mz-text-muted)", maxWidth: "560px" }}>
                     Choose an official track below and complete the proctored assessment. Score ≥80% to earn your cryptographic credential and showcase it on LinkedIn.
                   </p>
-                  <div style={{ display: "inline-flex", gap: "16px", fontSize: "12px", color: "#475569", fontWeight: 600 }}>
+                  <div style={{ display: "inline-flex", gap: "16px", fontSize: "12px", color: "var(--mz-text-secondary)", fontWeight: 600 }}>
                     <span>1. Select Domain</span>
                     <span>→</span>
                     <span>2. Pass Integrity Checks</span>
@@ -3962,10 +3965,10 @@ export default function Coding() {
             {/* Interactive Filter & Search Controls */}
             <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "14px", marginBottom: "22px" }}>
               <div>
-                <h3 style={{ fontSize: "19px", fontWeight: 800, color: "#0f172a", margin: 0 }}>
+                <h3 style={{ fontSize: "19px", fontWeight: 800, color: "var(--mz-text-primary)", margin: 0 }}>
                   Available Professional Certification Examinations
                 </h3>
-                <p style={{ margin: "2px 0 0", fontSize: "13px", color: "#64748b" }}>
+                <p style={{ margin: "2px 0 0", fontSize: "13px", color: "var(--mz-text-muted)" }}>
                   Each exam opens in its own secure, focused proctoring workspace in a separate tab.
                 </p>
               </div>
@@ -3990,9 +3993,9 @@ export default function Coding() {
                       fontSize: "12px",
                       fontWeight: 700,
                       cursor: "pointer",
-                      border: certFilterCategory === cat.id ? "1.5px solid #2563eb" : "1px solid #cbd5e1",
-                      background: certFilterCategory === cat.id ? "#eff6ff" : "#ffffff",
-                      color: certFilterCategory === cat.id ? "#1d4ed8" : "#475569",
+                      border: certFilterCategory === cat.id ? "1.5px solid #2563eb" : "1px solid var(--mz-border)",
+                      background: certFilterCategory === cat.id ? "var(--mz-blue-soft)" : "var(--mz-surface)",
+                      color: certFilterCategory === cat.id ? "var(--mz-blue-text)" : "var(--mz-text-secondary)",
                       transition: "all 0.15s ease",
                     }}
                   >
@@ -4088,11 +4091,11 @@ export default function Coding() {
                         justifyContent: "space-between",
                         position: "relative",
                         borderRadius: "16px",
-                        border: isCompleted ? "2px solid #22c55e" : "1px solid #e2e8f0",
-                        background: isCompleted ? "linear-gradient(180deg, #ffffff 0%, #f0fdf4 100%)" : "#ffffff",
+                        border: isCompleted ? "2px solid #22c55e" : "1px solid var(--mz-border)",
+                        background: isCompleted ? "var(--mz-green-soft)" : "var(--mz-surface)",
                         boxShadow: isCompleted
                           ? "0 6px 20px rgba(34, 197, 94, 0.12)"
-                          : "0 4px 16px rgba(15, 23, 42, 0.05)",
+                          : "var(--mz-shadow-sm)",
                         overflow: "hidden",
                       }}
                     >
@@ -4110,25 +4113,25 @@ export default function Coding() {
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px", marginTop: "4px" }}>
                           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                             <TechBrandIcon type={certItem.language} size={28} />
-                            <span style={{ fontSize: "11px", fontWeight: 800, textTransform: "uppercase", padding: "2px 8px", borderRadius: "10px", background: "#f8fafc", border: "1px solid #e2e8f0", color: "#475569" }}>
+                            <span style={{ fontSize: "11px", fontWeight: 800, textTransform: "uppercase", padding: "2px 8px", borderRadius: "10px", background: "var(--mz-surface-subtle)", border: "1px solid var(--mz-border)", color: "var(--mz-text-secondary)" }}>
                               {certItem.language.toUpperCase()}
                             </span>
                           </div>
                           {isCompleted ? (
-                            <span style={{ fontSize: "11px", fontWeight: 800, padding: "3px 9px", borderRadius: "10px", background: "#dcfce7", color: "#15803d", border: "1px solid #86efac", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                            <span style={{ fontSize: "11px", fontWeight: 800, padding: "3px 9px", borderRadius: "10px", background: "var(--mz-green-soft)", color: "var(--mz-green-text)", border: "1px solid var(--mz-green-border)", display: "inline-flex", alignItems: "center", gap: "4px" }}>
                               <LuCircleCheck size={13} /> COMPLETED
                             </span>
                           ) : (
-                            <span style={{ fontSize: "11px", fontWeight: 800, padding: "3px 9px", borderRadius: "10px", background: "#fef3c7", color: "#b45309", border: "1px solid #fde68a" }}>
+                            <span style={{ fontSize: "11px", fontWeight: 800, padding: "3px 9px", borderRadius: "10px", background: "var(--mz-amber-soft)", color: "var(--mz-amber-text)", border: "1px solid var(--mz-amber-border)" }}>
                               OFFICIAL CERT
                             </span>
                           )}
                         </div>
 
-                        <h3 style={{ margin: "0 0 8px", fontSize: "18px", fontWeight: 800, color: "#0f172a" }}>
+                        <h3 style={{ margin: "0 0 8px", fontSize: "18px", fontWeight: 800, color: "var(--mz-text-primary)" }}>
                           {certItem.title}
                         </h3>
-                        <p style={{ margin: "0 0 16px", fontSize: "13px", color: "#64748b", lineHeight: 1.5 }}>
+                        <p style={{ margin: "0 0 16px", fontSize: "13px", color: "var(--mz-text-muted)", lineHeight: 1.5 }}>
                           {certItem.desc}
                         </p>
 
@@ -4136,22 +4139,22 @@ export default function Coding() {
                         {isCompleted && (
                           <div
                             style={{
-                              background: "#dcfce7",
-                              border: "1.5px solid #86efac",
+                              background: "var(--mz-green-soft)",
+                              border: "1.5px solid var(--mz-green-border)",
                               borderRadius: "10px",
                               padding: "10px 12px",
                               marginBottom: "14px",
                             }}
                           >
-                            <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "#166534", fontWeight: 800, fontSize: "12.5px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--mz-green-text)", fontWeight: 800, fontSize: "12.5px" }}>
                               <span>🏆</span> Cutoff Cleared (≥80%) • Certificate Awarded
                             </div>
                             {certStatus.certificateId && (
-                              <div style={{ fontSize: "11.5px", color: "#15803d", fontFamily: "monospace", marginTop: "3px", fontWeight: 600 }}>
+                              <div style={{ fontSize: "11.5px", color: "var(--mz-green-text)", fontFamily: "monospace", marginTop: "3px", fontWeight: 600 }}>
                                 Credential ID: {certStatus.certificateId}
                               </div>
                             )}
-                            <div style={{ fontSize: "11px", color: "#166534", marginTop: "2px", fontWeight: 600 }}>
+                            <div style={{ fontSize: "11px", color: "var(--mz-green-text)", marginTop: "2px", fontWeight: 600 }}>
                               ✓ Examination completed. Retaking is locked.
                             </div>
                           </div>
@@ -4160,14 +4163,14 @@ export default function Coding() {
                         {/* Skills Chips */}
                         <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "16px" }}>
                           {certItem.skills.map((sk, sIdx) => (
-                            <span key={sIdx} style={{ fontSize: "11px", background: "#f1f5f9", color: "#334155", padding: "2px 8px", borderRadius: "6px", fontWeight: 600 }}>
+                            <span key={sIdx} style={{ fontSize: "11px", background: "var(--mz-surface-muted)", color: "var(--mz-text-secondary)", padding: "2px 8px", borderRadius: "6px", fontWeight: 600 }}>
                               {sk}
                             </span>
                           ))}
                         </div>
 
                         {/* Exam Specs Box */}
-                        <div style={{ fontSize: "12px", color: "#334155", background: "#f8fafc", padding: "12px 14px", borderRadius: "10px", border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", gap: "6px" }}>
+                        <div style={{ fontSize: "12px", color: "var(--mz-text-secondary)", background: "var(--mz-surface-subtle)", padding: "12px 14px", borderRadius: "10px", border: "1px solid var(--mz-border)", display: "flex", flexDirection: "column", gap: "6px" }}>
                           <div><strong>Format:</strong> {certItem.format}</div>
                           <div><strong>Passing:</strong> {certItem.cutoff}</div>
                           <div><strong>Duration:</strong> {certItem.time} • <strong>Proctoring:</strong> Strict (5 Lives)</div>
@@ -4216,9 +4219,9 @@ export default function Coding() {
                                   padding: "10px 14px",
                                   fontSize: "12.5px",
                                   fontWeight: 700,
-                                  background: "#eff6ff",
-                                  color: "#1d4ed8",
-                                  border: "1px solid #bfdbfe",
+                                  background: "var(--mz-blue-soft)",
+                                  color: "var(--mz-blue-text)",
+                                  border: "1px solid var(--mz-blue-border)",
                                   borderRadius: "10px",
                                   display: "flex",
                                   alignItems: "center",
@@ -4235,7 +4238,7 @@ export default function Coding() {
                           <div
                             style={{
                               fontSize: "11.5px",
-                              color: "#64748b",
+                              color: "var(--mz-text-muted)",
                               marginTop: "8px",
                               textAlign: "center",
                               display: "flex",
@@ -4256,13 +4259,13 @@ export default function Coding() {
                                 certStatus.latestAttempt.percentage < 80)) && (
                               <div
                                 style={{
-                                  background: "#fef2f2",
-                                  border: "1px solid #fecaca",
+                                  background: "var(--mz-red-soft)",
+                                  border: "1px solid var(--mz-red-border)",
                                   borderRadius: "10px",
                                   padding: "8px 12px",
                                   marginTop: "12px",
                                   fontSize: "12px",
-                                  color: "#991b1b",
+                                  color: "var(--mz-red-text)",
                                   display: "flex",
                                   alignItems: "center",
                                   gap: "6px",
@@ -4342,7 +4345,7 @@ export default function Coding() {
 
       {/* Certification Exam Workspace */}
       {selectedExamWorkspace && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "#ffffff" }}>
+        <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "var(--mz-bg-primary)" }}>
           <CertificationExamWorkspace
             certId={selectedExamWorkspace.id}
             certTitle={selectedExamWorkspace.name}
@@ -4477,12 +4480,12 @@ export default function Coding() {
             className="mz-c-choice-modal"
             onClick={(e) => e.stopPropagation()}
             style={{
-              background: "#ffffff",
+              background: "var(--mz-surface)",
               borderRadius: "20px",
               width: "100%",
               maxWidth: "680px",
-              boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
-              border: "1px solid #e2e8f0",
+              boxShadow: "var(--mz-shadow-xl)",
+              border: "1px solid var(--mz-border)",
               overflow: "hidden",
               animation: "mzChoiceModalIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
             }}
@@ -4491,12 +4494,12 @@ export default function Coding() {
             <div
               style={{
                 padding: "22px 24px 18px",
-                borderBottom: "1px solid #f1f5f9",
+                borderBottom: "1px solid var(--mz-border-subtle)",
                 display: "flex",
                 alignItems: "flex-start",
                 justifyContent: "space-between",
                 gap: "16px",
-                background: "linear-gradient(180deg, #f8fafc 0%, #ffffff 100%)",
+                background: "var(--mz-surface-subtle)",
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
@@ -4505,8 +4508,8 @@ export default function Coding() {
                     width: "48px",
                     height: "48px",
                     borderRadius: "14px",
-                    background: "#eff6ff",
-                    border: "1px solid #bfdbfe",
+                    background: "var(--mz-blue-soft)",
+                    border: "1px solid var(--mz-blue-border)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -4525,18 +4528,18 @@ export default function Coding() {
                         textTransform: "uppercase",
                         padding: "2px 8px",
                         borderRadius: "6px",
-                        background: "#eff6ff",
-                        color: "#1d4ed8",
-                        border: "1px solid #dbeafe",
+                        background: "var(--mz-blue-soft)",
+                        color: "var(--mz-blue-text)",
+                        border: "1px solid var(--mz-blue-border)",
                       }}
                     >
                       Module {String(typeof selectedModuleChoice.moduleIndex === "number" ? selectedModuleChoice.moduleIndex + 1 : 1).padStart(2, "0")}
                     </span>
-                    <span style={{ fontSize: "12px", color: "#64748b", fontWeight: 600 }}>
+                    <span style={{ fontSize: "12px", color: "var(--mz-text-muted)", fontWeight: 600 }}>
                       {activeTrack.title || "Curriculum Track"}
                     </span>
                   </div>
-                  <h2 style={{ margin: 0, fontSize: "18px", fontWeight: 800, color: "#0f172a" }}>
+                  <h2 style={{ margin: 0, fontSize: "18px", fontWeight: 800, color: "var(--mz-text-primary)" }}>
                     {selectedModuleChoice.title}
                   </h2>
                 </div>
@@ -4546,7 +4549,7 @@ export default function Coding() {
                 type="button"
                 onClick={() => setSelectedModuleChoice(null)}
                 style={{
-                  background: "#f1f5f9",
+                  background: "var(--mz-surface-muted)",
                   border: "none",
                   borderRadius: "50%",
                   width: "32px",
@@ -4555,7 +4558,7 @@ export default function Coding() {
                   alignItems: "center",
                   justifyContent: "center",
                   cursor: "pointer",
-                  color: "#64748b",
+                  color: "var(--mz-text-muted)",
                   transition: "all 0.15s ease",
                 }}
                 aria-label="Close dialog"
@@ -4565,8 +4568,8 @@ export default function Coding() {
             </div>
 
             {/* Confirmation Subtitle Banner */}
-            <div style={{ padding: "14px 24px", background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-              <p style={{ margin: 0, fontSize: "13px", color: "#475569", lineHeight: 1.5 }}>
+            <div style={{ padding: "14px 24px", background: "var(--mz-surface-subtle)", borderBottom: "1px solid var(--mz-border)" }}>
+              <p style={{ margin: 0, fontSize: "13px", color: "var(--mz-text-secondary)", lineHeight: 1.5 }}>
                 Select the learning mode you wish to proceed with. Practical coding and the 10-MCQ assessment unlock strictly after prerequisite completion.
               </p>
             </div>
@@ -4584,7 +4587,7 @@ export default function Coding() {
                 }}
                 style={{
                   border: "1.5px solid #2563eb",
-                  background: "#f0f7ff",
+                  background: "var(--mz-blue-soft)",
                   borderRadius: "14px",
                   padding: "16px 18px",
                   display: "flex",
@@ -4600,7 +4603,7 @@ export default function Coding() {
                       width: "40px",
                       height: "40px",
                       borderRadius: "10px",
-                      background: "#dbeafe",
+                      background: "var(--mz-surface)",
                       color: "#2563eb",
                       display: "flex",
                       alignItems: "center",
@@ -4612,7 +4615,7 @@ export default function Coding() {
                   </div>
                   <div>
                     <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "3px" }}>
-                      <span style={{ fontSize: "14.5px", fontWeight: 700, color: "#1e3a8a" }}>
+                      <span style={{ fontSize: "14.5px", fontWeight: 700, color: "var(--mz-text-primary)" }}>
                         1. Learning Module
                       </span>
                       <span
@@ -4622,28 +4625,28 @@ export default function Coding() {
                           textTransform: "uppercase",
                           padding: "2px 7px",
                           borderRadius: "9999px",
-                          background: selectedModuleChoice.isStudied ? "#d1fae5" : "#eff6ff",
-                          color: selectedModuleChoice.isStudied ? "#065f46" : "#1d4ed8",
-                          border: selectedModuleChoice.isStudied ? "1px solid #a7f3d0" : "1px solid #bfdbfe",
+                          background: selectedModuleChoice.isStudied ? "var(--mz-emerald-soft)" : "var(--mz-blue-soft)",
+                          color: selectedModuleChoice.isStudied ? "var(--mz-emerald-text)" : "var(--mz-blue-text)",
+                          border: selectedModuleChoice.isStudied ? "1px solid var(--mz-emerald-border)" : "1px solid var(--mz-blue-border)",
                         }}
                       >
                         {selectedModuleChoice.isStudied ? "✓ Completed" : "Unlocked & Ready"}
                       </span>
                     </div>
-                    <p style={{ margin: 0, fontSize: "12.5px", color: "#475569", lineHeight: 1.4 }}>
+                    <p style={{ margin: 0, fontSize: "12.5px", color: "var(--mz-text-secondary)", lineHeight: 1.4 }}>
                       In-depth concept mastery, syntax breakdown, annotated code examples, and study notes.
                     </p>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: "5px", marginTop: "6px" }}>
-                      <span style={{ fontSize: "10.5px", fontWeight: 600, color: "#2563eb", background: "#eff6ff", border: "1px solid #bfdbfe", padding: "1px 7px", borderRadius: "5px" }}>
+                      <span style={{ fontSize: "10.5px", fontWeight: 600, color: "var(--mz-blue-text)", background: "var(--mz-surface)", border: "1px solid var(--mz-blue-border)", padding: "1px 7px", borderRadius: "5px" }}>
                         📖 {selectedModuleChoice.sections?.length || 5} Topics
                       </span>
-                      <span style={{ fontSize: "10.5px", fontWeight: 600, color: "#7c3aed", background: "#f5f3ff", border: "1px solid #ddd6fe", padding: "1px 7px", borderRadius: "5px" }}>
+                      <span style={{ fontSize: "10.5px", fontWeight: 600, color: "var(--mz-purple-text)", background: "var(--mz-purple-soft)", border: "1px solid var(--mz-purple-border)", padding: "1px 7px", borderRadius: "5px" }}>
                         📚 {selectedModuleChoice.references?.length || 3} Official Standards
                       </span>
-                      <span style={{ fontSize: "10.5px", fontWeight: 600, color: "#059669", background: "#ecfdf5", border: "1px solid #a7f3d0", padding: "1px 7px", borderRadius: "5px" }}>
+                      <span style={{ fontSize: "10.5px", fontWeight: 600, color: "var(--mz-emerald-text)", background: "var(--mz-emerald-soft)", border: "1px solid var(--mz-emerald-border)", padding: "1px 7px", borderRadius: "5px" }}>
                         ⚡ Live Sandbox
                       </span>
-                      <span style={{ fontSize: "10.5px", fontWeight: 600, color: "#d97706", background: "#fffbeb", border: "1px solid #fde68a", padding: "1px 7px", borderRadius: "5px" }}>
+                      <span style={{ fontSize: "10.5px", fontWeight: 600, color: "var(--mz-amber-text)", background: "var(--mz-amber-soft)", border: "1px solid var(--mz-amber-border)", padding: "1px 7px", borderRadius: "5px" }}>
                         🧠 Quiz
                       </span>
                     </div>
@@ -4691,8 +4694,8 @@ export default function Coding() {
                       window.open(`/coding-test/${activeTrackId}/${mIdx}`, "_blank", "noopener,noreferrer");
                     }}
                     style={{
-                      border: isUnlocked ? (isPassed ? "1px solid #a7f3d0" : "1.5px solid #3b82f6") : "1px solid #e2e8f0",
-                      background: isUnlocked ? (isPassed ? "#f0fdf4" : "#ffffff") : "#f8fafc",
+                      border: isUnlocked ? (isPassed ? "1px solid var(--mz-emerald-border)" : "1.5px solid #3b82f6") : "1px solid var(--mz-border)",
+                      background: isUnlocked ? (isPassed ? "var(--mz-emerald-soft)" : "var(--mz-surface)") : "var(--mz-surface-subtle)",
                       borderRadius: "14px",
                       padding: "16px 18px",
                       display: "flex",
@@ -4709,8 +4712,8 @@ export default function Coding() {
                           width: "40px",
                           height: "40px",
                           borderRadius: "10px",
-                          background: isUnlocked ? (isPassed ? "#dcfce7" : "#eff6ff") : "#e2e8f0",
-                          color: isUnlocked ? (isPassed ? "#15803d" : "#2563eb") : "#94a3b8",
+                          background: isUnlocked ? (isPassed ? "var(--mz-green-soft)" : "var(--mz-blue-soft)") : "var(--mz-surface-muted)",
+                          color: isUnlocked ? (isPassed ? "var(--mz-green-text)" : "var(--mz-blue-text)") : "var(--mz-text-subtle)",
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
@@ -4721,7 +4724,7 @@ export default function Coding() {
                       </div>
                       <div>
                         <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "3px" }}>
-                          <span style={{ fontSize: "14.5px", fontWeight: 700, color: isUnlocked ? "#0f172a" : "#64748b" }}>
+                          <span style={{ fontSize: "14.5px", fontWeight: 700, color: isUnlocked ? "var(--mz-text-primary)" : "var(--mz-text-muted)" }}>
                             2. Practical Coding Test
                           </span>
                           <span
@@ -4731,15 +4734,15 @@ export default function Coding() {
                               textTransform: "uppercase",
                               padding: "2px 7px",
                               borderRadius: "9999px",
-                              background: isPassed ? "#d1fae5" : isUnlocked ? "#eff6ff" : "#f1f5f9",
-                              color: isPassed ? "#065f46" : isUnlocked ? "#1d4ed8" : "#64748b",
-                              border: isPassed ? "1px solid #a7f3d0" : isUnlocked ? "1px solid #bfdbfe" : "1px solid #cbd5e1",
+                              background: isPassed ? "var(--mz-emerald-soft)" : isUnlocked ? "var(--mz-blue-soft)" : "var(--mz-surface-muted)",
+                              color: isPassed ? "var(--mz-emerald-text)" : isUnlocked ? "var(--mz-blue-text)" : "var(--mz-text-muted)",
+                              border: isPassed ? "1px solid var(--mz-emerald-border)" : isUnlocked ? "1px solid var(--mz-blue-border)" : "1px solid var(--mz-border)",
                             }}
                           >
                             {isPassed ? "✓ Passed (100%)" : isUnlocked ? "Unlocked & Ready" : "🔒 Locked"}
                           </span>
                         </div>
-                        <p style={{ margin: 0, fontSize: "12.5px", color: "#64748b", lineHeight: 1.4 }}>
+                        <p style={{ margin: 0, fontSize: "12.5px", color: "var(--mz-text-muted)", lineHeight: 1.4 }}>
                           {isUnlocked
                             ? "Interactive Monaco code editor, sandboxed execution, and real-time test case verification."
                             : "Locked — Requires completing Module Learning (Step 1) to unlock."}
@@ -4752,8 +4755,8 @@ export default function Coding() {
                       style={{
                         padding: "8px 16px",
                         borderRadius: "8px",
-                        background: isUnlocked ? (isPassed ? "#059669" : "#2563eb") : "#e2e8f0",
-                        color: isUnlocked ? "#ffffff" : "#94a3b8",
+                        background: isUnlocked ? (isPassed ? "#059669" : "#2563eb") : "var(--mz-surface-muted)",
+                        color: isUnlocked ? "#ffffff" : "var(--mz-text-subtle)",
                         border: "none",
                         fontSize: "12.5px",
                         fontWeight: 700,
@@ -4798,8 +4801,8 @@ export default function Coding() {
                       window.open(`/proctored-assessment/${activeTrackId}/${mIdx}`, "_blank", "noopener,noreferrer");
                     }}
                     style={{
-                      border: isUnlocked ? (isPassed ? "1px solid #a7f3d0" : "1.5px solid #3b82f6") : "1px solid #e2e8f0",
-                      background: isUnlocked ? (isPassed ? "#f0fdf4" : "#ffffff") : "#f8fafc",
+                      border: isUnlocked ? (isPassed ? "1px solid var(--mz-emerald-border)" : "1.5px solid #3b82f6") : "1px solid var(--mz-border)",
+                      background: isUnlocked ? (isPassed ? "var(--mz-emerald-soft)" : "var(--mz-surface)") : "var(--mz-surface-subtle)",
                       borderRadius: "14px",
                       padding: "16px 18px",
                       display: "flex",
@@ -4816,8 +4819,8 @@ export default function Coding() {
                           width: "40px",
                           height: "40px",
                           borderRadius: "10px",
-                          background: isUnlocked ? (isPassed ? "#dcfce7" : "#eff6ff") : "#e2e8f0",
-                          color: isUnlocked ? (isPassed ? "#15803d" : "#2563eb") : "#94a3b8",
+                          background: isUnlocked ? (isPassed ? "var(--mz-green-soft)" : "var(--mz-blue-soft)") : "var(--mz-surface-muted)",
+                          color: isUnlocked ? (isPassed ? "var(--mz-green-text)" : "var(--mz-blue-text)") : "var(--mz-text-subtle)",
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
@@ -4828,7 +4831,7 @@ export default function Coding() {
                       </div>
                       <div>
                         <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "3px" }}>
-                          <span style={{ fontSize: "14.5px", fontWeight: 700, color: isUnlocked ? "#0f172a" : "#64748b" }}>
+                          <span style={{ fontSize: "14.5px", fontWeight: 700, color: isUnlocked ? "var(--mz-text-primary)" : "var(--mz-text-muted)" }}>
                             3. Proctored 10-MCQ Exam
                           </span>
                           <span
@@ -4838,9 +4841,9 @@ export default function Coding() {
                               textTransform: "uppercase",
                               padding: "2px 7px",
                               borderRadius: "9999px",
-                              background: isPassed ? "#d1fae5" : isUnlocked ? "#eff6ff" : "#f1f5f9",
-                              color: isPassed ? "#065f46" : isUnlocked ? "#1d4ed8" : "#64748b",
-                              border: isPassed ? "1px solid #a7f3d0" : isUnlocked ? "1px solid #bfdbfe" : "1px solid #cbd5e1",
+                              background: isPassed ? "var(--mz-emerald-soft)" : isUnlocked ? "var(--mz-blue-soft)" : "var(--mz-surface-muted)",
+                              color: isPassed ? "var(--mz-emerald-text)" : isUnlocked ? "var(--mz-blue-text)" : "var(--mz-text-muted)",
+                              border: isPassed ? "1px solid var(--mz-emerald-border)" : isUnlocked ? "1px solid var(--mz-blue-border)" : "1px solid var(--mz-border)",
                             }}
                           >
                             {isPassed
@@ -4850,7 +4853,7 @@ export default function Coding() {
                               : "🔒 Locked"}
                           </span>
                         </div>
-                        <p style={{ margin: 0, fontSize: "12.5px", color: "#64748b", lineHeight: 1.4 }}>
+                        <p style={{ margin: 0, fontSize: "12.5px", color: "var(--mz-text-muted)", lineHeight: 1.4 }}>
                           {isUnlocked
                             ? "Proctored assessment with 5-lives security gate, webcam validation, and 80% pass threshold."
                             : !isStudyDone
@@ -4865,8 +4868,8 @@ export default function Coding() {
                       style={{
                         padding: "8px 16px",
                         borderRadius: "8px",
-                        background: isUnlocked ? (isPassed ? "#059669" : "#2563eb") : "#e2e8f0",
-                        color: isUnlocked ? "#ffffff" : "#94a3b8",
+                        background: isUnlocked ? (isPassed ? "#059669" : "#2563eb") : "var(--mz-surface-muted)",
+                        color: isUnlocked ? "#ffffff" : "var(--mz-text-subtle)",
                         border: "none",
                         fontSize: "12.5px",
                         fontWeight: 700,
@@ -4889,14 +4892,14 @@ export default function Coding() {
             <div
               style={{
                 padding: "14px 24px",
-                background: "#f8fafc",
-                borderTop: "1px solid #f1f5f9",
+                background: "var(--mz-surface-subtle)",
+                borderTop: "1px solid var(--mz-border-subtle)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
               }}
             >
-              <span style={{ fontSize: "12px", color: "#64748b", display: "flex", alignItems: "center", gap: "6px" }}>
+              <span style={{ fontSize: "12px", color: "var(--mz-text-muted)", display: "flex", alignItems: "center", gap: "6px" }}>
                 <LuClock size={13} /> Estimated: {selectedModuleChoice.estimatedTime || "45m"} for all 3 steps
               </span>
               <button
@@ -4905,9 +4908,9 @@ export default function Coding() {
                 style={{
                   padding: "6px 14px",
                   borderRadius: "6px",
-                  background: "#ffffff",
-                  border: "1px solid #cbd5e1",
-                  color: "#475569",
+                  background: "var(--mz-surface)",
+                  border: "1px solid var(--mz-border)",
+                  color: "var(--mz-text-secondary)",
                   fontSize: "12.5px",
                   fontWeight: 600,
                   cursor: "pointer",

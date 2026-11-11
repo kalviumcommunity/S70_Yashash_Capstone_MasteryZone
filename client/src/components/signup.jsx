@@ -19,6 +19,7 @@ import { toast } from "react-toastify";
 import logoIcon from "../assets/logo_icon_transparent.png";
 import illustrationImg from "../assets/login_illustration.png";
 import "./Signup.css";
+import ThemeToggle from "./ThemeToggle.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 const AUTH_BASE = API_BASE ? `${API_BASE}/auth` : "/auth";
@@ -348,6 +349,7 @@ const Signup = () => {
         </Link>
 
         <div className="mz-nav-right">
+          <ThemeToggle />
           <span className="mz-nav-text">Already have an account?</span>
           <Link to="/login" className="mz-nav-login-btn">
             Login <LuArrowRight size={15} />
