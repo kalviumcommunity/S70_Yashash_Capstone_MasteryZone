@@ -84,11 +84,22 @@ function getSenderAddress(department = 'Mastery Zone') {
   const match = senderEmail.match(/<([^>]+)>/);
   if (match) cleanEmail = match[1].trim();
 
-  if (!cleanEmail) {
-    if (!isTrustedLocal) {
+  if (!cleanEmail || cleanEmail.toLowerCase().endsWith('@masteryzone.com') || cleanEmail.toLowerCase().endsWith('@masteryzone.test')) {
+    const verifiedFallback = (
+      process.env.BREVO_SENDER_EMAIL ||
+      process.env.SMTP_EMAIL ||
+      config.email ||
+      process.env.MAIN_ADMIN_EMAIL ||
+      process.env.ADMIN_EMAIL ||
+      ''
+    ).trim();
+    if (verifiedFallback && !verifiedFallback.toLowerCase().endsWith('@masteryzone.com') && !verifiedFallback.toLowerCase().endsWith('@masteryzone.test')) {
+      cleanEmail = verifiedFallback;
+    } else if (!isTrustedLocal) {
       return null;
+    } else {
+      cleanEmail = 'notifications@masteryzone.com';
     }
-    cleanEmail = 'notifications@masteryzone.com';
   }
 
   return `"${department}" <${cleanEmail}>`;
@@ -1245,6 +1256,8 @@ function dispatchMailBackground(mailPromiseFn, meta = {}) {
       const res = await fn();
       if (res && res.success === false) {
         console.warn(`[Mailer Background Warning] ${meta.type || 'email'} to ${meta.recipient || 'recipient'} did not succeed: ${res.message} (${res.errorCode || res.status})`);
+      } else if (res && res.success === true) {
+        console.log(`✅ [Mailer Background] ${meta.type || 'email'} delivered successfully to ${meta.recipient || 'recipient'} (msgId: ${res.messageId || 'ok'})`);
       }
     } catch (err) {
       console.error(`[Mailer Background Error] Unhandled exception in background email dispatch:`, err.message);
