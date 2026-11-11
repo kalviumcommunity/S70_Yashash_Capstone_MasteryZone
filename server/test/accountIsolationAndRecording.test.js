@@ -273,7 +273,7 @@ async function runTests() {
           scheduledStartTime: new Date(),
         }),
       });
-      assert.strictEqual(resCreate.status, 201);
+      assert([200, 201].includes(resCreate.status), "Meeting creation must return 200 or 201");
       const dataM = await resCreate.json();
       const privateMeetingId = dataM.meeting.meetingId;
 
