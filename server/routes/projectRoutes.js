@@ -230,6 +230,30 @@ async function prepareMultiFileSandbox(project, files) {
       };
     }
 
+    if (lang === "c" || lang === "cpp" || lang === "c++") {
+      const isCpp = lang === "cpp" || lang === "c++";
+      const sourcePattern = isCpp ? /\.(?:cc|cpp|cxx)$/i : /\.c$/i;
+      const sourceFiles = files.filter((f) => sourcePattern.test(String(f.name || "")));
+      const compileFiles = (sourceFiles.length ? sourceFiles : files.filter((f) => !/\.(?:h|hh|hpp|hxx)$/i.test(String(f.name || ""))))
+        .map((f) => path.join(tmpDir, path.basename(f.name)));
+      if (!compileFiles.length) throw new Error(`No ${isCpp ? "C++" : "C"} source files found in project.`);
+      const executable = path.join(tmpDir, isCpp ? "project_cpp_bin" : "project_c_bin");
+      const compiler = isCpp ? GPP_BIN : GCC_BIN;
+      const compileRes = await runSandboxedProcess(compiler, ["-Wall", "-O0", ...compileFiles, "-o", executable], "", 12000, tmpDir);
+      if (compileRes.exitCode !== 0) {
+        return {
+          ok: false,
+          compileError: `Compilation Error (${isCpp ? "C++" : "C"}):\n${compileRes.error || compileRes.output}`,
+          cleanup: () => fs.rmSync(tmpDir, { recursive: true, force: true }),
+        };
+      }
+      return {
+        ok: true,
+        runInput: (stdin) => runSandboxedProcess(executable, [], stdin, 4000, tmpDir),
+        cleanup: () => fs.rmSync(tmpDir, { recursive: true, force: true }),
+      };
+    }
+
     // Default: JavaScript / Node.js
     const jsFiles = files
       .filter((f) => f.name.endsWith(".js"))
@@ -378,8 +402,6 @@ async function evaluateFullProject(project, rawFiles) {
           !res.isCompileError &&
           !res.isRuntimeError &&
           !res.isUnavailable &&
-          actualClean.length > 0 &&
-          expectedClean.length > 0 &&
           validateTestCaseOutput(actualClean, expectedClean);
 
         testResults.push({

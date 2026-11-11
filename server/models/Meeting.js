@@ -44,6 +44,14 @@ const meetingSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    inviteAccessTokens: [
+      {
+        email: { type: String, required: true, lowercase: true, trim: true },
+        tokenHash: { type: String, required: true },
+        expiresAt: { type: Date, required: true },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
     isPrivate: {
       type: Boolean,
       default: false,
