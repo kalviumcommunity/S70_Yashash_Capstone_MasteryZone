@@ -3409,6 +3409,20 @@ router.get("/email/brevo-senders", async (req, res) => {
   }
 });
 
+router.get("/email/brevo-events", async (req, res) => {
+  try {
+    const apiKey = process.env.BREVO_API_KEY;
+    if (!apiKey) return res.json({ error: "No BREVO_API_KEY configured" });
+    const bRes = await fetch("https://api.brevo.com/v3/smtp/statistics/events?limit=10", {
+      headers: { "api-key": apiKey },
+    });
+    const data = await bRes.json();
+    res.json({ status: bRes.status, events: data });
+  } catch (e) {
+    res.json({ error: e.message });
+  }
+});
+
 router.post("/email/test", async (req, res) => {
   try {
     const { sendTestEmail } = require("../utils/mailer");
