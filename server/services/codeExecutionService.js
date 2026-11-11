@@ -1082,7 +1082,8 @@ function parsePositiveInt(val, fallback) {
  * and configurable language IDs (JUDGE0_LANG_PYTHON, JUDGE0_LANG_JAVASCRIPT, JUDGE0_LANG_JAVA, JUDGE0_LANG_CPP, JUDGE0_LANG_C).
  */
 function getJudge0Config() {
-  const rawHost = String(process.env.JUDGE0_API_HOST || process.env.JUDGE0_API_URL || "").trim();
+  const isCloudOrRender = Boolean(process.env.RENDER || process.env.RENDER_SERVICE_ID || process.env.IS_RENDER);
+  let rawHost = String(process.env.JUDGE0_API_HOST || process.env.JUDGE0_API_URL || (isCloudOrRender ? "https://ce.judge0.com" : "")).trim();
   if (!rawHost || rawHost === "undefined" || rawHost === "null") {
     return {
       configured: false,

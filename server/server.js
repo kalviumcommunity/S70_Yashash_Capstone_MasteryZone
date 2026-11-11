@@ -3,6 +3,11 @@ const path = require("path");
 require("dotenv").config({ path: path.resolve(__dirname, ".env") });
 require("dotenv").config();
 
+// Ensure Judge0 isolated execution sandbox host is always configured for runtime execution
+if (process.env.NODE_ENV !== "test" && !process.env.JUDGE0_API_HOST && !process.env.JUDGE0_API_URL) {
+  process.env.JUDGE0_API_HOST = "https://ce.judge0.com";
+}
+
 const express = require("express")
 const fs = require("fs")
 const mongoose = require("mongoose")

@@ -296,6 +296,7 @@ export default function MasteryZoneCompilerWorkspace({
   onRunTests,
   onSubmit,
   onClose,
+  isRetake = false,
 }) {
   // Normalize language key: "cpp", "python", "javascript", "java"
   const normalizeLang = (l) => {
@@ -307,7 +308,7 @@ export default function MasteryZoneCompilerWorkspace({
     return "python";
   };
 
-  const isRetakeRequested = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("retake") === "true";
+  const isRetakeRequested = isRetake || (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("retake") === "true");
 
   const [selectedLang, setSelectedLang] = useState(normalizeLang(defaultLanguage));
   const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);

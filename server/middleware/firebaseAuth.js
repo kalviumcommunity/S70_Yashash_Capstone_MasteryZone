@@ -11,9 +11,10 @@ async function getGooglePublicKeys() {
     return publicKeysCache.keys;
   }
   return new Promise((resolve, reject) => {
-    https
+    const req = https
       .get(
         'https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com',
+        { timeout: 10000 },
         (res) => {
           let data = '';
           res.on('data', (c) => (data += c));
@@ -27,8 +28,11 @@ async function getGooglePublicKeys() {
             }
           });
         }
-      )
-      .on('error', reject);
+      );
+    req.on('timeout', () => {
+      req.destroy(new Error('Timeout fetching Google public keys'));
+    });
+    req.on('error', reject);
   });
 }
 

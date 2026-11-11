@@ -587,6 +587,7 @@ export default function SubjectCurriculumView({
           module={activeAssessmentModule}
           subjectKey={subjectKey}
           trackId={selectedTrack}
+          isRetake={Boolean(activeAssessmentModule.assessmentPassed)}
           onClose={() => setActiveAssessmentModule(null)}
           onAssessmentCompleted={() => {
             fetchCurriculum(selectedTrack);

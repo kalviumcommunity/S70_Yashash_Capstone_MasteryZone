@@ -44,11 +44,12 @@ export default function ProctoredAssessmentWorkspace({
   onClose,
   onAssessmentCompleted,
   isStandalone = false,
+  isRetake = false,
 }) {
   const navigate = useNavigate();
   const { trackId: paramTrackId, moduleId: paramModuleId } = useParams();
   const [searchParams] = useSearchParams();
-  const isRetakeQuery = searchParams.get("retake") === "true";
+  const isRetakeQuery = searchParams.get("retake") === "true" || Boolean(isRetake);
 
   const [module, setModule] = useState(propModule || null);
   const [loadingModule, setLoadingModule] = useState(!propModule);
