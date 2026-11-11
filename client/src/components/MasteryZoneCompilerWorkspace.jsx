@@ -297,6 +297,7 @@ export default function MasteryZoneCompilerWorkspace({
   onSubmit,
   onClose,
   isRetake = false,
+  timeLimitMinutes = 60,
 }) {
   // Normalize language key: "cpp", "python", "javascript", "java"
   const normalizeLang = (l) => {
@@ -3151,7 +3152,7 @@ export default function MasteryZoneCompilerWorkspace({
     return (
       <AssessmentSecurityGate
         assessmentTitle={title || questionDetails.title}
-        timeLimitMinutes={60}
+        timeLimitMinutes={timeLimitMinutes || 60}
         questionId={questionId || problemData?.id}
         problemData={questionDetails}
         onCancel={() => {
