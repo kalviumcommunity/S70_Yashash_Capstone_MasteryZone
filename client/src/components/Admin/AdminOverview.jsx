@@ -23,29 +23,61 @@ import {
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
-// Smooth SVG sparklines matching the reference mockup
-const Sparkline = ({ stroke = "#3b82f6", d }) => (
-  <svg
-    viewBox="0 0 160 36"
-    style={{
-      width: "100%",
-      height: 32,
-      display: "block",
-      overflow: "visible",
-      marginTop: 8,
-    }}
-    preserveAspectRatio="none"
-  >
-    <path
-      d={d}
-      fill="none"
-      stroke={stroke}
-      strokeWidth="2.2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </svg>
-);
+// Dynamic Smooth SVG sparklines matching genuine trend points
+const generateSparklinePath = (points = []) => {
+  if (!points || points.length === 0) {
+    return "M 0 24 L 160 24";
+  }
+  const min = Math.min(...points);
+  const max = Math.max(...points);
+  const range = max - min || 1;
+  const width = 160;
+  const height = 32;
+  const pad = 6;
+  const coords = points.map((p, i) => {
+    const x = (i / (points.length - 1 || 1)) * width;
+    const y = height - pad - ((p - min) / range) * (height - 2 * pad);
+    return { x, y };
+  });
+  if (coords.length === 1) return `M 0 ${coords[0].y} L ${width} ${coords[0].y}`;
+  let d = `M ${coords[0].x} ${coords[0].y}`;
+  for (let i = 1; i < coords.length; i++) {
+    const prev = coords[i - 1];
+    const cur = coords[i];
+    const cpX1 = prev.x + (cur.x - prev.x) / 2;
+    const cpY1 = prev.y;
+    const cpX2 = prev.x + (cur.x - prev.x) / 2;
+    const cpY2 = cur.y;
+    d += ` C ${cpX1} ${cpY1}, ${cpX2} ${cpY2}, ${cur.x} ${cur.y}`;
+  }
+  return d;
+};
+
+const Sparkline = ({ stroke = "#3b82f6", data, d }) => {
+  const pathData = data && data.length > 0 ? generateSparklinePath(data) : (d || "M 0 24 L 160 24");
+  return (
+    <svg
+      viewBox="0 0 160 36"
+      style={{
+        width: "100%",
+        height: 32,
+        display: "block",
+        overflow: "visible",
+        marginTop: 8,
+      }}
+      preserveAspectRatio="none"
+    >
+      <path
+        d={pathData}
+        fill="none"
+        stroke={stroke}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+};
 
 const AdminOverview = () => {
   const [filterRange, setFilterRange] = useState("30d"); // "today" | "yesterday" | "30d" | "3m" | "custom"
@@ -157,6 +189,13 @@ const AdminOverview = () => {
   // Scale Y max nicely (e.g. 1.5k or calculated max)
   const rawMax = Math.max(1, ...trendPoints.map((p) => Number(p.activeUsers || 0)));
   const maxActive = rawMax > 500 ? 1500 : rawMax > 50 ? 100 : Math.max(10, rawMax);
+  const trendValues = trendPoints.map((p) => Number(p.activeUsers || 0));
+
+  const formatYLabel = (val) => {
+    if (val >= 1000) return `${(val / 1000).toFixed(val % 1000 === 0 ? 0 : 1)}k`;
+    return Math.round(val);
+  };
+
   const chartHeight = 160;
   const chartWidth = 560;
 
@@ -374,7 +413,7 @@ const AdminOverview = () => {
             <span>↑</span>
             <span>{stats.totalUsers?.trend || "Registered & Verified"}</span>
           </p>
-          <Sparkline stroke="#3b82f6" d="M 0 28 C 30 28, 45 10, 75 18 C 105 26, 125 12, 160 16" />
+          <Sparkline stroke="#3b82f6" data={trendValues} />
         </div>
 
         {/* Card 2: Active Today */}
@@ -390,7 +429,7 @@ const AdminOverview = () => {
             <span>↑</span>
             <span>{stats.activeToday?.trend || "Active within range"}</span>
           </p>
-          <Sparkline stroke="#10b981" d="M 0 26 C 25 30, 45 14, 75 22 C 105 30, 130 8, 160 14" />
+          <Sparkline stroke="#10b981" data={trendValues} />
         </div>
 
         {/* Card 3: Active Sessions */}
@@ -406,7 +445,7 @@ const AdminOverview = () => {
             <span>↑</span>
             <span>{stats.activeSessions?.trend || "Live socket sessions"}</span>
           </p>
-          <Sparkline stroke="#8b5cf6" d="M 0 24 C 30 32, 50 12, 85 24 C 115 34, 135 16, 160 20" />
+          <Sparkline stroke="#8b5cf6" data={trendValues} />
         </div>
 
         {/* Card 4: Assessments */}
@@ -422,7 +461,7 @@ const AdminOverview = () => {
             <span>↑</span>
             <span>{stats.assessments?.trend || "Completed exams"}</span>
           </p>
-          <Sparkline stroke="#f59e0b" d="M 0 30 C 35 30, 55 12, 85 20 C 115 28, 135 10, 160 12" />
+          <Sparkline stroke="#f59e0b" data={trendValues} />
         </div>
 
         {/* Card 5: Coding Submissions */}
@@ -438,7 +477,7 @@ const AdminOverview = () => {
             <span>↑</span>
             <span>{stats.codingSubmissions?.trend || "Compiler evaluations"}</span>
           </p>
-          <Sparkline stroke="#10b981" d="M 0 26 C 30 26, 50 8, 80 18 C 110 28, 130 14, 160 10" />
+          <Sparkline stroke="#10b981" data={trendValues} />
         </div>
 
         {/* Card 6: Storage Used */}
@@ -530,16 +569,16 @@ const AdminOverview = () => {
             onMouseMove={handleChartMouseMove}
             onMouseLeave={handleChartMouseLeave}
           >
-            {/* Y-axis grid lines with clean values: 1.5k, 1k, 500, 0 */}
+            {/* Y-axis grid lines with dynamic clean values */}
             <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", justifyContent: "space-between", fontSize: 11, color: "var(--mz-text-subtle)", pointerEvents: "none", paddingBottom: 28 }}>
               <div style={{ borderBottom: "1px dashed var(--mz-surface-muted)", display: "flex", justifyContent: "flex-start", paddingBottom: 2 }}>
-                <span style={{ fontWeight: 500, width: 34 }}>1.5k</span>
+                <span style={{ fontWeight: 500, width: 34 }}>{formatYLabel(maxActive)}</span>
               </div>
               <div style={{ borderBottom: "1px dashed var(--mz-surface-muted)", display: "flex", justifyContent: "flex-start", paddingBottom: 2 }}>
-                <span style={{ fontWeight: 500, width: 34 }}>1k</span>
+                <span style={{ fontWeight: 500, width: 34 }}>{formatYLabel(maxActive * 0.66)}</span>
               </div>
               <div style={{ borderBottom: "1px dashed var(--mz-surface-muted)", display: "flex", justifyContent: "flex-start", paddingBottom: 2 }}>
-                <span style={{ fontWeight: 500, width: 34 }}>500</span>
+                <span style={{ fontWeight: 500, width: 34 }}>{formatYLabel(maxActive * 0.33)}</span>
               </div>
               <div style={{ borderBottom: "1px solid var(--mz-surface-muted)", display: "flex", justifyContent: "flex-start", paddingBottom: 2 }}>
                 <span style={{ fontWeight: 500, width: 34 }}>0</span>

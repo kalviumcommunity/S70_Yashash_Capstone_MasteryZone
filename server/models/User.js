@@ -58,7 +58,7 @@ const userSchema = new mongoose.Schema({
   exploredTracks: { type: [String], default: [] },
   groups: [{ type: mongoose.Schema.Types.ObjectId, ref: "Group" }],
   progress: [{ type: mongoose.Schema.Types.ObjectId, ref: "Progress" }],
-  role: { type: String, enum: ["user", "admin", "SUPER_ADMIN"], default: "user" },
+  role: { type: String, enum: ["user", "student", "mentor", "instructor", "admin", "SUPER_ADMIN"], default: "user" },
   isMainAdmin: { type: Boolean, default: false },
   adminPermissions: { type: [String], default: [] },
   mustChangePassword: { type: Boolean, default: false },
