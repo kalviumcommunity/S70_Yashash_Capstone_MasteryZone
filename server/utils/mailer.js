@@ -1259,6 +1259,22 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
     return ['ETIMEDOUT', 'ECONNECTION', 'ESOCKET', '421', '451'].includes(String(code));
   };
 
+  // Final Hard-Stop: Never allow any unroutable domain (@masteryzone.com, @masteryzone.test, .invalid, .local) to connect to real external SMTP
+  const isTargetUnroutable = recipientDomain === 'masteryzone.com' || recipientDomain === 'masteryzone.test' || recipientDomain.endsWith('.test') || recipientDomain.endsWith('.invalid') || recipientDomain.endsWith('.local');
+  if (isTargetUnroutable) {
+    const isMocked = tp && (tp.options?.jsonTransport || !tp.transporter || tp._isMock);
+    if (!isMocked) {
+      console.log(`🛡️ [Mailer Hard-Stop] Refusing real SMTP dispatch to unroutable domain "${to}" — suppressing to prevent bounce spam.`);
+      return {
+        success: true,
+        status: 'suppressed',
+        errorCode: 'ENOMX_DOMAIN',
+        message: `Suppressed delivery to ${to} to prevent Gmail mailer-daemon bounce spam.`,
+        suppressed: true,
+      };
+    }
+  }
+
   let attempt = 0;
   let lastErr = null;
 
