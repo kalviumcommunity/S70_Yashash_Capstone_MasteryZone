@@ -909,7 +909,8 @@ router.get("/stream/:filename", async (req, res) => {
     if (range && fileSize > 0) {
       const parts = range.replace(/bytes=/, "").split("-");
       const start = parseInt(parts[0], 10);
-      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+      const CHUNK_SIZE = 1.5 * 1024 * 1024; // 1.5MB chunk window for smooth streaming without buffer starvation
+      const end = parts[1] ? parseInt(parts[1], 10) : Math.min(start + CHUNK_SIZE - 1, fileSize - 1);
 
       if (start >= fileSize) {
         res.status(416).send(`Requested range not satisfiable: ${start} >= ${fileSize}`);

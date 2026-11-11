@@ -679,6 +679,7 @@ const Home = () => {
   const [shareToast, setShareToast] = useState(null);
   const [newBookmarkNote, setNewBookmarkNote] = useState("");
   const videoPlayerRef = useRef(null);
+  const videoSeekThrottleRef = useRef(0);
 
   // Fetch recordings with smooth state merging to prevent blinking
   const fetchRecordings = async (showLoader = false) => {
@@ -4234,6 +4235,8 @@ const Home = () => {
                 src={getMediaUrl(activePlayingRecording.streamUrl || activePlayingRecording.fileUrl)}
                 controls
                 autoPlay
+                preload="auto"
+                playsInline
                 onLoadedMetadata={(e) => {
                   if (e.target.duration && isFinite(e.target.duration) && e.target.duration > 0) {
                     const d = Math.round(e.target.duration);
@@ -4244,11 +4247,28 @@ const Home = () => {
                 }}
                 onTimeUpdate={() => {
                   if (videoPlayerRef.current) {
+                    const now = Date.now();
+                    if (!videoSeekThrottleRef.current || now - videoSeekThrottleRef.current > 1500) {
+                      videoSeekThrottleRef.current = now;
+                      const uId = user?._id || user?.id || user?.userId || "guest";
+                      try {
+                        localStorage.setItem(
+                          `mz_${uId}_rec_seek_${activePlayingRecording.recordingId}`,
+                          Math.floor(videoPlayerRef.current.currentTime)
+                        );
+                      } catch {}
+                    }
+                  }
+                }}
+                onPause={() => {
+                  if (videoPlayerRef.current) {
                     const uId = user?._id || user?.id || user?.userId || "guest";
-                    localStorage.setItem(
-                      `mz_${uId}_rec_seek_${activePlayingRecording.recordingId}`,
-                      Math.floor(videoPlayerRef.current.currentTime)
-                    );
+                    try {
+                      localStorage.setItem(
+                        `mz_${uId}_rec_seek_${activePlayingRecording.recordingId}`,
+                        Math.floor(videoPlayerRef.current.currentTime)
+                      );
+                    } catch {}
                   }
                 }}
                 style={{ width: "100%", maxHeight: 420, outline: "none" }}
