@@ -88,13 +88,28 @@
   --mz-cyan-border: #a5f3fc;
   --mz-cyan-text: #0891b2;
 
+  /* Soft Tint Backgrounds (Badges, Chips, Pills) */
+  --mz-blue-soft: #eff6ff;
+  --mz-emerald-soft: #ecfdf5;
+  --mz-green-soft: #f0fdf4;
+  --mz-indigo-soft: #eef2ff;
+  --mz-purple-soft: #f5f3ff;
+  --mz-amber-soft: #fffbeb;
+  --mz-red-soft: #fef2f2;
+  --mz-cyan-soft: #ecfeff;
+
   /* Shadows */
+  --mz-shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.05);
   --mz-shadow-sm: 0 2px 8px rgba(15, 23, 42, 0.04);
   --mz-shadow-md: 0 8px 24px -4px rgba(15, 23, 42, 0.08), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
   --mz-shadow-lg: 0 20px 48px -8px rgba(15, 23, 42, 0.14), 0 6px 16px -4px rgba(15, 23, 42, 0.06);
+  --mz-shadow-xl: 0 25px 50px -12px rgba(15, 23, 42, 0.2);
   --mz-shadow-card: 0 4px 20px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
 
-  /* Banner Gradients */
+  /* Banner & Topbar Gradients */
+  --mz-gradient-topbar: linear-gradient(180deg, #edf5ff 0%, #e2eeff 100%);
+  --mz-gradient-card: linear-gradient(135deg, #ffffff 0%, #f8faff 100%);
+  --mz-gradient-hero: linear-gradient(135deg, #ffffff 0%, #f0f7ff 100%);
   --mz-hero-gradient: linear-gradient(135deg, #ffffff 0%, #f8faff 45%, #eff6ff 100%);
   --mz-header-gradient: linear-gradient(180deg, #edf5ff 0%, #e2eeff 100%);
 
@@ -214,13 +229,28 @@
   --mz-cyan-border: rgba(6, 182, 212, 0.35);
   --mz-cyan-text: #22d3ee;
 
+  /* Soft Tint Backgrounds - Obsidian Glass Badges */
+  --mz-blue-soft: rgba(37, 99, 235, 0.18);
+  --mz-emerald-soft: rgba(16, 185, 129, 0.18);
+  --mz-green-soft: rgba(34, 197, 94, 0.18);
+  --mz-indigo-soft: rgba(99, 102, 241, 0.18);
+  --mz-purple-soft: rgba(139, 92, 246, 0.18);
+  --mz-amber-soft: rgba(245, 158, 11, 0.18);
+  --mz-red-soft: rgba(239, 68, 68, 0.18);
+  --mz-cyan-soft: rgba(6, 182, 212, 0.18);
+
   /* Shadows */
+  --mz-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.6);
   --mz-shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.45);
   --mz-shadow-md: 0 10px 28px -4px rgba(0, 0, 0, 0.65);
   --mz-shadow-lg: 0 24px 54px -8px rgba(0, 0, 0, 0.85);
+  --mz-shadow-xl: 0 25px 50px -12px rgba(0, 0, 0, 0.95);
   --mz-shadow-card: 0 4px 24px -2px rgba(0, 0, 0, 0.6);
 
-  /* Banner Gradients */
+  /* Banner & Topbar Gradients - Obsidian Black */
+  --mz-gradient-topbar: rgba(0, 0, 0, 0.94);
+  --mz-gradient-card: linear-gradient(135deg, #0c0d12 0%, #111218 100%);
+  --mz-gradient-hero: linear-gradient(135deg, #090a0e 0%, #0d0e14 100%);
   --mz-hero-gradient: linear-gradient(135deg, #0e0f14 0%, #13141c 50%, #171822 100%);
   --mz-header-gradient: linear-gradient(180deg, #050608 0%, #0c0d12 100%);
 
