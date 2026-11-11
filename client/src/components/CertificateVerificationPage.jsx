@@ -18,6 +18,7 @@ const API_BASE = import.meta.env.VITE_API_URL || "";
 export default function CertificateVerificationPage() {
   const { certificateId } = useParams();
   const navigate = useNavigate();
+  const { isDark } = useTheme();
   const [certData, setCertData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -101,8 +102,10 @@ export default function CertificateVerificationPage() {
     <div
       style={{
         minHeight: "100vh",
-        background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
-        color: "#ffffff",
+        background: isDark
+          ? "radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.12) 0%, transparent 60%), #090d16"
+          : "radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.08) 0%, transparent 60%), #f8fafc",
+        color: isDark ? "#f1f5f9" : "#0f172a",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -112,14 +115,23 @@ export default function CertificateVerificationPage() {
       }}
       data-testid="certificate-verification-page"
     >
-      <div style={{ maxWidth: 680, width: "100%", textAlign: "center", marginBottom: 16 }}>
+      <div
+        style={{
+          maxWidth: 680,
+          width: "100%",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 16,
+        }}
+      >
         <button
           type="button"
           onClick={() => navigate("/")}
           style={{
             background: "transparent",
             border: "none",
-            color: "#94a3b8",
+            color: isDark ? "#94a3b8" : "#64748b",
             fontSize: 13,
             cursor: "pointer",
             display: "inline-flex",
@@ -129,17 +141,21 @@ export default function CertificateVerificationPage() {
         >
           <LuArrowLeft size={14} /> Back to Mastery Zone
         </button>
+        <ThemeToggle />
       </div>
 
       <div
         style={{
           maxWidth: 680,
           width: "100%",
-          background: "#ffffff",
-          color: "#0f172a",
+          background: isDark ? "#0f172a" : "#ffffff",
+          color: isDark ? "#f1f5f9" : "#0f172a",
+          border: isDark ? "1px solid #1e293b" : "1px solid #e2e8f0",
           borderRadius: 20,
           padding: 32,
-          boxShadow: "0 20px 50px rgba(0, 0, 0, 0.4)",
+          boxShadow: isDark
+            ? "0 20px 50px rgba(0, 0, 0, 0.6)"
+            : "0 20px 50px rgba(0, 0, 0, 0.08)",
           textAlign: "center",
         }}
       >
@@ -195,7 +211,7 @@ export default function CertificateVerificationPage() {
               <LuShieldCheck size={16} /> Official Verified Credential
             </div>
 
-            <h1 style={{ fontSize: 24, fontWeight: 800, margin: "0 0 4px", color: "#0f172a" }}>
+            <h1 style={{ fontSize: 24, fontWeight: 800, margin: "0 0 4px", color: isDark ? "#f1f5f9" : "#0f172a" }}>
               Mastery Zone Academy
             </h1>
             <p style={{ fontSize: 13, color: "#64748b", margin: "0 0 20px" }}>
@@ -499,8 +515,8 @@ export default function CertificateVerificationPage() {
             {/* Metadata Summary Card */}
             <div
               style={{
-                background: "#f8fafc",
-                border: "1px solid #e2e8f0",
+                background: isDark ? "#131b2e" : "#f8fafc",
+                border: isDark ? "1px solid #1e293b" : "1px solid #e2e8f0",
                 borderRadius: 12,
                 padding: 18,
                 textAlign: "left",
@@ -509,37 +525,37 @@ export default function CertificateVerificationPage() {
             >
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div>
-                  <span style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", fontWeight: 700 }}>
+                  <span style={{ fontSize: 11, color: isDark ? "#94a3b8" : "#64748b", textTransform: "uppercase", fontWeight: 700 }}>
                     Recipient
                   </span>
-                  <div style={{ fontSize: 15, fontWeight: 800, color: "#1e3a8a", marginTop: 2 }}>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: isDark ? "#93c5fd" : "#1e3a8a", marginTop: 2 }}>
                     {certData.recipientName}
                   </div>
                 </div>
 
                 <div>
-                  <span style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", fontWeight: 700 }}>
+                  <span style={{ fontSize: 11, color: isDark ? "#94a3b8" : "#64748b", textTransform: "uppercase", fontWeight: 700 }}>
                     Credential ID
                   </span>
-                  <div style={{ fontSize: 13, fontWeight: 700, fontFamily: "monospace", color: "#2563eb", marginTop: 2 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, fontFamily: "monospace", color: isDark ? "#60a5fa" : "#2563eb", marginTop: 2 }}>
                     {certData.certificateId}
                   </div>
                 </div>
 
                 <div>
-                  <span style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", fontWeight: 700 }}>
+                  <span style={{ fontSize: 11, color: isDark ? "#94a3b8" : "#64748b", textTransform: "uppercase", fontWeight: 700 }}>
                     Course / Examination
                   </span>
-                  <div style={{ fontSize: 13.5, fontWeight: 600, color: "#0f172a", marginTop: 2 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, color: isDark ? "#f1f5f9" : "#0f172a", marginTop: 2 }}>
                     {certData.certificationTitle}
                   </div>
                 </div>
 
                 <div>
-                  <span style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", fontWeight: 700 }}>
+                  <span style={{ fontSize: 11, color: isDark ? "#94a3b8" : "#64748b", textTransform: "uppercase", fontWeight: 700 }}>
                     Issue Date
                   </span>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: "#334155", marginTop: 2 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: isDark ? "#cbd5e1" : "#334155", marginTop: 2 }}>
                     {new Date(certData.issueDate).toLocaleDateString("en-US", {
                       month: "long",
                       day: "numeric",
@@ -549,9 +565,9 @@ export default function CertificateVerificationPage() {
                 </div>
               </div>
 
-              <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", fontSize: 11.5, color: "#64748b" }}>
+              <div style={{ marginTop: 12, paddingTop: 10, borderTop: isDark ? "1px solid #1e293b" : "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", fontSize: 11.5, color: isDark ? "#94a3b8" : "#64748b" }}>
                 <span>Status: <strong style={{ color: "#16a34a" }}>Valid & Active ✓</strong></span>
-                <span>Issuing Body: <strong>{certData.issuingOrganization}</strong></span>
+                <span>Issuing Body: <strong style={{ color: isDark ? "#f1f5f9" : "#0f172a" }}>{certData.issuingOrganization}</strong></span>
               </div>
             </div>
 
@@ -602,9 +618,9 @@ export default function CertificateVerificationPage() {
                 style={{
                   padding: "9px 18px",
                   borderRadius: 8,
-                  background: "#f1f5f9",
-                  border: "1px solid #cbd5e1",
-                  color: "#334155",
+                  background: isDark ? "#1e293b" : "#f1f5f9",
+                  border: isDark ? "1px solid #334155" : "1px solid #cbd5e1",
+                  color: isDark ? "#f1f5f9" : "#334155",
                   fontSize: 13,
                   fontWeight: 600,
                   cursor: "pointer",

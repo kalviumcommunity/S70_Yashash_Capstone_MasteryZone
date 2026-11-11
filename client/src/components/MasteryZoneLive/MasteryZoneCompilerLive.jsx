@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import Editor from "@monaco-editor/react";
+import { useTheme } from "../../context/ThemeContext";
 import {
   LuPlay,
   LuSquare,
@@ -168,6 +169,7 @@ export default function MasteryZoneCompilerLive({
   onToggleVideo,
   onToggleScreenShare,
 }) {
+  const { isDark } = useTheme();
   // Mode: "challenge" (Collaborative Challenge / Assessment) | "ide" (Full Cloud IDE)
   const [workspaceMode, setWorkspaceMode] = useState("challenge");
 
@@ -902,8 +904,9 @@ export default function MasteryZoneCompilerLive({
         className="mz-challenge-super-header"
         style={{
           height: 48,
-          background: "#ffffff",
-          borderBottom: "1px solid #e2e8f0",
+          background: isDark ? "var(--mz-surface, #0f172a)" : "#ffffff",
+          borderBottom: isDark ? "1px solid var(--mz-border, #1e293b)" : "1px solid #e2e8f0",
+          color: isDark ? "var(--mz-text-primary, #f1f5f9)" : "#0f172a",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -918,7 +921,7 @@ export default function MasteryZoneCompilerLive({
             <span style={{ color: "#2563eb", display: "flex", alignItems: "center" }}>
               <LuCode size={18} />
             </span>
-            <strong style={{ fontSize: 14, color: "#0f172a", fontWeight: 700 }}>Two Sum</strong>
+            <strong style={{ fontSize: 14, color: isDark ? "#f1f5f9" : "#0f172a", fontWeight: 700 }}>Two Sum</strong>
             <button
               style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", padding: 2 }}
               title="Flag problem for discussion"
@@ -1658,7 +1661,7 @@ export default function MasteryZoneCompilerLive({
             <Editor
               height="100%"
               language={editorLang}
-              theme="vs"
+              theme={isDark ? "vs-dark" : "vs"}
               value={activeFile.content}
               onChange={handleCodeChange}
               onMount={handleEditorDidMount}
