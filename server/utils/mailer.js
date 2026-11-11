@@ -1630,7 +1630,31 @@ function renderBulletproofButton({
 }
 
 // Standard Mastery Zone Base Layout Wrapper (Fully Responsive Mobile-First Architecture)
-function wrapHtmlEmail({ title, preheader, badgeText, badgeColor = '#4f46e5', badgeBg = '#eef2ff', contentHtml }) {
+function wrapHtmlEmail(optionsOrContent, legacyOptions = {}) {
+  let title, preheader, badgeText, badgeColor, badgeBg, contentHtml, logoUrl;
+  if (typeof optionsOrContent === 'string') {
+    contentHtml = optionsOrContent;
+    title = legacyOptions.title || 'Mastery Zone Notification';
+    preheader = legacyOptions.preheader || '';
+    badgeText = legacyOptions.badgeText || '';
+    badgeColor = legacyOptions.badgeColor || '#4f46e5';
+    badgeBg = legacyOptions.badgeBg || '#eef2ff';
+    logoUrl = legacyOptions.logoUrl || '';
+  } else {
+    ({
+      title = 'Mastery Zone Notification',
+      preheader = '',
+      badgeText = '',
+      badgeColor = '#4f46e5',
+      badgeBg = '#eef2ff',
+      contentHtml = '',
+      logoUrl = '',
+    } = optionsOrContent || {});
+  }
+
+  const defaultLogo = 'https://mastery-zone.onrender.com/logo_icon.png';
+  const effectiveLogoUrl = (logoUrl && typeof logoUrl === 'string' && logoUrl.trim()) ? logoUrl.trim() : defaultLogo;
+
   return `
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en">
@@ -1643,6 +1667,17 @@ function wrapHtmlEmail({ title, preheader, badgeText, badgeColor = '#4f46e5', ba
   <meta name="color-scheme" content="light dark" />
   <meta name="supported-color-schemes" content="light dark" />
   <title>${title}</title>
+
+  <!-- Schema.org Organization Logo DP Markup for Gmail, Outlook & Apple Mail -->
+  <script type="application/ld+json">
+  {
+    "@context": "http://schema.org",
+    "@type": "Organization",
+    "name": "Mastery Zone",
+    "url": "https://mastery-zone.onrender.com",
+    "logo": "${effectiveLogoUrl}"
+  }
+  </script>
   <style type="text/css">
     html, body {
       margin: 0 !important;
@@ -1777,19 +1812,31 @@ function wrapHtmlEmail({ title, preheader, badgeText, badgeColor = '#4f46e5', ba
       <td align="center" style="padding: 0 8px;">
         <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" class="email-container" style="max-width: 600px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35); border: 1px solid #1e293b;">
           
-          <!-- Header Banner -->
+          <!-- Header Banner with Mastery Zone Logo DP -->
           <tr>
-            <td class="mobile-header-padding" align="center" style="background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #312e81 100%); padding: 34px 28px 28px; text-align: center; border-bottom: 2px solid #4338ca;">
+            <td class="mobile-header-padding" align="center" style="background: linear-gradient(135deg, #090a0f 0%, #11131f 45%, #1e1b4b 100%); padding: 34px 24px 28px; text-align: center; border-bottom: 3px solid #4f46e5;">
               <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
                   <td align="center">
-                    <div style="display: inline-block; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 12px; padding: 8px 16px; margin-bottom: 12px;">
-                      <span style="color: #67e8f9; font-weight: 900; font-size: 16px; letter-spacing: 1px;">⚡ MASTERY ZONE</span>
+                    
+                    <!-- Mastery Zone Branded Mail DP (Display Picture Avatar) -->
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin: 0 auto 16px;">
+                      <tr>
+                        <td align="center" style="width: 72px; height: 72px; background: #ffffff; border-radius: 50%; border: 3px solid #6366f1; box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45), 0 0 0 4px rgba(99, 102, 241, 0.28); padding: 0; vertical-align: middle; text-align: center;">
+                          <a href="https://mastery-zone.onrender.com" target="_blank" style="text-decoration: none; display: block;">
+                            <img src="${effectiveLogoUrl}" alt="Mastery Zone" width="52" height="52" border="0" style="display: block; width: 52px; height: 52px; margin: 10px auto; border-radius: 50%; object-fit: contain; -ms-interpolation-mode: bicubic;" />
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <div style="display: inline-block; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 20px; padding: 4px 14px; margin-bottom: 10px;">
+                      <span style="color: #67e8f9; font-weight: 800; font-size: 13px; letter-spacing: 1.2px; text-transform: uppercase;">MASTERY ZONE</span>
                     </div>
-                    <div style="color: #ffffff; font-size: 24px; font-weight: 900; letter-spacing: -0.5px; margin: 0 0 4px;">
+                    <div class="mobile-title" style="color: #ffffff; font-size: 22px; font-weight: 900; letter-spacing: -0.4px; margin: 0 0 4px;">
                       Engineering & Accreditation
                     </div>
-                    <div style="color: #c7d2fe; font-size: 12.5px; font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase;">
+                    <div style="color: #c7d2fe; font-size: 12px; font-weight: 600; letter-spacing: 0.6px; text-transform: uppercase;">
                       Proctored Assessment & Career Excellence
                     </div>
                     ${
