@@ -458,15 +458,19 @@ async function runSuite() {
     await new Promise((res) => clientB.on("connect", res));
 
     let nonExistentError = null;
-    clientB.on("coding_room_error", (data) => {
-      nonExistentError = data.message;
+    const errorPromise = new Promise((resolve) => {
+      clientB.on("coding_room_error", (data) => {
+        nonExistentError = data.message;
+        resolve(data.message);
+      });
+      setTimeout(() => resolve(null), 2000);
     });
 
     clientB.emit("join_coding_room", {
       roomId: "uncreated_guessed_room_xyz",
       token: tokenB,
     });
-    await new Promise((r) => setTimeout(r, 200));
+    await errorPromise;
     assert(
       nonExistentError && nonExistentError.includes("does not exist"),
       "Joining an uncreated room must fail; arbitrary room creation via join is disallowed"

@@ -799,40 +799,48 @@ io.on("connection", (socket) => {
 
     // If room does not exist in memory, verify if it corresponds to an active Meeting in DB where user is host
     if (!room) {
-      try {
-        const Meeting = require("./models/Meeting");
-        const meeting = await Meeting.findOne({
-          $or: [{ meetingId: roomId }, { meetingId: roomId.replace(/-/g, "") }],
-          status: { $ne: "ended" },
-        }).lean();
+      const isPossibleMeetingId =
+        roomId.startsWith("mtg_") ||
+        roomId.startsWith("meeting_") ||
+        /^[a-f0-9]{24}$/i.test(roomId) ||
+        /^[a-zA-Z0-9]{3}-[a-zA-Z0-9]{3}-[a-zA-Z0-9]{3}$/.test(roomId);
 
-        if (meeting && String(meeting.hostUserId) === String(authUser.userId)) {
-          // Initialize meeting coding room
-          const authorizedUsers = new Set([authUser.userId]);
-          const authorizedEmails = new Set([authUser.email ? authUser.email.toLowerCase() : ""]);
-          if (Array.isArray(meeting.participants)) {
-            meeting.participants.forEach(p => {
-              if (p.userId) authorizedUsers.add(String(p.userId));
-            });
+      if (isPossibleMeetingId) {
+        try {
+          const Meeting = require("./models/Meeting");
+          const meeting = await Meeting.findOne({
+            $or: [{ meetingId: roomId }, { meetingId: roomId.replace(/-/g, "") }],
+            status: { $ne: "ended" },
+          }).lean();
+
+          if (meeting && String(meeting.hostUserId) === String(authUser.userId)) {
+            // Initialize meeting coding room
+            const authorizedUsers = new Set([authUser.userId]);
+            const authorizedEmails = new Set([authUser.email ? authUser.email.toLowerCase() : ""]);
+            if (Array.isArray(meeting.participants)) {
+              meeting.participants.forEach(p => {
+                if (p.userId) authorizedUsers.add(String(p.userId));
+              });
+            }
+            const safeLanguage = ["python", "py", "javascript", "js", "node", "cpp", "c++", "c", "java", "html", "css"].includes(String(language).toLowerCase())
+              ? String(language).toLowerCase()
+              : "python";
+
+            room = {
+              roomId,
+              code: typeof initialCode === "string" ? initialCode.slice(0, 500000) : "",
+              language: safeLanguage,
+              hostUserId: authUser.userId,
+              hostSocketId: socket.id,
+              authorizedUsers,
+              authorizedEmails,
+              participants: new Map(),
+              createdAt: new Date(),
+            };
+            codingRooms.set(roomId, room);
           }
-          const safeLanguage = ["python", "py", "javascript", "js", "node", "cpp", "c++", "c", "java", "html", "css"].includes(String(language).toLowerCase())
-            ? String(language).toLowerCase()
-            : "python";
-
-          room = {
-            roomId,
-            code: typeof initialCode === "string" ? initialCode.slice(0, 500000) : "",
-            language: safeLanguage,
-            hostUserId: authUser.userId,
-            hostSocketId: socket.id,
-            authorizedUsers,
-            authorizedEmails,
-            participants: new Map(),
-            createdAt: new Date(),
-          };
-          codingRooms.set(roomId, room);
-        }
-      } catch {}
+        } catch {}
+      }
 
       if (!room) {
         socket.emit("coding_room_error", {
