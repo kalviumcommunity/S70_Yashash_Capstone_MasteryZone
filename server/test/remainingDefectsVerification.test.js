@@ -74,29 +74,29 @@ async function setup() {
   }
 
   // Create or retrieve test users
-  userHost = await User.findOne({ email: "rec_host@masteryzone.com" }) ||
+  userHost = await User.findOne({ email: "rec_host@masteryzone.test" }) ||
     await User.create({
       username: "rec_host_user",
       fullName: "Recording Host User",
-      email: "rec_host@masteryzone.com",
+      email: "rec_host@masteryzone.test",
       password: "HashedPassword123!",
       role: "user",
     });
 
-  userAttacker = await User.findOne({ email: "rec_attacker@masteryzone.com" }) ||
+  userAttacker = await User.findOne({ email: "rec_attacker@masteryzone.test" }) ||
     await User.create({
       username: "rec_attacker_user",
       fullName: "Recording Attacker User",
-      email: "rec_attacker@masteryzone.com",
+      email: "rec_attacker@masteryzone.test",
       password: "HashedPassword123!",
       role: "user",
     });
 
-  userAdmin = await User.findOne({ email: "rec_admin@masteryzone.com" }) ||
+  userAdmin = await User.findOne({ email: "rec_admin@masteryzone.test" }) ||
     await User.create({
       username: "rec_admin_user",
       fullName: "Recording Admin User",
-      email: "rec_admin@masteryzone.com",
+      email: "rec_admin@masteryzone.test",
       password: "HashedPassword123!",
       role: "admin",
     });

@@ -130,7 +130,7 @@ async function runTests() {
 
   test("Auth Middleware authenticates valid Bearer token", () => {
     const secret = getJwtSecret();
-    const token = jwt.sign({ userId: "user_abc", email: "learner@masteryzone.com" }, secret);
+    const token = jwt.sign({ userId: "user_abc", email: "learner@masteryzone.test" }, secret);
     const req = {
       headers: { authorization: `Bearer ${token}` },
     };

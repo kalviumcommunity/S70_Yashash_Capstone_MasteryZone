@@ -38,12 +38,12 @@ async function setup() {
   }
 
   // Find or create test user
-  testUser = await User.findOne({ email: "testcandidate@masteryzone.com" });
+  testUser = await User.findOne({ email: "testcandidate@masteryzone.test" });
   if (!testUser) {
     testUser = await User.create({
       username: "testcandidate",
       fullName: "Test Candidate",
-      email: "testcandidate@masteryzone.com",
+      email: "testcandidate@masteryzone.test",
       password: "HashedPassword123!",
       role: "user",
     });
@@ -55,7 +55,7 @@ async function setup() {
     adminUser = await User.create({
       username: "superadmin_test",
       fullName: "Admin Tester",
-      email: "admintester@masteryzone.com",
+      email: "admintester@masteryzone.test",
       password: "HashedPassword123!",
       role: "admin",
     });

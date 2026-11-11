@@ -278,13 +278,14 @@
   top: 44px;
   right: 0;
   width: 270px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--mz-surface, #ffffff);
+  border: 1px solid var(--mz-border, #e2e8f0);
   border-radius: 12px;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--mz-shadow-lg, 0 10px 25px -5px rgba(0, 0, 0, 0.1));
   padding: 6px;
   z-index: 100;
   animation: mzDropdownFadeIn 0.15s ease-out;
+  color: var(--mz-text-primary, #0f172a);
 }
 
 @keyframes mzDropdownFadeIn {

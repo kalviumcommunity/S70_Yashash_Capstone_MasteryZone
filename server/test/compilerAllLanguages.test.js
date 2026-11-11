@@ -674,7 +674,7 @@ async function runCompilerTestSuite() {
       attemptId: testAttemptId,
       userId: testUserId,
       candidateName: "Exam Candidate",
-      candidateEmail: "candidate@masteryzone.com",
+      candidateEmail: "candidate@masteryzone.test",
       certId: "dsa_mastery",
       certTitle: "DSA Certification",
       attemptNumber: 1,

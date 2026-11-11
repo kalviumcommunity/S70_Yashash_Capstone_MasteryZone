@@ -47,12 +47,12 @@ async function setup() {
   const secret = getJwtSecret();
 
   // Create User A
-  userA = await User.findOne({ email: "usera_isolation@masteryzone.com" });
+  userA = await User.findOne({ email: "usera_isolation@masteryzone.test" });
   if (!userA) {
     userA = await User.create({
       username: "user_a_tester",
       fullName: "User Alpha",
-      email: "usera_isolation@masteryzone.com",
+      email: "usera_isolation@masteryzone.test",
       password: "HashedPassword123!",
       role: "user",
     });
@@ -64,12 +64,12 @@ async function setup() {
   );
 
   // Create User B
-  userB = await User.findOne({ email: "userb_isolation@masteryzone.com" });
+  userB = await User.findOne({ email: "userb_isolation@masteryzone.test" });
   if (!userB) {
     userB = await User.create({
       username: "user_b_tester",
       fullName: "User Beta",
-      email: "userb_isolation@masteryzone.com",
+      email: "userb_isolation@masteryzone.test",
       password: "HashedPassword123!",
       role: "user",
     });
@@ -86,7 +86,7 @@ async function setup() {
     adminUser = await User.create({
       username: "admin_iso_test",
       fullName: "Admin Isolator",
-      email: "admin_iso@masteryzone.com",
+      email: "admin_iso@masteryzone.test",
       password: "HashedPassword123!",
       role: "admin",
     });

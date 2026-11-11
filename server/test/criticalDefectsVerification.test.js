@@ -130,7 +130,7 @@ async function setup() {
     adminUser = await User.create({
       username: "admin_crit",
       fullName: "Admin Crit",
-      email: "admin_crit@masteryzone.com",
+      email: "admin_crit@masteryzone.test",
       password: "HashedPassword123!",
       role: "admin",
     });
@@ -612,12 +612,12 @@ async function runAllTests() {
     });
 
     await it("Recording: User from outside the meeting is strictly rejected with 403 Forbidden", async () => {
-      let outsider = await User.findOne({ email: "outsider@masteryzone.com" });
+      let outsider = await User.findOne({ email: "outsider@masteryzone.test" });
       if (!outsider) {
         outsider = await User.create({
           username: "outsider_user",
           fullName: "Outsider",
-          email: "outsider@masteryzone.com",
+          email: "outsider@masteryzone.test",
           password: "HashedPassword123!",
           role: "user",
         });

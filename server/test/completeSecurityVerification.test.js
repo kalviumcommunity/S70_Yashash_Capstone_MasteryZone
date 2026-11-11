@@ -780,7 +780,7 @@ async function runSuite() {
 
     guestClient.emit("join_coding_room", {
       roomId: "room_bypass_attempt",
-      user: { fullName: "guest_hacker", email: "guest_hacker@masteryzone.com" },
+      user: { fullName: "guest_hacker", email: "guest_hacker@masteryzone.test" },
     });
 
     await new Promise((r) => setTimeout(r, 200));
