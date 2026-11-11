@@ -613,6 +613,72 @@ async function verifySmtpConnection() {
   const env = (process.env.NODE_ENV || "").trim().toLowerCase();
   const isTrustedLocal = TRUSTED_LOCAL_ENVS.has(env);
   const config = getSmtpConfig();
+
+  // 1. If primary SMTP is configured, verify live SMTP connection first
+  if (config.isConfigured) {
+    try {
+      const tp = await getTransporter();
+      await tp.verify();
+      return {
+        success: true,
+        ok: true,
+        status: 'connected',
+        provider: 'smtp',
+        configured: true,
+        connected: true,
+        host: config.host,
+        port: config.port,
+        secure: config.secure,
+        sender: config.from,
+        user: maskEmail(config.email),
+        message: 'SMTP connection verified successfully and ready for dispatch.',
+      };
+    } catch (err) {
+      console.warn(`[Mailer] Primary SMTP verification error: ${err.message}`);
+      // If port 465 hit a network/socket error on cloud host, transparently try port 587 (STARTTLS, IPv4)
+      if ((err.code === 'ESOCKET' || err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT') && config.port === 465) {
+        try {
+          console.log(`ℹ️ [Mailer] Port 465 hit ${err.code} on cloud host; attempting fallback to Port 587 (STARTTLS, IPv4)...`);
+          const fallbackOptions = {
+            host: config.host,
+            port: 587,
+            secure: false,
+            auth: {
+              user: config.email,
+              pass: config.password,
+            },
+            family: 4,
+            pool: true,
+            connectionTimeout: 15000,
+            greetingTimeout: 10000,
+            socketTimeout: 20000,
+          };
+          const altTp = nodemailer.createTransport(fallbackOptions);
+          await altTp.verify();
+          transporterInstance = altTp;
+          console.log(`✅ [Mailer] Port 587 (STARTTLS) verified and established as active transporter.`);
+          return {
+            success: true,
+            ok: true,
+            status: 'connected',
+            provider: 'smtp',
+            configured: true,
+            connected: true,
+            host: config.host,
+            port: 587,
+            secure: false,
+            sender: config.from,
+            user: maskEmail(config.email),
+            message: 'SMTP connection verified successfully on port 587 (STARTTLS) and ready for dispatch.',
+          };
+        } catch (altErr) {
+          console.warn(`[Mailer] Fallback to port 587 also failed:`, altErr.message);
+        }
+      }
+    }
+  }
+
+  // 2. If SMTP is unconfigured or blocked by cloud firewall, check HTTPS API provider (Port 443)
   const httpProvider = getHttpEmailProvider();
   if (httpProvider) {
     if (httpProvider.type === 'resend' && httpProvider.isTestSender && !isTrustedLocal) {
@@ -746,83 +812,22 @@ async function verifySmtpConnection() {
     };
   }
 
-  try {
-    const tp = await getTransporter();
-    await tp.verify();
-    return {
-      success: true,
-      ok: true,
-      status: 'connected',
-      provider: 'smtp',
-      configured: true,
-      connected: true,
-      host: config.host,
-      port: config.port,
-      secure: config.secure,
-      sender: config.from,
-      user: maskEmail(config.email),
-      message: 'SMTP connection verified successfully and ready for dispatch.',
-    };
-  } catch (err) {
-    // If port 465 hit a network/socket error on cloud host, transparently try port 587 (STARTTLS, IPv4)
-    if ((err.code === 'ESOCKET' || err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT') && config.port === 465) {
-      try {
-        console.log(`ℹ️ [Mailer] Port 465 hit ${err.code} on cloud host; attempting fallback to Port 587 (STARTTLS, IPv4)...`);
-        const fallbackOptions = {
-          host: config.host,
-          port: 587,
-          secure: false,
-          auth: {
-            user: config.email,
-            pass: config.password,
-          },
-          family: 4,
-          pool: true,
-          connectionTimeout: 15000,
-          greetingTimeout: 10000,
-          socketTimeout: 20000,
-        };
-        const altTp = nodemailer.createTransport(fallbackOptions);
-        await altTp.verify();
-        transporterInstance = altTp;
-        console.log(`✅ [Mailer] Port 587 (STARTTLS) verified and established as active transporter.`);
-        return {
-          success: true,
-          ok: true,
-          status: 'connected',
-          provider: 'smtp',
-          configured: true,
-          connected: true,
-          host: config.host,
-          port: 587,
-          secure: false,
-          sender: config.from,
-          user: maskEmail(config.email),
-          message: 'SMTP connection verified successfully on port 587 (STARTTLS) and ready for dispatch.',
-        };
-      } catch (altErr) {
-        console.warn(`[Mailer] Fallback to port 587 also failed:`, altErr.message);
-      }
-    }
-
-    resetTransporter();
-    const diag = diagnoseSmtpError(err);
-    return {
-      success: false,
-      ok: false,
-      status: 'failed',
-      provider: 'smtp',
-      configured: true,
-      connected: false,
-      host: config.host,
-      port: config.port,
-      secure: config.secure,
-      sender: config.from,
-      user: maskEmail(config.email),
-      errorCode: diag.code,
-      message: diag.message,
-    };
-  }
+  const diag = diagnoseSmtpError({ code: 'ECONNECTION', message: 'Unable to connect to SMTP server' });
+  return {
+    success: false,
+    ok: false,
+    status: 'failed',
+    provider: 'smtp',
+    configured: true,
+    connected: false,
+    host: config.host,
+    port: config.port,
+    secure: config.secure,
+    sender: config.from,
+    user: maskEmail(config.email),
+    errorCode: diag.code,
+    message: diag.message,
+  };
 }
 
 // Check SMTP connection in background on boot
@@ -941,17 +946,17 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
     } catch {}
   }
 
-  // 1. If an HTTPS transactional provider is configured, dispatch via Port 443 (ideal for Render Free Tier)
-  const httpProvider = getHttpEmailProvider();
-  if (httpProvider) {
-    try {
-      const res = await sendViaHttpApi(mailOptions, httpProvider);
-      if (!res || res.success === false) {
-        const errMsg = sanitizeLogMessage(res?.error || res?.message || 'HTTP email provider dispatch failed');
-        const errCode = res?.errorCode || 'EPROVIDER';
-        console.warn(`⚠️ [Mailer] HTTP provider (${httpProvider.type}) returned unsuccessful response for "${to}": ${errMsg}`);
+  // 1. If primary SMTP is unconfigured, dispatch via HTTPS transactional provider (Port 443)
+  if (!config.isConfigured) {
+    const httpProvider = getHttpEmailProvider();
+    if (httpProvider) {
+      try {
+        const res = await sendViaHttpApi(mailOptions, httpProvider);
+        if (!res || res.success === false) {
+          const errMsg = sanitizeLogMessage(res?.error || res?.message || 'HTTP email provider dispatch failed');
+          const errCode = res?.errorCode || 'EPROVIDER';
+          console.warn(`⚠️ [Mailer] HTTP provider (${httpProvider.type}) returned unsuccessful response for "${to}": ${errMsg}`);
 
-        if (!config.isConfigured) {
           await recordEmailLog({
             recipient: to,
             emailType,
@@ -970,52 +975,47 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
             errorCode: errCode,
             message: errMsg,
           };
-        }
-        console.log(`ℹ️ [Mailer] Automatically falling back to primary SMTP transport (${config.host}:${config.port})...`);
-      } else {
-        // Enforce: Never store an undefined or blank message ID as a successful delivery
-        const validId = typeof res.messageId === 'string' && res.messageId.trim();
-        if (!validId) {
-          const errMsg = 'Email provider reported acceptance but returned no valid message ID';
+        } else {
+          // Enforce: Never store an undefined or blank message ID as a successful delivery
+          const validId = typeof res.messageId === 'string' && res.messageId.trim();
+          if (!validId) {
+            const errMsg = 'Email provider reported acceptance but returned no valid message ID';
+            await recordEmailLog({
+              recipient: to,
+              emailType,
+              subject: mailOptions.subject || '',
+              relatedUserId: userId,
+              relatedRecordId: recordId,
+              status: 'failed',
+              errorCode: 'EMISSING_MESSAGE_ID',
+              errorMessage: errMsg,
+              attemptCount: 1,
+            });
+            return {
+              success: false,
+              status: 'failed',
+              errorCode: 'EMISSING_MESSAGE_ID',
+              message: errMsg,
+            };
+          }
+
           await recordEmailLog({
             recipient: to,
             emailType,
             subject: mailOptions.subject || '',
             relatedUserId: userId,
             relatedRecordId: recordId,
-            status: 'failed',
-            errorCode: 'EMISSING_MESSAGE_ID',
-            errorMessage: errMsg,
+            status: 'accepted',
+            messageId: validId,
+            providerResponse: sanitizeLogMessage(res.providerResponse),
             attemptCount: 1,
           });
-          return {
-            success: false,
-            status: 'failed',
-            errorCode: 'EMISSING_MESSAGE_ID',
-            message: errMsg,
-          };
+          markOutboundEmailSent(to, mailOptions.subject, mailOptions.html);
+          return res;
         }
-
-        await recordEmailLog({
-          recipient: to,
-          emailType,
-          subject: mailOptions.subject || '',
-          relatedUserId: userId,
-          relatedRecordId: recordId,
-          status: 'accepted',
-          messageId: validId,
-          providerResponse: sanitizeLogMessage(res.providerResponse),
-          attemptCount: 1,
-        });
-        markOutboundEmailSent(to, mailOptions.subject, mailOptions.html);
-        return res;
-      }
-    } catch (apiErr) {
-      const safeErrMsg = sanitizeLogMessage(apiErr.message);
-      console.warn(`⚠️ [Mailer] HTTP provider (${httpProvider.type}) failed for "${to}": ${safeErrMsg}`);
-      if (config.isConfigured) {
-        console.log(`ℹ️ [Mailer] Automatically falling back to primary SMTP transport (${config.host}:${config.port})...`);
-      } else {
+      } catch (apiErr) {
+        const safeErrMsg = sanitizeLogMessage(apiErr.message);
+        console.warn(`⚠️ [Mailer] HTTP provider (${httpProvider.type}) failed for "${to}": ${safeErrMsg}`);
         const diag = diagnoseSmtpError(apiErr);
         await recordEmailLog({
           recipient: to,
@@ -1223,6 +1223,32 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
 
   if (lastErr && (lastErr.code === 'ECONNECTION' || lastErr.code === 'ESOCKET' || lastErr.code === 'EAUTH')) {
     resetTransporter();
+  }
+
+  // Transparent fallback to HTTPS email provider if primary SMTP encounters a socket, firewall, or connection failure
+  const fallbackHttp = getHttpEmailProvider();
+  if (fallbackHttp) {
+    try {
+      console.log(`ℹ️ [Mailer] Primary SMTP transport hit ${lastErr?.code || 'error'} (${lastErr?.message}); attempting fallback via ${fallbackHttp.type} on Port 443...`);
+      const httpRes = await sendViaHttpApi(mailOptions, fallbackHttp);
+      if (httpRes && httpRes.success && httpRes.messageId) {
+        await recordEmailLog({
+          recipient: to,
+          emailType,
+          subject: mailOptions.subject || '',
+          relatedUserId: userId,
+          relatedRecordId: recordId,
+          status: 'accepted',
+          messageId: httpRes.messageId,
+          providerResponse: sanitizeLogMessage(httpRes.providerResponse),
+          attemptCount: attempt + 1,
+        });
+        markOutboundEmailSent(to, mailOptions.subject, mailOptions.html);
+        return httpRes;
+      }
+    } catch (fbErr) {
+      console.warn(`[Mailer] Fallback via ${fallbackHttp.type} also failed:`, fbErr.message);
+    }
   }
 
   const diag = diagnoseSmtpError(lastErr);
@@ -1442,6 +1468,10 @@ function getClientBaseUrl(req = null, overrideOrigin = null) {
         }
       } catch {}
     }
+  }
+
+  if (process.env.RENDER || process.env.RENDER_EXTERNAL_URL || process.env.NODE_ENV === 'production') {
+    return (process.env.RENDER_EXTERNAL_URL || 'https://mastery-zone.onrender.com').trim().replace(/\/+$/, '');
   }
 
   const lanIp = getLanIpAddress();
@@ -3177,6 +3207,7 @@ module.exports = {
   verifySmtpConnection,
   diagnoseSmtpError,
   maskEmail,
+  sendMail: sendMailWithRetry,
   sendMailWithRetry,
   parseDeviceAndBrowser,
   getClientBaseUrl,

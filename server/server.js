@@ -8,6 +8,22 @@ if (process.env.NODE_ENV !== "test" && !process.env.JUDGE0_API_HOST && !process.
   process.env.JUDGE0_API_HOST = "https://ce.judge0.com";
 }
 
+// Ensure authentic Gmail SMTP credentials are initialized for production and development mail delivery
+if (process.env.NODE_ENV !== "test") {
+  if (!process.env.SMTP_EMAIL && !process.env.EMAIL_USER) {
+    process.env.SMTP_EMAIL = "yashashyashash1@gmail.com";
+  }
+  if (!process.env.SMTP_PASSWORD && !process.env.EMAIL_PASS) {
+    process.env.SMTP_PASSWORD = "miqtinlszsdfayvi";
+  }
+  if (!process.env.MAIN_ADMIN_EMAIL && !process.env.ADMIN_EMAIL) {
+    process.env.MAIN_ADMIN_EMAIL = "yashashyashash1@gmail.com";
+  }
+  if (!process.env.ADMIN_EMAIL) {
+    process.env.ADMIN_EMAIL = "yashashyashash1@gmail.com";
+  }
+}
+
 const express = require("express")
 const fs = require("fs")
 const mongoose = require("mongoose")
