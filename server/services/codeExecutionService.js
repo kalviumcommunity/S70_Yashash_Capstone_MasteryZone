@@ -1249,6 +1249,25 @@ function bundleMultiFileProject(lang, files) {
     return [...Array.from(imports), "", ...classBodies].join("\n");
   }
 
+  if (["c", "cpp", "c++"].includes(normLang)) {
+    const isCpp = normLang === "cpp" || normLang === "c++";
+    const sourceExt = isCpp ? /\.(?:cc|cpp|cxx)$/i : /\.c$/i;
+    const headerExt = isCpp ? /\.(?:h|hh|hpp|hxx)$/i : /\.h$/i;
+    const sources = files.filter((f) => sourceExt.test(String(f.name || "")));
+    const headers = files.filter((f) => headerExt.test(String(f.name || "")));
+    const sourceFiles = sources.length ? sources : files.filter((f) => !headerExt.test(String(f.name || "")));
+    const headerMap = new Map(headers.map((f) => [path.basename(f.name), String(f.content || "")]));
+    const expanded = sourceFiles.map((f) => {
+      let content = String(f.content || "");
+      content = content.replace(/^\s*#\s*include\s*["<]([^">]+)[">]\s*$/gm, (line, includeName) => {
+        const header = headerMap.get(path.basename(includeName));
+        return header === undefined ? line : `\n/* Inlined ${includeName} */\n${header}\n/* End ${includeName} */\n`;
+      });
+      return `/* ===== ${f.name} ===== */\n${content}`;
+    });
+    return expanded.join("\n\n");
+  }
+
   // Default: JavaScript / Node.js
   const jsFiles = files.filter((f) => String(f.name || "").endsWith(".js"));
   const effectiveFiles = jsFiles.length > 0 ? jsFiles : files;
@@ -1580,8 +1599,9 @@ function validateTestCaseOutput(actual, expected) {
   const cleanAct = String(actual).replace(/\r\n/g, "\n").trim();
   const cleanExp = String(expected).replace(/\r\n/g, "\n").trim();
 
-  // Never report a test as passed if actual or expected output is empty
-  if (cleanAct === "" || cleanExp === "") return false;
+  // An empty expected output is valid when the program also produces no output.
+  // The caller separately verifies a successful exit code and absence of runtime errors.
+  if (cleanAct === "" || cleanExp === "") return cleanAct === cleanExp;
 
   // 2. Strict equality check
   if (actual === expected) return true;
@@ -2140,8 +2160,6 @@ async function evaluateTestCasesBatch(language, code, testCases, options = {}) {
             !res.isCompileError &&
             !res.isRuntimeError &&
             !res.isUnavailable &&
-            actual.length > 0 &&
-            expected.length > 0 &&
             validateTestCaseOutput(actual, expected);
           return {
             passed,
@@ -2332,8 +2350,6 @@ async function evaluateTestCasesBatch(language, code, testCases, options = {}) {
         res.exitCode === 0 &&
         !res.error &&
         !res.isUnavailable &&
-        cleanActual.length > 0 &&
-        cleanExpected.length > 0 &&
         validateTestCaseOutput(cleanActual, cleanExpected);
 
       results.push({
