@@ -104,6 +104,7 @@ export default function ChallengeWorkspaceModal({
 
   const isPlayground = Boolean(effectiveChallengeId?.startsWith("playground-") || challenge?.id?.startsWith("playground-"));
   const targetStarterLang = challenge.starterLanguage || "python";
+  const isRetakeRequested = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("retake") === "true";
 
   return (
     <MasteryZoneCompilerWorkspace
@@ -111,6 +112,7 @@ export default function ChallengeWorkspaceModal({
       title={isPlayground ? `MZ-ASM Playground | ${challenge.title}` : `Assignment | ${challenge.title} Challenge`}
       questionId={challenge.id}
       isProctored={true}
+      isRetake={isRetakeRequested}
       problemData={challenge}
       starterCodeMap={challenge.starterCode || {}}
       defaultLanguage={targetStarterLang}

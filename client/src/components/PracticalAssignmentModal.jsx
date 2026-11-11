@@ -375,9 +375,9 @@ export default function PracticalAssignmentModal({
           }
           return data;
         }}
-        onSubmit={async (submitCode, lang) => {
+        onSubmit={async (submitCode, lang, sidParam) => {
           const token = localStorage.getItem("token");
-          const activeSid = sessionStorage.getItem("mz_active_proctored_session") || localStorage.getItem("mz_active_proctored_session");
+          const activeSid = sidParam || sessionStorage.getItem("mz_active_proctored_session") || localStorage.getItem("mz_active_proctored_session");
           if (submitCode) {
             try {
               localStorage.setItem("mz_recent_submitted_code", submitCode);
