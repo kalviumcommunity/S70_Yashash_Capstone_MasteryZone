@@ -203,7 +203,9 @@ const NON_DELIVERABLE_DOMAINS = new Set([
   'test.org',
   'invalid',
   'localhost',
+  'masteryzone.com',
   'masteryzone.test',
+  'masteryzone.local',
   'mailinator.com',
   'tempmail.com',
   'throwawaymail.com',
@@ -248,26 +250,13 @@ function isLegitimateDeliverableEmail(email, role = null) {
 
   const env = (process.env.NODE_ENV || "").trim().toLowerCase();
 
-  // Block reserved and disposable domains
-  if (NON_DELIVERABLE_DOMAINS.has(domain) || domain.endsWith('.test') || domain.endsWith('.invalid')) {
-    // In automated test environments, allow RFC example domains for in-memory mocked transport assertions
-    if (env === 'test' && (domain === 'example.com' || domain === 'example.org' || domain === 'example.net')) {
-      return true;
-    }
-    return false;
-  }
-
-  // The application domain @masteryzone.com is an internal platform brand domain.
-  // There are no public user inboxes hosted on @masteryzone.com.
-  // Real administrators use their verified email addresses (e.g. yashashyashash1@gmail.com).
-  // Any user with an @masteryzone.com email is a synthetic account or test fixture.
-  if (domain === 'masteryzone.com') {
-    const adminEmail = (process.env.MAIN_ADMIN_EMAIL || process.env.ADMIN_EMAIL || '').toLowerCase().trim();
-    if (adminEmail && trimmed === adminEmail) {
-      return true; // Configured admin override if applicable
-    }
-    if (env === 'test' && trimmed === 'admin@masteryzone.com') {
-      return true; // Mock test administrator recipient
+  // Block reserved, disposable, and non-deliverable domains
+  if (NON_DELIVERABLE_DOMAINS.has(domain) || domain.endsWith('.test') || domain.endsWith('.invalid') || domain.endsWith('.local')) {
+    // In automated test environments, allow RFC example domains or admin@masteryzone.com for in-memory mocked transport assertions
+    if (env === 'test') {
+      if (domain === 'example.com' || domain === 'example.org' || domain === 'example.net' || trimmed === 'admin@masteryzone.com') {
+        return true;
+      }
     }
     return false;
   }
@@ -983,6 +972,51 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
     };
   }
 
+  // ── Absolute Destination Guard: Reject unroutable platform domains ──
+  // The domain @masteryzone.com is a branding identifier and has NO active MX mail exchanger.
+  // Dispatching to @masteryzone.com causes Gmail MTA timeouts against parked IPs (3.33.130.190 / 15.197.148.33),
+  // triggering delayed delivery queues and repeated "Delivery Status Notification (Delay)" warning spam.
+  const recipientDomain = (to.split('@')[1] || '').trim().toLowerCase();
+  const isUnroutableDomain =
+    recipientDomain === 'masteryzone.com' ||
+    recipientDomain === 'masteryzone.test' ||
+    recipientDomain === 'masteryzone.local' ||
+    recipientDomain.endsWith('.test') ||
+    recipientDomain.endsWith('.invalid') ||
+    recipientDomain.endsWith('.local') ||
+    NON_DELIVERABLE_DOMAINS.has(recipientDomain);
+
+  if (isUnroutableDomain) {
+    const isMockUnitTest = env === 'test' && (
+      recipientDomain === 'example.com' ||
+      recipientDomain === 'example.org' ||
+      recipientDomain === 'example.net' ||
+      to === 'admin@masteryzone.com'
+    );
+    if (!isMockUnitTest) {
+      const reason = `Email delivery suppressed: destination domain "@${recipientDomain}" has no active MX mail server`;
+      console.log(`🛡️ [Mailer] ${reason} for recipient: ${to}`);
+      await recordEmailLog({
+        recipient: to,
+        emailType,
+        subject: mailOptions.subject || '',
+        relatedUserId: userId,
+        relatedRecordId: recordId,
+        status: 'suppressed',
+        errorCode: 'ENOMX_DOMAIN',
+        errorMessage: reason,
+        attemptCount: 0,
+      });
+      return {
+        success: true,
+        status: 'suppressed',
+        errorCode: 'ENOMX_DOMAIN',
+        message: reason,
+        suppressed: true,
+      };
+    }
+  }
+
   // Prevent duplicate email dispatch within rate window (only mark sent after provider acceptance)
   if (isDuplicateOutboundEmail(to, mailOptions.subject, mailOptions.html, { checkOnly: true })) {
     return {
@@ -1443,25 +1477,11 @@ function isGuestAccount(email, role) {
   if (parts.length === 2) {
     const [localPart, domain] = parts;
     if (NON_DELIVERABLE_DOMAINS.has(domain)) {
-      if (env === 'test' && (domain === 'example.com' || domain === 'example.org' || domain === 'example.net')) {
-        // Allow RFC example domains in automated test environment for in-memory mocked assertions
+      if (env === 'test' && (domain === 'example.com' || domain === 'example.org' || domain === 'example.net' || lower === 'admin@masteryzone.com')) {
+        // Allow RFC example domains or test admin in automated test environment for in-memory mocked assertions
       } else {
         return true;
       }
-    }
-
-    // Platform internal domain: MasteryZone has no public mailboxes on @masteryzone.com.
-    // Real administrators use their verified email (e.g. yashashyashash1@gmail.com).
-    // Any other address ending with @masteryzone.com is a synthetic/test fixture.
-    if (domain === 'masteryzone.com') {
-      const adminEmail = (process.env.MAIN_ADMIN_EMAIL || process.env.ADMIN_EMAIL || '').toLowerCase().trim();
-      if (adminEmail && lower === adminEmail) {
-        return false;
-      }
-      if (env === 'test' && lower === 'admin@masteryzone.com') {
-        return false; // Mock test administrator recipient in unit tests
-      }
-      return true;
     }
 
     for (const pattern of NON_DELIVERABLE_PATTERNS) {
