@@ -1,3 +1,4 @@
+process.env.NODE_ENV = "test";
 const assert = require("assert");
 const http = require("http");
 const mongoose = require("mongoose");
@@ -48,8 +49,17 @@ async function setup() {
     await mongoose.connect(mongoUri);
   }
 
-  const port = process.env.PORT || 5012;
-  baseUrl = `http://127.0.0.1:${port}`;
+  if (!existingServer.listening) {
+    await new Promise((resolve) => {
+      existingServer.listen(0, () => {
+        const port = existingServer.address().port;
+        baseUrl = `http://127.0.0.1:${port}`;
+        resolve();
+      });
+    });
+  } else {
+    baseUrl = `http://127.0.0.1:${existingServer.address().port}`;
+  }
 
   const secret = getJwtSecret("test");
 
@@ -81,8 +91,8 @@ async function setup() {
 }
 
 async function teardown() {
-  if (testServer) {
-    await new Promise((resolve) => testServer.close(resolve));
+  if (existingServer && existingServer.listening) {
+    await new Promise((resolve) => existingServer.close(resolve));
   }
 }
 
