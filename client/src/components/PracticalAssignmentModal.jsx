@@ -30,9 +30,11 @@ export default function PracticalAssignmentModal({
   onAssignmentPassed,
   onLaunchAssessment,
   isStandalone = false,
+  isRetake = false,
 }) {
   const { trackId: paramTrackId, moduleId: paramModuleId } = useParams();
   const navigate = useNavigate();
+  const isRetakeRequested = isRetake || (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("retake") === "true");
 
   const [module, setModule] = useState(propModule || null);
   const [loading, setLoading] = useState(!propModule);
@@ -305,9 +307,10 @@ export default function PracticalAssignmentModal({
         }}
         defaultLanguage={defaultLang}
         testCases={codingEx?.testCases || []}
-        initialDraft={initialCode}
+        initialDraft={isRetakeRequested ? (codingEx?.starterCode || "") : initialCode}
         historyUrl={`${API_BASE}/api/coding/curriculum/exercise/history/${tId}/${mIdx}`}
-        initialHistory={historyData}
+        initialHistory={isRetakeRequested ? null : historyData}
+        isRetake={isRetakeRequested}
         onSaveDraft={async (savedCode) => {
           const token = localStorage.getItem("token");
           if (!token) return;

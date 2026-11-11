@@ -237,7 +237,15 @@ const Signup = () => {
         localStorage.setItem("userEmail", data.user.email);
       }
       toast.success("Account created successfully with Google!");
-      navigate(redirectTarget, { replace: true });
+      if (
+        data.user?.role === "SUPER_ADMIN" ||
+        data.user?.email?.toLowerCase().trim() === "yashashyashash1@gmail.com" ||
+        data.user?.email?.toLowerCase().trim() === "yashashyash1@gmail.com"
+      ) {
+        navigate("/admin/overview", { replace: true });
+      } else {
+        navigate(redirectTarget, { replace: true });
+      }
     } catch (error) {
       console.error("Google Signup Error:", error);
       toast.error("Failed to sign up with Google: " + (error.message || "Unknown error"));

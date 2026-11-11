@@ -4691,7 +4691,26 @@ export default function Coding() {
                       const mod = selectedModuleChoice;
                       setSelectedModuleChoice(null);
                       const mIdx = typeof mod.moduleIndex === "number" ? mod.moduleIndex : 0;
-                      window.open(`/coding-test/${activeTrackId}/${mIdx}`, "_blank", "noopener,noreferrer");
+                      if (isPassed) {
+                        try {
+                          const rawUser = localStorage.getItem("user");
+                          let uId = "";
+                          if (rawUser) {
+                            try {
+                              const u = JSON.parse(rawUser);
+                              uId = u._id || u.id || u.userId || "";
+                            } catch {}
+                          }
+                          const userSubmittedKey = uId
+                            ? `mz_${uId}_exam_coding_${activeTrackId}_${mIdx}_submitted`
+                            : `mz_exam_${mIdx}_submitted`;
+                          localStorage.removeItem(userSubmittedKey);
+                          localStorage.removeItem(`${userSubmittedKey}_report_url`);
+                          sessionStorage.removeItem("mz_active_proctored_session");
+                          localStorage.removeItem("mz_active_proctored_session");
+                        } catch {}
+                      }
+                      window.open(`/coding-test/${activeTrackId}/${mIdx}${isPassed ? "?retake=true" : ""}`, "_blank", "noopener,noreferrer");
                     }}
                     style={{
                       border: isUnlocked ? (isPassed ? "1px solid var(--mz-emerald-border)" : "1.5px solid #3b82f6") : "1px solid var(--mz-border)",
@@ -4798,7 +4817,28 @@ export default function Coding() {
                       const mod = selectedModuleChoice;
                       setSelectedModuleChoice(null);
                       const mIdx = typeof mod.moduleIndex === "number" ? mod.moduleIndex : 0;
-                      window.open(`/proctored-assessment/${activeTrackId}/${mIdx}`, "_blank", "noopener,noreferrer");
+                      if (isPassed) {
+                        try {
+                          const rawUser = localStorage.getItem("user");
+                          let uId = "";
+                          if (rawUser) {
+                            try {
+                              const u = JSON.parse(rawUser);
+                              uId = u._id || u.id || u.userId || "";
+                            } catch {}
+                          }
+                          const userSubmittedKey = uId
+                            ? `mz_${uId}_exam_coding_${activeTrackId}_${mIdx}_submitted`
+                            : `mz_exam_${mIdx}_submitted`;
+                          localStorage.removeItem(userSubmittedKey);
+                          localStorage.removeItem(`${userSubmittedKey}_report_url`);
+                          localStorage.removeItem(`mz_proc_draft_ans_coding_${activeTrackId}_${mIdx}`);
+                          localStorage.removeItem(`mz_proc_draft_time_coding_${activeTrackId}_${mIdx}`);
+                          sessionStorage.removeItem("mz_active_proctored_session");
+                          localStorage.removeItem("mz_active_proctored_session");
+                        } catch {}
+                      }
+                      window.open(`/proctored-assessment/${activeTrackId}/${mIdx}${isPassed ? "?retake=true" : ""}`, "_blank", "noopener,noreferrer");
                     }}
                     style={{
                       border: isUnlocked ? (isPassed ? "1px solid var(--mz-emerald-border)" : "1.5px solid #3b82f6") : "1px solid var(--mz-border)",
