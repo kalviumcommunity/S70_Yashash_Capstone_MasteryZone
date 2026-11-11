@@ -68,21 +68,43 @@ function getSenderAddress(department = 'Mastery Zone') {
   const env = (process.env.NODE_ENV || "").trim().toLowerCase();
   const isTrustedLocal = TRUSTED_LOCAL_ENVS.has(env);
   const config = getSmtpConfig();
-  const senderEmail = (
-    process.env.RESEND_FROM ||
-    process.env.BREVO_SENDER_EMAIL ||
-    process.env.SMTP_FROM ||
-    config.email ||
-    process.env.SMTP_EMAIL ||
-    process.env.EMAIL_USER ||
-    process.env.MAIN_ADMIN_EMAIL ||
-    process.env.ADMIN_EMAIL ||
-    ''
-  ).trim();
+  const httpProvider = getHttpEmailProvider();
+
+  let senderEmail = '';
+  if (httpProvider && httpProvider.type === 'brevo') {
+    senderEmail = (
+      process.env.BREVO_SENDER_EMAIL ||
+      process.env.SMTP_FROM ||
+      config.email ||
+      process.env.SMTP_EMAIL ||
+      process.env.MAIN_ADMIN_EMAIL ||
+      process.env.ADMIN_EMAIL ||
+      ''
+    ).trim();
+  } else if (httpProvider && httpProvider.type === 'resend') {
+    senderEmail = (
+      process.env.RESEND_FROM ||
+      'onboarding@resend.dev'
+    ).trim();
+  } else {
+    senderEmail = (
+      process.env.SMTP_FROM ||
+      config.email ||
+      process.env.SMTP_EMAIL ||
+      process.env.MAIN_ADMIN_EMAIL ||
+      process.env.ADMIN_EMAIL ||
+      ''
+    ).trim();
+  }
 
   let cleanEmail = senderEmail;
   const match = senderEmail.match(/<([^>]+)>/);
   if (match) cleanEmail = match[1].trim();
+
+  // If senderEmail is resend.dev but active provider is not resend, fall back to authentic sender
+  if (cleanEmail.includes('resend.dev') && (!httpProvider || httpProvider.type !== 'resend')) {
+    cleanEmail = process.env.BREVO_SENDER_EMAIL || config.email || process.env.SMTP_EMAIL || '';
+  }
 
   if (!cleanEmail || cleanEmail.toLowerCase().endsWith('@masteryzone.com') || cleanEmail.toLowerCase().endsWith('@masteryzone.test')) {
     const verifiedFallback = (
@@ -100,6 +122,11 @@ function getSenderAddress(department = 'Mastery Zone') {
     } else {
       cleanEmail = 'notifications@masteryzone.com';
     }
+  }
+
+  if (!cleanEmail) {
+    if (!isTrustedLocal) return null;
+    cleanEmail = 'notifications@masteryzone.com';
   }
 
   return `"${department}" <${cleanEmail}>`;
@@ -310,12 +337,16 @@ function getHttpEmailProvider() {
       process.env.EMAIL_USER ||
       process.env.MAIN_ADMIN_EMAIL ||
       process.env.ADMIN_EMAIL ||
-      ""
+      "yashashyashash1@gmail.com"
     ).trim();
 
     let cleanEmail = verifiedEmail;
     const match = verifiedEmail.match(/<([^>]+)>/);
     if (match) cleanEmail = match[1].trim();
+
+    if (cleanEmail.includes('resend.dev')) {
+      cleanEmail = process.env.BREVO_SENDER_EMAIL || process.env.SMTP_EMAIL || "yashashyashash1@gmail.com";
+    }
 
     if (!cleanEmail) {
       if (!isTrustedLocal) {
@@ -421,7 +452,7 @@ async function sendViaHttpApi(mailOptions, provider) {
       process.env.EMAIL_USER ||
       process.env.MAIN_ADMIN_EMAIL ||
       process.env.ADMIN_EMAIL ||
-      ""
+      "yashashyashash1@gmail.com"
     ).trim();
     let match = fromEmail.match(/<([^>]+)>/);
     if (match) fromEmail = match[1].trim();
@@ -437,7 +468,12 @@ async function sendViaHttpApi(mailOptions, provider) {
       const matchEmail = String(mailOptions.from).match(/<([^>]+)>/);
       if (matchEmail && matchEmail[1].trim()) {
         const candidate = matchEmail[1].trim().toLowerCase();
-        if (!candidate.endsWith('@masteryzone.com') && candidate.includes('@')) {
+        if (
+          !candidate.endsWith('@masteryzone.com') &&
+          !candidate.endsWith('@masteryzone.test') &&
+          !candidate.includes('resend.dev') &&
+          candidate.includes('@')
+        ) {
           fromEmail = candidate;
         }
       }
