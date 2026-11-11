@@ -388,11 +388,16 @@ async function sendViaHttpApi(mailOptions, provider) {
       sender = mailOptions.from;
     }
 
+    let sendHtml = mailOptions.html || '';
+    if (sendHtml.includes('cid:masteryzone_logo_dp')) {
+      sendHtml = sendHtml.replace(/cid:masteryzone_logo_dp/g, 'https://mastery-zone.onrender.com/logo_icon.png');
+    }
+
     const payload = {
       from: sender,
       to: cleanTo,
       subject: mailOptions.subject,
-      html: mailOptions.html,
+      html: sendHtml,
       text: mailOptions.text,
     };
     if (process.env.SMTP_EMAIL) {
@@ -488,6 +493,11 @@ async function sendViaHttpApi(mailOptions, provider) {
       };
     }
 
+    let brevoHtml = mailOptions.html || '';
+    if (brevoHtml.includes('cid:masteryzone_logo_dp')) {
+      brevoHtml = brevoHtml.replace(/cid:masteryzone_logo_dp/g, 'https://mastery-zone.onrender.com/logo_icon.png');
+    }
+
     const res = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: {
@@ -502,7 +512,7 @@ async function sendViaHttpApi(mailOptions, provider) {
         },
         to: cleanTo.map((e) => ({ email: e })),
         subject: mailOptions.subject,
-        htmlContent: mailOptions.html,
+        htmlContent: brevoHtml,
         ...(mailOptions.text ? { textContent: mailOptions.text } : {}),
         replyTo: { email: fromEmail, name: fromName },
       }),
@@ -1183,6 +1193,34 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
     text: plainText,
   };
 
+  // Automatically attach Mastery Zone logo DP as an inline CID attachment if referenced in HTML
+  if (finalOptions.html && finalOptions.html.includes('cid:masteryzone_logo_dp')) {
+    const logoCandidates = [
+      path.resolve(__dirname, '../assets/logo_icon_transparent.png'),
+      path.resolve(__dirname, '../assets/logo_icon.png'),
+      path.resolve(__dirname, '../../client/public/logo_icon.png'),
+    ];
+    let resolvedLogoPath = null;
+    for (const p of logoCandidates) {
+      if (fs.existsSync(p)) {
+        resolvedLogoPath = p;
+        break;
+      }
+    }
+    if (resolvedLogoPath) {
+      finalOptions.attachments = Array.isArray(finalOptions.attachments) ? [...finalOptions.attachments] : [];
+      if (!finalOptions.attachments.some((a) => a.cid === 'masteryzone_logo_dp')) {
+        finalOptions.attachments.push({
+          filename: 'masteryzone_logo_dp.png',
+          path: resolvedLogoPath,
+          cid: 'masteryzone_logo_dp',
+          contentType: 'image/png',
+          contentDisposition: 'inline',
+        });
+      }
+    }
+  }
+
   const isTransient = (code) => {
     return ['ETIMEDOUT', 'ECONNECTION', 'ESOCKET', '421', '451'].includes(String(code));
   };
@@ -1652,8 +1690,10 @@ function wrapHtmlEmail(optionsOrContent, legacyOptions = {}) {
     } = optionsOrContent || {});
   }
 
-  const defaultLogo = 'https://mastery-zone.onrender.com/logo_icon.png';
+  const defaultLogo = 'cid:masteryzone_logo_dp';
+  const cdnLogo = 'https://mastery-zone.onrender.com/logo_icon.png';
   const effectiveLogoUrl = (logoUrl && typeof logoUrl === 'string' && logoUrl.trim()) ? logoUrl.trim() : defaultLogo;
+  const schemaLogoUrl = (logoUrl && !logoUrl.startsWith('cid:')) ? logoUrl : cdnLogo;
 
   return `
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
@@ -1675,7 +1715,7 @@ function wrapHtmlEmail(optionsOrContent, legacyOptions = {}) {
     "@type": "Organization",
     "name": "Mastery Zone",
     "url": "https://mastery-zone.onrender.com",
-    "logo": "${effectiveLogoUrl}"
+    "logo": "${schemaLogoUrl}"
   }
   </script>
   <style type="text/css">
