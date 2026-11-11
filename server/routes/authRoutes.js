@@ -210,14 +210,20 @@ router.post('/login', async (req, res) => {
 
     const now = new Date();
 
-    // Send login notification immediately to user's registered email on every login
-    if (!isGuestAccount(user.email, user.role)) {
+    // Send login notification: Always alert immediately on new/unrecognized devices.
+    // Rate-limit routine logins on recognized devices to at most once every 4 hours to prevent inbox spam.
+    const ROUTINE_LOGIN_EMAIL_COOLDOWN_MS = 4 * 60 * 60 * 1000;
+    const isOverdueForRoutineEmail = !user.lastLoginNotificationSentAt ||
+      (now.getTime() - new Date(user.lastLoginNotificationSentAt).getTime() > ROUTINE_LOGIN_EMAIL_COOLDOWN_MS);
+    const shouldSendLoginEmail = isNewDevice || isOverdueForRoutineEmail;
+
+    if (shouldSendLoginEmail && !isGuestAccount(user.email, user.role)) {
       const telemetry = { browser, os, clientIp, deviceSummary, clientUrl: getClientBaseUrl(req) };
       dispatchMailBackground(async () => {
         return await sendLoginNotification(user, telemetry, isNewDevice);
       }, { type: 'login_notification', recipient: user.email });
+      user.lastLoginNotificationSentAt = now;
     }
-    user.lastLoginNotificationSentAt = now;
 
     // In-app real-time notification
     pushNotification(req.app, {
@@ -553,14 +559,20 @@ router.post('/firebase-login', verifyFirebaseToken, async (req, res) => {
 
     const now = new Date();
 
-    // Send login notification immediately on every login
-    if (!isGuestAccount(user.email, user.role)) {
+    // Send login notification: Skip if welcome email was just dispatched for new registration.
+    // Alert immediately on new/unrecognized devices, and rate-limit routine logins to every 4 hours.
+    const ROUTINE_LOGIN_EMAIL_COOLDOWN_MS = 4 * 60 * 60 * 1000;
+    const isOverdueForRoutineEmail = !user.lastLoginNotificationSentAt ||
+      (now.getTime() - new Date(user.lastLoginNotificationSentAt).getTime() > ROUTINE_LOGIN_EMAIL_COOLDOWN_MS);
+    const shouldSendLoginEmail = !isNew && (isNewDevice || isOverdueForRoutineEmail);
+
+    if (shouldSendLoginEmail && !isGuestAccount(user.email, user.role)) {
       const telemetry = { browser, os, clientIp, deviceSummary, clientUrl: getClientBaseUrl(req) };
       dispatchMailBackground(async () => {
         return await sendLoginNotification(user, telemetry, isNewDevice);
       }, { type: 'login_notification', recipient: user.email });
+      user.lastLoginNotificationSentAt = now;
     }
-    user.lastLoginNotificationSentAt = now;
 
     // In-app real-time notification
     pushNotification(req.app, {
