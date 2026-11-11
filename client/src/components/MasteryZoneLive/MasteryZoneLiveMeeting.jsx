@@ -1416,6 +1416,8 @@ export default function MasteryZoneLiveMeeting({
           video: {
             displaySurface: "monitor",
             cursor: "always",
+            width: { ideal: 1920, max: 2560 },
+            height: { ideal: 1080, max: 1440 },
             frameRate: { ideal: 30, max: 60 },
           },
           audio: true, // Captures system/display audio if user permits
@@ -1508,11 +1510,11 @@ export default function MasteryZoneLiveMeeting({
         };
       }
 
-      // 4. Initialize MediaRecorder with standard WebM VP8/VP9 and Opus audio, or browser-native default
+      // 4. Initialize MediaRecorder with hardware-accelerated VP9/H.264, VP8 fallback, and Opus audio
       const candidateMimeTypes = [
-        "video/webm;codecs=vp8,opus",
         "video/webm;codecs=vp9,opus",
         "video/webm;codecs=h264,opus",
+        "video/webm;codecs=vp8,opus",
         "video/webm",
         "video/mp4;codecs=avc1,mp4a.40.2",
         "video/mp4",
@@ -1526,7 +1528,7 @@ export default function MasteryZoneLiveMeeting({
       });
 
       const recorderOptions = {
-        videoBitsPerSecond: 2500000,
+        videoBitsPerSecond: 4000000,
         ...(supportedMimeType ? { mimeType: supportedMimeType } : {}),
       };
 

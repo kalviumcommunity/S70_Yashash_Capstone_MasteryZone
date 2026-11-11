@@ -883,14 +883,14 @@ const AdminRecordings = () => {
                   controls
                   playsInline
                   autoPlay
+                  preload="auto"
                   onLoadedMetadata={(e) => {
                     const v = e.target;
-                    if (v.duration === Infinity) {
-                      v.currentTime = 1e101;
-                      v.ontimeupdate = function() {
-                        this.ontimeupdate = null;
-                        this.currentTime = 0;
-                      };
+                    if (v.duration && isFinite(v.duration) && v.duration > 0) {
+                      const d = Math.round(v.duration);
+                      if (!activeRecording.durationSeconds || activeRecording.durationSeconds !== d) {
+                        setActiveRecording((prev) => (prev ? { ...prev, durationSeconds: d } : prev));
+                      }
                     }
                   }}
                   onError={() => setVideoError(true)}
