@@ -4332,7 +4332,7 @@ export default function Coding() {
 
       {/* Project Workspace Modal (Fallback Fixed Overlay) */}
       {selectedProjectModal && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "#0b0f19", overflowY: "auto" }}>
+        <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "var(--mz-bg-primary, #000000)", overflowY: "auto" }}>
           <ProjectWorkspaceModal
             project={selectedProjectModal}
             onClose={() => setSelectedProjectModal(null)}

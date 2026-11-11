@@ -330,8 +330,8 @@ button {
 
 [data-theme="dark"] select option,
 .mz-theme-dark select option {
-  background-color: #111827;
-  color: #f8fafc;
+  background-color: #0c0d12;
+  color: #f4f4f6;
 }
 
 /* =========================================================

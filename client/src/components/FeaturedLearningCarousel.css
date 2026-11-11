@@ -733,13 +733,27 @@
 /* =========================================================================
    DARK THEME REFINEMENTS
    ========================================================================= */
-.mz-theme-dark .mzc-carousel-wrapper {
+.mz-theme-dark .mzc-carousel-wrapper,
+[data-theme="dark"] .mzc-carousel-wrapper {
   background: #000000;
   border-color: #20222a;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.05);
 }
 
-.mz-theme-dark .mzc-carousel-wrapper:hover {
+.mz-theme-dark .mzc-carousel-wrapper:hover,
+[data-theme="dark"] .mzc-carousel-wrapper:hover {
   border-color: rgba(59, 130, 246, 0.45);
   box-shadow: 0 20px 48px rgba(0, 0, 0, 0.85), 0 0 24px rgba(59, 130, 246, 0.15);
+}
+
+.mz-theme-dark .mzc-cover-photo-overlay,
+[data-theme="dark"] .mzc-cover-photo-overlay {
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.98) 0%,
+    rgba(0, 0, 0, 0.92) 36%,
+    rgba(0, 0, 0, 0.6) 60%,
+    rgba(0, 0, 0, 0.15) 80%,
+    rgba(0, 0, 0, 0) 100%
+  ) !important;
 }

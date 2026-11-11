@@ -851,7 +851,7 @@ const AdminRecordings = () => {
             </div>
 
             {/* Cinematic Video Player Section */}
-            <div style={{ background: "#0b0f19", position: "relative" }}>
+            <div style={{ background: "#000000", position: "relative" }}>
               {videoError ? (
                 <div style={{ padding: "60px 20px", textAlign: "center", color: "#f87171" }}>
                   <LuTriangleAlert style={{ width: 36, height: 36, margin: "0 auto 10px" }} />

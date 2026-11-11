@@ -678,7 +678,7 @@ async function runTests() {
       assert(foundA, "User A must see their own bookmark");
 
       // Shared meeting recording where User B is participant
-      const sharedRec = await Recording.findOne({ meetingId: { $regex: /^mtg_shared_/ } });
+      const sharedRec = await Recording.findOne({ meetingId: { $regex: /^mtg_shared_/ } }).sort({ createdAt: -1 });
       if (sharedRec) {
         // User A adds personal bookmark to shared recording
         await fetch(`${baseUrl}/api/recordings/${sharedRec.recordingId}/bookmarks`, {
