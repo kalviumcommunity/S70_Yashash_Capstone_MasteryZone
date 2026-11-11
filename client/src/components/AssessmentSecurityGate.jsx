@@ -27,6 +27,7 @@ import {
   LuWifi,
 } from "react-icons/lu";
 import "./assessmentSecurityGate.css";
+import ThemeToggle from "./ThemeToggle.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 const SIGNAL_RESTORE_MS = 100;
@@ -1456,6 +1457,7 @@ export default function AssessmentSecurityGate({
         </div>
 
         <div className="mz-gate-header-right">
+          <ThemeToggle />
           <button
             type="button"
             className="mz-gate-close-btn"
@@ -1473,22 +1475,22 @@ export default function AssessmentSecurityGate({
             <div style={{ width: "64px", height: "64px", borderRadius: "50%", background: "rgba(16, 185, 129, 0.15)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1.25rem" }}>
               <LuShieldCheck size={36} color="#10b981" />
             </div>
-            <h2 style={{ fontSize: "1.45rem", fontWeight: 800, margin: "0 0 0.5rem", color: "#0f172a" }}>MZ-ASM Workspace Active in Separate Tab</h2>
-            <p style={{ color: "#64748b", fontSize: "0.88rem", margin: "0 0 1.5rem" }}>
+            <h2 style={{ fontSize: "1.45rem", fontWeight: 800, margin: "0 0 0.5rem", color: "var(--mz-text-primary)" }}>MZ-ASM Workspace Active in Separate Tab</h2>
+            <p style={{ color: "var(--mz-text-muted)", fontSize: "0.88rem", margin: "0 0 1.5rem" }}>
               Your proctored coding assessment is running in a dedicated window. Keep this tab open to maintain continuous proctoring supervision and recovery telemetry.
             </p>
-            <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "1.25rem", textAlign: "left", marginBottom: "1.5rem", fontSize: "0.85rem" }}>
+            <div style={{ background: "var(--mz-surface-subtle)", border: "1px solid var(--mz-border)", borderRadius: "8px", padding: "1.25rem", textAlign: "left", marginBottom: "1.5rem", fontSize: "0.85rem" }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.5rem" }}>
-                <span style={{ color: "#64748b" }}>Candidate:</span>
+                <span style={{ color: "var(--mz-text-muted)" }}>Candidate:</span>
                 <strong>{candidateName} ({candidateId})</strong>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.5rem" }}>
-                <span style={{ color: "#64748b" }}>Session ID:</span>
-                <code style={{ color: "#2563eb", fontFamily: "monospace" }}>{launchedSessionId}</code>
+                <span style={{ color: "var(--mz-text-muted)" }}>Session ID:</span>
+                <code style={{ color: "var(--mz-blue-text)", fontFamily: "monospace" }}>{launchedSessionId}</code>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "#64748b" }}>Proctoring State:</span>
-                <span style={{ color: "#10b981", fontWeight: 700 }}>SYNCHRONIZED (Active)</span>
+                <span style={{ color: "var(--mz-text-muted)" }}>Proctoring State:</span>
+                <span style={{ color: "var(--mz-emerald-text)", fontWeight: 700 }}>SYNCHRONIZED (Active)</span>
               </div>
             </div>
 
@@ -1700,7 +1702,7 @@ export default function AssessmentSecurityGate({
                   <h3 className="mz-gate-section-title">
                     <LuFileText size={18} /> Candidate Assessment Registration
                   </h3>
-                  <p style={{ fontSize: "12px", color: "#64748b", margin: "4px 0 12px 0" }}>
+                  <p style={{ fontSize: "12px", color: "var(--mz-text-muted)", margin: "4px 0 12px 0" }}>
                     Confirm candidate identification details. These credentials will be permanently sealed onto your attempt report.
                   </p>
                   <div className="mz-gate-form-grid">
@@ -1783,7 +1785,7 @@ export default function AssessmentSecurityGate({
                       {isAllReady ? <LuCheck size={16} /> : <LuShieldCheck size={16} />}
                       <span>{verifiedCount}/4 Verified</span>
                     </div>
-                    <div className="mz-meta-badge" style={{ margin: 0, padding: "7px 14px", borderRadius: "9999px", background: "#ffffff", border: "1px solid #e2e8f0" }}>
+                    <div className="mz-meta-badge" style={{ margin: 0, padding: "7px 14px", borderRadius: "9999px", background: "var(--mz-surface)", border: "1px solid var(--mz-border)" }}>
                       {batteryInfo.charging ? (
                         <LuBatteryCharging size={15} color="#2563eb" />
                       ) : batteryInfo.percentage <= 20 ? (
@@ -1791,7 +1793,7 @@ export default function AssessmentSecurityGate({
                       ) : (
                         <LuBattery size={15} color="#059669" />
                       )}
-                      <span style={{ fontSize: "12px", fontWeight: 600, color: "#334155" }}>
+                      <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--mz-text-secondary)" }}>
                         Power: {batteryInfo.percentage}% {batteryInfo.charging ? "⚡" : ""}
                       </span>
                     </div>
@@ -2657,7 +2659,7 @@ export default function AssessmentSecurityGate({
 
                 {/* Workstation Telemetry & Power Health Bar */}
                 <div className="mz-gate-meta-badges" style={{ justifyContent: "center", margin: "10px 0 4px" }}>
-                  <div className="mz-meta-badge" style={{ background: "#ffffff" }}>
+                  <div className="mz-meta-badge" style={{ background: "var(--mz-surface)" }}>
                     {batteryInfo.charging ? (
                       <LuBatteryCharging size={16} color="#2563eb" />
                     ) : batteryInfo.percentage <= 20 ? (
@@ -2667,14 +2669,14 @@ export default function AssessmentSecurityGate({
                     )}
                     <span>Workstation Power: {batteryInfo.percentage}% {batteryInfo.charging ? "(Adapter Connected ⚡)" : "(Operating on battery)"}</span>
                   </div>
-                  <div className="mz-meta-badge" style={{ background: "#ffffff" }}>
+                  <div className="mz-meta-badge" style={{ background: "var(--mz-surface)" }}>
                     <LuShieldCheck size={16} color="#059669" />
                     <span>Anti-Tamper Telemetry Synced ({verifiedCount}/4 Verified)</span>
                   </div>
                 </div>
 
                 {gateError && (
-                  <div style={{ padding: "10px 14px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: "10px", color: "#b91c1c", fontSize: "13px", margin: "6px 0", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <div style={{ padding: "10px 14px", background: "var(--mz-red-bg)", border: "1px solid var(--mz-red-border)", borderRadius: "10px", color: "var(--mz-red-text)", fontSize: "13px", margin: "6px 0", display: "flex", alignItems: "center", gap: "8px" }}>
                     <LuTriangleAlert size={16} style={{ flexShrink: 0 }} />
                     <span>{gateError}</span>
                   </div>

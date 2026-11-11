@@ -232,8 +232,8 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
           className="mz-admin-modal-header"
           style={{
             padding: "20px 24px",
-            borderBottom: "1px solid #e2e8f0",
-            background: "#ffffff",
+            borderBottom: "1px solid var(--mz-border)",
+            background: "var(--mz-surface)",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
@@ -256,7 +256,7 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                 boxShadow: "0 4px 14px rgba(99, 102, 241, 0.25)",
                 overflow: "hidden",
                 flexShrink: 0,
-                border: "2px solid #ffffff",
+                border: "2px solid var(--mz-surface)",
               }}
             >
               {user.avatarUrl ? (
@@ -276,7 +276,7 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
 
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "#0f172a" }}>
+                <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "var(--mz-text-primary)" }}>
                   {displayName}
                 </h3>
                 <span className={user.isSuspended ? "mz-admin-badge-suspended" : "mz-admin-badge-active"}>
@@ -289,15 +289,15 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                   {user.authProvider === "google" ? "Google Account" : "Email & Password"}
                 </span>
               </div>
-              <p style={{ margin: "4px 0 0", fontSize: 12.5, color: "#64748b", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <p style={{ margin: "4px 0 0", fontSize: 12.5, color: "var(--mz-text-muted)", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                 <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <LuMail style={{ width: 14, height: 14, color: "#94a3b8" }} />
+                  <LuMail style={{ width: 14, height: 14, color: "var(--mz-text-subtle)" }} />
                   <strong>{user.email}</strong>
                 </span>
                 <span>•</span>
                 <span>@{user.username}</span>
                 <span>•</span>
-                <span style={{ fontFamily: "monospace", fontSize: 11, color: "#94a3b8" }}>
+                <span style={{ fontFamily: "monospace", fontSize: 11, color: "var(--mz-text-subtle)" }}>
                   ID: {user._id}
                 </span>
               </p>
@@ -316,10 +316,10 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
             <button
               onClick={onClose}
               style={{
-                background: "#f1f5f9",
+                background: "var(--mz-surface-muted)",
                 border: "none",
                 fontSize: 16,
-                color: "#64748b",
+                color: "var(--mz-text-muted)",
                 cursor: "pointer",
                 padding: "8px 12px",
                 borderRadius: 10,
@@ -337,32 +337,32 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
           className="mz-admin-grid-4"
           style={{
             padding: "12px 24px",
-            background: "#f8fafc",
-            borderBottom: "1px solid #e2e8f0",
+            background: "var(--mz-surface-subtle)",
+            borderBottom: "1px solid var(--mz-border)",
             gap: 12,
           }}
         >
-          <div style={{ padding: "8px 12px", background: "#ffffff", borderRadius: 10, border: "1px solid #e2e8f0", textAlign: "center" }}>
-            <span style={{ fontSize: 10.5, color: "#94a3b8", fontWeight: 700, textTransform: "uppercase" }}>Activity Streak</span>
-            <div style={{ fontSize: 16, fontWeight: 800, color: "#0f172a", marginTop: 2 }}>
+          <div style={{ padding: "8px 12px", background: "var(--mz-surface)", borderRadius: 10, border: "1px solid var(--mz-border)", textAlign: "center" }}>
+            <span style={{ fontSize: 10.5, color: "var(--mz-text-subtle)", fontWeight: 700, textTransform: "uppercase" }}>Activity Streak</span>
+            <div style={{ fontSize: 16, fontWeight: 800, color: "var(--mz-text-primary)", marginTop: 2 }}>
               🔥 {user.streak || 1} Days
             </div>
           </div>
-          <div style={{ padding: "8px 12px", background: "#ffffff", borderRadius: 10, border: "1px solid #e2e8f0", textAlign: "center" }}>
-            <span style={{ fontSize: 10.5, color: "#94a3b8", fontWeight: 700, textTransform: "uppercase" }}>Learning Hours</span>
-            <div style={{ fontSize: 16, fontWeight: 800, color: "#0f172a", marginTop: 2 }}>
+          <div style={{ padding: "8px 12px", background: "var(--mz-surface)", borderRadius: 10, border: "1px solid var(--mz-border)", textAlign: "center" }}>
+            <span style={{ fontSize: 10.5, color: "var(--mz-text-subtle)", fontWeight: 700, textTransform: "uppercase" }}>Learning Hours</span>
+            <div style={{ fontSize: 16, fontWeight: 800, color: "var(--mz-text-primary)", marginTop: 2 }}>
               ⏱️ {user.learningHours || 0} hrs
             </div>
           </div>
-          <div style={{ padding: "8px 12px", background: "#ffffff", borderRadius: 10, border: "1px solid #e2e8f0", textAlign: "center" }}>
-            <span style={{ fontSize: 10.5, color: "#94a3b8", fontWeight: 700, textTransform: "uppercase" }}>Code Submissions</span>
-            <div style={{ fontSize: 16, fontWeight: 800, color: "#0f172a", marginTop: 2 }}>
+          <div style={{ padding: "8px 12px", background: "var(--mz-surface)", borderRadius: 10, border: "1px solid var(--mz-border)", textAlign: "center" }}>
+            <span style={{ fontSize: 10.5, color: "var(--mz-text-subtle)", fontWeight: 700, textTransform: "uppercase" }}>Code Submissions</span>
+            <div style={{ fontSize: 16, fontWeight: 800, color: "var(--mz-text-primary)", marginTop: 2 }}>
               💻 {submissions.length}
             </div>
           </div>
-          <div style={{ padding: "8px 12px", background: "#ffffff", borderRadius: 10, border: "1px solid #e2e8f0", textAlign: "center" }}>
-            <span style={{ fontSize: 10.5, color: "#94a3b8", fontWeight: 700, textTransform: "uppercase" }}>Certifications</span>
-            <div style={{ fontSize: 16, fontWeight: 800, color: "#0f172a", marginTop: 2 }}>
+          <div style={{ padding: "8px 12px", background: "var(--mz-surface)", borderRadius: 10, border: "1px solid var(--mz-border)", textAlign: "center" }}>
+            <span style={{ fontSize: 10.5, color: "var(--mz-text-subtle)", fontWeight: 700, textTransform: "uppercase" }}>Certifications</span>
+            <div style={{ fontSize: 16, fontWeight: 800, color: "var(--mz-text-primary)", marginTop: 2 }}>
               🏆 {certificates.length}
             </div>
           </div>
@@ -374,8 +374,8 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
             padding: "0 24px",
             display: "flex",
             gap: 20,
-            borderBottom: "1px solid #e2e8f0",
-            background: "#ffffff",
+            borderBottom: "1px solid var(--mz-border)",
+            background: "var(--mz-surface)",
           }}
         >
           {[
@@ -393,7 +393,7 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                 background: "transparent",
                 padding: "12px 2px",
                 borderBottom: activeTab === tab.id ? "2.5px solid #6366f1" : "2.5px solid transparent",
-                color: activeTab === tab.id ? "#6366f1" : "#64748b",
+                color: activeTab === tab.id ? "#6366f1" : "var(--mz-text-muted)",
                 fontSize: 13,
                 fontWeight: activeTab === tab.id ? 700 : 500,
                 cursor: "pointer",
@@ -413,75 +413,75 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
               {/* Personal & Contact Grid */}
               <div
                 style={{
-                  background: "#ffffff",
-                  border: "1px solid #e2e8f0",
+                  background: "var(--mz-surface)",
+                  border: "1px solid var(--mz-border)",
                   borderRadius: 14,
                   padding: "18px 20px",
                 }}
               >
-                <h4 style={{ margin: "0 0 14px", fontSize: 13.5, fontWeight: 700, color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                <h4 style={{ margin: "0 0 14px", fontSize: 13.5, fontWeight: 700, color: "var(--mz-text-primary)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
                   Student Information & Contact
                 </h4>
 
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
                   <div>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8" }}>FULL NAME</label>
-                    <p style={{ margin: "2px 0 0", fontSize: 13.5, fontWeight: 600, color: "#0f172a" }}>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: "var(--mz-text-subtle)" }}>FULL NAME</label>
+                    <p style={{ margin: "2px 0 0", fontSize: 13.5, fontWeight: 600, color: "var(--mz-text-primary)" }}>
                       {user.fullName || "Not Provided"}
                     </p>
                   </div>
 
                   <div>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8" }}>USERNAME</label>
-                    <p style={{ margin: "2px 0 0", fontSize: 13.5, fontWeight: 600, color: "#0f172a" }}>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: "var(--mz-text-subtle)" }}>USERNAME</label>
+                    <p style={{ margin: "2px 0 0", fontSize: 13.5, fontWeight: 600, color: "var(--mz-text-primary)" }}>
                       @{user.username}
                     </p>
                   </div>
 
                   <div>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8" }}>EMAIL ADDRESS</label>
-                    <p style={{ margin: "2px 0 0", fontSize: 13.5, fontWeight: 600, color: "#0f172a", display: "flex", alignItems: "center", gap: 6 }}>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: "var(--mz-text-subtle)" }}>EMAIL ADDRESS</label>
+                    <p style={{ margin: "2px 0 0", fontSize: 13.5, fontWeight: 600, color: "var(--mz-text-primary)", display: "flex", alignItems: "center", gap: 6 }}>
                       <LuMail style={{ width: 14, height: 14, color: "#6366f1" }} />
                       <span>{user.email}</span>
                     </p>
                   </div>
 
                   <div>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8" }}>PHONE NUMBER</label>
-                    <p style={{ margin: "2px 0 0", fontSize: 13.5, fontWeight: 600, color: "#0f172a", display: "flex", alignItems: "center", gap: 6 }}>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: "var(--mz-text-subtle)" }}>PHONE NUMBER</label>
+                    <p style={{ margin: "2px 0 0", fontSize: 13.5, fontWeight: 600, color: "var(--mz-text-primary)", display: "flex", alignItems: "center", gap: 6 }}>
                       <LuPhone style={{ width: 14, height: 14, color: "#10b981" }} />
                       <span>{user.phoneNumber || "Not Provided"}</span>
                     </p>
                   </div>
 
                   <div>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8" }}>LOCATION</label>
-                    <p style={{ margin: "2px 0 0", fontSize: 13.5, fontWeight: 600, color: "#0f172a", display: "flex", alignItems: "center", gap: 6 }}>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: "var(--mz-text-subtle)" }}>LOCATION</label>
+                    <p style={{ margin: "2px 0 0", fontSize: 13.5, fontWeight: 600, color: "var(--mz-text-primary)", display: "flex", alignItems: "center", gap: 6 }}>
                       <LuMapPin style={{ width: 14, height: 14, color: "#f97316" }} />
                       <span>{user.location || "Not Provided"}</span>
                     </p>
                   </div>
 
                   <div>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8" }}>OCCUPATION / TITLE</label>
-                    <p style={{ margin: "2px 0 0", fontSize: 13.5, fontWeight: 600, color: "#0f172a", display: "flex", alignItems: "center", gap: 6 }}>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: "var(--mz-text-subtle)" }}>OCCUPATION / TITLE</label>
+                    <p style={{ margin: "2px 0 0", fontSize: 13.5, fontWeight: 600, color: "var(--mz-text-primary)", display: "flex", alignItems: "center", gap: 6 }}>
                       <LuBriefcase style={{ width: 14, height: 14, color: "#8b5cf6" }} />
                       <span>{user.occupation || "Not Provided"}</span>
                     </p>
                   </div>
 
                   <div>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8" }}>REGISTERED ON</label>
-                    <p style={{ margin: "2px 0 0", fontSize: 13.5, fontWeight: 600, color: "#0f172a", display: "flex", alignItems: "center", gap: 6 }}>
-                      <LuCalendar style={{ width: 14, height: 14, color: "#64748b" }} />
+                    <label style={{ fontSize: 11, fontWeight: 700, color: "var(--mz-text-subtle)" }}>REGISTERED ON</label>
+                    <p style={{ margin: "2px 0 0", fontSize: 13.5, fontWeight: 600, color: "var(--mz-text-primary)", display: "flex", alignItems: "center", gap: 6 }}>
+                      <LuCalendar style={{ width: 14, height: 14, color: "var(--mz-text-muted)" }} />
                       <span>{new Date(user.createdAt).toLocaleDateString("en-US", { dateStyle: "long" })}</span>
                     </p>
                   </div>
 
                   <div>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8" }}>LAST ACTIVE TIMESTAMP</label>
-                    <p style={{ margin: "2px 0 0", fontSize: 13.5, fontWeight: 600, color: "#0f172a", display: "flex", alignItems: "center", gap: 6 }}>
-                      <LuClock style={{ width: 14, height: 14, color: "#64748b" }} />
+                    <label style={{ fontSize: 11, fontWeight: 700, color: "var(--mz-text-subtle)" }}>LAST ACTIVE TIMESTAMP</label>
+                    <p style={{ margin: "2px 0 0", fontSize: 13.5, fontWeight: 600, color: "var(--mz-text-primary)", display: "flex", alignItems: "center", gap: 6 }}>
+                      <LuClock style={{ width: 14, height: 14, color: "var(--mz-text-muted)" }} />
                       <span>{new Date(user.lastActiveDate || user.createdAt).toLocaleString()}</span>
                     </p>
                   </div>
@@ -491,16 +491,16 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
               {/* Bio Statement */}
               <div
                 style={{
-                  background: "#ffffff",
-                  border: "1px solid #e2e8f0",
+                  background: "var(--mz-surface)",
+                  border: "1px solid var(--mz-border)",
                   borderRadius: 14,
                   padding: "16px 20px",
                 }}
               >
-                <h4 style={{ margin: "0 0 8px", fontSize: 13.5, fontWeight: 700, color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                <h4 style={{ margin: "0 0 8px", fontSize: 13.5, fontWeight: 700, color: "var(--mz-text-primary)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
                   Biography & Profile Statement
                 </h4>
-                <p style={{ margin: 0, fontSize: 13, color: user.bio ? "#334155" : "#94a3b8", lineHeight: 1.6, fontStyle: user.bio ? "normal" : "italic" }}>
+                <p style={{ margin: 0, fontSize: 13, color: user.bio ? "var(--mz-text-secondary)" : "var(--mz-text-subtle)", lineHeight: 1.6, fontStyle: user.bio ? "normal" : "italic" }}>
                   {user.bio || "No biography provided by the student."}
                 </p>
               </div>
@@ -508,19 +508,19 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
               {/* Interests & Tracks */}
               <div
                 style={{
-                  background: "#ffffff",
-                  border: "1px solid #e2e8f0",
+                  background: "var(--mz-surface)",
+                  border: "1px solid var(--mz-border)",
                   borderRadius: 14,
                   padding: "16px 20px",
                 }}
               >
-                <h4 style={{ margin: "0 0 12px", fontSize: 13.5, fontWeight: 700, color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                <h4 style={{ margin: "0 0 12px", fontSize: 13.5, fontWeight: 700, color: "var(--mz-text-primary)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
                   Learning Interests & Explored Tracks
                 </h4>
 
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                   <div>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", display: "block", marginBottom: 6 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "var(--mz-text-subtle)", display: "block", marginBottom: 6 }}>
                       SELECTED INTERESTS
                     </span>
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -531,18 +531,18 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                             style={{
                               padding: "4px 10px",
                               borderRadius: 6,
-                              background: "#eff6ff",
+                              background: "var(--mz-blue-bg)",
                               color: "#2563eb",
                               fontSize: 12,
                               fontWeight: 700,
-                              border: "1px solid #dbeafe",
+                              border: "1px solid var(--mz-blue-bg)",
                             }}
                           >
                             #{it}
                           </span>
                         ))
                       ) : (
-                        <span style={{ fontSize: 12, color: "#94a3b8", fontStyle: "italic" }}>
+                        <span style={{ fontSize: 12, color: "var(--mz-text-subtle)", fontStyle: "italic" }}>
                           No specific interests selected.
                         </span>
                       )}
@@ -550,7 +550,7 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                   </div>
 
                   <div>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", display: "block", marginBottom: 6 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "var(--mz-text-subtle)", display: "block", marginBottom: 6 }}>
                       EXPLORED LEARNING TRACKS
                     </span>
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -561,18 +561,18 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                             style={{
                               padding: "4px 10px",
                               borderRadius: 6,
-                              background: "#ecfdf5",
+                              background: "var(--mz-green-bg)",
                               color: "#059669",
                               fontSize: 12,
                               fontWeight: 700,
-                              border: "1px solid #a7f3d0",
+                              border: "1px solid var(--mz-green-border)",
                             }}
                           >
                             ✓ {tr}
                           </span>
                         ))
                       ) : (
-                        <span style={{ fontSize: 12, color: "#94a3b8", fontStyle: "italic" }}>
+                        <span style={{ fontSize: 12, color: "var(--mz-text-subtle)", fontStyle: "italic" }}>
                           No tracks explored yet.
                         </span>
                       )}
@@ -587,7 +587,7 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
           {activeTab === "timeline" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {timeline.length === 0 ? (
-                <p style={{ margin: 0, color: "#94a3b8", fontSize: 13, textAlign: "center", padding: "40px 0" }}>
+                <p style={{ margin: 0, color: "var(--mz-text-subtle)", fontSize: 13, textAlign: "center", padding: "40px 0" }}>
                   No recorded activity yet for this account.
                 </p>
               ) : (
@@ -597,8 +597,8 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                     style={{
                       padding: "14px 18px",
                       borderRadius: 14,
-                      border: "1px solid #e2e8f0",
-                      background: "#ffffff",
+                      border: "1px solid var(--mz-border)",
+                      background: "var(--mz-surface)",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "space-between",
@@ -606,9 +606,9 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                     }}
                   >
                     <div>
-                      <div style={{ fontWeight: 700, color: "#0f172a", fontSize: 13.5 }}>{item.title}</div>
-                      <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>{item.description}</div>
-                      <span style={{ fontSize: 11, color: "#94a3b8", display: "block", marginTop: 4 }}>
+                      <div style={{ fontWeight: 700, color: "var(--mz-text-primary)", fontSize: 13.5 }}>{item.title}</div>
+                      <div style={{ fontSize: 12, color: "var(--mz-text-muted)", marginTop: 2 }}>{item.description}</div>
+                      <span style={{ fontSize: 11, color: "var(--mz-text-subtle)", display: "block", marginTop: 4 }}>
                         {new Date(item.timestamp).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}
                       </span>
                     </div>
@@ -633,18 +633,18 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
           {activeTab === "submissions" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {submissions.length === 0 ? (
-                <p style={{ margin: 0, color: "#94a3b8", fontSize: 13, textAlign: "center", padding: "40px 0" }}>
+                <p style={{ margin: 0, color: "var(--mz-text-subtle)", fontSize: 13, textAlign: "center", padding: "40px 0" }}>
                   No coding submissions recorded.
                 </p>
               ) : (
                 submissions.map((s) => (
                   <div
                     key={s._id}
-                    style={{ padding: "16px 18px", borderRadius: 14, border: "1px solid #e2e8f0", background: "#ffffff" }}
+                    style={{ padding: "16px 18px", borderRadius: 14, border: "1px solid var(--mz-border)", background: "var(--mz-surface)" }}
                   >
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span style={{ fontWeight: 700, color: "#0f172a", fontSize: 14.5 }}>
+                        <span style={{ fontWeight: 700, color: "var(--mz-text-primary)", fontSize: 14.5 }}>
                           {s.challengeTitle || s.challengeId}
                         </span>
                         <span className="mz-admin-badge-purple" style={{ textTransform: "uppercase" }}>
@@ -667,7 +667,7 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                       </div>
                     </div>
 
-                    <div style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 12, color: "#64748b" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 12, color: "var(--mz-text-muted)" }}>
                       <span>Tests Passed: <strong>{s.passedTests}/{s.totalTests}</strong></span>
                       <span>•</span>
                       <span>Runtime: {s.runtimeMs || 0}ms</span>
@@ -709,11 +709,11 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
           {activeTab === "assessments" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div>
-                <h4 style={{ margin: "4px 0 10px", fontSize: 13.5, fontWeight: 800, color: "#0f172a" }}>
+                <h4 style={{ margin: "4px 0 10px", fontSize: 13.5, fontWeight: 800, color: "var(--mz-text-primary)" }}>
                   Certification Exam Attempts
                 </h4>
                 {certAttempts.length === 0 ? (
-                  <p style={{ margin: 0, fontSize: 12, color: "#94a3b8" }}>No certification exam attempts.</p>
+                  <p style={{ margin: 0, fontSize: 12, color: "var(--mz-text-subtle)" }}>No certification exam attempts.</p>
                 ) : (
                   certAttempts.map((c) => (
                     <div
@@ -721,8 +721,8 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                       style={{
                         padding: "14px 18px",
                         borderRadius: 14,
-                        border: "1px solid #e2e8f0",
-                        background: "#ffffff",
+                        border: "1px solid var(--mz-border)",
+                        background: "var(--mz-surface)",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "space-between",
@@ -730,8 +730,8 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                       }}
                     >
                       <div>
-                        <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: "#0f172a" }}>{c.certTitle}</p>
-                        <p style={{ margin: "2px 0 0", fontSize: 12, color: "#64748b" }}>
+                        <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: "var(--mz-text-primary)" }}>{c.certTitle}</p>
+                        <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--mz-text-muted)" }}>
                           Score: <strong>{c.percentage}%</strong> • Attempt #{c.attemptNumber} • {new Date(c.submittedAt || c.createdAt).toLocaleDateString()}
                         </p>
                         {c.adminNote && (
@@ -760,11 +760,11 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
               </div>
 
               <div>
-                <h4 style={{ margin: "14px 0 10px", fontSize: 13.5, fontWeight: 800, color: "#0f172a" }}>
+                <h4 style={{ margin: "14px 0 10px", fontSize: 13.5, fontWeight: 800, color: "var(--mz-text-primary)" }}>
                   Module MCQ Tests
                 </h4>
                 {moduleAttempts.length === 0 ? (
-                  <p style={{ margin: 0, fontSize: 12, color: "#94a3b8" }}>No MCQ tests taken.</p>
+                  <p style={{ margin: 0, fontSize: 12, color: "var(--mz-text-subtle)" }}>No MCQ tests taken.</p>
                 ) : (
                   moduleAttempts.map((m) => (
                     <div
@@ -772,8 +772,8 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                       style={{
                         padding: "14px 18px",
                         borderRadius: 14,
-                        border: "1px solid #e2e8f0",
-                        background: "#ffffff",
+                        border: "1px solid var(--mz-border)",
+                        background: "var(--mz-surface)",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "space-between",
@@ -781,10 +781,10 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                       }}
                     >
                       <div>
-                        <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: "#0f172a" }}>
+                        <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: "var(--mz-text-primary)" }}>
                           {m.assessmentTitle || m.moduleTitle}
                         </p>
-                        <p style={{ margin: "2px 0 0", fontSize: 12, color: "#64748b" }}>
+                        <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--mz-text-muted)" }}>
                           Score: <strong>{m.score} / {m.totalQuestions}</strong> ({m.percentage}%) • {new Date(m.createdAt).toLocaleDateString()}
                         </p>
                         {m.adminNote && (
@@ -824,17 +824,17 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                   lastSeenAt: user.lastLoginAt || user.updatedAt,
                 },
               ]).map((dev, idx) => (
-                <div key={idx} style={{ padding: "14px 18px", borderRadius: 14, border: "1px solid #e2e8f0", background: "#ffffff", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div key={idx} style={{ padding: "14px 18px", borderRadius: 14, border: "1px solid var(--mz-border)", background: "var(--mz-surface)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <div className="mz-admin-stat-icon" style={{ background: "#f1f5f9", color: "#475569" }}>
+                    <div className="mz-admin-stat-icon" style={{ background: "var(--mz-surface-muted)", color: "var(--mz-text-secondary)" }}>
                       <LuSmartphone style={{ width: 18, height: 18 }} />
                     </div>
                     <div>
-                      <p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: "#0f172a" }}>{dev.deviceString || "Web Browser"}</p>
-                      <p style={{ margin: "2px 0 0", fontSize: 12, color: "#94a3b8" }}>IP: {dev.ip || "127.0.0.1"}</p>
+                      <p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: "var(--mz-text-primary)" }}>{dev.deviceString || "Web Browser"}</p>
+                      <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--mz-text-subtle)" }}>IP: {dev.ip || "127.0.0.1"}</p>
                     </div>
                   </div>
-                  <span style={{ fontSize: 12, color: "#64748b" }}>
+                  <span style={{ fontSize: 12, color: "var(--mz-text-muted)" }}>
                     Last Seen: {new Date(dev.lastSeenAt || Date.now()).toLocaleDateString()}
                   </span>
                 </div>
@@ -851,7 +851,7 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
             <div style={{ padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
               <div>
                 <h4 style={{ margin: 0, color: "#ffffff", fontSize: 15, fontWeight: 700 }}>Profile Photo Full View</h4>
-                <p style={{ margin: "2px 0 0", color: "#94a3b8", fontSize: 12 }}>{displayName} • {user.email}</p>
+                <p style={{ margin: "2px 0 0", color: "var(--mz-text-subtle)", fontSize: 12 }}>{displayName} • {user.email}</p>
               </div>
               <button
                 onClick={() => setShowPhotoModal(false)}
@@ -890,7 +890,7 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
             </div>
 
             <div style={{ padding: "12px 20px", borderTop: "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "space-between", background: "#0f172a" }}>
-              <span style={{ fontSize: 12, color: "#94a3b8" }}>
+              <span style={{ fontSize: 12, color: "var(--mz-text-subtle)" }}>
                 {user.avatarUrl ? "Original student profile upload" : "Default generated profile avatar"}
               </span>
               <button
@@ -925,8 +925,8 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
               className="mz-admin-modal-header"
               style={{
                 padding: "16px 24px",
-                borderBottom: "1px solid #e2e8f0",
-                background: "#ffffff",
+                borderBottom: "1px solid var(--mz-border)",
+                background: "var(--mz-surface)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
@@ -934,19 +934,19 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <div className="mz-admin-stat-icon" style={{ background: "#ede9fe", color: "#6366f1" }}>
+                <div className="mz-admin-stat-icon" style={{ background: "var(--mz-purple-bg)", color: "#6366f1" }}>
                   <LuFileText style={{ width: 20, height: 20 }} />
                 </div>
                 <div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#0f172a" }}>
+                    <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "var(--mz-text-primary)" }}>
                       Candidate Assessment Report
                     </h3>
                     <span className="mz-admin-badge-purple" style={{ textTransform: "uppercase", fontSize: 11 }}>
                       {activeReport.itemType}
                     </span>
                   </div>
-                  <p style={{ margin: "2px 0 0", fontSize: 12, color: "#64748b" }}>
+                  <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--mz-text-muted)" }}>
                     {activeReport.title} • Candidate: <strong>{activeReport.candidateName || displayName}</strong> ({activeReport.candidateEmail || user.email})
                   </p>
                 </div>
@@ -959,8 +959,8 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                     onClick={() => window.open(activeReport.reportUrl, "_blank", "noopener,noreferrer")}
                     className="mz-admin-btn-action"
                     style={{
-                      background: "#eff6ff",
-                      border: "1px solid #bfdbfe",
+                      background: "var(--mz-blue-bg)",
+                      border: "1px solid var(--mz-blue-border)",
                       color: "#1d4ed8",
                       padding: "6px 12px",
                       fontSize: 12,
@@ -980,7 +980,7 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                     background: "transparent",
                     border: "none",
                     fontSize: 20,
-                    color: "#94a3b8",
+                    color: "var(--mz-text-subtle)",
                     cursor: "pointer",
                     padding: "4px 8px",
                   }}
@@ -997,8 +997,8 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                 alignItems: "center",
                 gap: 8,
                 padding: "8px 24px",
-                background: "#f8fafc",
-                borderBottom: "1px solid #e2e8f0",
+                background: "var(--mz-surface-subtle)",
+                borderBottom: "1px solid var(--mz-border)",
               }}
             >
               <button
@@ -1012,8 +1012,8 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                   fontWeight: 700,
                   cursor: "pointer",
                   border: reportSubTab === "questions" ? "1px solid #6366f1" : "1px solid transparent",
-                  background: reportSubTab === "questions" ? "#ede9fe" : "transparent",
-                  color: reportSubTab === "questions" ? "#4f46e5" : "#64748b",
+                  background: reportSubTab === "questions" ? "var(--mz-purple-bg)" : "transparent",
+                  color: reportSubTab === "questions" ? "#4f46e5" : "var(--mz-text-muted)",
                 }}
               >
                 📋 Question Breakdown & Source Code
@@ -1030,8 +1030,8 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                   fontWeight: 700,
                   cursor: "pointer",
                   border: reportSubTab === "evaluation" ? "1px solid #6366f1" : "1px solid transparent",
-                  background: reportSubTab === "evaluation" ? "#ede9fe" : "transparent",
-                  color: reportSubTab === "evaluation" ? "#4f46e5" : "#64748b",
+                  background: reportSubTab === "evaluation" ? "var(--mz-purple-bg)" : "transparent",
+                  color: reportSubTab === "evaluation" ? "#4f46e5" : "var(--mz-text-muted)",
                 }}
               >
                 ✏️ Marks & Admin Feedback {activeReport.adminNote && "•"}
@@ -1048,8 +1048,8 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                   fontWeight: 700,
                   cursor: "pointer",
                   border: reportSubTab === "audit" ? "1px solid #6366f1" : "1px solid transparent",
-                  background: reportSubTab === "audit" ? "#ede9fe" : "transparent",
-                  color: reportSubTab === "audit" ? "#4f46e5" : "#64748b",
+                  background: reportSubTab === "audit" ? "var(--mz-purple-bg)" : "transparent",
+                  color: reportSubTab === "audit" ? "#4f46e5" : "var(--mz-text-muted)",
                 }}
               >
                 🛡️ Proctoring & Notification Tracking
@@ -1065,14 +1065,14 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                     activeReport.status === "PASSED" ||
                     activeReport.status === "Passed" ||
                     activeReport.status === "ACCEPTED"
-                      ? "linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%)"
-                      : "linear-gradient(135deg, #fef2f2 0%, #fff1f2 100%)",
+                      ? "linear-gradient(135deg, var(--mz-green-bg) 0%, var(--mz-green-bg) 100%)"
+                      : "linear-gradient(135deg, var(--mz-red-bg) 0%, var(--mz-red-bg) 100%)",
                   border:
                     activeReport.status === "PASSED" ||
                     activeReport.status === "Passed" ||
                     activeReport.status === "ACCEPTED"
-                      ? "1px solid #a7f3d0"
-                      : "1px solid #fecaca",
+                      ? "1px solid var(--mz-green-border)"
+                      : "1px solid var(--mz-red-border)",
                   borderRadius: 16,
                   padding: "18px 22px",
                   display: "flex",
@@ -1083,13 +1083,13 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                 }}
               >
                 <div>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "var(--mz-text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
                     OFFICIAL ATTEMPT VERDICT
                   </span>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
-                    <h2 style={{ margin: 0, fontSize: 26, fontWeight: 900, color: "#0f172a" }}>
+                    <h2 style={{ margin: 0, fontSize: 26, fontWeight: 900, color: "var(--mz-text-primary)" }}>
                       {activeReport.score != null ? activeReport.score : activeReport.percentage}
-                      <span style={{ fontSize: 16, color: "#64748b", fontWeight: 700 }}>
+                      <span style={{ fontSize: 16, color: "var(--mz-text-muted)", fontWeight: 700 }}>
                         {activeReport.maxScore ? ` / ${activeReport.maxScore}` : "%"}
                       </span>
                     </h2>
@@ -1106,7 +1106,7 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                       {activeReport.status}
                     </span>
                   </div>
-                  <p style={{ margin: "4px 0 0", fontSize: 12, color: "#64748b" }}>
+                  <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--mz-text-muted)" }}>
                     Completed: {new Date(activeReport.date || Date.now()).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}
                   </p>
                 </div>
@@ -1120,8 +1120,8 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                   }}
                   className="mz-admin-btn-action"
                   style={{
-                    background: "#ffffff",
-                    border: "1px solid #cbd5e1",
+                    background: "var(--mz-surface)",
+                    border: "1px solid var(--mz-border-strong)",
                     padding: "8px 16px",
                     fontWeight: 700,
                   }}
@@ -1142,22 +1142,22 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                       gap: 12,
                     }}
                   >
-                    <div style={{ padding: 12, background: "#f8fafc", borderRadius: 10, border: "1px solid #e2e8f0" }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8" }}>ACCURACY / GRADE</span>
-                      <p style={{ margin: "4px 0 0", fontSize: 15, fontWeight: 800, color: "#0f172a" }}>
+                    <div style={{ padding: 12, background: "var(--mz-surface-subtle)", borderRadius: 10, border: "1px solid var(--mz-border)" }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: "var(--mz-text-subtle)" }}>ACCURACY / GRADE</span>
+                      <p style={{ margin: "4px 0 0", fontSize: 15, fontWeight: 800, color: "var(--mz-text-primary)" }}>
                         {activeReport.percentage != null ? `${activeReport.percentage}%` : "N/A"} ({activeReport.grade || "Standard"})
                       </p>
                     </div>
 
-                    <div style={{ padding: 12, background: "#f8fafc", borderRadius: 10, border: "1px solid #e2e8f0" }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8" }}>DURATION / TIME</span>
-                      <p style={{ margin: "4px 0 0", fontSize: 15, fontWeight: 800, color: "#0f172a" }}>
+                    <div style={{ padding: 12, background: "var(--mz-surface-subtle)", borderRadius: 10, border: "1px solid var(--mz-border)" }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: "var(--mz-text-subtle)" }}>DURATION / TIME</span>
+                      <p style={{ margin: "4px 0 0", fontSize: 15, fontWeight: 800, color: "var(--mz-text-primary)" }}>
                         {activeReport.durationMinutes ? `${activeReport.durationMinutes} mins` : activeReport.timeSpentSeconds ? `${Math.round(activeReport.timeSpentSeconds / 60)} mins` : `${activeReport.runtimeMs || 12} ms`}
                       </p>
                     </div>
 
-                    <div style={{ padding: 12, background: "#f8fafc", borderRadius: 10, border: "1px solid #e2e8f0" }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8" }}>PROCTORING INTEGRITY</span>
+                    <div style={{ padding: 12, background: "var(--mz-surface-subtle)", borderRadius: 10, border: "1px solid var(--mz-border)" }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: "var(--mz-text-subtle)" }}>PROCTORING INTEGRITY</span>
                       <p style={{ margin: "4px 0 0", fontSize: 15, fontWeight: 800, color: activeReport.proctoring?.violationsCount > 0 ? "#dc2626" : "#059669" }}>
                         {activeReport.proctoring?.violationsCount > 0 ? `⚠️ ${activeReport.proctoring.violationsCount} Violations` : "✓ 100% Compliant"}
                       </p>
@@ -1203,10 +1203,10 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                       <div style={{ marginTop: 8 }}>
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
                           <div>
-                            <h4 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: "#0f172a" }}>
+                            <h4 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: "var(--mz-text-primary)" }}>
                               MCQ Examination Questions & Candidate Responses ({totalCount} Questions)
                             </h4>
-                            <p style={{ margin: "2px 0 0", fontSize: 12, color: "#64748b" }}>
+                            <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--mz-text-muted)" }}>
                               Every question audited with candidate's submitted answer and verified answer key.
                             </p>
                           </div>
@@ -1260,20 +1260,20 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                                   padding: "16px 18px",
                                   borderRadius: 12,
                                   border: isCorr
-                                    ? "1.5px solid #a7f3d0"
+                                    ? "1.5px solid var(--mz-green-border)"
                                     : isUnans
-                                    ? "1.5px solid #fde68a"
-                                    : "1.5px solid #fecaca",
+                                    ? "1.5px solid var(--mz-amber-border)"
+                                    : "1.5px solid var(--mz-red-border)",
                                   background: isCorr
-                                    ? "#f0fdf4"
+                                    ? "var(--mz-green-bg)"
                                     : isUnans
-                                    ? "#fffbeb"
-                                    : "#fef2f2",
+                                    ? "var(--mz-amber-bg)"
+                                    : "var(--mz-red-bg)",
                                 }}
                               >
                                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
                                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                    <span style={{ fontSize: 12, fontWeight: 800, color: "#0f172a" }}>
+                                    <span style={{ fontSize: 12, fontWeight: 800, color: "var(--mz-text-primary)" }}>
                                       Question #{idx + 1}
                                     </span>
                                     {q.topic && (
@@ -1297,7 +1297,7 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                                   </span>
                                 </div>
 
-                                <p style={{ margin: "0 0 12px", fontSize: 13.5, fontWeight: 700, color: "#0f172a", lineHeight: 1.5 }}>
+                                <p style={{ margin: "0 0 12px", fontSize: 13.5, fontWeight: 700, color: "var(--mz-text-primary)", lineHeight: 1.5 }}>
                                   {q.question}
                                 </p>
 
@@ -1307,18 +1307,18 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                                     const isCorrectChoice = optIdx === q.correctIndex;
                                     const isSelectedByUser = optIdx === q.userSelected;
 
-                                    let optBg = "#ffffff";
-                                    let optBorder = "#e2e8f0";
-                                    let optColor = "#334155";
+                                    let optBg = "var(--mz-surface)";
+                                    let optBorder = "var(--mz-border)";
+                                    let optColor = "var(--mz-text-secondary)";
                                     let optTag = null;
 
                                     if (isCorrectChoice) {
-                                      optBg = "#ecfdf5";
+                                      optBg = "var(--mz-green-bg)";
                                       optBorder = "#059669";
                                       optColor = "#065f46";
                                       optTag = "✓ Correct Answer";
                                     } else if (isSelectedByUser && !isCorr) {
-                                      optBg = "#fff1f2";
+                                      optBg = "var(--mz-red-bg)";
                                       optBorder = "#e11d48";
                                       optColor = "#9f1239";
                                       optTag = "✗ Candidate Selection";
@@ -1347,8 +1347,8 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                                               width: 20,
                                               height: 20,
                                               borderRadius: "50%",
-                                              background: isCorrectChoice ? "#059669" : isSelectedByUser ? "#e11d48" : "#e2e8f0",
-                                              color: isCorrectChoice || isSelectedByUser ? "#ffffff" : "#475569",
+                                              background: isCorrectChoice ? "#059669" : isSelectedByUser ? "#e11d48" : "var(--mz-border)",
+                                              color: isCorrectChoice || isSelectedByUser ? "#ffffff" : "var(--mz-text-secondary)",
                                               alignItems: "center",
                                               justifyContent: "center",
                                               fontSize: 11,
@@ -1383,9 +1383,9 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                                       padding: "8px 12px",
                                       borderRadius: 8,
                                       background: "rgba(255, 255, 255, 0.7)",
-                                      border: "1px dashed #cbd5e1",
+                                      border: "1px dashed var(--mz-border-strong)",
                                       fontSize: 11.5,
-                                      color: "#475569",
+                                      color: "var(--mz-text-secondary)",
                                       lineHeight: 1.4,
                                     }}
                                   >
@@ -1405,7 +1405,7 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                     <div style={{ marginTop: 8 }}>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <h4 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: "#0f172a" }}>
+                          <h4 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: "var(--mz-text-primary)" }}>
                             Submitted Source Code
                           </h4>
                           <span className="mz-admin-badge-purple" style={{ textTransform: "uppercase" }}>
@@ -1422,8 +1422,8 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                           }}
                           className="mz-admin-btn-action"
                           style={{
-                            background: "#ffffff",
-                            border: "1px solid #cbd5e1",
+                            background: "var(--mz-surface)",
+                            border: "1px solid var(--mz-border-strong)",
                             padding: "4px 10px",
                             fontSize: 11.5,
                           }}
@@ -1481,14 +1481,14 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                       {/* Compiler Telemetry */}
                       {(activeReport.output || activeReport.error) && (
                         <div style={{ marginTop: 10 }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: "#64748b" }}>COMPILER EXECUTION OUTPUT</span>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: "var(--mz-text-muted)" }}>COMPILER EXECUTION OUTPUT</span>
                           {activeReport.output && (
-                            <pre style={{ margin: "4px 0 0", padding: 10, background: "#f8fafc", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 12, color: "#16a34a" }}>
+                            <pre style={{ margin: "4px 0 0", padding: 10, background: "var(--mz-surface-subtle)", borderRadius: 8, border: "1px solid var(--mz-border)", fontSize: 12, color: "#16a34a" }}>
                               {activeReport.output}
                             </pre>
                           )}
                           {activeReport.error && (
-                            <pre style={{ margin: "4px 0 0", padding: 10, background: "#fef2f2", borderRadius: 8, border: "1px solid #fecaca", fontSize: 12, color: "#dc2626" }}>
+                            <pre style={{ margin: "4px 0 0", padding: 10, background: "var(--mz-red-bg)", borderRadius: 8, border: "1px solid var(--mz-red-border)", fontSize: 12, color: "#dc2626" }}>
                               {activeReport.error}
                             </pre>
                           )}
@@ -1500,7 +1500,7 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                   {/* 1C. CERTIFICATION MULTI-CODING QUESTIONS (Part B) */}
                   {activeReport.selectedCodingQuestions && activeReport.selectedCodingQuestions.length > 0 && (
                     <div style={{ marginTop: 8 }}>
-                      <h4 style={{ margin: "0 0 10px", fontSize: 14, fontWeight: 800, color: "#0f172a" }}>
+                      <h4 style={{ margin: "0 0 10px", fontSize: 14, fontWeight: 800, color: "var(--mz-text-primary)" }}>
                         Part B: Algorithmic Coding Challenges ({activeReport.selectedCodingQuestions.length} Problems)
                       </h4>
 
@@ -1513,13 +1513,13 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                               style={{
                                 padding: 16,
                                 borderRadius: 12,
-                                border: "1px solid #e2e8f0",
-                                background: "#ffffff",
+                                border: "1px solid var(--mz-border)",
+                                background: "var(--mz-surface)",
                               }}
                             >
                               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
                                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                  <span style={{ fontWeight: 800, color: "#0f172a", fontSize: 14 }}>
+                                  <span style={{ fontWeight: 800, color: "var(--mz-text-primary)", fontSize: 14 }}>
                                     Problem #{cqIdx + 1}: {cq.title}
                                   </span>
                                   <span className="mz-admin-badge-purple">{cq.difficulty || "Medium"}</span>
@@ -1529,7 +1529,7 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                                 </span>
                               </div>
 
-                              <p style={{ margin: "0 0 10px", fontSize: 12.5, color: "#64748b", lineHeight: 1.5 }}>
+                              <p style={{ margin: "0 0 10px", fontSize: 12.5, color: "var(--mz-text-muted)", lineHeight: 1.5 }}>
                                 {cq.description || "Implement the algorithm according to specifications."}
                               </p>
 
@@ -1641,9 +1641,9 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                             marginTop: 4,
                             fontSize: 14,
                             fontWeight: 700,
-                            color: "#0f172a",
+                            color: "var(--mz-text-primary)",
                             outline: "none",
-                            background: "#ffffff",
+                            background: "var(--mz-surface)",
                           }}
                         />
                       </div>
@@ -1663,9 +1663,9 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                             marginTop: 4,
                             fontSize: 13,
                             fontWeight: 700,
-                            color: "#0f172a",
+                            color: "var(--mz-text-primary)",
                             outline: "none",
-                            background: "#ffffff",
+                            background: "var(--mz-surface)",
                           }}
                         >
                           {activeReport.itemType === "coding" ? (
@@ -1700,11 +1700,11 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                           border: "1px solid #14b8a6",
                           marginTop: 4,
                           fontSize: 13,
-                          color: "#0f172a",
+                          color: "var(--mz-text-primary)",
                           outline: "none",
                           resize: "vertical",
                           fontFamily: "inherit",
-                          background: "#ffffff",
+                          background: "var(--mz-surface)",
                         }}
                       />
                     </div>
@@ -1754,19 +1754,19 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                     style={{
                       padding: 16,
                       borderRadius: 12,
-                      border: "1px solid #e2e8f0",
-                      background: "#ffffff",
+                      border: "1px solid var(--mz-border)",
+                      background: "var(--mz-surface)",
                     }}
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
                       <LuHistory style={{ width: 16, height: 16, color: "#6366f1" }} />
-                      <h4 style={{ margin: 0, fontSize: 13.5, fontWeight: 800, color: "#0f172a" }}>
+                      <h4 style={{ margin: 0, fontSize: 13.5, fontWeight: 800, color: "var(--mz-text-primary)" }}>
                         Evaluation Audit Trail & Modification History
                       </h4>
                     </div>
 
                     {(!activeReport.marksHistory || activeReport.marksHistory.length === 0) ? (
-                      <p style={{ margin: 0, fontSize: 12.5, color: "#94a3b8" }}>
+                      <p style={{ margin: 0, fontSize: 12.5, color: "var(--mz-text-subtle)" }}>
                         Original candidate score recorded. No administrative modifications have been logged yet.
                       </p>
                     ) : (
@@ -1777,20 +1777,20 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                             style={{
                               padding: "10px 12px",
                               borderRadius: 8,
-                              background: "#f8fafc",
-                              border: "1px solid #e2e8f0",
+                              background: "var(--mz-surface-subtle)",
+                              border: "1px solid var(--mz-border)",
                               fontSize: 12,
                             }}
                           >
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                              <span style={{ fontWeight: 700, color: "#0f172a" }}>
+                              <span style={{ fontWeight: 700, color: "var(--mz-text-primary)" }}>
                                 Score: {h.oldScore} ({h.oldStatus}) ➜ <strong style={{ color: "#0d9488" }}>{h.newScore} ({h.newStatus})</strong>
                               </span>
-                              <span style={{ color: "#94a3b8", fontSize: 11 }}>
+                              <span style={{ color: "var(--mz-text-subtle)", fontSize: 11 }}>
                                 {new Date(h.modifiedAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}
                               </span>
                             </div>
-                            <div style={{ color: "#64748b" }}>
+                            <div style={{ color: "var(--mz-text-muted)" }}>
                               Modified by: <strong>{h.modifiedBy}</strong> • "{h.adminNote}"
                             </div>
                           </div>
@@ -1809,34 +1809,34 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                     style={{
                       padding: 16,
                       borderRadius: 12,
-                      border: "1px solid #e2e8f0",
-                      background: "#ffffff",
+                      border: "1px solid var(--mz-border)",
+                      background: "var(--mz-surface)",
                     }}
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
                       <LuBell style={{ width: 16, height: 16, color: "#6366f1" }} />
-                      <h4 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: "#0f172a" }}>
+                      <h4 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: "var(--mz-text-primary)" }}>
                         Multi-Channel Notification Delivery & Real-Time Student Read Audit
                       </h4>
                     </div>
 
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
-                      <div style={{ padding: 12, borderRadius: 10, background: "#f8fafc", border: "1px solid #e2e8f0" }}>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: "#64748b" }}>REGISTERED EMAIL</span>
-                        <p style={{ margin: "4px 0 0", fontSize: 13, fontWeight: 700, color: "#0f172a" }}>
+                      <div style={{ padding: 12, borderRadius: 10, background: "var(--mz-surface-subtle)", border: "1px solid var(--mz-border)" }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: "var(--mz-text-muted)" }}>REGISTERED EMAIL</span>
+                        <p style={{ margin: "4px 0 0", fontSize: 13, fontWeight: 700, color: "var(--mz-text-primary)" }}>
                           {activeReport.candidateEmail || user.email}
                         </p>
-                        <span style={{ fontSize: 11, color: activeReport.notificationEmailSent ? "#059669" : "#64748b", fontWeight: 700 }}>
+                        <span style={{ fontSize: 11, color: activeReport.notificationEmailSent ? "#059669" : "var(--mz-text-muted)", fontWeight: 700 }}>
                           {activeReport.notificationEmailSent ? "✓ Email Dispatched via SMTP" : "Ready for dispatch"}
                         </span>
                       </div>
 
-                      <div style={{ padding: 12, borderRadius: 10, background: "#f8fafc", border: "1px solid #e2e8f0" }}>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: "#64748b" }}>IN-APP NOTIFICATION POPUP</span>
-                        <p style={{ margin: "4px 0 0", fontSize: 13, fontWeight: 700, color: "#0f172a" }}>
+                      <div style={{ padding: 12, borderRadius: 10, background: "var(--mz-surface-subtle)", border: "1px solid var(--mz-border)" }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: "var(--mz-text-muted)" }}>IN-APP NOTIFICATION POPUP</span>
+                        <p style={{ margin: "4px 0 0", fontSize: 13, fontWeight: 700, color: "var(--mz-text-primary)" }}>
                           Real-Time Socket Stream
                         </p>
-                        <span style={{ fontSize: 11, color: activeReport.notificationSent ? "#059669" : "#64748b", fontWeight: 700 }}>
+                        <span style={{ fontSize: 11, color: activeReport.notificationSent ? "#059669" : "var(--mz-text-muted)", fontWeight: 700 }}>
                           {activeReport.notificationSent ? "✓ Emitted to Candidate Room" : "Ready for dispatch"}
                         </span>
                       </div>
@@ -1847,7 +1847,7 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                       style={{
                         padding: "12px 16px",
                         borderRadius: 10,
-                        background: activeReport.notificationViewed ? "#ecfdf5" : "#fffbeb",
+                        background: activeReport.notificationViewed ? "var(--mz-green-bg)" : "var(--mz-amber-bg)",
                         border: activeReport.notificationViewed ? "1.5px solid #10b981" : "1.5px solid #f59e0b",
                         display: "flex",
                         alignItems: "center",
@@ -1877,16 +1877,16 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                     style={{
                       padding: 16,
                       borderRadius: 12,
-                      border: "1px solid #e2e8f0",
-                      background: "#ffffff",
+                      border: "1px solid var(--mz-border)",
+                      background: "var(--mz-surface)",
                     }}
                   >
-                    <h4 style={{ margin: "0 0 10px", fontSize: 14, fontWeight: 800, color: "#0f172a" }}>
+                    <h4 style={{ margin: "0 0 10px", fontSize: 14, fontWeight: 800, color: "var(--mz-text-primary)" }}>
                       Proctoring Telemetry & Security Violations Log
                     </h4>
 
                     {(!activeReport.proctoring?.violationsLog || activeReport.proctoring.violationsLog.length === 0) ? (
-                      <div style={{ padding: 12, borderRadius: 8, background: "#f0fdf4", color: "#059669", fontSize: 12.5, fontWeight: 600 }}>
+                      <div style={{ padding: 12, borderRadius: 8, background: "var(--mz-green-bg)", color: "#059669", fontSize: 12.5, fontWeight: 600 }}>
                         ✓ Zero security violations detected. Candidate completed session under verified compliance.
                       </div>
                     ) : (
@@ -1897,8 +1897,8 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
                             style={{
                               padding: "8px 12px",
                               borderRadius: 8,
-                              background: "#fef2f2",
-                              border: "1px solid #fecaca",
+                              background: "var(--mz-red-bg)",
+                              border: "1px solid var(--mz-red-border)",
                               fontSize: 12,
                               color: "#dc2626",
                               display: "flex",
@@ -1920,14 +1920,14 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
             <div
               style={{
                 padding: "12px 24px",
-                borderTop: "1px solid #e2e8f0",
+                borderTop: "1px solid var(--mz-border)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
-                background: "#f8fafc",
+                background: "var(--mz-surface-subtle)",
               }}
             >
-              <span style={{ fontSize: 11.5, color: "#94a3b8" }}>
+              <span style={{ fontSize: 11.5, color: "var(--mz-text-subtle)" }}>
                 {activeReport.adminNote ? `Latest Note: ${activeReport.adminNote}` : "MasteryZone Academic Engine • Genuine Real-Time Records"}
               </span>
               <button

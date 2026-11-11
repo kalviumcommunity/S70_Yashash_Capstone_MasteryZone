@@ -147,8 +147,8 @@ const AdminProctoring = () => {
                 alignItems: "center",
                 justifyContent: "space-between",
                 padding: "10px 16px",
-                background: "#fef2f2",
-                border: "1px solid #fecaca",
+                background: "var(--mz-red-bg)",
+                border: "1px solid var(--mz-red-border)",
                 borderRadius: 10,
                 color: "#991b1b",
                 fontSize: 13,
@@ -210,12 +210,12 @@ const AdminProctoring = () => {
               alignItems: "center",
               gap: 6,
               padding: "8px 14px",
-              background: "#ffffff",
-              border: "1px solid #e2e8f0",
+              background: "var(--mz-surface)",
+              border: "1px solid var(--mz-border)",
               borderRadius: 10,
               fontSize: 13,
               fontWeight: 600,
-              color: "#475569",
+              color: "var(--mz-text-secondary)",
               cursor: "pointer",
             }}
           >
@@ -229,8 +229,8 @@ const AdminProctoring = () => {
               alignItems: "center",
               gap: 8,
               padding: "8px 16px",
-              background: "#ecfdf5",
-              border: "1px solid #a7f3d0",
+              background: "var(--mz-green-bg)",
+              border: "1px solid var(--mz-green-border)",
               borderRadius: 12,
               color: "#065f46",
               fontSize: 13,
@@ -256,12 +256,12 @@ const AdminProctoring = () => {
       <div className="mz-admin-grid-3">
         <div className="mz-admin-card" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 18 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <div className="mz-admin-stat-icon" style={{ background: "#ede9fe", color: "#6366f1" }}>
+            <div className="mz-admin-stat-icon" style={{ background: "var(--mz-purple-bg)", color: "#6366f1" }}>
               <LuCamera style={{ width: 20, height: 20 }} />
             </div>
             <div>
-              <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#0f172a" }}>Webcam Monitor</h4>
-              <p style={{ margin: "2px 0 0", fontSize: 12, color: "#94a3b8" }}>Facial & stream telemetry</p>
+              <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "var(--mz-text-primary)" }}>Webcam Monitor</h4>
+              <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--mz-text-subtle)" }}>Facial & stream telemetry</p>
             </div>
           </div>
           <span className="mz-admin-badge-active">
@@ -272,12 +272,12 @@ const AdminProctoring = () => {
 
         <div className="mz-admin-card" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 18 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <div className="mz-admin-stat-icon" style={{ background: "#eff6ff", color: "#2563eb" }}>
+            <div className="mz-admin-stat-icon" style={{ background: "var(--mz-blue-bg)", color: "#2563eb" }}>
               <LuMic style={{ width: 20, height: 20 }} />
             </div>
             <div>
-              <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#0f172a" }}>Audio Telemetry</h4>
-              <p style={{ margin: "2px 0 0", fontSize: 12, color: "#94a3b8" }}>Ambient voice frequency</p>
+              <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "var(--mz-text-primary)" }}>Audio Telemetry</h4>
+              <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--mz-text-subtle)" }}>Ambient voice frequency</p>
             </div>
           </div>
           <span className="mz-admin-badge-active">
@@ -288,12 +288,12 @@ const AdminProctoring = () => {
 
         <div className="mz-admin-card" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 18 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <div className="mz-admin-stat-icon" style={{ background: "#ecfdf5", color: "#059669" }}>
+            <div className="mz-admin-stat-icon" style={{ background: "var(--mz-green-bg)", color: "#059669" }}>
               <LuMonitor style={{ width: 20, height: 20 }} />
             </div>
             <div>
-              <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#0f172a" }}>Screen Lock Telemetry</h4>
-              <p style={{ margin: "2px 0 0", fontSize: 12, color: "#94a3b8" }}>Display & fullscreen lock</p>
+              <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "var(--mz-text-primary)" }}>Screen Lock Telemetry</h4>
+              <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--mz-text-subtle)" }}>Display & fullscreen lock</p>
             </div>
           </div>
           <span className="mz-admin-badge-active">
@@ -305,17 +305,17 @@ const AdminProctoring = () => {
 
       {/* Proctored Sessions Table */}
       <div className="mz-admin-card" style={{ padding: 0 }}>
-        <div style={{ padding: "16px 20px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+        <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--mz-surface-muted)", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
           <div>
-            <h3 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", margin: 0 }}>Proctored Examination Sessions</h3>
-            <span style={{ fontSize: 12, color: "#94a3b8" }}>
+            <h3 style={{ fontSize: 15, fontWeight: 700, color: "var(--mz-text-primary)", margin: 0 }}>Proctored Examination Sessions</h3>
+            <span style={{ fontSize: 12, color: "var(--mz-text-subtle)" }}>
               Live & historical candidate attempts ({sessions.length} records)
             </span>
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             {/* Filter Pills */}
-            <div style={{ display: "flex", background: "#f8fafc", padding: 3, borderRadius: 10, border: "1px solid #e2e8f0" }}>
+            <div style={{ display: "flex", background: "var(--mz-surface-subtle)", padding: 3, borderRadius: 10, border: "1px solid var(--mz-border)" }}>
               {[
                 { key: "all", label: "All Sessions" },
                 { key: "active", label: "Active" },
@@ -333,7 +333,7 @@ const AdminProctoring = () => {
                     fontSize: 12,
                     fontWeight: statusFilter === tab.key ? 700 : 500,
                     background: statusFilter === tab.key ? "#4f46e5" : "transparent",
-                    color: statusFilter === tab.key ? "#ffffff" : "#64748b",
+                    color: statusFilter === tab.key ? "#ffffff" : "var(--mz-text-muted)",
                     cursor: "pointer",
                     transition: "all 0.15s ease",
                   }}
@@ -351,9 +351,9 @@ const AdminProctoring = () => {
         </div>
 
         {/* Search Bar */}
-        <div style={{ padding: "12px 20px", borderBottom: "1px solid #f1f5f9", background: "#fbfcfd" }}>
+        <div style={{ padding: "12px 20px", borderBottom: "1px solid var(--mz-surface-muted)", background: "var(--mz-surface-subtle)" }}>
           <div ref={searchContainerRef} style={{ position: "relative", maxWidth: 380 }}>
-            <LuSearch style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#94a3b8", width: 14, height: 14 }} />
+            <LuSearch style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--mz-text-subtle)", width: 14, height: 14 }} />
             <input
               type="text"
               value={searchTerm}
@@ -372,10 +372,10 @@ const AdminProctoring = () => {
                 width: "100%",
                 padding: "8px 30px 8px 34px",
                 fontSize: 13,
-                border: "1px solid #e2e8f0",
+                border: "1px solid var(--mz-border)",
                 borderRadius: 8,
                 outline: "none",
-                background: "#ffffff",
+                background: "var(--mz-surface)",
               }}
             />
             {searchTerm && (
@@ -391,7 +391,7 @@ const AdminProctoring = () => {
                   transform: "translateY(-50%)",
                   background: "none",
                   border: "none",
-                  color: "#94a3b8",
+                  color: "var(--mz-text-subtle)",
                   cursor: "pointer",
                 }}
               >
@@ -457,13 +457,13 @@ const AdminProctoring = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="8" style={{ textAlign: "center", padding: "40px 0", color: "#94a3b8" }}>
+                  <td colSpan="8" style={{ textAlign: "center", padding: "40px 0", color: "var(--mz-text-subtle)" }}>
                     Loading proctored sessions from database...
                   </td>
                 </tr>
               ) : sessions.length === 0 ? (
                 <tr>
-                  <td colSpan="8" style={{ textAlign: "center", padding: "40px 0", color: "#94a3b8" }}>
+                  <td colSpan="8" style={{ textAlign: "center", padding: "40px 0", color: "var(--mz-text-subtle)" }}>
                     No proctored examination sessions match your filter.
                   </td>
                 </tr>
@@ -483,7 +483,7 @@ const AdminProctoring = () => {
                               width: 32,
                               height: 32,
                               borderRadius: "50%",
-                              background: "#e0e7ff",
+                              background: "var(--mz-indigo-border)",
                               color: "#4338ca",
                               display: "flex",
                               alignItems: "center",
@@ -495,16 +495,16 @@ const AdminProctoring = () => {
                             {initial}
                           </div>
                           <div>
-                            <div style={{ fontWeight: 700, color: "#0f172a" }}>
+                            <div style={{ fontWeight: 700, color: "var(--mz-text-primary)" }}>
                               {s.candidateDetails?.fullName || "Candidate"}
                             </div>
-                            <div style={{ fontSize: 11, color: "#94a3b8" }}>
+                            <div style={{ fontSize: 11, color: "var(--mz-text-subtle)" }}>
                               {s.candidateDetails?.email || "candidate@masteryzone.com"}
                             </div>
                           </div>
                         </div>
                       </td>
-                      <td style={{ fontWeight: 600, color: "#334155" }}>
+                      <td style={{ fontWeight: 600, color: "var(--mz-text-secondary)" }}>
                         {s.assessmentTitle || "MZ-ASM Proctored Examination"}
                       </td>
                       <td>
@@ -512,11 +512,11 @@ const AdminProctoring = () => {
                           style={{
                             fontFamily: "monospace",
                             fontSize: 11.5,
-                            background: "#f8fafc",
+                            background: "var(--mz-surface-subtle)",
                             padding: "3px 8px",
                             borderRadius: 6,
-                            border: "1px solid #e2e8f0",
-                            color: "#475569",
+                            border: "1px solid var(--mz-border)",
+                            color: "var(--mz-text-secondary)",
                           }}
                         >
                           {s.sessionId}
@@ -550,7 +550,7 @@ const AdminProctoring = () => {
                             active
                           </span>
                         ) : isSubmitted ? (
-                          <span style={{ padding: "3px 8px", borderRadius: 6, background: "#eff6ff", color: "#1d4ed8", fontSize: 11.5, fontWeight: 700 }}>
+                          <span style={{ padding: "3px 8px", borderRadius: 6, background: "var(--mz-blue-bg)", color: "#1d4ed8", fontSize: 11.5, fontWeight: 700 }}>
                             submitted
                           </span>
                         ) : (

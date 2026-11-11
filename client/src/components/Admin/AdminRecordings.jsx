@@ -298,8 +298,8 @@ const AdminRecordings = () => {
                 alignItems: "center",
                 gap: 6,
                 padding: "8px 14px",
-                background: "#fef2f2",
-                border: "1px solid #fecaca",
+                background: "var(--mz-red-bg)",
+                border: "1px solid var(--mz-red-border)",
                 borderRadius: 10,
                 fontSize: 13,
                 fontWeight: 700,
@@ -320,12 +320,12 @@ const AdminRecordings = () => {
               alignItems: "center",
               gap: 6,
               padding: "8px 14px",
-              background: "#ffffff",
-              border: "1px solid #e2e8f0",
+              background: "var(--mz-surface)",
+              border: "1px solid var(--mz-border)",
               borderRadius: 10,
               fontSize: 13,
               fontWeight: 600,
-              color: "#475569",
+              color: "var(--mz-text-secondary)",
               cursor: "pointer",
             }}
           >
@@ -339,10 +339,10 @@ const AdminRecordings = () => {
               alignItems: "center",
               gap: 12,
               padding: "8px 16px",
-              background: "#f8fafc",
-              border: "1px solid #e2e8f0",
+              background: "var(--mz-surface-subtle)",
+              border: "1px solid var(--mz-border)",
               borderRadius: 12,
-              color: "#334155",
+              color: "var(--mz-text-secondary)",
               fontSize: 13,
               fontWeight: 700,
             }}
@@ -378,7 +378,7 @@ const AdminRecordings = () => {
               left: 12,
               top: "50%",
               transform: "translateY(-50%)",
-              color: "#94a3b8",
+              color: "var(--mz-text-subtle)",
               width: 15,
               height: 15,
             }}
@@ -401,7 +401,7 @@ const AdminRecordings = () => {
               width: "100%",
               padding: "9px 12px 9px 36px",
               fontSize: 13,
-              border: "1px solid #cbd5e1",
+              border: "1px solid var(--mz-border-strong)",
               borderRadius: 8,
               outline: "none",
               boxSizing: "border-box",
@@ -420,7 +420,7 @@ const AdminRecordings = () => {
                 transform: "translateY(-50%)",
                 background: "none",
                 border: "none",
-                color: "#94a3b8",
+                color: "var(--mz-text-subtle)",
                 cursor: "pointer",
               }}
             >
@@ -485,8 +485,8 @@ const AdminRecordings = () => {
                   border: "none",
                   fontSize: 12.5,
                   fontWeight: isActive ? 700 : 500,
-                  background: isActive ? "#4f46e5" : "#f1f5f9",
-                  color: isActive ? "#ffffff" : "#475569",
+                  background: isActive ? "#4f46e5" : "var(--mz-surface-muted)",
+                  color: isActive ? "#ffffff" : "var(--mz-text-secondary)",
                   cursor: "pointer",
                   transition: "all 0.15s ease",
                 }}
@@ -499,18 +499,18 @@ const AdminRecordings = () => {
 
         {/* Sort Selector */}
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>Sort:</span>
+          <span style={{ fontSize: 12, color: "var(--mz-text-muted)", fontWeight: 600 }}>Sort:</span>
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
             style={{
               padding: "6px 10px",
               borderRadius: 8,
-              border: "1px solid #cbd5e1",
+              border: "1px solid var(--mz-border-strong)",
               fontSize: 12.5,
               fontWeight: 600,
-              background: "#ffffff",
-              color: "#334155",
+              background: "var(--mz-surface)",
+              color: "var(--mz-text-secondary)",
               outline: "none",
               cursor: "pointer",
             }}
@@ -526,14 +526,14 @@ const AdminRecordings = () => {
       {/* Recordings Grid (Newest first) */}
       <div className="mz-admin-grid-3">
         {loading ? (
-          <div className="mz-admin-card" style={{ gridColumn: "span 3", textAlign: "center", padding: "60px 20px", color: "#94a3b8" }}>
+          <div className="mz-admin-card" style={{ gridColumn: "span 3", textAlign: "center", padding: "60px 20px", color: "var(--mz-text-subtle)" }}>
             <LuRefreshCw className="animate-spin" style={{ width: 28, height: 28, color: "#6366f1", margin: "0 auto 12px" }} />
             <div>Loading verified recordings from database...</div>
           </div>
         ) : filteredRecordings.length === 0 ? (
-          <div className="mz-admin-card" style={{ gridColumn: "span 3", textAlign: "center", padding: "60px 20px", color: "#94a3b8" }}>
-            <LuVideo style={{ width: 36, height: 36, color: "#cbd5e1", margin: "0 auto 12px" }} />
-            <h4 style={{ margin: "0 0 4px", color: "#0f172a" }}>No Recordings Found</h4>
+          <div className="mz-admin-card" style={{ gridColumn: "span 3", textAlign: "center", padding: "60px 20px", color: "var(--mz-text-subtle)" }}>
+            <LuVideo style={{ width: 36, height: 36, color: "var(--mz-border-strong)", margin: "0 auto 12px" }} />
+            <h4 style={{ margin: "0 0 4px", color: "var(--mz-text-primary)" }}>No Recordings Found</h4>
             <span style={{ fontSize: 13 }}>No meeting or proctoring recordings match the current filter.</span>
           </div>
         ) : (
@@ -553,7 +553,7 @@ const AdminRecordings = () => {
                   justifyContent: "space-between",
                   padding: 20,
                   transition: "transform 0.15s ease, box-shadow 0.15s ease",
-                  border: isCorrupt ? "1px solid #fecaca" : "1px solid #e2e8f0",
+                  border: isCorrupt ? "1px solid var(--mz-red-border)" : "1px solid var(--mz-border)",
                 }}
               >
                 <div>
@@ -569,9 +569,9 @@ const AdminRecordings = () => {
                           borderRadius: 6,
                           fontSize: 11.5,
                           fontWeight: 700,
-                          background: isProc ? "#ecfdf5" : isScreen ? "#faf5ff" : "#eff6ff",
+                          background: isProc ? "var(--mz-green-bg)" : isScreen ? "var(--mz-purple-bg)" : "var(--mz-blue-bg)",
                           color: isProc ? "#059669" : isScreen ? "#7e22ce" : "#1d4ed8",
-                          border: `1px solid ${isProc ? "#a7f3d0" : isScreen ? "#e9d5ff" : "#bfdbfe"}`,
+                          border: `1px solid ${isProc ? "var(--mz-green-border)" : isScreen ? "var(--mz-purple-border)" : "var(--mz-blue-border)"}`,
                         }}
                       >
                         {isProc ? <LuShield style={{ width: 12, height: 12 }} /> : isScreen ? <LuMonitor style={{ width: 12, height: 12 }} /> : <LuVideo style={{ width: 12, height: 12 }} />}
@@ -602,7 +602,7 @@ const AdminRecordings = () => {
                       margin: "0 0 8px",
                       fontSize: 15,
                       fontWeight: 800,
-                      color: "#0f172a",
+                      color: "var(--mz-text-primary)",
                       lineHeight: 1.35,
                     }}
                     title={r.title}
@@ -617,7 +617,7 @@ const AdminRecordings = () => {
                         width: 28,
                         height: 28,
                         borderRadius: "50%",
-                        background: "#e0e7ff",
+                        background: "var(--mz-indigo-border)",
                         color: "#4338ca",
                         display: "flex",
                         alignItems: "center",
@@ -629,10 +629,10 @@ const AdminRecordings = () => {
                       {hostInitial}
                     </div>
                     <div>
-                      <div style={{ fontSize: 12.5, fontWeight: 700, color: "#334155" }}>
+                      <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--mz-text-secondary)" }}>
                         {r.hostName || "Host"}
                       </div>
-                      <div style={{ fontSize: 11, color: "#94a3b8" }}>
+                      <div style={{ fontSize: 11, color: "var(--mz-text-subtle)" }}>
                         {r.hostEmail || "user@masteryzone.com"}
                       </div>
                     </div>
@@ -645,11 +645,11 @@ const AdminRecordings = () => {
                       alignItems: "center",
                       gap: 12,
                       fontSize: 11.5,
-                      color: "#64748b",
+                      color: "var(--mz-text-muted)",
                       padding: "8px 10px",
-                      background: "#f8fafc",
+                      background: "var(--mz-surface-subtle)",
                       borderRadius: 6,
-                      border: "1px solid #f1f5f9",
+                      border: "1px solid var(--mz-surface-muted)",
                     }}
                   >
                     <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -671,8 +671,8 @@ const AdminRecordings = () => {
                       style={{
                         fontFamily: "monospace",
                         fontSize: 10.5,
-                        color: "#64748b",
-                        background: "#f1f5f9",
+                        color: "var(--mz-text-muted)",
+                        background: "var(--mz-surface-muted)",
                         padding: "2px 6px",
                         borderRadius: 4,
                       }}
@@ -687,7 +687,7 @@ const AdminRecordings = () => {
                   style={{
                     marginTop: 16,
                     paddingTop: 12,
-                    borderTop: "1px solid #f1f5f9",
+                    borderTop: "1px solid var(--mz-surface-muted)",
                     display: "flex",
                     alignItems: "center",
                     gap: 8,
@@ -727,7 +727,7 @@ const AdminRecordings = () => {
                   <button
                     onClick={() => handleDeleteRecording(r)}
                     className="mz-admin-btn-secondary"
-                    style={{ padding: "8px 10px", color: "#dc2626", borderColor: "#fecaca" }}
+                    style={{ padding: "8px 10px", color: "#dc2626", borderColor: "var(--mz-red-border)" }}
                     title="Permanently Delete Recording"
                   >
                     <LuTrash2 style={{ width: 14, height: 14 }} />
@@ -744,7 +744,7 @@ const AdminRecordings = () => {
         <div className="mz-admin-modal-overlay">
           <div className="mz-admin-modal-card" style={{ maxWidth: 860, maxHeight: "92vh", display: "flex", flexDirection: "column" }}>
             {/* Modal Header */}
-            <div className="mz-admin-modal-header" style={{ borderBottom: "1px solid #e2e8f0", padding: "16px 20px" }}>
+            <div className="mz-admin-modal-header" style={{ borderBottom: "1px solid var(--mz-border)", padding: "16px 20px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span
                   style={{
@@ -755,10 +755,10 @@ const AdminRecordings = () => {
                     textTransform: "uppercase",
                     background:
                       activeRecording.recordingType === "Proctoring"
-                        ? "#ecfdf5"
+                        ? "var(--mz-green-bg)"
                         : activeRecording.recordingType === "Screen Share"
-                        ? "#faf5ff"
-                        : "#eff6ff",
+                        ? "var(--mz-purple-bg)"
+                        : "var(--mz-blue-bg)",
                     color:
                       activeRecording.recordingType === "Proctoring"
                         ? "#059669"
@@ -769,7 +769,7 @@ const AdminRecordings = () => {
                 >
                   {activeRecording.recordingType}
                 </span>
-                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#0f172a" }}>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "var(--mz-text-primary)" }}>
                   {activeRecording.title}
                 </h3>
               </div>
@@ -784,9 +784,9 @@ const AdminRecordings = () => {
                     alignItems: "center",
                     gap: 5,
                     padding: "5px 10px",
-                    background: "#eff6ff",
+                    background: "var(--mz-blue-bg)",
                     color: "#2563eb",
-                    border: "1px solid #bfdbfe",
+                    border: "1px solid var(--mz-blue-border)",
                     borderRadius: 6,
                     fontSize: 12,
                     fontWeight: 600,
@@ -807,8 +807,8 @@ const AdminRecordings = () => {
                     alignItems: "center",
                     gap: 5,
                     padding: "5px 10px",
-                    background: "#f1f5f9",
-                    color: "#475569",
+                    background: "var(--mz-surface-muted)",
+                    color: "var(--mz-text-secondary)",
                     borderRadius: 6,
                     fontSize: 12,
                     textDecoration: "none",
@@ -827,9 +827,9 @@ const AdminRecordings = () => {
                     alignItems: "center",
                     gap: 5,
                     padding: "5px 10px",
-                    background: "#fef2f2",
+                    background: "var(--mz-red-bg)",
                     color: "#dc2626",
-                    border: "1px solid #fecaca",
+                    border: "1px solid var(--mz-red-border)",
                     borderRadius: 6,
                     fontSize: 12,
                     fontWeight: 600,
@@ -843,7 +843,7 @@ const AdminRecordings = () => {
 
                 <button
                   onClick={() => setActiveRecording(null)}
-                  style={{ background: "transparent", border: "none", fontSize: 18, color: "#94a3b8", cursor: "pointer", marginLeft: 4 }}
+                  style={{ background: "transparent", border: "none", fontSize: 18, color: "var(--mz-text-subtle)", cursor: "pointer", marginLeft: 4 }}
                 >
                   ✕
                 </button>
@@ -856,7 +856,7 @@ const AdminRecordings = () => {
                 <div style={{ padding: "60px 20px", textAlign: "center", color: "#f87171" }}>
                   <LuTriangleAlert style={{ width: 36, height: 36, margin: "0 auto 10px" }} />
                   <h4 style={{ margin: 0, color: "#ffffff" }}>Playback Notice</h4>
-                  <p style={{ margin: "4px 0 0", fontSize: 13, color: "#94a3b8" }}>
+                  <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--mz-text-subtle)" }}>
                     This recording was finalized with zero bytes or interrupted before upload completion.
                   </p>
                   <button
@@ -908,7 +908,7 @@ const AdminRecordings = () => {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
-                  color: "#94a3b8",
+                  color: "var(--mz-text-subtle)",
                   fontSize: 12,
                 }}
               >
@@ -947,7 +947,7 @@ const AdminRecordings = () => {
             </div>
 
             {/* Sub-tabs: Meeting Activity Timeline vs Details */}
-            <div style={{ display: "flex", borderBottom: "1px solid #e2e8f0", background: "#f8fafc", padding: "0 20px" }}>
+            <div style={{ display: "flex", borderBottom: "1px solid var(--mz-border)", background: "var(--mz-surface-subtle)", padding: "0 20px" }}>
               <button
                 onClick={() => setModalTab("timeline")}
                 style={{
@@ -957,7 +957,7 @@ const AdminRecordings = () => {
                   background: "transparent",
                   fontSize: 13,
                   fontWeight: modalTab === "timeline" ? 700 : 500,
-                  color: modalTab === "timeline" ? "#4f46e5" : "#64748b",
+                  color: modalTab === "timeline" ? "#4f46e5" : "var(--mz-text-muted)",
                   cursor: "pointer",
                   display: "flex",
                   alignItems: "center",
@@ -977,7 +977,7 @@ const AdminRecordings = () => {
                   background: "transparent",
                   fontSize: 13,
                   fontWeight: modalTab === "details" ? 700 : 500,
-                  color: modalTab === "details" ? "#4f46e5" : "#64748b",
+                  color: modalTab === "details" ? "#4f46e5" : "var(--mz-text-muted)",
                   cursor: "pointer",
                   display: "flex",
                   alignItems: "center",
@@ -1003,8 +1003,8 @@ const AdminRecordings = () => {
                           gap: 12,
                           padding: "10px 14px",
                           borderRadius: 8,
-                          background: "#f8fafc",
-                          border: "1px solid #e2e8f0",
+                          background: "var(--mz-surface-subtle)",
+                          border: "1px solid var(--mz-border)",
                           fontSize: 12.5,
                         }}
                       >
@@ -1025,12 +1025,12 @@ const AdminRecordings = () => {
                         />
                         <div style={{ flex: 1 }}>
                           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 2 }}>
-                            <strong style={{ color: "#0f172a" }}>{ev.event}</strong>
-                            <span style={{ fontSize: 11, color: "#94a3b8" }}>
+                            <strong style={{ color: "var(--mz-text-primary)" }}>{ev.event}</strong>
+                            <span style={{ fontSize: 11, color: "var(--mz-text-subtle)" }}>
                               {new Date(ev.timestamp).toLocaleTimeString()}
                             </span>
                           </div>
-                          <p style={{ margin: 0, color: "#475569", lineHeight: 1.4 }}>
+                          <p style={{ margin: 0, color: "var(--mz-text-secondary)", lineHeight: 1.4 }}>
                             {ev.description}
                           </p>
                         </div>
@@ -1039,17 +1039,17 @@ const AdminRecordings = () => {
                   </div>
                 </div>
               ) : (
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, fontSize: 13, color: "#334155" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, fontSize: 13, color: "var(--mz-text-secondary)" }}>
                   <div>
-                    <h4 style={{ margin: "0 0 8px", fontSize: 13, fontWeight: 700, color: "#0f172a" }}>Host Account:</h4>
+                    <h4 style={{ margin: "0 0 8px", fontSize: 13, fontWeight: 700, color: "var(--mz-text-primary)" }}>Host Account:</h4>
                     <p style={{ margin: "0 0 4px" }}><strong>Name:</strong> {activeRecording.hostName}</p>
                     <p style={{ margin: "0 0 4px" }}><strong>Email:</strong> {activeRecording.hostEmail}</p>
                     <p style={{ margin: "0 0 12px" }}><strong>Recording ID:</strong> {activeRecording.recordingId}</p>
 
-                    <h4 style={{ margin: "10px 0 6px", fontSize: 13, fontWeight: 700, color: "#0f172a" }}>Participants ({activeRecording.participantsCount}):</h4>
+                    <h4 style={{ margin: "10px 0 6px", fontSize: 13, fontWeight: 700, color: "var(--mz-text-primary)" }}>Participants ({activeRecording.participantsCount}):</h4>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                       {(activeRecording.participantNames || [activeRecording.hostName]).map((p, i) => (
-                        <span key={i} style={{ padding: "3px 8px", background: "#f1f5f9", borderRadius: 4, fontSize: 12 }}>
+                        <span key={i} style={{ padding: "3px 8px", background: "var(--mz-surface-muted)", borderRadius: 4, fontSize: 12 }}>
                           {p}
                         </span>
                       ))}
@@ -1057,7 +1057,7 @@ const AdminRecordings = () => {
                   </div>
 
                   <div>
-                    <h4 style={{ margin: "0 0 8px", fontSize: 13, fontWeight: 700, color: "#0f172a" }}>File & Cloud Storage:</h4>
+                    <h4 style={{ margin: "0 0 8px", fontSize: 13, fontWeight: 700, color: "var(--mz-text-primary)" }}>File & Cloud Storage:</h4>
                     <p style={{ margin: "0 0 4px" }}><strong>MIME Type:</strong> video/webm;codecs=vp9,opus</p>
                     <p style={{ margin: "0 0 4px" }}><strong>File Size:</strong> {activeRecording.fileSizeMB} MB ({activeRecording.fileSizeBytes || 0} bytes)</p>
                     <p style={{ margin: "0 0 4px" }}><strong>Storage Path:</strong> <code>{activeRecording.fileUrl}</code></p>
@@ -1078,7 +1078,7 @@ const AdminRecordings = () => {
             </div>
 
             {/* Modal Footer */}
-            <div style={{ padding: "12px 20px", background: "#f8fafc", borderTop: "1px solid #e2e8f0", display: "flex", justifyContent: "flex-end" }}>
+            <div style={{ padding: "12px 20px", background: "var(--mz-surface-subtle)", borderTop: "1px solid var(--mz-border)", display: "flex", justifyContent: "flex-end" }}>
               <button
                 onClick={() => setActiveRecording(null)}
                 className="mz-admin-btn-secondary"
@@ -1107,7 +1107,7 @@ const AdminRecordings = () => {
         >
           <div
             style={{
-              background: "#ffffff",
+              background: "var(--mz-surface)",
               borderRadius: 16,
               maxWidth: 440,
               width: "100%",
@@ -1116,10 +1116,10 @@ const AdminRecordings = () => {
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 style={{ margin: "0 0 8px", fontSize: 17, fontWeight: 700, color: "#0f172a" }}>
+            <h3 style={{ margin: "0 0 8px", fontSize: 17, fontWeight: 700, color: "var(--mz-text-primary)" }}>
               Rename Recording
             </h3>
-            <p style={{ margin: "0 0 16px", fontSize: 13, color: "#64748b" }}>
+            <p style={{ margin: "0 0 16px", fontSize: 13, color: "var(--mz-text-muted)" }}>
               Update the title of this recording across student dashboards and admin portals.
             </p>
 
@@ -1134,7 +1134,7 @@ const AdminRecordings = () => {
                   width: "100%",
                   padding: "10px 14px",
                   borderRadius: 8,
-                  border: "1px solid #cbd5e1",
+                  border: "1px solid var(--mz-border-strong)",
                   fontSize: 14,
                   outline: "none",
                   boxSizing: "border-box",

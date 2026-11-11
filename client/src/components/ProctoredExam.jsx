@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './ProctoredExam.css';
 import { toast } from 'react-toastify';
+import ThemeToggle from './ThemeToggle.jsx';
 
 const MOCK_QUESTIONS = {
   Fitness: [
@@ -278,10 +279,13 @@ const ProctoredExam = ({ zone, onClose, title, onPurchase }) => {
       {/* 1. Pre-Flight Check */}
       {examState === 'PRE_FLIGHT' && questions.length > 0 && (
         <div className="exam-panel pre-flight-panel">
-          <h2 className="exam-title">{title} - Security Verification</h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <h2 className="exam-title" style={{ marginBottom: 0 }}>{title} - Security Verification</h2>
+            <ThemeToggle />
+          </div>
           <div className="security-notice">
             <h3>🔒 MasteryZone Secure Proctoring</h3>
-            <p style={{marginBottom: '20px', color: '#ccc'}}>You must complete all hardware checks manually before the exam can begin.</p>
+            <p style={{marginBottom: '20px', color: 'var(--mz-text-secondary)'}}>You must complete all hardware checks manually before the exam can begin.</p>
             
             <div className="hardware-checklist">
               <div className={`checklist-item ${isCamMicEnabled ? 'success' : ''}`}>
@@ -321,7 +325,7 @@ const ProctoredExam = ({ zone, onClose, title, onPurchase }) => {
               </div>
             </div>
             
-            <ul style={{marginTop: '20px', fontSize: '12px', color: '#888'}}>
+            <ul style={{marginTop: '20px', fontSize: '12px', color: 'var(--mz-text-muted)'}}>
               <li>This test contains {questions.length} randomly selected zone-specific questions.</li>
               <li>Switching tabs or exiting fullscreen will result in a warning.</li>
               <li>3 warnings will instantly terminate your exam.</li>
@@ -349,8 +353,11 @@ const ProctoredExam = ({ zone, onClose, title, onPurchase }) => {
         <div className="exam-panel in-progress-panel">
           <div className="exam-header">
             <div className="exam-progress">Question {currentQuestionIdx + 1} of {questions.length}</div>
-            <div className={`exam-timer ${timeLeft < 60 ? 'danger-time' : ''}`}>
-              ⏱ {formatTime(timeLeft)}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <ThemeToggle />
+              <div className={`exam-timer ${timeLeft < 60 ? 'danger-time' : ''}`}>
+                ⏱ {formatTime(timeLeft)}
+              </div>
             </div>
           </div>
           

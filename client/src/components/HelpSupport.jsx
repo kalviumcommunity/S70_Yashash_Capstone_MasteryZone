@@ -40,6 +40,7 @@ import {
 import { toast } from "react-toastify";
 import { io } from "socket.io-client";
 import "./home.css";
+import ThemeToggle from "./ThemeToggle.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -80,72 +81,72 @@ const CATEGORIES = [
     title: "Login & Authentication",
     desc: "Password reset, OTP verification, session expiration, and credential access.",
     icon: LuKey,
-    color: "#4f46e5",
-    bg: "#eef2ff",
-    border: "#c7d2fe",
+    color: "var(--mz-indigo-text)",
+    bg: "var(--mz-indigo-bg)",
+    border: "var(--mz-indigo-border)",
   },
   {
     id: "Coding Compiler Issues",
     title: "Coding Compiler & IDE",
     desc: "Syntax execution errors, infinite loops, timeout issues, and language runtimes.",
     icon: LuCode,
-    color: "#0891b2",
-    bg: "#ecfeff",
-    border: "#a5f3fc",
+    color: "var(--mz-cyan-text)",
+    bg: "var(--mz-cyan-bg)",
+    border: "var(--mz-cyan-border)",
   },
   {
     id: "Assignments and Assessments",
     title: "Assignments & Assessments",
     desc: "Test submission issues, proctoring locks, webcam/screen permissions, timers.",
     icon: LuFileText,
-    color: "#7c3aed",
-    bg: "#f5f3ff",
-    border: "#ddd6fe",
+    color: "var(--mz-purple-text)",
+    bg: "var(--mz-purple-bg)",
+    border: "var(--mz-purple-border)",
   },
   {
     id: "Reports and Marks",
     title: "Reports & Marks",
     desc: "Scorecard discrepancies, missing module marks, pass/fail verification.",
     icon: LuShieldCheck,
-    color: "#2563eb",
-    bg: "#eff6ff",
-    border: "#bfdbfe",
+    color: "var(--mz-blue-text)",
+    bg: "var(--mz-blue-bg)",
+    border: "var(--mz-blue-border)",
   },
   {
     id: "Projects and Progress",
     title: "Projects & Progress",
     desc: "Industry project git submissions, milestones tracking, streak sync.",
     icon: LuFolderGit2,
-    color: "#059669",
-    bg: "#ecfdf5",
-    border: "#a7f3d0",
+    color: "var(--mz-emerald-text)",
+    bg: "var(--mz-emerald-bg)",
+    border: "var(--mz-emerald-border)",
   },
   {
     id: "Meetings and Recordings",
     title: "Meetings & Recordings",
     desc: "Live study pod connection, screen share video playback, audio channels.",
     icon: LuVideo,
-    color: "#d97706",
-    bg: "#fffbeb",
-    border: "#fde68a",
+    color: "var(--mz-amber-text)",
+    bg: "var(--mz-amber-bg)",
+    border: "var(--mz-amber-border)",
   },
   {
     id: "Certificates",
     title: "Official Certificates",
     desc: "Credential generation, verification QR/URL, distinction honors, PDF download.",
     icon: LuAward,
-    color: "#9333ea",
-    bg: "#faf5ff",
-    border: "#f3e8ff",
+    color: "var(--mz-purple-text)",
+    bg: "var(--mz-purple-bg)",
+    border: "var(--mz-purple-border)",
   },
   {
     id: "Other Technical Issues",
     title: "Other Technical Issues",
     desc: "Browser incompatibilities, platform performance, UI rendering errors.",
     icon: LuCircleHelp,
-    color: "#475569",
-    bg: "#f8fafc",
-    border: "#e2e8f0",
+    color: "var(--mz-text-secondary)",
+    bg: "var(--mz-surface-subtle)",
+    border: "var(--mz-border)",
   },
 ];
 
@@ -555,15 +556,15 @@ const HelpSupport = () => {
   const getStatusBadge = (status) => {
     switch (status) {
       case "Submitted":
-        return { bg: "#f3e8ff", color: "#7e22ce", border: "#e9d5ff", label: "Submitted" };
+        return { bg: "var(--mz-purple-bg)", color: "var(--mz-purple-text)", border: "var(--mz-purple-border)", label: "Submitted" };
       case "Under Review":
-        return { bg: "#fffbeb", color: "#b45309", border: "#fde68a", label: "Under Review" };
+        return { bg: "var(--mz-amber-bg)", color: "var(--mz-amber-text)", border: "var(--mz-amber-border)", label: "Under Review" };
       case "In Progress":
-        return { bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe", label: "In Progress" };
+        return { bg: "var(--mz-blue-bg)", color: "var(--mz-blue-text)", border: "var(--mz-blue-border)", label: "In Progress" };
       case "Resolved":
-        return { bg: "#ecfdf5", color: "#047857", border: "#a7f3d0", label: "Resolved" };
+        return { bg: "var(--mz-emerald-bg)", color: "var(--mz-emerald-text)", border: "var(--mz-emerald-border)", label: "Resolved" };
       default:
-        return { bg: "#f1f5f9", color: "#475569", border: "#cbd5e1", label: status };
+        return { bg: "var(--mz-surface-subtle)", color: "var(--mz-text-secondary)", border: "var(--mz-border)", label: status };
     }
   };
 
@@ -584,8 +585,8 @@ const HelpSupport = () => {
                   cursor: "pointer",
                   borderRadius: 8,
                   overflow: "hidden",
-                  border: isWhiteTheme ? "1px solid rgba(255,255,255,0.3)" : "1px solid #cbd5e1",
-                  background: isWhiteTheme ? "rgba(255,255,255,0.15)" : "#f1f5f9",
+                  border: isWhiteTheme ? "1px solid rgba(255,255,255,0.3)" : "1px solid var(--mz-border-strong)",
+                  background: isWhiteTheme ? "rgba(255,255,255,0.15)" : "var(--mz-surface-subtle)",
                   width: 140,
                   height: 95,
                   display: "flex",
@@ -639,9 +640,9 @@ const HelpSupport = () => {
                 gap: 8,
                 padding: "8px 12px",
                 borderRadius: 8,
-                background: isWhiteTheme ? "rgba(255,255,255,0.15)" : "#ffffff",
-                color: isWhiteTheme ? "#ffffff" : "#1e293b",
-                border: isWhiteTheme ? "1px solid rgba(255,255,255,0.25)" : "1px solid #cbd5e1",
+                background: isWhiteTheme ? "rgba(255,255,255,0.15)" : "var(--mz-surface)",
+                color: isWhiteTheme ? "#ffffff" : "var(--mz-text-primary)",
+                border: isWhiteTheme ? "1px solid rgba(255,255,255,0.25)" : "1px solid var(--mz-border-strong)",
                 fontSize: 12,
                 fontWeight: 600,
                 textDecoration: "none",
@@ -650,7 +651,7 @@ const HelpSupport = () => {
                 transition: "all 0.15s ease",
               }}
             >
-              <LuFileText size={18} color={isWhiteTheme ? "#ffffff" : "#4f46e5"} />
+              <LuFileText size={18} color={isWhiteTheme ? "#ffffff" : "var(--mz-indigo-text)"} />
               <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 <div style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{att.originalName}</div>
                 <span style={{ fontSize: 10.5, opacity: 0.75 }}>{formatFileSize(att.fileSize)}</span>
@@ -664,16 +665,16 @@ const HelpSupport = () => {
   };
 
   return (
-    <div className="home-container" style={{ minHeight: "100vh", background: "#f8fafc" }}>
+    <div className="home-container" style={{ minHeight: "100vh", background: "var(--mz-bg-primary)", color: "var(--mz-text-primary)" }}>
       {/* ────────────────── TOP NAVIGATION BAR ────────────────── */}
       <header
         style={{
           position: "sticky",
           top: 0,
           zIndex: 40,
-          background: "rgba(255, 255, 255, 0.95)",
+          background: "var(--mz-topbar-bg)",
           backdropFilter: "blur(12px)",
-          borderBottom: "1px solid #e2e8f0",
+          borderBottom: "1px solid var(--mz-border)",
           padding: "14px 28px",
           display: "flex",
           alignItems: "center",
@@ -687,11 +688,11 @@ const HelpSupport = () => {
               display: "flex",
               alignItems: "center",
               gap: 6,
-              background: "#f1f5f9",
-              border: "1px solid #cbd5e1",
+              background: "var(--mz-surface-subtle)",
+              border: "1px solid var(--mz-border-strong)",
               borderRadius: 8,
               padding: "7px 12px",
-              color: "#334155",
+              color: "var(--mz-text-secondary)",
               fontSize: 13,
               fontWeight: 600,
               cursor: "pointer",
@@ -719,7 +720,7 @@ const HelpSupport = () => {
             </div>
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <h1 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "#0f172a" }}>
+                <h1 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "var(--mz-text-primary)" }}>
                   MasteryZone Help & Support Center
                 </h1>
                 <span
@@ -731,9 +732,9 @@ const HelpSupport = () => {
                     fontWeight: 700,
                     padding: "2px 8px",
                     borderRadius: 12,
-                    background: isConnected ? "#ecfdf5" : "#f1f5f9",
-                    color: isConnected ? "#059669" : "#64748b",
-                    border: `1px solid ${isConnected ? "#a7f3d0" : "#cbd5e1"}`,
+                    background: isConnected ? "var(--mz-emerald-bg)" : "var(--mz-surface-subtle)",
+                    color: isConnected ? "var(--mz-emerald-text)" : "var(--mz-text-muted)",
+                    border: `1px solid ${isConnected ? "var(--mz-emerald-border)" : "var(--mz-border-strong)"}`,
                   }}
                 >
                   <span
@@ -741,14 +742,14 @@ const HelpSupport = () => {
                       width: 6,
                       height: 6,
                       borderRadius: "50%",
-                      background: isConnected ? "#10b981" : "#94a3b8",
+                      background: isConnected ? "#10b981" : "var(--mz-text-subtle)",
                       animation: isConnected ? "pulse 2s infinite" : "none",
                     }}
                   />
                   {isConnected ? "Live Real-Time Sync" : "Connecting..."}
                 </span>
               </div>
-              <p style={{ margin: 0, fontSize: 12, color: "#64748b" }}>
+              <p style={{ margin: 0, fontSize: 12, color: "var(--mz-text-muted)" }}>
                 24/7 Technical Support, File Attachment Inspection & Issue Resolution
               </p>
             </div>
@@ -773,8 +774,8 @@ const HelpSupport = () => {
               display: "flex",
               alignItems: "center",
               gap: 7,
-              background: activeTab === "submit" && !activeTicket ? "#4f46e5" : "#f1f5f9",
-              color: activeTab === "submit" && !activeTicket ? "#ffffff" : "#475569",
+              background: activeTab === "submit" && !activeTicket ? "#4f46e5" : "var(--mz-surface-subtle)",
+              color: activeTab === "submit" && !activeTicket ? "#ffffff" : "var(--mz-text-secondary)",
               boxShadow: activeTab === "submit" && !activeTicket ? "0 2px 8px rgba(79, 70, 229, 0.25)" : "none",
               transition: "all 0.15s ease",
             }}
@@ -798,8 +799,8 @@ const HelpSupport = () => {
               display: "flex",
               alignItems: "center",
               gap: 7,
-              background: activeTab === "tickets" || activeTicket ? "#4f46e5" : "#f1f5f9",
-              color: activeTab === "tickets" || activeTicket ? "#ffffff" : "#475569",
+              background: activeTab === "tickets" || activeTicket ? "#4f46e5" : "var(--mz-surface-subtle)",
+              color: activeTab === "tickets" || activeTicket ? "#ffffff" : "var(--mz-text-secondary)",
               boxShadow: activeTab === "tickets" || activeTicket ? "0 2px 8px rgba(79, 70, 229, 0.25)" : "none",
               transition: "all 0.15s ease",
             }}
@@ -807,6 +808,8 @@ const HelpSupport = () => {
             <LuTicket style={{ width: 15, height: 15 }} />
             <span>My Support Tickets ({myTickets.length})</span>
           </button>
+
+          <ThemeToggle />
         </div>
       </header>
 
@@ -816,10 +819,10 @@ const HelpSupport = () => {
           /* ── TICKET CONVERSATION DETAIL VIEW ── */
           <div
             style={{
-              background: "#ffffff",
+              background: "var(--mz-surface)",
               borderRadius: 16,
-              border: "1px solid #e2e8f0",
-              boxShadow: "0 4px 20px rgba(0, 0, 0, 0.04)",
+              border: "1px solid var(--mz-border)",
+              boxShadow: "var(--mz-shadow-md)",
               overflow: "hidden",
             }}
           >
@@ -827,13 +830,13 @@ const HelpSupport = () => {
             <div
               style={{
                 padding: "20px 24px",
-                borderBottom: "1px solid #e2e8f0",
+                borderBottom: "1px solid var(--mz-border)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
                 flexWrap: "wrap",
                 gap: 12,
-                background: "#fafafa",
+                background: "var(--mz-surface-subtle)",
               }}
             >
               <div>
@@ -845,7 +848,7 @@ const HelpSupport = () => {
                   style={{
                     background: "transparent",
                     border: "none",
-                    color: "#4f46e5",
+                    color: "var(--mz-indigo-text)",
                     fontSize: 13,
                     fontWeight: 700,
                     cursor: "pointer",
@@ -864,12 +867,12 @@ const HelpSupport = () => {
                     style={{
                       fontFamily: "monospace",
                       fontWeight: 800,
-                      color: "#4338ca",
+                      color: "var(--mz-indigo-text)",
                       fontSize: 14,
-                      background: "#eef2ff",
+                      background: "var(--mz-indigo-bg)",
                       padding: "4px 10px",
                       borderRadius: 6,
-                      border: "1px solid #c7d2fe",
+                      border: "1px solid var(--mz-indigo-border)",
                       display: "inline-flex",
                       alignItems: "center",
                       gap: 6,
@@ -884,7 +887,7 @@ const HelpSupport = () => {
                     {activeTicket.ticketId}
                     <LuCopy size={12} />
                   </span>
-                  <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "#0f172a" }}>
+                  <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "var(--mz-text-primary)" }}>
                     {activeTicket.subject}
                   </h2>
                 </div>
@@ -922,9 +925,10 @@ const HelpSupport = () => {
                   style={{
                     fontSize: 12,
                     fontWeight: 600,
-                    color: "#64748b",
+                    color: "var(--mz-text-muted)",
                     padding: "4px 10px",
-                    background: "#f1f5f9",
+                    background: "var(--mz-surface)",
+                    border: "1px solid var(--mz-border)",
                     borderRadius: 6,
                   }}
                 >
@@ -935,11 +939,11 @@ const HelpSupport = () => {
                   style={{
                     fontSize: 12,
                     fontWeight: 600,
-                    color: "#dc2626",
+                    color: "var(--mz-red-text)",
                     padding: "4px 10px",
-                    background: "#fef2f2",
+                    background: "var(--mz-red-bg)",
                     borderRadius: 6,
-                    border: "1px solid #fecaca",
+                    border: "1px solid var(--mz-red-border)",
                   }}
                 >
                   Priority: {activeTicket.priority || "Medium"}
@@ -952,11 +956,11 @@ const HelpSupport = () => {
               <div
                 style={{
                   padding: "12px 24px",
-                  background: "#f8fafc",
-                  borderBottom: "1px solid #e2e8f0",
+                  background: "var(--mz-surface-subtle)",
+                  borderBottom: "1px solid var(--mz-border)",
                 }}
               >
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#475569", marginBottom: 6 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "var(--mz-text-secondary)", marginBottom: 6 }}>
                   📎 Ticket Attachments & Evidence ({activeTicket.attachments.length}):
                 </div>
                 {renderAttachments(activeTicket.attachments)}
@@ -969,7 +973,7 @@ const HelpSupport = () => {
                 padding: "24px",
                 maxHeight: 520,
                 overflowY: "auto",
-                background: "#f8fafc",
+                background: "var(--mz-bg-secondary)",
                 display: "flex",
                 flexDirection: "column",
                 gap: 16,
@@ -994,7 +998,7 @@ const HelpSupport = () => {
                         gap: 8,
                         marginBottom: 4,
                         fontSize: 12,
-                        color: "#64748b",
+                        color: "var(--mz-text-muted)",
                       }}
                     >
                       {isAdmin ? (
@@ -1015,13 +1019,13 @@ const HelpSupport = () => {
                           >
                             <LuShield style={{ width: 11, height: 11 }} />
                           </div>
-                          <span style={{ fontWeight: 700, color: "#4f46e5" }}>
+                          <span style={{ fontWeight: 700, color: "var(--mz-indigo-text)" }}>
                             {msg.senderName} (Administrator)
                           </span>
                         </>
                       ) : (
                         <>
-                          <span style={{ fontWeight: 600, color: "#334155" }}>
+                          <span style={{ fontWeight: 600, color: "var(--mz-text-secondary)" }}>
                             {msg.senderName} (You)
                           </span>
                           <div
@@ -1058,9 +1062,9 @@ const HelpSupport = () => {
                         maxWidth: "80%",
                         padding: "14px 18px",
                         borderRadius: 12,
-                        background: isAdmin ? "#ffffff" : "#4f46e5",
-                        color: isAdmin ? "#1e293b" : "#ffffff",
-                        border: isAdmin ? "1px solid #e2e8f0" : "none",
+                        background: isAdmin ? "var(--mz-surface)" : "#4f46e5",
+                        color: isAdmin ? "var(--mz-text-primary)" : "#ffffff",
+                        border: isAdmin ? "1px solid var(--mz-border)" : "none",
                         boxShadow: "0 2px 8px rgba(0, 0, 0, 0.04)",
                         fontSize: 13.5,
                         lineHeight: 1.6,
@@ -1081,13 +1085,13 @@ const HelpSupport = () => {
                     display: "flex",
                     alignItems: "center",
                     gap: 8,
-                    background: "#ffffff",
+                    background: "var(--mz-surface)",
                     padding: "8px 14px",
                     borderRadius: 12,
-                    border: "1px solid #e2e8f0",
+                    border: "1px solid var(--mz-border)",
                     width: "fit-content",
                     fontSize: 12.5,
-                    color: "#4f46e5",
+                    color: "var(--mz-indigo-text)",
                     fontWeight: 600,
                   }}
                 >
@@ -1105,18 +1109,18 @@ const HelpSupport = () => {
               <div
                 style={{
                   padding: "14px 24px",
-                  background: "#ecfdf5",
-                  borderTop: "1px solid #a7f3d0",
-                  borderBottom: "1px solid #a7f3d0",
+                  background: "var(--mz-emerald-bg)",
+                  borderTop: "1px solid var(--mz-emerald-border)",
+                  borderBottom: "1px solid var(--mz-emerald-border)",
                   display: "flex",
                   alignItems: "center",
                   gap: 10,
-                  color: "#065f46",
+                  color: "var(--mz-emerald-text)",
                   fontSize: 13,
                   fontWeight: 600,
                 }}
               >
-                <LuCircleCheck style={{ width: 18, height: 18, color: "#059669" }} />
+                <LuCircleCheck style={{ width: 18, height: 18, color: "var(--mz-emerald-text)" }} />
                 <span>
                   This support ticket is marked as <strong>Resolved</strong> by our engineering team. If
                   you need further assistance, reply below to reopen the ticket.
@@ -1125,7 +1129,7 @@ const HelpSupport = () => {
             )}
 
             {/* Reply Input Box with File Attachment capability */}
-            <div style={{ background: "#ffffff", borderTop: "1px solid #e2e8f0" }}>
+            <div style={{ background: "var(--mz-surface)", borderTop: "1px solid var(--mz-border)" }}>
               {replyAttachments.length > 0 && (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 10, padding: "12px 20px 0" }}>
                   {replyAttachments.map((att, idx) => {
@@ -1141,8 +1145,8 @@ const HelpSupport = () => {
                             height: 60,
                             borderRadius: 6,
                             overflow: "hidden",
-                            border: "1px solid #bfdbfe",
-                            background: "#eff6ff",
+                            border: "1px solid var(--mz-blue-border)",
+                            background: "var(--mz-blue-bg)",
                             boxShadow: "0 2px 4px rgba(0,0,0,0.06)",
                             cursor: "pointer",
                           }}
@@ -1198,11 +1202,11 @@ const HelpSupport = () => {
                           alignItems: "center",
                           gap: 6,
                           padding: "4px 10px",
-                          background: "#eff6ff",
-                          border: "1px solid #bfdbfe",
+                          background: "var(--mz-blue-bg)",
+                          border: "1px solid var(--mz-blue-border)",
                           borderRadius: 6,
                           fontSize: 12,
-                          color: "#1e40af",
+                          color: "var(--mz-blue-text)",
                           fontWeight: 600,
                         }}
                       >
@@ -1255,9 +1259,9 @@ const HelpSupport = () => {
                     style={{
                       padding: "10px 14px",
                       borderRadius: 8,
-                      border: "1px solid #cbd5e1",
-                      background: uploadingReply ? "#e0e7ff" : "#f8fafc",
-                      color: "#475569",
+                      border: "1px solid var(--mz-border-strong)",
+                      background: uploadingReply ? "var(--mz-indigo-bg)" : "var(--mz-surface-subtle)",
+                      color: "var(--mz-text-secondary)",
                       fontSize: 13,
                       fontWeight: 600,
                       cursor: "pointer",
@@ -1284,7 +1288,9 @@ const HelpSupport = () => {
                       flex: 1,
                       padding: "12px 14px",
                       borderRadius: 8,
-                      border: "1px solid #cbd5e1",
+                      border: "1px solid var(--mz-input-border)",
+                      background: "var(--mz-input-bg)",
+                      color: "var(--mz-input-text)",
                       fontSize: 13.5,
                       fontFamily: "inherit",
                       outline: "none",
@@ -1302,8 +1308,8 @@ const HelpSupport = () => {
                       height: 44,
                       borderRadius: 8,
                       border: "none",
-                      background: replyText.trim() || replyAttachments.length > 0 ? "#4f46e5" : "#cbd5e1",
-                      color: "#ffffff",
+                      background: replyText.trim() || replyAttachments.length > 0 ? "#4f46e5" : "var(--mz-surface-muted)",
+                      color: replyText.trim() || replyAttachments.length > 0 ? "#ffffff" : "var(--mz-text-subtle)",
                       fontSize: 13.5,
                       fontWeight: 700,
                       cursor: replyText.trim() || replyAttachments.length > 0 ? "pointer" : "not-allowed",
@@ -1344,7 +1350,7 @@ const HelpSupport = () => {
                     left: 12,
                     top: "50%",
                     transform: "translateY(-50%)",
-                    color: "#94a3b8",
+                    color: "var(--mz-text-subtle)",
                     width: 16,
                     height: 16,
                   }}
@@ -1367,9 +1373,10 @@ const HelpSupport = () => {
                     width: "100%",
                     padding: "9px 30px 9px 36px",
                     borderRadius: 8,
-                    border: "1px solid #cbd5e1",
+                    border: "1px solid var(--mz-input-border)",
                     fontSize: 13,
-                    background: "#ffffff",
+                    background: "var(--mz-input-bg)",
+                    color: "var(--mz-input-text)",
                     outline: "none",
                     boxSizing: "border-box",
                   }}
@@ -1387,7 +1394,7 @@ const HelpSupport = () => {
                       transform: "translateY(-50%)",
                       background: "none",
                       border: "none",
-                      color: "#94a3b8",
+                      color: "var(--mz-text-subtle)",
                       cursor: "pointer",
                     }}
                   >
@@ -1448,8 +1455,8 @@ const HelpSupport = () => {
                         border: "none",
                         fontSize: 12,
                         fontWeight: isActive ? 700 : 500,
-                        background: isActive ? "#4f46e5" : "#f1f5f9",
-                        color: isActive ? "#ffffff" : "#475569",
+                        background: isActive ? "#4f46e5" : "var(--mz-surface-subtle)",
+                        color: isActive ? "#ffffff" : "var(--mz-text-secondary)",
                         cursor: "pointer",
                       }}
                     >
@@ -1461,23 +1468,23 @@ const HelpSupport = () => {
             </div>
 
             {loadingTickets ? (
-              <div style={{ textAlign: "center", padding: 60, color: "#94a3b8" }}>
+              <div style={{ textAlign: "center", padding: 60, color: "var(--mz-text-subtle)" }}>
                 <LuRefreshCw className="animate-spin" style={{ width: 28, height: 28, margin: "0 auto 10px" }} />
                 <div>Loading your support tickets...</div>
               </div>
             ) : filteredTickets.length === 0 ? (
               <div
                 style={{
-                  background: "#ffffff",
+                  background: "var(--mz-surface)",
                   borderRadius: 14,
                   padding: "50px 20px",
                   textAlign: "center",
-                  border: "1px solid #e2e8f0",
+                  border: "1px solid var(--mz-border)",
                 }}
               >
-                <LuTicket style={{ width: 44, height: 44, color: "#cbd5e1", margin: "0 auto 12px" }} />
-                <h3 style={{ margin: "0 0 6px", color: "#0f172a", fontSize: 16 }}>No Support Tickets Found</h3>
-                <p style={{ margin: "0 0 16px", color: "#64748b", fontSize: 13 }}>
+                <LuTicket style={{ width: 44, height: 44, color: "var(--mz-text-subtle)", margin: "0 auto 12px" }} />
+                <h3 style={{ margin: "0 0 6px", color: "var(--mz-text-primary)", fontSize: 16 }}>No Support Tickets Found</h3>
+                <p style={{ margin: "0 0 16px", color: "var(--mz-text-muted)", fontSize: 13 }}>
                   {ticketSearch || statusFilter !== "all"
                     ? "No tickets match your active filter."
                     : "You haven't submitted any support requests yet."}
@@ -1513,10 +1520,10 @@ const HelpSupport = () => {
                         setSearchParams({ ticket: t.ticketId });
                       }}
                       style={{
-                        background: "#ffffff",
+                        background: "var(--mz-surface)",
                         borderRadius: 12,
                         padding: "18px 22px",
-                        border: "1px solid #e2e8f0",
+                        border: "1px solid var(--mz-border)",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "space-between",
@@ -1525,11 +1532,11 @@ const HelpSupport = () => {
                         boxShadow: "0 2px 6px rgba(0, 0, 0, 0.02)",
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.borderColor = "#c7d2fe";
+                        e.currentTarget.style.borderColor = "var(--mz-indigo-border)";
                         e.currentTarget.style.transform = "translateY(-1px)";
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.borderColor = "#e2e8f0";
+                        e.currentTarget.style.borderColor = "var(--mz-border)";
                         e.currentTarget.style.transform = "translateY(0)";
                       }}
                     >
@@ -1540,8 +1547,8 @@ const HelpSupport = () => {
                               fontFamily: "monospace",
                               fontWeight: 800,
                               fontSize: 12,
-                              color: "#4338ca",
-                              background: "#eef2ff",
+                              color: "var(--mz-indigo-text)",
+                              background: "var(--mz-indigo-bg)",
                               padding: "2px 8px",
                               borderRadius: 4,
                             }}
@@ -1561,7 +1568,7 @@ const HelpSupport = () => {
                           >
                             {badge.label}
                           </span>
-                          <span style={{ fontSize: 11.5, color: "#64748b" }}>
+                          <span style={{ fontSize: 11.5, color: "var(--mz-text-muted)" }}>
                             {t.category}
                           </span>
                           {totalAttachments > 0 && (
@@ -1572,8 +1579,8 @@ const HelpSupport = () => {
                                 gap: 4,
                                 fontSize: 11,
                                 fontWeight: 700,
-                                color: "#4f46e5",
-                                background: "#e0e7ff",
+                                color: "var(--mz-indigo-text)",
+                                background: "var(--mz-indigo-bg)",
                                 padding: "2px 7px",
                                 borderRadius: 10,
                               }}
@@ -1584,7 +1591,7 @@ const HelpSupport = () => {
                           )}
                         </div>
 
-                        <h4 style={{ margin: "0 0 4px", fontSize: 15, fontWeight: 700, color: "#0f172a" }}>
+                        <h4 style={{ margin: "0 0 4px", fontSize: 15, fontWeight: 700, color: "var(--mz-text-primary)" }}>
                           {t.subject}
                         </h4>
 
@@ -1592,7 +1599,7 @@ const HelpSupport = () => {
                           style={{
                             margin: 0,
                             fontSize: 12.5,
-                            color: "#64748b",
+                            color: "var(--mz-text-muted)",
                             overflow: "hidden",
                             textOverflow: "ellipsis",
                             whiteSpace: "nowrap",
@@ -1605,18 +1612,18 @@ const HelpSupport = () => {
 
                       <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
                         <div style={{ textAlign: "right" }}>
-                          <div style={{ fontSize: 11.5, color: "#94a3b8" }}>
+                          <div style={{ fontSize: 11.5, color: "var(--mz-text-subtle)" }}>
                             {new Date(t.createdAt).toLocaleDateString([], {
                               month: "short",
                               day: "numeric",
                               year: "numeric",
                             })}
                           </div>
-                          <div style={{ fontSize: 11.5, color: "#6366f1", fontWeight: 600 }}>
+                          <div style={{ fontSize: 11.5, color: "var(--mz-indigo-text)", fontWeight: 600 }}>
                             {msgCount} {msgCount === 1 ? "Message" : "Messages"}
                           </div>
                         </div>
-                        <LuChevronRight style={{ width: 18, height: 18, color: "#94a3b8" }} />
+                        <LuChevronRight style={{ width: 18, height: 18, color: "var(--mz-text-subtle)" }} />
                       </div>
                     </div>
                   );
@@ -1655,7 +1662,7 @@ const HelpSupport = () => {
             <div style={{ marginBottom: 28 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
                 <span style={{ width: 22, height: 22, borderRadius: "50%", background: "#4f46e5", color: "#ffffff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11.5, fontWeight: 800 }}>1</span>
-                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#0f172a" }}>Select Issue Category</h3>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "var(--mz-text-primary)" }}>Select Issue Category</h3>
               </div>
 
               <div
@@ -1673,8 +1680,8 @@ const HelpSupport = () => {
                       key={cat.id}
                       onClick={() => setSelectedCategory(cat.id)}
                       style={{
-                        background: "#ffffff",
-                        border: isSelected ? "2px solid #4f46e5" : "1px solid #e2e8f0",
+                        background: "var(--mz-surface)",
+                        border: isSelected ? "2px solid #4f46e5" : "1px solid var(--mz-border)",
                         borderRadius: 12,
                         padding: "16px 18px",
                         cursor: "pointer",
@@ -1715,10 +1722,10 @@ const HelpSupport = () => {
                           </span>
                         )}
                       </div>
-                      <h4 style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 700, color: "#0f172a" }}>
+                      <h4 style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 700, color: "var(--mz-text-primary)" }}>
                         {cat.title}
                       </h4>
-                      <p style={{ margin: 0, fontSize: 12, color: "#64748b", lineHeight: 1.4 }}>
+                      <p style={{ margin: 0, fontSize: 12, color: "var(--mz-text-muted)", lineHeight: 1.4 }}>
                         {cat.desc}
                       </p>
                     </div>
@@ -1730,22 +1737,22 @@ const HelpSupport = () => {
             {/* Step 2: Issue Details & File Attachment Form */}
             <div
               style={{
-                background: "#ffffff",
+                background: "var(--mz-surface)",
                 borderRadius: 14,
-                border: "1px solid #e2e8f0",
+                border: "1px solid var(--mz-border)",
                 padding: "26px 30px",
-                boxShadow: "0 4px 16px rgba(0, 0, 0, 0.03)",
+                boxShadow: "var(--mz-shadow-sm)",
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
                 <span style={{ width: 22, height: 22, borderRadius: "50%", background: "#4f46e5", color: "#ffffff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11.5, fontWeight: 800 }}>2</span>
-                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#0f172a" }}>Describe the Issue & Attach Files</h3>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "var(--mz-text-primary)" }}>Describe the Issue & Attach Files</h3>
               </div>
 
               <form onSubmit={handleSubmitTicket}>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 220px", gap: 16, marginBottom: 16 }}>
                   <div>
-                    <label style={{ display: "block", fontSize: 12.5, fontWeight: 700, color: "#334155", marginBottom: 6 }}>
+                    <label style={{ display: "block", fontSize: 12.5, fontWeight: 700, color: "var(--mz-text-secondary)", marginBottom: 6 }}>
                       Subject / Brief Summary *
                     </label>
                     <input
@@ -1757,7 +1764,9 @@ const HelpSupport = () => {
                         width: "100%",
                         padding: "10px 14px",
                         borderRadius: 8,
-                        border: "1px solid #cbd5e1",
+                        border: "1px solid var(--mz-input-border)",
+                        background: "var(--mz-input-bg)",
+                        color: "var(--mz-input-text)",
                         fontSize: 13.5,
                         outline: "none",
                         boxSizing: "border-box",
@@ -1767,7 +1776,7 @@ const HelpSupport = () => {
                   </div>
 
                   <div>
-                    <label style={{ display: "block", fontSize: 12.5, fontWeight: 700, color: "#334155", marginBottom: 6 }}>
+                    <label style={{ display: "block", fontSize: 12.5, fontWeight: 700, color: "var(--mz-text-secondary)", marginBottom: 6 }}>
                       Priority Level
                     </label>
                     <select
@@ -1777,11 +1786,11 @@ const HelpSupport = () => {
                         width: "100%",
                         padding: "10px 12px",
                         borderRadius: 8,
-                        border: "1px solid #cbd5e1",
+                        border: "1px solid var(--mz-input-border)",
                         fontSize: 13,
                         fontWeight: 600,
-                        background: "#ffffff",
-                        color: "#334155",
+                        background: "var(--mz-input-bg)",
+                        color: "var(--mz-input-text)",
                         outline: "none",
                         cursor: "pointer",
                         boxSizing: "border-box",
@@ -1796,7 +1805,7 @@ const HelpSupport = () => {
                 </div>
 
                 <div style={{ marginBottom: 20 }}>
-                  <label style={{ display: "block", fontSize: 12.5, fontWeight: 700, color: "#334155", marginBottom: 6 }}>
+                  <label style={{ display: "block", fontSize: 12.5, fontWeight: 700, color: "var(--mz-text-secondary)", marginBottom: 6 }}>
                     Problem Description & Steps to Reproduce *
                   </label>
                   <textarea
@@ -1808,7 +1817,9 @@ const HelpSupport = () => {
                       width: "100%",
                       padding: "12px 14px",
                       borderRadius: 8,
-                      border: "1px solid #cbd5e1",
+                      border: "1px solid var(--mz-input-border)",
+                      background: "var(--mz-input-bg)",
+                      color: "var(--mz-input-text)",
                       fontSize: 13.5,
                       fontFamily: "inherit",
                       outline: "none",
@@ -1821,7 +1832,7 @@ const HelpSupport = () => {
 
                 {/* ── DRAG & DROP / CLICK FILE ATTACHMENT UPLOADER ── */}
                 <div style={{ marginBottom: 24 }}>
-                  <label style={{ display: "block", fontSize: 12.5, fontWeight: 700, color: "#334155", marginBottom: 6 }}>
+                  <label style={{ display: "block", fontSize: 12.5, fontWeight: 700, color: "var(--mz-text-secondary)", marginBottom: 6 }}>
                     File Attachments & Evidence (Screenshots, Error Logs, Code Snippets)
                   </label>
                   <div
@@ -1829,27 +1840,27 @@ const HelpSupport = () => {
                     onDragOver={(e) => {
                       e.preventDefault();
                       e.currentTarget.style.borderColor = "#4f46e5";
-                      e.currentTarget.style.background = "#eef2ff";
+                      e.currentTarget.style.background = "var(--mz-indigo-bg)";
                     }}
                     onDragLeave={(e) => {
                       e.preventDefault();
-                      e.currentTarget.style.borderColor = "#cbd5e1";
-                      e.currentTarget.style.background = "#fafafa";
+                      e.currentTarget.style.borderColor = "var(--mz-border-strong)";
+                      e.currentTarget.style.background = "var(--mz-surface-subtle)";
                     }}
                     onDrop={(e) => {
                       e.preventDefault();
-                      e.currentTarget.style.borderColor = "#cbd5e1";
-                      e.currentTarget.style.background = "#fafafa";
+                      e.currentTarget.style.borderColor = "var(--mz-border-strong)";
+                      e.currentTarget.style.background = "var(--mz-surface-subtle)";
                       if (e.dataTransfer.files?.length) {
                         handleFilesChosen(e.dataTransfer.files, "new");
                       }
                     }}
                     style={{
-                      border: "2px dashed #cbd5e1",
+                      border: "2px dashed var(--mz-border-strong)",
                       borderRadius: 10,
                       padding: "24px 20px",
                       textAlign: "center",
-                      background: "#fafafa",
+                      background: "var(--mz-surface-subtle)",
                       cursor: "pointer",
                       transition: "all 0.18s ease",
                     }}
@@ -1873,8 +1884,8 @@ const HelpSupport = () => {
                           width: 44,
                           height: 44,
                           borderRadius: "50%",
-                          background: "#eef2ff",
-                          color: "#4f46e5",
+                          background: "var(--mz-indigo-bg)",
+                          color: "var(--mz-indigo-text)",
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
@@ -1886,10 +1897,10 @@ const HelpSupport = () => {
                           <LuCloudUpload size={24} />
                         )}
                       </div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: "#1e293b" }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: "var(--mz-text-primary)" }}>
                         {uploadingNew ? "Uploading attachments..." : "Click or drag & drop files here to attach"}
                       </div>
-                      <div style={{ fontSize: 12, color: "#64748b" }}>
+                      <div style={{ fontSize: 12, color: "var(--mz-text-muted)" }}>
                         Support for screenshots (PNG, JPG, WEBP), Error Logs (TXT, LOG), and Documents (PDF) up to 15MB each
                       </div>
                     </div>
@@ -1911,8 +1922,8 @@ const HelpSupport = () => {
                                 height: 85,
                                 borderRadius: 8,
                                 overflow: "hidden",
-                                border: "1px solid #bfdbfe",
-                                background: "#eff6ff",
+                                border: "1px solid var(--mz-blue-border)",
+                                background: "var(--mz-blue-bg)",
                                 boxShadow: "0 2px 6px rgba(0,0,0,0.06)",
                                 cursor: "pointer",
                               }}
@@ -1985,12 +1996,12 @@ const HelpSupport = () => {
                               alignItems: "center",
                               gap: 8,
                               padding: "6px 12px",
-                              background: "#eff6ff",
-                              border: "1px solid #bfdbfe",
+                              background: "var(--mz-blue-bg)",
+                              border: "1px solid var(--mz-blue-border)",
                               borderRadius: 8,
                               fontSize: 12.5,
                               fontWeight: 600,
-                              color: "#1e40af",
+                              color: "var(--mz-blue-text)",
                             }}
                           >
                             <LuFileText size={16} />
@@ -2021,9 +2032,9 @@ const HelpSupport = () => {
                   )}
                 </div>
 
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 14, paddingTop: 10, borderTop: "1px solid #f1f5f9" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#64748b" }}>
-                    <LuShieldCheck style={{ width: 16, height: 16, color: "#16a34a" }} />
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 14, paddingTop: 10, borderTop: "1px solid var(--mz-border)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--mz-text-muted)" }}>
+                    <LuShieldCheck style={{ width: 16, height: 16, color: "var(--mz-green-text)" }} />
                     <span>Your registered account details ({user?.email || "student"}) and telemetry are securely linked.</span>
                   </div>
 

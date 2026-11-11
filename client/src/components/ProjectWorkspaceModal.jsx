@@ -27,6 +27,8 @@ import {
 } from "react-icons/fi";
 import "./projectWorkspace.css";
 import AssessmentSubmissionFlow from "./AssessmentSubmissionFlow";
+import ThemeToggle from "./ThemeToggle.jsx";
+import { useTheme } from "../context/ThemeContext.jsx";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "";
 
@@ -77,6 +79,7 @@ function getProjectProTip(project) {
 export function ProjectWorkspaceModal({ project: initialProject, onClose, onProjectStateUpdated, isStandalone = false }) {
   const navigate = useNavigate();
   const { projectId: routeProjectId } = useParams();
+  const { isDark } = useTheme();
   const token = localStorage.getItem("token");
   const projectId = initialProject?.id || initialProject?._id || routeProjectId;
 
@@ -914,6 +917,7 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
           </div>
 
           <div className="mz-pw-hero-right">
+            <ThemeToggle />
             <div className="mz-pw-timer-pill" data-testid="pw-countdown-timer">
               <div className="mz-pw-timer-icon">
                 <FiClock size={16} />
@@ -1032,7 +1036,7 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
                 {topNavTab === "overview" && projectSpec?.problemStatement && (
                   <p
                     className="mz-pw-detail-desc"
-                    style={{ marginTop: 8, fontSize: 12.8, color: "#475569" }}
+                    style={{ marginTop: 8, fontSize: 12.8, color: "var(--mz-text-secondary)" }}
                   >
                     {projectSpec.problemStatement}
                   </p>
@@ -1044,10 +1048,10 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
                       marginTop: 8,
                       padding: "8px 10px",
                       borderRadius: 8,
-                      background: "#f8fafc",
-                      border: "1px solid #e2e8f0",
+                      background: "var(--mz-surface-subtle)",
+                      border: "1px solid var(--mz-border)",
                       fontSize: 12,
-                      color: "#334155",
+                      color: "var(--mz-text-secondary)",
                     }}
                   >
                     <div>
@@ -1236,7 +1240,7 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
                     <Editor
                       height="100%"
                       language={getEditorLanguage(activeFile.name, projectSpec?.starterLanguage)}
-                      theme="vs-dark"
+                      theme={isDark ? "vs-dark" : "vs"}
                       value={activeFile.content}
                       onChange={handleCodeChange}
                       options={{
@@ -1333,7 +1337,7 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
               {bottomTab === "testcases" && (
                 <div className="mz-pw-tc-table-wrap">
                   {isRunningTests && (
-                    <div style={{ padding: "8px 14px", background: "#eff6ff", borderBottom: "1px solid #bfdbfe", display: "flex", alignItems: "center", gap: "8px", fontSize: "12px", color: "#1d4ed8", fontWeight: 600 }}>
+                    <div style={{ padding: "8px 14px", background: "var(--mz-blue-bg)", borderBottom: "1px solid var(--mz-blue-border)", display: "flex", alignItems: "center", gap: "8px", fontSize: "12px", color: "var(--mz-blue-text)", fontWeight: 600 }}>
                       <FiRefreshCw size={13} className="mz-spin" />
                       <span>Compiler Sandboxed Runner: Evaluating project files against test suite...</span>
                     </div>
@@ -1357,11 +1361,11 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
                             data-testid={`pw-testcase-row-${idx + 1}`}
                             style={{
                               background: tc.passed
-                                ? "rgba(240, 253, 244, 0.55)"
-                                : "rgba(254, 242, 242, 0.55)",
+                                ? "var(--mz-green-bg)"
+                                : "var(--mz-red-bg)",
                             }}
                           >
-                            <td style={{ fontWeight: 800, color: "#0f172a" }}>
+                            <td style={{ fontWeight: 800, color: "var(--mz-text-primary)" }}>
                               {tc.testIndex || idx + 1}
                             </td>
                             <td>
@@ -1379,8 +1383,8 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
                                 className="mz-pw-tc-code"
                                 title={tc.actualOutput || tc.error || ""}
                                 style={{
-                                  color: tc.passed ? "#15803d" : "#b91c1c",
-                                  borderColor: tc.passed ? "#bbf7d0" : "#fecaca",
+                                  color: tc.passed ? "var(--mz-green-text)" : "var(--mz-red-text)",
+                                  borderColor: tc.passed ? "var(--mz-green-border)" : "var(--mz-red-border)",
                                 }}
                               >
                                 {tc.actualOutput || tc.error || "(empty)"}
@@ -1396,14 +1400,14 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
                                   borderRadius: 999,
                                   fontSize: 11.5,
                                   fontWeight: 800,
-                                  background: tc.passed ? "#dcfce7" : "#fee2e2",
-                                  color: tc.passed ? "#15803d" : "#b91c1c",
+                                  background: tc.passed ? "var(--mz-green-bg)" : "var(--mz-red-bg)",
+                                  color: tc.passed ? "var(--mz-green-text)" : "var(--mz-red-text)",
                                 }}
                               >
                                 {tc.passed ? "✓ Passed" : "✗ Failed"}
                               </span>
                             </td>
-                            <td style={{ fontWeight: 600, color: "#64748b", fontSize: 12 }}>
+                            <td style={{ fontWeight: 600, color: "var(--mz-text-muted)", fontSize: 12 }}>
                               {tc.durationMs || 1}ms
                             </td>
                           </tr>
@@ -1481,7 +1485,7 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
               {bottomTab === "console" && (
                 <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-                    <span style={{ fontSize: 12.5, fontWeight: 800, color: "#334155" }}>
+                    <span style={{ fontSize: 12.5, fontWeight: 800, color: "var(--mz-text-secondary)" }}>
                       Standard Input (stdin) Payload
                     </span>
                     <button
@@ -1507,7 +1511,9 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
                       boxSizing: "border-box",
                       padding: 10,
                       borderRadius: 8,
-                      border: "1px solid #cbd5e1",
+                      border: "1px solid var(--mz-input-border)",
+                      background: "var(--mz-input-bg)",
+                      color: "var(--mz-input-text)",
                       fontFamily: "'JetBrains Mono', monospace",
                       fontSize: 12,
                     }}
@@ -1515,7 +1521,7 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
                   />
 
                   <div>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: "#475569", marginBottom: 6 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "var(--mz-text-secondary)", marginBottom: 6 }}>
                       Console Stream (stdout / stderr):
                     </div>
                     <pre className="mz-pw-code-pre" data-testid="pw-console-stdout">
@@ -1539,9 +1545,9 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
                         fontWeight: 800,
                         color: liveOutputData
                           ? liveOutputData.ok
-                            ? "#15803d"
-                            : "#b91c1c"
-                          : "#475569",
+                            ? "var(--mz-green-text)"
+                            : "var(--mz-red-text)"
+                          : "var(--mz-text-secondary)",
                       }}
                     >
                       {liveOutputData
@@ -1551,7 +1557,7 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
                         : "Real-Time Sandbox Output"}
                     </span>
                     {liveOutputData?.timestamp && (
-                      <span style={{ fontSize: 11.5, color: "#64748b", fontWeight: 600 }}>
+                      <span style={{ fontSize: 11.5, color: "var(--mz-text-muted)", fontWeight: 600 }}>
                         Updated at {liveOutputData.timestamp}
                       </span>
                     )}
@@ -1684,7 +1690,7 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
                 gap: 12,
                 flexWrap: "wrap",
                 paddingBottom: 14,
-                borderBottom: "1px solid #e2e8f0",
+                borderBottom: "1px solid var(--mz-border)",
               }}
             >
               <div>
@@ -1697,8 +1703,8 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
                     borderRadius: 999,
                     fontSize: 12,
                     fontWeight: 800,
-                    background: submissionResultModal.passed ? "#dcfce7" : "#fef3c7",
-                    color: submissionResultModal.passed ? "#15803d" : "#b45309",
+                    background: submissionResultModal.passed ? "var(--mz-green-bg)" : "var(--mz-amber-bg)",
+                    color: submissionResultModal.passed ? "var(--mz-green-text)" : "var(--mz-amber-text)",
                     marginBottom: 8,
                   }}
                   data-testid="pw-modal-status-badge"
@@ -1713,7 +1719,7 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
                     </>
                   )}
                 </span>
-                <h2 style={{ margin: 0, fontSize: 21, fontWeight: 800, color: "#0f172a" }}>
+                <h2 style={{ margin: 0, fontSize: 21, fontWeight: 800, color: "var(--mz-text-primary)" }}>
                   {projectSpec?.title}
                 </h2>
               </div>
@@ -1723,19 +1729,19 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
                   textAlign: "right",
                   padding: "10px 16px",
                   borderRadius: 14,
-                  background: submissionResultModal.passed ? "#f0fdf4" : "#fffbeb",
-                  border: `1px solid ${submissionResultModal.passed ? "#86efac" : "#fde68a"}`,
+                  background: submissionResultModal.passed ? "var(--mz-green-bg)" : "var(--mz-amber-bg)",
+                  border: `1px solid ${submissionResultModal.passed ? "var(--mz-green-border)" : "var(--mz-amber-border)"}`,
                 }}
               >
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--mz-text-muted)", textTransform: "uppercase" }}>
                   Final Score
                 </div>
                 <div
-                  style={{ fontSize: 24, fontWeight: 900, color: "#0f172a" }}
+                  style={{ fontSize: 24, fontWeight: 900, color: "var(--mz-text-primary)" }}
                   data-testid="pw-modal-score-value"
                 >
                   {submissionResultModal.marksObtained} / {submissionResultModal.totalMarks || 100}{" "}
-                  <span style={{ fontSize: 15, color: "#4f46e5" }}>
+                  <span style={{ fontSize: 15, color: "var(--mz-accent-indigo)" }}>
                     (Grade {submissionResultModal.grade})
                   </span>
                 </div>
@@ -1750,36 +1756,36 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
                 gap: 10,
               }}
             >
-              <div style={{ padding: 12, borderRadius: 12, background: "#f8fafc", border: "1px solid #e2e8f0" }}>
-                <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700 }}>Percentage</div>
-                <div style={{ fontSize: 17, fontWeight: 800, color: "#0f172a", marginTop: 2 }}>
+              <div style={{ padding: 12, borderRadius: 12, background: "var(--mz-surface-subtle)", border: "1px solid var(--mz-border)" }}>
+                <div style={{ fontSize: 11, color: "var(--mz-text-muted)", fontWeight: 700 }}>Percentage</div>
+                <div style={{ fontSize: 17, fontWeight: 800, color: "var(--mz-text-primary)", marginTop: 2 }}>
                   {submissionResultModal.percentage}%
                 </div>
               </div>
 
-              <div style={{ padding: 12, borderRadius: 12, background: "#f8fafc", border: "1px solid #e2e8f0" }}>
-                <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700 }}>Passing Cutoff</div>
-                <div style={{ fontSize: 17, fontWeight: 800, color: "#1d4ed8", marginTop: 2 }}>
+              <div style={{ padding: 12, borderRadius: 12, background: "var(--mz-surface-subtle)", border: "1px solid var(--mz-border)" }}>
+                <div style={{ fontSize: 11, color: "var(--mz-text-muted)", fontWeight: 700 }}>Passing Cutoff</div>
+                <div style={{ fontSize: 17, fontWeight: 800, color: "var(--mz-blue-text)", marginTop: 2 }}>
                   {submissionResultModal.passingMarks || projectSpec?.passingMarks || 80}%
                 </div>
               </div>
 
-              <div style={{ padding: 12, borderRadius: 12, background: "#f8fafc", border: "1px solid #e2e8f0" }}>
-                <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700 }}>Tests Passed</div>
-                <div style={{ fontSize: 17, fontWeight: 800, color: "#0f172a", marginTop: 2 }}>
+              <div style={{ padding: 12, borderRadius: 12, background: "var(--mz-surface-subtle)", border: "1px solid var(--mz-border)" }}>
+                <div style={{ fontSize: 11, color: "var(--mz-text-muted)", fontWeight: 700 }}>Tests Passed</div>
+                <div style={{ fontSize: 17, fontWeight: 800, color: "var(--mz-text-primary)", marginTop: 2 }}>
                   {submissionResultModal.passedTests} / {submissionResultModal.totalTests}
                 </div>
               </div>
 
-              <div style={{ padding: 12, borderRadius: 12, background: "#f8fafc", border: "1px solid #e2e8f0" }}>
-                <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700 }}>Reward</div>
-                <div style={{ fontSize: 17, fontWeight: 800, color: "#15803d", marginTop: 2 }}>
+              <div style={{ padding: 12, borderRadius: 12, background: "var(--mz-surface-subtle)", border: "1px solid var(--mz-border)" }}>
+                <div style={{ fontSize: 11, color: "var(--mz-text-muted)", fontWeight: 700 }}>Reward</div>
+                <div style={{ fontSize: 17, fontWeight: 800, color: "var(--mz-green-text)", marginTop: 2 }}>
                   {submissionResultModal.passed ? `+${submissionResultModal.xpAwarded || 0} XP` : "0 XP"}
                 </div>
               </div>
             </div>
 
-            <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.55, color: "#334155" }}>
+            <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.55, color: "var(--mz-text-secondary)" }}>
               {submissionResultModal.evaluationFeedback?.summary}
             </p>
 

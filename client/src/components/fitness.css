@@ -3142,3 +3142,86 @@
   background-color: #00A859 !important;
   color: #fff !important;
 }
+
+/* ==========================================================================
+   LIGHT & DARK THEME ADAPTATION OVERRIDES FOR FITNESS ZONE
+   ========================================================================== */
+[data-theme="light"] .fitness-container .fitness-content-area,
+.mz-theme-light .fitness-container .fitness-content-area {
+  background: var(--mz-bg-primary);
+  color: var(--mz-text-primary);
+}
+
+[data-theme="light"] .fitness-container .fitness-video-overlay,
+.mz-theme-light .fitness-container .fitness-video-overlay {
+  background: radial-gradient(circle at center, rgba(248, 250, 252, 0.82) 0%, rgba(241, 245, 249, 0.94) 100%);
+}
+
+[data-theme="light"] .fitness-container .fitness-bg-video,
+.mz-theme-light .fitness-container .fitness-bg-video {
+  opacity: 0.14;
+}
+
+[data-theme="light"] .fitness-container .fitness-hero-heading,
+[data-theme="light"] .fitness-container .section-title,
+[data-theme="light"] .fitness-container .product-title,
+[data-theme="light"] .fitness-container .advisor-name,
+[data-theme="light"] .fitness-container .cert-title,
+[data-theme="light"] .fitness-container .faq-question-text,
+[data-theme="light"] .fitness-container .calc-box-title,
+[data-theme="light"] .fitness-container .cart-item-title,
+.mz-theme-light .fitness-container .fitness-hero-heading,
+.mz-theme-light .fitness-container .section-title,
+.mz-theme-light .fitness-container .product-title,
+.mz-theme-light .fitness-container .advisor-name,
+.mz-theme-light .fitness-container .cert-title,
+.mz-theme-light .fitness-container .faq-question-text,
+.mz-theme-light .fitness-container .calc-box-title,
+.mz-theme-light .fitness-container .cart-item-title {
+  color: var(--mz-text-primary) !important;
+  text-shadow: none !important;
+}
+
+[data-theme="light"] .fitness-container .fitness-hero-subtext,
+[data-theme="light"] .fitness-container .section-subtitle,
+[data-theme="light"] .fitness-container .product-desc,
+[data-theme="light"] .fitness-container .advisor-bio,
+[data-theme="light"] .fitness-container .cert-desc,
+[data-theme="light"] .fitness-container .faq-answer-box,
+.mz-theme-light .fitness-container .fitness-hero-subtext,
+.mz-theme-light .fitness-container .section-subtitle,
+.mz-theme-light .fitness-container .product-desc,
+.mz-theme-light .fitness-container .advisor-bio,
+.mz-theme-light .fitness-container .cert-desc,
+.mz-theme-light .fitness-container .faq-answer-box {
+  color: var(--mz-text-secondary) !important;
+}
+
+[data-theme="light"] .fitness-container .product-card,
+[data-theme="light"] .fitness-container .advisor-card,
+[data-theme="light"] .fitness-container .cert-card,
+[data-theme="light"] .fitness-container .faq-item,
+[data-theme="light"] .fitness-container .calculator-card,
+[data-theme="light"] .fitness-container .support-ticket-card,
+[data-theme="light"] .fitness-container .cart-items-panel,
+[data-theme="light"] .fitness-container .cart-summary-panel,
+[data-theme="light"] .fitness-container .pricing-tier-card,
+[data-theme="light"] .fitness-container .roster-builder-card,
+[data-theme="light"] .fitness-container .membership-checkout-card,
+.mz-theme-light .fitness-container .product-card,
+.mz-theme-light .fitness-container .advisor-card,
+.mz-theme-light .fitness-container .cert-card,
+.mz-theme-light .fitness-container .faq-item,
+.mz-theme-light .fitness-container .calculator-card,
+.mz-theme-light .fitness-container .support-ticket-card,
+.mz-theme-light .fitness-container .cart-items-panel,
+.mz-theme-light .fitness-container .cart-summary-panel,
+.mz-theme-light .fitness-container .pricing-tier-card,
+.mz-theme-light .fitness-container .roster-builder-card,
+.mz-theme-light .fitness-container .membership-checkout-card {
+  background: var(--mz-surface) !important;
+  border-color: var(--mz-border) !important;
+  color: var(--mz-text-body) !important;
+  box-shadow: var(--mz-shadow-card) !important;
+}
+

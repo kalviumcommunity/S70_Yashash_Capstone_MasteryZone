@@ -5,7 +5,7 @@
   position: fixed;
   inset: 0;
   z-index: 100001;
-  background: rgba(15, 23, 42, 0.4);
+  background: var(--mz-backdrop);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   display: flex;
@@ -29,10 +29,10 @@
 
 .mz-results-preparing-card,
 .mz-report-ready-card {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--mz-surface);
+  border: 1px solid var(--mz-border);
   border-radius: 20px;
-  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.18), 0 10px 25px -5px rgba(15, 23, 42, 0.08);
+  box-shadow: var(--mz-shadow-lg);
   width: 100%;
   max-width: 580px;
   padding: 40px 36px 36px;
@@ -45,7 +45,7 @@
 }
 
 .mz-report-ready-card.error-state {
-  border-color: #fca5a5;
+  border-color: var(--mz-red-border);
 }
 
 .mz-results-preparing-card.mz-simple-loading-card {
@@ -64,7 +64,7 @@
 .mz-simple-spinner {
   width: 46px;
   height: 46px;
-  border: 3.5px solid #e2e8f0;
+  border: 3.5px solid var(--mz-border);
   border-top-color: #2563eb;
   border-right-color: #3b82f6;
   border-radius: 50%;
@@ -85,7 +85,7 @@
   width: 100%;
   max-width: 240px;
   height: 4px;
-  background: #f1f5f9;
+  background: var(--mz-surface-muted);
   border-radius: 9999px;
   overflow: hidden;
   margin-top: 14px;
@@ -151,8 +151,8 @@
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  background: #eff6ff;
-  border: 2px solid #bfdbfe;
+  background: var(--mz-blue-bg);
+  border: 2px solid var(--mz-blue-border);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -182,9 +182,9 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  background: #eff6ff;
-  color: #2563eb;
-  border: 1px solid #bfdbfe;
+  background: var(--mz-blue-bg);
+  color: var(--mz-blue-text);
+  border: 1px solid var(--mz-blue-border);
   margin-bottom: 12px;
 }
 
@@ -192,7 +192,7 @@
   margin: 0 0 10px;
   font-size: 24px;
   font-weight: 800;
-  color: #0f172a;
+  color: var(--mz-text-primary);
   letter-spacing: -0.02em;
 }
 
@@ -200,7 +200,7 @@
   margin: 0 0 28px;
   font-size: 14.5px;
   line-height: 1.6;
-  color: #64748b;
+  color: var(--mz-text-muted);
   max-width: 460px;
 }
 
@@ -209,8 +209,8 @@
   flex-direction: column;
   gap: 12px;
   width: 100%;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--mz-surface-subtle);
+  border: 1px solid var(--mz-border);
   border-radius: 14px;
   padding: 16px 20px;
   box-sizing: border-box;
@@ -226,15 +226,15 @@
 }
 
 .mz-preparing-step.done {
-  color: #059669;
+  color: var(--mz-emerald-text);
 }
 
 .mz-preparing-step.active {
-  color: #2563eb;
+  color: var(--mz-blue-text);
 }
 
 .mz-preparing-step.pending {
-  color: #94a3b8;
+  color: var(--mz-text-subtle);
 }
 
 /* Report Ready screen styling */
@@ -249,8 +249,8 @@
   width: 80px;
   height: 80px;
   border-radius: 50%;
-  background: #ecfdf5;
-  border: 2px solid #86efac;
+  background: var(--mz-emerald-bg);
+  border: 2px solid var(--mz-emerald-border);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -279,9 +279,9 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  background: #ecfdf5;
-  color: #059669;
-  border: 1px solid #a7f3d0;
+  background: var(--mz-emerald-bg);
+  color: var(--mz-emerald-text);
+  border: 1px solid var(--mz-emerald-border);
   margin-bottom: 10px;
 }
 
@@ -289,7 +289,7 @@
   margin: 0 0 8px;
   font-size: 26px;
   font-weight: 800;
-  color: #0f172a;
+  color: var(--mz-text-primary);
   letter-spacing: -0.02em;
 }
 
@@ -297,14 +297,14 @@
   margin: 0 0 24px;
   font-size: 14.5px;
   line-height: 1.55;
-  color: #475569;
+  color: var(--mz-text-secondary);
   max-width: 480px;
 }
 
 .mz-report-summary-box {
   width: 100%;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--mz-surface-subtle);
+  border: 1px solid var(--mz-border);
   border-radius: 14px;
   padding: 18px 22px;
   box-sizing: border-box;
@@ -322,23 +322,23 @@
 }
 
 .mz-summary-label {
-  color: #64748b;
+  color: var(--mz-text-muted);
   font-weight: 600;
 }
 
 .mz-summary-value {
-  color: #0f172a;
+  color: var(--mz-text-primary);
   font-weight: 700;
 }
 
 .mz-summary-value.pass {
-  color: #059669;
+  color: var(--mz-emerald-text);
   font-weight: 800;
   font-size: 15px;
 }
 
 .mz-summary-value.fail {
-  color: #dc2626;
+  color: var(--mz-red-text);
   font-weight: 800;
   font-size: 15px;
 }
@@ -351,15 +351,15 @@
 }
 
 .mz-summary-badge.pass {
-  background: #ecfdf5;
-  color: #059669;
-  border: 1px solid #a7f3d0;
+  background: var(--mz-emerald-bg);
+  color: var(--mz-emerald-text);
+  border: 1px solid var(--mz-emerald-border);
 }
 
 .mz-summary-badge.fail {
-  background: #fef2f2;
-  color: #dc2626;
-  border: 1px solid #fecaca;
+  background: var(--mz-red-bg);
+  color: var(--mz-red-text);
+  border: 1px solid var(--mz-red-border);
 }
 
 /* Actions Section */
@@ -422,18 +422,18 @@
   gap: 8px;
   padding: 12px 24px;
   border-radius: 12px;
-  background: #f8fafc;
-  color: #334155;
+  background: var(--mz-surface-subtle);
+  color: var(--mz-text-secondary);
   font-size: 14px;
   font-weight: 600;
   font-family: inherit;
-  border: 1.5px solid #cbd5e1;
+  border: 1.5px solid var(--mz-border-strong);
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   width: 100%;
   flex: 1;
   box-sizing: border-box;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  box-shadow: var(--mz-shadow-sm);
   outline: none;
   text-decoration: none;
 }
@@ -446,11 +446,11 @@
 
 .mz-report-secondary-btn:hover,
 .mz-return-dashboard-btn:hover {
-  background: #f1f5f9;
-  color: #0f172a;
-  border-color: #94a3b8;
+  background: var(--mz-surface-muted);
+  color: var(--mz-text-primary);
+  border-color: var(--mz-border-strong);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+  box-shadow: var(--mz-shadow-md);
 }
 
 .mz-report-secondary-btn:hover svg,
@@ -461,8 +461,8 @@
 .mz-report-secondary-btn:active,
 .mz-return-dashboard-btn:active {
   transform: translateY(0);
-  background: #e2e8f0;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  background: var(--mz-surface-muted);
+  box-shadow: var(--mz-shadow-sm);
 }
 
 .mz-report-secondary-btn:focus-visible,

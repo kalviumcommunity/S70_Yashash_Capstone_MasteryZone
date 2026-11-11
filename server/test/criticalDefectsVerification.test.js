@@ -93,12 +93,12 @@ async function setup() {
 
   const secret = getJwtSecret();
 
-  userA = await User.findOne({ email: "user_a_critical@masteryzone.com" });
+  userA = await User.findOne({ email: "user_a_critical@masteryzone.test" });
   if (!userA) {
     userA = await User.create({
       username: "user_a_crit",
       fullName: "User Alpha Crit",
-      email: "user_a_critical@masteryzone.com",
+      email: "user_a_critical@masteryzone.test",
       password: "HashedPassword123!",
       role: "user",
     });
@@ -109,12 +109,12 @@ async function setup() {
     { expiresIn: "2h" }
   );
 
-  userB = await User.findOne({ email: "user_b_critical@masteryzone.com" });
+  userB = await User.findOne({ email: "user_b_critical@masteryzone.test" });
   if (!userB) {
     userB = await User.create({
       username: "user_b_crit",
       fullName: "User Beta Crit",
-      email: "user_b_critical@masteryzone.com",
+      email: "user_b_critical@masteryzone.test",
       password: "HashedPassword123!",
       role: "user",
     });
@@ -529,7 +529,8 @@ async function runAllTests() {
     await it("Assessment Security: Duplicate submission of finalized session returns 409 and never re-scores", async () => {
       const session = await ProctoredCodingSession.findOne({
         sessionId: { $regex: /^crit_sec_sess_.*_1$/ },
-      });
+        userId: userA._id.toString(),
+      }).sort({ _id: -1 });
       assert.ok(session);
       assert.strictEqual(session.status, "submitted");
 

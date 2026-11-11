@@ -217,7 +217,7 @@ export default function SubjectCurriculumView({
   const currentTrackObj = tracks.find((t) => t.id === selectedTrack) || tracks[0];
 
   return (
-    <div style={{ padding: "24px", maxWidth: "1200px", margin: "0 auto", color: "#0f172a" }}>
+    <div style={{ padding: "24px", maxWidth: "1200px", margin: "0 auto", color: "var(--mz-text-primary)" }}>
       {/* Track Selector Bar */}
       <div
         style={{
@@ -226,19 +226,19 @@ export default function SubjectCurriculumView({
           justifyContent: "space-between",
           flexWrap: "wrap",
           gap: "16px",
-          background: "#ffffff",
+          background: "var(--mz-surface)",
           padding: "18px 24px",
           borderRadius: "16px",
-          border: "1px solid #e2e8f0",
-          boxShadow: "0 2px 10px rgba(15, 23, 42, 0.04)",
+          border: "1px solid var(--mz-border)",
+          boxShadow: "var(--mz-shadow-sm)",
           marginBottom: "24px",
         }}
       >
         <div>
-          <h2 style={{ margin: "0 0 4px 0", fontSize: "20px", fontWeight: "700", color: "#0f172a" }}>
+          <h2 style={{ margin: "0 0 4px 0", fontSize: "20px", fontWeight: "700", color: "var(--mz-text-primary)" }}>
             {subjectTitle}
           </h2>
-          <p style={{ margin: 0, fontSize: "13px", color: "#64748b" }}>
+          <p style={{ margin: 0, fontSize: "13px", color: "var(--mz-text-muted)" }}>
             Structured modules • Practical assignments • Mandatory 5-Step proctored 10-MCQ exams
           </p>
         </div>
@@ -258,10 +258,10 @@ export default function SubjectCurriculumView({
                   fontWeight: "600",
                   cursor: "pointer",
                   border: "1px solid",
-                  borderColor: selectedTrack === t.id ? "#3b82f6" : "#e2e8f0",
-                  background: selectedTrack === t.id ? "#eff6ff" : "#ffffff",
-                  color: selectedTrack === t.id ? "#2563eb" : "#475569",
-                  boxShadow: "0 1px 2px rgba(0, 0, 0, 0.03)",
+                  borderColor: selectedTrack === t.id ? "#3b82f6" : "var(--mz-border)",
+                  background: selectedTrack === t.id ? "var(--mz-blue-soft)" : "var(--mz-surface)",
+                  color: selectedTrack === t.id ? "var(--mz-blue-text)" : "var(--mz-text-secondary)",
+                  boxShadow: "var(--mz-shadow-xs)",
                   transition: "all 0.2s ease",
                 }}
               >
@@ -279,12 +279,12 @@ export default function SubjectCurriculumView({
               alignItems: "center",
               gap: "6px",
               padding: "7px 14px",
-              background: "#fff1f2",
-              border: "1px solid #fecdd3",
+              background: "var(--mz-red-soft)",
+              border: "1px solid var(--mz-red-border)",
               borderRadius: "20px",
               fontSize: "12.5px",
               fontWeight: "600",
-              color: "#e11d48",
+              color: "var(--mz-red-text)",
               cursor: "pointer",
               transition: "all 0.2s ease",
             }}
@@ -317,8 +317,8 @@ export default function SubjectCurriculumView({
             <div
               key={module.id}
               style={{
-                background: "#ffffff",
-                border: "1px solid #e2e8f0",
+                background: "var(--mz-surface)",
+                border: "1px solid var(--mz-border)",
                 borderRadius: "16px",
                 padding: "20px 26px",
                 display: "flex",
@@ -326,7 +326,7 @@ export default function SubjectCurriculumView({
                 justifyContent: "space-between",
                 flexWrap: "wrap",
                 gap: "18px",
-                boxShadow: "0 2px 10px rgba(15, 23, 42, 0.04)",
+                boxShadow: "var(--mz-shadow-sm)",
                 transition: "all 0.2s ease",
               }}
             >
@@ -343,9 +343,9 @@ export default function SubjectCurriculumView({
                     fontWeight: "700",
                     fontSize: "14px",
                     flexShrink: 0,
-                    background: isPassed ? "#10b981" : "#eff6ff",
-                    color: isPassed ? "#ffffff" : "#2563eb",
-                    border: isPassed ? "none" : "1.5px solid #bfdbfe",
+                    background: isPassed ? "#10b981" : "var(--mz-blue-soft)",
+                    color: isPassed ? "#ffffff" : "var(--mz-blue-text)",
+                    border: isPassed ? "none" : "1.5px solid var(--mz-blue-border)",
                   }}
                 >
                   {isPassed ? <LuCheck size={18} /> : stepNum}
@@ -353,15 +353,15 @@ export default function SubjectCurriculumView({
 
                 <div style={{ flex: 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-                    <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "700", color: "#0f172a" }}>
+                    <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "700", color: "var(--mz-text-primary)" }}>
                       {module.title}
                     </h3>
                     <span
                       style={{
                         fontSize: "11px",
-                        color: "#64748b",
-                        background: "#f1f5f9",
-                        border: "1px solid #e2e8f0",
+                        color: "var(--mz-text-muted)",
+                        background: "var(--mz-surface-muted)",
+                        border: "1px solid var(--mz-border)",
                         padding: "2px 8px",
                         borderRadius: "8px",
                         display: "inline-flex",
@@ -379,16 +379,16 @@ export default function SubjectCurriculumView({
                         padding: "2px 8px",
                         borderRadius: "8px",
                         letterSpacing: "0.3px",
-                        background: isPassed ? "#ecfdf5" : (isStudyDone || isAssignmentDone || isAssessmentDone) ? "#eff6ff" : "#f1f5f9",
-                        color: isPassed ? "#059669" : (isStudyDone || isAssignmentDone || isAssessmentDone) ? "#2563eb" : "#64748b",
-                        border: `1px solid ${isPassed ? "#a7f3d0" : (isStudyDone || isAssignmentDone || isAssessmentDone) ? "#bfdbfe" : "#e2e8f0"}`,
+                        background: isPassed ? "var(--mz-emerald-soft)" : (isStudyDone || isAssignmentDone || isAssessmentDone) ? "var(--mz-blue-soft)" : "var(--mz-surface-muted)",
+                        color: isPassed ? "var(--mz-emerald-text)" : (isStudyDone || isAssignmentDone || isAssessmentDone) ? "var(--mz-blue-text)" : "var(--mz-text-muted)",
+                        border: `1px solid ${isPassed ? "var(--mz-emerald-border)" : (isStudyDone || isAssignmentDone || isAssessmentDone) ? "var(--mz-blue-border)" : "var(--mz-border)"}`,
                       }}
                     >
                       {isPassed ? "Completed" : (isStudyDone || isAssignmentDone || isAssessmentDone) ? "In Progress" : "Available"}
                     </span>
                   </div>
 
-                  <p style={{ margin: "4px 0 8px 0", fontSize: "13px", color: "#475569" }}>
+                  <p style={{ margin: "4px 0 8px 0", fontSize: "13px", color: "var(--mz-text-secondary)" }}>
                     {module.subtitle}
                   </p>
 
@@ -400,9 +400,9 @@ export default function SubjectCurriculumView({
                         fontWeight: "600",
                         padding: "3px 9px",
                         borderRadius: "12px",
-                        background: module.isStudied ? "#ecfdf5" : "#f8fafc",
-                        border: `1px solid ${module.isStudied ? "#a7f3d0" : "#e2e8f0"}`,
-                        color: module.isStudied ? "#059669" : "#64748b",
+                        background: module.isStudied ? "var(--mz-emerald-soft)" : "var(--mz-surface-subtle)",
+                        border: `1px solid ${module.isStudied ? "var(--mz-emerald-border)" : "var(--mz-border)"}`,
+                        color: module.isStudied ? "var(--mz-emerald-text)" : "var(--mz-text-muted)",
                       }}
                     >
                       {module.isStudied ? "✓ Lesson Studied" : "📖 Study Pending"}
@@ -414,9 +414,9 @@ export default function SubjectCurriculumView({
                         fontWeight: "600",
                         padding: "3px 9px",
                         borderRadius: "12px",
-                        background: module.assignmentPassed ? "#ecfdf5" : "#f8fafc",
-                        border: `1px solid ${module.assignmentPassed ? "#a7f3d0" : "#e2e8f0"}`,
-                        color: module.assignmentPassed ? "#059669" : "#64748b",
+                        background: module.assignmentPassed ? "var(--mz-emerald-soft)" : "var(--mz-surface-subtle)",
+                        border: `1px solid ${module.assignmentPassed ? "var(--mz-emerald-border)" : "var(--mz-border)"}`,
+                        color: module.assignmentPassed ? "var(--mz-emerald-text)" : "var(--mz-text-muted)",
                       }}
                     >
                       {module.assignmentPassed ? "✓ Practical Assignment Passed" : "📝 Assignment Pending"}
@@ -429,9 +429,9 @@ export default function SubjectCurriculumView({
                           fontWeight: "700",
                           padding: "3px 9px",
                           borderRadius: "12px",
-                          background: module.assignmentPassed ? "#ecfdf5" : "#fff1f2",
-                          border: `1px solid ${module.assignmentPassed ? "#a7f3d0" : "#fecdd3"}`,
-                          color: module.assignmentPassed ? "#059669" : "#e11d48",
+                          background: module.assignmentPassed ? "var(--mz-emerald-soft)" : "var(--mz-red-soft)",
+                          border: `1px solid ${module.assignmentPassed ? "var(--mz-emerald-border)" : "var(--mz-red-border)"}`,
+                          color: module.assignmentPassed ? "var(--mz-emerald-text)" : "var(--mz-red-text)",
                         }}
                       >
                         Previous Attempt: {module.previousAttemptGrade}% ({module.assignmentPassed ? "Passed" : "Not Passed"})
@@ -444,9 +444,9 @@ export default function SubjectCurriculumView({
                         fontWeight: "600",
                         padding: "3px 9px",
                         borderRadius: "12px",
-                        background: module.assessmentPassed ? "#ecfdf5" : "#f8fafc",
-                        border: `1px solid ${module.assessmentPassed ? "#a7f3d0" : "#e2e8f0"}`,
-                        color: module.assessmentPassed ? "#059669" : "#64748b",
+                        background: module.assessmentPassed ? "var(--mz-emerald-soft)" : "var(--mz-surface-subtle)",
+                        border: `1px solid ${module.assessmentPassed ? "var(--mz-emerald-border)" : "var(--mz-border)"}`,
+                        color: module.assessmentPassed ? "var(--mz-emerald-text)" : "var(--mz-text-muted)",
                       }}
                     >
                       {module.assessmentPassed
@@ -465,16 +465,16 @@ export default function SubjectCurriculumView({
                   style={{
                     padding: "8px 14px",
                     borderRadius: "10px",
-                    background: "#ffffff",
-                    border: "1px solid #cbd5e1",
-                    color: "#1e293b",
+                    background: "var(--mz-surface-subtle)",
+                    border: "1px solid var(--mz-border)",
+                    color: "var(--mz-text-primary)",
                     fontSize: "12.5px",
                     fontWeight: "600",
                     cursor: "pointer",
                     display: "flex",
                     alignItems: "center",
                     gap: "6px",
-                    boxShadow: "0 1px 2px rgba(0, 0, 0, 0.03)",
+                    boxShadow: "var(--mz-shadow-xs)",
                     transition: "all 0.2s ease",
                   }}
                 >
@@ -494,9 +494,9 @@ export default function SubjectCurriculumView({
                   style={{
                     padding: "8px 14px",
                     borderRadius: "10px",
-                    background: module.assignmentPassed ? "#ecfdf5" : "#eff6ff",
-                    border: `1px solid ${module.assignmentPassed ? "#a7f3d0" : "#bfdbfe"}`,
-                    color: module.assignmentPassed ? "#059669" : "#2563eb",
+                    background: module.assignmentPassed ? "var(--mz-emerald-soft)" : "var(--mz-blue-soft)",
+                    border: `1px solid ${module.assignmentPassed ? "var(--mz-emerald-border)" : "var(--mz-blue-border)"}`,
+                    color: module.assignmentPassed ? "var(--mz-emerald-text)" : "var(--mz-blue-text)",
                     fontSize: "12.5px",
                     fontWeight: "600",
                     cursor: "pointer",

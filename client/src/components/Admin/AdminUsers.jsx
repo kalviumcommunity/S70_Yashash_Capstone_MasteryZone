@@ -187,7 +187,7 @@ const AdminUsers = () => {
           className="mz-admin-search-box-input"
           style={{ position: 'relative' }}
         >
-          <LuSearch style={{ position: 'absolute', left: 12, top: 11, width: 16, height: 16, color: '#94a3b8' }} />
+          <LuSearch style={{ position: 'absolute', left: 12, top: 11, width: 16, height: 16, color: 'var(--mz-text-subtle)' }} />
           <input
             type="text"
             value={search}
@@ -277,13 +277,13 @@ const AdminUsers = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="7" style={{ padding: 36, textAlign: 'center', color: '#94a3b8' }}>
+                  <td colSpan="7" style={{ padding: 36, textAlign: 'center', color: 'var(--mz-text-subtle)' }}>
                     Loading users directory...
                   </td>
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan="7" style={{ padding: 36, textAlign: 'center', color: '#94a3b8' }}>
+                  <td colSpan="7" style={{ padding: 36, textAlign: 'center', color: 'var(--mz-text-subtle)' }}>
                     No users found matching your criteria.
                   </td>
                 </tr>
@@ -301,8 +301,8 @@ const AdminUsers = () => {
                           )}
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column' }}>
-                          <span style={{ fontWeight: 700, color: '#0f172a' }}>{u.fullName || u.username}</span>
-                          <span style={{ fontSize: 11, color: '#94a3b8' }}>{u.email}</span>
+                          <span style={{ fontWeight: 700, color: 'var(--mz-text-primary)' }}>{u.fullName || u.username}</span>
+                          <span style={{ fontSize: 11, color: 'var(--mz-text-subtle)' }}>{u.email}</span>
                         </div>
                       </div>
                     </td>
@@ -315,7 +315,7 @@ const AdminUsers = () => {
                     </td>
 
                     {/* Registered Date */}
-                    <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>
+                    <td style={{ color: 'var(--mz-text-muted)', whiteSpace: 'nowrap' }}>
                       {new Date(u.createdAt).toLocaleDateString("en-US", {
                         month: "short",
                         day: "numeric",
@@ -324,10 +324,10 @@ const AdminUsers = () => {
                     </td>
 
                     {/* Last Active */}
-                    <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>
+                    <td style={{ color: 'var(--mz-text-muted)', whiteSpace: 'nowrap' }}>
                       <div>
                         <span>{new Date(u.lastActiveDate || u.createdAt).toLocaleDateString()}</span>
-                        <p style={{ fontSize: 10, color: '#94a3b8', margin: '2px 0 0' }}>
+                        <p style={{ fontSize: 10, color: 'var(--mz-text-subtle)', margin: '2px 0 0' }}>
                           {u.lastLoginDevice || "Desktop"}
                         </p>
                       </div>
@@ -335,12 +335,12 @@ const AdminUsers = () => {
 
                     {/* Submissions */}
                     <td>
-                      <strong style={{ color: '#0f172a' }}>{u.submissionsCount || 0}</strong>
+                      <strong style={{ color: 'var(--mz-text-primary)' }}>{u.submissionsCount || 0}</strong>
                     </td>
 
                     {/* Assessments */}
                     <td>
-                      <strong style={{ color: '#0f172a' }}>{u.assessmentsCount || 0}</strong>
+                      <strong style={{ color: 'var(--mz-text-primary)' }}>{u.assessmentsCount || 0}</strong>
                     </td>
 
                     {/* Action buttons */}
@@ -381,7 +381,7 @@ const AdminUsers = () => {
             >
               <LuChevronLeft style={{ width: 14, height: 14 }} />
             </button>
-            <span style={{ fontWeight: 800, color: '#0f172a', padding: '0 4px' }}>{page}</span>
+            <span style={{ fontWeight: 800, color: 'var(--mz-text-primary)', padding: '0 4px' }}>{page}</span>
             <button
               onClick={() => setPage((p) => Math.min(pagination?.pages || 1, p + 1))}
               disabled={page >= (pagination?.pages || 1)}

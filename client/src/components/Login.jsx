@@ -17,6 +17,7 @@ import { toast } from "react-toastify";
 import logoIcon from "../assets/logo_icon_transparent.png";
 import illustrationImg from "../assets/login_illustration.png";
 import "./Login.css";
+import ThemeToggle from "./ThemeToggle.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 const AUTH_BASE = API_BASE ? `${API_BASE}/auth` : "/auth";
@@ -317,6 +318,7 @@ const Login = () => {
             <span className="mz-nav-tagline">Learn · Grow · Succeed</span>
           </span>
         </Link>
+        <ThemeToggle />
       </header>
 
       <main className="mz-main-container">

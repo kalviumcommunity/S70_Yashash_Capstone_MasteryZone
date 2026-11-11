@@ -19,32 +19,32 @@ const getNotificationIcon = (type, severity) => {
   switch (type) {
     case "registration":
       return (
-        <div style={{ width: 32, height: 32, borderRadius: 8, background: "#eff6ff", color: "#2563eb", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+        <div style={{ width: 32, height: 32, borderRadius: 8, background: "var(--mz-blue-bg)", color: "#2563eb", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
           <LuUserCheck style={{ width: 16, height: 16 }} />
         </div>
       );
     case "coding":
       return (
-        <div style={{ width: 32, height: 32, borderRadius: 8, background: "#ede9fe", color: "#6366f1", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+        <div style={{ width: 32, height: 32, borderRadius: 8, background: "var(--mz-purple-bg)", color: "#6366f1", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
           <LuCode style={{ width: 16, height: 16 }} />
         </div>
       );
     case "certification":
     case "assessment":
       return (
-        <div style={{ width: 32, height: 32, borderRadius: 8, background: "#fef3c7", color: "#d97706", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+        <div style={{ width: 32, height: 32, borderRadius: 8, background: "var(--mz-amber-bg)", color: "#d97706", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
           <LuAward style={{ width: 16, height: 16 }} />
         </div>
       );
     case "proctoring":
       return (
-        <div style={{ width: 32, height: 32, borderRadius: 8, background: "#fef2f2", color: "#dc2626", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+        <div style={{ width: 32, height: 32, borderRadius: 8, background: "var(--mz-red-bg)", color: "#dc2626", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
           <LuShieldAlert style={{ width: 16, height: 16 }} />
         </div>
       );
     default:
       return (
-        <div style={{ width: 32, height: 32, borderRadius: 8, background: "#f1f5f9", color: "#475569", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+        <div style={{ width: 32, height: 32, borderRadius: 8, background: "var(--mz-surface-muted)", color: "var(--mz-text-secondary)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
           <LuBell style={{ width: 16, height: 16 }} />
         </div>
       );
@@ -205,10 +205,10 @@ const AdminNotificationDropdown = () => {
             marginTop: 10,
             width: 380,
             maxWidth: "90vw",
-            background: "#ffffff",
+            background: "var(--mz-surface)",
             borderRadius: 16,
             boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)",
-            border: "1px solid #e2e8f0",
+            border: "1px solid var(--mz-border)",
             overflow: "hidden",
             zIndex: 9999,
             display: "flex",
@@ -219,15 +219,15 @@ const AdminNotificationDropdown = () => {
           <div
             style={{
               padding: "14px 18px",
-              background: "#f8fafc",
-              borderBottom: "1px solid #e2e8f0",
+              background: "var(--mz-surface-subtle)",
+              borderBottom: "1px solid var(--mz-border)",
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <h4 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: "#0f172a" }}>
+              <h4 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: "var(--mz-text-primary)" }}>
                 Admin Notifications
               </h4>
               {unreadCount > 0 && (
@@ -261,7 +261,7 @@ const AdminNotificationDropdown = () => {
                   style={{
                     background: "transparent",
                     border: "none",
-                    color: "#94a3b8",
+                    color: "var(--mz-text-subtle)",
                     fontSize: 11,
                     cursor: "pointer",
                     padding: 0,
@@ -277,7 +277,7 @@ const AdminNotificationDropdown = () => {
           {/* List */}
           <div style={{ maxHeight: 380, overflowY: "auto" }}>
             {notifications.length === 0 ? (
-              <div style={{ padding: "40px 20px", textAlign: "center", color: "#94a3b8", fontSize: 13 }}>
+              <div style={{ padding: "40px 20px", textAlign: "center", color: "var(--mz-text-subtle)", fontSize: 13 }}>
                 <LuBell style={{ width: 28, height: 28, margin: "0 auto 8px", opacity: 0.4 }} />
                 <p style={{ margin: 0, fontWeight: 600 }}>No Notifications</p>
                 <p style={{ margin: "4px 0 0", fontSize: 11.5 }}>
@@ -291,32 +291,32 @@ const AdminNotificationDropdown = () => {
                   onClick={() => handleClickItem(n)}
                   style={{
                     padding: "12px 16px",
-                    borderBottom: "1px solid #f1f5f9",
-                    background: n.isRead ? "#ffffff" : "#fbfaff",
+                    borderBottom: "1px solid var(--mz-surface-muted)",
+                    background: n.isRead ? "var(--mz-surface)" : "var(--mz-surface-subtle)",
                     display: "flex",
                     alignItems: "flex-start",
                     gap: 12,
                     cursor: "pointer",
                     transition: "background 0.15s ease",
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "#f8fafc")}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--mz-surface-subtle)")}
                   onMouseLeave={(e) =>
-                    (e.currentTarget.style.background = n.isRead ? "#ffffff" : "#fbfaff")
+                    (e.currentTarget.style.background = n.isRead ? "var(--mz-surface)" : "var(--mz-surface-subtle)")
                   }
                 >
                   {getNotificationIcon(n.type, n.severity)}
 
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
-                      <span style={{ fontWeight: n.isRead ? 600 : 700, fontSize: 12.5, color: "#0f172a" }}>
+                      <span style={{ fontWeight: n.isRead ? 600 : 700, fontSize: 12.5, color: "var(--mz-text-primary)" }}>
                         {n.title}
                       </span>
-                      <span style={{ fontSize: 10.5, color: "#94a3b8", whiteSpace: "nowrap" }}>
+                      <span style={{ fontSize: 10.5, color: "var(--mz-text-subtle)", whiteSpace: "nowrap" }}>
                         {formatTimeAgo(n.createdAt)}
                       </span>
                     </div>
 
-                    <p style={{ margin: "3px 0 0", fontSize: 11.5, color: "#64748b", lineHeight: 1.35, wordBreak: "break-word" }}>
+                    <p style={{ margin: "3px 0 0", fontSize: 11.5, color: "var(--mz-text-muted)", lineHeight: 1.35, wordBreak: "break-word" }}>
                       {n.message}
                     </p>
                   </div>

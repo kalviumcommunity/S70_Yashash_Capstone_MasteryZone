@@ -178,7 +178,7 @@ const AdminCodingAnalytics = () => {
       {/* 1. Header (uses standard mz-admin-page-header to prevent sticky overlap with profile dropdown) */}
       <div className="mz-admin-page-header">
         <div className="mz-admin-page-title-box">
-          <div className="mz-admin-page-icon" style={{ background: "#ede9fe", color: "#6366f1" }}>
+          <div className="mz-admin-page-icon" style={{ background: "var(--mz-purple-bg)", color: "#6366f1" }}>
             <LuCode style={{ width: 22, height: 22 }} />
           </div>
           <div>
@@ -196,11 +196,11 @@ const AdminCodingAnalytics = () => {
             style={{
               padding: "8px 14px",
               borderRadius: 10,
-              border: "1px solid #cbd5e1",
-              background: "#ffffff",
+              border: "1px solid var(--mz-border-strong)",
+              background: "var(--mz-surface)",
               fontSize: 13,
               fontWeight: 600,
-              color: "#334155",
+              color: "var(--mz-text-secondary)",
               cursor: "pointer",
               outline: "none",
             }}
@@ -218,8 +218,8 @@ const AdminCodingAnalytics = () => {
               alignItems: "center",
               gap: 8,
               padding: "8px 16px",
-              background: "#eff6ff",
-              border: "1px solid #bfdbfe",
+              background: "var(--mz-blue-bg)",
+              border: "1px solid var(--mz-blue-border)",
               borderRadius: 12,
               color: "#1e40af",
               fontSize: 13,
@@ -234,7 +234,7 @@ const AdminCodingAnalytics = () => {
       {/* 2. Top Metric Cards */}
       <div className="mz-admin-grid-4">
         <div className="mz-admin-stat-card">
-          <div className="mz-admin-stat-icon" style={{ background: "#ede9fe", color: "#6366f1" }}>
+          <div className="mz-admin-stat-icon" style={{ background: "var(--mz-purple-bg)", color: "#6366f1" }}>
             <LuCode style={{ width: 20, height: 20 }} />
           </div>
           <div className="mz-admin-stat-info">
@@ -246,7 +246,7 @@ const AdminCodingAnalytics = () => {
         </div>
 
         <div className="mz-admin-stat-card">
-          <div className="mz-admin-stat-icon" style={{ background: "#ecfdf5", color: "#059669" }}>
+          <div className="mz-admin-stat-icon" style={{ background: "var(--mz-green-bg)", color: "#059669" }}>
             <LuCircleCheck style={{ width: 20, height: 20 }} />
           </div>
           <div className="mz-admin-stat-info">
@@ -258,7 +258,7 @@ const AdminCodingAnalytics = () => {
         </div>
 
         <div className="mz-admin-stat-card">
-          <div className="mz-admin-stat-icon" style={{ background: "#fffbeb", color: "#d97706" }}>
+          <div className="mz-admin-stat-icon" style={{ background: "var(--mz-amber-bg)", color: "#d97706" }}>
             <LuCircleX style={{ width: 20, height: 20 }} />
           </div>
           <div className="mz-admin-stat-info">
@@ -270,7 +270,7 @@ const AdminCodingAnalytics = () => {
         </div>
 
         <div className="mz-admin-stat-card">
-          <div className="mz-admin-stat-icon" style={{ background: "#fef2f2", color: "#dc2626" }}>
+          <div className="mz-admin-stat-icon" style={{ background: "var(--mz-red-bg)", color: "#dc2626" }}>
             <LuCpu style={{ width: 20, height: 20 }} />
           </div>
           <div className="mz-admin-stat-info">
@@ -286,10 +286,10 @@ const AdminCodingAnalytics = () => {
       <div className="mz-admin-card" style={{ padding: "18px 22px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
           <div>
-            <h4 style={{ margin: 0, fontSize: 13, fontWeight: 800, color: "#334155", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+            <h4 style={{ margin: 0, fontSize: 13, fontWeight: 800, color: "var(--mz-text-secondary)", textTransform: "uppercase", letterSpacing: "0.03em" }}>
               Programming Language Distribution (Actual Executions)
             </h4>
-            <p style={{ margin: "3px 0 0", fontSize: 12, color: "#64748b" }}>
+            <p style={{ margin: "3px 0 0", fontSize: 12, color: "var(--mz-text-muted)" }}>
               Click any language pill to filter submissions log instantly
             </p>
           </div>
@@ -347,12 +347,12 @@ const AdminCodingAnalytics = () => {
 
       {/* 4. Submissions Table with Inspector & Language Filter */}
       <div className="mz-admin-card" style={{ padding: 0 }}>
-        <div style={{ padding: "16px 20px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--mz-surface-muted)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
-            <h3 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", margin: 0 }}>
+            <h3 style={{ fontSize: 15, fontWeight: 700, color: "var(--mz-text-primary)", margin: 0 }}>
               Actual Challenge Submissions Log
             </h3>
-            <span style={{ fontSize: 12, color: "#94a3b8" }}>
+            <span style={{ fontSize: 12, color: "var(--mz-text-subtle)" }}>
               {selectedLanguage === "ALL"
                 ? "Direct records from student code executions"
                 : `Showing ${filteredSubmissions.length} ${selectedLanguage.toUpperCase()} submissions`}
@@ -380,13 +380,13 @@ const AdminCodingAnalytics = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="8" style={{ textAlign: "center", padding: "36px 0", color: "#94a3b8" }}>
+                  <td colSpan="8" style={{ textAlign: "center", padding: "36px 0", color: "var(--mz-text-subtle)" }}>
                     Loading submissions from database...
                   </td>
                 </tr>
               ) : filteredSubmissions.length === 0 ? (
                 <tr>
-                  <td colSpan="8" style={{ textAlign: "center", padding: "36px 0", color: "#94a3b8" }}>
+                  <td colSpan="8" style={{ textAlign: "center", padding: "36px 0", color: "var(--mz-text-subtle)" }}>
                     No {selectedLanguage !== "ALL" ? selectedLanguage.toUpperCase() : ""} submissions found for this period.
                   </td>
                 </tr>
@@ -399,15 +399,15 @@ const AdminCodingAnalytics = () => {
                           {(s.userId?.fullName || s.userId?.username || "U")[0].toUpperCase()}
                         </div>
                         <div>
-                          <div style={{ fontWeight: 700, color: "#0f172a" }}>
+                          <div style={{ fontWeight: 700, color: "var(--mz-text-primary)" }}>
                             {s.userId?.fullName || s.userId?.username || "Candidate"}
                           </div>
-                          <div style={{ fontSize: 11, color: "#94a3b8" }}>{s.userId?.email || ""}</div>
+                          <div style={{ fontSize: 11, color: "var(--mz-text-subtle)" }}>{s.userId?.email || ""}</div>
                         </div>
                       </div>
                     </td>
 
-                    <td style={{ fontWeight: 700, color: "#0f172a" }}>
+                    <td style={{ fontWeight: 700, color: "var(--mz-text-primary)" }}>
                       {s.challengeTitle || s.challengeId || "Coding Challenge"}
                     </td>
 
@@ -417,7 +417,7 @@ const AdminCodingAnalytics = () => {
                           textTransform: "uppercase",
                           fontSize: 11,
                           fontFamily: "monospace",
-                          background: s.language?.toLowerCase() === "python" ? "#eff6ff" : "#fdf2f8",
+                          background: s.language?.toLowerCase() === "python" ? "var(--mz-blue-bg)" : "#fdf2f8",
                           color: s.language?.toLowerCase() === "python" ? "#2563eb" : "#db2777",
                           padding: "3px 8px",
                           borderRadius: 6,
@@ -442,15 +442,15 @@ const AdminCodingAnalytics = () => {
                       </span>
                     </td>
 
-                    <td style={{ fontWeight: 800, color: "#0f172a" }}>
+                    <td style={{ fontWeight: 800, color: "var(--mz-text-primary)" }}>
                       {s.score != null ? `${s.score}/100` : s.status === "ACCEPTED" ? "100/100" : "80/100"}
                     </td>
 
-                    <td style={{ color: "#0f172a", fontWeight: 700 }}>
+                    <td style={{ color: "var(--mz-text-primary)", fontWeight: 700 }}>
                       {s.passedTests != null ? `${s.passedTests}/${s.totalTests || 10}` : "N/A"}
                     </td>
 
-                    <td style={{ color: "#64748b", fontSize: 12 }}>
+                    <td style={{ color: "var(--mz-text-muted)", fontSize: 12 }}>
                       {new Date(s.createdAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" })}
                     </td>
 
@@ -479,22 +479,22 @@ const AdminCodingAnalytics = () => {
             <div
               style={{
                 padding: "16px 24px",
-                borderBottom: "1px solid #e2e8f0",
+                borderBottom: "1px solid var(--mz-border)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
-                background: "#ffffff",
+                background: "var(--mz-surface)",
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 10, background: "#ede9fe", color: "#6366f1", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: "var(--mz-purple-bg)", color: "#6366f1", display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <LuFileCode style={{ width: 20, height: 20 }} />
                 </div>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#0f172a" }}>
+                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "var(--mz-text-primary)" }}>
                     Code Inspector: {inspectedCode.challengeTitle || inspectedCode.challengeId}
                   </h3>
-                  <p style={{ margin: "2px 0 0", fontSize: 12, color: "#64748b" }}>
+                  <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--mz-text-muted)" }}>
                     Candidate: <strong>{inspectedCode.userId?.fullName || inspectedCode.userId?.username || "Student"}</strong> ({inspectedCode.userId?.email || "No email"}) • Submitted: {new Date(inspectedCode.createdAt).toLocaleString()}
                   </p>
                 </div>
@@ -503,13 +503,13 @@ const AdminCodingAnalytics = () => {
               <button
                 onClick={() => setInspectedCode(null)}
                 style={{
-                  background: "#f1f5f9",
+                  background: "var(--mz-surface-muted)",
                   border: "none",
                   width: 32,
                   height: 32,
                   borderRadius: "50%",
                   fontSize: 16,
-                  color: "#64748b",
+                  color: "var(--mz-text-muted)",
                   cursor: "pointer",
                   display: "flex",
                   alignItems: "center",
@@ -581,17 +581,17 @@ const AdminCodingAnalytics = () => {
               {/* Right Column: Admin Marks Modification & Notification System */}
               <div className="mz-admin-eval-panel">
                 <div>
-                  <h4 style={{ margin: "0 0 6px", fontSize: 14, fontWeight: 800, color: "#0f172a", display: "flex", alignItems: "center", gap: 6 }}>
+                  <h4 style={{ margin: "0 0 6px", fontSize: 14, fontWeight: 800, color: "var(--mz-text-primary)", display: "flex", alignItems: "center", gap: 6 }}>
                     <LuSlidersHorizontal style={{ width: 16, height: 16, color: "#6366f1" }} />
                     <span>Evaluation & Marks Modification</span>
                   </h4>
-                  <p style={{ margin: 0, fontSize: 12, color: "#64748b" }}>
+                  <p style={{ margin: 0, fontSize: 12, color: "var(--mz-text-muted)" }}>
                     Modify the student's marks, update their status, and provide personalized evaluation comments.
                   </p>
                 </div>
 
                 {updateSuccessMsg && (
-                  <div style={{ background: "#ecfdf5", border: "1px solid #6ee7b7", borderRadius: 10, padding: "10px 14px", color: "#065f46", fontSize: 12.5, fontWeight: 600 }}>
+                  <div style={{ background: "var(--mz-green-bg)", border: "1px solid #6ee7b7", borderRadius: 10, padding: "10px 14px", color: "#065f46", fontSize: 12.5, fontWeight: 600 }}>
                     ✅ {updateSuccessMsg}
                   </div>
                 )}
@@ -600,7 +600,7 @@ const AdminCodingAnalytics = () => {
                   {/* Score Input & Quick Presets */}
                   <div>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                      <label style={{ fontSize: 12, fontWeight: 700, color: "#334155" }}>
+                      <label style={{ fontSize: 12, fontWeight: 700, color: "var(--mz-text-secondary)" }}>
                         Awarded Score (0 - 100)
                       </label>
                       <span style={{ fontSize: 14, fontWeight: 800, color: "#4f46e5" }}>
@@ -618,10 +618,10 @@ const AdminCodingAnalytics = () => {
                         width: "100%",
                         padding: "8px 12px",
                         borderRadius: 8,
-                        border: "1.5px solid #cbd5e1",
+                        border: "1.5px solid var(--mz-border-strong)",
                         fontSize: 14,
                         fontWeight: 700,
-                        color: "#0f172a",
+                        color: "var(--mz-text-primary)",
                         outline: "none",
                       }}
                       required
@@ -644,9 +644,9 @@ const AdminCodingAnalytics = () => {
                             borderRadius: 6,
                             fontSize: 11,
                             fontWeight: 600,
-                            border: editScore === preset ? "1px solid #6366f1" : "1px solid #e2e8f0",
-                            background: editScore === preset ? "#ede9fe" : "#f8fafc",
-                            color: editScore === preset ? "#4f46e5" : "#64748b",
+                            border: editScore === preset ? "1px solid #6366f1" : "1px solid var(--mz-border)",
+                            background: editScore === preset ? "var(--mz-purple-bg)" : "var(--mz-surface-subtle)",
+                            color: editScore === preset ? "#4f46e5" : "var(--mz-text-muted)",
                             cursor: "pointer",
                           }}
                         >
@@ -659,7 +659,7 @@ const AdminCodingAnalytics = () => {
                   {/* Verdict / Status Selector */}
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                     <div>
-                      <label style={{ fontSize: 12, fontWeight: 700, color: "#334155", display: "block", marginBottom: 4 }}>
+                      <label style={{ fontSize: 12, fontWeight: 700, color: "var(--mz-text-secondary)", display: "block", marginBottom: 4 }}>
                         Status Verdict
                       </label>
                       <select
@@ -669,11 +669,11 @@ const AdminCodingAnalytics = () => {
                           width: "100%",
                           padding: "8px 10px",
                           borderRadius: 8,
-                          border: "1.5px solid #cbd5e1",
+                          border: "1.5px solid var(--mz-border-strong)",
                           fontSize: 12.5,
                           fontWeight: 600,
-                          background: "#ffffff",
-                          color: "#334155",
+                          background: "var(--mz-surface)",
+                          color: "var(--mz-text-secondary)",
                           outline: "none",
                         }}
                       >
@@ -685,7 +685,7 @@ const AdminCodingAnalytics = () => {
                     </div>
 
                     <div>
-                      <label style={{ fontSize: 12, fontWeight: 700, color: "#334155", display: "block", marginBottom: 4 }}>
+                      <label style={{ fontSize: 12, fontWeight: 700, color: "var(--mz-text-secondary)", display: "block", marginBottom: 4 }}>
                         Tests Passed
                       </label>
                       <input
@@ -698,10 +698,10 @@ const AdminCodingAnalytics = () => {
                           width: "100%",
                           padding: "8px 10px",
                           borderRadius: 8,
-                          border: "1.5px solid #cbd5e1",
+                          border: "1.5px solid var(--mz-border-strong)",
                           fontSize: 12.5,
                           fontWeight: 600,
-                          color: "#0f172a",
+                          color: "var(--mz-text-primary)",
                           outline: "none",
                         }}
                       />
@@ -710,7 +710,7 @@ const AdminCodingAnalytics = () => {
 
                   {/* Admin Comment & Feedback */}
                   <div>
-                    <label style={{ fontSize: 12, fontWeight: 700, color: "#334155", display: "block", marginBottom: 4 }}>
+                    <label style={{ fontSize: 12, fontWeight: 700, color: "var(--mz-text-secondary)", display: "block", marginBottom: 4 }}>
                       Admin Evaluation Remarks & Feedback:
                     </label>
                     <textarea
@@ -722,10 +722,10 @@ const AdminCodingAnalytics = () => {
                         width: "100%",
                         padding: "10px 12px",
                         borderRadius: 8,
-                        border: "1.5px solid #cbd5e1",
+                        border: "1.5px solid var(--mz-border-strong)",
                         fontSize: 12.5,
                         lineHeight: 1.5,
-                        color: "#0f172a",
+                        color: "var(--mz-text-primary)",
                         outline: "none",
                         resize: "vertical",
                         fontFamily: "inherit",
@@ -737,23 +737,23 @@ const AdminCodingAnalytics = () => {
                   <div className="mz-admin-notif-tracker-box">
                     <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
                       <LuSparkles style={{ width: 14, height: 14, color: "#6366f1" }} />
-                      <span style={{ fontSize: 12, fontWeight: 700, color: "#0f172a" }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: "var(--mz-text-primary)" }}>
                         Multi-Channel Notification Dispatch & Audit
                       </span>
                     </div>
 
                     <div className="mz-admin-notif-tracker-row">
-                      <span style={{ color: "#64748b", display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ color: "var(--mz-text-muted)", display: "flex", alignItems: "center", gap: 6 }}>
                         <LuMail style={{ width: 14, height: 14, color: "#3b82f6" }} />
                         <span>Student Email:</span>
                       </span>
-                      <span style={{ fontWeight: 700, color: "#0f172a" }}>
+                      <span style={{ fontWeight: 700, color: "var(--mz-text-primary)" }}>
                         {inspectedCode.userId?.email || "No Email Found"}
                       </span>
                     </div>
 
                     <div className="mz-admin-notif-tracker-row">
-                      <span style={{ color: "#64748b", display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ color: "var(--mz-text-muted)", display: "flex", alignItems: "center", gap: 6 }}>
                         <LuBell style={{ width: 14, height: 14, color: "#f59e0b" }} />
                         <span>In-App Pop-up:</span>
                       </span>
@@ -763,19 +763,19 @@ const AdminCodingAnalytics = () => {
                     </div>
 
                     {/* Sent Notification View Audit */}
-                    <div style={{ borderTop: "1px solid #e2e8f0", marginTop: 8, paddingTop: 8 }}>
+                    <div style={{ borderTop: "1px solid var(--mz-border)", marginTop: 8, paddingTop: 8 }}>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <span style={{ fontSize: 11.5, color: "#64748b" }}>Student View Status:</span>
+                        <span style={{ fontSize: 11.5, color: "var(--mz-text-muted)" }}>Student View Status:</span>
                         {inspectedCode.notificationViewed ? (
-                          <span style={{ fontSize: 11.5, fontWeight: 700, color: "#059669", background: "#ecfdf5", padding: "2px 8px", borderRadius: 6 }}>
+                          <span style={{ fontSize: 11.5, fontWeight: 700, color: "#059669", background: "var(--mz-green-bg)", padding: "2px 8px", borderRadius: 6 }}>
                             🟢 Viewed by student {inspectedCode.notificationViewedAt ? `on ${new Date(inspectedCode.notificationViewedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
                           </span>
                         ) : inspectedCode.notificationSent ? (
-                          <span style={{ fontSize: 11.5, fontWeight: 700, color: "#d97706", background: "#fffbeb", padding: "2px 8px", borderRadius: 6 }}>
+                          <span style={{ fontSize: 11.5, fontWeight: 700, color: "#d97706", background: "var(--mz-amber-bg)", padding: "2px 8px", borderRadius: 6 }}>
                             🟡 Delivered • Unread by student
                           </span>
                         ) : (
-                          <span style={{ fontSize: 11.5, fontWeight: 600, color: "#64748b" }}>
+                          <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--mz-text-muted)" }}>
                             Will be dispatched on update
                           </span>
                         )}

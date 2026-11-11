@@ -48,10 +48,10 @@
   justify-content: space-between;
   height: 68px;
   padding: 0 28px;
-  background: rgba(255, 255, 255, 0.94);
+  background: var(--mz-topbar-bg);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border-bottom: 1px solid rgba(226, 232, 240, 0.85);
+  border-bottom: 1px solid var(--mz-border);
   position: fixed;
   top: 0;
   left: 0;
@@ -59,7 +59,7 @@
   width: 100%;
   box-sizing: border-box;
   z-index: 1000;
-  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.04);
+  box-shadow: var(--mz-shadow-sm);
   transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -123,8 +123,8 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  background: #f1f5f9;
-  border: 1.5px solid #e2e8f0;
+  background: var(--mz-input-bg-subtle);
+  border: 1.5px solid var(--mz-border);
   border-radius: 14px;
   padding: 9px 16px;
   width: 100%;
@@ -133,19 +133,19 @@
 }
 
 .mz-c-search-box:hover {
-  background: #ffffff;
-  border-color: #cbd5e1;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  background: var(--mz-input-bg);
+  border-color: var(--mz-border-strong);
+  box-shadow: var(--mz-shadow-sm);
 }
 
 .mz-c-search-box:focus-within {
   border-color: #3b82f6;
-  box-shadow: 0 0 0 3.5px rgba(59, 130, 246, 0.12), 0 4px 16px rgba(15, 23, 42, 0.06);
-  background: #ffffff;
+  box-shadow: 0 0 0 3.5px rgba(59, 130, 246, 0.12), var(--mz-shadow-md);
+  background: var(--mz-input-bg);
 }
 
 .mz-c-search-icon {
-  color: #64748b;
+  color: var(--mz-text-muted);
   flex-shrink: 0;
   transition: color 0.2s ease;
 }
@@ -161,11 +161,11 @@
   width: 100%;
   font-size: 13.5px;
   font-weight: 500;
-  color: #0f172a;
+  color: var(--mz-text-primary);
 }
 
 .mz-c-search-input::placeholder {
-  color: #94a3b8;
+  color: var(--mz-text-subtle);
   font-weight: 400;
 }
 
@@ -259,11 +259,11 @@
   gap: 10px;
   padding: 5px 14px 5px 6px;
   border-radius: 30px;
-  border: 1.5px solid #e2e8f0;
-  background: #ffffff;
+  border: 1.5px solid var(--mz-border);
+  background: var(--mz-surface);
   cursor: pointer;
   transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  box-shadow: var(--mz-shadow-xs);
   max-width: 270px;
   box-sizing: border-box;
 }
@@ -298,7 +298,7 @@
 .mz-c-user-name {
   font-size: 13.5px;
   font-weight: 650;
-  color: #0f172a;
+  color: var(--mz-text-primary);
   max-width: 180px;
   min-width: 0;
   overflow: hidden;
@@ -309,13 +309,13 @@
 }
 
 .mz-c-user-chevron {
-  color: #64748b;
+  color: var(--mz-text-muted);
   flex-shrink: 0;
   transition: transform 0.2s ease;
 }
 
 .mz-c-user-pill:hover .mz-c-user-chevron {
-  color: #0f172a;
+  color: var(--mz-text-primary);
 }
 
 .mz-c-user-dropdown {
@@ -8061,3 +8061,230 @@
 .mz-theme-dark .mz-c-guideline-content p {
   color: #94a3b8;
 }
+
+/* ==========================================================================
+   COMPREHENSIVE DARK MODE OVERRIDES FOR CODING STUDIO CARDS & HERO COVERS
+   ========================================================================== */
+.mz-theme-dark .mz-c-search-dropdown {
+  background: var(--mz-surface-elevated);
+  border-color: var(--mz-border);
+  box-shadow: var(--mz-shadow-xl);
+}
+
+.mz-theme-dark .mz-c-search-group-label {
+  color: var(--mz-text-subtle);
+  border-bottom-color: var(--mz-border-subtle);
+}
+
+.mz-theme-dark .mz-c-search-item:hover {
+  background: var(--mz-surface-hover);
+}
+
+.mz-theme-dark .mz-c-search-item-title {
+  color: var(--mz-text-primary);
+}
+
+.mz-theme-dark .mz-c-search-item-sub {
+  color: var(--mz-text-muted);
+}
+
+.mz-theme-dark .mz-c-horizontal-tabs {
+  background: var(--mz-surface);
+  border-color: var(--mz-border);
+}
+
+.mz-theme-dark .mz-c-tab-btn {
+  color: var(--mz-text-secondary);
+}
+
+.mz-theme-dark .mz-c-tab-btn:hover {
+  background: var(--mz-surface-hover);
+  color: var(--mz-text-primary);
+}
+
+/* Track Hero Card, Challenges Cover, Video Spotlight, Projects Cover, Study Cover */
+.mz-theme-dark .mz-c-track-hero-card,
+.mz-theme-dark .mz-c-challenges-showcase-cover,
+.mz-theme-dark .mz-c-video-spotlight-banner,
+.mz-theme-dark .mz-c-projects-showcase-cover,
+.mz-theme-dark .mz-c-study-cover-hero {
+  background: var(--mz-gradient-hero) !important;
+  border-color: var(--mz-blue-border) !important;
+  color: var(--mz-text-primary) !important;
+  box-shadow: var(--mz-shadow-lg) !important;
+}
+
+.mz-theme-dark .mz-c-track-hero-title,
+.mz-theme-dark .mz-c-challenges-cover-title,
+.mz-theme-dark .mz-c-video-spotlight-title,
+.mz-theme-dark .mz-c-projects-cover-title,
+.mz-theme-dark .mz-c-study-cover-title {
+  color: var(--mz-text-primary) !important;
+}
+
+.mz-theme-dark .mz-c-track-hero-desc,
+.mz-theme-dark .mz-c-challenges-cover-desc,
+.mz-theme-dark .mz-c-video-spotlight-desc,
+.mz-theme-dark .mz-c-projects-cover-desc,
+.mz-theme-dark .mz-c-study-cover-desc {
+  color: var(--mz-text-secondary) !important;
+}
+
+.mz-theme-dark .mz-c-track-hero-icon-box,
+.mz-theme-dark .mz-c-step-brand-box {
+  background: var(--mz-surface-elevated);
+  border-color: var(--mz-border);
+}
+
+.mz-theme-dark .mz-c-track-completed-tag,
+.mz-theme-dark .mz-c-track-hero-reset-btn {
+  background: var(--mz-surface-elevated);
+  border-color: var(--mz-border);
+  color: var(--mz-text-secondary);
+}
+
+.mz-theme-dark .mz-c-track-hero-progress-track {
+  background: var(--mz-surface-muted);
+}
+
+.mz-theme-dark .mz-c-track-hero-progress-info {
+  color: var(--mz-text-secondary);
+}
+
+/* Showcase Cover Metric Cards & Sub-cards */
+.mz-theme-dark .mz-c-ch-metric-card,
+.mz-theme-dark .mz-c-proj-metric-card,
+.mz-theme-dark .mz-c-video-stat-box,
+.mz-theme-dark .mz-c-video-featured-card {
+  background: var(--mz-surface) !important;
+  border-color: var(--mz-border) !important;
+  color: var(--mz-text-primary) !important;
+  box-shadow: var(--mz-shadow-sm) !important;
+}
+
+.mz-theme-dark .mz-c-ch-metric-val,
+.mz-theme-dark .mz-c-proj-metric-val,
+.mz-theme-dark .mz-c-video-stat-val,
+.mz-theme-dark .mz-c-video-featured-title {
+  color: var(--mz-text-primary) !important;
+}
+
+.mz-theme-dark .mz-c-ch-metric-lbl,
+.mz-theme-dark .mz-c-proj-metric-lbl,
+.mz-theme-dark .mz-c-video-stat-lbl,
+.mz-theme-dark .mz-c-video-featured-meta {
+  color: var(--mz-text-muted) !important;
+}
+
+/* Study Cover Actions & Inputs */
+.mz-theme-dark .mz-c-study-cover-actions,
+.mz-theme-dark .mz-c-track-hero-footer {
+  border-top-color: var(--mz-border);
+}
+
+.mz-theme-dark .mz-c-join-code-form,
+.mz-theme-dark .mz-c-btn-copy-invite {
+  background: var(--mz-surface);
+  border-color: var(--mz-border);
+  color: var(--mz-text-secondary);
+}
+
+.mz-theme-dark .mz-c-join-code-input {
+  color: var(--mz-text-primary);
+}
+
+.mz-theme-dark .mz-c-join-code-btn {
+  background: var(--mz-surface-muted);
+  border-color: var(--mz-border);
+  color: var(--mz-text-primary);
+}
+
+/* Live Progress Tracker Card */
+.mz-theme-dark .mz-c-live-tracker-card {
+  background: var(--mz-surface) !important;
+  border-color: var(--mz-border) !important;
+  color: var(--mz-text-primary) !important;
+  box-shadow: var(--mz-shadow-md) !important;
+}
+
+.mz-theme-dark .mz-c-tracker-header,
+.mz-theme-dark .mz-c-tracker-overall-box,
+.mz-theme-dark .mz-c-tracker-metric-pill,
+.mz-theme-dark .mz-c-tracker-streak-banner,
+.mz-theme-dark .mz-c-tracker-next-action {
+  background: var(--mz-surface-subtle) !important;
+  border-color: var(--mz-border) !important;
+  color: var(--mz-text-primary) !important;
+}
+
+.mz-theme-dark .mz-c-tracker-title,
+.mz-theme-dark .mz-c-tracker-metric-num,
+.mz-theme-dark .mz-c-tracker-overall-pct {
+  color: var(--mz-text-primary) !important;
+}
+
+.mz-theme-dark .mz-c-tracker-sub,
+.mz-theme-dark .mz-c-tracker-metric-label {
+  color: var(--mz-text-muted) !important;
+}
+
+/* Roadmap Step Cards, Challenge Cards, Project Cards, Chips */
+.mz-theme-dark .mz-c-step-card,
+.mz-theme-dark .mz-c-challenge-card,
+.mz-theme-dark .mz-c-project-card,
+.mz-theme-dark .mz-c-card {
+  background: var(--mz-surface);
+  border-color: var(--mz-border);
+  color: var(--mz-text-primary);
+}
+
+.mz-theme-dark .mz-c-module-heading,
+.mz-theme-dark .mz-c-proj-title {
+  color: var(--mz-text-primary);
+}
+
+.mz-theme-dark .mz-c-module-desc,
+.mz-theme-dark .mz-c-proj-desc {
+  color: var(--mz-text-muted);
+}
+
+.mz-theme-dark .mz-c-chip {
+  background: var(--mz-surface);
+  border-color: var(--mz-border);
+  color: var(--mz-text-secondary);
+}
+
+.mz-theme-dark .mz-c-chip-active {
+  background: var(--mz-blue-soft) !important;
+  color: var(--mz-blue-text) !important;
+  border-color: #3b82f6 !important;
+}
+
+/* Reset Learning Modal */
+.mz-theme-dark .mz-reset-learning-modal {
+  background: var(--mz-surface) !important;
+  border-color: var(--mz-border) !important;
+  color: var(--mz-text-primary) !important;
+}
+
+.mz-theme-dark .mz-reset-modal-title {
+  color: var(--mz-text-primary) !important;
+}
+
+.mz-theme-dark .mz-reset-modal-desc,
+.mz-theme-dark .mz-reset-modal-list {
+  color: var(--mz-text-secondary) !important;
+}
+
+.mz-theme-dark .mz-reset-modal-warning-box {
+  background: var(--mz-red-soft) !important;
+  border-color: var(--mz-red-border) !important;
+  color: var(--mz-red-text) !important;
+}
+
+.mz-theme-dark .mz-reset-btn-cancel {
+  background: var(--mz-surface-subtle) !important;
+  border-color: var(--mz-border) !important;
+  color: var(--mz-text-secondary) !important;
+}
+

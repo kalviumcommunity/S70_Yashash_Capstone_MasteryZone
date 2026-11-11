@@ -473,19 +473,19 @@ export default function PracticalAssignmentModal({
   }
 
   return (
-    <div className="mz-proc-overlay" style={{ zIndex: 100000, background: "rgba(15, 23, 42, 0.6)", backdropFilter: "blur(6px)" }}>
+    <div className="mz-proc-overlay" style={{ zIndex: 100000, background: "var(--mz-backdrop)", backdropFilter: "blur(6px)" }}>
       <div
         style={{
           width: "92vw",
           maxWidth: "880px",
-          background: "#ffffff",
-          border: "1px solid #e2e8f0",
+          background: "var(--mz-surface)",
+          border: "1px solid var(--mz-border)",
           borderRadius: "18px",
           padding: "32px",
-          color: "#0f172a",
+          color: "var(--mz-text-primary)",
           maxHeight: "90vh",
           overflowY: "auto",
-          boxShadow: "0 20px 60px rgba(15, 23, 42, 0.15)",
+          boxShadow: "var(--mz-shadow-lg)",
         }}
       >
         {/* Header */}
@@ -494,9 +494,9 @@ export default function PracticalAssignmentModal({
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
               <span
                 style={{
-                  background: "rgba(37, 99, 235, 0.08)",
-                  color: "#2563eb",
-                  border: "1px solid rgba(37, 99, 235, 0.25)",
+                  background: "var(--mz-blue-bg)",
+                  color: "var(--mz-blue-text)",
+                  border: "1px solid var(--mz-blue-border)",
                   padding: "4px 10px",
                   borderRadius: "9999px",
                   fontSize: "11px",
@@ -506,9 +506,9 @@ export default function PracticalAssignmentModal({
               >
                 {subjectKey} • Module {mIdx + 1}
               </span>
-              <span style={{ fontSize: "12px", color: "#64748b", fontWeight: "600" }}>Step 2 of 3: Practical Assessment</span>
+              <span style={{ fontSize: "12px", color: "var(--mz-text-muted)", fontWeight: "600" }}>Step 2 of 3: Practical Assessment</span>
             </div>
-            <h2 style={{ fontSize: "1.45rem", fontWeight: "800", margin: 0, color: "#0f172a" }}>
+            <h2 style={{ fontSize: "1.45rem", fontWeight: "800", margin: 0, color: "var(--mz-text-primary)" }}>
               {practical.taskTitle || "Practical Assessment"}
             </h2>
           </div>
@@ -517,9 +517,9 @@ export default function PracticalAssignmentModal({
             type="button"
             onClick={handleClose}
             style={{
-              background: "#f8fafc",
-              border: "1px solid #e2e8f0",
-              color: "#475569",
+              background: "var(--mz-surface-subtle)",
+              border: "1px solid var(--mz-border)",
+              color: "var(--mz-text-secondary)",
               width: "36px",
               height: "36px",
               borderRadius: "8px",
@@ -537,29 +537,29 @@ export default function PracticalAssignmentModal({
         {/* Problem Scenario & Prompt Box */}
         <div
           style={{
-            background: "#f8fafc",
-            border: "1px solid #e2e8f0",
+            background: "var(--mz-surface-subtle)",
+            border: "1px solid var(--mz-border)",
             borderRadius: "12px",
             padding: "20px",
             marginBottom: "20px",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "#2563eb", fontWeight: "700", fontSize: "13px", marginBottom: "8px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "var(--mz-accent-primary)", fontWeight: "700", fontSize: "13px", marginBottom: "8px" }}>
             <LuFileText size={16} />
             <span>Scenario & Instructions</span>
           </div>
-          <p style={{ margin: "0 0 12px 0", fontSize: "14px", color: "#334155", lineHeight: "1.6" }}>
+          <p style={{ margin: "0 0 12px 0", fontSize: "14px", color: "var(--mz-text-secondary)", lineHeight: "1.6" }}>
             {practical.instructions}
           </p>
 
           <div
             style={{
-              background: "#ffffff",
-              border: "1px solid #cbd5e1",
+              background: "var(--mz-surface)",
+              border: "1px solid var(--mz-border-strong)",
               borderRadius: "8px",
               padding: "14px 16px",
               fontSize: "13.5px",
-              color: "#0f172a",
+              color: "var(--mz-text-primary)",
               whiteSpace: "pre-line",
               fontFamily: "monospace",
               lineHeight: "1.5",
@@ -569,7 +569,7 @@ export default function PracticalAssignmentModal({
           </div>
 
           {practical.criteria && (
-            <div style={{ marginTop: "12px", fontSize: "12px", color: "#64748b", display: "flex", alignItems: "center", gap: "6px" }}>
+            <div style={{ marginTop: "12px", fontSize: "12px", color: "var(--mz-text-muted)", display: "flex", alignItems: "center", gap: "6px" }}>
               <LuLightbulb size={14} color="#f59e0b" />
               <span><strong>Evaluation Criteria:</strong> {practical.criteria}</span>
             </div>
@@ -578,7 +578,7 @@ export default function PracticalAssignmentModal({
 
         {/* Interactive Response Editor */}
         <div style={{ marginBottom: "20px" }}>
-          <label style={{ display: "block", fontSize: "13px", fontWeight: "700", color: "#0f172a", marginBottom: "8px" }}>
+          <label style={{ display: "block", fontSize: "13px", fontWeight: "700", color: "var(--mz-text-primary)", marginBottom: "8px" }}>
             Your Practical Solution / Translation / Calculations:
           </label>
           <textarea
@@ -589,17 +589,17 @@ export default function PracticalAssignmentModal({
             style={{
               width: "100%",
               boxSizing: "border-box",
-              background: "#ffffff",
-              border: "1px solid #cbd5e1",
+              background: "var(--mz-input-bg)",
+              border: "1px solid var(--mz-input-border)",
               borderRadius: "10px",
               padding: "14px 16px",
-              color: "#0f172a",
+              color: "var(--mz-input-text)",
               fontSize: "14px",
               lineHeight: "1.6",
               fontFamily: "inherit",
               resize: "vertical",
               outline: "none",
-              boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
+              boxShadow: "var(--mz-shadow-sm)",
             }}
           />
         </div>
@@ -608,8 +608,8 @@ export default function PracticalAssignmentModal({
         {evalResult && (
           <div
             style={{
-              background: isPassed ? "#ecfdf5" : "#fffbeb",
-              border: `1px solid ${isPassed ? "#a7f3d0" : "#fde68a"}`,
+              background: isPassed ? "var(--mz-emerald-bg)" : "var(--mz-amber-bg)",
+              border: `1px solid ${isPassed ? "var(--mz-emerald-border)" : "var(--mz-amber-border)"}`,
               borderRadius: "12px",
               padding: "18px 20px",
               marginBottom: "20px",
@@ -620,10 +620,10 @@ export default function PracticalAssignmentModal({
           >
             {isPassed ? <LuCircleCheck size={24} color="#10b981" /> : <LuTriangleAlert size={24} color="#f59e0b" />}
             <div>
-              <h4 style={{ margin: "0 0 4px 0", fontSize: "15px", color: isPassed ? "#059669" : "#d97706", fontWeight: "700" }}>
+              <h4 style={{ margin: "0 0 4px 0", fontSize: "15px", color: isPassed ? "var(--mz-emerald-text)" : "var(--mz-amber-text)", fontWeight: "700" }}>
                 {isPassed ? "Practical Assignment Passed!" : "Needs Revision"}
               </h4>
-              <p style={{ margin: 0, fontSize: "13.5px", color: isPassed ? "#166534" : "#92400e", lineHeight: "1.5" }}>
+              <p style={{ margin: 0, fontSize: "13.5px", color: isPassed ? "var(--mz-green-text)" : "var(--mz-amber-text)", lineHeight: "1.5" }}>
                 {evalResult.feedback}
               </p>
             </div>
@@ -636,15 +636,15 @@ export default function PracticalAssignmentModal({
             type="button"
             onClick={handleClose}
             style={{
-              background: "#ffffff",
-              border: "1px solid #cbd5e1",
-              color: "#475569",
+              background: "var(--mz-surface)",
+              border: "1px solid var(--mz-border-strong)",
+              color: "var(--mz-text-secondary)",
               padding: "10px 18px",
               borderRadius: "10px",
               fontSize: "13px",
               fontWeight: "600",
               cursor: "pointer",
-              boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
+              boxShadow: "var(--mz-shadow-sm)",
             }}
           >
             Close

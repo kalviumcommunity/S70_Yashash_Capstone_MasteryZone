@@ -16,6 +16,7 @@ import {
   LuKey,
 } from "react-icons/lu";
 import logoImg from "../assets/mastery_zone_logo_transparent.png";
+import ThemeToggle from "./ThemeToggle.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 const AUTH_BASE = API_BASE ? `${API_BASE}/auth` : "/auth";
@@ -149,7 +150,8 @@ export default function ResetPassword() {
         display: "flex",
         flexDirection: "column",
         background:
-          "radial-gradient(circle at 15% 15%, rgba(99, 102, 241, 0.08) 0%, transparent 40%), radial-gradient(circle at 85% 85%, rgba(59, 130, 246, 0.08) 0%, transparent 40%), #f8fafc",
+          "radial-gradient(circle at 15% 15%, rgba(99, 102, 241, 0.08) 0%, transparent 40%), radial-gradient(circle at 85% 85%, rgba(59, 130, 246, 0.08) 0%, transparent 40%), var(--mz-bg-primary)",
+        color: "var(--mz-text-primary)",
         fontFamily:
           "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
       }}
@@ -163,8 +165,8 @@ export default function ResetPassword() {
           alignItems: "center",
           justifyContent: "space-between",
           boxSizing: "border-box",
-          borderBottom: "1px solid rgba(226, 232, 240, 0.7)",
-          background: "rgba(255, 255, 255, 0.8)",
+          borderBottom: "1px solid var(--mz-border)",
+          background: "var(--mz-topbar-bg)",
           backdropFilter: "blur(12px)",
         }}
       >
@@ -191,7 +193,7 @@ export default function ResetPassword() {
               style={{
                 fontSize: "1.15rem",
                 fontWeight: 800,
-                color: "#0f172a",
+                color: "var(--mz-text-primary)",
                 letterSpacing: "-0.4px",
                 lineHeight: 1.1,
               }}
@@ -202,7 +204,7 @@ export default function ResetPassword() {
               style={{
                 fontSize: "0.72rem",
                 fontWeight: 600,
-                color: "#6366f1",
+                color: "var(--mz-indigo-text)",
                 letterSpacing: "0.6px",
                 textTransform: "uppercase",
               }}
@@ -212,25 +214,28 @@ export default function ResetPassword() {
           </div>
         </Link>
 
-        <Link
-          to="/login"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
-            fontSize: "0.88rem",
-            fontWeight: 700,
-            color: "#4f46e5",
-            textDecoration: "none",
-            padding: "8px 16px",
-            borderRadius: 10,
-            border: "1px solid #c7d2fe",
-            background: "#eef2ff",
-            transition: "all 0.2s ease",
-          }}
-        >
-          <LuArrowLeft size={16} /> Back to Login
-        </Link>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <ThemeToggle />
+          <Link
+            to="/login"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              fontSize: "0.88rem",
+              fontWeight: 700,
+              color: "var(--mz-indigo-text)",
+              textDecoration: "none",
+              padding: "8px 16px",
+              borderRadius: 10,
+              border: "1px solid var(--mz-indigo-border)",
+              background: "var(--mz-indigo-bg)",
+              transition: "all 0.2s ease",
+            }}
+          >
+            <LuArrowLeft size={16} /> Back to Login
+          </Link>
+        </div>
       </header>
 
       {/* ── Main Full-Screen Content Area ── */}
@@ -248,13 +253,12 @@ export default function ResetPassword() {
           style={{
             width: "100%",
             maxWidth: 520,
-            background: "#ffffff",
+            background: "var(--mz-surface)",
             borderRadius: 24,
             padding: "40px 36px",
             boxSizing: "border-box",
-            border: "1px solid #e2e8f0",
-            boxShadow:
-              "0 20px 48px -10px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04)",
+            border: "1px solid var(--mz-border)",
+            boxShadow: "var(--mz-shadow-lg)",
             position: "relative",
             overflow: "hidden",
           }}
@@ -285,9 +289,9 @@ export default function ResetPassword() {
                   width: 76,
                   height: 76,
                   borderRadius: "50%",
-                  background:
-                    "linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)",
-                  color: "#059669",
+                  background: "var(--mz-emerald-bg)",
+                  border: "1px solid var(--mz-emerald-border)",
+                  color: "var(--mz-emerald-text)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -302,7 +306,7 @@ export default function ResetPassword() {
                 style={{
                   fontSize: "1.55rem",
                   fontWeight: 800,
-                  color: "#0f172a",
+                  color: "var(--mz-text-primary)",
                   margin: "0 0 10px",
                   letterSpacing: "-0.4px",
                 }}
@@ -313,7 +317,7 @@ export default function ResetPassword() {
               <p
                 style={{
                   fontSize: "0.95rem",
-                  color: "#475569",
+                  color: "var(--mz-text-body)",
                   lineHeight: 1.6,
                   margin: "0 0 24px",
                 }}
@@ -325,13 +329,13 @@ export default function ResetPassword() {
 
               <div
                 style={{
-                  background: "#f0fdf4",
-                  border: "1px solid #bbf7d0",
+                  background: "var(--mz-green-bg)",
+                  border: "1px solid var(--mz-green-border)",
                   borderRadius: 14,
                   padding: "14px 18px",
                   marginBottom: 28,
                   fontSize: "0.88rem",
-                  color: "#166534",
+                  color: "var(--mz-green-text)",
                   fontWeight: 600,
                   display: "flex",
                   alignItems: "center",
@@ -378,9 +382,9 @@ export default function ResetPassword() {
                     width: 64,
                     height: 64,
                     borderRadius: 20,
-                    background:
-                      "linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%)",
-                    color: "#4f46e5",
+                    background: "var(--mz-indigo-bg)",
+                    border: "1px solid var(--mz-indigo-border)",
+                    color: "var(--mz-indigo-text)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -394,7 +398,7 @@ export default function ResetPassword() {
                   style={{
                     fontSize: "1.6rem",
                     fontWeight: 800,
-                    color: "#0f172a",
+                    color: "var(--mz-text-primary)",
                     margin: "0 0 8px",
                     letterSpacing: "-0.5px",
                   }}
@@ -404,7 +408,7 @@ export default function ResetPassword() {
                 <p
                   style={{
                     fontSize: "0.9rem",
-                    color: "#64748b",
+                    color: "var(--mz-text-muted)",
                     lineHeight: 1.5,
                     margin: 0,
                   }}
@@ -416,11 +420,11 @@ export default function ResetPassword() {
               {errorMessage && (
                 <div
                   style={{
-                    background: "#fef2f2",
-                    border: "1px solid #fecaca",
+                    background: "var(--mz-red-bg)",
+                    border: "1px solid var(--mz-red-border)",
                     borderRadius: 12,
                     padding: "12px 16px",
-                    color: "#991b1b",
+                    color: "var(--mz-red-text)",
                     fontSize: "0.85rem",
                     lineHeight: 1.5,
                     marginBottom: 20,
@@ -443,7 +447,7 @@ export default function ResetPassword() {
                         display: "block",
                         fontSize: "0.82rem",
                         fontWeight: 700,
-                        color: "#334155",
+                        color: "var(--mz-text-secondary)",
                         marginBottom: 6,
                         textTransform: "uppercase",
                         letterSpacing: "0.4px",
@@ -455,14 +459,14 @@ export default function ResetPassword() {
                       style={{
                         display: "flex",
                         alignItems: "center",
-                        background: "#f8fafc",
-                        border: "1.5px solid #cbd5e1",
+                        background: "var(--mz-input-bg-subtle)",
+                        border: "1.5px solid var(--mz-input-border)",
                         borderRadius: 14,
                         padding: "4px 14px",
                         transition: "all 0.2s ease",
                       }}
                     >
-                      <LuKey size={18} color="#64748b" style={{ flexShrink: 0, marginRight: 10 }} />
+                      <LuKey size={18} color="var(--mz-text-muted)" style={{ flexShrink: 0, marginRight: 10 }} />
                       <input
                         type="text"
                         placeholder="Enter registered email or paste reset token"
@@ -475,7 +479,7 @@ export default function ResetPassword() {
                           outline: "none",
                           background: "transparent",
                           fontSize: "0.92rem",
-                          color: "#0f172a",
+                          color: "var(--mz-input-text)",
                         }}
                       />
                     </div>
@@ -491,7 +495,7 @@ export default function ResetPassword() {
                       alignItems: "center",
                       fontSize: "0.82rem",
                       fontWeight: 700,
-                      color: "#334155",
+                      color: "var(--mz-text-secondary)",
                       marginBottom: 6,
                       textTransform: "uppercase",
                       letterSpacing: "0.4px",
@@ -515,8 +519,8 @@ export default function ResetPassword() {
                     style={{
                       display: "flex",
                       alignItems: "center",
-                      background: "#f8fafc",
-                      border: "1.5px solid #cbd5e1",
+                      background: "var(--mz-input-bg-subtle)",
+                      border: "1.5px solid var(--mz-input-border)",
                       borderRadius: 14,
                       padding: "4px 14px",
                       boxShadow: "inset 0 1px 2px rgba(0,0,0,0.03)",
@@ -525,7 +529,7 @@ export default function ResetPassword() {
                   >
                     <LuLock
                       size={18}
-                      color="#4f46e5"
+                      color="var(--mz-indigo-text)"
                       style={{ flexShrink: 0, marginRight: 10 }}
                     />
                     <input
@@ -541,7 +545,7 @@ export default function ResetPassword() {
                         outline: "none",
                         background: "transparent",
                         fontSize: "0.95rem",
-                        color: "#0f172a",
+                        color: "var(--mz-input-text)",
                       }}
                     />
                     <button
@@ -552,7 +556,7 @@ export default function ResetPassword() {
                         border: "none",
                         padding: "4px 6px",
                         cursor: "pointer",
-                        color: "#64748b",
+                        color: "var(--mz-text-muted)",
                         display: "flex",
                         alignItems: "center",
                         borderRadius: 6,
@@ -570,7 +574,7 @@ export default function ResetPassword() {
                       style={{
                         height: 4,
                         borderRadius: 2,
-                        background: "#e2e8f0",
+                        background: "var(--mz-border)",
                         marginTop: 8,
                         overflow: "hidden",
                       }}
@@ -601,7 +605,7 @@ export default function ResetPassword() {
                       alignItems: "center",
                       fontSize: "0.82rem",
                       fontWeight: 700,
-                      color: "#334155",
+                      color: "var(--mz-text-secondary)",
                       marginBottom: 6,
                       textTransform: "uppercase",
                       letterSpacing: "0.4px",
@@ -640,13 +644,13 @@ export default function ResetPassword() {
                     style={{
                       display: "flex",
                       alignItems: "center",
-                      background: "#f8fafc",
+                      background: "var(--mz-input-bg-subtle)",
                       border: `1.5px solid ${
                         passwordsMatch
                           ? "#10b981"
                           : passwordsMismatched
                           ? "#ef4444"
-                          : "#cbd5e1"
+                          : "var(--mz-input-border)"
                       }`,
                       borderRadius: 14,
                       padding: "4px 14px",
@@ -656,7 +660,7 @@ export default function ResetPassword() {
                   >
                     <LuShieldCheck
                       size={18}
-                      color={passwordsMatch ? "#10b981" : "#4f46e5"}
+                      color={passwordsMatch ? "#10b981" : "var(--mz-indigo-text)"}
                       style={{ flexShrink: 0, marginRight: 10 }}
                     />
                     <input
@@ -672,7 +676,7 @@ export default function ResetPassword() {
                         outline: "none",
                         background: "transparent",
                         fontSize: "0.95rem",
-                        color: "#0f172a",
+                        color: "var(--mz-input-text)",
                       }}
                     />
                     <button
@@ -683,7 +687,7 @@ export default function ResetPassword() {
                         border: "none",
                         padding: "4px 6px",
                         cursor: "pointer",
-                        color: "#64748b",
+                        color: "var(--mz-text-muted)",
                         display: "flex",
                         alignItems: "center",
                         borderRadius: 6,
@@ -739,14 +743,14 @@ export default function ResetPassword() {
                   marginTop: 24,
                   textAlign: "center",
                   fontSize: "0.85rem",
-                  color: "#64748b",
+                  color: "var(--mz-text-muted)",
                 }}
               >
                 Remember your password?{" "}
                 <Link
                   to="/login"
                   style={{
-                    color: "#4f46e5",
+                    color: "var(--mz-indigo-text)",
                     fontWeight: 700,
                     textDecoration: "none",
                   }}
@@ -766,7 +770,7 @@ export default function ResetPassword() {
           padding: "16px 24px",
           textAlign: "center",
           fontSize: "0.8rem",
-          color: "#94a3b8",
+          color: "var(--mz-text-subtle)",
           boxSizing: "border-box",
         }}
       >

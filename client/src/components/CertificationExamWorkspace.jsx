@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 import AssessmentSecurityGate from "./AssessmentSecurityGate";
 import AssessmentSubmissionFlow from "./AssessmentSubmissionFlow";
 import MasteryZoneCompilerWorkspace from "./MasteryZoneCompilerWorkspace";
+import ThemeToggle from "./ThemeToggle.jsx";
 import useNavigationLock from "../hooks/useNavigationLock";
 import "./CertificationExamWorkspace.css";
 import {
@@ -1584,8 +1585,8 @@ export default function CertificationExamWorkspace({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "linear-gradient(135deg, #090d16 0%, #15102a 100%)",
-          color: "#ffffff",
+          background: "var(--mz-bg-primary)",
+          color: "var(--mz-text-primary)",
           padding: "24px",
           fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
         }}
@@ -1594,13 +1595,13 @@ export default function CertificationExamWorkspace({
           style={{
             maxWidth: "560px",
             width: "100%",
-            background: "rgba(255, 255, 255, 0.05)",
+            background: "var(--mz-surface)",
             backdropFilter: "blur(20px)",
             borderRadius: "24px",
-            border: "1.5px solid rgba(255, 255, 255, 0.12)",
+            border: "1.5px solid var(--mz-border)",
             padding: "36px 32px",
             textAlign: "center",
-            boxShadow: "0 20px 60px rgba(0, 0, 0, 0.5)",
+            boxShadow: "var(--mz-shadow-lg)",
           }}
         >
           <div
@@ -1608,9 +1609,9 @@ export default function CertificationExamWorkspace({
               width: "72px",
               height: "72px",
               borderRadius: "50%",
-              background: "rgba(34, 197, 94, 0.15)",
-              color: "#4ade80",
-              border: "2px solid #22c55e",
+              background: "var(--mz-green-bg)",
+              color: "var(--mz-green-text)",
+              border: "2px solid var(--mz-green-border)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -1626,9 +1627,9 @@ export default function CertificationExamWorkspace({
               display: "inline-flex",
               alignItems: "center",
               gap: "6px",
-              background: "rgba(34, 197, 94, 0.2)",
-              color: "#86efac",
-              border: "1px solid rgba(34, 197, 94, 0.4)",
+              background: "var(--mz-green-bg)",
+              color: "var(--mz-green-text)",
+              border: "1px solid var(--mz-green-border)",
               borderRadius: "20px",
               padding: "4px 14px",
               fontSize: "12px",
@@ -1641,30 +1642,30 @@ export default function CertificationExamWorkspace({
             <LuCircleCheck size={14} /> Completed • Certificate Awarded
           </div>
 
-          <h1 style={{ fontSize: "22px", fontWeight: 800, margin: "0 0 10px", color: "#ffffff" }}>
+          <h1 style={{ fontSize: "22px", fontWeight: 800, margin: "0 0 10px", color: "var(--mz-text-primary)" }}>
             {certTitle}
           </h1>
 
-          <p style={{ fontSize: "14px", color: "#cbd5e1", lineHeight: 1.6, margin: "0 0 22px" }}>
+          <p style={{ fontSize: "14px", color: "var(--mz-text-secondary)", lineHeight: 1.6, margin: "0 0 22px" }}>
             You have already cleared the 80% passing cutoff and earned your verified credential for this subject.
             <br />
-            <strong style={{ color: "#fde047" }}>Completed certification examinations cannot be attended again.</strong>
+            <strong style={{ color: "var(--mz-amber-text)" }}>Completed certification examinations cannot be attended again.</strong>
           </p>
 
           {certIdVal && (
             <div
               style={{
-                background: "rgba(0, 0, 0, 0.3)",
-                border: "1px solid rgba(255, 255, 255, 0.1)",
+                background: "var(--mz-surface-subtle)",
+                border: "1px solid var(--mz-border)",
                 borderRadius: "12px",
                 padding: "12px",
                 marginBottom: "24px",
                 fontSize: "13px",
-                color: "#94a3b8",
+                color: "var(--mz-text-muted)",
               }}
             >
               Credential ID:{" "}
-              <strong style={{ color: "#ffffff", fontFamily: "monospace", letterSpacing: "1px" }}>
+              <strong style={{ color: "var(--mz-text-primary)", fontFamily: "monospace", letterSpacing: "1px" }}>
                 {certIdVal}
               </strong>
             </div>
@@ -1703,12 +1704,12 @@ export default function CertificationExamWorkspace({
                   gap: "8px",
                   padding: "12px 20px",
                   borderRadius: "12px",
-                  background: "rgba(255, 255, 255, 0.08)",
-                  color: "#ffffff",
+                  background: "var(--mz-surface-subtle)",
+                  color: "var(--mz-text-primary)",
                   fontWeight: 600,
                   fontSize: "14px",
                   textDecoration: "none",
-                  border: "1px solid rgba(255, 255, 255, 0.16)",
+                  border: "1px solid var(--mz-border)",
                 }}
               >
                 <LuFileText size={16} /> View Examination Report
@@ -1726,7 +1727,7 @@ export default function CertificationExamWorkspace({
                 marginTop: "4px",
                 background: "transparent",
                 border: "none",
-                color: "#94a3b8",
+                color: "var(--mz-text-muted)",
                 fontSize: "13px",
                 fontWeight: 600,
                 cursor: "pointer",
@@ -1851,6 +1852,8 @@ export default function CertificationExamWorkspace({
               <span className="mz-timer-val">{formatTimerMinsSecs(secondsRemaining)}</span>
             </div>
           </div>
+
+          <ThemeToggle />
 
           <button
             type="button"
@@ -2489,14 +2492,14 @@ export default function CertificationExamWorkspace({
                 margin: 0,
                 fontSize: "1.25rem",
                 fontWeight: 800,
-                color: isTerminated ? "#b91c1c" : "#92400e",
+                color: isTerminated ? "var(--mz-red-text)" : "var(--mz-amber-text)",
               }}
             >
               {isTerminated
                 ? "Assessment Terminated: Limits Exceeded"
                 : "Examination Interrupted: Tab Switch Detected"}
             </h3>
-            <p style={{ margin: 0, fontSize: "0.9rem", color: "#475569", lineHeight: "1.5" }}>
+            <p style={{ margin: 0, fontSize: "0.9rem", color: "var(--mz-text-secondary)", lineHeight: "1.5" }}>
               {isTerminated
                 ? "You have exhausted all 5 recovery chances. Your assessment workspace is locked and your answers have been permanently submitted for final grading."
                 : recoveryReason ||
@@ -2504,7 +2507,7 @@ export default function CertificationExamWorkspace({
             </p>
 
             {recoveryTimestamp && (
-              <div style={{ fontSize: "11px", color: "#64748b" }}>
+              <div style={{ fontSize: "11px", color: "var(--mz-text-muted)" }}>
                 Timestamp: {new Date(recoveryTimestamp).toLocaleTimeString()}
               </div>
             )}
@@ -2614,7 +2617,7 @@ export default function CertificationExamWorkspace({
                   <button
                     type="button"
                     className="mz-modal-btn-cancel"
-                    style={{ padding: "10px 16px", borderRadius: "10px", fontWeight: 600, width: "100%", background: "#f1f5f9", border: "1px solid #cbd5e1", color: "#334155", cursor: "pointer" }}
+                    style={{ padding: "10px 16px", borderRadius: "10px", fontWeight: 600, width: "100%", background: "var(--mz-surface-subtle)", border: "1px solid var(--mz-border-strong)", color: "var(--mz-text-secondary)", cursor: "pointer" }}
                     onClick={() => {
                       try {
                         localStorage.removeItem("mz_active_cert_session");
@@ -2688,17 +2691,17 @@ export default function CertificationExamWorkspace({
       {showConfirmModal && (
         <div className="mz-cert-modal-backdrop" onClick={() => setShowConfirmModal(false)}>
           <div className="mz-cert-modal-card" onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ margin: "0 0 10px", fontSize: 18, color: "#0f172a", fontWeight: 800 }}>
+            <h3 style={{ margin: "0 0 10px", fontSize: 18, color: "var(--mz-text-primary)", fontWeight: 800 }}>
               Confirm Official Examination Submission
             </h3>
-            <p style={{ margin: "0 0 16px", fontSize: 13.5, color: "#475569", lineHeight: 1.5 }}>
+            <p style={{ margin: "0 0 16px", fontSize: 13.5, color: "var(--mz-text-secondary)", lineHeight: 1.5 }}>
               Your examination will be evaluated atomically on the academic server. Marks are combinely evaluated from all 20 MCQs and both coding challenges (20 test cases). Scoring <strong>≥80% (32/40 Marks)</strong> awards the Official Course Completion Certificate.
             </p>
 
             <div
               style={{
-                background: "#f8fafc",
-                border: "1px solid #e2e8f0",
+                background: "var(--mz-surface-subtle)",
+                border: "1px solid var(--mz-border)",
                 borderRadius: 10,
                 padding: 14,
                 marginBottom: 20,
@@ -2717,7 +2720,7 @@ export default function CertificationExamWorkspace({
                   display: "flex",
                   justifyContent: "space-between",
                   paddingTop: 10,
-                  borderTop: "1px solid #e2e8f0",
+                  borderTop: "1px solid var(--mz-border)",
                   fontSize: 14,
                   fontWeight: 700,
                 }}
@@ -2767,10 +2770,10 @@ export default function CertificationExamWorkspace({
             <div className="mz-proc-success-icon-ring">
               <LuTrophy size={36} />
             </div>
-            <h2 style={{ fontSize: "1.45rem", fontWeight: 800, margin: 0, color: "#0f172a" }}>
+            <h2 style={{ fontSize: "1.45rem", fontWeight: 800, margin: 0, color: "var(--mz-text-primary)" }}>
               Examination Submitted & Evaluated
             </h2>
-            <p style={{ color: "#64748b", fontSize: "0.9rem", margin: 0, lineHeight: "1.5" }}>
+            <p style={{ color: "var(--mz-text-muted)", fontSize: "0.9rem", margin: 0, lineHeight: "1.5" }}>
               Your 20 MCQ questions and 2 algorithmic coding solutions have been graded across all 20 live container test cases. Your assessment attempt is permanently locked and cryptographically archived.
             </p>
 
@@ -2781,7 +2784,7 @@ export default function CertificationExamWorkspace({
               <span className={`grade-tag ${submissionSuccessData.passed ? "pass" : "fail"}`}>
                 {submissionSuccessData.passed ? "PASSED (≥80%)" : "FAILED (<80%)"}
               </span>
-              <span style={{ color: "#64748b", fontSize: "13px" }}>
+              <span style={{ color: "var(--mz-text-muted)", fontSize: "13px" }}>
                 ({submissionSuccessData.percentage}% Overall Score)
               </span>
             </div>
@@ -2801,7 +2804,7 @@ export default function CertificationExamWorkspace({
               <button
                 type="button"
                 className="mz-report-btn mz-report-btn-secondary"
-                style={{ justifyContent: "center", padding: "12px", border: "1px solid #cbd5e1", color: "#334155" }}
+                style={{ justifyContent: "center", padding: "12px", border: "1px solid var(--mz-border-strong)", color: "var(--mz-text-secondary)" }}
                 onClick={() => {
                   if (window.opener) {
                     try {
