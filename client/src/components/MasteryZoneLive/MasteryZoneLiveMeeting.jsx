@@ -413,13 +413,14 @@ export default function MasteryZoneLiveMeeting({
     const fetchMeeting = async () => {
       try {
         const token = localStorage.getItem("token") || "";
+        const inviteToken = new URLSearchParams(window.location.search).get("inviteToken") || "";
         let res;
         try {
-          res = await fetch(`${API_BASE}/api/meetings/${meetingId}`, {
+          res = await fetch(`${API_BASE}/api/meetings/${meetingId}${inviteToken ? `?inviteToken=${encodeURIComponent(inviteToken)}` : ""}`, {
             headers: token ? { Authorization: `Bearer ${token}` } : {},
           });
         } catch {
-          res = await fetch(`/api/meetings/${meetingId}`, {
+          res = await fetch(`/api/meetings/${meetingId}${inviteToken ? `?inviteToken=${encodeURIComponent(inviteToken)}` : ""}`, {
             headers: token ? { Authorization: `Bearer ${token}` } : {},
           });
         }
@@ -877,6 +878,7 @@ export default function MasteryZoneLiveMeeting({
 
     const doJoin = () => {
       const token = localStorage.getItem("token") || "";
+      const inviteToken = new URLSearchParams(window.location.search).get("inviteToken") || "";
       const effectiveUser = {
         ...currentUser,
         fullName: participantName || currentUser?.fullName || "Learner",
@@ -885,6 +887,7 @@ export default function MasteryZoneLiveMeeting({
         meetingId,
         user: effectiveUser,
         token,
+        inviteToken,
         mediaState: {
           isMuted,
           isVideoOff,

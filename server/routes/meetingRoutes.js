@@ -1,6 +1,17 @@
 const express = require("express");
-const router = express.Router();
 const crypto = require("crypto");
+const router = express.Router();
+
+function isValidMeetingInviteToken(meeting, token, email = "") {
+  if (!token || !Array.isArray(meeting.inviteAccessTokens)) return false;
+  const tokenHash = crypto.createHash("sha256").update(String(token)).digest("hex");
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  return meeting.inviteAccessTokens.some((entry) =>
+    entry.tokenHash === tokenHash &&
+    new Date(entry.expiresAt).getTime() > Date.now() &&
+    (!normalizedEmail || String(entry.email).toLowerCase() === normalizedEmail)
+  );
+}
 const jwt = require("jsonwebtoken");
 const { getJwtSecret } = require("../config/jwtConfig");
 const JWT_SECRET = getJwtSecret();
@@ -35,7 +46,7 @@ const {
   isProductionExecutionRestricted,
 } = require("../services/codeExecutionService");
 const { getProblemExecutionConfig } = require("../data/problemExecutionConfig");
-const { sendMeetingInvitationEmail } = require("../utils/mailer");
+const { sendMeetingInvitationEmail, getClientBaseUrl } = require("../utils/mailer");
 
 // Preset study rooms matching reference image & coding curriculum
 const STUDY_ROOMS_CATALOG = [
@@ -469,8 +480,10 @@ router.get("/:meetingId", optionalAuthToken, async (req, res) => {
     const isHost = Boolean(currentUserId && String(meeting.hostUserId) === currentUserId);
     const isAdmin = Boolean(req.user?.role === "admin" || req.user?.role === "SUPER_ADMIN" || req.user?.isMainAdmin);
     const isParticipant = (meeting.participants || []).some((p) => String(p.userId) === currentUserId);
+    const authenticatedUser = req.user ? await User.findById(currentUserId).select("email").lean() : null;
+    const hasInvite = isValidMeetingInviteToken(meeting, req.query?.inviteToken, authenticatedUser?.email);
 
-    if (meeting.isPrivate && !isHost && !isParticipant && !isAdmin) {
+    if (meeting.isPrivate && !isHost && !isParticipant && !isAdmin && !hasInvite) {
       return res.status(403).json({
         success: false,
         isPrivate: true,
@@ -547,8 +560,10 @@ router.post("/:meetingId/join", optionalAuthToken, async (req, res) => {
 
     const isAdmin = Boolean(req.user?.role === "admin" || req.user?.role === "SUPER_ADMIN" || req.user?.isMainAdmin);
     const isExistingParticipant = (meeting.participants || []).some((p) => String(p.userId) === String(userId));
+    const inviteEmail = user?.email || String(req.body?.email || "").trim().toLowerCase();
+    const hasInvite = isValidMeetingInviteToken(meeting, req.body?.inviteToken, inviteEmail);
 
-    if (meeting.isPrivate && !isHost && !isExistingParticipant && !isAdmin) {
+    if (meeting.isPrivate && !isHost && !isExistingParticipant && !isAdmin && !hasInvite) {
       return res.status(403).json({
         success: false,
         isPrivate: true,
@@ -636,11 +651,10 @@ router.post("/:meetingId/invite", optionalAuthToken, async (req, res) => {
 
     const currentUserId = req.user ? String(req.user.userId || req.user.id || req.user._id) : null;
     const isHost = currentUserId && String(meeting.hostUserId) === currentUserId;
-    const isParticipant = currentUserId && (meeting.participants || []).some((p) => String(p.userId) === currentUserId && !p.leftAt);
     const isAdmin = Boolean(req.user?.role === "admin" || req.user?.role === "SUPER_ADMIN" || req.user?.isMainAdmin);
 
-    // If meeting is private, only host or admin can invite new collaborators
-    if (meeting.isPrivate && !isHost && !isAdmin) {
+    // Only the authenticated host or an administrator may issue invitation links.
+    if (!isHost && !isAdmin) {
       return res.status(403).json({
         success: false,
         message: "Only the meeting host can invite collaborators to a private meeting.",
@@ -649,9 +663,16 @@ router.post("/:meetingId/invite", optionalAuthToken, async (req, res) => {
 
     const { email, emails, customNote } = req.body || {};
     const rawTargetEmails = Array.isArray(emails) && emails.length > 0 ? emails : [email];
-    const targetEmails = rawTargetEmails
+    const targetEmails = [...new Set(rawTargetEmails
       .map((e) => String(e || "").trim().toLowerCase())
-      .filter((e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
+      .filter((e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)))];
+
+    if (targetEmails.length > 10) {
+      return res.status(400).json({
+        success: false,
+        message: "You can invite up to 10 people at a time.",
+      });
+    }
 
     if (targetEmails.length === 0) {
       return res.status(400).json({
@@ -677,25 +698,39 @@ router.post("/:meetingId/invite", optionalAuthToken, async (req, res) => {
       } catch {}
     }
     if (!clientBase) {
-      clientBase = (process.env.CLIENT_URL || process.env.FRONTEND_URL || "").replace(/\/+$/, "");
+      clientBase = getClientBaseUrl(req);
     }
     const fullJoinUrl = clientBase ? `${clientBase}/meeting/${meeting.meetingId}` : undefined;
 
     const results = [];
+    if (!Array.isArray(meeting.inviteAccessTokens)) meeting.inviteAccessTokens = [];
+    meeting.inviteAccessTokens = meeting.inviteAccessTokens.filter((entry) => new Date(entry.expiresAt).getTime() > Date.now());
     for (const targetEmail of targetEmails) {
+      const rawInviteToken = crypto.randomBytes(32).toString("hex");
+      const tokenHash = crypto.createHash("sha256").update(rawInviteToken).digest("hex");
+      const joinUrl = fullJoinUrl
+        ? `${fullJoinUrl}?inviteToken=${encodeURIComponent(rawInviteToken)}`
+        : undefined;
       const mailRes = await sendMeetingInvitationEmail({
         toEmail: targetEmail,
         meetingId: meeting.meetingId,
         meetingTitle: meeting.title,
         hostName: inviterName,
         hostEmail: inviterEmail,
-        joinUrl: fullJoinUrl,
+        joinUrl,
         customNote: customNote ? String(customNote).slice(0, 300) : "",
         req,
       });
-
+      if (mailRes.success) {
+        meeting.inviteAccessTokens.push({
+          email: targetEmail,
+          tokenHash,
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        });
+      }
       results.push({ email: targetEmail, ...mailRes });
     }
+    if (results.some((r) => r.success)) await meeting.save();
 
     const anySuccess = results.some((r) => r.success);
     if (!anySuccess) {

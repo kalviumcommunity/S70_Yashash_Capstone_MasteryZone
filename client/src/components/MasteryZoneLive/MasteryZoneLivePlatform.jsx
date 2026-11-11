@@ -149,6 +149,7 @@ export default function MasteryZoneLivePlatform({ initialMeetingId = null }) {
       setMeetingError(null);
       try {
         const token = localStorage.getItem("token") || "";
+        const inviteToken = new URLSearchParams(window.location.search).get("inviteToken") || "";
         let cleanCode = String(meetingIdFromRoute || "").trim().toLowerCase();
         if (cleanCode.includes("/meeting/")) {
           cleanCode = cleanCode.split("/meeting/").pop().split("?")[0].split("/")[0];
@@ -157,11 +158,11 @@ export default function MasteryZoneLivePlatform({ initialMeetingId = null }) {
         // Validate meeting exists and check status on server
         let res;
         try {
-          res = await fetch(`${API_BASE}/api/meetings/${cleanCode}`, {
+          res = await fetch(`${API_BASE}/api/meetings/${cleanCode}${inviteToken ? `?inviteToken=${encodeURIComponent(inviteToken)}` : ""}`, {
             headers: token ? { Authorization: `Bearer ${token}` } : {},
           });
         } catch {
-          res = await fetch(`/api/meetings/${cleanCode}`, {
+          res = await fetch(`/api/meetings/${cleanCode}${inviteToken ? `?inviteToken=${encodeURIComponent(inviteToken)}` : ""}`, {
             headers: token ? { Authorization: `Bearer ${token}` } : {},
           });
         }
@@ -236,7 +237,7 @@ export default function MasteryZoneLivePlatform({ initialMeetingId = null }) {
                 "Content-Type": "application/json",
                 ...(token ? { Authorization: `Bearer ${token}` } : {}),
               },
-              body: JSON.stringify({ fullName: effectiveUserName, guestId: effectiveUserId }),
+              body: JSON.stringify({ fullName: effectiveUserName, guestId: effectiveUserId, inviteToken }),
             });
           } catch {
             joinRes = await fetch(`/api/meetings/${cleanCode}/join`, {
@@ -245,7 +246,7 @@ export default function MasteryZoneLivePlatform({ initialMeetingId = null }) {
                 "Content-Type": "application/json",
                 ...(token ? { Authorization: `Bearer ${token}` } : {}),
               },
-              body: JSON.stringify({ fullName: effectiveUserName, guestId: effectiveUserId }),
+              body: JSON.stringify({ fullName: effectiveUserName, guestId: effectiveUserId, inviteToken }),
             });
           }
         } catch (jErr) {
