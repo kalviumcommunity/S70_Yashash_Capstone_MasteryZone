@@ -1032,6 +1032,45 @@ export default function MasteryZoneCompilerWorkspace({
     initialProctoringStage || (isRetakeRequested ? (isProctored ? "gate" : "active") : (effectiveSessionId ? "active" : (isProctored ? "gate" : "active")))
   );
   const [proctoredSessionId, setProctoredSessionId] = useState(effectiveSessionId);
+
+  // When a retake is requested or navigated to, ensure proctoring security gate is displayed
+  useEffect(() => {
+    if (isRetakeRequested) {
+      if (isProctored) {
+        setProctoringStage("gate");
+      }
+      setSubmissionFlowStage(null);
+      setIsSubmittedReadOnly(false);
+      isSubmittedRef.current = false;
+      setIsSubmitting(false);
+      setIsTerminated(false);
+      setRecoveryChancesRemaining(5);
+      setIsRecoveryModalOpen(false);
+      setSubmissionSummary(null);
+      setSubmissionSuccessData(null);
+      setProctoredSessionId(null);
+      setSecondsRemaining(timeLimitMinutes ? timeLimitMinutes * 60 : 3600);
+      setElapsedSeconds(0);
+      setIsTimerRunning(true);
+      setPassedCount(0);
+      setHasEvaluated(false);
+      setAllTestCases((prev) =>
+        prev.map((tc) => ({
+          ...tc,
+          actualOutput: "",
+          error: null,
+          durationMs: null,
+          passed: null,
+        }))
+      );
+      try {
+        sessionStorage.removeItem("mz_active_proctored_session");
+        localStorage.removeItem("mz_active_proctored_session");
+        if (questionId) localStorage.removeItem(`mz_report_sid_${questionId}`);
+        localStorage.removeItem("mz_last_assessment_report_sid");
+      } catch {}
+    }
+  }, [isRetakeRequested, isProctored, questionId, timeLimitMinutes]);
   const [candidateDetails, setCandidateDetails] = useState({
     fullName: "",
     candidateId: "",
@@ -1669,6 +1708,10 @@ export default function MasteryZoneCompilerWorkspace({
     }
     if (gateData.sessionId) {
       setProctoredSessionId(gateData.sessionId);
+      try {
+        sessionStorage.setItem("mz_active_proctored_session", gateData.sessionId);
+        localStorage.setItem("mz_active_proctored_session", gateData.sessionId);
+      } catch {}
     }
     setProctoringStage("active");
 
@@ -2682,7 +2725,7 @@ export default function MasteryZoneCompilerWorkspace({
 
       let result = null;
       if (onSubmit) {
-        result = await onSubmit(code, selectedLang);
+        result = await onSubmit(code, selectedLang, sid);
       } else {
         const qId = questionId || problemData?.id;
         const res = await fetch(`${API_BASE}/api/coding/challenges/${qId}/submit`, {

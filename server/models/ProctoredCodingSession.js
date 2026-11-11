@@ -34,6 +34,10 @@ const proctoredCodingSessionSchema = new mongoose.Schema(
       type: String,
       default: "python",
     },
+    moduleIndex: {
+      type: Number,
+      default: 0,
+    },
     problemData: {
       title: String,
       difficulty: String,

@@ -3531,6 +3531,7 @@ router.post("/proctored-session/init", optionalAuthenticateToken, async (req, re
       questionId: primaryProblem.questionId,
       assessmentTitle: assessmentTitle || primaryProblem.title || "MZ-ASM Proctored Assessment",
       trackId: trackId || "python",
+      moduleIndex: parseInt(moduleIndex ?? 0, 10),
       problemData: {
         title: primaryProblem.title,
         difficulty: primaryProblem.difficulty,

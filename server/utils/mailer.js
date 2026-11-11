@@ -612,9 +612,63 @@ function getTransporter() {
 async function verifySmtpConnection() {
   const env = (process.env.NODE_ENV || "").trim().toLowerCase();
   const isTrustedLocal = TRUSTED_LOCAL_ENVS.has(env);
+  const isCloudHost = Boolean(process.env.RENDER || process.env.RENDER_SERVICE_ID || process.env.IS_RENDER);
   const config = getSmtpConfig();
+  const httpProvider = getHttpEmailProvider();
 
-  // 1. If primary SMTP is configured, verify live SMTP connection first
+  // On cloud platforms (Render Free Tier), outbound SMTP ports are blocked. Verify HTTPS Port 443 provider directly.
+  if (isCloudHost && httpProvider) {
+    try {
+      if (httpProvider.type === 'resend') {
+        const res = await fetch('https://api.resend.com/api-keys', {
+          headers: { Authorization: `Bearer ${httpProvider.apiKey}` },
+        });
+        const data = await res.json().catch(() => ({}));
+        const errName = String(data?.name || data?.message || '').toLowerCase();
+        const isRestrictedValidKey = (res.status === 401 || res.status === 403) && errName.includes('restricted');
+        if (res.ok || isRestrictedValidKey) {
+          return {
+            success: true,
+            ok: true,
+            status: 'connected',
+            provider: 'resend',
+            configured: true,
+            connected: true,
+            host: 'api.resend.com (HTTPS Port 443)',
+            port: 443,
+            secure: true,
+            sender: httpProvider.from,
+            user: 'Resend API Key',
+            message: 'Resend HTTPS API connection verified and ready for dispatch.',
+          };
+        }
+      } else if (httpProvider.type === 'brevo') {
+        const res = await fetch('https://api.brevo.com/v3/account', {
+          headers: { 'api-key': httpProvider.apiKey },
+        });
+        if (res.ok) {
+          return {
+            success: true,
+            ok: true,
+            status: 'connected',
+            provider: 'brevo',
+            configured: true,
+            connected: true,
+            host: 'api.brevo.com (HTTPS Port 443)',
+            port: 443,
+            secure: true,
+            sender: httpProvider.from,
+            user: 'Brevo API Key',
+            message: 'Brevo HTTPS API connection verified and ready for dispatch.',
+          };
+        }
+      }
+    } catch (e) {
+      console.warn('[Mailer] Cloud HTTPS provider check warning:', e.message);
+    }
+  }
+
+  // 1. If primary SMTP is configured and not on a firewalled cloud host, verify live SMTP connection first
   if (config.isConfigured) {
     try {
       const tp = await getTransporter();
@@ -679,7 +733,6 @@ async function verifySmtpConnection() {
   }
 
   // 2. If SMTP is unconfigured or blocked by cloud firewall, check HTTPS API provider (Port 443)
-  const httpProvider = getHttpEmailProvider();
   if (httpProvider) {
     if (httpProvider.type === 'resend' && httpProvider.isTestSender && !isTrustedLocal) {
       return {
@@ -946,9 +999,12 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
     } catch {}
   }
 
-  // 1. If primary SMTP is unconfigured, dispatch via HTTPS transactional provider (Port 443)
-  if (!config.isConfigured) {
-    const httpProvider = getHttpEmailProvider();
+  // On cloud platforms (specifically Render Free Tier), outbound SMTP ports (25, 465, 587)
+  // are blocked by the container firewall. Dispatching via HTTPS API (Port 443) bypasses the
+  // firewall instantly and eliminates 25-30 second TCP connection timeouts.
+  const isCloudHost = Boolean(process.env.RENDER || process.env.RENDER_SERVICE_ID || process.env.IS_RENDER);
+  const httpProvider = getHttpEmailProvider();
+  if ((isCloudHost || !config.isConfigured) && httpProvider) {
     if (httpProvider) {
       try {
         const res = await sendViaHttpApi(mailOptions, httpProvider);
