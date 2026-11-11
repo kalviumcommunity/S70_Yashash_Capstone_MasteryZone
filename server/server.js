@@ -2167,8 +2167,24 @@ const databaseReady = connectDB();
 
 
 
-// Serve static frontend files
-app.use(express.static(path.join(__dirname, '../client/dist')));
+// Serve static frontend files with proper cache policies
+app.use(express.static(path.join(__dirname, '../client/dist'), {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('index.html')) {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    } else if (filePath.includes('/assets/')) {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    }
+  }
+}));
+
+// If an asset chunk is requested that no longer exists after a new deployment, return 404
+// rather than serving index.html (which would cause "TypeError: Failed to fetch dynamically imported module")
+app.use('/assets', (req, res) => {
+  res.status(404).type('text/plain').send('Asset chunk not found');
+});
 
 // Catch-all route to serve the React app for non-API requests (SPA routing)
 app.get(/.*/, (req, res) => {
