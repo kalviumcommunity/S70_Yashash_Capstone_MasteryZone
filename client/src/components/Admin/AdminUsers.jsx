@@ -12,6 +12,8 @@ import {
   LuSmartphone,
   LuClock,
   LuFlame,
+  LuKey,
+  LuTrash2,
 } from "react-icons/lu";
 import { toast } from "react-toastify";
 import AdminUserDetailModal from "./AdminUserDetailModal.jsx";
@@ -146,10 +148,10 @@ const AdminUsers = () => {
         // Refresh users list
         fetchUsers();
         // Update open modal if relevant
-        if (selectedUserDetail && selectedUserDetail.user._id === userId) {
+        if (selectedUserDetail && (selectedUserDetail.user?._id === userId || selectedUserDetail._id === userId)) {
           setSelectedUserDetail((prev) => ({
             ...prev,
-            user: { ...prev.user, isSuspended: willSuspend, suspendedReason: reason },
+            user: { ...(prev.user || prev), isSuspended: willSuspend, suspendedReason: reason },
           }));
         }
       } else {
@@ -157,6 +159,87 @@ const AdminUsers = () => {
       }
     } catch (err) {
       toast.error("Error updating account status");
+    }
+  };
+
+  const handleRoleChange = async (userId, newRole) => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_BASE}/api/admin/users/${userId}/role`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ role: newRole }),
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        toast.success(json.message);
+        fetchUsers();
+        if (selectedUserDetail && (selectedUserDetail.user?._id === userId || selectedUserDetail._id === userId)) {
+          setSelectedUserDetail((prev) => ({
+            ...prev,
+            user: { ...(prev.user || prev), role: newRole },
+          }));
+        }
+      } else {
+        toast.error(json.message || "Failed to update role");
+      }
+    } catch (err) {
+      toast.error("Error updating user role");
+    }
+  };
+
+  const handleResetPassword = async (userId, directPassword = null) => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_BASE}/api/admin/users/${userId}/reset-password`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(directPassword ? { newPassword: directPassword } : { sendEmail: true }),
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        toast.success(json.message);
+        return true;
+      } else {
+        toast.error(json.message || "Failed to process password reset");
+        return false;
+      }
+    } catch (err) {
+      toast.error("Error resetting user password");
+      return false;
+    }
+  };
+
+  const handleDeleteUser = async (userId, userEmail) => {
+    const confirmed = window.confirm(
+      `Are you absolutely sure you want to permanently delete the account for ${userEmail}? This will wipe their records permanently.`
+    );
+    if (!confirmed) return;
+
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_BASE}/api/admin/users/${userId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        toast.success(json.message);
+        setSelectedUserDetail(null);
+        fetchUsers();
+      } else {
+        toast.error(json.message || "Failed to delete user account");
+      }
+    } catch (err) {
+      toast.error("Error deleting user account");
     }
   };
 
@@ -266,6 +349,7 @@ const AdminUsers = () => {
             <thead>
               <tr>
                 <th>User</th>
+                <th>Role</th>
                 <th>Status</th>
                 <th>Registered</th>
                 <th>Last Active</th>
@@ -277,13 +361,13 @@ const AdminUsers = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="7" style={{ padding: 36, textAlign: 'center', color: 'var(--mz-text-subtle)' }}>
+                  <td colSpan="8" style={{ padding: 36, textAlign: 'center', color: 'var(--mz-text-subtle)' }}>
                     Loading users directory...
                   </td>
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan="7" style={{ padding: 36, textAlign: 'center', color: 'var(--mz-text-subtle)' }}>
+                  <td colSpan="8" style={{ padding: 36, textAlign: 'center', color: 'var(--mz-text-subtle)' }}>
                     No users found matching your criteria.
                   </td>
                 </tr>
@@ -305,6 +389,36 @@ const AdminUsers = () => {
                           <span style={{ fontSize: 11, color: 'var(--mz-text-subtle)' }}>{u.email}</span>
                         </div>
                       </div>
+                    </td>
+
+                    {/* Role Selector / Badge */}
+                    <td>
+                      {u.role === "SUPER_ADMIN" ? (
+                        <span className="mz-admin-badge-gray" style={{ textTransform: "uppercase", fontSize: 10 }}>Super Admin</span>
+                      ) : (
+                        <select
+                          value={u.role || "student"}
+                          onChange={(e) => handleRoleChange(u._id, e.target.value)}
+                          style={{
+                            padding: "4px 8px",
+                            borderRadius: 6,
+                            fontSize: 11,
+                            fontWeight: 600,
+                            background: "var(--mz-surface-muted)",
+                            color: "var(--mz-text-primary)",
+                            border: "1px solid var(--mz-border)",
+                            cursor: "pointer",
+                            outline: "none",
+                          }}
+                          title="Change user role"
+                        >
+                          <option value="student">Student</option>
+                          <option value="mentor">Mentor</option>
+                          <option value="instructor">Instructor</option>
+                          <option value="admin">Admin</option>
+                          <option value="user">User</option>
+                        </select>
+                      )}
                     </td>
 
                     {/* Status Badge */}
@@ -349,16 +463,40 @@ const AdminUsers = () => {
                         <button
                           onClick={() => handleOpenUserDetail(u._id)}
                           className="mz-admin-btn-action"
+                          title="View Profile"
                         >
                           <LuEye style={{ width: 14, height: 14 }} />
                           <span>Profile</span>
                         </button>
-                        <button
-                          onClick={() => handleToggleStatus(u._id, !u.isSuspended)}
-                          className={u.isSuspended ? "mz-admin-btn-restore" : "mz-admin-btn-suspend"}
-                        >
-                          {u.isSuspended ? "Restore" : "Suspend"}
-                        </button>
+                        {u.role !== "SUPER_ADMIN" && (
+                          <>
+                            <button
+                              onClick={() => {
+                                const temp = window.prompt(`Enter temporary password for ${u.email} (or leave blank to send reset email):`, "");
+                                if (temp === null) return;
+                                handleResetPassword(u._id, temp.trim() || null);
+                              }}
+                              className="mz-admin-btn-action"
+                              title="Reset Password"
+                            >
+                              <LuKey style={{ width: 13, height: 13 }} />
+                            </button>
+                            <button
+                              onClick={() => handleToggleStatus(u._id, !u.isSuspended)}
+                              className={u.isSuspended ? "mz-admin-btn-restore" : "mz-admin-btn-suspend"}
+                            >
+                              {u.isSuspended ? "Restore" : "Suspend"}
+                            </button>
+                            <button
+                              onClick={() => handleDeleteUser(u._id, u.email)}
+                              className="mz-admin-btn-suspend"
+                              style={{ padding: "6px 8px", background: "transparent", color: "#ef4444", borderColor: "rgba(239, 68, 68, 0.3)" }}
+                              title="Permanently Delete User"
+                            >
+                              <LuTrash2 style={{ width: 13, height: 13 }} />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -399,6 +537,9 @@ const AdminUsers = () => {
           userDetail={selectedUserDetail}
           onClose={() => setSelectedUserDetail(null)}
           onToggleStatus={handleToggleStatus}
+          onRoleChange={handleRoleChange}
+          onResetPassword={handleResetPassword}
+          onDeleteUser={handleDeleteUser}
         />
       )}
     </div>

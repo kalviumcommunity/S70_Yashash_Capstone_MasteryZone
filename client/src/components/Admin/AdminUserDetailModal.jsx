@@ -29,12 +29,21 @@ import {
   LuExternalLink,
   LuCopy,
   LuHistory,
+  LuKey,
+  LuTrash2,
 } from "react-icons/lu";
 import { toast } from "react-toastify";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
-const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
+const AdminUserDetailModal = ({
+  userDetail,
+  onClose,
+  onToggleStatus,
+  onRoleChange,
+  onResetPassword,
+  onDeleteUser,
+}) => {
   const [activeTab, setActiveTab] = useState("profile"); // "profile" | "timeline" | "submissions" | "assessments" | "devices"
   const [selectedSubmission, setSelectedSubmission] = useState(null);
   
@@ -304,14 +313,67 @@ const AdminUserDetailModal = ({ userDetail, onClose, onToggleStatus }) => {
             </div>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             {user.role !== "SUPER_ADMIN" && (
-              <button
-                onClick={() => onToggleStatus(user._id, !user.isSuspended)}
-                className={user.isSuspended ? "mz-admin-btn-restore" : "mz-admin-btn-suspend"}
-              >
-                {user.isSuspended ? "Restore Account" : "Suspend Account"}
-              </button>
+              <>
+                {/* Role Switcher */}
+                <select
+                  value={user.role || "student"}
+                  onChange={(e) => onRoleChange && onRoleChange(user._id, e.target.value)}
+                  className="mz-admin-btn-action"
+                  style={{
+                    padding: "6px 10px",
+                    borderRadius: 8,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    background: "var(--mz-surface-muted)",
+                    color: "var(--mz-text-primary)",
+                    border: "1px solid var(--mz-border)",
+                    cursor: "pointer",
+                    outline: "none",
+                  }}
+                  title="Change User Role"
+                >
+                  <option value="student">Student</option>
+                  <option value="mentor">Mentor</option>
+                  <option value="instructor">Instructor</option>
+                  <option value="admin">Admin</option>
+                  <option value="user">User</option>
+                </select>
+
+                <button
+                  onClick={() => {
+                    const temp = window.prompt(
+                      `Enter temporary password for ${user.email} (or leave blank to dispatch reset email):`,
+                      ""
+                    );
+                    if (temp === null) return;
+                    onResetPassword && onResetPassword(user._id, temp.trim() || null);
+                  }}
+                  className="mz-admin-btn-action"
+                  title="Reset user password"
+                >
+                  <LuKey style={{ width: 14, height: 14 }} />
+                  <span>Reset Password</span>
+                </button>
+
+                <button
+                  onClick={() => onToggleStatus(user._id, !user.isSuspended)}
+                  className={user.isSuspended ? "mz-admin-btn-restore" : "mz-admin-btn-suspend"}
+                >
+                  {user.isSuspended ? "Restore Account" : "Suspend Account"}
+                </button>
+
+                <button
+                  onClick={() => onDeleteUser && onDeleteUser(user._id, user.email)}
+                  className="mz-admin-btn-suspend"
+                  style={{ background: "#ef4444", color: "#fff", borderColor: "#dc2626" }}
+                  title="Permanently Delete Account"
+                >
+                  <LuTrash2 style={{ width: 14, height: 14 }} />
+                  <span>Delete</span>
+                </button>
+              </>
             )}
             <button
               onClick={onClose}

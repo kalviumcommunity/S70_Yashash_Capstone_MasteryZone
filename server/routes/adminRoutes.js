@@ -337,12 +337,32 @@ router.get("/overview", async (req, res) => {
     });
 
     if (trackDistribution.length === 0) {
-      trackDistribution = [
-        { name: "Data Structures & Algorithms", percentage: 50, color: "#8b5cf6" },
-        { name: "Python Programming", percentage: 25, color: "#3b82f6" },
-        { name: "C++ & Systems", percentage: 15, color: "#6366f1" },
-        { name: "Java Development", percentage: 10, color: "#f59e0b" },
-      ];
+      // Query enrolled subjects from SubjectProgress if no submissions exist yet
+      const enrolledProgress = await SubjectProgress.aggregate([
+        { $match: { userId: { $in: genuineUserIds } } },
+        { $group: { _id: "$subjectKey", count: { $sum: 1 } } },
+      ]);
+      const totalEnrolledTracks = enrolledProgress.reduce((sum, p) => sum + p.count, 0);
+      if (totalEnrolledTracks > 0) {
+        trackDistribution = enrolledProgress.map((ep) => {
+          const key = (ep._id || "coding").toLowerCase();
+          const info = trackColorMap[key] || { name: key.toUpperCase(), color: "#3b82f6" };
+          return {
+            name: info.name,
+            percentage: Math.round((ep.count / totalEnrolledTracks) * 100),
+            color: info.color,
+          };
+        });
+      } else {
+        // Genuine baseline state: all tracks at 0%
+        trackDistribution = [
+          { name: "Data Structures & Algorithms", percentage: 0, color: "#8b5cf6" },
+          { name: "Python Programming", percentage: 0, color: "#3b82f6" },
+          { name: "Web Development", percentage: 0, color: "#10b981" },
+          { name: "C++ & Systems", percentage: 0, color: "#6366f1" },
+          { name: "Java Development", percentage: 0, color: "#f59e0b" },
+        ];
+      }
     }
 
     // 7. Proctoring Status
@@ -747,6 +767,189 @@ router.put("/users/:id/status", async (req, res) => {
   } catch (error) {
     console.error("Admin update user status error:", error);
     res.status(500).json({ success: false, message: "Failed to update account status" });
+  }
+});
+
+// Modify User Role (Promote / Demote)
+router.put("/users/:id/role", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { role } = req.body;
+
+    const validRoles = ["user", "student", "mentor", "instructor", "admin"];
+    if (!role || !validRoles.includes(String(role).toLowerCase())) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid role. Allowed roles: ${validRoles.join(", ")}`,
+      });
+    }
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    const mainAdminEmail = (process.env.MAIN_ADMIN_EMAIL || "yashashyashash1@gmail.com").toLowerCase().trim();
+    if (user.email.toLowerCase().trim() === mainAdminEmail || user.role === "SUPER_ADMIN") {
+      return res.status(403).json({
+        success: false,
+        message: "Cannot modify role of the exclusive Main Admin account.",
+      });
+    }
+
+    const previousRole = user.role;
+    user.role = String(role).toLowerCase();
+    await user.save();
+
+    await recordAdminAudit({
+      adminId: req.user._id,
+      action: "USER_ROLE_MODIFIED",
+      targetId: user._id,
+      note: `User ${user.email} role changed from ${previousRole} to ${user.role}.`,
+      ip: req.ip,
+    });
+
+    clearAdminCache();
+
+    // Broadcast role change to socket
+    const io = req.app.get("io");
+    if (io) {
+      io.to(`user_${user._id}`).emit("role_updated", { role: user.role });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `User ${user.email} role updated to "${user.role}" successfully.`,
+      user: {
+        _id: user._id,
+        role: user.role,
+        fullName: user.fullName,
+        email: user.email,
+      },
+    });
+  } catch (error) {
+    console.error("Admin update user role error:", error);
+    res.status(500).json({ success: false, message: "Failed to update user role", error: error.message });
+  }
+});
+
+// Permanently Delete User Account & Cascade Records
+router.delete("/users/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    const mainAdminEmail = (process.env.MAIN_ADMIN_EMAIL || "yashashyashash1@gmail.com").toLowerCase().trim();
+    if (user.email.toLowerCase().trim() === mainAdminEmail || user.role === "SUPER_ADMIN") {
+      return res.status(403).json({
+        success: false,
+        message: "Cannot delete the exclusive Main Admin account.",
+      });
+    }
+
+    // Cascade clean up user data
+    await Promise.all([
+      CodingProgress.deleteMany({ userId: user._id }),
+      SubjectProgress.deleteMany({ userId: user._id }),
+      AdminNotification.deleteMany({ targetId: String(user._id) }),
+      User.deleteOne({ _id: user._id }),
+    ]);
+
+    await recordAdminAudit({
+      adminId: req.user._id,
+      action: "USER_DELETED",
+      targetId: user._id,
+      note: `User account ${user.email} (${user.fullName || user.username}) permanently deleted from system.`,
+      ip: req.ip,
+    });
+
+    clearAdminCache();
+
+    res.status(200).json({
+      success: true,
+      message: `User account ${user.email} has been permanently deleted.`,
+    });
+  } catch (error) {
+    console.error("Admin delete user error:", error);
+    res.status(500).json({ success: false, message: "Failed to delete user account", error: error.message });
+  }
+});
+
+// Admin-Initiated User Password Reset
+router.post("/users/:id/reset-password", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { newPassword, sendEmail = true } = req.body;
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    const bcrypt = require("bcrypt");
+    const { sendPasswordResetEmail } = require("../utils/mailer");
+
+    if (newPassword && typeof newPassword === "string" && newPassword.length >= 6) {
+      const salt = await bcrypt.genSalt(10);
+      user.password = await bcrypt.hash(newPassword, salt);
+      user.mustChangePassword = true;
+      await user.save();
+
+      await recordAdminAudit({
+        adminId: req.user._id,
+        action: "USER_PASSWORD_RESET_BY_ADMIN",
+        targetId: user._id,
+        note: `Admin set a direct temporary password for user ${user.email}.`,
+        ip: req.ip,
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: `Temporary password updated for user ${user.email}. User will be prompted to change password on next sign-in.`,
+      });
+    }
+
+    // Generate reset token and email
+    const crypto = require("crypto");
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const hashedToken = crypto.createHash("sha256").update(resetToken).digest("hex");
+
+    user.resetPasswordToken = hashedToken;
+    user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
+    await user.save();
+
+    if (sendEmail) {
+      try {
+        await sendPasswordResetEmail({
+          to: user.email,
+          resetToken,
+          candidateName: user.fullName || user.username,
+          req,
+        });
+      } catch (mailErr) {
+        console.warn("Could not dispatch reset email:", mailErr.message);
+      }
+    }
+
+    await recordAdminAudit({
+      adminId: req.user._id,
+      action: "USER_RESET_EMAIL_DISPATCHED",
+      targetId: user._id,
+      note: `Admin dispatched official password reset email to ${user.email}.`,
+      ip: req.ip,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `Password reset instructions sent to ${user.email}.`,
+      resetToken,
+    });
+  } catch (error) {
+    console.error("Admin user password reset error:", error);
+    res.status(500).json({ success: false, message: "Failed to reset user password", error: error.message });
   }
 });
 
@@ -1929,7 +2132,7 @@ router.get("/learning-analytics", async (req, res) => {
           trackStatsMap.coding.enrolled > 0
             ? Math.min(100, Math.round((trackStatsMap.coding.completedLessons / (trackStatsMap.coding.enrolled * 4 || 1)) * 100))
             : 0,
-        hours: trackStatsMap.coding.totalHours || Math.round(totalLearningHours * 0.6),
+        hours: trackStatsMap.coding.totalHours || 0,
       },
       {
         id: "language",
@@ -1939,7 +2142,7 @@ router.get("/learning-analytics", async (req, res) => {
           trackStatsMap.language.enrolled > 0
             ? Math.min(100, Math.round((trackStatsMap.language.completedLessons / (trackStatsMap.language.enrolled * 4 || 1)) * 100))
             : 0,
-        hours: trackStatsMap.language.totalHours || Math.round(totalLearningHours * 0.15),
+        hours: trackStatsMap.language.totalHours || 0,
       },
       {
         id: "vehicles",
@@ -1949,7 +2152,7 @@ router.get("/learning-analytics", async (req, res) => {
           trackStatsMap.driving.enrolled > 0
             ? Math.min(100, Math.round((trackStatsMap.driving.completedLessons / (trackStatsMap.driving.enrolled * 4 || 1)) * 100))
             : 0,
-        hours: trackStatsMap.driving.totalHours || Math.round(totalLearningHours * 0.15),
+        hours: trackStatsMap.driving.totalHours || 0,
       },
       {
         id: "fitness",
@@ -1959,7 +2162,7 @@ router.get("/learning-analytics", async (req, res) => {
           trackStatsMap.fitness.enrolled > 0
             ? Math.min(100, Math.round((trackStatsMap.fitness.completedLessons / (trackStatsMap.fitness.enrolled * 4 || 1)) * 100))
             : 0,
-        hours: trackStatsMap.fitness.totalHours || Math.round(totalLearningHours * 0.1),
+        hours: trackStatsMap.fitness.totalHours || 0,
       },
     ];
 
@@ -2357,11 +2560,11 @@ router.get("/proctoring", async (req, res) => {
         .filter((f) => f.endsWith(".webm") || f.endsWith(".mp4"));
     }
 
-    const enrichedSessions = sessions.map((s, idx) => {
+    const enrichedSessions = sessions.map((s) => {
       const matchedUser = usersMap[String(s.userId)];
       const candidate = {
         fullName: s.candidateDetails?.fullName || matchedUser?.fullName || matchedUser?.username || "Candidate",
-        email: s.candidateDetails?.email || matchedUser?.email || "candidate@masteryzone.com",
+        email: s.candidateDetails?.email || matchedUser?.email || "",
         avatar: matchedUser?.avatar || "",
       };
 
@@ -2369,8 +2572,11 @@ router.get("/proctoring", async (req, res) => {
       const screenShareGranted = s.deviceInfo?.screenShare !== false;
 
       let recordingUrl = s.recordingUrl || "";
-      if (!recordingUrl && availableRecFiles.length > 0) {
-        recordingUrl = `/recordings/${availableRecFiles[idx % availableRecFiles.length]}`;
+      if (!recordingUrl && s.sessionId && availableRecFiles.length > 0) {
+        const matchedRec = availableRecFiles.find((f) => f.includes(s.sessionId));
+        if (matchedRec) {
+          recordingUrl = `/recordings/${matchedRec}`;
+        }
       }
 
       return {
@@ -2444,20 +2650,22 @@ router.get("/proctoring/session/:sessionId", async (req, res) => {
     const recordingsDir = getRecordingsDir();
     let recordingInfo = {
       url: session.recordingUrl || "",
-      durationSeconds: session.recordingDurationSeconds || 120,
+      durationSeconds: session.recordingDurationSeconds || session.durationSeconds || 0,
       fileSize: session.recordingFileSize || 0,
-      status: session.recordingStatus || "completed",
+      status: session.recordingStatus || (session.recordingUrl ? "completed" : "none"),
     };
 
     if (fs.existsSync(recordingsDir)) {
       const recFiles = fs.readdirSync(recordingsDir).filter((f) => f.endsWith(".webm") || f.endsWith(".mp4"));
-      if (!recordingInfo.url && recFiles.length > 0) {
-        const bestMatch = recFiles.find((f) => f.includes(session.sessionId)) || recFiles[0];
-        try {
-          const stat = fs.statSync(path.join(recordingsDir, bestMatch));
-          recordingInfo.url = `/recordings/${bestMatch}`;
-          recordingInfo.fileSize = stat.size;
-        } catch (e) {}
+      if (!recordingInfo.url && recFiles.length > 0 && session.sessionId) {
+        const bestMatch = recFiles.find((f) => f.includes(session.sessionId));
+        if (bestMatch) {
+          try {
+            const stat = fs.statSync(path.join(recordingsDir, bestMatch));
+            recordingInfo.url = `/recordings/${bestMatch}`;
+            recordingInfo.fileSize = stat.size;
+          } catch (e) {}
+        }
       }
     }
 
@@ -2470,18 +2678,21 @@ router.get("/proctoring/session/:sessionId", async (req, res) => {
         .filter((f) => f.endsWith(".jpg") || f.endsWith(".png") || f.endsWith(".webp"));
     }
 
-    // Enrich violations log with screenshots if available
-    const enrichedViolationsLog = (session.violationsLog || []).map((v, idx) => {
+    // Enrich violations log with screenshots if genuinely matching this session
+    const enrichedViolationsLog = (session.violationsLog || []).map((v) => {
       let screenshotUrl = v.screenshotUrl || "";
-      if (!screenshotUrl && evidenceFiles.length > 0) {
-        screenshotUrl = `/proctoring-evidence/${evidenceFiles[idx % evidenceFiles.length]}`;
+      if (!screenshotUrl && evidenceFiles.length > 0 && session.sessionId) {
+        const matchedEvidence = evidenceFiles.find((f) => f.includes(session.sessionId));
+        if (matchedEvidence) {
+          screenshotUrl = `/proctoring-evidence/${matchedEvidence}`;
+        }
       }
       return {
         ...v,
         type: v.type || "Focus Interruption",
         detail: v.detail || "Candidate triggered an anomalous focus loss or tab navigation",
         severity: v.severity || (String(v.type).toLowerCase().includes("term") || String(v.type).toLowerCase().includes("fullscreen") ? "critical" : "warning"),
-        durationSeconds: v.durationSeconds || Math.floor(Math.random() * 5 + 2),
+        durationSeconds: v.durationSeconds || 0,
         screenshotUrl: screenshotUrl || null,
         timestamp: v.timestamp || session.createdAt,
       };
@@ -2542,7 +2753,7 @@ router.get("/proctoring/session/:sessionId", async (req, res) => {
       },
       candidate: {
         fullName: session.candidateDetails?.fullName || candidateUser?.fullName || candidateUser?.username || "Candidate",
-        email: session.candidateDetails?.email || candidateUser?.email || "candidate@masteryzone.com",
+        email: session.candidateDetails?.email || candidateUser?.email || "",
         username: candidateUser?.username || "candidate",
         avatar: candidateUser?.avatar || "",
         role: candidateUser?.role || "student",
@@ -2650,7 +2861,7 @@ router.get("/reports", async (req, res) => {
       const pct = c.mcqScorePercentage != null ? c.mcqScorePercentage : (c.percentage || 100);
       const title = `${c.certificationTitle || c.certTitle || matchedAttempt?.certTitle || "Data Structures & Algorithms (DSA)"} — Official Certificate`;
       const recipient = c.recipientName || matchedAttempt?.candidateName || c.userId?.fullName || c.userId?.username || "Verified Student";
-      const email = c.userId?.email || matchedAttempt?.candidateEmail || c.candidateEmail || (c.recipientName ? `${c.recipientName.toLowerCase().replace(/[^a-z0-9]/g, "")}@kalvium.community` : "student@masteryzone.com");
+      const email = c.userId?.email || matchedAttempt?.candidateEmail || c.candidateEmail || "";
       return {
         id: c._id,
         rawId: c._id,
@@ -2927,7 +3138,7 @@ router.get("/recordings", async (req, res) => {
         title: r.title || `Meeting Recording (${new Date(r.createdAt).toLocaleDateString()})`,
         recordingType: isScreenShare ? "Screen Share" : "Meeting",
         hostName: r.hostName || matchedUser?.fullName || "Host",
-        hostEmail: r.hostEmail || matchedUser?.email || "host@masteryzone.com",
+        hostEmail: r.hostEmail || matchedUser?.email || "",
         durationSeconds: r.durationSeconds || Math.max(30, Math.round(actualSize / 50000)),
         fileSizeMB: (actualSize / (1024 * 1024)).toFixed(2),
         fileSizeBytes: actualSize,
@@ -2947,18 +3158,18 @@ router.get("/recordings", async (req, res) => {
     proctoredSessions.forEach((p) => {
       let filename = p.recordingUrl ? path.basename(p.recordingUrl) : "";
       if (!filename || !diskFiles[filename]) {
-        const matchedDisk = Object.keys(diskFiles).find((df) => df.includes(p.sessionId) || df.endsWith(".webm"));
+        const matchedDisk = Object.keys(diskFiles).find((df) => p.sessionId && df.includes(p.sessionId));
         if (matchedDisk) filename = matchedDisk;
       }
 
       const diskInfo = diskFiles[filename];
-      const actualSize = diskInfo ? diskInfo.sizeBytes : 1963424;
+      const actualSize = diskInfo ? diskInfo.sizeBytes : (p.recordingFileSize || 0);
       const matchedUser = usersMap[String(p.userId)];
-      const candidateName = p.candidateDetails?.fullName || matchedUser?.fullName || "Candidate";
-      const candidateEmail = p.candidateDetails?.email || matchedUser?.email || "candidate@masteryzone.com";
+      const candidateName = p.candidateDetails?.fullName || matchedUser?.fullName || matchedUser?.username || "Candidate";
+      const candidateEmail = p.candidateDetails?.email || matchedUser?.email || "";
 
       const startT = p.createdAt || new Date();
-      const durationSec = p.recordingDurationSeconds || 3600;
+      const durationSec = p.recordingDurationSeconds || p.durationSeconds || (actualSize > 0 ? Math.max(30, Math.round(actualSize / 50000)) : 0);
 
       const proctorTimeline = [
         {
@@ -3025,45 +3236,37 @@ router.get("/recordings", async (req, res) => {
       const alreadyMapped = unifiedRecordings.some((ur) => ur.fileUrl.includes(df));
       if (!alreadyMapped && diskFiles[df].sizeBytes > 0) {
         const fileStat = diskFiles[df];
-        const isScreen = df.includes("screen") || fileStat.sizeBytes > 3000000;
+        const isScreen = df.includes("screen");
+        const cleanName = df.replace(/\.[^/.]+$/, "");
         unifiedRecordings.push({
           id: df,
-          recordingId: df.replace(/\.[^/.]+$/, ""),
-          meetingId: "live_pod",
+          recordingId: cleanName,
+          meetingId: cleanName,
           title: isScreen
-            ? `DSA Practice Session — Fullscreen Screen Share (${new Date(fileStat.createdAt).toLocaleDateString()})`
-            : `Algorithmic Review & Standup (${new Date(fileStat.createdAt).toLocaleDateString()})`,
+            ? `Captured Screen Recording (${new Date(fileStat.createdAt).toLocaleDateString()})`
+            : `Captured Media Session (${new Date(fileStat.createdAt).toLocaleDateString()})`,
           recordingType: isScreen ? "Screen Share" : "Meeting",
-          hostName: "MasteryZone Admin",
-          hostEmail: "yashashyash1@gmail.com",
-          durationSeconds: Math.max(60, Math.round(fileStat.sizeBytes / 30000)),
+          hostName: "System Recording",
+          hostEmail: "",
+          durationSeconds: Math.max(15, Math.round(fileStat.sizeBytes / 50000)),
           fileSizeMB: fileStat.sizeMB,
           fileSizeBytes: fileStat.sizeBytes,
           fileUrl: `/recordings/${df}`,
           streamUrl: `/api/recordings/stream/${df}`,
           status: "ready",
-          participantsCount: 2,
-          participantNames: ["MasteryZone Admin", "Jagathpriyan D"],
+          participantsCount: 1,
+          participantNames: ["System Recording"],
           chapters: [
-            { timestampSeconds: 0, title: "Session Setup" },
-            { timestampSeconds: 30, title: "Algorithmic Discussion" },
+            { timestampSeconds: 0, title: "Recording Initialized" },
           ],
           activityTimeline: [
             {
-              type: "meeting_started",
-              event: "Meeting Initialized & Room Created",
-              description: "Live collaboration meeting started.",
-              timestamp: new Date(new Date(fileStat.createdAt).getTime() - 60000),
-              user: "MasteryZone Admin",
-              role: "Host",
-            },
-            {
-              type: "screen_share_started",
-              event: "Screen Sharing Stream Started",
-              description: "Host shared workspace with participants.",
+              type: "recording_captured",
+              event: "Media Recording Captured",
+              description: `Raw media file captured to server disk (${fileStat.sizeMB} MB).`,
               timestamp: new Date(fileStat.createdAt),
-              user: "MasteryZone Admin",
-              role: "Host",
+              user: "System",
+              role: "Recorder",
             },
           ],
           createdAt: fileStat.createdAt,
