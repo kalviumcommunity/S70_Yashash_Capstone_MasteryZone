@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Link, useLocation, useNavigate, Outlet } from "react-router-dom";
 import "./Admin.css";
 import AdminNotificationDropdown from "./AdminNotificationDropdown.jsx";
+import ThemeToggle from "../ThemeToggle.jsx";
 import { performGlobalLogout } from "../../utils/sessionAuth.js";
 import {
   LuLayoutGrid,
@@ -155,9 +156,9 @@ const AdminLayout = () => {
         </div>
 
         {/* Bottom Sidebar: Clean Version & Copyright */}
-        <div style={{ padding: "14px 20px", borderTop: "1px solid #f1f5f9", fontSize: 11, color: "#94a3b8", display: "flex", alignItems: "center", justifyContent: "space-between", background: "#ffffff" }}>
+        <div style={{ padding: "14px 20px", borderTop: "1px solid var(--mz-border-subtle)", fontSize: 11, color: "var(--mz-text-subtle)", display: "flex", alignItems: "center", justifyContent: "space-between", background: "var(--mz-sidebar-bg)" }}>
           <span>© 2026 MasteryZone</span>
-          <span style={{ fontSize: 10, background: "#f1f5f9", padding: "2px 6px", borderRadius: 4, fontWeight: 700, color: "#64748b" }}>Admin v2.4</span>
+          <span style={{ fontSize: 10, background: "var(--mz-surface-muted)", padding: "2px 6px", borderRadius: 4, fontWeight: 700, color: "var(--mz-text-muted)" }}>Admin v2.4</span>
         </div>
       </aside>
 
@@ -202,7 +203,7 @@ const AdminLayout = () => {
                   background: "none",
                   border: "none",
                   cursor: "pointer",
-                  color: "#94a3b8",
+                  color: "var(--mz-text-subtle)",
                   display: "flex",
                   alignItems: "center",
                 }}
@@ -299,8 +300,10 @@ const AdminLayout = () => {
             )}
           </div>
 
-          {/* Right: Notifications & Admin Profile */}
+          {/* Right: Theme Toggle, Notifications & Admin Profile */}
           <div className="mz-admin-header-right">
+            <ThemeToggle />
+
             {/* Real-Time Admin Notification Center */}
             <AdminNotificationDropdown />
 
@@ -344,6 +347,10 @@ const AdminLayout = () => {
                         {adminUser?.email || "yashashyashash1@gmail.com"}
                       </span>
                     </div>
+                  </div>
+
+                  <div className="mz-c-dropdown-menu-list">
+                    <ThemeToggle variant="menu-row" />
                   </div>
 
                   <div className="mz-c-dropdown-divider" />

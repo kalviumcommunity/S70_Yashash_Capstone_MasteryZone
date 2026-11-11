@@ -10,6 +10,7 @@ import ProtectedRoute from "./components/ProtectedRoute.jsx";
 const LandingPage = lazy(() => import("./components/LandingPage.jsx"));
 import { NotificationProvider } from "./context/NotificationContext.jsx";
 import { LoadingProvider } from "./context/LoadingContext.jsx";
+import { ThemeProvider, useTheme } from "./context/ThemeContext.jsx";
 
 // Lazy load secondary/authenticated components
 const Signup = lazy(() => import("./components/signup.jsx"));
@@ -51,13 +52,30 @@ const AdminStorage = lazy(() => import("./components/Admin/AdminStorage.jsx"));
 const AdminHelpSupport = lazy(() => import("./components/Admin/AdminHelpSupport.jsx"));
 const AdminSettings = lazy(() => import("./components/Admin/AdminSettings.jsx"));
 
+function ThemedToastContainer() {
+  const { resolvedTheme } = useTheme();
+  return (
+    <ToastContainer
+      position="top-right"
+      theme={resolvedTheme}
+      autoClose={1800}
+      limit={2}
+      newestOnTop={true}
+      hideProgressBar={false}
+      closeOnClick
+      pauseOnHover
+    />
+  );
+}
+
 function App() {
   return (
     <ErrorBoundary>
-      <Router>
-        <LoadingProvider>
-          <NotificationProvider>
-            <Routes>
+      <ThemeProvider>
+        <Router>
+          <LoadingProvider>
+            <NotificationProvider>
+              <Routes>
           {/* Public Landing & Authentication Routes */}
           <Route path="/" element={<Suspense fallback={<GlobalLoader />}><LandingPage /></Suspense>} />
           <Route path="/landing" element={<Suspense fallback={<GlobalLoader />}><LandingPage /></Suspense>} />
@@ -354,22 +372,14 @@ function App() {
             <Route path="settings" element={<Suspense fallback={<GlobalLoader />}><AdminSettings /></Suspense>} />
           </Route>
 
-          {/* Fallback to default Landing Page */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </NotificationProvider>
-        </LoadingProvider>
-      </Router>
-      <ToastContainer
-        position="top-right"
-        theme="light"
-        autoClose={1800}
-        limit={2}
-        newestOnTop={true}
-        hideProgressBar={false}
-        closeOnClick
-        pauseOnHover
-      />
+            {/* Fallback to default Landing Page */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </NotificationProvider>
+          </LoadingProvider>
+        </Router>
+        <ThemedToastContainer />
+      </ThemeProvider>
     </ErrorBoundary>
   );
 }

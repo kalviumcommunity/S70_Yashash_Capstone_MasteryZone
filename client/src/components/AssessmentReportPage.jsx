@@ -470,15 +470,32 @@ function formatLocalReport(matched, uObj, rawId) {
     localStorage.removeItem(`mz_proc_order_${subKey}_${tId}_${mIdx}`);
     localStorage.removeItem(`mz_proc_order_${tId}_${mIdx}`);
     sessionStorage.removeItem("mz_proc_pending_refresh_violation");
+    sessionStorage.removeItem("mz_active_proctored_session");
+    localStorage.removeItem("mz_active_proctored_session");
+    localStorage.removeItem("mz_last_assessment_report_sid");
+    if (report?.questionId) {
+      localStorage.removeItem(`mz_report_sid_${report.questionId}`);
+      localStorage.removeItem(`mz_draft_${report.questionId}`);
+    }
 
-    if (report?.assessmentType === "certification" || sessionId?.startsWith("cert_")) {
+    const isCertification = report?.assessmentType === "certification" || sessionId?.startsWith("cert_");
+    const isProject = report?.type === "project_assessment" || sessionId?.startsWith("proj_") || report?.projectId;
+    const isMcq = report?.assessmentType === "mcq" || report?.type === "mcq_exam" || report?.itemType === "mcq" || sessionId?.startsWith("attempt_");
+    const isCodingChallenge = (report?.questionId && String(report.questionId).startsWith("ch_")) || sessionId?.startsWith("ch_");
+    const isCurriculumCoding = (tId && mIdx !== undefined && !isMcq && !isCertification && !isProject) || (report?.questionId && /^[a-zA-Z0-9]+_\d+$/.test(report.questionId));
+
+    if (isCertification) {
       navigate(`/coding?tab=certification&retake=true`);
-    } else if (report?.type === "project_assessment" || sessionId?.startsWith("proj_") || report?.projectId) {
+    } else if (isProject) {
       navigate(`/coding?tab=projects&project=${report.projectId || ""}&retake=true`);
-    } else if (report?.questionId && !report?.questions?.length && report?.assessmentType !== "mcq" && report?.type !== "mcq_exam") {
-      navigate(`/coding/${report.questionId}`);
-    } else {
+    } else if (isCodingChallenge) {
+      navigate(`/challenge-workspace/${report.questionId || "ch_two_sum"}?retake=true`);
+    } else if (isCurriculumCoding) {
+      navigate(`/coding-test/${tId}/${mIdx}?retake=true`);
+    } else if (isMcq) {
       navigate(`/proctored-assessment/${tId}/${mIdx}?retake=true`);
+    } else {
+      navigate(`/coding-test/${tId}/${mIdx}?retake=true`);
     }
   };
 

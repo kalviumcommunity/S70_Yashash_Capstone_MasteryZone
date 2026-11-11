@@ -9,7 +9,7 @@
   width: 100vw;
   height: 100vh;
   z-index: 9999999;
-  background-color: #ffffff;
+  background-color: var(--mz-bg-primary, #ffffff);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -73,14 +73,14 @@
   font-size: 21px;
   font-weight: 700;
   letter-spacing: -0.02em;
-  color: #0f172a;
+  color: var(--mz-text-primary, #0f172a);
   margin: 0 0 22px 0;
   line-height: 1.2;
   animation: mzLogoFadeIn 0.5s ease-out 0.08s both;
 }
 
 .mz-simple-brand-title span {
-  color: #2563eb;
+  color: var(--mz-accent-primary, #2563eb);
   font-weight: 800;
 }
 
@@ -89,7 +89,7 @@
   width: 260px;
   max-width: 80vw;
   height: 4px;
-  background-color: #f1f5f9;
+  background-color: var(--mz-bg-tertiary, #f1f5f9);
   border-radius: 999px;
   overflow: hidden;
   position: relative;
@@ -123,7 +123,7 @@
 .mz-simple-status-text {
   font-size: 13px;
   font-weight: 500;
-  color: #64748b;
+  color: var(--mz-text-muted, #64748b);
   letter-spacing: -0.01em;
   white-space: nowrap;
 }

@@ -210,12 +210,12 @@ router.post('/login', async (req, res) => {
 
     const now = new Date();
 
-    // Send login notification: Always alert immediately on new/unrecognized devices.
-    // Rate-limit routine logins on recognized devices to at most once every 4 hours to prevent inbox spam.
-    const ROUTINE_LOGIN_EMAIL_COOLDOWN_MS = 4 * 60 * 60 * 1000;
-    const isOverdueForRoutineEmail = !user.lastLoginNotificationSentAt ||
-      (now.getTime() - new Date(user.lastLoginNotificationSentAt).getTime() > ROUTINE_LOGIN_EMAIL_COOLDOWN_MS);
-    const shouldSendLoginEmail = isNewDevice || isOverdueForRoutineEmail;
+    // Send login notification: Always alert on new/unrecognized devices and logins.
+    // Use a short 15-second debounce to prevent duplicate emails from accidental double-clicks.
+    const DEBOUNCE_MS = 15 * 1000;
+    const isDebounced = user.lastLoginNotificationSentAt &&
+      (now.getTime() - new Date(user.lastLoginNotificationSentAt).getTime() < DEBOUNCE_MS);
+    const shouldSendLoginEmail = !isDebounced;
 
     if (shouldSendLoginEmail && !isGuestAccount(user.email, user.role)) {
       const telemetry = { browser, os, clientIp, deviceSummary, clientUrl: getClientBaseUrl(req) };
@@ -509,6 +509,7 @@ router.post('/firebase-login', verifyFirebaseToken, async (req, res) => {
     
     // Check if user exists in our DB
     let user = await User.findOne({ email });
+    let isNew = false;
 
     if (user && user.isSuspended) {
       return res.status(403).json({
@@ -517,6 +518,7 @@ router.post('/firebase-login', verifyFirebaseToken, async (req, res) => {
     }
 
     if (!user) {
+      isNew = true;
       // Create a new user if they don't exist
       const nameParts = name.trim().split(' ');
       const firstName = nameParts[0] || 'user';
@@ -560,11 +562,11 @@ router.post('/firebase-login', verifyFirebaseToken, async (req, res) => {
     const now = new Date();
 
     // Send login notification: Skip if welcome email was just dispatched for new registration.
-    // Alert immediately on new/unrecognized devices, and rate-limit routine logins to every 4 hours.
-    const ROUTINE_LOGIN_EMAIL_COOLDOWN_MS = 4 * 60 * 60 * 1000;
-    const isOverdueForRoutineEmail = !user.lastLoginNotificationSentAt ||
-      (now.getTime() - new Date(user.lastLoginNotificationSentAt).getTime() > ROUTINE_LOGIN_EMAIL_COOLDOWN_MS);
-    const shouldSendLoginEmail = !isNew && (isNewDevice || isOverdueForRoutineEmail);
+    // Use a short 15-second debounce to prevent duplicate emails from accidental double-clicks.
+    const DEBOUNCE_MS = 15 * 1000;
+    const isDebounced = user.lastLoginNotificationSentAt &&
+      (now.getTime() - new Date(user.lastLoginNotificationSentAt).getTime() < DEBOUNCE_MS);
+    const shouldSendLoginEmail = !isNew && !isDebounced;
 
     if (shouldSendLoginEmail && !isGuestAccount(user.email, user.role)) {
       const telemetry = { browser, os, clientIp, deviceSummary, clientUrl: getClientBaseUrl(req) };

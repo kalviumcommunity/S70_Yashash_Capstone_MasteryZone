@@ -360,6 +360,7 @@ export default function PracticalAssignmentModal({
               moduleIndex: mIdx,
               code: runCode,
               language: lang,
+              runAll: true,
             }),
           });
           const text = await res.text();

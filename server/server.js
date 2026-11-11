@@ -2180,6 +2180,9 @@ app.get(/.*/, (req, res) => {
 
 // Start Server
 if (process.env.NODE_ENV !== "test") {
+  if (!process.env.JUDGE0_API_HOST && !process.env.JUDGE0_API_URL) {
+    process.env.JUDGE0_API_HOST = "https://ce.judge0.com";
+  }
   databaseReady
     .then(() => {
       server.listen(PORT, () => {

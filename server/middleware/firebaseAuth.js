@@ -94,6 +94,7 @@ const verifyFirebaseToken = async (req, res, next) => {
       algorithms: ['RS256'],
       audience: FIREBASE_PROJECT_ID,
       issuer: `https://securetoken.google.com/${FIREBASE_PROJECT_ID}`,
+      clockTolerance: 60,
     });
 
     if (!decoded || !decoded.sub) {

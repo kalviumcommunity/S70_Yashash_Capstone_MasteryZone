@@ -1685,8 +1685,12 @@ router.post("/curriculum/exercise/run", authenticateToken, async (req, res) => {
       });
     }
 
-    const publicTests = (module.codingExercise.testCases || []).filter((t) => !t.isHidden).slice(0, 3);
-    const outcomes = await evaluateTestCasesBatch(lang, code, publicTests, {
+    const shouldRunAll = Boolean(req.body.runAll || req.body.all);
+    const testsToRun = shouldRunAll
+      ? (module.codingExercise.testCases || [])
+      : (module.codingExercise.testCases || []).filter((t) => !t.isHidden).slice(0, 3);
+
+    const outcomes = await evaluateTestCasesBatch(lang, code, testsToRun, {
       functionName: execConfig.functionName,
       problemId: module.id,
     });
@@ -1696,24 +1700,26 @@ router.post("/curriculum/exercise/run", authenticateToken, async (req, res) => {
         isUnavailable: true,
         error: outcomes[0].error,
         results: [],
-        total: publicTests.length,
+        total: testsToRun.length,
         passedCount: 0,
       });
     }
-    const results = publicTests.map((tc, i) => {
+    const results = testsToRun.map((tc, i) => {
       const outcome = outcomes[i] || { passed: false, actual: "", expected: tc.expectedOutput, error: "Evaluation failed", duration: 0 };
+      const isHidden = Boolean(tc.isHidden || (shouldRunAll && i >= 3));
       return {
         testIndex: i + 1,
         testNumber: i + 1,
-        input: tc.input,
-        expected: tc.expectedOutput,
-        expectedOutput: tc.expectedOutput,
-        actual: outcome.actual,
-        actualOutput: outcome.actual,
+        input: isHidden ? `[Hidden Test Case #${i + 1}]` : tc.input,
+        expected: isHidden ? `[Hidden Expected Output #${i + 1}]` : tc.expectedOutput,
+        expectedOutput: isHidden ? `[Hidden Expected Output #${i + 1}]` : tc.expectedOutput,
+        actual: isHidden && !outcome.passed ? "[Hidden Result]" : outcome.actual,
+        actualOutput: isHidden && !outcome.passed ? "[Hidden Result]" : outcome.actual,
         passed: outcome.passed,
         error: outcome.error,
         duration: outcome.duration,
         durationMs: outcome.duration,
+        isHidden,
       };
     });
 
@@ -1917,16 +1923,17 @@ router.post("/curriculum/exercise/submit", authenticateToken, async (req, res) =
     let finalReturnSid = req.body.sessionId || `sub_${trackId}_${idx}_${Date.now()}`;
     let activeSession = null;
     try {
-      const sessionFilter = {
-        userId,
-        $or: [
-          ...(req.body.sessionId ? [{ sessionId: req.body.sessionId }] : []),
-          { questionId: qKey },
-          { questionId: `${trackId}_${idx}` },
-          { trackId, status: "active" },
-          { status: "active" },
-        ],
-      };
+      const sessionFilter = req.body.sessionId
+        ? { sessionId: req.body.sessionId, userId }
+        : {
+            userId,
+            status: "active",
+            $or: [
+              { questionId: qKey },
+              { questionId: `${trackId}_${idx}` },
+              { trackId },
+            ],
+          };
       activeSession = await ProctoredCodingSession.findOne(sessionFilter).sort({ createdAt: -1 });
       if (activeSession) {
         finalReturnSid = activeSession.sessionId || finalReturnSid;
@@ -1952,25 +1959,23 @@ router.post("/curriculum/exercise/submit", authenticateToken, async (req, res) =
           qRecord.submittedAt = new Date();
         }
 
-        if (isAccepted) {
-          activeSession.status = "submitted";
-          activeSession.submissionResult = {
-            code,
-            language: lang,
-            score,
-            marksObtained: score,
-            totalMarks: 100,
-            passedTests: passedCount,
-            totalTests: testCases.length,
-            grade: score === 100 ? "A+" : score >= 80 ? "B" : "F",
-            accuracy: Math.round((passedCount / testCases.length) * 100),
-            passed: true,
-            status: score === 100 ? "ACCEPTED" : "PASSED",
-            durationSeconds: Math.max(1, Math.round(((new Date()) - (activeSession.serverStartTime || activeSession.createdAt || new Date())) / 1000)),
-            submittedAt: new Date(),
-            testResults,
-          };
-        }
+        activeSession.status = "submitted";
+        activeSession.submissionResult = {
+          code,
+          language: lang,
+          score,
+          marksObtained: score,
+          totalMarks: 100,
+          passedTests: passedCount,
+          totalTests: testCases.length,
+          grade: score === 100 ? "A+" : score >= 80 ? "B" : "F",
+          accuracy: Math.round((passedCount / testCases.length) * 100),
+          passed: isAccepted,
+          status: isAccepted ? (score === 100 ? "ACCEPTED" : "PASSED") : "FAILED",
+          durationSeconds: Math.max(1, Math.round(((new Date()) - (activeSession.serverStartTime || activeSession.createdAt || new Date())) / 1000)),
+          submittedAt: new Date(),
+          testResults,
+        };
         activeSession.markModified("questions");
         activeSession.markModified("questionDrafts");
         activeSession.markModified("submissionResult");
@@ -2041,6 +2046,30 @@ router.post("/curriculum/exercise/submit", authenticateToken, async (req, res) =
       });
       await progress.save();
     } catch {}
+
+    try {
+      const candidateUser = await User.findById(userId).select("fullName username email role").lean();
+      const recipientEmail = candidateUser?.email || activeSession?.candidateDetails?.email;
+      const recipientName = candidateUser?.fullName || candidateUser?.username || activeSession?.candidateDetails?.fullName || "Candidate";
+      if (recipientEmail && !isGuestAccount(recipientEmail)) {
+        dispatchMailBackground(async () => {
+          return await sendSubmissionEvaluationEmail({
+            userEmail: recipientEmail,
+            userName: recipientName,
+            assessmentTitle: module.codingExercise?.taskTitle || module.title || "Curriculum Coding Assessment",
+            assessmentType: "coding",
+            score,
+            maxScore: 100,
+            percentage: score,
+            verdict: isAccepted ? "PASSED" : "FAILED",
+            reportUrl: `/assessment-report/${finalReturnSid}`,
+            req,
+          });
+        }, { type: "coding_assessment_completed", recipient: recipientEmail });
+      }
+    } catch (mailDispatchErr) {
+      console.warn("Curriculum coding assessment email dispatch warning:", mailDispatchErr.message);
+    }
 
     res.json({
       status: isAccepted ? "PASSED" : "FAILED",

@@ -1,8 +1,265 @@
 @import "./components/UserProfileDropdown.css";
+@import "./components/ThemeToggle.css";
+
+/* =========================================================
+   MASTERY ZONE CENTRALIZED DESIGN TOKENS (LIGHT & DARK MODE)
+   ========================================================= */
+
+:root,
+[data-theme="light"],
+.mz-theme-light {
+  color-scheme: light;
+
+  /* Core Backgrounds & Surfaces */
+  --mz-bg-primary: #f8fafc;
+  --mz-bg-secondary: #f1f5f9;
+  --mz-bg-tertiary: #e2e8f0;
+  --mz-surface: #ffffff;
+  --mz-surface-2: #ffffff;
+  --mz-surface-subtle: #f8fafc;
+  --mz-surface-muted: #f1f5f9;
+  --mz-surface-hover: #f8fafc;
+  --mz-surface-elevated: #ffffff;
+  --mz-surface-glass: rgba(255, 255, 255, 0.94);
+  --mz-topbar-bg: rgba(255, 255, 255, 0.95);
+  --mz-sidebar-bg: #ffffff;
+  --mz-backdrop: rgba(15, 23, 42, 0.62);
+
+  /* Typography & Ink */
+  --mz-text-primary: #0f172a;
+  --mz-text-secondary: #334155;
+  --mz-text-body: #475569;
+  --mz-text-muted: #64748b;
+  --mz-text-subtle: #94a3b8;
+  --mz-text-inverse: #ffffff;
+
+  /* Borders & Dividers */
+  --mz-border: #e2e8f0;
+  --mz-border-subtle: #f1f5f9;
+  --mz-border-strong: #cbd5e1;
+  --mz-border-accent: #bfdbfe;
+
+  /* Inputs & Form Controls */
+  --mz-input-bg: #ffffff;
+  --mz-input-bg-subtle: #f8fafc;
+  --mz-input-border: #cbd5e1;
+  --mz-input-text: #0f172a;
+  --mz-input-placeholder: #94a3b8;
+
+  /* Brand & Accents */
+  --mz-accent-primary: #2563eb;
+  --mz-accent-primary-hover: #1d4ed8;
+  --mz-accent-indigo: #4f46e5;
+  --mz-accent-purple: #7c3aed;
+  --mz-accent-emerald: #10b981;
+  --mz-accent-amber: #f59e0b;
+  --mz-accent-danger: #ef4444;
+
+  /* Semantic Tones (Badges, Callouts, Status Pills) */
+  --mz-blue-bg: #eff6ff;
+  --mz-blue-border: #bfdbfe;
+  --mz-blue-text: #1d4ed8;
+
+  --mz-indigo-bg: #eef2ff;
+  --mz-indigo-border: #c7d2fe;
+  --mz-indigo-text: #4338ca;
+
+  --mz-purple-bg: #f5f3ff;
+  --mz-purple-border: #ddd6fe;
+  --mz-purple-text: #6d28d9;
+
+  --mz-green-bg: #f0fdf4;
+  --mz-green-border: #bbf7d0;
+  --mz-green-text: #15803d;
+
+  --mz-emerald-bg: #ecfdf5;
+  --mz-emerald-border: #a7f3d0;
+  --mz-emerald-text: #059669;
+
+  --mz-amber-bg: #fffbeb;
+  --mz-amber-border: #fde68a;
+  --mz-amber-text: #b45309;
+
+  --mz-red-bg: #fef2f2;
+  --mz-red-border: #fecaca;
+  --mz-red-text: #dc2626;
+
+  --mz-cyan-bg: #ecfeff;
+  --mz-cyan-border: #a5f3fc;
+  --mz-cyan-text: #0891b2;
+
+  /* Shadows */
+  --mz-shadow-sm: 0 2px 8px rgba(15, 23, 42, 0.04);
+  --mz-shadow-md: 0 8px 24px -4px rgba(15, 23, 42, 0.08), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
+  --mz-shadow-lg: 0 20px 48px -8px rgba(15, 23, 42, 0.14), 0 6px 16px -4px rgba(15, 23, 42, 0.06);
+  --mz-shadow-card: 0 4px 20px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
+
+  /* Banner Gradients */
+  --mz-hero-gradient: linear-gradient(135deg, #ffffff 0%, #f8faff 45%, #eff6ff 100%);
+  --mz-header-gradient: linear-gradient(180deg, #edf5ff 0%, #e2eeff 100%);
+
+  /* Module-Specific Token Aliases (Coding, Progress, Live, Admin) */
+  --mz-c-bg: var(--mz-bg-primary);
+  --mz-c-card-bg: var(--mz-surface);
+  --mz-c-border: var(--mz-border);
+  --mz-c-text-primary: var(--mz-text-primary);
+  --mz-c-text-secondary: var(--mz-text-muted);
+  --mz-c-card-shadow: var(--mz-shadow-card);
+  --mz-c-card-hover: 0 12px 28px -4px rgba(37, 99, 235, 0.12), 0 4px 12px -2px rgba(15, 23, 42, 0.06);
+
+  --mz-p-bg: var(--mz-bg-primary);
+  --mz-p-card-bg: var(--mz-surface);
+  --mz-p-border: var(--mz-border);
+  --mz-p-border-hover: var(--mz-border-strong);
+  --mz-p-text-main: var(--mz-text-primary);
+  --mz-p-text-muted: var(--mz-text-muted);
+  --mz-p-text-subtle: var(--mz-text-subtle);
+
+  --mzl-bg: var(--mz-bg-primary);
+  --mzl-surface: var(--mz-surface);
+  --mzl-surface-hover: var(--mz-surface-hover);
+  --mzl-border: var(--mz-border);
+  --mzl-text: var(--mz-text-primary);
+  --mzl-text-muted: var(--mz-text-muted);
+
+  --admin-bg: var(--mz-bg-primary);
+  --admin-surface: var(--mz-surface);
+  --admin-surface-subtle: var(--mz-surface-subtle);
+  --admin-border: var(--mz-border);
+  --admin-border-strong: var(--mz-border-strong);
+  --admin-text-primary: var(--mz-text-primary);
+  --admin-text-secondary: var(--mz-text-secondary);
+  --admin-text-muted: var(--mz-text-muted);
+}
+
+[data-theme="dark"],
+.mz-theme-dark {
+  color-scheme: dark;
+
+  /* Core Backgrounds & Surfaces */
+  --mz-bg-primary: #0b0f19;
+  --mz-bg-secondary: #111827;
+  --mz-bg-tertiary: #1e293b;
+  --mz-surface: #111827;
+  --mz-surface-2: #161f30;
+  --mz-surface-subtle: #0f172a;
+  --mz-surface-muted: #1e293b;
+  --mz-surface-hover: #1e293b;
+  --mz-surface-elevated: #182234;
+  --mz-surface-glass: rgba(15, 23, 42, 0.92);
+  --mz-topbar-bg: rgba(15, 23, 42, 0.92);
+  --mz-sidebar-bg: #0f172a;
+  --mz-backdrop: rgba(2, 6, 23, 0.78);
+
+  /* Typography & Ink */
+  --mz-text-primary: #f8fafc;
+  --mz-text-secondary: #cbd5e1;
+  --mz-text-body: #94a3b8;
+  --mz-text-muted: #94a3b8;
+  --mz-text-subtle: #64748b;
+  --mz-text-inverse: #0f172a;
+
+  /* Borders & Dividers */
+  --mz-border: #1e293b;
+  --mz-border-subtle: #172033;
+  --mz-border-strong: #334155;
+  --mz-border-accent: rgba(59, 130, 246, 0.35);
+
+  /* Inputs & Form Controls */
+  --mz-input-bg: #0f172a;
+  --mz-input-bg-subtle: #0b1120;
+  --mz-input-border: #334155;
+  --mz-input-text: #f8fafc;
+  --mz-input-placeholder: #64748b;
+
+  /* Brand & Accents */
+  --mz-accent-primary: #3b82f6;
+  --mz-accent-primary-hover: #60a5fa;
+  --mz-accent-indigo: #6366f1;
+  --mz-accent-purple: #8b5cf6;
+  --mz-accent-emerald: #10b981;
+  --mz-accent-amber: #f59e0b;
+  --mz-accent-danger: #ef4444;
+
+  /* Semantic Tones (Badges, Callouts, Status Pills) */
+  --mz-blue-bg: rgba(37, 99, 235, 0.16);
+  --mz-blue-border: rgba(59, 130, 246, 0.35);
+  --mz-blue-text: #60a5fa;
+
+  --mz-indigo-bg: rgba(99, 102, 241, 0.16);
+  --mz-indigo-border: rgba(99, 102, 241, 0.35);
+  --mz-indigo-text: #818cf8;
+
+  --mz-purple-bg: rgba(139, 92, 246, 0.16);
+  --mz-purple-border: rgba(139, 92, 246, 0.35);
+  --mz-purple-text: #a78bfa;
+
+  --mz-green-bg: rgba(22, 163, 74, 0.16);
+  --mz-green-border: rgba(34, 197, 94, 0.35);
+  --mz-green-text: #4ade80;
+
+  --mz-emerald-bg: rgba(16, 185, 129, 0.16);
+  --mz-emerald-border: rgba(16, 185, 129, 0.35);
+  --mz-emerald-text: #34d399;
+
+  --mz-amber-bg: rgba(245, 158, 11, 0.16);
+  --mz-amber-border: rgba(245, 158, 11, 0.35);
+  --mz-amber-text: #fbbf24;
+
+  --mz-red-bg: rgba(239, 68, 68, 0.16);
+  --mz-red-border: rgba(239, 68, 68, 0.35);
+  --mz-red-text: #f87171;
+
+  --mz-cyan-bg: rgba(6, 182, 212, 0.16);
+  --mz-cyan-border: rgba(6, 182, 212, 0.35);
+  --mz-cyan-text: #22d3ee;
+
+  /* Shadows */
+  --mz-shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.35);
+  --mz-shadow-md: 0 10px 28px -4px rgba(0, 0, 0, 0.5);
+  --mz-shadow-lg: 0 24px 54px -8px rgba(0, 0, 0, 0.65);
+  --mz-shadow-card: 0 4px 24px -2px rgba(0, 0, 0, 0.45);
+
+  /* Banner Gradients */
+  --mz-hero-gradient: linear-gradient(135deg, #111827 0%, #162032 50%, #172554 100%);
+  --mz-header-gradient: linear-gradient(180deg, #0f172a 0%, #111827 100%);
+
+  /* Module-Specific Token Aliases */
+  --mz-c-bg: var(--mz-bg-primary);
+  --mz-c-card-bg: var(--mz-surface);
+  --mz-c-border: var(--mz-border);
+  --mz-c-text-primary: var(--mz-text-primary);
+  --mz-c-text-secondary: var(--mz-text-muted);
+  --mz-c-card-shadow: var(--mz-shadow-card);
+  --mz-c-card-hover: 0 12px 32px -4px rgba(37, 99, 235, 0.25);
+
+  --mz-p-bg: var(--mz-bg-primary);
+  --mz-p-card-bg: var(--mz-surface);
+  --mz-p-border: var(--mz-border);
+  --mz-p-border-hover: var(--mz-border-strong);
+  --mz-p-text-main: var(--mz-text-primary);
+  --mz-p-text-muted: var(--mz-text-muted);
+  --mz-p-text-subtle: var(--mz-text-subtle);
+
+  --mzl-bg: var(--mz-bg-primary);
+  --mzl-surface: var(--mz-surface);
+  --mzl-surface-hover: var(--mz-surface-hover);
+  --mzl-border: var(--mz-border);
+  --mzl-text: var(--mz-text-primary);
+  --mzl-text-muted: var(--mz-text-muted);
+
+  --admin-bg: var(--mz-bg-primary);
+  --admin-surface: var(--mz-surface);
+  --admin-surface-subtle: var(--mz-surface-subtle);
+  --admin-border: var(--mz-border);
+  --admin-border-strong: var(--mz-border-strong);
+  --admin-text-primary: var(--mz-text-primary);
+  --admin-text-secondary: var(--mz-text-secondary);
+  --admin-text-muted: var(--mz-text-muted);
+}
 
 /* =========================================================
    GLOBAL CSS RESET & SYSTEM DEFAULTS
-   Eliminates all edge gutters, default browser margins & borders
    ========================================================= */
 
 *,
@@ -18,13 +275,15 @@ body {
   border: 0;
   width: 100%;
   min-height: 100%;
-  background-color: #f8fafc;
+  background-color: var(--mz-bg-primary);
+  color: var(--mz-text-primary);
   overflow-x: clip;
   overscroll-behavior-x: none;
   overscroll-behavior-y: auto;
   font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 #root {
@@ -59,9 +318,24 @@ button {
   font-family: inherit;
 }
 
+/* Form Elements Default Theme Inheritance */
+[data-theme="dark"] input,
+[data-theme="dark"] select,
+[data-theme="dark"] textarea,
+.mz-theme-dark input,
+.mz-theme-dark select,
+.mz-theme-dark textarea {
+  color-scheme: dark;
+}
+
+[data-theme="dark"] select option,
+.mz-theme-dark select option {
+  background-color: #111827;
+  color: #f8fafc;
+}
+
 /* =========================================================
    MASTERY ZONE GLOBAL NOTIFICATION & TOAST THEME
-   Unified professional notifications across all modules
    ========================================================= */
 
 .Toastify__toast-container {
@@ -76,10 +350,10 @@ button {
   border-radius: 14px !important;
   padding: 14px 18px !important;
   margin-bottom: 12px !important;
-  box-shadow: 0 16px 36px -4px rgba(15, 23, 42, 0.14), 0 4px 12px rgba(0, 0, 0, 0.06) !important;
-  border: 1px solid #e2e8f0 !important;
-  background: #ffffff !important;
-  color: #0f172a !important;
+  box-shadow: var(--mz-shadow-lg) !important;
+  border: 1px solid var(--mz-border) !important;
+  background: var(--mz-surface) !important;
+  color: var(--mz-text-primary) !important;
   font-size: 13.5px !important;
   font-weight: 600 !important;
   line-height: 1.45 !important;
@@ -90,7 +364,6 @@ button {
 
 .Toastify__toast:hover {
   transform: translateY(-2px);
-  box-shadow: 0 20px 42px -6px rgba(15, 23, 42, 0.18), 0 6px 16px rgba(0, 0, 0, 0.08) !important;
 }
 
 /* Success Toast */
@@ -134,13 +407,13 @@ button {
   gap: 10px !important;
   font-size: 13.5px !important;
   font-weight: 600 !important;
-  color: #1e293b !important;
+  color: var(--mz-text-primary) !important;
   flex: 1 !important;
 }
 
 /* Close Button */
 .Toastify__close-button {
-  color: #94a3b8 !important;
+  color: var(--mz-text-subtle) !important;
   opacity: 0.7 !important;
   padding: 2px !important;
   transition: opacity 0.15s ease, color 0.15s ease !important;
@@ -148,7 +421,7 @@ button {
 
 .Toastify__close-button:hover {
   opacity: 1 !important;
-  color: #0f172a !important;
+  color: var(--mz-text-primary) !important;
 }
 
 /* Progress Bars */
@@ -173,7 +446,8 @@ button {
   background: linear-gradient(90deg, #3b82f6 0%, #1d4ed8 100%) !important;
 }
 
-/* Dark Theme Overrides */
+/* Dark Theme Toast Overrides */
+[data-theme="dark"] .Toastify__toast,
 .mz-theme-dark .Toastify__toast {
   background: #182234 !important;
   color: #f8fafc !important;
@@ -181,38 +455,45 @@ button {
   box-shadow: 0 16px 40px -4px rgba(0, 0, 0, 0.6) !important;
 }
 
+[data-theme="dark"] .Toastify__toast--success,
 .mz-theme-dark .Toastify__toast--success {
   background: linear-gradient(135deg, #182234 0%, #064e3b 100%) !important;
   border-color: rgba(16, 185, 129, 0.4) !important;
   border-left-color: #10b981 !important;
 }
 
+[data-theme="dark"] .Toastify__toast--error,
 .mz-theme-dark .Toastify__toast--error {
   background: linear-gradient(135deg, #182234 0%, #450a0a 100%) !important;
   border-color: rgba(239, 68, 68, 0.4) !important;
   border-left-color: #ef4444 !important;
 }
 
+[data-theme="dark"] .Toastify__toast--warning,
 .mz-theme-dark .Toastify__toast--warning {
   background: linear-gradient(135deg, #182234 0%, #451a03 100%) !important;
   border-color: rgba(245, 158, 11, 0.4) !important;
   border-left-color: #f59e0b !important;
 }
 
+[data-theme="dark"] .Toastify__toast--info,
 .mz-theme-dark .Toastify__toast--info {
   background: linear-gradient(135deg, #182234 0%, #1e3a8a 100%) !important;
   border-color: rgba(37, 99, 235, 0.4) !important;
   border-left-color: #3b82f6 !important;
 }
 
+[data-theme="dark"] .Toastify__toast-body,
 .mz-theme-dark .Toastify__toast-body {
   color: #f1f5f9 !important;
 }
 
+[data-theme="dark"] .Toastify__close-button,
 .mz-theme-dark .Toastify__close-button {
-  color: #64748b !important;
+  color: #94a3b8 !important;
 }
 
+[data-theme="dark"] .Toastify__close-button:hover,
 .mz-theme-dark .Toastify__close-button:hover {
   color: #f8fafc !important;
 }

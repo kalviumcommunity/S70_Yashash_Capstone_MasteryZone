@@ -22,6 +22,7 @@ import {
   LuClock,
 } from "react-icons/lu";
 import { toast } from "react-toastify";
+import ThemeToggle from "../ThemeToggle.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 const MAIN_ADMIN_EMAIL = "yashashyashash1@gmail.com";
@@ -488,10 +489,10 @@ const AdminSettings = () => {
       {/* Main Admin Identity Box */}
       <div
         style={{
-          background: "linear-gradient(135deg, #f5f3ff 0%, #ede9fe 50%, #eff6ff 100%)",
+          background: "var(--mz-hero-gradient)",
           padding: "18px 24px",
           borderRadius: 16,
-          border: "1px solid #ddd6fe",
+          border: "1px solid var(--mz-purple-border)",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -511,17 +512,17 @@ const AdminSettings = () => {
           </div>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: "#1e1b4b" }}>
+              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: "var(--mz-text-primary)" }}>
                 Platform Super Administrator & Sole Authority
               </h3>
               <span className="mz-admin-badge-purple" style={{ fontSize: 10 }}>
                 EXCLUSIVE OWNER
               </span>
             </div>
-            <p style={{ margin: "4px 0 0", fontSize: 12.5, color: "#475569" }}>
+            <p style={{ margin: "4px 0 0", fontSize: 12.5, color: "var(--mz-text-secondary)" }}>
               Designated Main Admin Email:{" "}
-              <strong style={{ color: "#4f46e5" }}>{MAIN_ADMIN_EMAIL}</strong>{" "}
-              <span style={{ color: "#94a3b8" }}>• Environment-Protected & Non-Transferable</span>
+              <strong style={{ color: "var(--mz-purple-text)" }}>{MAIN_ADMIN_EMAIL}</strong>{" "}
+              <span style={{ color: "var(--mz-text-subtle)" }}>• Environment-Protected & Non-Transferable</span>
             </p>
           </div>
         </div>
@@ -533,13 +534,30 @@ const AdminSettings = () => {
         </div>
       </div>
 
+      {/* Appearance & Theme Preference Card */}
+      <div className="mz-admin-card" style={{ marginTop: 16 }}>
+        <div className="mz-admin-card-header" style={{ marginBottom: 14 }}>
+          <div>
+            <h3 className="mz-admin-card-title">
+              <LuSlidersHorizontal style={{ width: 17, height: 17, color: "#6366f1" }} />
+              <span>Appearance &amp; Theme Preference</span>
+            </h3>
+            <p style={{ margin: "3px 0 0", fontSize: 12, color: "var(--mz-text-muted)" }}>
+              Switch the Admin Portal and Learner interface between Light, Dark, and System Default themes.
+            </p>
+          </div>
+          <span className="mz-admin-badge-purple">Instant Sync</span>
+        </div>
+        <ThemeToggle variant="cards" />
+      </div>
+
       {/* Navigation Tabs */}
       <div
         style={{
           display: "flex",
           alignItems: "center",
           gap: 8,
-          borderBottom: "1px solid #e2e8f0",
+          borderBottom: "1px solid var(--mz-border)",
           paddingBottom: 2,
           marginTop: 10,
         }}
@@ -553,8 +571,8 @@ const AdminSettings = () => {
             padding: "10px 18px",
             borderRadius: "10px 10px 0 0",
             border: "none",
-            background: activeTab === "admin-mgmt" ? "#ffffff" : "transparent",
-            color: activeTab === "admin-mgmt" ? "#4f46e5" : "#64748b",
+            background: activeTab === "admin-mgmt" ? "var(--mz-surface)" : "transparent",
+            color: activeTab === "admin-mgmt" ? "var(--mz-purple-text)" : "var(--mz-text-muted)",
             fontWeight: activeTab === "admin-mgmt" ? 700 : 500,
             fontSize: 13.5,
             cursor: "pointer",
@@ -569,8 +587,8 @@ const AdminSettings = () => {
               fontSize: 10,
               padding: "2px 6px",
               borderRadius: 4,
-              background: activeTab === "admin-mgmt" ? "#ede9fe" : "#f1f5f9",
-              color: activeTab === "admin-mgmt" ? "#6366f1" : "#94a3b8",
+              background: activeTab === "admin-mgmt" ? "var(--mz-purple-bg)" : "var(--mz-surface-muted)",
+              color: activeTab === "admin-mgmt" ? "var(--mz-purple-text)" : "var(--mz-text-subtle)",
             }}
           >
             2FA
@@ -586,8 +604,8 @@ const AdminSettings = () => {
             padding: "10px 18px",
             borderRadius: "10px 10px 0 0",
             border: "none",
-            background: activeTab === "controls" ? "#ffffff" : "transparent",
-            color: activeTab === "controls" ? "#4f46e5" : "#64748b",
+            background: activeTab === "controls" ? "var(--mz-surface)" : "transparent",
+            color: activeTab === "controls" ? "var(--mz-purple-text)" : "var(--mz-text-muted)",
             fontWeight: activeTab === "controls" ? 700 : 500,
             fontSize: 13.5,
             cursor: "pointer",
@@ -608,8 +626,8 @@ const AdminSettings = () => {
             padding: "10px 18px",
             borderRadius: "10px 10px 0 0",
             border: "none",
-            background: activeTab === "audit" ? "#ffffff" : "transparent",
-            color: activeTab === "audit" ? "#4f46e5" : "#64748b",
+            background: activeTab === "audit" ? "var(--mz-surface)" : "transparent",
+            color: activeTab === "audit" ? "var(--mz-purple-text)" : "var(--mz-text-muted)",
             fontWeight: activeTab === "audit" ? 700 : 500,
             fontSize: 13.5,
             cursor: "pointer",
@@ -624,8 +642,8 @@ const AdminSettings = () => {
               fontSize: 10,
               padding: "2px 6px",
               borderRadius: 4,
-              background: "#f1f5f9",
-              color: "#64748b",
+              background: "var(--mz-surface-muted)",
+              color: "var(--mz-text-muted)",
             }}
           >
             {auditLogs.length}
@@ -711,18 +729,18 @@ const AdminSettings = () => {
                 >
                   <LuLock style={{ width: 24, height: 24 }} />
                 </div>
-                <h2 style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", margin: 0 }}>
+                <h2 style={{ fontSize: 18, fontWeight: 800, color: "var(--mz-text-primary)", margin: 0 }}>
                   Main Admin Security Challenge
                 </h2>
-                <p style={{ fontSize: 12.5, color: "#64748b", margin: "6px 0 0", lineHeight: 1.5 }}>
+                <p style={{ fontSize: 12.5, color: "var(--mz-text-muted)", margin: "6px 0 0", lineHeight: 1.5 }}>
                   Enter your Main Administrator password to initiate 2FA. A single-use 6-digit OTP will be dispatched to{" "}
-                  <strong style={{ color: "#4f46e5" }}>{MAIN_ADMIN_EMAIL}</strong>.
+                  <strong style={{ color: "var(--mz-purple-text)" }}>{MAIN_ADMIN_EMAIL}</strong>.
                 </p>
               </div>
 
               <form onSubmit={handleVerifyPassword}>
                 <div style={{ marginBottom: 20 }}>
-                  <label style={{ display: "block", fontSize: 12.5, fontWeight: 700, color: "#334155", marginBottom: 6 }}>
+                  <label style={{ display: "block", fontSize: 12.5, fontWeight: 700, color: "var(--mz-text-secondary)", marginBottom: 6 }}>
                     Main Admin Password
                   </label>
                   <div style={{ position: "relative" }}>
@@ -747,7 +765,7 @@ const AdminSettings = () => {
                         background: "none",
                         border: "none",
                         cursor: "pointer",
-                        color: "#94a3b8",
+                        color: "var(--mz-text-subtle)",
                       }}
                     >
                       {showPassword ? <LuEyeOff style={{ width: 16, height: 16 }} /> : <LuEye style={{ width: 16, height: 16 }} />}
@@ -804,10 +822,10 @@ const AdminSettings = () => {
                 >
                   <LuKeyRound style={{ width: 24, height: 24 }} />
                 </div>
-                <h2 style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", margin: 0 }}>
+                <h2 style={{ fontSize: 18, fontWeight: 800, color: "var(--mz-text-primary)", margin: 0 }}>
                   Enter 6-Digit OTP Code
                 </h2>
-                <p style={{ fontSize: 12.5, color: "#64748b", margin: "6px 0 0", lineHeight: 1.5 }}>
+                <p style={{ fontSize: 12.5, color: "var(--mz-text-muted)", margin: "6px 0 0", lineHeight: 1.5 }}>
                   A one-time passcode was dispatched to{" "}
                   <strong style={{ color: "#059669" }}>{MAIN_ADMIN_EMAIL}</strong>. It expires in 10 minutes.
                 </p>
@@ -815,7 +833,7 @@ const AdminSettings = () => {
 
               <form onSubmit={handleVerifyOtp}>
                 <div style={{ marginBottom: 20 }}>
-                  <label style={{ display: "block", fontSize: 12.5, fontWeight: 700, color: "#334155", marginBottom: 6 }}>
+                  <label style={{ display: "block", fontSize: 12.5, fontWeight: 700, color: "var(--mz-text-secondary)", marginBottom: 6 }}>
                     6-Digit Verification Code
                   </label>
                   <input
@@ -831,7 +849,7 @@ const AdminSettings = () => {
                       letterSpacing: "0.5em",
                       fontSize: 22,
                       fontWeight: 800,
-                      color: "#1e1b4b",
+                      color: "var(--mz-text-primary)",
                     }}
                     required
                     autoFocus
@@ -843,7 +861,7 @@ const AdminSettings = () => {
                       alignItems: "center",
                       marginTop: 8,
                       fontSize: 11.5,
-                      color: "#64748b",
+                      color: "var(--mz-text-muted)",
                     }}
                   >
                     <span>Single-use • 5 attempts maximum</span>
@@ -854,7 +872,7 @@ const AdminSettings = () => {
                       style={{
                         background: "none",
                         border: "none",
-                        color: "#4f46e5",
+                        color: "var(--mz-purple-text)",
                         cursor: "pointer",
                         fontWeight: 600,
                       }}
@@ -891,7 +909,7 @@ const AdminSettings = () => {
                     marginTop: 10,
                     background: "none",
                     border: "none",
-                    color: "#94a3b8",
+                    color: "var(--mz-text-subtle)",
                     fontSize: 12,
                     cursor: "pointer",
                   }}
@@ -909,10 +927,10 @@ const AdminSettings = () => {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
-                  background: "#ffffff",
+                  background: "var(--mz-surface)",
                   padding: "16px 20px",
                   borderRadius: 14,
-                  border: "1px solid #e2e8f0",
+                  border: "1px solid var(--mz-border)",
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -921,8 +939,8 @@ const AdminSettings = () => {
                       display: "inline-flex",
                       alignItems: "center",
                       gap: 6,
-                      background: "#dcfce7",
-                      color: "#15803d",
+                      background: "var(--mz-green-bg)",
+                      color: "var(--mz-green-text)",
                       padding: "6px 12px",
                       borderRadius: 20,
                       fontSize: 12,
@@ -940,7 +958,7 @@ const AdminSettings = () => {
                     />
                     <span>Main Admin Session Verified (Active)</span>
                   </span>
-                  <span style={{ fontSize: 12, color: "#64748b" }}>
+                  <span style={{ fontSize: 12, color: "var(--mz-text-muted)" }}>
                     Total Registered Administrators: <strong>{adminsList.length}</strong>
                   </span>
                 </div>
@@ -957,7 +975,7 @@ const AdminSettings = () => {
                   <button
                     onClick={handleLockSession}
                     className="mz-admin-btn-secondary"
-                    style={{ padding: "8px 14px", color: "#64748b" }}
+                    style={{ padding: "8px 14px", color: "var(--mz-text-muted)" }}
                   >
                     <LuLock style={{ width: 14, height: 14 }} />
                     <span>Lock Session</span>
@@ -970,17 +988,17 @@ const AdminSettings = () => {
                 <div
                   style={{
                     padding: "16px 20px",
-                    borderBottom: "1px solid #f1f5f9",
+                    borderBottom: "1px solid var(--mz-border-subtle)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "space-between",
                   }}
                 >
                   <div>
-                    <h3 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", margin: 0 }}>
+                    <h3 style={{ fontSize: 15, fontWeight: 700, color: "var(--mz-text-primary)", margin: 0 }}>
                       Platform Administrators
                     </h3>
-                    <span style={{ fontSize: 12, color: "#94a3b8" }}>
+                    <span style={{ fontSize: 12, color: "var(--mz-text-subtle)" }}>
                       Authenticated admin accounts and granular operational permissions
                     </span>
                   </div>
@@ -1009,7 +1027,7 @@ const AdminSettings = () => {
                     <tbody>
                       {adminsList.length === 0 ? (
                         <tr>
-                          <td colSpan="6" style={{ textAlign: "center", padding: "40px 0", color: "#94a3b8" }}>
+                          <td colSpan="6" style={{ textAlign: "center", padding: "40px 0", color: "var(--mz-text-subtle)" }}>
                             {loadingAdmins ? "Loading administrators..." : "No administrators registered yet."}
                           </td>
                         </tr>
@@ -1028,8 +1046,8 @@ const AdminSettings = () => {
                                       borderRadius: 10,
                                       background: isMain
                                         ? "linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%)"
-                                        : "#e2e8f0",
-                                      color: isMain ? "#ffffff" : "#475569",
+                                        : "var(--mz-surface-muted)",
+                                      color: isMain ? "#ffffff" : "var(--mz-text-secondary)",
                                       display: "flex",
                                       alignItems: "center",
                                       justifyContent: "center",
@@ -1040,10 +1058,10 @@ const AdminSettings = () => {
                                     {(admin.fullName || admin.email || "A").charAt(0).toUpperCase()}
                                   </div>
                                   <div>
-                                    <div style={{ fontWeight: 700, color: "#0f172a", fontSize: 13.5 }}>
+                                    <div style={{ fontWeight: 700, color: "var(--mz-text-primary)", fontSize: 13.5 }}>
                                       {admin.fullName || "Administrator"}
                                     </div>
-                                    <div style={{ fontSize: 11.5, color: "#64748b" }}>{admin.email}</div>
+                                    <div style={{ fontSize: 11.5, color: "var(--mz-text-muted)" }}>{admin.email}</div>
                                   </div>
                                 </div>
                               </td>
@@ -1058,8 +1076,8 @@ const AdminSettings = () => {
                                       gap: 4,
                                       padding: "3px 8px",
                                       borderRadius: 6,
-                                      background: "#ede9fe",
-                                      color: "#6366f1",
+                                      background: "var(--mz-purple-bg)",
+                                      color: "var(--mz-purple-text)",
                                       fontWeight: 800,
                                       fontSize: 11,
                                     }}
@@ -1075,8 +1093,8 @@ const AdminSettings = () => {
                                       gap: 4,
                                       padding: "3px 8px",
                                       borderRadius: 6,
-                                      background: "#e0f2fe",
-                                      color: "#0284c7",
+                                      background: "var(--mz-blue-bg)",
+                                      color: "var(--mz-blue-text)",
                                       fontWeight: 700,
                                       fontSize: 11,
                                     }}
@@ -1104,8 +1122,8 @@ const AdminSettings = () => {
                                           fontSize: 10,
                                           padding: "2px 6px",
                                           borderRadius: 4,
-                                          background: "#f1f5f9",
-                                          color: "#475569",
+                                          background: "var(--mz-surface-muted)",
+                                          color: "var(--mz-text-secondary)",
                                           fontWeight: 600,
                                         }}
                                       >
@@ -1113,7 +1131,7 @@ const AdminSettings = () => {
                                       </span>
                                     ))
                                   ) : (
-                                    <span style={{ fontSize: 11, color: "#94a3b8" }}>Standard View Only</span>
+                                    <span style={{ fontSize: 11, color: "var(--mz-text-subtle)" }}>Standard View Only</span>
                                   )}
                                 </div>
                               </td>
@@ -1128,8 +1146,8 @@ const AdminSettings = () => {
                                       gap: 4,
                                       padding: "3px 8px",
                                       borderRadius: 6,
-                                      background: "#fee2e2",
-                                      color: "#dc2626",
+                                      background: "var(--mz-red-bg)",
+                                      color: "var(--mz-red-text)",
                                       fontWeight: 700,
                                       fontSize: 11,
                                     }}
@@ -1145,8 +1163,8 @@ const AdminSettings = () => {
                                       gap: 4,
                                       padding: "3px 8px",
                                       borderRadius: 6,
-                                      background: "#dcfce7",
-                                      color: "#16a34a",
+                                      background: "var(--mz-green-bg)",
+                                      color: "var(--mz-green-text)",
                                       fontWeight: 700,
                                       fontSize: 11,
                                     }}
@@ -1160,8 +1178,8 @@ const AdminSettings = () => {
                                     <span
                                       style={{
                                         fontSize: 9.5,
-                                        color: "#d97706",
-                                        background: "#fef3c7",
+                                        color: "var(--mz-amber-text)",
+                                        background: "var(--mz-amber-bg)",
                                         padding: "1px 5px",
                                         borderRadius: 4,
                                         fontWeight: 600,
@@ -1174,7 +1192,7 @@ const AdminSettings = () => {
                               </td>
 
                               {/* Created Date */}
-                              <td style={{ fontSize: 12, color: "#64748b" }}>
+                              <td style={{ fontSize: 12, color: "var(--mz-text-muted)" }}>
                                 {admin.createdAt
                                   ? new Date(admin.createdAt).toLocaleDateString([], {
                                       month: "short",
@@ -1190,7 +1208,7 @@ const AdminSettings = () => {
                                   <span
                                     style={{
                                       fontSize: 11,
-                                      color: "#94a3b8",
+                                      color: "var(--mz-text-subtle)",
                                       fontStyle: "italic",
                                       padding: "4px 8px",
                                     }}
@@ -1286,11 +1304,11 @@ const AdminSettings = () => {
 
           <div className="mz-admin-grid-2">
             {/* Proctoring Sensitivity */}
-            <div style={{ padding: 16, borderRadius: 12, border: "1px solid #e2e8f0", background: "#f8fafc" }}>
-              <label style={{ fontWeight: 700, color: "#0f172a", fontSize: 13, display: "block" }}>
+            <div style={{ padding: 16, borderRadius: 12, border: "1px solid var(--mz-border)", background: "var(--mz-surface-subtle)" }}>
+              <label style={{ fontWeight: 700, color: "var(--mz-text-primary)", fontSize: 13, display: "block" }}>
                 Proctoring Sensitivity
               </label>
-              <p style={{ margin: "2px 0 10px", fontSize: 11.5, color: "#64748b" }}>
+              <p style={{ margin: "2px 0 10px", fontSize: 11.5, color: "var(--mz-text-muted)" }}>
                 Controls violation threshold for tab switching, fullscreen exit, and camera occlusions
               </p>
               <select
@@ -1310,8 +1328,8 @@ const AdminSettings = () => {
               style={{
                 padding: 16,
                 borderRadius: 12,
-                border: "1px solid #e2e8f0",
-                background: "#f8fafc",
+                border: "1px solid var(--mz-border)",
+                background: "var(--mz-surface-subtle)",
                 display: "flex",
                 flexDirection: "column",
                 gap: 12,
@@ -1325,10 +1343,10 @@ const AdminSettings = () => {
                 }}
               >
                 <div>
-                  <p style={{ margin: 0, fontWeight: 700, color: "#0f172a", fontSize: 13 }}>
+                  <p style={{ margin: 0, fontWeight: 700, color: "var(--mz-text-primary)", fontSize: 13 }}>
                     Transactional Email Notifications
                   </p>
-                  <p style={{ margin: "2px 0 0", fontSize: 11.5, color: "#64748b" }}>
+                  <p style={{ margin: "2px 0 0", fontSize: 11.5, color: "var(--mz-text-muted)" }}>
                     Dispatch OTPs, score revisions, and admin credentials via Gmail SMTP
                   </p>
                 </div>
@@ -1340,7 +1358,7 @@ const AdminSettings = () => {
                 />
               </div>
 
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", borderTop: "1px dashed #e2e8f0", paddingTop: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", borderTop: "1px dashed var(--mz-border)", paddingTop: 10 }}>
                 <button
                   type="button"
                   onClick={handleSendTestEmail}
@@ -1364,18 +1382,18 @@ const AdminSettings = () => {
               style={{
                 padding: 16,
                 borderRadius: 12,
-                border: "1px solid #e2e8f0",
-                background: "#f8fafc",
+                border: "1px solid var(--mz-border)",
+                background: "var(--mz-surface-subtle)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
               }}
             >
               <div>
-                <p style={{ margin: 0, fontWeight: 700, color: "#0f172a", fontSize: 13 }}>
+                <p style={{ margin: 0, fontWeight: 700, color: "var(--mz-text-primary)", fontSize: 13 }}>
                   Auto-Record Proctored Examinations
                 </p>
-                <p style={{ margin: "2px 0 0", fontSize: 11.5, color: "#64748b" }}>
+                <p style={{ margin: "2px 0 0", fontSize: 11.5, color: "var(--mz-text-muted)" }}>
                   Record candidate screen and audio stream with disclosed examination consent
                 </p>
               </div>
@@ -1392,18 +1410,18 @@ const AdminSettings = () => {
               style={{
                 padding: 16,
                 borderRadius: 12,
-                border: "1px solid #e2e8f0",
-                background: "#f8fafc",
+                border: "1px solid var(--mz-border)",
+                background: "var(--mz-surface-subtle)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
               }}
             >
               <div>
-                <p style={{ margin: 0, fontWeight: 700, color: "#0f172a", fontSize: 13 }}>
+                <p style={{ margin: 0, fontWeight: 700, color: "var(--mz-text-primary)", fontSize: 13 }}>
                   Allow Student Registration
                 </p>
-                <p style={{ margin: "2px 0 0", fontSize: 11.5, color: "#64748b" }}>
+                <p style={{ margin: "2px 0 0", fontSize: 11.5, color: "var(--mz-text-muted)" }}>
                   Permit new student accounts to sign up on MasteryZone platform
                 </p>
               </div>
@@ -1424,17 +1442,17 @@ const AdminSettings = () => {
           <div
             style={{
               padding: "16px 20px",
-              borderBottom: "1px solid #f1f5f9",
+              borderBottom: "1px solid var(--mz-border-subtle)",
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
             }}
           >
             <div>
-              <h3 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", margin: 0 }}>
+              <h3 style={{ fontSize: 15, fontWeight: 700, color: "var(--mz-text-primary)", margin: 0 }}>
                 Administrative Security Audit Log
               </h3>
-              <span style={{ fontSize: 12, color: "#94a3b8" }}>
+              <span style={{ fontSize: 12, color: "var(--mz-text-subtle)" }}>
                 Immutable ledger of all administrator actions, credential changes, and score updates
               </span>
             </div>
@@ -1454,7 +1472,7 @@ const AdminSettings = () => {
               <tbody>
                 {auditLogs.length === 0 ? (
                   <tr>
-                    <td colSpan="4" style={{ textAlign: "center", padding: "40px 0", color: "#94a3b8" }}>
+                    <td colSpan="4" style={{ textAlign: "center", padding: "40px 0", color: "var(--mz-text-subtle)" }}>
                       No administrative actions recorded yet.
                     </td>
                   </tr>
@@ -1466,13 +1484,13 @@ const AdminSettings = () => {
                           {log.action}
                         </span>
                       </td>
-                      <td style={{ fontWeight: 600, color: "#334155" }}>
+                      <td style={{ fontWeight: 600, color: "var(--mz-text-secondary)" }}>
                         {log.adminId?.email || MAIN_ADMIN_EMAIL}
                       </td>
-                      <td style={{ color: "#64748b", fontSize: 12.5 }}>
+                      <td style={{ color: "var(--mz-text-muted)", fontSize: 12.5 }}>
                         {log.note || "Platform administration event"}
                       </td>
-                      <td style={{ textAlign: "right", color: "#64748b", fontSize: 12 }}>
+                      <td style={{ textAlign: "right", color: "var(--mz-text-muted)", fontSize: 12 }}>
                         {new Date(log.timestamp).toLocaleString([], {
                           dateStyle: "medium",
                           timeStyle: "short",
@@ -1504,23 +1522,23 @@ const AdminSettings = () => {
         >
           <div
             style={{
-              background: "#ffffff",
+              background: "var(--mz-surface)",
               borderRadius: 16,
               width: "100%",
               maxWidth: 540,
-              boxShadow: "0 20px 40px -15px rgba(0,0,0,0.25)",
-              border: "1px solid #e2e8f0",
+              boxShadow: "var(--mz-shadow-lg)",
+              border: "1px solid var(--mz-border)",
               overflow: "hidden",
             }}
           >
             <div
               style={{
                 padding: "18px 24px",
-                borderBottom: "1px solid #f1f5f9",
+                borderBottom: "1px solid var(--mz-border-subtle)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
-                background: "#f8fafc",
+                background: "var(--mz-surface-subtle)",
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -1529,8 +1547,8 @@ const AdminSettings = () => {
                     width: 32,
                     height: 32,
                     borderRadius: 8,
-                    background: "#ede9fe",
-                    color: "#6366f1",
+                    background: "var(--mz-purple-bg)",
+                    color: "var(--mz-purple-text)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -1538,7 +1556,7 @@ const AdminSettings = () => {
                 >
                   <LuUserPlus style={{ width: 18, height: 18 }} />
                 </div>
-                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#0f172a" }}>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "var(--mz-text-primary)" }}>
                   Add Secondary Administrator
                 </h3>
               </div>
@@ -1548,7 +1566,7 @@ const AdminSettings = () => {
                   background: "none",
                   border: "none",
                   fontSize: 18,
-                  color: "#94a3b8",
+                  color: "var(--mz-text-subtle)",
                   cursor: "pointer",
                 }}
               >
@@ -1558,7 +1576,7 @@ const AdminSettings = () => {
 
             <form onSubmit={handleCreateAdminSubmit} style={{ padding: 24 }}>
               <div style={{ marginBottom: 14 }}>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 4 }}>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--mz-text-secondary)", marginBottom: 4 }}>
                   Administrator Email *
                 </label>
                 <input
@@ -1573,7 +1591,7 @@ const AdminSettings = () => {
               </div>
 
               <div style={{ marginBottom: 14 }}>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 4 }}>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--mz-text-secondary)", marginBottom: 4 }}>
                   Full Name
                 </label>
                 <input
@@ -1588,7 +1606,7 @@ const AdminSettings = () => {
 
               <div style={{ marginBottom: 16 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                  <label style={{ fontSize: 12, fontWeight: 700, color: "#334155" }}>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: "var(--mz-text-secondary)" }}>
                     Initial Temporary Password *
                   </label>
                   <button
@@ -1597,7 +1615,7 @@ const AdminSettings = () => {
                     style={{
                       background: "none",
                       border: "none",
-                      color: "#4f46e5",
+                      color: "var(--mz-purple-text)",
                       fontSize: 11,
                       fontWeight: 600,
                       cursor: "pointer",
@@ -1618,7 +1636,7 @@ const AdminSettings = () => {
               </div>
 
               <div style={{ marginBottom: 16 }}>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 8 }}>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--mz-text-secondary)", marginBottom: 8 }}>
                   Assign Operational Permissions
                 </label>
                 <div
@@ -1626,10 +1644,10 @@ const AdminSettings = () => {
                     display: "grid",
                     gridTemplateColumns: "1fr 1fr",
                     gap: 8,
-                    background: "#f8fafc",
+                    background: "var(--mz-surface-subtle)",
                     padding: 12,
                     borderRadius: 10,
-                    border: "1px solid #e2e8f0",
+                    border: "1px solid var(--mz-border)",
                   }}
                 >
                   {AVAILABLE_PERMISSIONS.map((p) => {
@@ -1642,7 +1660,7 @@ const AdminSettings = () => {
                           alignItems: "center",
                           gap: 8,
                           fontSize: 12,
-                          color: "#334155",
+                          color: "var(--mz-text-secondary)",
                           cursor: "pointer",
                         }}
                       >
@@ -1669,7 +1687,7 @@ const AdminSettings = () => {
               </div>
 
               <div style={{ marginBottom: 20 }}>
-                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "#475569", cursor: "pointer" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "var(--mz-text-secondary)", cursor: "pointer" }}>
                   <input
                     type="checkbox"
                     checked={addForm.requirePasswordChange}
@@ -1728,23 +1746,23 @@ const AdminSettings = () => {
         >
           <div
             style={{
-              background: "#ffffff",
+              background: "var(--mz-surface)",
               borderRadius: 16,
               width: "100%",
               maxWidth: 480,
-              boxShadow: "0 20px 40px -15px rgba(0,0,0,0.25)",
-              border: "1px solid #e2e8f0",
+              boxShadow: "var(--mz-shadow-lg)",
+              border: "1px solid var(--mz-border)",
               overflow: "hidden",
             }}
           >
             <div
               style={{
                 padding: "18px 24px",
-                borderBottom: "1px solid #f1f5f9",
+                borderBottom: "1px solid var(--mz-border-subtle)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
-                background: "#f8fafc",
+                background: "var(--mz-surface-subtle)",
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -1753,8 +1771,8 @@ const AdminSettings = () => {
                     width: 32,
                     height: 32,
                     borderRadius: 8,
-                    background: "#fef3c7",
-                    color: "#d97706",
+                    background: "var(--mz-amber-bg)",
+                    color: "var(--mz-amber-text)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -1762,7 +1780,7 @@ const AdminSettings = () => {
                 >
                   <LuKeyRound style={{ width: 18, height: 18 }} />
                 </div>
-                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#0f172a" }}>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "var(--mz-text-primary)" }}>
                   Reset Administrator Password
                 </h3>
               </div>
@@ -1772,7 +1790,7 @@ const AdminSettings = () => {
                   background: "none",
                   border: "none",
                   fontSize: 18,
-                  color: "#94a3b8",
+                  color: "var(--mz-text-subtle)",
                   cursor: "pointer",
                 }}
               >
@@ -1783,21 +1801,21 @@ const AdminSettings = () => {
             <form onSubmit={handleResetPasswordSubmit} style={{ padding: 24 }}>
               <div
                 style={{
-                  background: "#f1f5f9",
+                  background: "var(--mz-surface-muted)",
                   padding: "10px 14px",
                   borderRadius: 10,
                   marginBottom: 16,
                   fontSize: 12.5,
-                  color: "#334155",
+                  color: "var(--mz-text-secondary)",
                 }}
               >
                 Target Administrator: <strong>{selectedAdminForReset.fullName || selectedAdminForReset.email}</strong>
-                <div style={{ fontSize: 11.5, color: "#64748b" }}>{selectedAdminForReset.email}</div>
+                <div style={{ fontSize: 11.5, color: "var(--mz-text-muted)" }}>{selectedAdminForReset.email}</div>
               </div>
 
               <div style={{ marginBottom: 16 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                  <label style={{ fontSize: 12, fontWeight: 700, color: "#334155" }}>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: "var(--mz-text-secondary)" }}>
                     New Password *
                   </label>
                   <button
@@ -1806,7 +1824,7 @@ const AdminSettings = () => {
                     style={{
                       background: "none",
                       border: "none",
-                      color: "#4f46e5",
+                      color: "var(--mz-purple-text)",
                       fontSize: 11,
                       fontWeight: 600,
                       cursor: "pointer",

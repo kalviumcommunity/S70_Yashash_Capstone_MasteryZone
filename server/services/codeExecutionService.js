@@ -1507,9 +1507,10 @@ async function executeViaJudge0(lang, code, stdin = "", timeoutMs = 5000, option
   // Status 6: Compilation Error
   if (statusId === 6) {
     const rawCompErr = (compileOutput || stderr || message || statusDesc).trim();
+    const langLabel = normLang === "cpp" || normLang === "c++" ? "C++" : normLang === "c" ? "C" : normLang === "java" ? "Java" : normLang;
     const formattedCompErr = /^Compilation Error/i.test(rawCompErr)
       ? rawCompErr
-      : `Compilation Error:\n${rawCompErr}`;
+      : `Compilation Error (${langLabel}):\n${rawCompErr}`;
     return {
       output: "",
       error: formattedCompErr,
