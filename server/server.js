@@ -1124,7 +1124,7 @@ io.on("connection", (socket) => {
     return roomMatches(srcSocket) && roomMatches(targetSocket);
   };
 
-  socket.on("join_meeting", async ({ meetingId, user, mediaState, token }) => {
+  socket.on("join_meeting", async ({ meetingId, user, mediaState, token, inviteToken }) => {
     if (!meetingId) return;
     const cleanId = String(meetingId).trim().toLowerCase();
     const nonDashed = cleanId.replace(/-/g, "");
@@ -1184,8 +1184,15 @@ io.on("connection", (socket) => {
       const isAdmitted = (meeting.participants || []).some(
         (p) => String(p.userId) === targetUid || (socket.data?.userId && String(p.userId) === String(socket.data.userId))
       );
+      const inviteTokenHash = inviteToken
+        ? require("crypto").createHash("sha256").update(String(inviteToken)).digest("hex")
+        : "";
+      const hasValidInvite = Boolean(inviteTokenHash && (meeting.inviteAccessTokens || []).some((entry) =>
+        entry.tokenHash === inviteTokenHash && new Date(entry.expiresAt).getTime() > Date.now() &&
+        (!targetEmail || String(entry.email).toLowerCase() === String(targetEmail).toLowerCase())
+      ));
 
-      if (meeting.isPrivate && !isHost && !isAdmitted && !isAdmin) {
+      if (meeting.isPrivate && !isHost && !isAdmitted && !isAdmin && !hasValidInvite) {
         socket.emit("meeting_error", { message: "Access denied. This is a private meeting." });
         return;
       }
@@ -2149,13 +2156,14 @@ async function connectDB() {
         await bootstrapSuperAdmin();
       } catch (localErr) {
         console.error("🔌 Local MongoDB connection also failed:", localErr.message);
+        throw localErr;
       }
-    } else if (process.env.NODE_ENV === "production") {
-      process.exit(1);
+    } else {
+      throw err;
     }
   }
 }
-connectDB();
+const databaseReady = connectDB();
 
 
 
@@ -2172,9 +2180,16 @@ app.get(/.*/, (req, res) => {
 
 // Start Server
 if (process.env.NODE_ENV !== "test") {
-  server.listen(PORT, () => {
-    console.log(`🚀 Server running on port http://localhost:${PORT}`);
-  });
+  databaseReady
+    .then(() => {
+      server.listen(PORT, () => {
+        console.log(`🚀 Server running on port http://localhost:${PORT}`);
+      });
+    })
+    .catch((err) => {
+      console.error("FATAL: Server startup aborted because the database is unavailable:", err.message);
+      process.exit(1);
+    });
 }
 
 module.exports = {

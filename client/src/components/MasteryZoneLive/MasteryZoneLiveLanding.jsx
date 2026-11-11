@@ -361,7 +361,7 @@ export default function MasteryZoneLiveLanding({
                           className="mz-global-search-item"
                           onClick={() => {
                             setShowSearchDropdown(false);
-                            navigate(`/live/${m.meetingId}`);
+                            navigate(`/meeting/${m.meetingId}`);
                           }}
                         >
                           <span className="mz-global-search-item-icon">🎥</span>
