@@ -1062,7 +1062,10 @@ const Profile = () => {
                 <div className="mz-banner-wave-decoration" aria-hidden="true" />
               </section>
 
-              {/* 2. Profile Information Card */}
+              {/* 2. LeetCode-style Daily Activity Streak Calendar */}
+              <LeetCodeActivityCalendar onNavigate={(path) => navigate(path)} />
+
+              {/* 3. Profile Information Card */}
               <section className="mz-profile-info-card">
                 <div className="mz-info-card-header">
                   <div className="mz-info-header-icon-box">
@@ -1295,10 +1298,7 @@ const Profile = () => {
                 </div>
               </section>
 
-              {/* 2.5 LeetCode-style Daily Activity Streak Calendar */}
-              <LeetCodeActivityCalendar onNavigate={(path) => navigate(path)} />
-
-              {/* 3. Recorded Meeting Videos Section */}
+              {/* 4. Recorded Meeting Videos Section */}
               <section className="mz-recordings-card">
                 <div className="mz-side-card-header" style={{ marginBottom: "16px" }}>
                   <div className="mz-stat-header-icon-box" style={{ background: "rgba(56, 189, 248, 0.12)", color: "#0284c7" }}>
