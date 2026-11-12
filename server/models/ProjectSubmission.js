@@ -172,6 +172,48 @@ const ProjectSubmissionSchema = new mongoose.Schema(
       type: Number,
       default: 60,
     },
+    adminNote: {
+      type: String,
+      default: "",
+    },
+    adminModifiedAt: {
+      type: Date,
+    },
+    adminModifiedBy: {
+      type: String,
+      default: "",
+    },
+    marksHistory: [
+      {
+        oldScore: Number,
+        newScore: Number,
+        oldStatus: String,
+        newStatus: String,
+        adminNote: String,
+        modifiedBy: String,
+        modifiedAt: { type: Date, default: Date.now },
+      },
+    ],
+    notificationSent: {
+      type: Boolean,
+      default: false,
+    },
+    notificationEmailSent: {
+      type: Boolean,
+      default: false,
+    },
+    notificationInAppId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Notification",
+      index: true,
+    },
+    notificationViewed: {
+      type: Boolean,
+      default: false,
+    },
+    notificationViewedAt: {
+      type: Date,
+    },
   },
   { timestamps: true }
 );

@@ -12,6 +12,8 @@ const SubjectProgress = require("../models/SubjectProgress");
 const CodingProgress = require("../models/CodingProgress");
 const Recording = require("../models/Recording");
 const ProjectSubmission = require("../models/ProjectSubmission");
+const Meeting = require("../models/Meeting");
+const SupportTicket = require("../models/SupportTicket");
 const AdminActivityLog = require("../models/AdminActSchema");
 const AdminNotification = require("../models/AdminNotification");
 const PlatformSettings = require("../models/PlatformSettings");
@@ -599,7 +601,7 @@ router.get("/users/:id", async (req, res) => {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    // Fetch actual user activity across the platform
+    // Fetch actual user activity across the entire platform
     const [
       submissions,
       certAttempts,
@@ -607,8 +609,13 @@ router.get("/users/:id", async (req, res) => {
       issuedCerts,
       subjectProgressList,
       codingProgress,
+      projectSubmissions,
+      supportTickets,
+      meetings,
+      recordings,
+      proctoredSessions,
     ] = await Promise.all([
-      ChallengeSubmission.find({ userId: id }).sort({ createdAt: -1 }).limit(20).lean(),
+      ChallengeSubmission.find({ userId: id }).sort({ createdAt: -1 }).limit(30).lean(),
       CertificationAttempt.find({
         $or: [{ userId: id }, { candidateEmail: user.email }],
       })
@@ -622,6 +629,31 @@ router.get("/users/:id", async (req, res) => {
         .lean(),
       SubjectProgress.find({ userId: id }).lean(),
       CodingProgress.findOne({ userId: id }).lean(),
+      ProjectSubmission.find({
+        $or: [{ userId: id }, { "candidateDetails.email": user.email }],
+      })
+        .sort({ createdAt: -1 })
+        .lean(),
+      SupportTicket.find({
+        $or: [{ userId: id }, { userEmail: user.email }],
+      })
+        .sort({ createdAt: -1 })
+        .lean(),
+      Meeting.find({
+        $or: [{ hostUserId: String(id) }, { hostEmail: user.email }, { "participants.userId": String(id) }],
+      })
+        .sort({ createdAt: -1 })
+        .lean(),
+      Recording.find({
+        $or: [{ hostUserId: String(id) }, { hostEmail: user.email }],
+      })
+        .sort({ createdAt: -1 })
+        .lean(),
+      ProctoredCodingSession.find({
+        $or: [{ userId: id }, { "candidateDetails.email": user.email }],
+      })
+        .sort({ updatedAt: -1 })
+        .lean(),
     ]);
 
     // Build genuine chronological activity timeline
@@ -674,6 +706,23 @@ router.get("/users/:id", async (req, res) => {
       });
     });
 
+    // Practical Project Assignments
+    projectSubmissions.forEach((p) => {
+      const scoreVal = p.marksObtained != null ? p.marksObtained : 0;
+      const total = p.totalMarks || 100;
+      const pct = p.percentage != null ? p.percentage : Math.round((scoreVal / total) * 100);
+      timeline.push({
+        type: "PROJECT_SUBMISSION",
+        title: `Project: ${p.projectTitle || "Practical Project"}`,
+        description: `Submitted assignment with score ${scoreVal}/${total} (${pct}% - ${p.status || "NEEDS_IMPROVEMENT"})`,
+        timestamp: p.submittedAt || p.createdAt,
+        itemType: "project",
+        rawId: p._id,
+        sessionId: p.sessionId,
+        reportData: p,
+      });
+    });
+
     // Issued Certificates
     issuedCerts.forEach((crt) => {
       timeline.push({
@@ -684,6 +733,55 @@ router.get("/users/:id", async (req, res) => {
         itemType: "certificate",
         rawId: crt._id,
         reportData: crt,
+      });
+    });
+
+    // Proctored Sessions
+    proctoredSessions.forEach((ps) => {
+      timeline.push({
+        type: "PROCTORING_SESSION",
+        title: `Proctored Session: ${ps.assessmentTitle || "Certification Pre-check"}`,
+        description: `Proctored exam session with status ${ps.status} (${ps.violationsCount || 0} violations recorded)`,
+        timestamp: ps.updatedAt || ps.createdAt,
+        itemType: "proctoring",
+        rawId: ps._id,
+        sessionId: ps.sessionId,
+      });
+    });
+
+    // Video Meetings
+    meetings.forEach((m) => {
+      timeline.push({
+        type: "MEETING_HOSTED",
+        title: `Live Meeting: ${m.title || "Collaboration Session"}`,
+        description: `Meeting hosted with status ${m.status || "ended"}`,
+        timestamp: m.startTime || m.createdAt,
+        itemType: "meeting",
+        rawId: m._id,
+      });
+    });
+
+    // Session Recordings
+    recordings.forEach((r) => {
+      timeline.push({
+        type: "RECORDING_SAVED",
+        title: `Recording: ${r.title || "Meeting Stream"}`,
+        description: `Session recording captured (${r.recordingType || "Video"})`,
+        timestamp: r.createdAt,
+        itemType: "recording",
+        rawId: r._id,
+      });
+    });
+
+    // Support Tickets
+    supportTickets.forEach((t) => {
+      timeline.push({
+        type: "SUPPORT_TICKET",
+        title: `Support Ticket: ${t.subject || "Student Inquiry"}`,
+        description: `Ticket status: ${t.status || "OPEN"} [Priority: ${t.priority || "NORMAL"}]`,
+        timestamp: t.createdAt,
+        itemType: "ticket",
+        rawId: t._id,
       });
     });
 
@@ -706,7 +804,12 @@ router.get("/users/:id", async (req, res) => {
         certificates: issuedCerts,
         subjectProgress: subjectProgressList,
         codingProgress,
-        timeline: timeline.slice(0, 30),
+        projects: projectSubmissions,
+        supportTickets,
+        meetings,
+        recordings,
+        proctoredSessions,
+        timeline: timeline.slice(0, 50),
       },
     });
   } catch (error) {
@@ -1322,6 +1425,20 @@ router.get("/attempt-report/:type/:id", async (req, res) => {
       const pct = doc.percentage != null ? doc.percentage : Math.round((scoreVal / maxScore) * 100);
       const isPassed = Boolean(doc.passed || scoreVal >= (doc.passingMarks || 80));
 
+      let isViewed = Boolean(doc.notificationViewed);
+      let viewedAt = doc.notificationViewedAt || null;
+      if (!isViewed && doc.notificationInAppId) {
+        const notifDoc = await Notification.findById(doc.notificationInAppId).select("isRead readAt updatedAt").lean();
+        if (notifDoc && notifDoc.isRead) {
+          isViewed = true;
+          viewedAt = notifDoc.readAt || notifDoc.updatedAt || new Date();
+          await ProjectSubmission.updateOne(
+            { _id: doc._id },
+            { $set: { notificationViewed: true, notificationViewedAt: viewedAt } }
+          );
+        }
+      }
+
       report = {
         itemType: "project",
         id: doc._id,
@@ -1350,8 +1467,76 @@ router.get("/attempt-report/:type/:id", async (req, res) => {
         marksHistory: doc.marksHistory || [],
         notificationSent: Boolean(doc.notificationSent),
         notificationEmailSent: Boolean(doc.notificationEmailSent),
-        notificationViewed: Boolean(doc.notificationViewed),
-        notificationViewedAt: doc.notificationViewedAt,
+        notificationViewed: isViewed,
+        notificationViewedAt: viewedAt,
+        reportUrl: `/assessment-report/${doc.sessionId}`,
+      };
+    } else if (type === "proctoring" || type === "session") {
+      let doc = null;
+      if (mongoose.Types.ObjectId.isValid(id)) {
+        doc = await ProctoredCodingSession.findById(id).lean();
+      }
+      if (!doc) {
+        doc = await ProctoredCodingSession.findOne({ sessionId: id }).lean();
+      }
+      if (!doc) return res.status(404).json({ success: false, message: "Proctored session not found" });
+
+      let user = null;
+      if (doc.userId && mongoose.Types.ObjectId.isValid(String(doc.userId))) {
+        user = await User.findById(doc.userId).select("fullName username email phoneNumber location avatarUrl").lean();
+      }
+      const candidate = doc.candidateDetails || {};
+      const subResult = doc.submissionResult || {};
+      const maxScore = doc.maxScore || 100;
+      const scoreVal = doc.score != null ? doc.score : (subResult.score != null ? subResult.score : 0);
+      const pct = doc.percentage != null ? doc.percentage : Math.round((scoreVal / maxScore) * 100);
+      const isPassed = doc.evaluationVerdict === "PASSED" || subResult.passed || pct >= 70;
+
+      let isViewed = Boolean(doc.notificationViewed);
+      let viewedAt = doc.notificationViewedAt || null;
+      if (!isViewed && doc.notificationInAppId) {
+        const notifDoc = await Notification.findById(doc.notificationInAppId).select("isRead readAt updatedAt").lean();
+        if (notifDoc && notifDoc.isRead) {
+          isViewed = true;
+          viewedAt = notifDoc.readAt || notifDoc.updatedAt || new Date();
+          await ProctoredCodingSession.updateOne(
+            { _id: doc._id },
+            { $set: { notificationViewed: true, notificationViewedAt: viewedAt } }
+          );
+        }
+      }
+
+      report = {
+        itemType: "proctoring",
+        id: doc._id,
+        sessionId: doc.sessionId,
+        title: doc.assessmentTitle || "Proctored Coding Examination",
+        track: doc.trackId || "Coding",
+        candidateName: candidate.fullName || user?.fullName || user?.username || "Candidate",
+        candidateEmail: candidate.email || user?.email || "",
+        avatarUrl: user?.avatarUrl,
+        date: subResult.submittedAt || doc.updatedAt || doc.createdAt,
+        score: scoreVal,
+        maxScore,
+        percentage: pct,
+        status: doc.status || (isPassed ? "PASSED" : "TERMINATED"),
+        evaluationVerdict: doc.evaluationVerdict || (isPassed ? "PASSED" : "FAILED"),
+        passed: isPassed,
+        grade: isPassed ? (pct >= 90 ? "Distinction" : "Passed") : "Failed",
+        questions: doc.questions || [],
+        submissionResult: subResult,
+        deviceInfo: doc.deviceInfo || {},
+        violationsCount: doc.violationsCount || (doc.violationsLog ? doc.violationsLog.length : 0),
+        violationsLog: doc.violationsLog || [],
+        recordingUrl: doc.recordingUrl || "",
+        adminNote: doc.adminNote || "",
+        adminModifiedAt: doc.adminModifiedAt || null,
+        adminModifiedBy: doc.adminModifiedBy || "",
+        marksHistory: doc.marksHistory || [],
+        notificationSent: Boolean(doc.notificationSent),
+        notificationEmailSent: Boolean(doc.notificationEmailSent),
+        notificationViewed: isViewed,
+        notificationViewedAt: viewedAt,
         reportUrl: `/assessment-report/${doc.sessionId}`,
       };
     } else {
@@ -1956,6 +2141,177 @@ router.put("/modify-marks", async (req, res) => {
         notificationViewedAt: session.notificationViewedAt,
         studentEmail: studentUser?.email || session.candidateDetails?.email,
       };
+    } else if (itemType === "project") {
+      let sub = null;
+      if (mongoose.Types.ObjectId.isValid(itemId)) {
+        sub = await ProjectSubmission.findById(itemId);
+      }
+      if (!sub) {
+        sub = await ProjectSubmission.findOne({ sessionId: itemId });
+      }
+      if (!sub) return res.status(404).json({ success: false, message: "Project submission not found" });
+
+      targetUserId = sub.userId;
+      if (targetUserId && mongoose.Types.ObjectId.isValid(String(targetUserId))) {
+        studentUser = await User.findById(targetUserId).select("fullName username email").lean();
+      }
+      if (!studentUser && sub.candidateDetails?.email) {
+        studentUser = await User.findOne({ email: String(sub.candidateDetails.email).toLowerCase().trim() }).select("fullName username email").lean();
+      }
+
+      const maxScore = Number(sub.totalMarks || 100);
+      const parsedScore = Math.max(
+        0,
+        Math.min(
+          maxScore,
+          Number(newScore != null ? newScore : (newPercentage != null ? Math.round((Number(newPercentage) / 100) * maxScore) : 0))
+        )
+      );
+      const parsedPct = Math.max(0, Math.min(100, Math.round((parsedScore / maxScore) * 100)));
+      const passingThreshold = sub.passingMarks || 80;
+      const isPassed = newStatus
+        ? newStatus === "PASSED" || newStatus === "Passed" || newStatus === "ACCEPTED"
+        : parsedScore >= passingThreshold;
+      const finalStatus = isPassed ? "PASSED" : "NEEDS_IMPROVEMENT";
+      const prevScore = sub.marksObtained != null ? sub.marksObtained : 0;
+      const prevStatus = sub.status || "NEEDS_IMPROVEMENT";
+
+      if (!sub.marksHistory) sub.marksHistory = [];
+      sub.marksHistory.push({
+        oldScore: prevScore,
+        newScore: parsedScore,
+        oldStatus: prevStatus,
+        newStatus: finalStatus,
+        adminNote,
+        modifiedBy: req.user?.email || "Super Admin",
+        modifiedAt: new Date(),
+      });
+
+      sub.marksObtained = parsedScore;
+      sub.percentage = parsedPct;
+      sub.status = finalStatus;
+      sub.passed = isPassed;
+      sub.grade = parsedPct >= 90 ? "A+" : parsedPct >= 80 ? "A" : parsedPct >= 70 ? "B" : "Needs Improvement";
+      sub.adminNote = adminNote || `Evaluation modified by Super Admin to ${parsedScore}/${maxScore} (${parsedPct}%) on ${new Date().toLocaleDateString()}`;
+      sub.adminModifiedAt = new Date();
+      sub.adminModifiedBy = req.user?.email || "Super Admin";
+
+      const repUrl = `/assessment-report/${sub.sessionId}`;
+
+      // In-app Notification
+      if (studentUser) {
+        try {
+          notifCreated = await pushNotification(req.app, {
+            userId: studentUser._id,
+            title: `Project Assignment Evaluated: ${sub.projectTitle || "Project"}`,
+            message: `Super Admin evaluated your project: ${parsedScore}/${maxScore} (${parsedPct}% - ${finalStatus}). ${adminNote ? `Feedback: "${adminNote}"` : ""}`,
+            type: "assessment",
+            severity: isPassed ? "success" : "warning",
+            actionUrl: repUrl,
+            actionLabel: "View Project Report",
+            meta: {
+              sessionId: sub.sessionId,
+              score: parsedScore,
+              maxScore,
+              status: finalStatus,
+              feedback: adminNote,
+            },
+          });
+          if (notifCreated) {
+            sub.notificationSent = true;
+            sub.notificationInAppId = notifCreated._id;
+            sub.notificationViewed = false;
+            sub.notificationViewedAt = null;
+          }
+        } catch (notifErr) {
+          console.warn("Project in-app notification error:", notifErr.message);
+        }
+      }
+
+      // Email Notification
+      const recipientEmail = studentUser?.email || sub.candidateDetails?.email;
+      const recipientName = studentUser?.fullName || studentUser?.username || sub.candidateDetails?.fullName || "Candidate";
+      if (recipientEmail && !isGuestAccount(recipientEmail)) {
+        const emailRes = await sendSubmissionEvaluationEmail({
+          userEmail: recipientEmail,
+          userName: recipientName,
+          assessmentTitle: sub.projectTitle || "Practical Project Assignment",
+          assessmentType: "project",
+          score: parsedScore,
+          maxScore,
+          percentage: parsedPct,
+          verdict: finalStatus,
+          adminComment: adminNote,
+          reviewedAt: sub.adminModifiedAt,
+          reportUrl: repUrl,
+          req,
+        }).catch((emailErr) => {
+          console.warn("Project email notification error:", emailErr?.message);
+          return { success: false };
+        });
+        sub.notificationEmailSent = !!(emailRes && emailRes.success);
+      }
+
+      await sub.save();
+
+      // Emit real-time socket events for marks update & reports sync
+      try {
+        const io = req.app.get("io");
+        if (io) {
+          io.emit("ASSESSMENT_MARKS_UPDATED", {
+            id: sub._id,
+            rawId: sub._id,
+            sessionId: sub.sessionId,
+            itemType: "project",
+            score: `${parsedScore} / ${maxScore} (${parsedPct}%)`,
+            rawScore: parsedScore,
+            maxScore,
+            percentage: parsedPct,
+            status: finalStatus,
+            passed: isPassed,
+            adminNote: sub.adminNote,
+            adminModifiedAt: sub.adminModifiedAt,
+            adminModifiedBy: sub.adminModifiedBy,
+          });
+          io.emit("NEW_REPORT", {
+            id: sub._id,
+            rawId: sub._id,
+            itemType: "project",
+            sessionId: sub.sessionId,
+            title: `${sub.projectTitle || "Practical Project"} — Project Assessment Report`,
+            type: "Project Assessment Report",
+            recipient: recipientName,
+            email: recipientEmail,
+            score: `${parsedPct}%`,
+            rawScore: parsedScore,
+            maxScore,
+            grade: sub.grade,
+            verificationCode: String(sub.sessionId || sub._id).slice(-8).toUpperCase(),
+            date: sub.adminModifiedAt || sub.submittedAt || sub.createdAt,
+            status: finalStatus,
+            reportUrl: repUrl,
+          });
+        }
+      } catch {}
+
+      updatedResult = {
+        id: sub._id,
+        sessionId: sub.sessionId,
+        itemType: "project",
+        score: `${parsedScore} / ${maxScore} (${parsedPct}%)`,
+        rawScore: parsedScore,
+        maxScore,
+        percentage: parsedPct,
+        status: finalStatus,
+        passed: isPassed,
+        grade: sub.grade,
+        adminNote: sub.adminNote,
+        notificationSent: sub.notificationSent,
+        notificationEmailSent: sub.notificationEmailSent,
+        notificationViewed: sub.notificationViewed,
+        notificationViewedAt: sub.notificationViewedAt,
+        studentEmail: studentUser?.email || sub.candidateDetails?.email,
+      };
     } else {
       return res.status(400).json({ success: false, message: `Unsupported itemType: ${itemType}` });
     }
@@ -2278,7 +2634,11 @@ router.get("/coding-analytics", async (req, res) => {
     const { range = "30d", startDate: qStart, endDate: qEnd } = req.query;
     const { startDate, endDate } = parseDateRange(range, qStart, qEnd);
 
+    const genuineUsers = await User.find(REAL_USER_FILTER).select("_id").lean();
+    const genuineUserIds = genuineUsers.map((u) => u._id);
+
     const filter = {
+      userId: { $in: genuineUserIds },
       createdAt: { $gte: startDate, $lte: endDate },
     };
 
@@ -2413,6 +2773,7 @@ router.get("/assessments", async (req, res) => {
     const [certAttempts, moduleAttempts, challengeSubs, projectSubs] = await Promise.all([
       CertificationAttempt.find({
         ...baseDateFilter,
+        $or: [{ userId: { $in: genuineUserIds } }, { candidateEmail: { $in: genuineUserEmails } }],
       })
         .select("_id attemptId userId candidateName candidateEmail certTitle percentage score status finalVerdict submittedAt createdAt durationMinutes certificateId")
         .populate("userId", "fullName username email")
@@ -2421,6 +2782,11 @@ router.get("/assessments", async (req, res) => {
         .lean(),
       ModuleAssessmentAttempt.find({
         ...baseDateFilter,
+        $or: [
+          { userId: { $in: genuineUserIds } },
+          { candidateEmail: { $in: genuineUserEmails } },
+          { userEmail: { $in: genuineUserEmails } },
+        ],
       })
         .select("_id sessionId userId assessmentTitle moduleTitle totalQuestions score percentage passed submittedAt createdAt timeSpentSeconds")
         .populate("userId", "fullName username email")
@@ -2429,6 +2795,7 @@ router.get("/assessments", async (req, res) => {
         .lean(),
       ChallengeSubmission.find({
         ...baseDateFilter,
+        userId: { $in: genuineUserIds },
       })
         .select("_id userId challengeTitle challengeId totalTests passedTests score status createdAt runtimeMs")
         .populate("userId", "fullName username email")
@@ -2437,8 +2804,9 @@ router.get("/assessments", async (req, res) => {
         .lean(),
       ProjectSubmission.find({
         ...baseDateFilter,
+        $or: [{ userId: { $in: genuineUserIds } }, { "candidateDetails.email": { $in: genuineUserEmails } }],
       })
-        .select("_id sessionId userId candidateDetails projectTitle totalMarks maxTotalMarks percentage overallVerdict submittedAt createdAt")
+        .select("_id sessionId userId candidateDetails projectTitle totalMarks marksObtained percentage passed status passingMarks submittedAt createdAt")
         .populate("userId", "fullName username email")
         .sort({ createdAt: -1 })
         .limit(100)
@@ -2521,16 +2889,16 @@ router.get("/assessments", async (req, res) => {
     });
 
     const formattedProjects = projectSubs.map((p) => {
-      const maxScore = p.maxTotalMarks || 100;
-      const scoreVal = p.totalMarks || 0;
+      const maxScore = p.totalMarks || 100;
+      const scoreVal = p.marksObtained != null ? p.marksObtained : 0;
       const pct = p.percentage != null ? p.percentage : Math.round((scoreVal / maxScore) * 100);
-      const isPassed = p.overallVerdict === "ACCEPTED" || pct >= 70;
+      const isPassed = Boolean(p.passed || p.status === "PASSED" || scoreVal >= (p.passingMarks || 80));
       return {
         id: p._id,
         rawId: p._id,
         itemType: "project",
         attemptId: p.sessionId || p._id,
-        user: p.candidateDetails?.fullName || p.userId?.fullName || "Candidate",
+        user: p.candidateDetails?.fullName || p.userId?.fullName || p.userId?.username || "Candidate",
         email: p.candidateDetails?.email || p.userId?.email || "",
         title: p.projectTitle || "Practical Project Assignment",
         type: "Project Assignment",
@@ -2538,7 +2906,7 @@ router.get("/assessments", async (req, res) => {
         score: `${scoreVal}/${maxScore} (${pct}%)`,
         rawScore: scoreVal,
         maxScore,
-        status: isPassed ? "Passed" : "Failed",
+        status: isPassed ? "Passed" : "Needs Improvement",
         passed: isPassed,
         date: p.submittedAt || p.createdAt,
         timeSpent: "Project",
@@ -2897,38 +3265,55 @@ router.get("/reports", async (req, res) => {
     const genuineUserEmails = genuineUsers.map((u) => (u.email || "").toLowerCase()).filter(Boolean);
 
     const [certs, attempts, moduleAttempts, projectSubs, codingSessions, challengeSubs] = await Promise.all([
-      IssuedCertificate.find({})
+      IssuedCertificate.find({
+        $or: [{ userId: { $in: genuineUserIds } }, { candidateEmail: { $in: genuineUserEmails } }],
+      })
         .select("_id attemptId certificateId verificationCode certificationTitle certTitle recipientName candidateEmail userId mcqScorePercentage percentage issueDate issuedAt createdAt status")
         .populate("userId", "fullName username email")
         .sort({ issueDate: -1, issuedAt: -1, createdAt: -1 })
         .lean(),
-      CertificationAttempt.find({})
+      CertificationAttempt.find({
+        $or: [{ userId: { $in: genuineUserIds } }, { candidateEmail: { $in: genuineUserEmails } }],
+      })
         .select("_id attemptId userId candidateName candidateEmail certTitle percentage score passed status finalVerdict certificateId submittedAt createdAt")
         .populate("userId", "fullName username email")
         .sort({ createdAt: -1 })
         .limit(150)
         .lean(),
-      ModuleAssessmentAttempt.find({})
+      ModuleAssessmentAttempt.find({
+        $or: [
+          { userId: { $in: genuineUserIds } },
+          { candidateEmail: { $in: genuineUserEmails } },
+          { userEmail: { $in: genuineUserEmails } },
+        ],
+      })
         .select("_id sessionId userId assessmentTitle moduleTitle totalQuestions score percentage passed submittedAt createdAt")
         .populate("userId", "fullName username email")
         .sort({ createdAt: -1 })
         .limit(150)
         .lean(),
-      ProjectSubmission.find({})
+      ProjectSubmission.find({
+        $or: [{ userId: { $in: genuineUserIds } }, { "candidateDetails.email": { $in: genuineUserEmails } }],
+      })
         .select("_id sessionId projectId projectTitle projectCategory difficulty userId candidateDetails marksObtained totalMarks percentage grade passed status badgeAwarded passedTests totalTests submittedAt createdAt")
         .populate("userId", "fullName username email")
         .sort({ submittedAt: -1, createdAt: -1 })
         .limit(150)
         .lean(),
       ProctoredCodingSession.find({
-        $or: [{ status: "submitted" }, { "submissionResult.submittedAt": { $exists: true } }]
+        $and: [
+          { $or: [{ status: "submitted" }, { "submissionResult.submittedAt": { $exists: true } }] },
+          { $or: [{ userId: { $in: genuineUserIds } }, { "candidateDetails.email": { $in: genuineUserEmails } }] },
+        ],
       })
         .select("_id sessionId questionId assessmentTitle trackId userId candidateDetails status submissionResult questions updatedAt createdAt")
         .populate("userId", "fullName username email")
         .sort({ updatedAt: -1 })
         .limit(150)
         .lean(),
-      ChallengeSubmission.find({})
+      ChallengeSubmission.find({
+        userId: { $in: genuineUserIds },
+      })
         .select("_id userId challengeTitle challengeId totalTests passedTests score status createdAt runtimeMs adminNote")
         .populate("userId", "fullName username email")
         .sort({ createdAt: -1 })
@@ -3193,56 +3578,8 @@ router.get("/recordings", async (req, res) => {
       const isScreenShare =
         r.title?.toLowerCase().includes("screen") || r.recordingType === "Screen Share";
 
-      // Build rich activity timeline if not populated
-      let timeline = r.activityTimeline && r.activityTimeline.length > 0 ? r.activityTimeline : [];
-      if (timeline.length === 0) {
-        const startT = r.startTime || r.createdAt || new Date();
-        const durationSec = r.durationSeconds || Math.max(30, Math.round(actualSize / 50000));
-        timeline = [
-          {
-            type: "meeting_started",
-            event: "Meeting Initialized & Room Created",
-            description: `Meeting "${r.title}" hosted by ${r.hostName || "Host"}.`,
-            timestamp: new Date(new Date(startT).getTime() - durationSec * 1000),
-            user: r.hostName || "Host",
-            role: "Host",
-          },
-          {
-            type: "participant_joined",
-            event: "Participants Connected & Audio Verified",
-            description: `Host joined audio channel with ${r.participantsCount || 1} participant(s).`,
-            timestamp: new Date(new Date(startT).getTime() - durationSec * 900),
-            user: r.hostName || "Host",
-            role: "Participant",
-          },
-          {
-            type: isScreenShare ? "screen_share_started" : "camera_active",
-            event: isScreenShare ? "Screen Sharing Stream Started" : "HD Video & Audio Telemetry Active",
-            description: isScreenShare
-              ? "Host shared active display surface and collaboration window."
-              : "Camera feed and microphone channels streaming at 30fps.",
-            timestamp: new Date(new Date(startT).getTime() - durationSec * 800),
-            user: r.hostName || "Host",
-            role: "Host",
-          },
-          {
-            type: "recording_started",
-            event: "Continuous MediaRecorder Initiated",
-            description: `Recording stream encoded with VP9/Opus format.`,
-            timestamp: new Date(new Date(startT).getTime() - durationSec * 750),
-            user: "MasteryZone Recorder",
-            role: "System",
-          },
-          {
-            type: "recording_completed",
-            event: "Recording Finalized & Stored",
-            description: `Session concluded. Saved ${(actualSize / (1024 * 1024)).toFixed(2)} MB video to cloud storage.`,
-            timestamp: new Date(startT),
-            user: "MasteryZone Cloud Storage",
-            role: "System",
-          },
-        ];
-      }
+      // Genuine activity timeline directly from database record
+      const timeline = Array.isArray(r.activityTimeline) ? r.activityTimeline : [];
 
       unifiedRecordings.push({
         id: r._id,

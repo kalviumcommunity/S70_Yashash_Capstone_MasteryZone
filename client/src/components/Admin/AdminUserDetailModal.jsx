@@ -879,28 +879,43 @@ const AdminUserDetailModal = ({
           {/* TAB 5: DEVICES & LOGINS */}
           {activeTab === "devices" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {(user.knownDevices && user.knownDevices.length > 0 ? user.knownDevices : [
-                {
-                  deviceString: user.lastLoginDevice || "Desktop / Chrome",
-                  ip: user.lastLoginIp || "127.0.0.1",
-                  lastSeenAt: user.lastLoginAt || user.updatedAt,
-                },
-              ]).map((dev, idx) => (
-                <div key={idx} style={{ padding: "14px 18px", borderRadius: 14, border: "1px solid var(--mz-border)", background: "var(--mz-surface)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              {(user.knownDevices && user.knownDevices.length > 0) ? (
+                user.knownDevices.map((dev, idx) => (
+                  <div key={idx} style={{ padding: "14px 18px", borderRadius: 14, border: "1px solid var(--mz-border)", background: "var(--mz-surface)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <div className="mz-admin-stat-icon" style={{ background: "var(--mz-surface-muted)", color: "var(--mz-text-secondary)" }}>
+                        <LuSmartphone style={{ width: 18, height: 18 }} />
+                      </div>
+                      <div>
+                        <p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: "var(--mz-text-primary)" }}>{dev.deviceString || dev.browser || "Web Browser"}</p>
+                        <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--mz-text-subtle)" }}>IP: {dev.ip || "Unknown"}</p>
+                      </div>
+                    </div>
+                    <span style={{ fontSize: 12, color: "var(--mz-text-muted)" }}>
+                      Last Seen: {dev.lastSeenAt ? new Date(dev.lastSeenAt).toLocaleDateString() : "Active"}
+                    </span>
+                  </div>
+                ))
+              ) : (user.lastLoginDevice || user.lastLoginIp) ? (
+                <div style={{ padding: "14px 18px", borderRadius: 14, border: "1px solid var(--mz-border)", background: "var(--mz-surface)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                     <div className="mz-admin-stat-icon" style={{ background: "var(--mz-surface-muted)", color: "var(--mz-text-secondary)" }}>
                       <LuSmartphone style={{ width: 18, height: 18 }} />
                     </div>
                     <div>
-                      <p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: "var(--mz-text-primary)" }}>{dev.deviceString || "Web Browser"}</p>
-                      <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--mz-text-subtle)" }}>IP: {dev.ip || "127.0.0.1"}</p>
+                      <p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: "var(--mz-text-primary)" }}>{user.lastLoginDevice || "Desktop / Browser"}</p>
+                      <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--mz-text-subtle)" }}>IP: {user.lastLoginIp || "N/A"}</p>
                     </div>
                   </div>
                   <span style={{ fontSize: 12, color: "var(--mz-text-muted)" }}>
-                    Last Seen: {new Date(dev.lastSeenAt || Date.now()).toLocaleDateString()}
+                    Last Seen: {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleDateString() : "N/A"}
                   </span>
                 </div>
-              ))}
+              ) : (
+                <p style={{ margin: 0, color: "var(--mz-text-subtle)", fontSize: 13, textAlign: "center", padding: "40px 0" }}>
+                  No registered login devices recorded yet.
+                </p>
+              )}
             </div>
           )}
         </div>
