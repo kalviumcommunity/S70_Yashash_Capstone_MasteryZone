@@ -2986,65 +2986,28 @@ async function sendCertificateAwardedEmail({
       showDirectLink: true,
     });
 
-    const contentHtml = `
-      <div style="padding: 18px 0 16px;">
-        <div style="text-align: center; margin-bottom: 24px;">
-          <div style="display: inline-block; background: #ecfdf5; border: 2px solid #10b981; border-radius: 50%; width: 68px; height: 68px; line-height: 68px; font-size: 32px; text-align: center; margin-bottom: 12px;">
-            🎓
-          </div>
-          <h2 style="margin: 0 0 6px; font-size: 24px; font-weight: 800; color: #0f172a;">
-            Certification Successfully Awarded!
-          </h2>
-          <p style="margin: 0; font-size: 14px; color: #059669; font-weight: 600;">
-            Verified Professional Credential Issued
-          </p>
-        </div>
-
-        <p style="margin: 0 0 18px; font-size: 14px; line-height: 1.6; color: #334155;">
-          Dear <strong>${candidateName}</strong>,<br/>
-          Congratulations! You have satisfied all proctoring criteria, passed the comprehensive examination with an overall score of <strong>${score}%</strong>, and officially earned your <strong>${certTitle}</strong> credential.
-        </p>
-
-        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
-          <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-            <tr>
-              <td style="padding: 6px 0; color: #64748b; font-weight: 600;">Certificate Title:</td>
-              <td style="padding: 6px 0; color: #0f172a; font-weight: 800; text-align: right;">${certTitle}</td>
-            </tr>
-            <tr>
-              <td style="padding: 6px 0; color: #64748b; font-weight: 600;">Credential ID:</td>
-              <td style="padding: 6px 0; color: #4338ca; font-weight: 800; font-family: monospace; font-size: 14px; text-align: right;">${certificateId}</td>
-            </tr>
-            <tr>
-              <td style="padding: 6px 0; color: #64748b; font-weight: 600;">Overall Score:</td>
-              <td style="padding: 6px 0; color: #059669; font-weight: 800; font-size: 15px; text-align: right;">${score}% (PASSED)</td>
-            </tr>
-            <tr>
-              <td style="padding: 6px 0; color: #64748b; font-weight: 600;">Issue Date:</td>
-              <td style="padding: 6px 0; color: #64748b; text-align: right;">${formatEmailDateTime(issuedAt)}</td>
-            </tr>
-          </table>
-        </div>
-
-        ${buttonHtml}
-      </div>
-    `;
-
-    const html = wrapHtmlEmail({
-      title: `Official Credential Awarded: ${certTitle}`,
-      preheader: `Congratulations ${candidateName}! Your official ${certTitle} certificate #${certificateId} is now live and verified.`,
-      badgeText: "🏆 Certified Professional",
-      badgeColor: "#059669",
-      badgeBg: "#ecfdf5",
-      contentHtml,
-    });
-
     const attachments = [];
     let targetPdf = pdfPath;
+    const certBaseDir = process.env.CERTIFICATES_STORAGE_PATH || process.env.CERTIFICATES_DIR || path.join(__dirname, "../uploads/certificates");
+
     if (!targetPdf && certificateId) {
-      const flatPath = path.join(__dirname, "../uploads/certificates", `${certificateId}.pdf`);
+      const flatPath = path.join(certBaseDir, `${certificateId}.pdf`);
       if (fs.existsSync(flatPath)) {
         targetPdf = flatPath;
+      } else if (fs.existsSync(certBaseDir)) {
+        // Deep search user subdirectories for the certificate PDF
+        try {
+          const entries = fs.readdirSync(certBaseDir, { withFileTypes: true });
+          for (const ent of entries) {
+            if (ent.isDirectory()) {
+              const cand = path.join(certBaseDir, ent.name, `${certificateId}.pdf`);
+              if (fs.existsSync(cand)) {
+                targetPdf = cand;
+                break;
+              }
+            }
+          }
+        } catch {}
       }
     }
 
@@ -3063,19 +3026,89 @@ async function sendCertificateAwardedEmail({
       }
     }
 
-    if (targetPdf && isReadablePdf(targetPdf)) {
+    const hasAttachment = Boolean(targetPdf && isReadablePdf(targetPdf));
+    const cleanCertFileName = `MasteryZone_${certTitle.replace(/[^a-zA-Z0-9]/g, '_')}_${certificateId}.pdf`;
+
+    if (hasAttachment) {
       attachments.push({
-        filename: `MasteryZone_${certTitle.replace(/[^a-zA-Z0-9]/g, '_')}_${certificateId}.pdf`,
+        filename: cleanCertFileName,
         path: targetPdf,
         contentType: 'application/pdf',
       });
     }
 
+    const contentHtml = `
+      <div style="padding: 18px 0 16px;">
+        <div style="text-align: center; margin-bottom: 24px;">
+          <div style="display: inline-block; background: #ecfdf5; border: 2px solid #10b981; border-radius: 50%; width: 68px; height: 68px; line-height: 68px; font-size: 32px; text-align: center; margin-bottom: 12px;">
+            🎓
+          </div>
+          <h2 style="margin: 0 0 6px; font-size: 24px; font-weight: 800; color: #0f172a;">
+            Course Completion Certificate Awarded!
+          </h2>
+          <p style="margin: 0; font-size: 14px; color: #059669; font-weight: 600;">
+            Official Verified Credential & Attached PDF Certificate
+          </p>
+        </div>
+
+        <p style="margin: 0 0 18px; font-size: 14px; line-height: 1.6; color: #334155;">
+          Dear <strong>${candidateName}</strong>,<br/>
+          Congratulations! You have successfully satisfied all proctoring standards, met the passing cutoff (≥80%) on your comprehensive examination with an overall score of <strong>${score}%</strong>, and completed your course. Your official <strong>Course Completion Certificate</strong> for <strong>${certTitle}</strong> has been generated and is attached to this email.
+        </p>
+
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+            <tr>
+              <td style="padding: 6px 0; color: #64748b; font-weight: 600;">Course / Certificate Title:</td>
+              <td style="padding: 6px 0; color: #0f172a; font-weight: 800; text-align: right;">${certTitle}</td>
+            </tr>
+            <tr>
+              <td style="padding: 6px 0; color: #64748b; font-weight: 600;">Credential ID:</td>
+              <td style="padding: 6px 0; color: #4338ca; font-weight: 800; font-family: monospace; font-size: 14px; text-align: right;">${certificateId}</td>
+            </tr>
+            <tr>
+              <td style="padding: 6px 0; color: #64748b; font-weight: 600;">Overall Examination Score:</td>
+              <td style="padding: 6px 0; color: #059669; font-weight: 800; font-size: 15px; text-align: right;">${score}% (PASSED - Cutoff Met)</td>
+            </tr>
+            <tr>
+              <td style="padding: 6px 0; color: #64748b; font-weight: 600;">Issue Date:</td>
+              <td style="padding: 6px 0; color: #64748b; text-align: right;">${formatEmailDateTime(issuedAt)}</td>
+            </tr>
+            <tr>
+              <td style="padding: 6px 0; color: #64748b; font-weight: 600;">Issuing Institution:</td>
+              <td style="padding: 6px 0; color: #0f172a; font-weight: 700; text-align: right;">Mastery Zone Academy of Computer Science</td>
+            </tr>
+          </table>
+        </div>
+
+        <div style="background: #ecfdf5; border: 1.5px solid #a7f3d0; border-radius: 10px; padding: 14px 18px; margin-bottom: 22px; display: flex; align-items: center; gap: 12px;">
+          <span style="font-size: 26px;">📎</span>
+          <div>
+            <div style="font-weight: 800; color: #065f46; font-size: 13.5px;">Attached Course Completion Certificate</div>
+            <div style="color: #047857; font-size: 12px; font-family: monospace; margin-top: 2px;">
+              ${cleanCertFileName} (High-Resolution Vector PDF)
+            </div>
+          </div>
+        </div>
+
+        ${buttonHtml}
+      </div>
+    `;
+
+    const html = wrapHtmlEmail({
+      title: `Official Course Completion Certificate: ${certTitle}`,
+      preheader: `Congratulations ${candidateName}! Your official Course Completion Certificate #${certificateId} for ${certTitle} has been awarded and is attached.`,
+      badgeText: "🏆 Certified Professional",
+      badgeColor: "#059669",
+      badgeBg: "#ecfdf5",
+      contentHtml,
+    });
+
     return await sendMailWithRetry(
       {
         from: getSenderAddress('Mastery Zone Certifications'),
         to: candidateEmail,
-        subject: `🏆 Certificate Awarded: ${certTitle} [ID: ${certificateId}]`,
+        subject: `🎓 Course Completion Certificate: ${certTitle} [ID: ${certificateId}]`,
         html,
         attachments,
       },

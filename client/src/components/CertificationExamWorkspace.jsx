@@ -1421,7 +1421,7 @@ export default function CertificationExamWorkspace({
           : data.finalScorePercentage !== undefined
           ? data.finalScorePercentage
           : Math.round((finalScore / 40) * 100);
-      const isPassed = data.finalVerdict === "PASSED" || finalPct >= 80;
+      const isPassed = data.finalVerdict === "PASSED" && Boolean(data.certificate);
       const totalPassedCoding = currentCoding.reduce((acc, s) => acc + (s.passedTests || 0), 0);
 
       if (isPassed) {

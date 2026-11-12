@@ -122,8 +122,15 @@ function shuffleArray(array) {
 router.get("/", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId || req.user.id;
-    const userCerts = await Certification.find({ userId });
+    const [userCerts, issuedCerts, passedAttempts] = await Promise.all([
+      Certification.find({ userId }).lean(),
+      IssuedCertificate.find({ userId, status: "VALID" }).lean(),
+      CertificationAttempt.find({ userId, status: "PASSED", finalVerdict: "PASSED" }).lean(),
+    ]);
+
     const userCertMap = new Map(userCerts.map((c) => [c.certId, c]));
+    const issuedCertIds = new Set(issuedCerts.map((ic) => (ic.certificationId || "").toLowerCase()));
+    const passedAttemptIds = new Set(passedAttempts.map((pa) => (pa.certId || "").toLowerCase()));
 
     const catalog = [
       {
@@ -180,11 +187,18 @@ router.get("/", authenticateToken, async (req, res) => {
 
     const enriched = catalog.map((cert) => {
       const userState = userCertMap.get(cert.id);
+      const cIdLower = cert.id.toLowerCase();
+      const isCompleted =
+        issuedCertIds.has(cIdLower) ||
+        passedAttemptIds.has(cIdLower) ||
+        (cIdLower === "fullstack_cert" && (issuedCertIds.has("js_cert") || passedAttemptIds.has("js_cert"))) ||
+        (cIdLower === "js_cert" && (issuedCertIds.has("fullstack_cert") || passedAttemptIds.has("fullstack_cert")));
+
       return {
         ...cert,
-        status: userState ? userState.status : "not_started",
-        progress: userState ? userState.progress : 0,
-        currentModule: userState ? userState.currentModule : 0,
+        status: isCompleted ? "completed" : (userState ? "active" : "not_started"),
+        progress: isCompleted ? 100 : (userState ? Math.min(userState.progress || 0, 90) : 0),
+        currentModule: isCompleted ? cert.modules : (userState ? userState.currentModule : 0),
         enrolledAt: userState ? userState.createdAt : null,
       };
     });
@@ -1960,21 +1974,21 @@ router.post("/enroll", authenticateToken, async (req, res) => {
     }
 
     const trialExpiresAt = isTrial ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) : null;
-    const status = isTrial ? "active" : "completed";
-    const progress = isTrial ? 0 : 100;
-    const currentModule = isTrial ? 1 : totalModules;
+    const status = "active";
+    const progress = 0;
+    const currentModule = 1;
 
     const newCert = new Certification({
       userId: req.user.userId,
-      zone,
+      zone: zone || "CODING",
       certId,
       name,
-      totalModules,
-      isTrial,
+      totalModules: totalModules || 5,
+      isTrial: Boolean(isTrial),
       trialExpiresAt,
-      status,
-      progress,
-      currentModule,
+      status: "active",
+      progress: 0,
+      currentModule: 1,
     });
 
     await newCert.save();
@@ -1990,14 +2004,86 @@ router.put("/progress", authenticateToken, async (req, res) => {
     const cert = await Certification.findOne({ userId: req.user.userId, certId });
     if (!cert) return res.status(404).json({ message: "Certification not found" });
 
-    cert.currentModule += 1;
-    cert.progress = Math.min((cert.currentModule / cert.totalModules) * 100, 100);
-    if (cert.progress >= 100) cert.status = "completed";
+    cert.currentModule = Math.min(cert.currentModule + 1, cert.totalModules);
+    cert.progress = Math.min(Math.round((cert.currentModule / cert.totalModules) * 90), 90);
+    // Completion status is strictly guarded and awarded ONLY upon passing the proctored certification exam with cutoff met
+    cert.status = "active";
     await cert.save();
 
     res.json({ message: "Progress updated", certification: cert });
   } catch (err) {
     res.status(500).json({ message: "Server Error", error: err.message });
+  }
+});
+
+// -------------------------------------------------------------
+// 12. POST /api/certifications/reset-all
+// Authoritative Admin Reset: Wipes all attempts, certificates, and generated files
+// -------------------------------------------------------------
+router.post("/reset-all", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId || req.user.id;
+    const user = await User.findById(userId).lean();
+    const isAdmin = user && (user.role === "admin" || user.email === "yashashyashash1@gmail.com");
+    if (!isAdmin) {
+      return res.status(403).json({ error: "Only platform administrators can perform a global certifications reset." });
+    }
+
+    const [delAttempts, delIssued, delCerts, delProgress] = await Promise.all([
+      CertificationAttempt.deleteMany({}),
+      IssuedCertificate.deleteMany({}),
+      Certification.deleteMany({}),
+      Progress.deleteMany({
+        $or: [
+          { task: { $regex: /Credential|Certification/i } },
+          { moduleName: "Credential Assessment" }
+        ]
+      }),
+    ]);
+
+    // Clean generated PDF certificate files from CERTIFICATES_DIR
+    let deletedFiles = 0;
+    if (fs.existsSync(CERTIFICATES_DIR)) {
+      const entries = fs.readdirSync(CERTIFICATES_DIR, { withFileTypes: true });
+      for (const ent of entries) {
+        const fullPath = path.join(CERTIFICATES_DIR, ent.name);
+        if (ent.isFile() && ent.name.endsWith(".pdf")) {
+          try {
+            fs.unlinkSync(fullPath);
+            deletedFiles++;
+          } catch {}
+        } else if (ent.isDirectory()) {
+          try {
+            const subEntries = fs.readdirSync(fullPath);
+            for (const sub of subEntries) {
+              if (sub.endsWith(".pdf")) {
+                try {
+                  fs.unlinkSync(path.join(fullPath, sub));
+                  deletedFiles++;
+                } catch {}
+              }
+            }
+            if (fs.readdirSync(fullPath).length === 0) {
+              fs.rmdirSync(fullPath);
+            }
+          } catch {}
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      message: "Successfully reset all certification records, attempts, issued certificates, and storage files across all accounts.",
+      deleted: {
+        attempts: delAttempts.deletedCount,
+        issuedCertificates: delIssued.deletedCount,
+        certifications: delCerts.deletedCount,
+        progressRecords: delProgress.deletedCount,
+        pdfFiles: deletedFiles,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
