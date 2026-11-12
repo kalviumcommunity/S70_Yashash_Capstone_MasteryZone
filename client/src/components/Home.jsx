@@ -646,6 +646,52 @@ const Home = () => {
         } catch (apiErr) {
           console.warn("API reports fetch note:", apiErr);
         }
+
+        // 3. Fetch genuine certification attempts from database
+        try {
+          const res = await fetch(`${API_BASE}/api/certifications/my-history`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data.attempts)) {
+              data.attempts.forEach((att) => {
+                const isPass = att.status === "PASSED" || att.finalVerdict === "PASSED";
+                const pct = att.percentage != null ? att.percentage : (att.finalScorePercentage != null ? att.finalScorePercentage : 0);
+                const scoreVal = att.score?.marksObtained != null ? att.score.marksObtained : (att.score?.mcqScore ?? 0);
+                apiReports.push({
+                  id: att.attemptId,
+                  sessionId: att.attemptId,
+                  attemptId: att.attemptId,
+                  certificateId: att.certificateId,
+                  subjectKey: "coding",
+                  trackId: att.certId || "dsa_cert",
+                  moduleIndex: 0,
+                  assessmentTitle: `${att.certTitle || "DSA Certification"} — Attempt #${att.attemptNumber || 1}`,
+                  questionTitle: att.certTitle || "Certification Examination",
+                  difficulty: "Professional",
+                  category: "Proctored Certifications",
+                  type: "certification_exam",
+                  typeLabel: "Professional Certification Exam",
+                  submittedAt: att.submittedAt || att.startTime,
+                  score: scoreVal,
+                  marksObtained: scoreVal,
+                  totalMarks: 40,
+                  percentage: pct,
+                  grade: pct >= 90 ? "A+" : pct >= 80 ? "A" : pct >= 70 ? "B" : "F",
+                  accuracy: pct,
+                  passedTests: (att.score?.codingQ1Solved ? 10 : 0) + (att.score?.codingQ2Solved ? 10 : 0),
+                  totalTests: 20,
+                  passed: isPass,
+                  violationsCount: att.violationsCount || 0,
+                  reportUrl: `/assessment-report/${att.attemptId}`,
+                });
+              });
+            }
+          }
+        } catch (certErr) {
+          console.warn("Certification attempts fetch note:", certErr);
+        }
       }
 
       const map = new Map();
@@ -843,9 +889,12 @@ const Home = () => {
 
   useEffect(() => {
     if (activeNavTab === "recordings") {
-      fetchRecordings(false);
+      const timer = setTimeout(() => {
+        fetchRecordings(false);
+      }, 250);
+      return () => clearTimeout(timer);
     }
-  }, [recDateFilter, recSortOrder, recScope]);
+  }, [activeNavTab, recSearchQuery, recDateFilter, recSortOrder, recScope]);
 
   // Real-time synchronization for meeting recordings across all devices & accounts
   useEffect(() => {
@@ -1008,32 +1057,161 @@ const Home = () => {
   // Real-time search query
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const [activeSearchIndex, setActiveSearchIndex] = useState(-1);
   const searchContainerRef = useRef(null);
+
+  // Matching text highlighter helper
+  const highlightMatch = useCallback((text, query) => {
+    if (!query || !text) return text;
+    const q = query.trim();
+    if (!q) return text;
+    try {
+      const regex = new RegExp(`(${q.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&")})`, "gi");
+      const parts = String(text).split(regex);
+      return parts.map((part, i) =>
+        regex.test(part) ? (
+          <mark key={i} className="mz-search-highlight">
+            {part}
+          </mark>
+        ) : (
+          part
+        )
+      );
+    } catch {
+      return text;
+    }
+  }, []);
 
   const homeSearchResults = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return { interests: [], projects: [], recordings: [] };
-    const interests = INTEREST_CARDS.filter(
-      (c) => c.title.toLowerCase().includes(q) || c.description.toLowerCase().includes(q) || c.tags.some((t) => t.toLowerCase().includes(q))
-    );
-    const matchedProjects = (typeof SOFTWARE_PROJECTS !== "undefined" ? SOFTWARE_PROJECTS : []).filter(
-      (p) => p.title.toLowerCase().includes(q) || (p.domain && p.domain.toLowerCase().includes(q)) || (p.technologies && p.technologies.some((t) => t.toLowerCase().includes(q)))
-    ).slice(0, 4);
-    const matchedRecordings = (recordingsList || []).filter(
-      (r) => (r.title && r.title.toLowerCase().includes(q)) || (r.hostName && r.hostName.toLowerCase().includes(q))
-    ).slice(0, 4);
+    if (!q) return { interests: [], challenges: [], projects: [], recordings: [], pages: [], allItems: [] };
 
-    return { interests, projects: matchedProjects, recordings: matchedRecordings };
+    // 1. Learning Tracks & Curriculums
+    const interests = (INTEREST_CARDS || [])
+      .filter(
+        (c) =>
+          c.title.toLowerCase().includes(q) ||
+          c.description.toLowerCase().includes(q) ||
+          (Array.isArray(c.tags) && c.tags.some((t) => t.toLowerCase().includes(q)))
+      )
+      .slice(0, 3)
+      .map((item) => ({ ...item, resultType: "track" }));
+
+    // 2. DSA Algorithmic Challenges (from DSA_TOPICS)
+    const challengesList = [];
+    (DSA_TOPICS || []).forEach((topic) => {
+      (topic.challenges || []).forEach((chTitle) => {
+        if (
+          chTitle.toLowerCase().includes(q) ||
+          topic.title.toLowerCase().includes(q) ||
+          (topic.description && topic.description.toLowerCase().includes(q))
+        ) {
+          if (!challengesList.some((c) => c.title === chTitle)) {
+            challengesList.push({
+              id: `challenge-${chTitle.toLowerCase().replace(/\s+/g, "-")}`,
+              title: chTitle,
+              topic: topic.title,
+              difficulty: topic.difficulty,
+              route: topic.route,
+              resultType: "challenge",
+            });
+          }
+        }
+      });
+    });
+    const matchedChallenges = challengesList.slice(0, 4);
+
+    // 3. Software Engineering Projects
+    const matchedProjects = (typeof SOFTWARE_PROJECTS !== "undefined" ? SOFTWARE_PROJECTS : [])
+      .filter(
+        (p) =>
+          p.title.toLowerCase().includes(q) ||
+          (p.domain && p.domain.toLowerCase().includes(q)) ||
+          (p.description && p.description.toLowerCase().includes(q)) ||
+          (Array.isArray(p.technologies) && p.technologies.some((t) => t.toLowerCase().includes(q)))
+      )
+      .slice(0, 4)
+      .map((item) => ({ ...item, resultType: "project" }));
+
+    // 4. Video Conferencing & Cloud Recordings
+    const matchedRecordings = (recordingsList || [])
+      .filter(
+        (r) =>
+          (r.title && r.title.toLowerCase().includes(q)) ||
+          (r.hostName && r.hostName.toLowerCase().includes(q)) ||
+          (r.meetingId && r.meetingId.toLowerCase().includes(q)) ||
+          (Array.isArray(r.tags) && r.tags.some((t) => t.toLowerCase().includes(q)))
+      )
+      .slice(0, 3)
+      .map((item) => ({ ...item, resultType: "recording" }));
+
+    // 5. Core Platform Pages & Certifications
+    const platformPages = [
+      { id: "page-dsa", title: "Practice & DSA Challenges Arena", sub: "230+ Algorithmic Problems with Judge0 Execution", route: "/coding?tab=challenges", resultType: "page" },
+      { id: "page-projects", title: "Production Projects Catalog", sub: "Architect & Build Distributed Systems", route: "/coding?tab=projects", resultType: "page" },
+      { id: "page-cert", title: "Proctored Exam Credentials & Certifications", sub: "Verified Credentials with Proctoring Log", route: "/certificates", resultType: "page" },
+      { id: "page-live", title: "Live Study & Peer Collaboration", sub: "Real-Time Multi-Party Video & Code Canvas", route: "/live", resultType: "page" },
+      { id: "page-reports", title: "Assessment Audit Reports", sub: "Exam Transcripts and Official Score Cards", route: "/reports", resultType: "page" },
+    ].filter((p) => p.title.toLowerCase().includes(q) || p.sub.toLowerCase().includes(q)).slice(0, 2);
+
+    const allItems = [
+      ...interests,
+      ...matchedChallenges,
+      ...matchedProjects,
+      ...matchedRecordings,
+      ...platformPages,
+    ];
+
+    return {
+      interests,
+      challenges: matchedChallenges,
+      projects: matchedProjects,
+      recordings: matchedRecordings,
+      pages: platformPages,
+      allItems,
+    };
   }, [searchQuery, recordingsList]);
 
   const totalHomeResults =
     homeSearchResults.interests.length +
+    homeSearchResults.challenges.length +
     homeSearchResults.projects.length +
-    homeSearchResults.recordings.length;
+    homeSearchResults.recordings.length +
+    homeSearchResults.pages.length;
+
+  // Real-time instant filtering for recordings tab
+  const filteredRecordingsList = useMemo(() => {
+    if (!recSearchQuery.trim()) return recordingsList;
+    const q = recSearchQuery.trim().toLowerCase();
+    return (recordingsList || []).filter((rec) => {
+      return (
+        (rec.title && rec.title.toLowerCase().includes(q)) ||
+        (rec.hostName && rec.hostName.toLowerCase().includes(q)) ||
+        (rec.meetingId && rec.meetingId.toLowerCase().includes(q)) ||
+        (rec.description && rec.description.toLowerCase().includes(q)) ||
+        (Array.isArray(rec.tags) && rec.tags.some((t) => t.toLowerCase().includes(q)))
+      );
+    });
+  }, [recordingsList, recSearchQuery]);
 
   const fileInputRef = useRef(null);
   const dropdownRef = useRef(null);
   const searchInputRef = useRef(null);
+
+  // Global ⌘K / Ctrl+K keyboard shortcut to focus search
+  useEffect(() => {
+    const handleGlobalSearchKey = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        if (searchQuery.trim()) {
+          setShowSearchDropdown(true);
+        }
+      }
+    };
+    window.addEventListener("keydown", handleGlobalSearchKey);
+    return () => window.removeEventListener("keydown", handleGlobalSearchKey);
+  }, [searchQuery]);
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -1114,12 +1292,16 @@ const Home = () => {
 
     window.addEventListener("user_profile_updated", handleProfileUpdated);
     window.addEventListener("new_recording_saved", handleSync);
+    window.addEventListener("mz_certificate_awarded", handleSync);
+    window.addEventListener("mz_assessment_submitted", handleSync);
     window.addEventListener("storage", handleSync);
     window.addEventListener("focus", handleSync);
 
     return () => {
       window.removeEventListener("user_profile_updated", handleProfileUpdated);
       window.removeEventListener("new_recording_saved", handleSync);
+      window.removeEventListener("mz_certificate_awarded", handleSync);
+      window.removeEventListener("mz_assessment_submitted", handleSync);
       window.removeEventListener("storage", handleSync);
       window.removeEventListener("focus", handleSync);
     };
@@ -1706,139 +1888,294 @@ const Home = () => {
         {/* Top Navbar */}
         <header className="mz-topbar">
           {/* Real-time search bar */}
-          <div className="mz-search-bar-wrap" ref={searchContainerRef} style={{ position: "relative" }}>
+          <div className="mz-search-bar-wrap" ref={searchContainerRef}>
             <LuSearch className="mz-search-bar-icon" size={17} />
             <input
               ref={searchInputRef}
               type="text"
               className="mz-search-bar-input"
-              placeholder="Search..."
+              placeholder="Search tracks, DSA challenges, projects, recordings..."
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
                 setShowSearchDropdown(true);
+                setActiveSearchIndex(-1);
               }}
               onFocus={() => {
                 if (searchQuery.trim()) setShowSearchDropdown(true);
               }}
               onKeyDown={(e) => {
-                if (e.key === "Escape") setShowSearchDropdown(false);
-              }}
-              aria-label="Real-time search"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                className="mz-search-clear-btn"
-                onClick={() => {
-                  setSearchQuery("");
+                if (e.key === "Escape") {
                   setShowSearchDropdown(false);
-                  searchInputRef.current?.focus();
-                }}
-                title="Clear search"
-              >
-                <LuX size={14} />
-              </button>
-            )}
-            {searchQuery && (
-              <span className="mz-search-count-pill">
-                {totalHomeResults} {totalHomeResults === 1 ? "result" : "results"}
-              </span>
-            )}
+                  return;
+                }
+                const all = homeSearchResults.allItems || [];
+                if (!showSearchDropdown || all.length === 0) return;
+
+                if (e.key === "ArrowDown") {
+                  e.preventDefault();
+                  setActiveSearchIndex((prev) => (prev < all.length - 1 ? prev + 1 : 0));
+                } else if (e.key === "ArrowUp") {
+                  e.preventDefault();
+                  setActiveSearchIndex((prev) => (prev > 0 ? prev - 1 : all.length - 1));
+                } else if (e.key === "Enter" && activeSearchIndex >= 0 && activeSearchIndex < all.length) {
+                  e.preventDefault();
+                  const selected = all[activeSearchIndex];
+                  setShowSearchDropdown(false);
+                  if (selected.resultType === "track") {
+                    if (selected.route) navigate(selected.route);
+                  } else if (selected.resultType === "challenge") {
+                    navigate(selected.route || "/coding?tab=challenges");
+                  } else if (selected.resultType === "project") {
+                    navigate(`/project/${selected.id}`);
+                  } else if (selected.resultType === "recording") {
+                    navigate("/recordings");
+                    setActivePlayingRecording(selected);
+                  } else if (selected.resultType === "page") {
+                    if (selected.route) navigate(selected.route);
+                  }
+                }
+              }}
+              aria-label="Universal search"
+            />
+
+            <div className="mz-search-input-actions">
+              {searchQuery ? (
+                <>
+                  <span className="mz-search-count-pill">
+                    {totalHomeResults} {totalHomeResults === 1 ? "result" : "results"}
+                  </span>
+                  <button
+                    type="button"
+                    className="mz-search-clear-btn"
+                    onClick={() => {
+                      setSearchQuery("");
+                      setShowSearchDropdown(false);
+                      setActiveSearchIndex(-1);
+                      searchInputRef.current?.focus();
+                    }}
+                    title="Clear search"
+                  >
+                    <LuX size={13} />
+                  </button>
+                </>
+              ) : (
+                <span className="mz-search-shortcut-pill">⌘K</span>
+              )}
+            </div>
 
             {showSearchDropdown && searchQuery.trim().length > 0 && (
-              <div className="mz-global-search-dropdown" style={{ minWidth: 380 }}>
+              <div className="mz-global-search-dropdown">
                 <div className="mz-global-search-header">
                   <span>Results for &ldquo;{searchQuery.trim()}&rdquo;</span>
-                  <span className="mz-global-search-esc">Press ESC to dismiss</span>
+                  <span className="mz-global-search-esc">
+                    <kbd>ESC</kbd> to dismiss
+                  </span>
                 </div>
 
                 {totalHomeResults === 0 ? (
                   <div className="mz-global-search-empty">
                     <p>No results found for &ldquo;{searchQuery}&rdquo;</p>
-                    <small>Try searching for Python, Full Stack, Cloud, Algorithms, or Recordings</small>
+                    <small>Try searching for Python, Subarray Sum, Docker, Fast API, Trees, or Recordings</small>
                   </div>
                 ) : (
                   <>
+                    {/* 1. Learning Tracks & Skills */}
                     {homeSearchResults.interests.length > 0 && (
                       <div className="mz-global-search-group">
                         <div className="mz-global-search-group-title">
                           Tracks & Skills ({homeSearchResults.interests.length})
                         </div>
-                        {homeSearchResults.interests.map((card) => (
-                          <div
-                            key={card.id}
-                            className="mz-global-search-item"
-                            onClick={() => {
-                              setShowSearchDropdown(false);
-                              if (card.route) navigate(card.route);
-                            }}
-                          >
-                            <span className="mz-global-search-item-icon">🎯</span>
-                            <div className="mz-global-search-item-content">
-                              <div className="mz-global-search-item-title">{card.title}</div>
-                              <div className="mz-global-search-item-sub">
-                                {card.tags.slice(0, 3).join(" • ")}
+                        {homeSearchResults.interests.map((card) => {
+                          const itemIdx = (homeSearchResults.allItems || []).findIndex(
+                            (x) => x.id === card.id && x.resultType === "track"
+                          );
+                          const isSelected = itemIdx === activeSearchIndex;
+                          return (
+                            <div
+                              key={card.id}
+                              className={`mz-global-search-item ${isSelected ? "active" : ""}`}
+                              onClick={() => {
+                                setShowSearchDropdown(false);
+                                if (card.route) navigate(card.route);
+                              }}
+                            >
+                              <span className="mz-global-search-item-icon mz-icon-track">
+                                <LuBookOpen size={16} />
+                              </span>
+                              <div className="mz-global-search-item-content">
+                                <div className="mz-global-search-item-title">
+                                  {highlightMatch(card.title, searchQuery)}
+                                </div>
+                                <div className="mz-global-search-item-sub">
+                                  {(card.tags || []).slice(0, 3).join(" • ")}
+                                </div>
                               </div>
+                              <span className="mz-global-search-item-action">
+                                Go to Track <LuArrowRight size={12} />
+                              </span>
                             </div>
-                            <span className="mz-global-search-item-action">Go to Track →</span>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
 
+                    {/* 2. DSA Algorithmic Challenges */}
+                    {homeSearchResults.challenges.length > 0 && (
+                      <div className="mz-global-search-group">
+                        <div className="mz-global-search-group-title">
+                          DSA Challenges ({homeSearchResults.challenges.length})
+                        </div>
+                        {homeSearchResults.challenges.map((ch) => {
+                          const itemIdx = (homeSearchResults.allItems || []).findIndex(
+                            (x) => x.id === ch.id && x.resultType === "challenge"
+                          );
+                          const isSelected = itemIdx === activeSearchIndex;
+                          return (
+                            <div
+                              key={ch.id}
+                              className={`mz-global-search-item ${isSelected ? "active" : ""}`}
+                              onClick={() => {
+                                setShowSearchDropdown(false);
+                                navigate(ch.route || "/coding?tab=challenges");
+                              }}
+                            >
+                              <span className="mz-global-search-item-icon mz-icon-challenge">
+                                <LuCodeXml size={16} />
+                              </span>
+                              <div className="mz-global-search-item-content">
+                                <div className="mz-global-search-item-title">
+                                  {highlightMatch(ch.title, searchQuery)}
+                                </div>
+                                <div className="mz-global-search-item-sub">
+                                  {ch.topic} • {ch.difficulty || "Algorithmic"}
+                                </div>
+                              </div>
+                              <span className="mz-global-search-item-action">
+                                Solve Challenge <LuArrowRight size={12} />
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* 3. Software Engineering Projects */}
                     {homeSearchResults.projects.length > 0 && (
                       <div className="mz-global-search-group">
                         <div className="mz-global-search-group-title">
-                          Projects ({homeSearchResults.projects.length})
+                          Production Projects ({homeSearchResults.projects.length})
                         </div>
-                        {homeSearchResults.projects.map((proj) => (
-                          <div
-                            key={proj.id}
-                            className="mz-global-search-item"
-                            onClick={() => {
-                              setShowSearchDropdown(false);
-                              navigate(`/project/${proj.id}`);
-                            }}
-                          >
-                            <span className="mz-global-search-item-icon">💻</span>
-                            <div className="mz-global-search-item-content">
-                              <div className="mz-global-search-item-title">{proj.title}</div>
-                              <div className="mz-global-search-item-sub">
-                                {proj.domain || "Software Project"}
+                        {homeSearchResults.projects.map((proj) => {
+                          const itemIdx = (homeSearchResults.allItems || []).findIndex(
+                            (x) => x.id === proj.id && x.resultType === "project"
+                          );
+                          const isSelected = itemIdx === activeSearchIndex;
+                          return (
+                            <div
+                              key={proj.id}
+                              className={`mz-global-search-item ${isSelected ? "active" : ""}`}
+                              onClick={() => {
+                                setShowSearchDropdown(false);
+                                navigate(`/project/${proj.id}`);
+                              }}
+                            >
+                              <span className="mz-global-search-item-icon mz-icon-project">
+                                <LuFolderGit2 size={16} />
+                              </span>
+                              <div className="mz-global-search-item-content">
+                                <div className="mz-global-search-item-title">
+                                  {highlightMatch(proj.title, searchQuery)}
+                                </div>
+                                <div className="mz-global-search-item-sub">
+                                  {proj.domain || "Software Project"}
+                                </div>
                               </div>
+                              <span className="mz-global-search-item-action">
+                                Open Project <LuArrowRight size={12} />
+                              </span>
                             </div>
-                            <span className="mz-global-search-item-action">Open Project →</span>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
 
+                    {/* 4. Cloud Recordings */}
                     {homeSearchResults.recordings.length > 0 && (
                       <div className="mz-global-search-group">
                         <div className="mz-global-search-group-title">
                           Recordings ({homeSearchResults.recordings.length})
                         </div>
-                        {homeSearchResults.recordings.map((rec) => (
-                          <div
-                            key={rec.id}
-                            className="mz-global-search-item"
-                            onClick={() => {
-                              setShowSearchDropdown(false);
-                              navigate("/recordings");
-                              setActivePlayingRecording(rec);
-                            }}
-                          >
-                            <span className="mz-global-search-item-icon">🎥</span>
-                            <div className="mz-global-search-item-content">
-                              <div className="mz-global-search-item-title">{rec.title}</div>
-                              <div className="mz-global-search-item-sub">
-                                Host: {rec.hostName || "Host"}
+                        {homeSearchResults.recordings.map((rec) => {
+                          const itemIdx = (homeSearchResults.allItems || []).findIndex(
+                            (x) => x.id === rec.id && x.resultType === "recording"
+                          );
+                          const isSelected = itemIdx === activeSearchIndex;
+                          return (
+                            <div
+                              key={rec.id}
+                              className={`mz-global-search-item ${isSelected ? "active" : ""}`}
+                              onClick={() => {
+                                setShowSearchDropdown(false);
+                                navigate("/recordings");
+                                setActivePlayingRecording(rec);
+                              }}
+                            >
+                              <span className="mz-global-search-item-icon mz-icon-recording">
+                                <LuVideo size={16} />
+                              </span>
+                              <div className="mz-global-search-item-content">
+                                <div className="mz-global-search-item-title">
+                                  {highlightMatch(rec.title, searchQuery)}
+                                </div>
+                                <div className="mz-global-search-item-sub">
+                                  Host: {rec.hostName || "Host"}
+                                </div>
                               </div>
+                              <span className="mz-global-search-item-action">
+                                Watch <LuPlay size={11} />
+                              </span>
                             </div>
-                            <span className="mz-global-search-item-action">Watch →</span>
-                          </div>
-                        ))}
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* 5. Core Platform Pages */}
+                    {homeSearchResults.pages.length > 0 && (
+                      <div className="mz-global-search-group">
+                        <div className="mz-global-search-group-title">
+                          Platform Navigation ({homeSearchResults.pages.length})
+                        </div>
+                        {homeSearchResults.pages.map((p) => {
+                          const itemIdx = (homeSearchResults.allItems || []).findIndex(
+                            (x) => x.id === p.id && x.resultType === "page"
+                          );
+                          const isSelected = itemIdx === activeSearchIndex;
+                          return (
+                            <div
+                              key={p.id}
+                              className={`mz-global-search-item ${isSelected ? "active" : ""}`}
+                              onClick={() => {
+                                setShowSearchDropdown(false);
+                                if (p.route) navigate(p.route);
+                              }}
+                            >
+                              <span className="mz-global-search-item-icon mz-icon-cert">
+                                <LuSparkles size={16} />
+                              </span>
+                              <div className="mz-global-search-item-content">
+                                <div className="mz-global-search-item-title">
+                                  {highlightMatch(p.title, searchQuery)}
+                                </div>
+                                <div className="mz-global-search-item-sub">{p.sub}</div>
+                              </div>
+                              <span className="mz-global-search-item-action">
+                                Go to Page <LuArrowRight size={12} />
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </>
@@ -1968,7 +2305,7 @@ const Home = () => {
                       const count = s.id === "ALL" 
                         ? reportsList.length 
                         : s.id === "proctored"
-                        ? reportsList.filter((r) => String(r.sessionId || "").startsWith("mz_proc_") || String(r.type || "").toLowerCase().includes("proctor")).length
+                        ? reportsList.filter((r) => String(r.sessionId || "").startsWith("mz_proc_") || String(r.sessionId || "").startsWith("cert_") || String(r.type || "").toLowerCase().includes("proctor") || String(r.type || "").toLowerCase().includes("cert")).length
                         : s.id === "project"
                         ? reportsList.filter((r) => String(r.sessionId || "").startsWith("proj_") || String(r.type || "").toLowerCase().includes("project")).length
                         : reportsList.filter((r) => (r.subjectKey || "coding").toLowerCase() === "coding" || !String(r.sessionId || "").startsWith("proj_")).length;
@@ -2018,6 +2355,13 @@ const Home = () => {
                         onClick={() => setReportTypeFilter("ALL")}
                       >
                         All Types
+                      </button>
+                      <button
+                        type="button"
+                        className={`mz-filter-pill ${reportTypeFilter === "certification_exam" ? "active" : ""}`}
+                        onClick={() => setReportTypeFilter("certification_exam")}
+                      >
+                        Certifications
                       </button>
                       <button
                         type="button"
@@ -2077,14 +2421,21 @@ const Home = () => {
                       const isPassScore = rep.passed !== undefined ? Boolean(rep.passed) : (rep.score !== undefined && rep.score >= 80);
                       if (reportFilter === "PASSED" && !isPassScore) return false;
                       if (reportFilter === "FAILED" && isPassScore) return false;
-                      if (reportSubjectFilter !== "ALL" && (rep.subjectKey || "coding").toLowerCase() !== reportSubjectFilter.toLowerCase()) return false;
+                      if (reportSubjectFilter === "proctored") {
+                        const isProc = String(rep.sessionId || "").startsWith("mz_proc_") || String(rep.sessionId || "").startsWith("cert_") || String(rep.type || "").toLowerCase().includes("proctor") || String(rep.type || "").toLowerCase().includes("cert");
+                        if (!isProc) return false;
+                      } else if (reportSubjectFilter !== "ALL" && (rep.subjectKey || "coding").toLowerCase() !== reportSubjectFilter.toLowerCase()) {
+                        return false;
+                      }
                       if (reportTypeFilter !== "ALL") {
                         const rType = (rep.type || "").toLowerCase();
-                        const isMcqAttempt = rType.includes("mcq") || rType.includes("exam") || String(rep.sessionId || "").startsWith("attempt_");
+                        const isCertAttempt = rType.includes("cert") || String(rep.sessionId || "").startsWith("cert_att_");
+                        const isMcqAttempt = !isCertAttempt && (rType.includes("mcq") || (rType.includes("exam") && !rType.includes("cert")) || String(rep.sessionId || "").startsWith("attempt_"));
                         const isProjectAttempt = rType.includes("project") || String(rep.sessionId || "").startsWith("proj_sub_");
+                        if (reportTypeFilter === "certification_exam" && !isCertAttempt) return false;
                         if (reportTypeFilter === "mcq_exam" && !isMcqAttempt) return false;
                         if (reportTypeFilter === "project_assessment" && !isProjectAttempt) return false;
-                        if (reportTypeFilter === "coding_assessment" && (isMcqAttempt || isProjectAttempt)) return false;
+                        if (reportTypeFilter === "coding_assessment" && (isMcqAttempt || isProjectAttempt || isCertAttempt)) return false;
                       }
                       return true;
                     })
@@ -2275,10 +2626,9 @@ const Home = () => {
                     <LuSearch size={14} color="var(--mz-text-muted)" />
                     <input
                       type="text"
-                      placeholder="Search..."
+                      placeholder="Search recordings by title, host, meeting ID..."
                       value={recSearchQuery}
                       onChange={(e) => setRecSearchQuery(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && fetchRecordings()}
                       style={{
                         border: "none",
                         background: "transparent",
@@ -2292,11 +2642,9 @@ const Home = () => {
                     {recSearchQuery && (
                       <button
                         type="button"
-                        onClick={() => {
-                          setRecSearchQuery("");
-                          setTimeout(fetchRecordings, 10);
-                        }}
+                        onClick={() => setRecSearchQuery("")}
                         style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0 }}
+                        title="Clear search"
                       >
                         <LuX size={14} color="var(--mz-text-subtle)" />
                       </button>
@@ -2411,7 +2759,7 @@ const Home = () => {
                 <div style={{ padding: "40px", textAlign: "center", color: "var(--mz-text-muted)" }}>
                   <p style={{ marginTop: 8, fontSize: 13, fontWeight: 600 }}>Loading cloud recordings...</p>
                 </div>
-              ) : recordingsList.length === 0 ? (
+              ) : filteredRecordingsList.length === 0 ? (
                 <div
                   style={{
                     padding: "48px 24px",
@@ -2455,7 +2803,7 @@ const Home = () => {
                     gap: 16,
                   }}
                 >
-                  {recordingsList.map((rec) => {
+                  {filteredRecordingsList.map((rec) => {
                     const totalSecs = Math.max(0, Math.round(rec.durationSeconds || 0));
                     const hrs = Math.floor(totalSecs / 3600);
                     const mins = Math.floor((totalSecs % 3600) / 60);

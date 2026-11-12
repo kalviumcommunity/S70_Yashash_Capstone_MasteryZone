@@ -4981,9 +4981,11 @@ router.get("/proctored-session/:sessionId/report", optionalAuthenticateToken, as
       const CertificationAttempt = require("../models/CertificationAttempt");
       const certAtt = await CertificationAttempt.findOne({
         $or: [{ attemptId: rawId }, { attemptId: cleanId }, { certificateId: rawId }, { certificateId: cleanId }],
-      }).lean();
+      });
       if (certAtt) {
-        return res.redirect(`/api/certifications/attempt/${certAtt.attemptId}/report`);
+        const certRoutes = require("./certificationRoutes");
+        const report = await certRoutes.buildCertificationReportPayload(certAtt, req.user);
+        return res.json({ success: true, report });
       }
 
       // Check if this is a ChallengeSubmission

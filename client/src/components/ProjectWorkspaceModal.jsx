@@ -2285,10 +2285,10 @@ export function ProjectsHubSection({ projects = [], onOpenProjectWorkspace }) {
             )}
 
             {showSearchDropdown && searchQuery.trim().length > 0 && (
-              <div className="mz-global-search-dropdown" style={{ minWidth: 320, left: 0 }}>
+              <div className="mz-global-search-dropdown">
                 <div className="mz-global-search-header">
                   <span>Projects matching &ldquo;{searchQuery.trim()}&rdquo;</span>
-                  <span className="mz-global-search-esc">Press ESC</span>
+                  <span className="mz-global-search-esc"><kbd>ESC</kbd> to dismiss</span>
                 </div>
                 {filteredProjects.length === 0 ? (
                   <div className="mz-global-search-empty">

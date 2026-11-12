@@ -297,7 +297,7 @@ function formatLocalReport(matched, uObj, rawId) {
       setError(null);
       const token = localStorage.getItem("Step2Dev_token") || localStorage.getItem("token");
       const rawId = (sessionId || "").trim();
-      const isCertAttemptId = rawId.startsWith("cert_att_") || rawId.startsWith("cert_");
+      const isCertAttemptId = rawId.startsWith("cert_att_") || rawId.startsWith("cert_") || rawId.startsWith("MZ-") || rawId.includes("-2026-");
       const isAttemptId = rawId.startsWith("attempt_");
       const isProjectSubId = rawId.startsWith("proj_sub_") || rawId.startsWith("proj_");
       const cleanId = isAttemptId ? rawId.replace("attempt_", "") : rawId;
@@ -364,12 +364,12 @@ function formatLocalReport(matched, uObj, rawId) {
           initialExpanded[serverReport.reviewBreakdown.length] = true;
         }
         setExpandedQuestions(initialExpanded);
-      } else if (initialPassedReport) {
+      } else if (initialPassedReport && initialPassedReport.attemptId === rawId) {
         setReport(initialPassedReport);
         setLoading(false);
       } else {
-        // Backend report is authoritative; never let stale localStorage override missing or foreign reports
-        setError("The assessment report for this attempt is not yet available, pending evaluation, or does not exist.");
+        // Real database data only — show clean, authentic empty/error state when record not found
+        setError("The assessment report for this attempt is not available, pending evaluation, or does not exist.");
         setLoading(false);
       }
     } catch (err) {

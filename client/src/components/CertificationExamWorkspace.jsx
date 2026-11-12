@@ -25,6 +25,7 @@ import {
   LuBookmark,
   LuMaximize,
   LuMaximize2,
+  LuMinimize2,
   LuLayers,
   LuTerminal,
   LuCheckCheck,
@@ -404,6 +405,64 @@ export default function CertificationExamWorkspace({
   const [batteryInfo, setBatteryInfo] = useState({ percentage: 82, charging: false });
   const [proctoringViewMode, setProctoringViewMode] = useState("dual"); // "dual" | "camera" | "screen"
   const [procMicVolume, setProcMicVolume] = useState(15);
+
+  // Full-Screen and Dynamic Workspace Layout
+  const [isFullscreen, setIsFullscreen] = useState(Boolean(
+    typeof document !== "undefined" && (document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement)
+  ));
+  const [isProctoringSidebarOpen, setIsProctoringSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    const handleFsChange = () => {
+      const active = Boolean(
+        document.fullscreenElement ||
+        document.webkitFullscreenElement ||
+        document.mozFullScreenElement ||
+        document.msFullscreenElement
+      );
+      setIsFullscreen(active);
+    };
+
+    document.addEventListener("fullscreenchange", handleFsChange);
+    document.addEventListener("webkitfullscreenchange", handleFsChange);
+    document.addEventListener("mozfullscreenchange", handleFsChange);
+    document.addEventListener("MSFullscreenChange", handleFsChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFsChange);
+      document.removeEventListener("webkitfullscreenchange", handleFsChange);
+      document.removeEventListener("mozfullscreenchange", handleFsChange);
+      document.removeEventListener("MSFullscreenChange", handleFsChange);
+    };
+  }, []);
+
+  const toggleFullscreen = () => {
+    try {
+      if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.mozFullScreenElement && !document.msFullscreenElement) {
+        const docEl = document.documentElement;
+        if (docEl.requestFullscreen) {
+          docEl.requestFullscreen().catch(() => {});
+        } else if (docEl.webkitRequestFullscreen) {
+          docEl.webkitRequestFullscreen();
+        } else if (docEl.mozRequestFullScreen) {
+          docEl.mozRequestFullScreen();
+        } else if (docEl.msRequestFullscreen) {
+          docEl.msRequestFullscreen();
+        }
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen().catch(() => {});
+        } else if (document.webkitExitFullscreen) {
+          document.webkitExitFullscreen();
+        } else if (document.mozCancelFullScreen) {
+          document.mozCancelFullScreen();
+        } else if (document.msExitFullscreen) {
+          document.msExitFullscreen();
+        }
+      }
+    } catch (err) {
+      console.warn("Fullscreen toggle error:", err);
+    }
+  };
 
   // Modals & Finalizing
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -2051,7 +2110,7 @@ export default function CertificationExamWorkspace({
           </div>
         </div>
 
-        {/* Right: Time Remaining + Submit Assessment Button */}
+        {/* Right: Time Remaining + Fullscreen + Proctoring Toggle + Theme + Submit Assessment */}
         <div className="mz-cert-top-right">
           <div className="mz-cert-timer-block">
             <LuClock size={22} color="#ffffff" className="mz-timer-clock-icon" />
@@ -2060,6 +2119,28 @@ export default function CertificationExamWorkspace({
               <span className="mz-timer-val">{formatTimerMinsSecs(secondsRemaining)}</span>
             </div>
           </div>
+
+          <button
+            type="button"
+            className={`mz-cert-top-ctrl-btn ${isFullscreen ? "active" : ""}`}
+            onClick={toggleFullscreen}
+            title={isFullscreen ? "Exit Fullscreen (Esc)" : "Enter Fullscreen (F11)"}
+            aria-label={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+          >
+            {isFullscreen ? <LuMinimize2 size={15} /> : <LuMaximize2 size={15} />}
+            <span>{isFullscreen ? "Exit Fullscreen" : "Full Screen"}</span>
+          </button>
+
+          <button
+            type="button"
+            className={`mz-cert-top-ctrl-btn ${isProctoringSidebarOpen ? "active" : ""}`}
+            onClick={() => setIsProctoringSidebarOpen((prev) => !prev)}
+            title={isProctoringSidebarOpen ? "Hide Proctoring Drawer" : "Show Proctoring Panel"}
+            aria-label="Toggle Proctoring Panel"
+          >
+            <LuCamera size={15} />
+            <span>Proctoring</span>
+          </button>
 
           <ThemeToggle />
 
@@ -2154,10 +2235,27 @@ export default function CertificationExamWorkspace({
         </div>
       </div>
 
-      {/* 3. MAIN WORKSPACE LAYOUT (2 COLUMNS) */}
-      <div className="mz-cert-main-layout">
+      {/* 3. MAIN WORKSPACE LAYOUT (2 COLUMNS IN MCQ, FULL-WIDTH IN CODING) */}
+      <div className={`mz-cert-main-layout ${!isMcqMode ? "is-coding-mode" : ""} ${!isMcqMode && !isProctoringSidebarOpen ? "is-coding-fullwidth" : ""}`}>
         {/* Left Column: Live Proctoring Card (Top) + Question Palette Card (Bottom) */}
-        <aside className="mz-cert-sidebar-col">
+        {(isMcqMode || isProctoringSidebarOpen) && (
+        <aside className={`mz-cert-sidebar-col ${!isMcqMode ? "is-drawer-mode" : ""}`}>
+          {!isMcqMode && (
+            <div className="mz-sidebar-drawer-header">
+              <div className="mz-drawer-title">
+                <LuShieldCheck size={16} color="#10b981" />
+                <span>Proctoring Telemetry</span>
+              </div>
+              <button
+                type="button"
+                className="mz-drawer-close-btn"
+                onClick={() => setIsProctoringSidebarOpen(false)}
+                title="Close Drawer"
+              >
+                <LuX size={16} />
+              </button>
+            </div>
+          )}
           {/* CARD 1: LIVE PROCTORING */}
           <div className="mz-cert-sidebar-card mz-cert-proc-card">
             <div className="mz-proc-card-header">
@@ -2429,6 +2527,53 @@ export default function CertificationExamWorkspace({
             </div>
           </div>
         </aside>
+        )}
+
+        {/* Floating PIP Proctoring Widget when in Fullscreen Compiler Mode */}
+        {!isMcqMode && !isProctoringSidebarOpen && (
+          <div className="mz-cert-pip-proctor" title="Live Continuous Proctoring">
+            <div className="mz-cert-pip-header">
+              <div className="mz-cert-pip-badge">
+                <span className="mz-dot-feed live">●</span> Live
+              </div>
+              <button
+                type="button"
+                className="mz-cert-pip-expand-btn"
+                onClick={() => setIsProctoringSidebarOpen(true)}
+                title="Expand Full Proctoring Panel"
+              >
+                <LuMaximize2 size={13} />
+              </button>
+            </div>
+            <div className="mz-cert-pip-video-wrap">
+              <video
+                ref={(el) => {
+                  if (el && cameraStream && el.srcObject !== cameraStream) {
+                    el.srcObject = cameraStream;
+                    el.play().catch(() => {});
+                  }
+                }}
+                autoPlay
+                playsInline
+                muted
+                className="mz-cert-pip-video"
+                style={{ transform: "scaleX(-1)" }}
+              />
+              <div className="mz-cert-pip-screen-pill">
+                <span className="mz-dot-feed screen">●</span> Screen
+              </div>
+            </div>
+            <div className="mz-cert-pip-status-row">
+              <div className="mz-cert-pip-mic-dot">
+                <LuMic size={12} color="#10b981" />
+                <span>Audio</span>
+              </div>
+              <div className="mz-cert-pip-chances">
+                {recoveryChancesRemaining}/5 Left
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Right Main Panel: MCQ View (1..20) OR Embedded Compiler Workspace (21..22) */}
         {isMcqMode ? (
@@ -2571,57 +2716,8 @@ export default function CertificationExamWorkspace({
           </main>
         ) : (
           /* ================= EMBEDDED CODING WORKSPACE (QUESTIONS 21 & 22) ================= */
-          <div className="mz-embedded-coding-wrapper">
-            {/* Subnav Header for Coding Problems */}
-            <div className="mz-cert-coding-subnav">
-              <div className="mz-cert-coding-subnav-left">
-                <span className="mz-cert-coding-q-tag">
-                  Question {currentQuestionIndex + 1} of 22
-                </span>
-                <span className="mz-cert-coding-title-text">
-                  {currentCodingQ.title || (codingIndex === 0 ? "Find Peak Element Index" : "Longest Substring Without Repeating Characters")}
-                </span>
-                <span className={`mz-cert-diff-badge ${(currentCodingQ.difficulty || "medium").toLowerCase()}`}>
-                  {currentCodingQ.difficulty || "Medium"}
-                </span>
-                <span className="mz-cert-marks-badge">
-                  10 Marks (10 Tests)
-                </span>
-              </div>
-
-              <div className="mz-cert-coding-subnav-right">
-                <button
-                  type="button"
-                  className="mz-btn-subnav-prev"
-                  onClick={() => setCurrentQuestionIndex(currentQuestionIndex - 1)}
-                >
-                  <LuChevronLeft size={15} />
-                  <span>{currentQuestionIndex === 20 ? "Question 20 (MCQ)" : "Question 21 (Coding)"}</span>
-                </button>
-
-                {currentQuestionIndex === 20 ? (
-                  <button
-                    type="button"
-                    className="mz-btn-subnav-next"
-                    onClick={() => setCurrentQuestionIndex(21)}
-                  >
-                    <span>Question 22 (Coding)</span>
-                    <LuChevronRight size={15} />
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="mz-btn-subnav-submit"
-                    onClick={() => setShowConfirmModal(true)}
-                  >
-                    <span>Finish & Submit Exam</span>
-                    <LuSend size={13} />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Embedded Mastery Zone Compiler Frame */}
+          <div className="mz-embedded-coding-wrapper is-fullscreen-layout">
+            {/* Embedded Mastery Zone Compiler Frame (Full width & height) */}
             <div className="mz-embedded-compiler-frame">
               <MasteryZoneCompilerWorkspace
                 key={`${attemptId}_coding_${codingIndex}_${currentCodingQ.questionId || currentCodingQ.id || codingIndex}`}

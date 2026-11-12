@@ -634,10 +634,10 @@ const Progress = () => {
             )}
 
             {showSearchDropdown && searchQuery.trim().length > 0 && (
-              <div className="mz-global-search-dropdown" style={{ minWidth: 380 }}>
+              <div className="mz-global-search-dropdown">
                 <div className="mz-global-search-header">
                   <span>Results for &ldquo;{searchQuery.trim()}&rdquo;</span>
-                  <span className="mz-global-search-esc">Press ESC to dismiss</span>
+                  <span className="mz-global-search-esc"><kbd>ESC</kbd> to dismiss</span>
                 </div>
 
                 {filteredTracks.length === 0 && filteredActivity.length === 0 ? (
