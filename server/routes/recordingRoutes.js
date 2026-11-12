@@ -741,6 +741,20 @@ router.post(
       fs.renameSync(tempFilePath, filePath);
       createdFilePath = filePath;
 
+      // Persistently backup newly recorded meeting video into MongoDB Atlas GridFS
+      try {
+        const { saveFileToGridFS } = require("../config/recordingStorage");
+        await saveFileToGridFS(fileName, filePath, {
+          recordingId,
+          meetingId,
+          hostUserId,
+          mimeType,
+          durationSeconds: Math.round(Number(durationSeconds) || 0),
+        });
+      } catch (gridErr) {
+        console.warn("[Recordings] GridFS cloud persistence backup notice:", gridErr.message);
+      }
+
       let participantUserIds = [];
       if (Array.isArray(meeting.participants)) {
         participantUserIds = meeting.participants
@@ -870,9 +884,13 @@ router.get("/", authenticateToken, async (req, res) => {
     const Meeting = require("../models/Meeting");
 
     const currentUserDoc = mongoose.Types.ObjectId.isValid(currentUserId)
-      ? await User.findById(currentUserId).select("fullName username email").lean()
+      ? await User.findById(currentUserId).select("fullName username email role isMainAdmin").lean()
       : null;
     const userNames = [currentUserDoc?.fullName, currentUserDoc?.username].filter(Boolean);
+
+    const isMainAdmin = req.user?.isMainAdmin === true || currentUserDoc?.isMainAdmin === true;
+    const userRole = String(currentUserDoc?.role || req.user?.role || "").toLowerCase();
+    const isAdmin = isMainAdmin || userRole === "admin" || userRole === "super_admin" || userRole === "superadmin";
 
     // Identify all meetings created by or attended by this user
     let userMeetingIds = [];
@@ -895,7 +913,10 @@ router.get("/", authenticateToken, async (req, res) => {
     ];
 
     let filter = {};
-    if (scope === "personal") {
+    if (isAdmin && scope === "all") {
+      // Authorized Administrator account sees all platform recordings
+      filter = {};
+    } else if (scope === "personal") {
       filter = {
         $or: [
           { hostUserId: currentUserId },

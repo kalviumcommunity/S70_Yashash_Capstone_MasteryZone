@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 const mongoose = require("mongoose");
 const Certification = require("../models/CertificationSchema");
 const CertificationAttempt = require("../models/CertificationAttempt");
@@ -56,6 +57,30 @@ async function parseAndValidatePdfStructure(filePath) {
 }
 
 const isValidPdfFile = parseAndValidatePdfStructure;
+
+/**
+ * Ensures any candidate token identity (MongoDB ObjectId, custom string, guest ID, email)
+ * safely maps to a valid 24-character Mongoose ObjectId, preventing CastErrors.
+ */
+async function resolveSafeUserId(userPayload) {
+  if (!userPayload) {
+    const hex = crypto.createHash("md5").update("anonymous_candidate").digest("hex").slice(0, 24);
+    return new mongoose.Types.ObjectId(hex);
+  }
+  const rawId = userPayload.userId || userPayload.id || userPayload._id;
+  if (rawId && mongoose.Types.ObjectId.isValid(rawId)) {
+    return new mongoose.Types.ObjectId(rawId);
+  }
+  if (userPayload.email) {
+    try {
+      const dbUser = await User.findOne({ email: userPayload.email.toLowerCase().trim() });
+      if (dbUser && dbUser._id) return dbUser._id;
+    } catch {}
+  }
+  const str = String(rawId || userPayload.email || "guest_cert_candidate");
+  const hex = crypto.createHash("md5").update(str).digest("hex").slice(0, 24);
+  return new mongoose.Types.ObjectId(hex);
+}
 
 function calculateCertificationVerdict(attempt) {
   let mcqScore = 0;
@@ -215,13 +240,19 @@ router.get("/", authenticateToken, async (req, res) => {
 // -------------------------------------------------------------
 router.post("/attempt/start", authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.userId || req.user.id;
+    const userId = await resolveSafeUserId(req.user);
     const { certId = "dsa_cert", forceNew, candidatePhoto } = req.body;
 
     // Fetch user profile for candidate identity
-    const user = await User.findById(userId);
-    const candidateName = user ? (user.fullName || user.name || "Candidate") : "Candidate";
-    const candidateEmail = user ? (user.email || "") : "";
+    let user = null;
+    if (userId) {
+      user = await User.findById(userId);
+    }
+    if (!user && req.user.email) {
+      user = await User.findOne({ email: req.user.email.toLowerCase().trim() });
+    }
+    const candidateName = user ? (user.fullName || user.name || "Candidate") : (req.user.fullName || req.user.name || req.user.username || "Candidate");
+    const candidateEmail = user ? (user.email || "") : (req.user.email || "");
 
     // Dynamic title mapping
     const certTitleMap = {
@@ -521,7 +552,7 @@ router.post("/attempt/start", authenticateToken, async (req, res) => {
 // -------------------------------------------------------------
 router.get("/check/:certId", authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.userId || req.user.id;
+    const userId = await resolveSafeUserId(req.user);
     const { certId } = req.params;
 
     // Check if already certified
@@ -607,7 +638,7 @@ router.get("/check/:certId", authenticateToken, async (req, res) => {
 // -------------------------------------------------------------
 router.get("/attempt/:attemptId", authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.userId || req.user.id;
+    const userId = await resolveSafeUserId(req.user);
     const attempt = await CertificationAttempt.findOne({
       attemptId: req.params.attemptId,
       userId,
@@ -687,7 +718,7 @@ router.get("/attempt/:attemptId", authenticateToken, async (req, res) => {
 // -------------------------------------------------------------
 router.post("/attempt/:attemptId/save-mcq", authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.userId || req.user.id;
+    const userId = await resolveSafeUserId(req.user);
     const { questionId, selectedOptionIndex } = req.body;
 
     const attempt = await CertificationAttempt.findOne({
@@ -723,7 +754,7 @@ router.post("/attempt/:attemptId/save-mcq", authenticateToken, async (req, res) 
 // -------------------------------------------------------------
 router.post("/attempt/:attemptId/run-code", authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.userId || req.user.id;
+    const userId = await resolveSafeUserId(req.user);
     const { questionIndex = 0, code, language = "python", stdin = "", customInput } = req.body;
 
     const attempt = await CertificationAttempt.findOne({
@@ -808,7 +839,7 @@ router.post("/attempt/:attemptId/run-code", authenticateToken, async (req, res) 
 // -------------------------------------------------------------
 router.post("/attempt/:attemptId/submit-code", authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.userId || req.user.id;
+    const userId = await resolveSafeUserId(req.user);
     const { questionIndex = 0, code, language = "python" } = req.body;
 
     const attempt = await CertificationAttempt.findOne({
@@ -915,7 +946,7 @@ router.post("/attempt/:attemptId/submit-code", authenticateToken, async (req, re
 // -------------------------------------------------------------
 router.post("/attempt/:attemptId/proctoring-event", authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.userId || req.user.id;
+    const userId = await resolveSafeUserId(req.user);
     const { type, details } = req.body;
 
     const attempt = await CertificationAttempt.findOne({
@@ -994,7 +1025,7 @@ router.post("/attempt/:attemptId/proctoring-event", authenticateToken, async (re
 // -------------------------------------------------------------
 router.post("/attempt/:attemptId/finalize", authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.userId || req.user.id;
+    const userId = await resolveSafeUserId(req.user);
 
     const attempt = await CertificationAttempt.findOne({
       attemptId: req.params.attemptId,
@@ -1662,7 +1693,7 @@ router.get("/attempt/:attemptId/report", authenticateToken, async (req, res) => 
 // -------------------------------------------------------------
 router.get("/my-history", authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.userId || req.user.id;
+    const userId = await resolveSafeUserId(req.user);
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = req.query.all === "true" ? 0 : Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
 

@@ -2095,6 +2095,11 @@ async function connectDB() {
     await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 3000 });
     console.log("✅ MongoDB Connected Successfully");
     await bootstrapSuperAdmin();
+    // Asynchronously trigger background cloud recording self-healing and GridFS sync
+    try {
+      const { syncRecordingsToGridFS } = require("./utils/recordingSync");
+      syncRecordingsToGridFS().catch((sErr) => console.warn("[RecordingSync] Background sync note:", sErr.message));
+    } catch {}
   } catch (err) {
     console.error("🔌 MongoDB connection failed:", err.message);
     if (process.env.NODE_ENV !== "production" && mongoUri !== "mongodb://127.0.0.1:27017/masteryzone") {
