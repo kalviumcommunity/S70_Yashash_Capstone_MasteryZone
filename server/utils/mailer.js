@@ -106,27 +106,9 @@ function getSenderAddress(department = 'Mastery Zone') {
     cleanEmail = process.env.BREVO_SENDER_EMAIL || config.email || process.env.SMTP_EMAIL || '';
   }
 
-  if (!cleanEmail || cleanEmail.toLowerCase().endsWith('@masteryzone.com') || cleanEmail.toLowerCase().endsWith('@masteryzone.test')) {
-    const verifiedFallback = (
-      process.env.BREVO_SENDER_EMAIL ||
-      process.env.SMTP_EMAIL ||
-      config.email ||
-      process.env.MAIN_ADMIN_EMAIL ||
-      process.env.ADMIN_EMAIL ||
-      ''
-    ).trim();
-    if (verifiedFallback && !verifiedFallback.toLowerCase().endsWith('@masteryzone.com') && !verifiedFallback.toLowerCase().endsWith('@masteryzone.test')) {
-      cleanEmail = verifiedFallback;
-    } else if (!isTrustedLocal) {
-      return null;
-    } else {
-      cleanEmail = 'notifications@masteryzone.com';
-    }
-  }
-
   if (!cleanEmail) {
     if (!isTrustedLocal) return null;
-    cleanEmail = 'notifications@masteryzone.com';
+    cleanEmail = config.email || 'notifications@masteryzone.com';
   }
 
   return `"${department}" <${cleanEmail}>`;
@@ -147,7 +129,22 @@ function getOutboundEmailDedupKey(to, subject, html, options = {}) {
   return `${cleanTo}::${cleanSubject}::${sample}`;
 }
 
+const CRITICAL_NOTIFICATION_TYPES = new Set([
+  'password_reset',
+  'admin_otp',
+  'otp',
+  'login_notification',
+  'meeting_invitation',
+  'admin_password_changed',
+  'new_admin_welcome',
+]);
+
 function isDuplicateOutboundEmail(to, subject, html, options = {}) {
+  if (options.bypassDedup) return false;
+  const emailType = options.emailType || "";
+  if (CRITICAL_NOTIFICATION_TYPES.has(emailType) && !options.enforceDedup) {
+    return false;
+  }
   const key = getOutboundEmailDedupKey(to, subject, html, options);
   const now = Date.now();
   const lastSent = sentNotificationCache.get(key);
@@ -193,7 +190,7 @@ function validateRecipientEmail(email) {
 }
 
 // ── Synthetic, Test & Non-Deliverable Domain Blacklist ──
-// These domains have no genuine mailboxes or are reserved by RFC 2606 for documentation/testing.
+// These domains are reserved by RFC 2606 for documentation or explicitly non-routable local testing.
 const NON_DELIVERABLE_DOMAINS = new Set([
   'example.com',
   'example.net',
@@ -203,7 +200,6 @@ const NON_DELIVERABLE_DOMAINS = new Set([
   'test.org',
   'invalid',
   'localhost',
-  'masteryzone.com',
   'masteryzone.test',
   'masteryzone.local',
   'mailinator.com',
@@ -234,11 +230,8 @@ const NON_DELIVERABLE_PATTERNS = [
 
 /**
  * Validates that an address is a genuine, deliverable user recipient.
- * Eliminates automated test spam (e.g., user_isolated@masteryzone.com, usera_isolation@masteryzone.com),
- * disposable inboxes, guest identifiers, and internal placeholders.
  */
 function isLegitimateDeliverableEmail(email, role = null) {
-  if (role === 'guest') return false;
   if (!email || typeof email !== 'string') return false;
   const trimmed = email.toLowerCase().trim();
   if (!validateRecipientEmail(trimmed)) return false;
@@ -250,23 +243,23 @@ function isLegitimateDeliverableEmail(email, role = null) {
 
   const env = (process.env.NODE_ENV || "").trim().toLowerCase();
 
-  // Block reserved, disposable, and non-deliverable domains
-  if (NON_DELIVERABLE_DOMAINS.has(domain) || domain.endsWith('.test') || domain.endsWith('.invalid') || domain.endsWith('.local')) {
-    // In automated test environments, allow RFC example domains or admin@masteryzone.com for in-memory mocked transport assertions
-    if (env === 'test') {
+  // In test environment, enforce strict test domain mocking policies
+  if (env === 'test') {
+    if (NON_DELIVERABLE_DOMAINS.has(domain) || domain.endsWith('.test') || domain.endsWith('.invalid') || domain.endsWith('.local')) {
       if (domain === 'example.com' || domain === 'example.org' || domain === 'example.net' || trimmed === 'admin@masteryzone.com') {
         return true;
       }
+      return false;
     }
-    return false;
-  }
-
-  // Block automated test fixtures and seed patterns (only if in test mode or unroutable domain)
-  if (env === 'test') {
     for (const pattern of NON_DELIVERABLE_PATTERNS) {
       if (pattern.test(trimmed) || pattern.test(localPart)) {
         return false;
       }
+    }
+  } else {
+    // In live production & development, accept all valid email addresses across all operating systems & providers
+    if (domain === 'invalid' || domain === 'localhost' || domain.endsWith('.invalid') || domain.endsWith('.local')) {
+      return false;
     }
   }
 
@@ -980,13 +973,11 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
   // triggering delayed delivery queues and repeated "Delivery Status Notification (Delay)" warning spam.
   const recipientDomain = (to.split('@')[1] || '').trim().toLowerCase();
   const isUnroutableDomain =
-    recipientDomain === 'masteryzone.com' ||
     recipientDomain === 'masteryzone.test' ||
     recipientDomain === 'masteryzone.local' ||
     recipientDomain.endsWith('.test') ||
     recipientDomain.endsWith('.invalid') ||
-    recipientDomain.endsWith('.local') ||
-    NON_DELIVERABLE_DOMAINS.has(recipientDomain);
+    recipientDomain.endsWith('.local');
 
   if (isUnroutableDomain) {
     const isMockUnitTest = env === 'test' && (
@@ -1212,8 +1203,8 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
     return ['ETIMEDOUT', 'ECONNECTION', 'ESOCKET', '421', '451'].includes(String(code));
   };
 
-  // Final Hard-Stop: Never allow any unroutable domain (@masteryzone.com, @masteryzone.test, .invalid, .local) to connect to real external SMTP
-  const isTargetUnroutable = recipientDomain === 'masteryzone.com' || recipientDomain === 'masteryzone.test' || recipientDomain.endsWith('.test') || recipientDomain.endsWith('.invalid') || recipientDomain.endsWith('.local');
+  // Final Hard-Stop: Never allow non-routable test pseudo-domains to connect to real external SMTP
+  const isTargetUnroutable = recipientDomain === 'masteryzone.test' || recipientDomain.endsWith('.test') || recipientDomain.endsWith('.invalid') || recipientDomain.endsWith('.local');
   if (isTargetUnroutable) {
     const isMocked = tp && (tp.options?.jsonTransport || !tp.transporter || tp._isMock);
     if (!isMocked) {
@@ -1510,20 +1501,18 @@ function dispatchMailBackground(mailPromiseFn, meta = {}) {
 
 // Helper: Check if account is an ephemeral guest session or unroutable synthetic placeholder
 function isGuestAccount(email, role) {
-  if (role === 'guest') return true;
   if (!email || typeof email !== 'string') return true;
   const lower = email.toLowerCase().trim();
   if (lower.startsWith('guest_') || lower.startsWith('guest-') || lower.startsWith('temp_guest_') || lower.startsWith('guest.')) return true;
-  if (lower.includes('@guest.') || lower.includes('@masteryzone.local') || lower.endsWith('.local') || lower.endsWith('.test') || lower.endsWith('.invalid')) return true;
+  if (lower.includes('@guest.') || lower.includes('@masteryzone.local') || lower.endsWith('.local') || lower.endsWith('.invalid')) return true;
+  if (role === 'guest' && !validateRecipientEmail(lower)) return true;
 
   const env = (process.env.NODE_ENV || "").trim().toLowerCase();
-  const parts = lower.split('@');
-  if (parts.length === 2) {
-    const [localPart, domain] = parts;
-    if (NON_DELIVERABLE_DOMAINS.has(domain)) {
-      if (env === 'test' && (domain === 'example.com' || domain === 'example.org' || domain === 'example.net' || lower === 'admin@masteryzone.com')) {
-        // Allow RFC example domains or test admin in automated test environment for in-memory mocked assertions
-      } else {
+  if (env === 'test') {
+    const parts = lower.split('@');
+    if (parts.length === 2) {
+      const [localPart, domain] = parts;
+      if (domain.endsWith('.test') || domain.endsWith('.invalid')) {
         return true;
       }
     }
@@ -2185,7 +2174,13 @@ async function sendPasswordResetEmail(userOrOptions, resetTokenArg, reqArg, clie
       html,
     };
 
-    return await sendMailWithRetry(mailOptions, 1, { emailType: 'password_reset', userId: user?._id, bypassSettings: true });
+    return await sendMailWithRetry(mailOptions, 1, {
+      emailType: 'password_reset',
+      userId: user?._id,
+      recordId: `reset_${resetToken}_${Date.now()}`,
+      bypassSettings: true,
+      bypassDedup: true,
+    });
   } catch (err) {
     const diag = diagnoseSmtpError(err);
     console.error('Error in sendPasswordResetEmail:', err.message);
@@ -2651,7 +2646,12 @@ async function sendMainAdminOtpEmail({ toEmail, otp, expiresMinutes = 10, req = 
       html,
     };
 
-    return await sendMailWithRetry(mailOptions, 1, { emailType: "admin_otp", bypassSettings: true });
+    return await sendMailWithRetry(mailOptions, 1, {
+      emailType: "admin_otp",
+      recordId: `admin_otp_${otp}_${Date.now()}`,
+      bypassSettings: true,
+      bypassDedup: true,
+    });
   } catch (err) {
     const diag = diagnoseSmtpError(err);
     console.error("sendMainAdminOtpEmail error:", err.message);
@@ -3507,7 +3507,11 @@ async function sendMeetingInvitationEmail({
         html,
       },
       2,
-      { emailType: "meeting_invitation", recordId: `meeting_${meetingId}` }
+      {
+        emailType: "meeting_invitation",
+        recordId: `meeting_${meetingId}_${cleanTo}_${Date.now()}`,
+        bypassDedup: true,
+      }
     );
   } catch (err) {
     const diag = diagnoseSmtpError(err);

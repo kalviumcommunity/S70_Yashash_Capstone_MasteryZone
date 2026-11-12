@@ -1872,6 +1872,20 @@ io.on("connection", (socket) => {
 // CORS - explicitly restricted to trusted origins with credentials
 app.use(cors(corsOptions));
 
+// High-performance gzip/deflate response compression for ultra-fast page loading and API responsiveness
+const compression = require("compression");
+app.use(compression({
+  threshold: 1024, // only compress responses above 1KB
+  filter: (req, res) => {
+    if (req.headers["x-no-compression"]) return false;
+    // Don't compress already compressed media streams
+    if (req.path.startsWith("/recordings/") && (req.path.endsWith(".webm") || req.path.endsWith(".mp4"))) {
+      return false;
+    }
+    return compression.filter(req, res);
+  }
+}));
+
 // Standard JSON and URL-encoded body limit (video recording uploads use streaming multipart/binary directly)
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));

@@ -184,6 +184,8 @@ const moduleAssessmentAttemptSchema = new mongoose.Schema(
   { timestamps: true, strict: false }
 );
 
+moduleAssessmentAttemptSchema.index({ userId: 1, createdAt: -1 });
+
 module.exports =
   mongoose.models.ModuleAssessmentAttempt ||
   mongoose.model("ModuleAssessmentAttempt", moduleAssessmentAttemptSchema);

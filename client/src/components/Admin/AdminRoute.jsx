@@ -45,6 +45,8 @@ const AdminRoute = ({ children }) => {
           const isSecondary = user?.role === "admin" || user?.role === "SUPER_ADMIN";
 
           if (user && (isMain || isSecondary)) {
+            sessionStorage.setItem("user", JSON.stringify(user));
+            sessionStorage.setItem("mz_user", JSON.stringify(user));
             localStorage.setItem("user", JSON.stringify(user));
             localStorage.setItem("mz_user", JSON.stringify(user));
             setAuthState("authorized");

@@ -20,6 +20,7 @@ import logoIcon from "../assets/logo_icon_transparent.png";
 import illustrationImg from "../assets/login_illustration.png";
 import "./Signup.css";
 import ThemeToggle from "./ThemeToggle.jsx";
+import { updateLastActivityTime } from "../utils/sessionAuth.js";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 const AUTH_BASE = API_BASE ? `${API_BASE}/auth` : "/auth";
@@ -34,7 +35,6 @@ const Signup = () => {
     confirmPassword: "",
   });
 
-  const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [touched, setTouched] = useState({});
@@ -236,6 +236,7 @@ const Signup = () => {
         localStorage.setItem("userName", data.user.fullName || data.user.username || data.user.email);
         localStorage.setItem("userEmail", data.user.email);
       }
+      updateLastActivityTime();
       toast.success("Account created successfully with Google!");
       if (
         data.user?.role === "SUPER_ADMIN" ||
@@ -592,20 +593,9 @@ const Signup = () => {
                 </div>
               )}
 
-              {/* Remember me */}
-              <label className="mz-signup-remember-row su-form-anim-7">
-                <input
-                  type="checkbox"
-                  className="mz-signup-checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                />
-                <span>Remember me</span>
-              </label>
-
               {/* SIGN UP Button */}
               <button
-                className="mz-signup-btn su-form-anim-8"
+                className="mz-signup-btn su-form-anim-7"
                 type="submit"
                 disabled={isSubmitting}
               >

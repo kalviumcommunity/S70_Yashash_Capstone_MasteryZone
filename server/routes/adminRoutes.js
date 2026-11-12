@@ -999,7 +999,7 @@ router.post("/users/:id/reset-password", async (req, res) => {
     }
 
     const bcrypt = require("bcrypt");
-    const { sendPasswordResetEmail } = require("../utils/mailer");
+    const { sendPasswordResetEmail, dispatchMailBackground } = require("../utils/mailer");
 
     if (newPassword && typeof newPassword === "string" && newPassword.length >= 6) {
       const salt = await bcrypt.genSalt(10);
@@ -1031,16 +1031,14 @@ router.post("/users/:id/reset-password", async (req, res) => {
     await user.save();
 
     if (sendEmail) {
-      try {
-        await sendPasswordResetEmail({
+      dispatchMailBackground(async () => {
+        return await sendPasswordResetEmail({
           to: user.email,
           resetToken,
           candidateName: user.fullName || user.username,
           req,
         });
-      } catch (mailErr) {
-        console.warn("Could not dispatch reset email:", mailErr.message);
-      }
+      }, { type: 'admin_user_password_reset', recipient: user.email });
     }
 
     await recordAdminAudit({
@@ -1565,7 +1563,7 @@ router.put("/modify-marks", async (req, res) => {
     }
 
     const { pushNotification } = require("../utils/notificationService");
-    const { sendSubmissionEvaluationEmail, isGuestAccount } = require("../utils/mailer");
+    const { sendSubmissionEvaluationEmail, dispatchMailBackground, isGuestAccount } = require("../utils/mailer");
 
     let updatedResult = null;
     let targetUserId = null;
@@ -4151,6 +4149,7 @@ const {
   sendMainAdminOtpEmail,
   sendNewAdminWelcomeEmail,
   sendAdminPasswordChangedEmail,
+  dispatchMailBackground,
 } = require("../utils/mailer");
 
 // Step 1: Main Admin Password Verification & 6-Digit OTP Dispatch
@@ -4494,14 +4493,16 @@ router.post("/admins/create", async (req, res) => {
       });
     }
 
-    // Send Welcome Email with Initial Password
-    await sendNewAdminWelcomeEmail({
-      adminEmail: targetEmail,
-      adminName: targetUser.fullName || "Administrator",
-      tempPassword: initialPassword,
-      permissions: targetUser.adminPermissions,
-      req,
-    });
+    // Send Welcome Email with Initial Password asynchronously without freezing UI
+    dispatchMailBackground(async () => {
+      return await sendNewAdminWelcomeEmail({
+        adminEmail: targetEmail,
+        adminName: targetUser.fullName || "Administrator",
+        tempPassword: initialPassword,
+        permissions: targetUser.adminPermissions,
+        req,
+      });
+    }, { type: 'new_admin_welcome', recipient: targetEmail });
 
     await recordAdminAudit({
       adminId: req.user._id,
@@ -4597,12 +4598,14 @@ router.patch("/admins/:id/password", async (req, res) => {
     target.mustChangePassword = Boolean(requirePasswordChange);
     await target.save();
 
-    await sendAdminPasswordChangedEmail({
-      adminEmail: target.email,
-      adminName: target.fullName || "Administrator",
-      changedBy: "Main Administrator",
-      req,
-    });
+    dispatchMailBackground(async () => {
+      return await sendAdminPasswordChangedEmail({
+        adminEmail: target.email,
+        adminName: target.fullName || "Administrator",
+        changedBy: "Main Administrator",
+        req,
+      });
+    }, { type: 'admin_password_changed', recipient: target.email });
 
     await recordAdminAudit({
       adminId: req.user._id,

@@ -578,41 +578,33 @@ const Home = () => {
         return;
       }
 
-      // 1. Fetch live coding progress and stats
+      // Fetch live coding progress and recent submissions concurrently
       try {
-        const res = await fetch(`${API_BASE}/api/coding/data`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success) {
-            const up = json.userProgress || {};
-            setCodingStats({
-              totalXp: up.totalXp != null ? up.totalXp : 0,
-              totalHours: up.totalHours != null ? up.totalHours : 0,
-              streak: up.streak != null ? up.streak : 0,
-              challengesSolvedCount: Array.isArray(up.challengesSolved) ? up.challengesSolved.length : 0,
-              tracks: json.tracks || [],
-            });
-          }
-        }
-      } catch (err) {
-        console.warn("Coding data fetch note:", err);
-      }
+        const [res, resSub] = await Promise.all([
+          fetch(`${API_BASE}/api/coding/data`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+          fetch(`${API_BASE}/api/coding/submissions/my-recent`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+        ]);
 
-      // 2. Fetch student's real recent submissions
-      try {
-        const resSub = await fetch(`${API_BASE}/api/coding/submissions/my-recent`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (resSub.ok) {
-          const jsonSub = await resSub.json();
-          if (jsonSub.success && Array.isArray(jsonSub.submissions)) {
-            setRecentCodingSubmissions(jsonSub.submissions);
-          }
+        if (res && res.success) {
+          const up = res.userProgress || {};
+          setCodingStats({
+            totalXp: up.totalXp != null ? up.totalXp : 0,
+            totalHours: up.totalHours != null ? up.totalHours : 0,
+            streak: up.streak != null ? up.streak : 0,
+            challengesSolvedCount: Array.isArray(up.challengesSolved) ? up.challengesSolved.length : 0,
+            tracks: res.tracks || [],
+          });
+        }
+
+        if (resSub && resSub.success && Array.isArray(resSub.submissions)) {
+          setRecentCodingSubmissions(resSub.submissions);
         }
       } catch (err) {
-        console.warn("Recent submissions fetch note:", err);
+        console.warn("Coding platform concurrent load error:", err);
       }
     } catch (e) {
       console.warn("Coding platform data load error:", e);
@@ -665,67 +657,52 @@ const Home = () => {
 
       let apiReports = [];
       if (token) {
-        // 1. Fetch curriculum reports (MCQ Exams & multi-subject assessment attempts)
+        // Fetch curriculum reports, proctored coding sessions, and certification history concurrently
         try {
-          const res = await fetch(`${API_BASE}/api/curriculum/reports`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (res.ok) {
-            const data = await res.json();
-            if (Array.isArray(data.reports)) {
-              apiReports.push(...data.reports);
-            }
-          }
-        } catch (curErr) {
-          console.warn("Curriculum reports fetch note:", curErr);
-        }
+          const [curriculumRes, proctoredRes, certsRes] = await Promise.allSettled([
+            fetch(`${API_BASE}/api/curriculum/reports`, {
+              headers: { Authorization: `Bearer ${token}` },
+            }).then((r) => (r.ok ? r.json() : null)),
+            fetch(`${API_BASE}/api/coding/proctored-session/user-reports`, {
+              headers: { Authorization: `Bearer ${token}` },
+            }).then((r) => (r.ok ? r.json() : null)),
+            fetch(`${API_BASE}/api/certifications/my-history`, {
+              headers: { Authorization: `Bearer ${token}` },
+            }).then((r) => (r.ok ? r.json() : null)),
+          ]);
 
-        // 2. Fetch proctored coding sessions (MZ-ASM practical exams)
-        try {
-          const res = await fetch(`${API_BASE}/api/coding/proctored-session/user-reports`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (res.ok) {
-            const data = await res.json();
-            if (Array.isArray(data.reports)) {
-              apiReports.push(...data.reports);
-            }
+          if (curriculumRes.status === "fulfilled" && curriculumRes.value && Array.isArray(curriculumRes.value.reports)) {
+            apiReports.push(...curriculumRes.value.reports);
           }
-        } catch (apiErr) {
-          console.warn("API reports fetch note:", apiErr);
-        }
 
-        // 3. Fetch genuine certification attempts from database
-        try {
-          const res = await fetch(`${API_BASE}/api/certifications/my-history`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (res.ok) {
-            const data = await res.json();
-            if (Array.isArray(data.attempts)) {
-              data.attempts.forEach((att) => {
-                const isPass = att.status === "PASSED" || att.finalVerdict === "PASSED";
-                const pct = att.percentage != null ? att.percentage : (att.finalScorePercentage != null ? att.finalScorePercentage : 0);
-                const scoreVal = att.score?.marksObtained != null ? att.score.marksObtained : (att.score?.mcqScore ?? 0);
-                apiReports.push({
-                  id: att.attemptId,
-                  sessionId: att.attemptId,
-                  attemptId: att.attemptId,
-                  certificateId: att.certificateId,
-                  subjectKey: "coding",
-                  trackId: att.certId || "dsa_cert",
-                  moduleIndex: 0,
-                  assessmentTitle: `${att.certTitle || "DSA Certification"} — Attempt #${att.attemptNumber || 1}`,
-                  questionTitle: att.certTitle || "Certification Examination",
-                  difficulty: "Professional",
-                  category: "Proctored Certifications",
-                  type: "certification_exam",
-                  typeLabel: "Professional Certification Exam",
-                  submittedAt: att.submittedAt || att.startTime,
-                  score: scoreVal,
-                  marksObtained: scoreVal,
-                  totalMarks: 40,
-                  percentage: pct,
+          if (proctoredRes.status === "fulfilled" && proctoredRes.value && Array.isArray(proctoredRes.value.reports)) {
+            apiReports.push(...proctoredRes.value.reports);
+          }
+
+          if (certsRes.status === "fulfilled" && certsRes.value && Array.isArray(certsRes.value.attempts)) {
+            certsRes.value.attempts.forEach((att) => {
+              const isPass = att.status === "PASSED" || att.finalVerdict === "PASSED";
+              const pct = att.percentage != null ? att.percentage : (att.finalScorePercentage != null ? att.finalScorePercentage : 0);
+              const scoreVal = att.score?.marksObtained != null ? att.score.marksObtained : (att.score?.mcqScore ?? 0);
+              apiReports.push({
+                id: att.attemptId,
+                sessionId: att.attemptId,
+                attemptId: att.attemptId,
+                certificateId: att.certificateId,
+                subjectKey: "coding",
+                trackId: att.certId || "dsa_cert",
+                moduleIndex: 0,
+                assessmentTitle: `${att.certTitle || "DSA Certification"} — Attempt #${att.attemptNumber || 1}`,
+                questionTitle: att.certTitle || "Certification Examination",
+                difficulty: "Professional",
+                category: "Proctored Certifications",
+                type: "certification_exam",
+                typeLabel: "Professional Certification Exam",
+                submittedAt: att.submittedAt || att.startTime,
+                score: scoreVal,
+                marksObtained: scoreVal,
+                totalMarks: 40,
+                percentage: pct,
                   grade: pct >= 90 ? "A+" : pct >= 80 ? "A" : pct >= 70 ? "B" : "F",
                   accuracy: pct,
                   passedTests: (att.score?.codingQ1Solved ? 10 : 0) + (att.score?.codingQ2Solved ? 10 : 0),
@@ -736,9 +713,8 @@ const Home = () => {
                 });
               });
             }
-          }
-        } catch (certErr) {
-          console.warn("Certification attempts fetch note:", certErr);
+        } catch (fetchErr) {
+          console.warn("Reports concurrent fetch error:", fetchErr);
         }
       }
 
