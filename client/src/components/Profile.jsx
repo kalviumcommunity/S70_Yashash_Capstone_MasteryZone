@@ -837,7 +837,6 @@ const Profile = () => {
           </div>
 
           <div className="mz-topbar-right">
-            <ThemeToggle />
             {/* Real-Time Notification Bell */}
             <NotificationBell />
 

@@ -26,7 +26,6 @@ import {
 import { toast } from "react-toastify";
 import NotificationBell from "../NotificationBell";
 import UserProfileDropdown from "../UserProfileDropdown.jsx";
-import ThemeToggle from "../ThemeToggle.jsx";
 import { performGlobalLogout } from "../../utils/sessionAuth.js";
 
 const getApiBase = () => {
@@ -380,7 +379,6 @@ export default function MasteryZoneLiveLanding({
         </div>
 
         <div className="mzl-nav-right">
-          <ThemeToggle />
           <NotificationBell />
 
           {/* User Profile Pill matching Coding page */}
