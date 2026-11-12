@@ -307,11 +307,24 @@ export function NotificationProvider({ children }) {
     socket.on("new_notification", handleNewNotification);
     socket.on("notifications_updated", handleNotificationsUpdated);
 
+    socket.on("RECORDING_SAVED", (recording) => {
+      window.dispatchEvent(new CustomEvent("mz_recording_saved", { detail: recording }));
+    });
+    socket.on("RECORDING_UPDATED", (recording) => {
+      window.dispatchEvent(new CustomEvent("mz_recording_updated", { detail: recording }));
+    });
+    socket.on("RECORDING_DELETED", (payload) => {
+      window.dispatchEvent(new CustomEvent("mz_recording_deleted", { detail: payload }));
+    });
+
     return () => {
       socket.off("connect", handleConnect);
       socket.off("disconnect", handleDisconnect);
       socket.off("new_notification", handleNewNotification);
       socket.off("notifications_updated", handleNotificationsUpdated);
+      socket.off("RECORDING_SAVED");
+      socket.off("RECORDING_UPDATED");
+      socket.off("RECORDING_DELETED");
       socket.disconnect();
       if (socketRef.current === socket) {
         socketRef.current = null;

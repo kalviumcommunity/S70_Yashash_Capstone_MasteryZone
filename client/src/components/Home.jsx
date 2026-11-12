@@ -728,37 +728,7 @@ const Home = () => {
         }
       }
 
-      // Also merge user-specific local recordings
-      let uId = "";
-      try {
-        const rawUser = localStorage.getItem("user");
-        if (rawUser) {
-          const parsed = JSON.parse(rawUser);
-          uId = parsed._id || parsed.id || parsed.userId || "";
-        }
-      } catch {}
-
-      const recKey = uId ? `mz_${uId}_local_recordings` : null;
-      let localRecs = [];
-      try {
-        localRecs = recKey ? JSON.parse(localStorage.getItem(recKey) || "[]") : [];
-      } catch {}
-
-      const recMap = new Map();
-      apiRecs.forEach((r) => {
-        const key = r.recordingId || r._id || r.id;
-        if (key) recMap.set(key, r);
-      });
-      localRecs.forEach((r) => {
-        if (uId && r.hostUserId && String(r.hostUserId) !== String(uId)) return;
-        const key = r.recordingId || r._id || r.id;
-        if (key && !recMap.has(key)) recMap.set(key, r);
-      });
-
-      const combined = Array.from(recMap.values()).sort(
-        (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
-      );
-      setRecordingsList(combined);
+      setRecordingsList(apiRecs);
     } catch (err) {
       console.warn("Recordings fetch note:", err);
     } finally {
@@ -887,6 +857,51 @@ const Home = () => {
       fetchRecordings(false);
     }
   }, [recDateFilter, recSortOrder, recScope]);
+
+  // Real-time synchronization for meeting recordings across all devices & accounts
+  useEffect(() => {
+    const handleSaved = (e) => {
+      const rec = e.detail;
+      if (!rec || !rec.recordingId) return;
+      setRecordingsList((prev) => {
+        if (prev.some((r) => r.recordingId === rec.recordingId)) return prev;
+        return [rec, ...prev];
+      });
+      setRecordingsAnalytics((prev) => ({
+        ...prev,
+        totalRecordings: (prev.totalRecordings || 0) + 1,
+        totalSizeBytes: (prev.totalSizeBytes || 0) + (rec.fileSize || 0),
+      }));
+    };
+
+    const handleUpdated = (e) => {
+      const updated = e.detail;
+      if (!updated || !updated.recordingId) return;
+      setRecordingsList((prev) =>
+        prev.map((r) => (r.recordingId === updated.recordingId ? { ...r, ...updated } : r))
+      );
+      setActivePlayingRecording((prev) =>
+        prev && prev.recordingId === updated.recordingId ? { ...prev, ...updated } : prev
+      );
+    };
+
+    const handleDeleted = (e) => {
+      const recId = e.detail?.recordingId;
+      if (!recId) return;
+      setRecordingsList((prev) => prev.filter((r) => r.recordingId !== recId));
+      setActivePlayingRecording((prev) => (prev && prev.recordingId === recId ? null : prev));
+    };
+
+    window.addEventListener("mz_recording_saved", handleSaved);
+    window.addEventListener("mz_recording_updated", handleUpdated);
+    window.addEventListener("mz_recording_deleted", handleDeleted);
+
+    return () => {
+      window.removeEventListener("mz_recording_saved", handleSaved);
+      window.removeEventListener("mz_recording_updated", handleUpdated);
+      window.removeEventListener("mz_recording_deleted", handleDeleted);
+    };
+  }, []);
 
   useEffect(() => {
     if (activePlayingRecording && videoPlayerRef.current) {
@@ -4252,16 +4267,19 @@ const Home = () => {
                 ref={videoPlayerRef}
                 src={getMediaUrl(activePlayingRecording.streamUrl || activePlayingRecording.fileUrl)}
                 controls
-                autoPlay
-                preload="auto"
+                preload="metadata"
                 playsInline
                 onLoadedMetadata={(e) => {
                   if (e.target.duration && isFinite(e.target.duration) && e.target.duration > 0) {
                     const d = Math.round(e.target.duration);
-                    if (!activePlayingRecording.durationSeconds || activePlayingRecording.durationSeconds !== d) {
+                    if (Math.abs((activePlayingRecording.durationSeconds || 0) - d) > 1) {
                       setActivePlayingRecording((prev) => (prev ? { ...prev, durationSeconds: d } : prev));
                     }
                   }
+                  e.target.play?.().catch(() => {});
+                }}
+                onError={(err) => {
+                  console.warn("Meeting recording stream notice:", err);
                 }}
                 onTimeUpdate={() => {
                   if (videoPlayerRef.current) {
