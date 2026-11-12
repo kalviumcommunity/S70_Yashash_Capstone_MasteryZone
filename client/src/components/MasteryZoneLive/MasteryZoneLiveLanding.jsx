@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  LuGraduationCap,
   LuSearch,
   LuPlay,
   LuCode,
@@ -417,30 +416,10 @@ export default function MasteryZoneLiveLanding({
       <main className="mzl-landing-body">
         {/* Title Header */}
         <div className="mzl-hero-heading-block">
-          <div className="mzl-heading-toolbar">
-            <button
-              type="button"
-              className="mzl-sub-back-btn"
-              onClick={handleBack}
-              title="Return to previous screen"
-            >
-              <LuArrowLeft size={15} />
-              <span>Back to Dashboard</span>
-            </button>
-            <div className="mzl-badge-row">
-              <span className="mzl-platform-pill">
-                <LuGraduationCap size={14} />
-                Google Meet-Style Real-Time Collaboration
-              </span>
-            </div>
-          </div>
           <h1 className="mzl-hero-title">
             <LuVideo size={28} color="#2563eb" />
             Mastery Zone Live Meeting
           </h1>
-          <p className="mzl-hero-subtitle">
-            HD video meetings, multi-party audio, and real-time MZ-ASM cloud compiler in a single workspace.
-          </p>
         </div>
 
         {/* Hero Card */}
