@@ -1216,7 +1216,7 @@ function formatLocalReport(matched, uObj, rawId) {
 
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               <a
-                href={`${API_BASE}/api/certifications/certificate/${report.certificate.certificateId}/download`}
+                href={`${API_BASE}/api/certifications/certificate/${report.certificate.certificateId}/download?token=${encodeURIComponent(localStorage.getItem("token") || "")}`}
                 download
                 target="_blank"
                 rel="noreferrer"

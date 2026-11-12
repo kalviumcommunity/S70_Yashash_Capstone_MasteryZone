@@ -511,18 +511,18 @@ export default function MasteryZoneCompilerWorkspace({
     }
   }, [initialHistory, questionId]);
 
-  // Actual test cases: exactly 10 test cases; cases 1-3 visible, 4-10 hidden
+  // Actual test cases: all test cases visible with input & expected output (solutions)
   const effectiveTestCases = useMemo(() => {
     const list = (testCases && testCases.length > 0) ? testCases : (problemData?.testCases || []);
     return list.map((tc, idx) => ({
       index: idx + 1,
-      input: (tc.isHidden || idx >= 3) ? `[Hidden Test Case #${idx + 1}]` : tc.input,
-      expectedOutput: (tc.isHidden || idx >= 3) ? `[Hidden Output #${idx + 1}]` : tc.expectedOutput,
-      isHidden: !!tc.isHidden || idx >= 3,
-      passed: null,
-      actualOutput: "",
-      duration: 0,
-      error: null,
+      input: tc.input || "",
+      expectedOutput: tc.expectedOutput || "",
+      isHidden: false,
+      passed: tc.passed ?? null,
+      actualOutput: tc.actualOutput || "",
+      duration: tc.duration || 0,
+      error: tc.error || null,
     }));
   }, [questionId, testCases, problemData]);
 
@@ -5007,26 +5007,22 @@ export default function MasteryZoneCompilerWorkspace({
                               <div>
                                 <div className="mz-detail-header-row">
                                   <div className="mz-compiler-detail-section-title">
-                                    Input {selectedCase?.isHidden ? `(Hidden Test Case ${selectedCase?.index} of 10)` : `(Public Sample ${selectedCase?.index} of 3)`}
+                                    Input (Test Case {selectedCase?.index || 1} of {allTestCases.length || 10})
                                   </div>
                                 </div>
-                                <div className={`mz-compiler-io-box ${selectedCase?.isHidden ? "hidden-case" : ""}`}>
-                                  {selectedCase?.isHidden
-                                    ? "[Hidden Test Case — Stored exclusively on backend to evaluate boundary conditions]"
-                                    : selectedCase?.input}
+                                <div className="mz-compiler-io-box">
+                                  {selectedCase?.input || ""}
                                 </div>
                               </div>
 
                               <div>
                                 <div className="mz-detail-header-row">
                                   <div className="mz-compiler-detail-section-title">
-                                    Expected Output {selectedCase?.isHidden ? "(Hidden)" : ""}
+                                    Expected Output (Solution)
                                   </div>
                                 </div>
-                                <div className={`mz-compiler-io-box ${selectedCase?.isHidden ? "hidden-case" : ""}`}>
-                                  {selectedCase?.isHidden
-                                    ? "[Hidden Output — Protected test case to prevent hardcoding]"
-                                    : selectedCase?.expectedOutput}
+                                <div className="mz-compiler-io-box">
+                                  {selectedCase?.expectedOutput || ""}
                                 </div>
                               </div>
 
@@ -5048,15 +5044,13 @@ export default function MasteryZoneCompilerWorkspace({
                                         : ""
                                     }`}
                                   >
-                                    {selectedCase?.isHidden
-                                      ? selectedCase?.passed === true || isAllPassed
-                                        ? "[Passed — Output matched hidden test case expectations]"
-                                        : selectedCase?.error || "[Hidden Test Case Failed — Output did not match expected]"
+                                    {selectedCase?.passed === false && selectedCase?.error
+                                      ? selectedCase.error
                                       : selectedCase?.actualOutput ||
                                         (selectedCase?.passed === true || isAllPassed
                                           ? selectedCase?.expectedOutput || "[Passed]"
                                           : "[No output produced]")}
-                                    {selectedCase?.error && (
+                                    {selectedCase?.error && selectedCase?.actualOutput && (
                                       <div style={{ color: "#ef4444", marginTop: "6px", fontFamily: "monospace" }}>
                                         {selectedCase.error}
                                       </div>

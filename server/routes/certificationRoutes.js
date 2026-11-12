@@ -299,20 +299,16 @@ router.post("/attempt/start", authenticateToken, async (req, res) => {
           }));
 
           const sanitizedCoding = (activeAttempt.selectedCodingQuestions || []).map((q) => {
-            const testCases = [
-              ...(q.publicTests || []).map((t, idx) => ({
-                index: idx + 1,
-                input: t.input,
-                expectedOutput: t.expectedOutput,
-                isHidden: false,
-              })),
-              ...(q.hiddenTests || []).map((t, idx) => ({
-                index: (q.publicTests || []).length + idx + 1,
-                input: `[Hidden Test Case #${(q.publicTests || []).length + idx + 1}]`,
-                expectedOutput: `[Hidden Output #${(q.publicTests || []).length + idx + 1}]`,
-                isHidden: true,
-              })),
+            const allTests = [
+              ...(q.publicTests || []),
+              ...(q.hiddenTests || []),
             ];
+            const testCases = (allTests.length > 0 ? allTests : (q.testCases || [])).map((t, idx) => ({
+              index: idx + 1,
+              input: t.input,
+              expectedOutput: t.expectedOutput,
+              isHidden: false,
+            }));
 
             return {
               questionId: q.questionId,
@@ -325,8 +321,10 @@ router.post("/attempt/start", authenticateToken, async (req, res) => {
               outputFormat: q.outputFormat,
               constraints: q.constraints,
               examples: q.examples,
+              hints: q.hints || [],
+              objective: q.objective || "",
               starterCode: q.starterCode,
-              publicTests: q.publicTests,
+              publicTests: testCases,
               testCases,
             };
           });
@@ -379,8 +377,14 @@ router.post("/attempt/start", authenticateToken, async (req, res) => {
     const selectedTwoChallenges = shuffleArray(eligibleChallenges).slice(0, 2);
 
     const formattedCodingQuestions = selectedTwoChallenges.map((c) => {
-      const publicTests = (c.testCases || []).filter((tc) => !tc.isHidden).slice(0, 3);
-      const hiddenTests = (c.testCases || []).filter((tc) => tc.isHidden);
+      const allTestCases = Array.isArray(c.testCases) ? c.testCases : [];
+      const publicTests = allTestCases.map((tc, idx) => ({
+        index: idx + 1,
+        input: tc.input,
+        expectedOutput: tc.expectedOutput,
+        isHidden: false,
+      }));
+      const hiddenTests = [];
       const execConfig = getProblemExecutionConfig(c);
 
       // Default starter code if missing
@@ -400,9 +404,12 @@ router.post("/attempt/start", authenticateToken, async (req, res) => {
         outputFormat: c.outputFormat || "",
         constraints: c.constraints || [],
         examples: c.examples || [],
+        hints: c.hints || [],
+        objective: c.objective || "",
         starterCode,
         publicTests,
-        hiddenTests: hiddenTests.length > 0 ? hiddenTests : (c.testCases || []).slice(3),
+        hiddenTests,
+        testCases: publicTests,
       };
     });
 
@@ -455,20 +462,16 @@ router.post("/attempt/start", authenticateToken, async (req, res) => {
     }));
 
     const sanitizedCoding = newAttempt.selectedCodingQuestions.map((q) => {
-      const testCases = [
-        ...(q.publicTests || []).map((t, idx) => ({
-          index: idx + 1,
-          input: t.input,
-          expectedOutput: t.expectedOutput,
-          isHidden: false,
-        })),
-        ...(q.hiddenTests || []).map((t, idx) => ({
-          index: (q.publicTests || []).length + idx + 1,
-          input: `[Hidden Test Case #${(q.publicTests || []).length + idx + 1}]`,
-          expectedOutput: `[Hidden Output #${(q.publicTests || []).length + idx + 1}]`,
-          isHidden: true,
-        })),
+      const allTests = [
+        ...(q.publicTests || []),
+        ...(q.hiddenTests || []),
       ];
+      const testCases = (allTests.length > 0 ? allTests : (q.testCases || [])).map((t, idx) => ({
+        index: idx + 1,
+        input: t.input,
+        expectedOutput: t.expectedOutput,
+        isHidden: false,
+      }));
 
       return {
         questionId: q.questionId,
@@ -481,8 +484,10 @@ router.post("/attempt/start", authenticateToken, async (req, res) => {
         outputFormat: q.outputFormat,
         constraints: q.constraints,
         examples: q.examples,
+        hints: q.hints || [],
+        objective: q.objective || "",
         starterCode: q.starterCode,
-        publicTests: q.publicTests,
+        publicTests: testCases,
         testCases,
       };
     });
@@ -621,20 +626,16 @@ router.get("/attempt/:attemptId", authenticateToken, async (req, res) => {
     }));
 
     const sanitizedCoding = attempt.selectedCodingQuestions.map((q) => {
-      const testCases = [
-        ...(q.publicTests || []).map((t, idx) => ({
-          index: idx + 1,
-          input: t.input,
-          expectedOutput: t.expectedOutput,
-          isHidden: false,
-        })),
-        ...(q.hiddenTests || []).map((t, idx) => ({
-          index: (q.publicTests || []).length + idx + 1,
-          input: `[Hidden Test Case #${(q.publicTests || []).length + idx + 1}]`,
-          expectedOutput: `[Hidden Output #${(q.publicTests || []).length + idx + 1}]`,
-          isHidden: true,
-        })),
+      const allTests = [
+        ...(q.publicTests || []),
+        ...(q.hiddenTests || []),
       ];
+      const testCases = (allTests.length > 0 ? allTests : (q.testCases || [])).map((t, idx) => ({
+        index: idx + 1,
+        input: t.input,
+        expectedOutput: t.expectedOutput,
+        isHidden: false,
+      }));
 
       return {
         questionId: q.questionId,
@@ -647,8 +648,10 @@ router.get("/attempt/:attemptId", authenticateToken, async (req, res) => {
         outputFormat: q.outputFormat,
         constraints: q.constraints,
         examples: q.examples,
+        hints: q.hints || [],
+        objective: q.objective || "",
         starterCode: q.starterCode,
-        publicTests: q.publicTests,
+        publicTests: testCases,
         testCases,
       };
     });
@@ -751,8 +754,12 @@ router.post("/attempt/:attemptId/run-code", authenticateToken, async (req, res) 
       });
     }
 
-    // Evaluate against public visible test cases
-    const testCasesToRun = question.publicTests || [];
+    // Evaluate against all test cases for this question
+    const allTests = [
+      ...(question.publicTests || []),
+      ...(question.hiddenTests || []),
+    ];
+    const testCasesToRun = allTests.length > 0 ? allTests : (question.testCases || []);
     const testResults = [];
     const qExecConfig = getProblemExecutionConfig(question);
     const qFunctionName = question.functionName || qExecConfig.functionName || "";
@@ -819,17 +826,20 @@ router.post("/attempt/:attemptId/submit-code", authenticateToken, async (req, re
       return res.status(400).json({ error: "Invalid question index" });
     }
 
-    // Combine all test cases (public + hidden)
-    const allTests = [...(question.publicTests || []), ...(question.hiddenTests || [])];
+    // Combine all test cases
+    const allTests = [
+      ...(question.publicTests || []),
+      ...(question.hiddenTests || []),
+    ];
+    const testCasesToRun = allTests.length > 0 ? allTests : (question.testCases || []);
     const testResults = [];
     let passedCount = 0;
     const startTime = Date.now();
     const qExecConfig = getProblemExecutionConfig(question);
     const qFunctionName = question.functionName || qExecConfig.functionName || "";
 
-    for (let i = 0; i < allTests.length; i++) {
-      const tc = allTests[i];
-      const isHidden = i >= (question.publicTests || []).length;
+    for (let i = 0; i < testCasesToRun.length; i++) {
+      const tc = testCasesToRun[i];
       const outcome = await evaluateSingleTestCase(language, code, tc.input, tc.expectedOutput, {
         functionName: qFunctionName,
         problemId: question.questionId,
@@ -840,20 +850,20 @@ router.post("/attempt/:attemptId/submit-code", authenticateToken, async (req, re
       testResults.push({
         testIndex: i + 1,
         index: i + 1,
-        isHidden,
+        isHidden: false,
         passed: outcome.passed,
         duration: outcome.duration,
         durationMs: outcome.duration,
-        error: outcome.passed ? null : (isHidden ? "Test failed" : outcome.error),
-        input: isHidden ? `[Hidden Test Case #${i + 1}]` : tc.input,
-        expected: isHidden ? `[Hidden Output #${i + 1}]` : tc.expectedOutput,
-        expectedOutput: isHidden ? `[Hidden Output #${i + 1}]` : tc.expectedOutput,
-        actual: isHidden ? (outcome.passed ? "[Passed]" : "[Failed Output]") : outcome.actual,
-        actualOutput: isHidden ? (outcome.passed ? "[Passed]" : "[Failed Output]") : outcome.actual,
+        error: outcome.passed ? null : outcome.error,
+        input: tc.input,
+        expected: tc.expectedOutput,
+        expectedOutput: tc.expectedOutput,
+        actual: outcome.actual,
+        actualOutput: outcome.actual,
       });
     }
 
-    const totalTests = allTests.length;
+    const totalTests = testCasesToRun.length;
     const isSolved = passedCount === totalTests && totalTests > 0;
     const totalRuntimeMs = Date.now() - startTime;
 
@@ -1494,11 +1504,11 @@ router.get("/attempt/:attemptId/report", authenticateToken, async (req, res) => 
         testResults: tResults.map((tr, tIdx) => ({
           testIndex: tr.testIndex || tIdx + 1,
           passed: Boolean(tr.passed),
-          input: tr.input || "Hidden evaluation input",
-          expectedOutput: tr.expectedOutput || "Hidden expected output",
-          actualOutput: tr.actualOutput || (tr.passed ? tr.expectedOutput : "Failed output"),
+          input: tr.input || (q.testCases?.[tIdx]?.input) || (q.publicTests?.[tIdx]?.input) || "Test input",
+          expectedOutput: tr.expectedOutput || (q.testCases?.[tIdx]?.expectedOutput) || (q.publicTests?.[tIdx]?.expectedOutput) || "Expected output",
+          actualOutput: tr.actualOutput || (tr.passed ? (tr.expectedOutput || "Passed") : "Failed output"),
           durationMs: tr.durationMs || 12,
-          isHidden: Boolean(tr.isHidden),
+          isHidden: false,
         })),
         submittedAt: attempt.submittedAt || new Date(),
       };

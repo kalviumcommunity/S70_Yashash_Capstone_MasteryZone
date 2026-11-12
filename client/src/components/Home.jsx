@@ -2976,7 +2976,7 @@ const Home = () => {
                             }}
                           >
                             <a
-                              href={`${API_BASE}/api/certifications/certificate/${cert.certificateId}/download`}
+                              href={`${API_BASE}/api/certifications/certificate/${cert.certificateId}/download?token=${encodeURIComponent(localStorage.getItem("token") || "")}`}
                               download
                               target="_blank"
                               rel="noreferrer"

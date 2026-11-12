@@ -21,10 +21,10 @@ export default function MasteryZoneGlobalLoader({
   message = "Loading your workspace...",
   fullScreen = true,
   onComplete = null,
-  minDuration = 300,
+  minDuration = 100,
 }) {
   const [displayProgress, setDisplayProgress] = useState(
-    typeof progress === "number" ? progress : 20
+    typeof progress === "number" ? progress : 40
   );
   const [statusMessage, setStatusMessage] = useState(message);
   const [isExiting, setIsExiting] = useState(false);
@@ -39,12 +39,12 @@ export default function MasteryZoneGlobalLoader({
 
       if (clamped >= 100) {
         const elapsed = Date.now() - startTimeRef.current;
-        const delay = Math.max(80, minDuration - elapsed);
+        const delay = Math.max(20, minDuration - elapsed);
         const exitTimer = setTimeout(() => {
           setIsExiting(true);
           setTimeout(() => {
             onComplete?.();
-          }, 350);
+          }, 150);
         }, delay);
         return () => clearTimeout(exitTimer);
       }
@@ -58,15 +58,14 @@ export default function MasteryZoneGlobalLoader({
     }
   }, [message]);
 
-  // Smooth realistic progression when no explicit percentage is provided
+  // Fast & responsive realistic progression when no explicit percentage is provided
   useEffect(() => {
     if (typeof progress === "number") return;
 
     const stages = [
-      { target: 45, step: 2, interval: 35 },
-      { target: 75, step: 1, interval: 45 },
-      { target: 92, step: 1, interval: 70 },
-      { target: 98, step: 1, interval: 140 },
+      { target: 70, step: 4, interval: 15 },
+      { target: 90, step: 2, interval: 20 },
+      { target: 98, step: 1, interval: 35 },
     ];
 
     let currentStageIdx = 0;
