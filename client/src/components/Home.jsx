@@ -437,11 +437,59 @@ const Home = () => {
         uId = u._id || u.id || u.userId || "";
       }
       const certKey = uId ? `mz_${uId}_active_cert_session` : "mz_active_cert_session";
-      const saved = localStorage.getItem(certKey) || localStorage.getItem("mz_active_cert_session");
+      const saved =
+        localStorage.getItem(certKey) ||
+        localStorage.getItem("mz_active_cert_session") ||
+        sessionStorage.getItem("mz_active_cert_session");
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && parsed.attemptId && parsed.status === "IN_PROGRESS") {
           if (parsed.userId && uId && parsed.userId !== uId) return null;
+
+          // Expiration guard: Exam attempts strictly expire after 90 minutes. Stale sessions must be discarded.
+          const sessionTime = parsed.startedAt || parsed.updatedAt || parsed.timestamp;
+          if (!sessionTime || Date.now() - sessionTime > 90 * 60 * 1000) {
+            try {
+              localStorage.removeItem(certKey);
+              localStorage.removeItem("mz_active_cert_session");
+              sessionStorage.removeItem("mz_active_cert_session");
+              if (uId) {
+                localStorage.removeItem(`mz_${uId}_active_cert_session`);
+                sessionStorage.removeItem(`mz_${uId}_active_cert_session`);
+              }
+            } catch {}
+            return null;
+          }
+
+          // Check if candidate already has an earned certificate for this track
+          const cachedCertsRaw =
+            sessionStorage.getItem("mz_cached_earned_certs") ||
+            sessionStorage.getItem("mz_cert_history_cache") ||
+            localStorage.getItem("mz_certificates");
+          if (cachedCertsRaw) {
+            try {
+              const cachedData = JSON.parse(cachedCertsRaw);
+              const list = Array.isArray(cachedData) ? cachedData : cachedData.certificates || [];
+              const targetCertId = parsed.certId || "dsa_cert";
+              const alreadyHas = list.some(
+                (c) =>
+                  (c.certificationId || c.certId || "").toLowerCase() === targetCertId.toLowerCase()
+              );
+              if (alreadyHas) {
+                try {
+                  localStorage.removeItem(certKey);
+                  localStorage.removeItem("mz_active_cert_session");
+                  sessionStorage.removeItem("mz_active_cert_session");
+                  if (uId) {
+                    localStorage.removeItem(`mz_${uId}_active_cert_session`);
+                    sessionStorage.removeItem(`mz_${uId}_active_cert_session`);
+                  }
+                } catch {}
+                return null;
+              }
+            } catch {}
+          }
+
           return {
             id: parsed.certId || "dsa_cert",
             name: parsed.certTitle || "Data Structures & Algorithms (DSA)",

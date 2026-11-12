@@ -705,6 +705,38 @@ export default function MasteryZoneCompilerWorkspace({
   const [isEditorFullscreen, setIsEditorFullscreen] = useState(false);
   const [bottomPanelTab, setBottomPanelTab] = useState("testcases"); // "terminal" | "output" | "testcases" | "problems" | "hints" | "ai"
   const [isBottomPanelMaximized, setIsBottomPanelMaximized] = useState(false);
+  const [bottomPanelHeight, setBottomPanelHeight] = useState(280);
+  const isDraggingPanelRef = useRef(false);
+  const dragStartYRef = useRef(0);
+  const dragStartHeightRef = useRef(280);
+
+  const handleResizeMouseDown = useCallback((e) => {
+    isDraggingPanelRef.current = true;
+    dragStartYRef.current = e.clientY;
+    dragStartHeightRef.current = bottomPanelHeight;
+    document.body.style.cursor = "row-resize";
+    document.body.style.userSelect = "none";
+
+    const handleMouseMove = (moveEvent) => {
+      if (!isDraggingPanelRef.current) return;
+      const deltaY = dragStartYRef.current - moveEvent.clientY;
+      const minH = 140;
+      const maxH = Math.floor(window.innerHeight * 0.7);
+      const nextH = Math.min(maxH, Math.max(minH, dragStartHeightRef.current + deltaY));
+      setBottomPanelHeight(nextH);
+    };
+
+    const handleMouseUp = () => {
+      isDraggingPanelRef.current = false;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+  }, [bottomPanelHeight]);
 
   // Search & Replace states
   const [searchQuery, setSearchQuery] = useState("");
@@ -4682,7 +4714,8 @@ export default function MasteryZoneCompilerWorkspace({
               <div className="mz-vscode-editor-pane">
                 <div className="mz-vscode-editor-inner">
                   <Editor
-                    height={isEditorFullscreen ? "calc(100vh - 290px)" : "420px"}
+                    height="100%"
+                    width="100%"
                     language={activeEditorFile === "solution" ? selectedLang : activeEditorFile === "input" ? "plaintext" : "markdown"}
                     theme={editorTheme}
                     value={activeEditorFile === "solution" ? code : activeEditorFile === "input" ? customStdin : scratchpadContent}
@@ -4724,7 +4757,27 @@ export default function MasteryZoneCompilerWorkspace({
             </div>
 
             {/* 4. INTEGRATED TERMINAL & OUTPUT DRAWER PANEL */}
-            <div className="mz-vscode-bottom-panel">
+            <div
+              className={`mz-vscode-bottom-panel ${!isDrawerOpen ? "is-collapsed" : ""}`}
+              style={{
+                height: isDrawerOpen
+                  ? isBottomPanelMaximized
+                    ? isEditorFullscreen
+                      ? "calc(100vh - 120px)"
+                      : "75vh"
+                    : `${bottomPanelHeight}px`
+                  : "34px",
+              }}
+            >
+              {/* Drag Resizer Bar */}
+              {isDrawerOpen && !isBottomPanelMaximized && (
+                <div
+                  className="mz-vscode-panel-resizer"
+                  onMouseDown={handleResizeMouseDown}
+                  title="Drag up or down to resize bottom panel"
+                />
+              )}
+
               {/* Bottom Tabs Header */}
               <div className="mz-vscode-bottom-header">
                 <div className="mz-vscode-bottom-tabs">
@@ -4849,7 +4902,7 @@ export default function MasteryZoneCompilerWorkspace({
 
               {/* Panel Body */}
               {isDrawerOpen && (
-                <div className={`mz-vscode-bottom-body ${isBottomPanelMaximized ? "is-maximized" : ""}`}>
+                <div className={`mz-vscode-bottom-body ${isBottomPanelMaximized ? "is-maximized" : ""} ${bottomPanelTab === "testcases" ? "tab-testcases" : ""}`}>
                   {/* TAB 1: TERMINAL / STDIN */}
                   {bottomPanelTab === "terminal" && (
                     <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
@@ -4914,7 +4967,7 @@ export default function MasteryZoneCompilerWorkspace({
 
                   {/* TAB 3: TEST CASES */}
                   {bottomPanelTab === "testcases" && (
-                    <div>
+                    <div className="mz-testcases-tab-wrapper">
                       {/* Pass/Fail or Running Suite Banner */}
                       {isRunningTests ? (
                         <div className="mz-compiler-pass-banner is-running" style={{ marginBottom: "12px" }}>

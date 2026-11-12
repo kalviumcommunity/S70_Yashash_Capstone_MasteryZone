@@ -316,6 +316,17 @@ export default function CertificationExamWorkspace({
     return { currentUserId: "", currentUserEmail: "", currentUserName: "" };
   })();
 
+  const purgeActiveCertSession = useCallback(() => {
+    try {
+      localStorage.removeItem("mz_active_cert_session");
+      sessionStorage.removeItem("mz_active_cert_session");
+      if (currentUserId) {
+        localStorage.removeItem(`mz_${currentUserId}_active_cert_session`);
+        sessionStorage.removeItem(`mz_${currentUserId}_active_cert_session`);
+      }
+    } catch {}
+  }, [currentUserId]);
+
   // 1. Session Persistence Recovery State strictly isolated to authenticated user
   const savedSession = (() => {
     try {
@@ -329,6 +340,20 @@ export default function CertificationExamWorkspace({
       if (!raw) return null;
       const parsed = JSON.parse(raw);
       if (parsed.userId && currentUserId && parsed.userId !== currentUserId) return null;
+
+      // Lifespan guard: Certification exams strictly expire after 90 minutes. Stale sessions must be purged immediately.
+      const sessionTime = parsed.startedAt || parsed.updatedAt || parsed.timestamp;
+      if (!sessionTime || Date.now() - sessionTime > 90 * 60 * 1000) {
+        try {
+          localStorage.removeItem("mz_active_cert_session");
+          sessionStorage.removeItem("mz_active_cert_session");
+          if (currentUserId) {
+            localStorage.removeItem(`mz_${currentUserId}_active_cert_session`);
+            sessionStorage.removeItem(`mz_${currentUserId}_active_cert_session`);
+          }
+        } catch {}
+        return null;
+      }
       return parsed;
     } catch {
       return null;
@@ -705,6 +730,7 @@ export default function CertificationExamWorkspace({
         } else {
           const err = await res.json().catch(() => ({}));
           if (err.alreadyCertified || err.isPassed) {
+            purgeActiveCertSession();
             setAlreadyCertifiedInfo(err);
             toast.info("You have already passed this certification! Retaking is not allowed.", {
               toastId: "cert_already_certified",
@@ -718,6 +744,7 @@ export default function CertificationExamWorkspace({
       }
 
       if (data && (data.alreadyCertified || data.isPassed)) {
+        purgeActiveCertSession();
         setAlreadyCertifiedInfo(data);
         return;
       }
@@ -818,9 +845,12 @@ export default function CertificationExamWorkspace({
         currentQuestionIndex: currentQuestionIndexRef.current || 0,
         secondsRemaining: data.durationMinutes ? data.durationMinutes * 60 : 5400,
         status: "IN_PROGRESS",
+        startedAt: Date.now(),
+        updatedAt: Date.now(),
       });
       if (currentUserId) {
         localStorage.setItem(`mz_${currentUserId}_active_cert_session`, sessionObj);
+        sessionStorage.setItem(`mz_${currentUserId}_active_cert_session`, sessionObj);
       }
       localStorage.setItem("mz_active_cert_session", sessionObj);
       sessionStorage.setItem("mz_active_cert_session", sessionObj);
@@ -890,6 +920,7 @@ export default function CertificationExamWorkspace({
           const data = await res.json().catch(() => ({}));
           if (isCancelled) return;
           if (data.alreadyCertified || data.isPassed) {
+            purgeActiveCertSession();
             setAlreadyCertifiedInfo(data);
           } else {
             // Clean up stale submission flags for uncertified or retake attempts
@@ -901,9 +932,15 @@ export default function CertificationExamWorkspace({
               setAttemptNumber(data.attemptNumber);
             }
 
-            // Auto-resume if active attempt exists locally or on server
-            if (data.hasActiveAttempt || isResumingActive) {
+            // Auto-resume ONLY if active attempt genuinely exists on server
+            if (data.hasActiveAttempt) {
               startOrResumeAttempt(null, true);
+            } else {
+              // Server has no active attempt: clean up any stale client session
+              purgeActiveCertSession();
+              if (isResumingActive && onClose) {
+                onClose();
+              }
             }
           }
         })
@@ -1222,9 +1259,12 @@ export default function CertificationExamWorkspace({
           currentQuestionIndex: currentQuestionIndexRef.current,
           secondsRemaining: secondsRemainingRef.current,
           status: "IN_PROGRESS",
+          startedAt: savedSession?.startedAt || Date.now(),
+          updatedAt: Date.now(),
         });
         if (currentUserId) {
           localStorage.setItem(`mz_${currentUserId}_active_cert_session`, sessionPayload);
+          sessionStorage.setItem(`mz_${currentUserId}_active_cert_session`, sessionPayload);
         }
         localStorage.setItem("mz_active_cert_session", sessionPayload);
         sessionStorage.setItem("mz_active_cert_session", sessionPayload);
@@ -1650,12 +1690,8 @@ export default function CertificationExamWorkspace({
       }
       const targetReportUrl = `/assessment-report/${attemptId}`;
       localStorage.setItem(`mz_${uKey}_cert_${certId}_report_url`, targetReportUrl);
-      if (currentUserId) {
-        localStorage.removeItem(`mz_${currentUserId}_active_cert_session`);
-      }
-
-      // Clear session from storage
-      localStorage.removeItem("mz_active_cert_session");
+      // Clear active cert session from both local and session storage
+      purgeActiveCertSession();
       sessionStorage.removeItem("mz_cert_pending_refresh_violation");
 
       // Stop ALL proctoring tracks (camera, microphone, screen) automatically upon submission
@@ -1859,6 +1895,7 @@ export default function CertificationExamWorkspace({
       >
         <div
           style={{
+            position: "relative",
             maxWidth: "560px",
             width: "100%",
             background: "var(--mz-surface)",
@@ -1870,6 +1907,34 @@ export default function CertificationExamWorkspace({
             boxShadow: "var(--mz-shadow-lg)",
           }}
         >
+          {/* Close button */}
+          <button
+            type="button"
+            onClick={() => {
+              purgeActiveCertSession();
+              if (onClose) onClose();
+              else if (window.opener) window.close();
+              else navigate("/home", { replace: true });
+            }}
+            aria-label="Close"
+            style={{
+              position: "absolute",
+              top: "16px",
+              right: "16px",
+              background: "transparent",
+              border: "none",
+              color: "var(--mz-text-muted)",
+              cursor: "pointer",
+              padding: "6px",
+              borderRadius: "8px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <LuX size={20} />
+          </button>
+
           <div
             style={{
               width: "72px",
@@ -1985,12 +2050,38 @@ export default function CertificationExamWorkspace({
             <button
               type="button"
               onClick={() => {
+                purgeActiveCertSession();
                 if (onClose) onClose();
                 else if (window.opener) window.close();
                 else navigate("/certificates", { replace: true });
               }}
               style={{
-                marginTop: "4px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "11px 20px",
+                borderRadius: "12px",
+                background: "var(--mz-surface-subtle)",
+                color: "var(--mz-text-secondary)",
+                fontWeight: 600,
+                fontSize: "13px",
+                border: "1px solid var(--mz-border)",
+                cursor: "pointer",
+              }}
+            >
+              Browse All Certificates
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                purgeActiveCertSession();
+                if (onClose) onClose();
+                else if (window.opener) window.close();
+                else navigate("/home", { replace: true });
+              }}
+              style={{
+                marginTop: "2px",
                 background: "transparent",
                 border: "none",
                 color: "var(--mz-text-muted)",
@@ -2000,7 +2091,7 @@ export default function CertificationExamWorkspace({
                 padding: "8px",
               }}
             >
-              ← Return to Certifications
+              Close & Return to Dashboard
             </button>
           </div>
         </div>
@@ -2017,8 +2108,7 @@ export default function CertificationExamWorkspace({
         assessmentTitle={`${certTitle} — Proctored Credential Examination`}
         timeLimitMinutes={90}
         onCancel={() => {
-          localStorage.removeItem("mz_active_cert_session");
-          if (currentUserId) localStorage.removeItem(`mz_${currentUserId}_active_cert_session`);
+          purgeActiveCertSession();
           if (onClose) {
             onClose();
           } else if (isStandalone || !onClose) {
@@ -2076,9 +2166,7 @@ export default function CertificationExamWorkspace({
           setSelectedCodingQuestions([]);
           setCurrentQuestionIndex(0);
           setAttemptNumber((prev) => prev + 1);
-          if (currentUserId) {
-            localStorage.removeItem(`mz_${currentUserId}_active_cert_session`);
-          }
+          purgeActiveCertSession();
         } : null}
       />
     );
@@ -2923,10 +3011,7 @@ export default function CertificationExamWorkspace({
                     className="mz-modal-btn-cancel"
                     style={{ padding: "10px 16px", borderRadius: "10px", fontWeight: 600, width: "100%", background: "var(--mz-surface-subtle)", border: "1px solid var(--mz-border-strong)", color: "var(--mz-text-secondary)", cursor: "pointer" }}
                     onClick={() => {
-                      try {
-                        localStorage.removeItem("mz_active_cert_session");
-                        if (currentUserId) localStorage.removeItem(`mz_${currentUserId}_active_cert_session`);
-                      } catch {}
+                      purgeActiveCertSession();
                       stopAllProctoringMedia();
                       if (onClose) onClose();
                       else navigate("/coding", { replace: true });

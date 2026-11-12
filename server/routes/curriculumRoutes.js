@@ -735,19 +735,17 @@ router.get("/:subjectKey/:trackId", authenticateToken, async (req, res, next) =>
       const hasPractical = Boolean(m.practicalAssignment || m.codingExercise);
       const hasAssessment = Boolean(m.assessment);
 
-      // 80% Cutoff cleared in MCQs (or passing assessment attempt) officially marks module as completed
-      const isCutoffCleared = (assessmentPassed && bestScore >= 80) || hasPassedAttempt || Boolean(state?.moduleCompletionEmailSent || codingState?.moduleCompletionEmailSent);
+      // 80% Cutoff cleared in 10 MCQs (bestScore >= 80%)
+      const isCutoffCleared = (assessmentPassed && bestScore >= 80) || (hasPassedAttempt && bestScore >= 80);
 
+      // Module is strictly completed ONLY when all 3 criteria are satisfied:
+      // 1. Learning module is studied (isStudied)
+      // 2. Practical coding test is passed (assignmentPassed)
+      // 3. 10 MCQs are attempted and cutoff is met (assessmentPassed && bestScore >= 80)
       const isCompleted = Boolean(
-        state?.isCompleted ||
-        state?.status === "completed" ||
-        codingState?.isCompleted ||
-        codingState?.status === "completed" ||
-        isCutoffCleared ||
-        (assignmentPassed && assessmentPassed) ||
-        (hasPractical && hasAssessment ? (assignmentPassed && assessmentPassed) : (assignmentPassed || assessmentPassed)) ||
-        (assessmentPassed && !hasPractical) ||
-        (assignmentPassed && !hasAssessment)
+        isStudied &&
+        (hasPractical ? assignmentPassed : true) &&
+        (hasAssessment ? (assessmentPassed && isCutoffCleared) : true)
       );
 
       const status = isCompleted
@@ -1070,11 +1068,9 @@ router.post("/assignment/submit", authenticateToken, async (req, res) => {
       const pKey = `${normTrack}_${idx}`;
       const rawCur = subProg.moduleProgress.get(pKey);
       const cur = rawCur && rawCur.toObject ? rawCur.toObject() : (rawCur || {});
-      const willBeCompleted = Boolean(
-        cur.assessmentPassed ||
-        !module.assessment ||
-        cur.isCompleted
-      );
+      const isStudyDone = Boolean(cur.isStudied);
+      const isMcqDoneAndCutoffMet = Boolean(cur.assessmentPassed && (cur.bestScore == null || cur.bestScore >= 80));
+      const willBeCompleted = Boolean(isStudyDone && isMcqDoneAndCutoffMet);
 
       subProg.moduleProgress.set(pKey, {
         ...cur,
@@ -1082,7 +1078,7 @@ router.post("/assignment/submit", authenticateToken, async (req, res) => {
         exercisePassed: true,
         assignmentPassedAt: new Date(),
         assignmentFeedback: feedback,
-        isCompleted: willBeCompleted || cur.isCompleted,
+        isCompleted: willBeCompleted,
         status: willBeCompleted ? "completed" : "in-progress",
       });
       subProg.markModified("moduleProgress");
@@ -1099,7 +1095,7 @@ router.post("/assignment/submit", authenticateToken, async (req, res) => {
             exercisePassed: true,
             exercisePassedAt: new Date(),
             exerciseCode: code || "",
-            isCompleted: willBeCompleted || cCur.isCompleted,
+            isCompleted: willBeCompleted,
             status: willBeCompleted ? "completed" : "in-progress",
           });
           cp.markModified("moduleProgress");
@@ -1411,14 +1407,16 @@ router.post("/assessment/submit", authenticateToken, async (req, res) => {
     const newBest = Math.max(prevBest, percentage);
     const attempts = (curState.attemptsCount || 0) + 1;
 
-    // 80% Cutoff cleared in MCQs (marks >= 8 or percentage >= 80) officially marks module completed
+    // 80% Cutoff cleared in 10 MCQs (marks >= 8 or percentage >= 80)
     const isMcqCutoffCleared = passed || percentage >= 80 || marksObtained >= 8;
-    const willBeCompleted = isMcqCutoffCleared || Boolean(
-      curState.assignmentPassed ||
-      curState.exercisePassed ||
-      (!module.practicalAssignment && !module.codingExercise) ||
-      curState.isCompleted
-    );
+    const isStudyDone = Boolean(curState.isStudied);
+    const isCodingDone = Boolean(curState.assignmentPassed || curState.exercisePassed);
+
+    // Module is strictly completed ONLY when all 3 criteria are satisfied:
+    // 1. Learning module studied (isStudied)
+    // 2. Practical coding test passed (assignmentPassed / exercisePassed)
+    // 3. 10 MCQs attempted and cutoff is met (isMcqCutoffCleared)
+    const willBeCompleted = Boolean(isStudyDone && isCodingDone && isMcqCutoffCleared);
 
     const updatedModuleProgress = {
       ...curState,
@@ -1427,7 +1425,7 @@ router.post("/assessment/submit", authenticateToken, async (req, res) => {
       assessmentPassedAt: passed || isMcqCutoffCleared ? new Date() : curState.assessmentPassedAt,
       bestScore: newBest,
       attemptsCount: attempts,
-      isCompleted: willBeCompleted || curState.isCompleted,
+      isCompleted: willBeCompleted,
       status: willBeCompleted ? "completed" : "in-progress",
     };
 
@@ -1460,7 +1458,9 @@ router.post("/assessment/submit", authenticateToken, async (req, res) => {
       for (const m of allMods) {
         const k = `${normTrack}_${m.moduleIndex}`;
         const st = subProg.moduleProgress.get(k);
-        if (st?.assessmentPassed) completedCount++;
+        if (st?.isStudied && (st?.assignmentPassed || st?.exercisePassed) && (st?.assessmentPassed && (st?.bestScore == null || st?.bestScore >= 80))) {
+          completedCount++;
+        }
       }
       subProg.trackLessons.set(normTrack, completedCount);
       subProg.markModified("trackLessons");
@@ -1501,7 +1501,7 @@ router.post("/assessment/submit", authenticateToken, async (req, res) => {
         assessmentPassedAt: passed || isMcqCutoffCleared ? new Date() : cObj.assessmentPassedAt,
         bestScore: newBest,
         attemptsCount: attempts,
-        isCompleted: willBeCompleted || cObj.isCompleted,
+        isCompleted: willBeCompleted,
         status: willBeCompleted ? "completed" : "in-progress",
       });
       if (passed || isMcqCutoffCleared) {
@@ -1512,7 +1512,9 @@ router.post("/assessment/submit", authenticateToken, async (req, res) => {
         for (const m of allMods) {
           const k = `${normTrack}_${m.moduleIndex}`;
           const st = cp.moduleProgress.get(k);
-          if (st?.assessmentPassed || st?.isCompleted || st?.status === "completed") cCount++;
+          if (st?.isStudied && (st?.exercisePassed || st?.assignmentPassed) && (st?.assessmentPassed && (st?.bestScore == null || st?.bestScore >= 80))) {
+            cCount++;
+          }
         }
         cp.trackLessons.set(normTrack, cCount);
       }
@@ -1572,41 +1574,49 @@ router.post("/assessment/submit", authenticateToken, async (req, res) => {
       const candidateUser = await User.findById(userId).select("fullName username email role").lean();
       if (candidateUser && candidateUser.email && !isGuestAccount(candidateUser.email, candidateUser.role)) {
         // Cutoff requirement: 8 marks out of 10 (80%)
-        const isMcqCutoffMet = marksObtained >= 8;
+        const isMcqCutoffMet = marksObtained >= 8 || percentage >= 80;
         const alreadySent = Boolean(curState.moduleCompletionEmailSent);
+        const isStudyDone = Boolean(curState.isStudied);
 
-        if (isMcqCutoffMet && !alreadySent) {
-          // Fetch actual coding assessment marks for this specific module from CodingProgress / SubjectProgress
-          let actualCodingScore = null;
-          let actualCodingMaxScore = 100;
-          let hasCodingRecord = false;
+        // Fetch actual coding assessment marks for this specific module from CodingProgress / SubjectProgress
+        let actualCodingScore = null;
+        let actualCodingMaxScore = 100;
+        let hasCodingRecord = false;
 
-          if (normSubject === "coding") {
-            const cp = await CodingProgress.findOne({ userId }).lean();
-            const cpRaw = cp?.moduleProgress?.[pKey] || (cp?.moduleProgress?.get ? cp.moduleProgress.get(pKey) : null);
-            if (cpRaw) {
-              if (cpRaw.exerciseScore !== undefined && cpRaw.exerciseScore !== null) {
-                actualCodingScore = cpRaw.exerciseScore;
-                hasCodingRecord = true;
-              } else if (Array.isArray(cpRaw.exerciseAttempts) && cpRaw.exerciseAttempts.length > 0) {
-                actualCodingScore = Math.max(...cpRaw.exerciseAttempts.map((a) => a.score || 0));
-                hasCodingRecord = true;
-              } else if (cpRaw.exercisePassed) {
-                actualCodingScore = 100;
-                hasCodingRecord = true;
-              }
-            }
-          }
-
-          if (!hasCodingRecord) {
-            if (curState.exerciseScore !== undefined && curState.exerciseScore !== null) {
-              actualCodingScore = curState.exerciseScore;
+        if (normSubject === "coding") {
+          const cp = await CodingProgress.findOne({ userId }).lean();
+          const cpRaw = cp?.moduleProgress?.[pKey] || (cp?.moduleProgress?.get ? cp.moduleProgress.get(pKey) : null);
+          if (cpRaw) {
+            if (cpRaw.exerciseScore !== undefined && cpRaw.exerciseScore !== null) {
+              actualCodingScore = cpRaw.exerciseScore;
               hasCodingRecord = true;
-            } else if (curState.exercisePassed || curState.assignmentPassed) {
+            } else if (Array.isArray(cpRaw.exerciseAttempts) && cpRaw.exerciseAttempts.length > 0) {
+              actualCodingScore = Math.max(...cpRaw.exerciseAttempts.map((a) => a.score || 0));
+              hasCodingRecord = true;
+            } else if (cpRaw.exercisePassed) {
               actualCodingScore = 100;
               hasCodingRecord = true;
             }
           }
+        }
+
+        if (!hasCodingRecord) {
+          if (curState.exerciseScore !== undefined && curState.exerciseScore !== null) {
+            actualCodingScore = curState.exerciseScore;
+            hasCodingRecord = true;
+          } else if (curState.exercisePassed || curState.assignmentPassed) {
+            actualCodingScore = 100;
+            hasCodingRecord = true;
+          }
+        }
+
+        const isCodingDone = Boolean(hasCodingRecord || curState.exercisePassed || curState.assignmentPassed);
+
+        // Strictly send completion email ONLY when all 3 are completed:
+        // 1. Learning module studied
+        // 2. Practical coding passed
+        // 3. 10 MCQs attempted and cutoff met (>= 80%)
+        if (isStudyDone && isCodingDone && isMcqCutoffMet && !alreadySent) {
 
           const mcqPct = Math.round((marksObtained / totalMarks) * 100);
           const combinedMarksStr = hasCodingRecord

@@ -1438,23 +1438,25 @@
 
 /* Drawer Content Split */
 .mz-compiler-drawer-content {
-  flex: 1;
+  flex: 1 1 0%;
   display: flex;
   min-height: 0;
   overflow: hidden;
+  gap: 12px;
 }
 
 /* Left Sidebar (Test cases list) */
 .mz-compiler-drawer-sidebar {
-  width: 230px;
+  width: 220px;
   border-right: 1px solid var(--mz-border);
-  background: var(--mz-surface);
+  background: transparent;
   display: flex;
   flex-direction: column;
-  padding: 12px 14px;
-  gap: 10px;
-  overflow-y: auto;
+  padding: 0 8px 0 0;
+  gap: 6px;
+  overflow: hidden;
   flex-shrink: 0;
+  min-height: 0;
 }
 
 .mz-compiler-btn-run-tests {
@@ -1463,26 +1465,35 @@
   justify-content: center;
   gap: 8px;
   padding: 7px 14px;
-  background: var(--mz-surface);
-  border: 1px solid var(--mz-border-strong);
-  border-radius: 4px;
-  font-size: 13px;
+  background: #2563eb;
+  border: 1px solid #1d4ed8;
+  border-radius: 6px;
+  font-size: 12.5px;
   font-weight: 700;
-  color: var(--mz-text-primary);
+  color: #ffffff;
   cursor: pointer;
-  box-shadow: var(--mz-shadow-sm);
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.25);
   transition: all 0.15s ease;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  width: 100%;
 }
 
 .mz-compiler-btn-run-tests:hover:not(:disabled) {
-  background: var(--mz-surface-hover);
-  border-color: var(--mz-text-muted);
+  background: #1d4ed8;
+  border-color: #1e40af;
 }
 
 .mz-compiler-test-cases-list {
   display: flex;
   flex-direction: column;
   gap: 3px;
+  flex: 1 1 0%;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 2px;
 }
 
 .mz-compiler-tc-item {
@@ -1538,13 +1549,15 @@
 
 /* Right Details Pane */
 .mz-compiler-drawer-detail {
-  flex: 1;
-  padding: 14px 24px;
+  flex: 1 1 0%;
+  min-height: 0;
+  padding: 6px 16px 12px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  background: var(--mz-surface);
+  gap: 10px;
+  background: transparent;
+  box-sizing: border-box;
 }
 
 .mz-detail-header-row {
@@ -3027,6 +3040,8 @@
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   transition: all 0.25s ease;
   position: relative;
+  min-height: 520px;
+  height: 100%;
 }
 
 .mz-vscode-card.is-light {
@@ -3041,9 +3056,12 @@
   inset: 0 !important;
   width: 100vw !important;
   height: 100vh !important;
+  max-height: 100vh !important;
   z-index: 99999 !important;
   border-radius: 0 !important;
   border: none !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
 }
 
 /* 1. VS Code Tabs Bar */
@@ -3267,10 +3285,11 @@
 /* 3. Main Workspace Area (Activity Bar + Sidebar + Editor) */
 .mz-vscode-workspace {
   display: flex;
-  flex: 1;
-  min-height: 480px;
+  flex: 1 1 0%;
+  min-height: 140px;
   position: relative;
   background: #1e1e1e;
+  overflow: hidden;
 }
 
 .mz-vscode-card.is-light .mz-vscode-workspace {
@@ -3491,12 +3510,14 @@
 
 /* Monaco Editor Container */
 .mz-vscode-editor-pane {
-  flex: 1;
+  flex: 1 1 0%;
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
   position: relative;
   background: #1e1e1e;
+  overflow: hidden;
 }
 
 .mz-vscode-card.is-light .mz-vscode-editor-pane {
@@ -3504,9 +3525,12 @@
 }
 
 .mz-vscode-editor-inner {
-  flex: 1;
-  min-height: 380px;
+  flex: 1 1 0%;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
   position: relative;
+  overflow: hidden;
 }
 
 /* 4. Integrated Terminal / Bottom Panel */
@@ -3516,11 +3540,31 @@
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .mz-vscode-card.is-light .mz-vscode-bottom-panel {
   background: #ffffff;
   border-top-color: #e5e7eb;
+}
+
+.mz-vscode-panel-resizer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  cursor: row-resize;
+  background: transparent;
+  z-index: 30;
+  transition: background 0.15s ease;
+}
+
+.mz-vscode-panel-resizer:hover,
+.mz-vscode-panel-resizer:active {
+  background: #007acc;
 }
 
 .mz-vscode-bottom-header {
@@ -3606,14 +3650,17 @@
 }
 
 .mz-vscode-bottom-body {
-  height: 340px;
+  flex: 1 1 0%;
+  min-height: 0;
+  height: auto;
   overflow-y: auto;
-  padding: 12px 14px;
+  padding: 10px 14px;
   font-family: Consolas, "Courier New", monospace;
   font-size: 12.5px;
   line-height: 1.5;
   color: #e2e8f0;
   background: #181818;
+  box-sizing: border-box;
 }
 
 .mz-vscode-card.is-light .mz-vscode-bottom-body {
@@ -3621,8 +3668,20 @@
   color: #0f172a;
 }
 
-.mz-vscode-bottom-body.is-maximized {
-  height: 520px;
+.mz-vscode-bottom-body.tab-testcases {
+  padding: 8px 12px 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.mz-testcases-tab-wrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0%;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
 /* 5. MasteryZone Authentic Bottom Status Bar */

@@ -349,8 +349,13 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
         if (modProg) {
           const entries = modProg instanceof Map ? Array.from(modProg.entries()) : Object.entries(modProg);
           entries.forEach(([k, v]) => {
-            if (k.startsWith(`${trackCfg.trackId}_`) && (v?.exercisePassed || v?.assessmentPassed || v?.isStudied)) {
-              passedModCount++;
+            if (k.startsWith(`${trackCfg.trackId}_`)) {
+              const isStudy = Boolean(v?.isStudied);
+              const isCoding = Boolean(v?.exercisePassed || v?.assignmentPassed || v?.codingPassed);
+              const isMcqCutoff = Boolean(v?.assessmentPassed && (v?.bestScore == null || v?.bestScore >= 80));
+              if (isStudy && isCoding && isMcqCutoff) {
+                passedModCount++;
+              }
             }
           });
         }
