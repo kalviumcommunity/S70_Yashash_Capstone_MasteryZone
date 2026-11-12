@@ -1551,24 +1551,26 @@ const HelpSupport = () => {
                         setSearchParams({ ticket: t.ticketId });
                       }}
                       style={{
-                        background: "var(--mz-surface)",
+                        background: isDark ? "var(--mz-surface)" : "#ffffff",
                         borderRadius: 12,
                         padding: "18px 22px",
-                        border: "1px solid var(--mz-border)",
+                        border: isDark ? "1px solid var(--mz-border)" : "1px solid #e2e8f0",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "space-between",
                         cursor: "pointer",
                         transition: "all 0.15s ease",
-                        boxShadow: "0 2px 6px rgba(0, 0, 0, 0.02)",
+                        boxShadow: isDark ? "0 2px 6px rgba(0, 0, 0, 0.2)" : "0 2px 8px rgba(15, 23, 42, 0.04)",
                       }}
                       onMouseEnter={(e) => {
                         e.currentTarget.style.borderColor = "var(--mz-indigo-border)";
                         e.currentTarget.style.transform = "translateY(-1px)";
+                        e.currentTarget.style.boxShadow = isDark ? "0 4px 14px rgba(79, 70, 229, 0.2)" : "0 4px 14px rgba(79, 70, 229, 0.08)";
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.borderColor = "var(--mz-border)";
+                        e.currentTarget.style.borderColor = isDark ? "var(--mz-border)" : "#e2e8f0";
                         e.currentTarget.style.transform = "translateY(0)";
+                        e.currentTarget.style.boxShadow = isDark ? "0 2px 6px rgba(0, 0, 0, 0.2)" : "0 2px 8px rgba(15, 23, 42, 0.04)";
                       }}
                     >
                       <div style={{ flex: 1, minWidth: 280, marginRight: 20 }}>
@@ -1668,31 +1670,167 @@ const HelpSupport = () => {
             {/* Banner */}
             <div
               style={{
-                background: "linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)",
+                background: isDark
+                  ? "linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)"
+                  : "linear-gradient(135deg, #ffffff 0%, #f8faff 45%, #eef2ff 100%)",
                 borderRadius: 16,
                 padding: "32px 36px",
-                color: "#ffffff",
+                color: isDark ? "#ffffff" : "var(--mz-text-primary)",
                 marginBottom: 28,
-                boxShadow: "0 10px 25px rgba(30, 27, 75, 0.2)",
+                border: isDark ? "1px solid rgba(255, 255, 255, 0.08)" : "1px solid #e0e7ff",
+                boxShadow: isDark
+                  ? "0 10px 25px rgba(30, 27, 75, 0.2)"
+                  : "0 8px 24px -4px rgba(79, 70, 229, 0.08), 0 2px 6px -1px rgba(0, 0, 0, 0.03)",
+                position: "relative",
+                overflow: "hidden",
               }}
             >
-              <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 20, background: "rgba(255, 255, 255, 0.15)", fontSize: 12, fontWeight: 600, marginBottom: 12 }}>
-                <LuSparkles style={{ width: 14, height: 14, color: "#facc15" }} />
-                <span>Priority Student Support</span>
+              {/* Subtle background ambient mesh glow */}
+              <div
+                style={{
+                  position: "absolute",
+                  top: -50,
+                  right: -50,
+                  width: 260,
+                  height: 260,
+                  borderRadius: "50%",
+                  background: isDark
+                    ? "radial-gradient(circle, rgba(99, 102, 241, 0.22) 0%, transparent 70%)"
+                    : "radial-gradient(circle, rgba(99, 102, 241, 0.12) 0%, rgba(199, 210, 254, 0.25) 50%, transparent 70%)",
+                  pointerEvents: "none",
+                }}
+              />
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: -60,
+                  left: "30%",
+                  width: 200,
+                  height: 200,
+                  borderRadius: "50%",
+                  background: isDark
+                    ? "radial-gradient(circle, rgba(56, 189, 248, 0.1) 0%, transparent 70%)"
+                    : "radial-gradient(circle, rgba(147, 197, 253, 0.15) 0%, transparent 70%)",
+                  pointerEvents: "none",
+                }}
+              />
+
+              <div style={{ position: "relative", zIndex: 1 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "5px 12px",
+                      borderRadius: 20,
+                      background: isDark
+                        ? "rgba(255, 255, 255, 0.15)"
+                        : "linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%)",
+                      border: isDark ? "1px solid rgba(255, 255, 255, 0.2)" : "1px solid #c7d2fe",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: isDark ? "#ffffff" : "#4338ca",
+                      boxShadow: isDark ? "none" : "0 1px 3px rgba(79, 70, 229, 0.1)",
+                    }}
+                  >
+                    <LuSparkles style={{ width: 14, height: 14, color: isDark ? "#facc15" : "#eab308" }} />
+                    <span>Priority Student Support</span>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 5,
+                      padding: "4px 11px",
+                      borderRadius: 20,
+                      background: isDark ? "rgba(16, 185, 129, 0.16)" : "#ecfdf5",
+                      border: isDark ? "1px solid rgba(52, 211, 153, 0.3)" : "1px solid #a7f3d0",
+                      color: isDark ? "#34d399" : "#059669",
+                      fontSize: 11.5,
+                      fontWeight: 700,
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: "50%",
+                        background: isDark ? "#34d399" : "#10b981",
+                        boxShadow: isDark
+                          ? "0 0 6px rgba(52, 211, 153, 0.8)"
+                          : "0 0 6px rgba(16, 185, 129, 0.6)",
+                      }}
+                    />
+                    <span>24/7 Real-Time Resolution Desk</span>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 5,
+                      padding: "4px 11px",
+                      borderRadius: 20,
+                      background: isDark ? "rgba(59, 130, 246, 0.16)" : "#eff6ff",
+                      border: isDark ? "1px solid rgba(96, 165, 250, 0.3)" : "1px solid #bfdbfe",
+                      color: isDark ? "#60a5fa" : "#1d4ed8",
+                      fontSize: 11.5,
+                      fontWeight: 600,
+                    }}
+                  >
+                    <LuClock style={{ width: 13, height: 13 }} />
+                    <span>Avg response &lt; 15 mins</span>
+                  </div>
+                </div>
+
+                <h2
+                  style={{
+                    margin: "0 0 8px",
+                    fontSize: 24,
+                    fontWeight: 800,
+                    color: isDark ? "#ffffff" : "#0f172a",
+                    letterSpacing: "-0.015em",
+                  }}
+                >
+                  How can we assist your learning today?
+                </h2>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: 14,
+                    color: isDark ? "#cbd5e1" : "#475569",
+                    maxWidth: 720,
+                    lineHeight: 1.55,
+                  }}
+                >
+                  Select an issue category below, provide details, attach screenshots/logs, and our engineering team will inspect your
+                  account, compiler logs, and assessment telemetry in real-time.
+                </p>
               </div>
-              <h2 style={{ margin: "0 0 8px", fontSize: 24, fontWeight: 800 }}>
-                How can we assist your learning today?
-              </h2>
-              <p style={{ margin: 0, fontSize: 14, color: "#cbd5e1", maxWidth: 700, lineHeight: 1.5 }}>
-                Select an issue category below, provide details, attach screenshots/logs, and our engineering team will inspect your
-                account, compiler logs, and assessment telemetry in real-time.
-              </p>
             </div>
 
             {/* Step 1: Select Category */}
             <div style={{ marginBottom: 28 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-                <span style={{ width: 22, height: 22, borderRadius: "50%", background: "#4f46e5", color: "#ffffff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11.5, fontWeight: 800 }}>1</span>
+                <span
+                  style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: "50%",
+                    background: "linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)",
+                    color: "#ffffff",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 11.5,
+                    fontWeight: 800,
+                    boxShadow: "0 2px 6px rgba(79, 70, 229, 0.3)",
+                  }}
+                >
+                  1
+                </span>
                 <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "var(--mz-text-primary)" }}>Select Issue Category</h3>
               </div>
 
@@ -1711,13 +1849,29 @@ const HelpSupport = () => {
                       key={cat.id}
                       onClick={() => setSelectedCategory(cat.id)}
                       style={{
-                        background: "var(--mz-surface)",
-                        border: isSelected ? "2px solid #4f46e5" : "1px solid var(--mz-border)",
+                        background: isSelected
+                          ? isDark
+                            ? "rgba(79, 70, 229, 0.12)"
+                            : "#f8faff"
+                          : isDark
+                          ? "var(--mz-surface)"
+                          : "#ffffff",
+                        border: isSelected
+                          ? "2px solid #4f46e5"
+                          : isDark
+                          ? "1px solid var(--mz-border)"
+                          : "1px solid #e2e8f0",
                         borderRadius: 12,
                         padding: "16px 18px",
                         cursor: "pointer",
                         transition: "all 0.15s ease",
-                        boxShadow: isSelected ? "0 4px 14px rgba(79, 70, 229, 0.15)" : "none",
+                        boxShadow: isSelected
+                          ? isDark
+                            ? "0 4px 14px rgba(79, 70, 229, 0.2)"
+                            : "0 4px 16px rgba(79, 70, 229, 0.1)"
+                          : isDark
+                          ? "none"
+                          : "0 1px 3px rgba(0, 0, 0, 0.03)",
                         transform: isSelected ? "translateY(-2px)" : "none",
                       }}
                     >
@@ -1768,15 +1922,31 @@ const HelpSupport = () => {
             {/* Step 2: Issue Details & File Attachment Form */}
             <div
               style={{
-                background: "var(--mz-surface)",
+                background: isDark ? "var(--mz-surface)" : "#ffffff",
                 borderRadius: 14,
-                border: "1px solid var(--mz-border)",
+                border: isDark ? "1px solid var(--mz-border)" : "1px solid #e2e8f0",
                 padding: "26px 30px",
-                boxShadow: "var(--mz-shadow-sm)",
+                boxShadow: isDark ? "var(--mz-shadow-sm)" : "0 4px 20px -2px rgba(15, 23, 42, 0.05)",
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
-                <span style={{ width: 22, height: 22, borderRadius: "50%", background: "#4f46e5", color: "#ffffff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11.5, fontWeight: 800 }}>2</span>
+                <span
+                  style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: "50%",
+                    background: "linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)",
+                    color: "#ffffff",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 11.5,
+                    fontWeight: 800,
+                    boxShadow: "0 2px 6px rgba(79, 70, 229, 0.3)",
+                  }}
+                >
+                  2
+                </span>
                 <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "var(--mz-text-primary)" }}>Describe the Issue & Attach Files</h3>
               </div>
 
@@ -1871,27 +2041,27 @@ const HelpSupport = () => {
                     onDragOver={(e) => {
                       e.preventDefault();
                       e.currentTarget.style.borderColor = "#4f46e5";
-                      e.currentTarget.style.background = "var(--mz-indigo-bg)";
+                      e.currentTarget.style.background = isDark ? "var(--mz-indigo-bg)" : "#eef2ff";
                     }}
                     onDragLeave={(e) => {
                       e.preventDefault();
-                      e.currentTarget.style.borderColor = "var(--mz-border-strong)";
-                      e.currentTarget.style.background = "var(--mz-surface-subtle)";
+                      e.currentTarget.style.borderColor = isDark ? "var(--mz-border-strong)" : "#c7d2fe";
+                      e.currentTarget.style.background = isDark ? "var(--mz-surface-subtle)" : "#f8faff";
                     }}
                     onDrop={(e) => {
                       e.preventDefault();
-                      e.currentTarget.style.borderColor = "var(--mz-border-strong)";
-                      e.currentTarget.style.background = "var(--mz-surface-subtle)";
+                      e.currentTarget.style.borderColor = isDark ? "var(--mz-border-strong)" : "#c7d2fe";
+                      e.currentTarget.style.background = isDark ? "var(--mz-surface-subtle)" : "#f8faff";
                       if (e.dataTransfer.files?.length) {
                         handleFilesChosen(e.dataTransfer.files, "new");
                       }
                     }}
                     style={{
-                      border: "2px dashed var(--mz-border-strong)",
+                      border: isDark ? "2px dashed var(--mz-border-strong)" : "2px dashed #c7d2fe",
                       borderRadius: 10,
                       padding: "24px 20px",
                       textAlign: "center",
-                      background: "var(--mz-surface-subtle)",
+                      background: isDark ? "var(--mz-surface-subtle)" : "#f8faff",
                       cursor: "pointer",
                       transition: "all 0.18s ease",
                     }}
