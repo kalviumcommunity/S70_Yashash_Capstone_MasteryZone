@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import './App.css'
-import { GlobalLoader, FitnessLoader, CodingLoader, DrivingLoader, LanguageLoader } from "./components/Loaders.jsx";
+import { GlobalLoader, CodingLoader } from "./components/Loaders.jsx";
 
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
@@ -41,10 +41,7 @@ const ResetPassword = lazyWithRetry(() => import("./components/ResetPassword.jsx
 const Home = lazyWithRetry(() => import("./components/Home.jsx"));
 const Profile = lazyWithRetry(() => import("./components/Profile.jsx"));
 const Progress = lazyWithRetry(() => import("./components/Progress.jsx"));
-const Fitness = lazyWithRetry(() => import("./components/Fitness.jsx"));
 const Coding = lazyWithRetry(() => import("./components/Coding.jsx"));
-const Driving = lazyWithRetry(() => import("./components/Driving.jsx"));
-const Language = lazyWithRetry(() => import("./components/Language.jsx"));
 const MasteryZoneCompilerWorkspace = lazyWithRetry(() => import("./components/MasteryZoneCompilerWorkspace.jsx"));
 const AssessmentReportPage = lazyWithRetry(() => import("./components/AssessmentReportPage.jsx"));
 const MasteryZoneLivePlatform = lazyWithRetry(() => import("./components/MasteryZoneLive/MasteryZoneLivePlatform.jsx"));

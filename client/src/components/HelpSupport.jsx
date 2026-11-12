@@ -53,26 +53,53 @@ const formatFileSize = (bytes) => {
 
 const isImageAttachment = (att) => {
   if (!att) return false;
-  const mt = (att.mimeType || "").toLowerCase();
-  const fn = (att.fileName || att.originalName || "").toLowerCase();
+  if (typeof att === "string") {
+    const s = att.toLowerCase().trim();
+    return s.startsWith("data:image/") || /\.(png|jpe?g|webp|gif|svg|bmp|ico|avif|jfif|tiff)(\?.*)?$/i.test(s);
+  }
+  const mt = (att.mimeType || att.type || "").toLowerCase().trim();
+  const fn = (att.fileName || att.originalName || att.name || "").toLowerCase().trim();
+  const url = (att.fileUrl || att.previewUrl || "").toLowerCase().trim();
   return (
     mt.startsWith("image/") ||
-    fn.endsWith(".png") ||
-    fn.endsWith(".jpg") ||
-    fn.endsWith(".jpeg") ||
-    fn.endsWith(".webp") ||
-    fn.endsWith(".gif") ||
-    fn.endsWith(".svg")
+    /\.(png|jpe?g|webp|gif|svg|bmp|ico|avif|jfif|tiff)(\?.*)?$/i.test(fn) ||
+    /\.(png|jpe?g|webp|gif|svg|bmp|ico|avif|jfif|tiff)(\?.*)?$/i.test(url) ||
+    url.startsWith("data:image/")
   );
 };
 
-const getAttachmentUrl = (fileUrl) => {
+const isPdfAttachment = (att) => {
+  if (!att) return false;
+  const mt = (att.mimeType || att.type || "").toLowerCase().trim();
+  const fn = (att.fileName || att.originalName || att.name || "").toLowerCase().trim();
+  const url = (att.fileUrl || att.previewUrl || "").toLowerCase().trim();
+  return mt === "application/pdf" || fn.endsWith(".pdf") || url.includes(".pdf");
+};
+
+const getAttachmentUrl = (fileUrl, fileName) => {
   if (!fileUrl) return "";
-  if (fileUrl.startsWith("data:") || fileUrl.startsWith("blob:") || fileUrl.startsWith("http://") || fileUrl.startsWith("https://")) {
+  if (fileUrl.startsWith("data:") || fileUrl.startsWith("blob:")) {
     return fileUrl;
   }
-  const clean = fileUrl.startsWith("/") ? fileUrl : `/${fileUrl}`;
-  return `${API_BASE}${clean}`;
+  const token = localStorage.getItem("token") || "";
+  const tokenQuery = token ? `token=${encodeURIComponent(token)}` : "";
+
+  let cleanUrl = fileUrl;
+  if (fileUrl.includes("/uploads/support_attachments/")) {
+    const fn = fileName || fileUrl.split("/uploads/support_attachments/")[1].split("?")[0];
+    cleanUrl = `/api/support/attachments/${fn}`;
+  } else if (!fileUrl.startsWith("/api/support/attachments/") && fileName) {
+    cleanUrl = `/api/support/attachments/${fileName}`;
+  }
+
+  const base = cleanUrl.startsWith("http://") || cleanUrl.startsWith("https://")
+    ? cleanUrl
+    : `${API_BASE}${cleanUrl.startsWith("/") ? cleanUrl : `/${cleanUrl}`}`;
+
+  if (tokenQuery && !base.includes("token=")) {
+    return base.includes("?") ? `${base}&${tokenQuery}` : `${base}?${tokenQuery}`;
+  }
+  return base;
 };
 
 const CATEGORIES = [
@@ -574,7 +601,7 @@ const HelpSupport = () => {
       <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 10 }}>
         {attachments.map((att, idx) => {
           const isImg = isImageAttachment(att);
-          const attUrl = getAttachmentUrl(att.previewUrl || att.fileUrl);
+          const attUrl = getAttachmentUrl(att.previewUrl || att.fileUrl, att.fileName || att.originalName);
           if (isImg) {
             return (
               <div
@@ -583,12 +610,12 @@ const HelpSupport = () => {
                 style={{
                   position: "relative",
                   cursor: "pointer",
-                  borderRadius: 8,
+                  borderRadius: 10,
                   overflow: "hidden",
                   border: isWhiteTheme ? "1px solid rgba(255,255,255,0.3)" : "1px solid var(--mz-border-strong)",
                   background: isWhiteTheme ? "rgba(255,255,255,0.15)" : "var(--mz-surface-subtle)",
-                  width: 140,
-                  height: 95,
+                  width: 150,
+                  height: 105,
                   display: "flex",
                   flexDirection: "column",
                   transition: "all 0.2s ease",
@@ -602,8 +629,9 @@ const HelpSupport = () => {
                   style={{ width: "100%", height: "100%", objectFit: "cover" }}
                   onError={(e) => {
                     const fname = att.fileName || (att.fileUrl ? att.fileUrl.split("/").pop() : "");
+                    const token = localStorage.getItem("token") || "";
                     if (fname && !e.currentTarget.src.includes(`/api/support/attachments/${fname}`)) {
-                      e.currentTarget.src = `${API_BASE}/api/support/attachments/${fname}`;
+                      e.currentTarget.src = `${API_BASE}/api/support/attachments/${fname}${token ? `?token=${encodeURIComponent(token)}` : ""}`;
                     }
                   }}
                 />
@@ -1911,7 +1939,7 @@ const HelpSupport = () => {
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 14 }}>
                       {newAttachments.map((att, idx) => {
                         const isImg = isImageAttachment(att);
-                        const displayUrl = getAttachmentUrl(att.previewUrl || att.fileUrl);
+                        const displayUrl = getAttachmentUrl(att.previewUrl || att.fileUrl, att.fileName || att.originalName);
                         if (isImg) {
                           return (
                             <div
@@ -1936,8 +1964,9 @@ const HelpSupport = () => {
                                 style={{ width: "100%", height: "100%", objectFit: "cover" }}
                                 onError={(e) => {
                                   const fname = att.fileName || (att.fileUrl ? att.fileUrl.split("/").pop() : "");
+                                  const token = localStorage.getItem("token") || "";
                                   if (fname && !e.currentTarget.src.includes(`/api/support/attachments/${fname}`)) {
-                                    e.currentTarget.src = `${API_BASE}/api/support/attachments/${fname}`;
+                                    e.currentTarget.src = `${API_BASE}/api/support/attachments/${fname}${token ? `?token=${encodeURIComponent(token)}` : ""}`;
                                   }
                                 }}
                               />
@@ -2171,7 +2200,7 @@ const HelpSupport = () => {
 
             {/* Main Preview Image */}
             <img
-              src={getAttachmentUrl(lightboxAttachment.fileUrl)}
+              src={getAttachmentUrl(lightboxAttachment.fileUrl, lightboxAttachment.fileName || lightboxAttachment.originalName)}
               alt={lightboxAttachment.originalName || "Attachment"}
               style={{
                 maxWidth: "100%",
@@ -2183,8 +2212,9 @@ const HelpSupport = () => {
               }}
               onError={(e) => {
                 const fname = lightboxAttachment.fileName || (lightboxAttachment.fileUrl ? lightboxAttachment.fileUrl.split("/").pop() : "");
+                const token = localStorage.getItem("token") || "";
                 if (fname && !e.currentTarget.src.includes(`/api/support/attachments/${fname}`)) {
-                  e.currentTarget.src = `${API_BASE}/api/support/attachments/${fname}`;
+                  e.currentTarget.src = `${API_BASE}/api/support/attachments/${fname}${token ? `?token=${encodeURIComponent(token)}` : ""}`;
                 }
               }}
             />
