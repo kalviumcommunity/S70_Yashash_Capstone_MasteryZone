@@ -29,7 +29,6 @@ import {
 } from "react-icons/lu";
 import "./FullScreenConceptLearning.css";
 import MasteryZoneGlobalLoader from "./MasteryZoneGlobalLoader";
-import ThemeToggle from "./ThemeToggle";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -864,8 +863,6 @@ self.addEventListener("unhandledrejection", function(e) {
         </div>
 
         <div className="mz-fs-nav-right">
-          <ThemeToggle />
-
           {/* Comfort Font Sizer */}
           <div className="mz-fs-font-controls" title="Adjust text size">
             <span className="mz-fs-font-label">Text:</span>

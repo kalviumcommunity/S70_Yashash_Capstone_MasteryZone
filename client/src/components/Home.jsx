@@ -1859,9 +1859,6 @@ const Home = () => {
               <span>Log Activity</span>
             </button>
 
-            {/* Theme Toggle (Light / Dark / System) */}
-            <ThemeToggle />
-
             {/* Real-Time Notification Bell */}
             <NotificationBell />
 

@@ -4,7 +4,6 @@ import { toast } from "react-toastify";
 import "./progress.css";
 import NotificationBell from "./NotificationBell.jsx";
 import UserProfileDropdown from "./UserProfileDropdown.jsx";
-import ThemeToggle from "./ThemeToggle.jsx";
 import logoIcon from "../assets/logo_icon_transparent.png";
 import heroIllustration from "../assets/interests_hero_illustration.png";
 import { performGlobalLogout } from "../utils/sessionAuth.js";
@@ -727,8 +726,6 @@ const Progress = () => {
               <LuPlus size={15} />
               <span>Log Activity</span>
             </button>
-
-            <ThemeToggle />
 
             {/* Real-Time Notification Bell */}
             <NotificationBell />

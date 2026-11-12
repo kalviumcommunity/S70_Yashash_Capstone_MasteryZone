@@ -5,7 +5,6 @@ import CertificationCard from "./CertificationCard";
 import CollaborationHub from "./CollaborationHub";
 import SubjectCurriculumView from "./SubjectCurriculumView";
 import NotificationBell from "./NotificationBell.jsx";
-import ThemeToggle from "./ThemeToggle.jsx";
 import "./language.css";
 import fitnessIllustration from "../assets/fitness_illustration.png";
 import { markTrackExplored } from "../utils/trackExploration";
@@ -1167,7 +1166,6 @@ const Language = () => {
               YOUR CART ({getCartCount()})
             </span>
             <span className={`fitness-nav-link add-members-link ${activeTab === "members" ? "lang-active-nav" : ""}`} onClick={() => { setActiveTab("members"); setSearchQuery(""); }}>Add Members</span>
-            <ThemeToggle style={{ margin: "0 8px" }} />
             <NotificationBell variant="zone" />
           </div>
 

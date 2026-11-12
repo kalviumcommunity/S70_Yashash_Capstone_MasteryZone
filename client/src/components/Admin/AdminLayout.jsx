@@ -300,10 +300,8 @@ const AdminLayout = () => {
             )}
           </div>
 
-          {/* Right: Theme Toggle, Notifications & Admin Profile */}
+          {/* Right: Notifications & Admin Profile */}
           <div className="mz-admin-header-right">
-            <ThemeToggle />
-
             {/* Real-Time Admin Notification Center */}
             <AdminNotificationDropdown />
 

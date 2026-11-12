@@ -5,7 +5,6 @@ import CertificationCard from "./CertificationCard";
 import CollaborationHub from "./CollaborationHub";
 import SubjectCurriculumView from "./SubjectCurriculumView";
 import NotificationBell from "./NotificationBell.jsx";
-import ThemeToggle from "./ThemeToggle.jsx";
 import "./driving.css";
 import fitnessIllustration from "../assets/fitness_illustration.png";
 import { markTrackExplored } from "../utils/trackExploration";
@@ -1164,7 +1163,6 @@ const Driving = () => {
               YOUR CART ({getCartCount()})
             </span>
             <span className={`driving-nav-link add-members-link ${activeTab === "members" ? "active-nav" : ""}`} onClick={() => { setActiveTab("members"); setSearchQuery(""); }}>Add Members</span>
-            <ThemeToggle style={{ margin: "0 8px" }} />
             <NotificationBell variant="zone" />
           </div>
 
