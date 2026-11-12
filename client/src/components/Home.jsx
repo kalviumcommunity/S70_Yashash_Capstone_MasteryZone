@@ -398,13 +398,18 @@ const Home = () => {
           aId === target ||
           (target === "js_cert" && aId === "fullstack_cert") ||
           (target === "fullstack_cert" && aId === "js_cert");
+        const score = a.percentage != null ? a.percentage : (a.finalScorePercentage != null ? a.finalScorePercentage : 0);
         return (
           matches &&
-          (a.status === "PASSED" || (a.percentage != null && a.percentage >= 80))
+          a.status === "PASSED" &&
+          (a.finalVerdict === "PASSED" || !a.finalVerdict) &&
+          score >= 80 &&
+          Boolean(a.certificateId)
         );
       });
+      const isCompleted = Boolean(cert || (passedAtt && passedAtt.certificateId));
       return {
-        isCompleted: Boolean(cert || passedAtt),
+        isCompleted,
         certificateId: cert?.certificateId || passedAtt?.certificateId || null,
         attemptId: passedAtt?.attemptId || cert?.attemptId || null,
       };
@@ -476,10 +481,25 @@ const Home = () => {
       });
       if (res.ok) {
         const data = await res.json();
+        const certificates = data.certificates || [];
         setCertHistory({
           attempts: data.attempts || [],
-          certificates: data.certificates || [],
+          certificates,
         });
+        if (certificates.length === 0) {
+          try {
+            const rawUser = localStorage.getItem("user");
+            const u = rawUser ? JSON.parse(rawUser) : null;
+            const uKey = u?._id || u?.id || "guest";
+            ["python_cert", "js_cert", "fullstack_cert", "java_cert", "cpp_cert", "dsa_cert"].forEach((k) => {
+              localStorage.removeItem(`mz_${uKey}_cert_${k}_submitted`);
+              localStorage.removeItem(`mz_cert_${k}_submitted`);
+              localStorage.removeItem(`mz_${uKey}_cert_passed_${k}`);
+              localStorage.removeItem(`mz_cert_passed_${k}`);
+              localStorage.removeItem(`mz_${uKey}_cert_${k}_report_url`);
+            });
+          } catch {}
+        }
       }
     } catch (err) {
       console.warn("Cert history fetch note:", err);

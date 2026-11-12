@@ -844,6 +844,18 @@ export default function Coding() {
           const certData = await certRes.json();
           if (Array.isArray(certData.certificates)) {
             setEarnedCertificates(certData.certificates);
+            if (certData.certificates.length === 0) {
+              try {
+                const uKey = currentUser?._id || currentUser?.id || "guest";
+                ["python_cert", "js_cert", "fullstack_cert", "java_cert", "cpp_cert", "dsa_cert"].forEach((k) => {
+                  localStorage.removeItem(`mz_${uKey}_cert_${k}_submitted`);
+                  localStorage.removeItem(`mz_cert_${k}_submitted`);
+                  localStorage.removeItem(`mz_${uKey}_cert_passed_${k}`);
+                  localStorage.removeItem(`mz_cert_passed_${k}`);
+                  localStorage.removeItem(`mz_${uKey}_cert_${k}_report_url`);
+                });
+              } catch {}
+            }
           }
           if (Array.isArray(certData.attempts)) {
             setCertAttempts(certData.attempts);
@@ -1338,16 +1350,19 @@ export default function Coding() {
         );
       });
 
-      // Check passed attempts (cutoff >= 80% or status PASSED)
+      // Check passed attempts (strictly status PASSED, finalVerdict PASSED, and cutoff met >= 80%)
       const passedAttempt = certAttempts.find((att) => {
         const aId = (att.certId || "").toLowerCase();
         const matches =
           aId === target ||
           (target === "js_cert" && aId === "fullstack_cert") ||
           (target === "fullstack_cert" && aId === "js_cert");
+        const score = att.finalScorePercentage != null ? att.finalScorePercentage : (att.percentage != null ? att.percentage : 0);
         return (
           matches &&
-          (att.status === "PASSED" || (att.percentage != null && att.percentage >= 80))
+          att.status === "PASSED" &&
+          (att.finalVerdict === "PASSED" || !att.finalVerdict) &&
+          score >= 80
         );
       });
 
@@ -1367,49 +1382,21 @@ export default function Coding() {
             new Date(a.startTime || a.createdAt || 0)
         )[0];
 
-      // Local storage persistence check (zero-latency fallback)
-      const uKey = currentUser?._id || currentUser?.id || "guest";
-      const isLocallySubmitted =
-        typeof window !== "undefined" &&
-        (localStorage.getItem(`mz_${uKey}_cert_${target}_submitted`) === "true" ||
-         localStorage.getItem(`mz_cert_${target}_submitted`) === "true");
-
-      const localReports = (() => {
-        try {
-          if (uKey !== "guest") {
-            return JSON.parse(localStorage.getItem(`mz_${uKey}_assessment_reports`) || "[]");
-          }
-          return JSON.parse(sessionStorage.getItem("mz_guest_assessment_reports") || "[]");
-        } catch {
-          return [];
-        }
-      })();
-
-      const localPassedReport = localReports.find((r) => {
-        const cId = (r.certId || r.subjectKey || "").toLowerCase();
-        const matches =
-          cId === target ||
-          (target === "js_cert" && cId === "fullstack_cert") ||
-          (target === "fullstack_cert" && cId === "js_cert") ||
-          (r.assessmentTitle && r.assessmentTitle.toLowerCase().includes(target.replace("_cert", "")));
-        const score = r.performance?.score ?? r.scorecard?.overallPercentage ?? r.score ?? 0;
-        return matches && (r.passed || score >= 80 || r.finalVerdict === "PASSED");
-      });
-
-      const isCompleted = Boolean(cert || passedAttempt || localPassedReport);
-      const certificateId = cert?.certificateId || passedAttempt?.certificateId || localPassedReport?.certificate?.certificateId || null;
-      const attemptId = passedAttempt?.attemptId || cert?.attemptId || localPassedReport?.sessionId || localPassedReport?.attemptId || latestAttempt?.attemptId || null;
+      // Strictly completed ONLY if an authentic certificate was issued or a verified passed attempt exists with cutoff met
+      const isCompleted = Boolean(cert || (passedAttempt && passedAttempt.certificateId));
+      const certificateId = cert?.certificateId || passedAttempt?.certificateId || null;
+      const attemptId = passedAttempt?.attemptId || cert?.attemptId || latestAttempt?.attemptId || null;
 
       return {
         isCompleted,
-        certificate: cert || localPassedReport?.certificate,
+        certificate: cert,
         passedAttempt,
         latestAttempt,
         certificateId,
         attemptId,
       };
     },
-    [earnedCertificates, certAttempts, currentUser]
+    [earnedCertificates, certAttempts]
   );
 
   const handleStartExam = (certId, certTitle, language = "python") => {
