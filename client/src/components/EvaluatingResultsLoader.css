@@ -1,15 +1,20 @@
-/* Simple Evaluating / Submitting loader */
+/* ==========================================================================
+   MasteryZone - Clean, Simple & Highly Visible Evaluation Loader
+   ========================================================================== */
 
 .mz-eval-screen {
   position: fixed;
   inset: 0;
   z-index: 100001;
-  background: var(--mz-bg, #ffffff);
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 24px;
   box-sizing: border-box;
+  animation: mzEvalModalFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .mz-eval-inline-wrap {
@@ -17,54 +22,194 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 28px 16px;
+  padding: 24px 16px;
   box-sizing: border-box;
 }
 
-.mz-eval-simple {
+/* --------------------------------------------------------------------------
+   Center Floating Card
+   -------------------------------------------------------------------------- */
+.mz-eval-simple-card {
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.85);
+  border-radius: 18px;
+  box-shadow: 0 20px 45px -10px rgba(15, 23, 42, 0.18),
+              0 2px 10px -2px rgba(15, 23, 42, 0.05);
+  padding: 34px 32px 30px;
+  width: 100%;
+  max-width: 400px;
+  min-width: 300px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 14px;
-}
-
-.mz-eval-spinner {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: 3px solid rgba(37, 99, 235, 0.18);
-  border-top-color: #2563eb;
-  animation: mzEvalSpin 0.8s linear infinite;
-}
-
-.mz-eval-simple-label {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--mz-text-muted, #64748b);
   text-align: center;
+  box-sizing: border-box;
+  animation: mzEvalCardPop 0.28s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@keyframes mzEvalSpin {
+/* --------------------------------------------------------------------------
+   Prominent Circular Spinner
+   -------------------------------------------------------------------------- */
+.mz-eval-spinner-wrapper {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: rgba(37, 99, 235, 0.07);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+  position: relative;
+}
+
+.mz-eval-spinner-ring {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 3.5px solid rgba(37, 99, 235, 0.16);
+  border-top-color: #2563eb;
+  border-right-color: #2563eb;
+  animation: mzEvalSpinRing 0.85s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* --------------------------------------------------------------------------
+   Typography
+   -------------------------------------------------------------------------- */
+.mz-eval-simple-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 8px 0;
+  letter-spacing: -0.015em;
+  line-height: 1.35;
+}
+
+.mz-eval-simple-desc {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #64748b;
+  margin: 0 0 22px 0;
+  line-height: 1.5;
+  max-width: 320px;
+}
+
+/* --------------------------------------------------------------------------
+   Indeterminate Progress Indicator Line
+   -------------------------------------------------------------------------- */
+.mz-eval-linear-track {
+  width: 100%;
+  height: 4px;
+  background: rgba(226, 232, 240, 0.9);
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+
+.mz-eval-linear-indicator {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 45%;
+  background: linear-gradient(90deg, #3b82f6, #2563eb, #1d4ed8);
+  border-radius: 999px;
+  animation: mzEvalLinearSlide 1.4s ease-in-out infinite;
+}
+
+/* --------------------------------------------------------------------------
+   Animations
+   -------------------------------------------------------------------------- */
+@keyframes mzEvalModalFadeIn {
+  from {
+    opacity: 0;
+  }
   to {
+    opacity: 1;
+  }
+}
+
+@keyframes mzEvalCardPop {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes mzEvalSpinRing {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
     transform: rotate(360deg);
   }
 }
 
-[data-theme="dark"] .mz-eval-screen {
-  background: var(--mz-bg, #0b0f17);
+@keyframes mzEvalLinearSlide {
+  0% {
+    left: -45%;
+  }
+  50% {
+    left: 40%;
+    width: 60%;
+  }
+  100% {
+    left: 105%;
+    width: 35%;
+  }
 }
 
-[data-theme="dark"] .mz-eval-spinner {
+/* --------------------------------------------------------------------------
+   Dark Mode Styles
+   -------------------------------------------------------------------------- */
+[data-theme="dark"] .mz-eval-screen {
+  background: rgba(3, 7, 18, 0.72);
+}
+
+[data-theme="dark"] .mz-eval-simple-card {
+  background: #1e293b;
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.65),
+              0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .mz-eval-spinner-wrapper {
+  background: rgba(59, 130, 246, 0.12);
+}
+
+[data-theme="dark"] .mz-eval-spinner-ring {
   border-color: rgba(96, 165, 250, 0.2);
   border-top-color: #60a5fa;
+  border-right-color: #3b82f6;
 }
 
-[data-theme="dark"] .mz-eval-simple-label {
-  color: var(--mz-text-muted, #94a3b8);
+[data-theme="dark"] .mz-eval-simple-title {
+  color: #f8fafc;
 }
 
+[data-theme="dark"] .mz-eval-simple-desc {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .mz-eval-linear-track {
+  background: rgba(51, 65, 85, 0.7);
+}
+
+[data-theme="dark"] .mz-eval-linear-indicator {
+  background: linear-gradient(90deg, #60a5fa, #3b82f6, #2563eb);
+}
+
+/* --------------------------------------------------------------------------
+   Reduced Motion Accessibility
+   -------------------------------------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {
-  .mz-eval-spinner {
+  .mz-eval-spinner-ring {
     animation-duration: 2s;
+  }
+  .mz-eval-linear-indicator {
+    animation-duration: 2.5s;
   }
 }

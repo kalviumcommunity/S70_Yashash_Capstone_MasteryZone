@@ -24,6 +24,8 @@ import {
 } from "react-icons/lu";
 import io from "socket.io-client";
 import { toast } from "react-toastify";
+import RecordingVideo from "../RecordingVideo.jsx";
+import { getRecordingStreamUrl } from "../../utils/recordingMedia.js";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -261,17 +263,7 @@ const AdminRecordings = () => {
     return m > 0 ? `${m}m ${s < 10 ? "0" : ""}${s}s` : `${s}s`;
   };
 
-  const getVideoSrc = (rec) => {
-    if (!rec) return "";
-    const rawUrl = rec.streamUrl || rec.fileUrl || "";
-    let fullUrl = rawUrl.startsWith("http") ? rawUrl : `${API_BASE}${rawUrl.startsWith("/") ? rawUrl : `/${rawUrl}`}`;
-    const token = typeof localStorage !== "undefined" ? localStorage.getItem("token") : null;
-    if (token && !fullUrl.includes("token=")) {
-      const sep = fullUrl.includes("?") ? "&" : "?";
-      fullUrl = `${fullUrl}${sep}token=${encodeURIComponent(token)}`;
-    }
-    return fullUrl;
-  };
+  const getVideoSrc = (rec, opts) => getRecordingStreamUrl(rec, opts);
 
   return (
     <div className="mz-admin-view-container" style={{ paddingBottom: 60 }}>
@@ -715,7 +707,7 @@ const AdminRecordings = () => {
                   </button>
 
                   <a
-                    href={getVideoSrc(r)}
+                    href={getVideoSrc(r, { download: true })}
                     download={`${r.title?.replace(/[^a-zA-Z0-9_-]/g, "_") || "recording"}.webm`}
                     className="mz-admin-btn-secondary"
                     style={{ padding: "8px 10px" }}
@@ -877,9 +869,9 @@ const AdminRecordings = () => {
                   </button>
                 </div>
               ) : (
-                <video
+                <RecordingVideo
                   id="admin-active-video-player"
-                  src={getVideoSrc(activeRecording)}
+                  recording={activeRecording}
                   controls
                   playsInline
                   autoPlay
@@ -893,11 +885,8 @@ const AdminRecordings = () => {
                       }
                     }
                   }}
-                  onError={() => setVideoError(true)}
                   style={{ width: "100%", maxHeight: 380, display: "block", background: "#000000" }}
-                >
-                  Your browser does not support the video tag.
-                </video>
+                />
               )}
 
               {/* Video Bar Controls */}
@@ -1064,7 +1053,7 @@ const AdminRecordings = () => {
                     <p style={{ margin: "0 0 12px" }}><strong>Stream Endpoint:</strong> <code>{activeRecording.streamUrl}</code></p>
 
                     <a
-                      href={getVideoSrc(activeRecording)}
+                      href={getVideoSrc(activeRecording, { download: true })}
                       download={`${activeRecording.title?.replace(/[^a-zA-Z0-9_-]/g, "_") || "recording"}.webm`}
                       className="mz-admin-btn-primary"
                       style={{ display: "inline-flex", alignItems: "center", gap: 6, textDecoration: "none" }}
