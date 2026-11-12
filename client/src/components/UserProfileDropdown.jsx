@@ -9,7 +9,6 @@ import {
   LuSettings,
   LuLogOut,
 } from "react-icons/lu";
-import ThemeToggle from "./ThemeToggle.jsx";
 import "./UserProfileDropdown.css";
 
 export default function UserProfileDropdown({
@@ -215,12 +214,9 @@ export default function UserProfileDropdown({
         </span>
         <div className="mz-c-dropdown-item-content">
           <span className="mz-c-dropdown-item-title">App Settings</span>
-          <span className="mz-c-dropdown-item-desc">Theme, preferences & security</span>
+          <span className="mz-c-dropdown-item-desc">Preferences & security</span>
         </div>
       </div>
-
-      {/* Quick Theme Switcher (Light / Dark / System) */}
-      <ThemeToggle variant="menu-row" />
 
       <div className="mz-c-dropdown-divider" />
 

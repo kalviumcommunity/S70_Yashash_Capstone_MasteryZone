@@ -5,6 +5,7 @@ import CertificationCard from "./CertificationCard";
 import CollaborationHub from "./CollaborationHub";
 import SubjectCurriculumView from "./SubjectCurriculumView";
 import NotificationBell from "./NotificationBell.jsx";
+import ThemeToggle from "./ThemeToggle.jsx";
 import "./fitness.css";
 import fitnessIllustration from "../assets/fitness_illustration.png";
 import logoIcon from "../assets/logo_icon_transparent.png";
@@ -1168,6 +1169,7 @@ const Fitness = () => {
               YOUR CART ({getCartCount()})
             </span>
             <span className={`fitness-nav-link add-members-link ${activeTab === "members" ? "active-nav" : ""}`} onClick={() => { setActiveTab("members"); setSearchQuery(""); }}>Add Members</span>
+            <ThemeToggle style={{ margin: "0 8px" }} />
             <NotificationBell variant="zone" />
           </div>
 
