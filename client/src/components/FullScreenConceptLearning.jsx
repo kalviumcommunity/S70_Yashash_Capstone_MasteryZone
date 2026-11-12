@@ -652,25 +652,33 @@ self.addEventListener("unhandledrejection", function(e) {
     const sKey = subjectKey || module?.subjectKey || "coding";
 
     try {
-      if (token) {
-        const endpoint =
-          sKey === "coding"
-            ? `${API_BASE}/api/coding/curriculum/study`
-            : `${API_BASE}/api/curriculum/study`;
+      if (!token) {
+        toast.error("Please sign in to save your learning progress and unlock exercises.");
+        return;
+      }
 
-        await fetch(endpoint, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            subjectKey: sKey,
-            trackId: tId,
-            moduleIndex: mIdx,
-            studyTimeSeconds: durationSec,
-          }),
-        });
+      const endpoint =
+        sKey === "coding"
+          ? `${API_BASE}/api/coding/curriculum/study`
+          : `${API_BASE}/api/curriculum/study`;
+
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          subjectKey: sKey,
+          trackId: tId,
+          moduleIndex: mIdx,
+          studyTimeSeconds: durationSec,
+        }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || errorData.message || `Server returned status ${res.status}`);
       }
 
       setIsCompleted(true);
@@ -708,14 +716,9 @@ self.addEventListener("unhandledrejection", function(e) {
         onComplete({ ...module, isStudied: true, moduleIndex: mIdx, trackId: tId });
       }
     } catch (err) {
-      console.warn("Failed to persist study progress:", err);
-      setIsCompleted(true);
-      toast.success("✓ Theory marked as completed! Proceeding to exercise...");
-      if (isStandalone || !propModule) {
-        navigate(`/coding-test/${tId}/${mIdx}`);
-      } else if (onComplete) {
-        onComplete({ ...module, isStudied: true, moduleIndex: mIdx, trackId: tId });
-      }
+      console.error("Failed to persist study progress:", err);
+      toast.error(`Unable to save progress: ${err.message}. Please try again.`);
+      // Do NOT set isCompleted to true on failure! Preserve real progress state.
     } finally {
       setIsMarkingComplete(false);
     }

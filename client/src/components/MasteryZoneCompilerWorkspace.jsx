@@ -82,6 +82,7 @@ import AssessmentSubmissionFlow from "./AssessmentSubmissionFlow";
 import EvaluatingResultsLoader from "./EvaluatingResultsLoader";
 import ThemeToggle from "./ThemeToggle.jsx";
 import { useTheme } from "../context/ThemeContext.jsx";
+import TestCaseExecutionPanel from "./TestCaseExecutionPanel";
 import "./MasteryZoneCompiler.css";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
@@ -746,9 +747,10 @@ export default function MasteryZoneCompilerWorkspace({
   const [matchRegex, setMatchRegex] = useState(false);
   const [searchResultsCount, setSearchResultsCount] = useState(0);
 
-  // AI Copilot state
+  // AI Copilot state & cache
   const [aiAnalysis, setAiAnalysis] = useState(null);
   const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
+  const aiAnalysisCacheRef = useRef(new Map());
 
   // References for Monaco editor
   const editorInstanceRef = useRef(null);
@@ -1027,14 +1029,23 @@ export default function MasteryZoneCompilerWorkspace({
 
   const handleRunAiAnalysis = () => {
     setIsAiAnalyzing(true);
-    setTimeout(() => {
-      const analysis = analyzeCodeWithAi(code, selectedLang);
+    try {
+      const cacheKey = `${selectedLang}_${code.slice(0, 1000)}_${code.length}`;
+      let analysis = aiAnalysisCacheRef.current.get(cacheKey);
+      if (!analysis) {
+        analysis = analyzeCodeWithAi(code, selectedLang);
+        aiAnalysisCacheRef.current.set(cacheKey, analysis);
+      }
       setAiAnalysis(analysis);
-      setIsAiAnalyzing(false);
       setBottomPanelTab("ai");
       setIsDrawerOpen(true);
-      toast.success("AI Code Diagnostics & Complexity Report Generated!");
-    }, 350);
+      toast.success("AI Code Diagnostics & Complexity Report Generated!", { autoClose: 1500 });
+    } catch (err) {
+      console.error("AI Analysis error:", err);
+      toast.error("Could not run AI code diagnostics: " + (err.message || "Unknown error"));
+    } finally {
+      setIsAiAnalyzing(false);
+    }
   };
 
   // Actions loading state
@@ -4968,214 +4979,21 @@ export default function MasteryZoneCompilerWorkspace({
                   {/* TAB 3: TEST CASES */}
                   {bottomPanelTab === "testcases" && (
                     <div className="mz-testcases-tab-wrapper">
-                      {/* Pass/Fail or Running Suite Banner */}
-                      {isRunningTests ? (
-                        <div className="mz-compiler-pass-banner is-running" style={{ marginBottom: "12px" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: "10px", flex: 1 }}>
-                            <LuRefreshCw size={17} className="mz-spin" color="#2563eb" />
-                            <div>
-                              <span style={{ fontWeight: 700, fontSize: "13px", color: "#1e40af" }}>
-                                Compiler Running Test Cases...
-                              </span>
-                              <span style={{ fontSize: "12px", color: "#3b82f6", marginLeft: "8px" }}>
-                                Evaluating solution against test suite in isolated sandbox runner
-                              </span>
-                            </div>
-                          </div>
-                          <span className="mz-compiler-running-tag">⚡ Compiling & Testing</span>
-                        </div>
-                      ) : bannerVisible && (
-                        <div
-                          className={`mz-compiler-pass-banner ${
-                            isAllPassed || (hasEvaluated && !isCodeModifiedAfterEval && passedCount > 0 && passedCount === allTestCases.filter(t => t.passed !== null).length)
-                              ? "all-passed"
-                              : hasEvaluated && !isCodeModifiedAfterEval && passedCount >= Math.ceil(allTestCases.length * 0.8)
-                              ? "passed"
-                              : hasEvaluated && !isCodeModifiedAfterEval
-                              ? "failed"
-                              : "idle"
-                          }`}
-                          style={{ marginBottom: "12px" }}
-                        >
-                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                            {isAllPassed ? (
-                              <LuSparkles size={16} />
-                            ) : hasEvaluated && !isCodeModifiedAfterEval && (passedCount >= Math.ceil(allTestCases.length * 0.8) || (passedCount > 0 && passedCount === allTestCases.filter(t => t.passed !== null).length)) ? (
-                              <LuCircleCheck size={16} color="#10b981" style={{ color: "#10b981" }} />
-                            ) : hasEvaluated && !isCodeModifiedAfterEval ? (
-                              <LuCircleX size={16} color="#ef4444" style={{ color: "#ef4444" }} />
-                            ) : (
-                              <LuFileCode size={16} />
-                            )}
-                            <span>
-                              {isAllPassed
-                                ? "🎉 Perfect Score! All test cases passed (100%). Solution Verified & Graded!"
-                                : hasEvaluated && !isCodeModifiedAfterEval
-                                ? `You have passed ${passedCount}/${allTestCases.length} tests${
-                                    passedCount >= Math.ceil(allTestCases.length * 0.8) || (passedCount > 0 && passedCount === allTestCases.filter(t => t.passed !== null).length)
-                                      ? " — Passing criteria satisfied (Green Verified)!"
-                                      : " — Keep revising to reach 80% passing threshold!"
-                                  }`
-                                : "Run tests to evaluate your solution against the comprehensive test suite."}
-                            </span>
-                          </div>
-                          <button
-                            type="button"
-                            className="mz-compiler-banner-dismiss"
-                            onClick={() => setBannerVisible(false)}
-                          >
-                            Dismiss
-                          </button>
-                        </div>
-                      )}
-
-                      <div className="mz-compiler-drawer-content">
-                        {/* Left Column: Test Cases List */}
-                        <div className="mz-compiler-drawer-sidebar">
-                          <button
-                            type="button"
-                            className="mz-compiler-btn-run-tests"
-                            disabled={isRunningTests || isSubmitting}
-                            onClick={handleRunTests}
-                          >
-                            {isRunningTests ? (
-                              <LuRefreshCw size={13} className="mz-spin" />
-                            ) : (
-                              <LuPlay size={13} fill="currentColor" />
-                            )}
-                            <span>{isRunningTests ? "Running Tests..." : "Run Tests"}</span>
-                          </button>
-
-                          <div className="mz-compiler-test-cases-list">
-                            {allTestCases.map((tc, idx) => {
-                              const isTcPass = Boolean(
-                                tc.passed === true ||
-                                tc.passed === "true" ||
-                                tc.status === "PASSED" ||
-                                (isAllPassed && hasEvaluated)
-                              );
-                              const isTcFail = Boolean(
-                                (tc.passed === false || tc.passed === "false" || tc.status === "FAILED") && !isTcPass
-                              );
-                              return (
-                                <button
-                                  key={tc.index || idx + 1}
-                                  type="button"
-                                  className={`mz-compiler-tc-item ${selectedCaseIndex === idx ? "active" : ""} ${isRunningTests ? "is-evaluating" : ""}`}
-                                  onClick={() => setSelectedCaseIndex(idx)}
-                                >
-                                  <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                                    <span>Test Case {tc.index || idx + 1}</span>
-                                    {isRunningTests && (
-                                      <span className="mz-tc-running-chip">Running...</span>
-                                    )}
-                                  </span>
-                                  <span
-                                    className={`mz-compiler-status-icon ${
-                                      isRunningTests ? "running" : isTcPass ? "pass" : isTcFail ? "fail" : "neutral"
-                                    }`}
-                                  >
-                                    {isRunningTests ? (
-                                      <LuRefreshCw size={14} className="mz-spin" color="#2563eb" />
-                                    ) : isTcPass ? (
-                                      <LuCircleCheck size={16} color="#10b981" style={{ color: "#10b981" }} />
-                                    ) : isTcFail ? (
-                                      <LuCircleX size={16} color="#ef4444" style={{ color: "#ef4444" }} />
-                                    ) : (
-                                      <LuCircle size={15} color="#94a3b8" style={{ color: "#94a3b8" }} />
-                                    )}
-                                  </span>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-
-                        {/* Right Column: Input, Expected Output, & Actual Output */}
-                        <div className="mz-compiler-drawer-detail">
-                          {isRunningTests ? (
-                            <div className="mz-compiler-running-detail-placeholder">
-                              <div className="mz-running-radar-circle">
-                                <LuRefreshCw size={28} className="mz-spin" color="#2563eb" />
-                              </div>
-                              <h3 style={{ margin: "12px 0 16px", fontSize: "15px", fontWeight: "700", color: "#0f172a" }}>
-                                Sandboxed Test Execution in Progress
-                              </h3>
-                              <div className="mz-running-pipeline">
-                                <div className="mz-pipeline-step done">
-                                  <span className="dot"><LuCircleCheck size={14} color="#10b981" /></span>
-                                  <span>Source Code Parsing</span>
-                                </div>
-                                <div className="mz-pipeline-step active">
-                                  <span className="dot"><LuRefreshCw size={14} className="mz-spin" color="#2563eb" /></span>
-                                  <span>Parallel Sandboxed Execution</span>
-                                </div>
-                                <div className="mz-pipeline-step pending">
-                                  <span className="dot"><LuCircle size={14} color="#94a3b8" /></span>
-                                  <span>Assertion & Output Diff</span>
-                                </div>
-                              </div>
-                            </div>
-                          ) : (
-                            <>
-                              <div>
-                                <div className="mz-detail-header-row">
-                                  <div className="mz-compiler-detail-section-title">
-                                    Input (Test Case {selectedCase?.index || 1} of {allTestCases.length || 10})
-                                  </div>
-                                </div>
-                                <div className="mz-compiler-io-box">
-                                  {selectedCase?.input || ""}
-                                </div>
-                              </div>
-
-                              <div>
-                                <div className="mz-detail-header-row">
-                                  <div className="mz-compiler-detail-section-title">
-                                    Expected Output (Solution)
-                                  </div>
-                                </div>
-                                <div className="mz-compiler-io-box">
-                                  {selectedCase?.expectedOutput || ""}
-                                </div>
-                              </div>
-
-                              {/* Actual Output */}
-                              {hasEvaluated && (
-                                <div>
-                                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                    <div className="mz-compiler-detail-section-title">Actual Output</div>
-                                    <span style={{ fontSize: "11px", color: "#64748b", fontFamily: "monospace" }}>
-                                      ⏱ {selectedCase?.duration || 0}ms
-                                    </span>
-                                  </div>
-                                  <div
-                                    className={`mz-compiler-io-box ${
-                                      selectedCase?.passed === false && !isAllPassed
-                                        ? "error-box"
-                                        : selectedCase?.passed === true || isAllPassed
-                                        ? "success-box"
-                                        : ""
-                                    }`}
-                                  >
-                                    {selectedCase?.passed === false && selectedCase?.error
-                                      ? selectedCase.error
-                                      : selectedCase?.actualOutput ||
-                                        (selectedCase?.passed === true || isAllPassed
-                                          ? selectedCase?.expectedOutput || "[Passed]"
-                                          : "[No output produced]")}
-                                    {selectedCase?.error && selectedCase?.actualOutput && (
-                                      <div style={{ color: "#ef4444", marginTop: "6px", fontFamily: "monospace" }}>
-                                        {selectedCase.error}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      </div>
+                      <TestCaseExecutionPanel
+                        testCases={allTestCases}
+                        isRunning={isRunningTests}
+                        onRunTests={handleRunTests}
+                        selectedIndex={selectedCaseIndex}
+                        onSelectIndex={setSelectedCaseIndex}
+                        passThreshold={0.8}
+                        canRun={!isRunningTests && !isSubmitting}
+                        isDark={editorTheme !== "vs"}
+                        onUseStdin={(val) => {
+                          setCustomStdin(val);
+                          setBottomPanelTab("terminal");
+                          toast.info("Test case input loaded into Terminal STDIN");
+                        }}
+                      />
                     </div>
                   )}
 

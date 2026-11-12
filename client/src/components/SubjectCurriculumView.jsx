@@ -20,6 +20,21 @@ import {
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
+// Module-level cache to eliminate topic/track switching latency and UI flashing
+const curriculumMemoryCache = new Map();
+
+export const invalidateCurriculumMemoryCache = (subjectKeyPrefix) => {
+  if (!subjectKeyPrefix) {
+    curriculumMemoryCache.clear();
+    return;
+  }
+  for (const k of curriculumMemoryCache.keys()) {
+    if (k.startsWith(subjectKeyPrefix)) {
+      curriculumMemoryCache.delete(k);
+    }
+  }
+};
+
 export default function SubjectCurriculumView({
   subjectKey = "language",
   subjectTitle = "Language Curriculum",
@@ -61,7 +76,8 @@ export default function SubjectCurriculumView({
       if (res.ok && data.success) {
         toast.success(data.message || "Learning process successfully reset! Modules have returned to initial state.", { toastId: "subj_reset_ok" });
         setIsResetModalOpen(false);
-        fetchCurriculum(selectedTrack);
+        invalidateCurriculumMemoryCache(subjectKey);
+        fetchCurriculum(selectedTrack, true);
       } else {
         toast.error(data.error || data.message || "Failed to reset learning process");
       }
@@ -72,9 +88,18 @@ export default function SubjectCurriculumView({
     }
   };
 
-  const fetchCurriculum = useCallback(async (trackId) => {
+  const fetchCurriculum = useCallback(async (trackId, forceRefresh = false) => {
     if (!trackId) return;
-    setIsLoading(true);
+    const cacheKey = `${subjectKey}_${trackId}`;
+
+    // Instantaneous UI render from cache if available (stale-while-revalidate)
+    const cached = curriculumMemoryCache.get(cacheKey);
+    if (cached && !forceRefresh) {
+      setCurriculumData(cached);
+    } else {
+      setIsLoading(true);
+    }
+
     const token = localStorage.getItem("token");
 
     try {
@@ -83,6 +108,7 @@ export default function SubjectCurriculumView({
       });
       if (res.ok) {
         const data = await res.json();
+        curriculumMemoryCache.set(cacheKey, data);
         setCurriculumData(data);
       }
     } catch {
@@ -100,7 +126,8 @@ export default function SubjectCurriculumView({
   useEffect(() => {
     const handleSync = () => {
       if (selectedTrack) {
-        fetchCurriculum(selectedTrack);
+        invalidateCurriculumMemoryCache(subjectKey);
+        fetchCurriculum(selectedTrack, true);
       }
     };
 

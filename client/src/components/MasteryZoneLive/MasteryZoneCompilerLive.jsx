@@ -60,6 +60,7 @@ import {
   SiMarkdown,
 } from "react-icons/si";
 import { toast } from "react-toastify";
+import TestCaseExecutionPanel from "../TestCaseExecutionPanel";
 import "../MasteryZoneCompiler.css";
 
 const getApiBase = () => {
@@ -1839,161 +1840,20 @@ export default function MasteryZoneCompilerLive({
 
                 {/* TAB 1: RUN TESTS (Matches uploaded reference image!) */}
                 {activeTab === "run_tests" && (
-                  <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
-                    {/* Left Column: Run Tests Button + List of 10 Test Cases */}
-                    <div
-                      style={{
-                        width: 170,
-                        borderRight: "1px solid #e2e8f0",
-                        background: "#ffffff",
-                        padding: "10px",
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 8,
-                        overflowY: "auto",
-                      }}
-                    >
-                      <button
-                        type="button"
-                        onClick={handleRunTests}
-                        disabled={isRunningTests || isReadOnlyForUser}
-                        style={{
-                          background: "#0f172a",
-                          color: "#ffffff",
-                          border: "none",
-                          borderRadius: 8,
-                          padding: "7px 12px",
-                          fontSize: 12,
-                          fontWeight: 700,
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          gap: 6,
-                          boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                        }}
-                      >
-                        <LuPlay size={12} fill="#ffffff" />
-                        <span>{isRunningTests ? "Running Tests..." : "Run Tests"}</span>
-                      </button>
-
-                      <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                        {currentTestCases.map((tc, idx) => (
-                          <button
-                            key={tc.id || idx}
-                            type="button"
-                            onClick={() => setSelectedCaseIndex(idx)}
-                            style={{
-                              background: selectedCaseIndex === idx ? "#eff6ff" : "transparent",
-                              border: selectedCaseIndex === idx ? "1px solid #bfdbfe" : "1px solid transparent",
-                              borderRadius: 6,
-                              padding: "5px 8px",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "space-between",
-                              fontSize: 11.5,
-                              fontWeight: selectedCaseIndex === idx ? 700 : 500,
-                              color: selectedCaseIndex === idx ? "#1d4ed8" : "#475569",
-                              cursor: "pointer",
-                              textAlign: "left",
-                            }}
-                          >
-                            <span>Test Case {tc.index || idx + 1}</span>
-                            <span>
-                              {(() => {
-                                const isTcPass = Boolean(tc.passed === true || tc.passed === "true" || tc.status === "PASSED" || tc.passed === 1);
-                                const isTcFail = Boolean((tc.passed === false || tc.passed === "false" || tc.status === "FAILED") && !isTcPass);
-                                if (isTcPass) {
-                                  return <LuCircleCheck size={14} color="#16a34a" style={{ color: "#16a34a" }} />;
-                                }
-                                if (isTcFail) {
-                                  return <LuCircleX size={14} color="#dc2626" style={{ color: "#dc2626" }} />;
-                                }
-                                return <LuCircle size={13} color="#94a3b8" style={{ color: "#94a3b8" }} />;
-                              })()}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Right Column: Input, Expected Output & Actual Output */}
-                    <div
-                      style={{
-                        flex: 1,
-                        padding: "10px 14px",
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 10,
-                        overflowY: "auto",
-                      }}
-                    >
-                      {/* Input Box */}
-                      <div>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", marginBottom: 4 }}>
-                          Input {selectedCase?.isHidden ? `(Hidden Test Case ${selectedCase?.index} of 10)` : `(Public Sample ${selectedCase?.index || 1} of 3)`}
-                        </div>
-                        <div
-                          style={{
-                            background: "#ffffff",
-                            border: "1px solid #e2e8f0",
-                            borderRadius: 6,
-                            padding: "8px 10px",
-                            fontFamily: "monospace",
-                            fontSize: 12,
-                            color: "#0f172a",
-                            whiteSpace: "pre-wrap",
-                          }}
-                        >
-                          {selectedCase?.isHidden ? "[Hidden Test Case — Stored on backend]" : selectedCase?.input}
-                        </div>
-                      </div>
-
-                      {/* Expected Output Box */}
-                      <div>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", marginBottom: 4 }}>
-                          Expected Output {selectedCase?.isHidden ? "(Hidden)" : ""}
-                        </div>
-                        <div
-                          style={{
-                            background: "#ffffff",
-                            border: "1px solid #e2e8f0",
-                            borderRadius: 6,
-                            padding: "8px 10px",
-                            fontFamily: "monospace",
-                            fontSize: 12,
-                            color: "#0f172a",
-                            whiteSpace: "pre-wrap",
-                          }}
-                        >
-                          {selectedCase?.isHidden ? "[Hidden Output — Protected test case]" : selectedCase?.expectedOutput}
-                        </div>
-                      </div>
-
-                      {/* Actual Output (if evaluated) */}
-                      {hasEvaluated && (
-                        <div>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", marginBottom: 4 }}>
-                            Actual Output
-                          </div>
-                          <div
-                            style={{
-                              background: selectedCase?.passed ? "#f0fdf4" : "#fef2f2",
-                              border: selectedCase?.passed ? "1px solid #bbf7d0" : "1px solid #fecaca",
-                              borderRadius: 6,
-                              padding: "8px 10px",
-                              fontFamily: "monospace",
-                              fontSize: 12,
-                              color: selectedCase?.passed ? "#166534" : "#991b1b",
-                              whiteSpace: "pre-wrap",
-                            }}
-                          >
-                            {selectedCase?.actualOutput || (selectedCase?.passed ? "[Passed]" : "[No output / Failed]")}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                  <TestCaseExecutionPanel
+                    testCases={currentTestCases}
+                    isRunning={isRunningTests}
+                    onRunTests={handleRunTests}
+                    selectedIndex={selectedCaseIndex}
+                    onSelectIndex={setSelectedCaseIndex}
+                    canRun={!isRunningTests && !isReadOnlyForUser}
+                    isDark={editorTheme !== "vs"}
+                    onUseStdin={(val) => {
+                      setCustomInput(val);
+                      setActiveTab("run");
+                      toast.info("Test case input copied to Interactive STDIN");
+                    }}
+                  />
                 )}
 
                 {/* TAB 2: RUN (Interactive STDIN & Console Output) */}

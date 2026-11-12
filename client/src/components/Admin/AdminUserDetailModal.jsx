@@ -33,6 +33,7 @@ import {
   LuTrash2,
 } from "react-icons/lu";
 import { toast } from "react-toastify";
+import LeetCodeActivityCalendar from "../LeetCodeActivityCalendar.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -407,19 +408,25 @@ const AdminUserDetailModal = ({
           <div style={{ padding: "8px 12px", background: "var(--mz-surface)", borderRadius: 10, border: "1px solid var(--mz-border)", textAlign: "center" }}>
             <span style={{ fontSize: 10.5, color: "var(--mz-text-subtle)", fontWeight: 700, textTransform: "uppercase" }}>Activity Streak</span>
             <div style={{ fontSize: 16, fontWeight: 800, color: "var(--mz-text-primary)", marginTop: 2 }}>
-              🔥 {user.streak || 1} Days
+              🔥 {userDetail.activityStats?.currentStreak !== undefined ? userDetail.activityStats.currentStreak : user.streak || 0} { (userDetail.activityStats?.currentStreak || user.streak) === 1 ? "Day" : "Days"}
             </div>
           </div>
           <div style={{ padding: "8px 12px", background: "var(--mz-surface)", borderRadius: 10, border: "1px solid var(--mz-border)", textAlign: "center" }}>
-            <span style={{ fontSize: 10.5, color: "var(--mz-text-subtle)", fontWeight: 700, textTransform: "uppercase" }}>Learning Hours</span>
+            <span style={{ fontSize: 10.5, color: "var(--mz-text-subtle)", fontWeight: 700, textTransform: "uppercase" }}>Longest Streak</span>
             <div style={{ fontSize: 16, fontWeight: 800, color: "var(--mz-text-primary)", marginTop: 2 }}>
-              ⏱️ {user.learningHours || 0} hrs
+              ⚡ {userDetail.activityStats?.longestStreak || 0} Days
             </div>
           </div>
           <div style={{ padding: "8px 12px", background: "var(--mz-surface)", borderRadius: 10, border: "1px solid var(--mz-border)", textAlign: "center" }}>
             <span style={{ fontSize: 10.5, color: "var(--mz-text-subtle)", fontWeight: 700, textTransform: "uppercase" }}>Code Submissions</span>
             <div style={{ fontSize: 16, fontWeight: 800, color: "var(--mz-text-primary)", marginTop: 2 }}>
-              💻 {submissions.length}
+              💻 {userDetail.activityStats?.totalSubmissions !== undefined ? userDetail.activityStats.totalSubmissions : submissions.length}
+            </div>
+          </div>
+          <div style={{ padding: "8px 12px", background: "var(--mz-surface)", borderRadius: 10, border: "1px solid var(--mz-border)", textAlign: "center" }}>
+            <span style={{ fontSize: 10.5, color: "var(--mz-text-subtle)", fontWeight: 700, textTransform: "uppercase" }}>Problems Solved</span>
+            <div style={{ fontSize: 16, fontWeight: 800, color: "var(--mz-text-primary)", marginTop: 2 }}>
+              🎯 {userDetail.activityStats?.totalProblemsSolved || 0}
             </div>
           </div>
           <div style={{ padding: "8px 12px", background: "var(--mz-surface)", borderRadius: 10, border: "1px solid var(--mz-border)", textAlign: "center" }}>
@@ -442,6 +449,7 @@ const AdminUserDetailModal = ({
         >
           {[
             { id: "profile", label: "Profile Details" },
+            { id: "activity", label: "Streak & Heatmap 🔥" },
             { id: "timeline", label: `Timeline (${timeline.length})` },
             { id: "submissions", label: `Submissions (${submissions.length})` },
             { id: "assessments", label: `Assessments (${certAttempts.length + moduleAttempts.length})` },
@@ -642,6 +650,26 @@ const AdminUserDetailModal = ({
                   </div>
                 </div>
               </div>
+
+              {/* Student Daily Activity Streak Calendar & Heatmap */}
+              <div style={{ marginTop: 4 }}>
+                <LeetCodeActivityCalendar
+                  userId={user._id || user.id}
+                  initialData={userDetail.activityStats}
+                  compact={true}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* TAB: DAILY ACTIVITY STREAK CALENDAR & HEATMAP */}
+          {activeTab === "activity" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <LeetCodeActivityCalendar
+                userId={user._id || user.id}
+                initialData={userDetail.activityStats}
+                compact={false}
+              />
             </div>
           )}
 
