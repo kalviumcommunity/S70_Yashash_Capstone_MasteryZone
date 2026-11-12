@@ -15,7 +15,7 @@ const RecordingVideo = forwardRef(function RecordingVideo(
 
   if (!recording) return null;
 
-  if (pb.failed || !pb.src) {
+  if (pb.failed) {
     return (
       <div
         role="alert"
@@ -71,6 +71,30 @@ const RecordingVideo = forwardRef(function RecordingVideo(
     );
   }
 
+  if (!pb.src) {
+    return (
+      <div
+        style={{
+          width: "100%",
+          padding: "60px 20px",
+          textAlign: "center",
+          color: "#cbd5e1",
+          background: "#0f172a",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 12,
+          ...errorStyle,
+        }}
+      >
+        <span className="mz-rec-video-spinner" />
+        <span style={{ fontSize: 13, fontWeight: 600 }}>Connecting to recording stream…</span>
+        <style>{`.mz-rec-video-spinner{width:30px;height:30px;border-radius:50%;border:3px solid rgba(255,255,255,.18);border-top-color:#818cf8;animation:mzRecSpin .8s linear infinite}@keyframes mzRecSpin{to{transform:rotate(360deg)}}`}</style>
+      </div>
+    );
+  }
+
   return (
     <div style={{ position: "relative", width: "100%", ...wrapperStyle }}>
       <video
@@ -86,6 +110,7 @@ const RecordingVideo = forwardRef(function RecordingVideo(
           onLoadedMetadata?.(e);
         }}
         onError={(e) => {
+          if (!pb.src) return;
           onError?.(e);
           pb.onError(e);
         }}

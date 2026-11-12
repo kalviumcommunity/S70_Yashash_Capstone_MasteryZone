@@ -403,23 +403,34 @@ export default function AssessmentSecurityGate({
   const [fullscreenError, setFullscreenError] = useState("");
 
   const [gateError, setGateError] = useState("");
+  const [isStartingExam, setIsStartingExam] = useState(false);
 
   // Candidate Details for Assessment
   const [candidateName, setCandidateName] = useState(() => {
     try {
-      const u = JSON.parse(localStorage.getItem("mz_user") || "{}");
-      return u.name || "";
+      const raw = localStorage.getItem("user") || sessionStorage.getItem("user") || localStorage.getItem("mz_user") || sessionStorage.getItem("mz_user");
+      if (raw) {
+        const u = JSON.parse(raw);
+        const userObj = u.user || u;
+        return userObj.fullName || userObj.name || userObj.username || "";
+      }
     } catch {
       return "";
     }
+    return "";
   });
   const [candidateEmail, setCandidateEmail] = useState(() => {
     try {
-      const u = JSON.parse(localStorage.getItem("mz_user") || "{}");
-      return u.email || "";
+      const raw = localStorage.getItem("user") || sessionStorage.getItem("user") || localStorage.getItem("mz_user") || sessionStorage.getItem("mz_user");
+      if (raw) {
+        const u = JSON.parse(raw);
+        const userObj = u.user || u;
+        return userObj.email || "";
+      }
     } catch {
       return "";
     }
+    return "";
   });
   const [candidateId, setCandidateId] = useState(() => `CAND-${Date.now().toString().slice(-6)}`);
   const [organization, setOrganization] = useState("Mastery Zone Candidate Evaluation");
@@ -1314,8 +1325,12 @@ export default function AssessmentSecurityGate({
       return;
     }
 
+    if (isStartingExam) return;
+    setIsStartingExam(true);
+    setGateError("");
+
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
       let sid = launchedSessionId;
 
       // Only invoke backend coding proctored session APIs if explicit coding problem metadata exists
@@ -1371,22 +1386,32 @@ export default function AssessmentSecurityGate({
 
       if (onStartAssessment) {
         handedOffToWorkspaceRef.current = true;
-        onStartAssessment({
-          sessionId: sid,
-          cameraStream,
-          micStream,
-          screenStream,
-          audioContext: audioContextRef.current,
-          batteryInfo,
-          displaySurface,
-          candidateDetails: {
-            fullName: candidateName.trim(),
-            email: candidateEmail.trim(),
-            candidateId: candidateId.trim(),
-            organization: organization.trim(),
-          },
-        });
-        toast.success("Assessment started with verified hardware and fullscreen security.");
+        try {
+          await onStartAssessment({
+            sessionId: sid,
+            cameraStream,
+            micStream,
+            screenStream,
+            audioContext: audioContextRef.current,
+            batteryInfo,
+            displaySurface,
+            candidateDetails: {
+              fullName: candidateName.trim(),
+              email: candidateEmail.trim(),
+              candidateId: candidateId.trim(),
+              organization: organization.trim(),
+            },
+          });
+          toast.success("Assessment started with verified hardware and fullscreen security.", {
+            toastId: "gate_started_ok",
+          });
+        } catch (startErr) {
+          console.error("onStartAssessment error:", startErr);
+          handedOffToWorkspaceRef.current = false;
+          setIsStartingExam(false);
+          toast.error(startErr.message || "Failed to start assessment");
+          return;
+        }
       } else {
         const assessmentUrl = `${window.location.origin}/assessment/${sid}`;
         const newTab = window.open(assessmentUrl, "_blank");
@@ -1399,21 +1424,29 @@ export default function AssessmentSecurityGate({
       console.warn("Session init note:", err.message);
       if (onStartAssessment) {
         handedOffToWorkspaceRef.current = true;
-        onStartAssessment({
-          cameraStream,
-          micStream,
-          screenStream,
-          audioContext: audioContextRef.current,
-          batteryInfo,
-          displaySurface,
-          candidateDetails: {
-            fullName: candidateName.trim(),
-            email: candidateEmail.trim(),
-            candidateId: candidateId.trim(),
-            organization: organization.trim(),
-          },
-        });
+        try {
+          await onStartAssessment({
+            cameraStream,
+            micStream,
+            screenStream,
+            audioContext: audioContextRef.current,
+            batteryInfo,
+            displaySurface,
+            candidateDetails: {
+              fullName: candidateName.trim(),
+              email: candidateEmail.trim(),
+              candidateId: candidateId.trim(),
+              organization: organization.trim(),
+            },
+          });
+        } catch (subErr) {
+          handedOffToWorkspaceRef.current = false;
+          setIsStartingExam(false);
+          toast.error(subErr.message || "Failed to launch assessment");
+        }
       }
+    } finally {
+      setIsStartingExam(false);
     }
   };
 
@@ -2703,14 +2736,20 @@ export default function AssessmentSecurityGate({
 
                   <button
                     type="button"
-                    className={`mz-gate-btn-start-exam ${isAllReady ? "ready" : "disabled"}`}
+                    className={`mz-gate-btn-start-exam ${isAllReady && !isStartingExam ? "ready" : "disabled"}`}
                     onClick={handleStart}
-                    disabled={!isAllReady}
+                    disabled={!isAllReady || isStartingExam}
                     title={isAllReady ? "Launch your proctored assessment" : "Complete all 4 checks to unlock"}
                   >
                     <LuRocket size={18} />
-                    <span>{isAllReady ? "Start Proctored Assessment" : `Complete Checks to Start (${verifiedCount}/4 Verified)`}</span>
-                    {isAllReady && <LuArrowRight size={18} />}
+                    <span>
+                      {isStartingExam
+                        ? "Launching Proctored Workspace..."
+                        : isAllReady
+                        ? "Start Proctored Assessment"
+                        : `Complete Checks to Start (${verifiedCount}/4 Verified)`}
+                    </span>
+                    {isAllReady && !isStartingExam && <LuArrowRight size={18} />}
                   </button>
                 </div>
               </section>

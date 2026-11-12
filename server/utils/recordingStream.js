@@ -322,11 +322,6 @@ async function handleRecordingRequest(req, res, rawName, { download = false } = 
       lookupName = sanitizeFilename(String(stored).split(/[\\/]/).pop()) || `${filename}.webm`;
     }
 
-    const filePath = resolveRecordingFilePath(lookupName, recording);
-    if (!filePath || !fs.existsSync(filePath) || !isPathInsideRecordingsDir(filePath)) {
-      return res.status(404).send("Recording file not found");
-    }
-
     let allowed = await canViewRecording(viewer, recording);
     if (!allowed && !recording && viewer.userId) {
       // Proctoring recordings (no Recording document): owner of the proctored session may view.
@@ -336,6 +331,15 @@ async function handleRecordingRequest(req, res, rawName, { download = false } = 
     if (!allowed) {
       if (!recording) return res.status(404).send("Recording record not found");
       return res.status(403).send("Forbidden: You do not have permission to access this recording");
+    }
+
+    const { ensurePlayableRecordingFile } = require("../config/recordingStorage");
+    let filePath = resolveRecordingFilePath(lookupName, recording);
+    if (!filePath || !fs.existsSync(filePath)) {
+      filePath = await ensurePlayableRecordingFile(lookupName, recording);
+    }
+    if (!filePath || !fs.existsSync(filePath) || !isPathInsideRecordingsDir(filePath)) {
+      return res.status(404).send("Recording file not found");
     }
 
     let servePath = filePath;

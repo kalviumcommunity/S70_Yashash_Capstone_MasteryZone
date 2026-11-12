@@ -87,28 +87,36 @@ export function canPlayWebm() {
  */
 export function fixInfiniteDuration(video) {
   if (!video || video.__mzDurationFixing) return;
-  if (Number.isFinite(video.duration) && video.duration > 0) return;
-  video.__mzDurationFixing = true;
-  const restoreTo = video.currentTime || 0;
-  const done = () => {
-    video.removeEventListener("durationchange", onChange);
-    video.removeEventListener("timeupdate", onChange);
-    video.__mzDurationFixing = false;
+  if (video.duration && Number.isFinite(video.duration) && video.duration > 0 && video.duration !== Infinity) return;
+  if (!video.duration || video.duration === Infinity) {
+    video.__mzDurationFixing = true;
+    const restoreTo = video.currentTime || 0;
+    const done = () => {
+      video.removeEventListener("durationchange", onChange);
+      video.removeEventListener("timeupdate", onChange);
+      video.__mzDurationFixing = false;
+      try {
+        video.currentTime = restoreTo;
+      } catch {}
+    };
+    const onChange = () => {
+      if (video.duration && Number.isFinite(video.duration) && video.duration !== Infinity) done();
+    };
+    video.addEventListener("durationchange", onChange);
+    video.addEventListener("timeupdate", onChange);
     try {
-      video.currentTime = restoreTo;
-    } catch {}
-  };
-  const onChange = () => {
-    if (Number.isFinite(video.duration) && video.duration > 0) done();
-  };
-  video.addEventListener("durationchange", onChange);
-  video.addEventListener("timeupdate", onChange);
-  try {
-    video.currentTime = 1e101;
-  } catch {
-    done();
+      if (video.seekable && video.seekable.length > 0) {
+        video.currentTime = video.seekable.end(video.seekable.length - 1);
+      } else {
+        video.currentTime = 1e9;
+      }
+    } catch {
+      done();
+    }
+    setTimeout(() => {
+      if (video.__mzDurationFixing) done();
+    }, 2500);
   }
-  setTimeout(() => video.__mzDurationFixing && done(), 4000);
 }
 
 /**
