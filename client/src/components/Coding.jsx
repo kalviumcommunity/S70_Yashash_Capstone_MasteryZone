@@ -346,9 +346,9 @@ const DEFAULT_PROJECTS = [
     title: "Online Examination & Proctoring Engine",
     domain: "Full-Stack Web",
     starterLanguage: "react",
-    description: "Construct a proctored assessment system with synchronized countdown timers, randomized question banks, and anti-tamper telemetry.",
+    description: "Construct an online assessment system with synchronized countdown timers, randomized question banks, and real-time proctoring event monitoring.",
     technologies: ["React", "Node.js", "MongoDB", "WebRTC"],
-    milestones: ["Timed Exam State Machine", "Automated MCQ Auto-Grading", "Anti-Tamper Event Listener"],
+    milestones: ["Timed Exam State Machine", "Automated MCQ Auto-Grading", "Proctoring Event Listeners"],
     progressPercent: 0,
     difficulty: "Advanced",
     xpReward: 350,
@@ -2461,9 +2461,9 @@ export default function Coding() {
                       <LuCode size={18} />
                     </div>
                     <div>
-                      <h3 className="mz-c-card-heading">Interactive MZ-ASM Playground</h3>
+                      <h3 className="mz-c-card-heading">Interactive Code Playground</h3>
                       <p className="mz-c-card-sub" style={{ margin: "2px 0 0 0", fontSize: "12.5px" }}>
-                        MZ-ASM compiler with Python, JS, Java, and C++.
+                        Cloud compiler runtime supporting Python, JavaScript, Java, and C++.
                       </p>
                     </div>
                   </div>
@@ -3839,7 +3839,7 @@ export default function Coding() {
                   Mastery Zone Professional Certifications
                 </h1>
                 <p style={{ margin: "0 0 24px", fontSize: "14px", color: "var(--mz-text-secondary)", maxWidth: "800px", lineHeight: 1.6 }}>
-                  Take rigorous, proctored examinations designed to evaluate true engineering competence. Pass 20 MCQs and 2 live algorithmic coding challenges to receive official cryptographic credentials signed by Founder Yashash.
+                  Take comprehensive, proctored examinations designed to evaluate core engineering competence. Pass 20 MCQs and 2 live algorithmic coding challenges to receive official verified credentials.
                 </p>
 
                 {/* Key Metrics Row */}
@@ -3872,7 +3872,7 @@ export default function Coding() {
                     <span>🏆</span> My Earned Certificates ({earnedCertificates.length})
                   </h2>
                   <p style={{ margin: "3px 0 0", fontSize: "13px", color: "var(--mz-text-muted)" }}>
-                    Official verified Coursera-style credentials signed by Founder Yashash
+                    Verified credentials issued upon successful examination completion
                   </p>
                 </div>
               </div>

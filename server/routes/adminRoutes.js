@@ -1374,7 +1374,7 @@ router.put("/modify-marks", async (req, res) => {
     }
 
     const { pushNotification } = require("../utils/notificationService");
-    const { sendSubmissionEvaluationEmail } = require("../utils/mailer");
+    const { sendSubmissionEvaluationEmail, isGuestAccount } = require("../utils/mailer");
 
     let updatedResult = null;
     let targetUserId = null;
@@ -1682,7 +1682,7 @@ router.put("/modify-marks", async (req, res) => {
             message: `Super Admin evaluated your submission: ${parsedScore}/100 (${sub.status}). ${adminNote ? `Feedback: "${adminNote}"` : ""}`,
             type: "assessment",
             severity: sub.status === "ACCEPTED" || parsedScore >= 70 ? "success" : "warning",
-            actionUrl: `/coding`,
+            actionUrl: `/assessment-report/${sub._id}`,
             actionLabel: "View Code Report",
             meta: {
               submissionId: sub._id,
@@ -1716,7 +1716,7 @@ router.put("/modify-marks", async (req, res) => {
           verdict: sub.status,
           adminComment: adminNote,
           reviewedAt: sub.adminModifiedAt,
-          reportUrl: `/coding`,
+          reportUrl: `/assessment-report/${sub._id}`,
           req,
         }).catch((emailErr) => {
           console.warn("Coding email notification error:", emailErr?.message);
@@ -1725,7 +1725,86 @@ router.put("/modify-marks", async (req, res) => {
         sub.notificationEmailSent = !!(emailRes && emailRes.success);
       }
 
+      // Synchronize CodingProgress challengesSolved
+      if (studentUser) {
+        try {
+          const CodingProgress = require("../models/CodingProgress");
+          const codingProg = await CodingProgress.findOne({ userId: studentUser._id });
+          if (codingProg) {
+            if (!codingProg.challengesSolved) codingProg.challengesSolved = [];
+            const existingIdx = codingProg.challengesSolved.findIndex(c => c.challengeId === sub.challengeId);
+            if (sub.status === "ACCEPTED") {
+              if (existingIdx >= 0) {
+                codingProg.challengesSolved[existingIdx].score = parsedScore;
+                codingProg.challengesSolved[existingIdx].solvedAt = new Date();
+              } else {
+                codingProg.challengesSolved.push({
+                  challengeId: sub.challengeId,
+                  language: sub.language || "python",
+                  score: parsedScore,
+                  code: sub.code || "",
+                  solvedAt: new Date(),
+                });
+              }
+            } else if (existingIdx >= 0) {
+              const otherAccepted = await ChallengeSubmission.findOne({
+                userId: studentUser._id,
+                challengeId: sub.challengeId,
+                status: "ACCEPTED",
+                _id: { $ne: sub._id },
+              });
+              if (!otherAccepted) {
+                codingProg.challengesSolved.splice(existingIdx, 1);
+              }
+            }
+            await codingProg.save();
+          }
+        } catch (progErr) {
+          console.warn("Could not sync CodingProgress on admin evaluation:", progErr.message);
+        }
+      }
+
       await sub.save();
+
+      // Emit real-time socket events for marks update & reports sync
+      try {
+        const io = req.app.get("io");
+        if (io) {
+          io.emit("ASSESSMENT_MARKS_UPDATED", {
+            id: sub._id,
+            rawId: sub._id,
+            itemType: "coding",
+            score: `${parsedScore}/100`,
+            rawScore: parsedScore,
+            status: sub.status,
+            passedTests: sub.passedTests,
+            totalTests: totalT,
+            adminNote: sub.adminNote,
+            adminModifiedAt: sub.adminModifiedAt,
+            adminModifiedBy: sub.adminModifiedBy,
+          });
+          io.emit("NEW_REPORT", {
+            id: sub._id,
+            rawId: sub._id,
+            itemType: "coding",
+            sessionId: String(sub._id),
+            title: `${sub.challengeTitle || sub.challengeId || "Coding Challenge"} — Challenge Submission Report`,
+            type: "Coding Challenge Report",
+            recipient: recipientName,
+            email: recipientEmail,
+            score: `${parsedScore}%`,
+            rawScore: parsedScore,
+            maxScore: 100,
+            grade: sub.status === "ACCEPTED" ? "Accepted" : "Wrong Answer",
+            verificationCode: String(sub._id).slice(-8).toUpperCase(),
+            date: sub.adminModifiedAt || sub.createdAt,
+            status: sub.status,
+            passedTests: sub.passedTests,
+            totalTests: totalT,
+            reportUrl: `/assessment-report/${sub._id}`,
+          });
+        }
+      } catch {}
 
       updatedResult = {
         id: sub._id,
@@ -2817,7 +2896,7 @@ router.get("/reports", async (req, res) => {
     const genuineUserIds = genuineUsers.map((u) => u._id);
     const genuineUserEmails = genuineUsers.map((u) => (u.email || "").toLowerCase()).filter(Boolean);
 
-    const [certs, attempts, moduleAttempts, projectSubs, codingSessions] = await Promise.all([
+    const [certs, attempts, moduleAttempts, projectSubs, codingSessions, challengeSubs] = await Promise.all([
       IssuedCertificate.find({})
         .select("_id attemptId certificateId verificationCode certificationTitle certTitle recipientName candidateEmail userId mcqScorePercentage percentage issueDate issuedAt createdAt status")
         .populate("userId", "fullName username email")
@@ -2847,6 +2926,12 @@ router.get("/reports", async (req, res) => {
         .select("_id sessionId questionId assessmentTitle trackId userId candidateDetails status submissionResult questions updatedAt createdAt")
         .populate("userId", "fullName username email")
         .sort({ updatedAt: -1 })
+        .limit(150)
+        .lean(),
+      ChallengeSubmission.find({})
+        .select("_id userId challengeTitle challengeId totalTests passedTests score status createdAt runtimeMs adminNote")
+        .populate("userId", "fullName username email")
+        .sort({ createdAt: -1 })
         .limit(150)
         .lean(),
     ]);
@@ -2988,7 +3073,35 @@ router.get("/reports", async (req, res) => {
       };
     });
 
-    const allReports = [...certReports, ...assessReports, ...mcqReports, ...projectReports, ...codingReports].sort(
+    const challengeReports = (challengeSubs || []).map((cs) => {
+      const user = cs.userId || {};
+      const totalT = cs.totalTests || 10;
+      const passedT = cs.passedTests != null ? cs.passedTests : 0;
+      const pct = cs.score != null ? cs.score : Math.round((passedT / totalT) * 100);
+      const isAccepted = cs.status === "ACCEPTED";
+      return {
+        id: cs._id,
+        rawId: cs._id,
+        itemType: "coding",
+        sessionId: String(cs._id),
+        title: `${cs.challengeTitle || cs.challengeId || "Coding Challenge"} — Challenge Submission Report`,
+        type: "Coding Challenge Report",
+        recipient: user.fullName || user.username || "Candidate",
+        email: user.email || "",
+        score: `${pct}%`,
+        rawScore: pct,
+        maxScore: 100,
+        grade: isAccepted ? "Accepted" : "Wrong Answer",
+        verificationCode: String(cs._id).slice(-8).toUpperCase(),
+        date: cs.createdAt,
+        status: cs.status,
+        passedTests: passedT,
+        totalTests: totalT,
+        reportUrl: `/assessment-report/${cs._id}`,
+      };
+    });
+
+    const allReports = [...certReports, ...assessReports, ...mcqReports, ...projectReports, ...codingReports, ...challengeReports].sort(
       (a, b) => new Date(b.date) - new Date(a.date)
     );
 
@@ -3001,7 +3114,7 @@ router.get("/reports", async (req, res) => {
         assessmentsCount: assessReports.length,
         mcqReportsCount: mcqReports.length,
         projectsCount: projectReports.length,
-        codingCount: codingReports.length,
+        codingCount: codingReports.length + challengeReports.length,
       },
     });
   } catch (error) {

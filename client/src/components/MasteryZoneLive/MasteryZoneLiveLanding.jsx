@@ -289,7 +289,7 @@ export default function MasteryZoneLiveLanding({
             <span className="mzl-brand-title">Mastery Zone</span>
           </div>
           <span className="mzl-pro-pill">
-            <LuSparkles size={12} />
+            <LuUsers size={12} />
             Live Collaboration Hub
           </span>
         </div>
@@ -430,7 +430,7 @@ export default function MasteryZoneLiveLanding({
               <span>Build together in real time.</span>
             </h1>
             <p>
-              Instantly start a high-performance meeting with integrated code editing, remote cursors, test execution, and cloud video recording.
+              Start a collaborative coding session with multi-party audio, video, real-time code synchronization, test runners, and an interactive whiteboard.
             </p>
             <div className="mzl-hero-actions">
               <button
@@ -466,82 +466,63 @@ export default function MasteryZoneLiveLanding({
           </div>
 
           <div className="mzl-hero-col-right">
-            {/* Floating Badges */}
-            <div className="mzl-float-badge mzl-fb-1" title="Real-Time Audio & Video">
-              📹
-            </div>
-            <div className="mzl-float-badge mzl-fb-2" title="Multi-Language Compiler">
-              ⚡
-            </div>
-            <div className="mzl-float-badge mzl-fb-3" title="Cloud Recording">
-              🔴
-            </div>
-            <div className="mzl-float-badge mzl-fb-4" title="Live Shared Cursors">
-              💬
-            </div>
-
-            {/* 2x2 Live Preview Box */}
+            {/* Live Session Mock Window */}
             <div className="mzl-hero-preview-box">
+              <div className="mzl-preview-window-bar">
+                <div className="mzl-preview-window-dots">
+                  <span className="dot dot-red" />
+                  <span className="dot dot-yellow" />
+                  <span className="dot dot-green" />
+                </div>
+                <div className="mzl-preview-window-title">Live Session • DSA Pairing</div>
+                <div className="mzl-preview-window-status">
+                  <span className="status-live-dot" />
+                  4 Connected
+                </div>
+              </div>
+
               <div className="mzl-preview-grid">
-                <div
-                  className="mzl-preview-tile"
-                  style={{
-                    background: "linear-gradient(135deg, #1e293b 0%, #334155 100%)",
-                  }}
-                >
+                <div className="mzl-preview-tile mzl-tile-host">
                   <div
                     className="mzl-preview-avatar"
-                    style={{ background: "#3b82f6" }}
+                    style={{ background: "#2563eb" }}
                   >
                     {((currentUser?.fullName || currentUser?.name || "Host")[0] || "H").toUpperCase()}
                   </div>
-                  <span className="mzl-preview-speech">Compiling code... 💡</span>
                   <span className="mzl-preview-name-tag">{currentUser?.fullName || currentUser?.name || "You"} (Host)</span>
                 </div>
 
-                <div
-                  className="mzl-preview-tile"
-                  style={{
-                    background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
-                  }}
-                >
-                  <div
-                    className="mzl-preview-avatar"
-                    style={{ background: "#10b981" }}
-                  >
-                    IDE
+                <div className="mzl-preview-tile mzl-tile-editor">
+                  <div className="mzl-editor-snippet">
+                    <span className="token-kw">function</span> <span className="token-fn">twoSum</span>(nums, target) &#123;
+                    <br />
+                    &nbsp;&nbsp;<span className="token-kw">const</span> map = <span className="token-kw">new</span> Map();
+                    <br />
+                    &nbsp;&nbsp;<span className="token-cm">// O(n) lookup</span>
+                    <br />
+                    &#125;
                   </div>
-                  <span className="mzl-preview-name-tag">Monaco Multi-Cursor</span>
+                  <span className="mzl-preview-name-tag">Shared Editor • Python / JS</span>
                 </div>
 
-                <div
-                  className="mzl-preview-tile"
-                  style={{
-                    background: "linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)",
-                  }}
-                >
+                <div className="mzl-preview-tile mzl-tile-peer">
                   <div
                     className="mzl-preview-avatar"
-                    style={{ background: "#8b5cf6" }}
+                    style={{ background: "#059669" }}
                   >
-                    P2P
+                    SK
                   </div>
-                  <span className="mzl-preview-name-tag">Secure WebRTC Mesh</span>
+                  <span className="mzl-preview-name-tag">Sarah K.</span>
                 </div>
 
-                <div
-                  className="mzl-preview-tile"
-                  style={{
-                    background: "linear-gradient(135deg, #1c1917 0%, #292524 100%)",
-                  }}
-                >
+                <div className="mzl-preview-tile mzl-tile-peer">
                   <div
                     className="mzl-preview-avatar"
-                    style={{ background: "#0284c7" }}
+                    style={{ background: "#7c3aed" }}
                   >
-                    WB
+                    DL
                   </div>
-                  <span className="mzl-preview-name-tag">Shared Whiteboard</span>
+                  <span className="mzl-preview-name-tag">David L.</span>
                 </div>
               </div>
             </div>
@@ -610,7 +591,7 @@ export default function MasteryZoneLiveLanding({
           >
             <h3 className="mzl-modal-title">Start a Live Meeting</h3>
             <p className="mzl-modal-subtitle">
-              Set up your collaborative room with video, audio, and live MZ-ASM coding.
+              Set up your collaborative room with video, audio, and real-time code execution.
             </p>
 
             <form onSubmit={handleStartSubmit}>

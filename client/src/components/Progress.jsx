@@ -1424,10 +1424,10 @@ const Progress = () => {
                 <div style={{ textAlign: "center", padding: "32px 20px", background: "var(--mz-surface-subtle)", borderRadius: "12px", border: "1px dashed var(--mz-border-strong)" }}>
                   <LuAward size={32} color="var(--mz-text-subtle)" style={{ margin: "0 auto 8px" }} />
                   <p style={{ margin: "0 0 4px", fontSize: "14px", fontWeight: 700, color: "var(--mz-text-secondary)" }}>
-                    No Proctored Assessment Reports Saved Yet
+                    No Assessment Reports Saved Yet
                   </p>
                   <p style={{ margin: 0, fontSize: "12.5px", color: "var(--mz-text-muted)" }}>
-                    Complete a 10-MCQ accreditation exam or practical coding challenge to generate your tamper-proof report.
+                    Complete a module exam or practical coding challenge to generate your performance report.
                   </p>
                 </div>
               )}

@@ -505,7 +505,7 @@ const AdminProctoring = () => {
                         </div>
                       </td>
                       <td style={{ fontWeight: 600, color: "var(--mz-text-secondary)" }}>
-                        {s.assessmentTitle || "MZ-ASM Proctored Examination"}
+                        {s.assessmentTitle || "Proctored Examination"}
                       </td>
                       <td>
                         <span

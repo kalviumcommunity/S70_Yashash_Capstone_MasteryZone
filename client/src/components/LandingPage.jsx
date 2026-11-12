@@ -263,35 +263,16 @@ const LandingPage = () => {
           <div className="mz-hero-copy">
             <div className="mz-pill-badge">
               <span className="mz-pill-bolt">⚡</span>
-              <span>Learn • Practice • Excel</span>
+              <span>Developer Learning &amp; Certification Platform</span>
             </div>
 
             <h1 className="mz-hero-heading">
-              Master Coding. <br />
-              Build a{" "}
-              <span className="mz-better-wrap">
-                <span className="mz-better-text">Better</span>
-                <svg
-                  className="mz-better-curve"
-                  viewBox="0 0 140 14"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M3 10C42 2 98 2 137 10"
-                    stroke="#6366f1"
-                    strokeWidth="4"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </span>{" "}
-              Tomorrow.
+              Master Modern <br />
+              <span className="mz-better-text">Software Engineering.</span>
             </h1>
 
             <p className="mz-hero-description">
-              Your complete coding platform to learn, practice and grow with
-              structured courses, real challenges and hands-on projects.
+              An end-to-end platform to master foundational concepts, practice curated algorithm challenges, collaborate in live coding rooms, and earn verified credentials.
             </p>
 
             <div className="mz-hero-cta-row">
@@ -342,8 +323,7 @@ const LandingPage = () => {
           {featureCards.map((feat) => (
             <div
               key={feat.id}
-              className={`mz-feature-card ${feat.id === "coding-challenges" ? "active-featured" : ""}`}
-              style={feat.id === "coding-challenges" ? { border: "1.5px solid var(--mz-blue-border)" } : undefined}
+              className="mz-feature-card"
               onClick={feat.onClick}
               role="button"
               tabIndex={0}

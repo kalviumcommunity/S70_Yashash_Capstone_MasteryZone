@@ -1392,7 +1392,7 @@ export default function AssessmentSecurityGate({
         const newTab = window.open(assessmentUrl, "_blank");
         if (newTab) {
           setIsSupervisorMode(true);
-          toast.success("Assessment verified! MZ-ASM workspace opened in separate tab.");
+          toast.success("Assessment verified! Coding workspace opened in separate tab.");
         }
       }
     } catch (err) {
@@ -1475,7 +1475,7 @@ export default function AssessmentSecurityGate({
             <div style={{ width: "64px", height: "64px", borderRadius: "50%", background: "rgba(16, 185, 129, 0.15)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1.25rem" }}>
               <LuShieldCheck size={36} color="#10b981" />
             </div>
-            <h2 style={{ fontSize: "1.45rem", fontWeight: 800, margin: "0 0 0.5rem", color: "var(--mz-text-primary)" }}>MZ-ASM Workspace Active in Separate Tab</h2>
+            <h2 style={{ fontSize: "1.45rem", fontWeight: 800, margin: "0 0 0.5rem", color: "var(--mz-text-primary)" }}>Coding Workspace Active in Separate Tab</h2>
             <p style={{ color: "var(--mz-text-muted)", fontSize: "0.88rem", margin: "0 0 1.5rem" }}>
               Your proctored coding assessment is running in a dedicated window. Keep this tab open to maintain continuous proctoring supervision and recovery telemetry.
             </p>
@@ -1625,7 +1625,7 @@ export default function AssessmentSecurityGate({
                     </div>
                     <div className="mz-meta-badge">
                       <LuCpu size={15} color="#6366f1" />
-                      <span>MZ-ASM Sandboxed Compiler</span>
+                      <span>Sandboxed Cloud Compiler</span>
                     </div>
                     <div className="mz-meta-badge">
                       <LuCircleCheck size={15} color="#059669" />
@@ -1690,8 +1690,8 @@ export default function AssessmentSecurityGate({
                         <LuLock size={20} />
                       </div>
                       <div className="mz-rule-content">
-                        <h4>4. Zero-Recording Privacy Guarantee</h4>
-                        <p>Camera, audio, and screen feeds are analyzed in local browser memory only. No raw video or audio is ever recorded, stored, or transmitted to backend servers.</p>
+                        <h4>4. Privacy &amp; Data Protection</h4>
+                        <p>Camera, audio, and screen feeds are evaluated locally in browser memory. No raw video or audio is recorded or stored on remote servers.</p>
                       </div>
                     </div>
                   </div>
@@ -2671,7 +2671,7 @@ export default function AssessmentSecurityGate({
                   </div>
                   <div className="mz-meta-badge" style={{ background: "var(--mz-surface)" }}>
                     <LuShieldCheck size={16} color="#059669" />
-                    <span>Anti-Tamper Telemetry Synced ({verifiedCount}/4 Verified)</span>
+                    <span>System Checks Passed ({verifiedCount}/4 Verified)</span>
                   </div>
                 </div>
 

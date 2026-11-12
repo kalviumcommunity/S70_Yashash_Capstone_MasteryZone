@@ -2034,8 +2034,8 @@ const Home = () => {
                   </div>
                   <h3>No Assessment Reports Saved Yet</h3>
                   <p>
-                    Once you take an assessment or complete an examination across any discipline,
-                    your verified score, test outcomes, candidate answers, and tamper-proof proctoring history will be permanently saved here.
+                    Once you complete a course assessment or practical examination,
+                    your score breakdown, test outcomes, and submission history will appear here.
                   </p>
                   <button
                     type="button"
@@ -3329,13 +3329,13 @@ const Home = () => {
               <div className="mz-reports-top-banner">
                 <div className="mz-reports-top-info">
                   <div className="mz-reports-badge-pill" style={{ color: "var(--mz-blue-text)", background: "var(--mz-blue-soft)", borderColor: "var(--mz-blue-border)" }}>
-                    <LuSettings size={14} /> System Configuration
+                    <LuSettings size={14} /> Account Settings
                   </div>
                   <h1 className="mz-reports-main-heading">
-                    Platform <span className="mz-hero-gradient-text">Settings</span>
+                    Account <span className="mz-hero-gradient-text">Settings</span>
                   </h1>
                   <p className="mz-reports-sub-heading">
-                    Manage your candidate preferences, notification channels, security parameters, and account controls.
+                    Manage your profile, preferences, notifications, and security settings.
                   </p>
                 </div>
               </div>
@@ -3343,21 +3343,21 @@ const Home = () => {
               <div style={{ maxWidth: 880, margin: "24px auto", display: "flex", flexDirection: "column", gap: 20 }}>
                 {/* 1. Account Details */}
                 <div style={{ background: "var(--mz-surface)", padding: "24px 28px", borderRadius: 18, border: "1px solid var(--mz-border)", boxShadow: "var(--mz-shadow-sm)" }}>
-                  <h3 style={{ fontSize: "1.05rem", fontWeight: 700, margin: "0 0 4px", color: "var(--mz-text-primary)" }}>Profile & Candidate Identification</h3>
-                  <p style={{ fontSize: "0.85rem", color: "var(--mz-text-muted)", margin: "0 0 16px" }}>Your verified credentials on Mastery Zone.</p>
+                  <h3 style={{ fontSize: "1.05rem", fontWeight: 700, margin: "0 0 4px", color: "var(--mz-text-primary)" }}>Profile & Account Details</h3>
+                  <p style={{ fontSize: "0.85rem", color: "var(--mz-text-muted)", margin: "0 0 16px" }}>Your personal account information on Mastery Zone.</p>
                   
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14 }}>
                     <div style={{ padding: 14, background: "var(--mz-surface-subtle)", borderRadius: 12, border: "1px solid var(--mz-border)" }}>
                       <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--mz-text-muted)", textTransform: "uppercase" }}>Full Name</span>
-                      <div style={{ fontSize: "0.92rem", fontWeight: 600, color: "var(--mz-text-primary)", marginTop: 4 }}>{user?.fullName || displayName || "Verified Candidate"}</div>
+                      <div style={{ fontSize: "0.92rem", fontWeight: 600, color: "var(--mz-text-primary)", marginTop: 4 }}>{user?.fullName || displayName || "Learner"}</div>
                     </div>
                     <div style={{ padding: 14, background: "var(--mz-surface-subtle)", borderRadius: 12, border: "1px solid var(--mz-border)" }}>
                       <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--mz-text-muted)", textTransform: "uppercase" }}>Email Address</span>
                       <div style={{ fontSize: "0.92rem", fontWeight: 600, color: "var(--mz-text-primary)", marginTop: 4 }}>{user?.email || localStorage.getItem("userEmail") || "user@masteryzone.com"}</div>
                     </div>
                     <div style={{ padding: 14, background: "var(--mz-surface-subtle)", borderRadius: 12, border: "1px solid var(--mz-border)" }}>
-                      <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--mz-text-muted)", textTransform: "uppercase" }}>Candidate ID</span>
-                      <div style={{ fontSize: "0.92rem", fontWeight: 600, color: "var(--mz-blue-text)", marginTop: 4 }}>{`CAND-${String(user?._id || user?.id || "7CA59D").slice(-6).toUpperCase()}`}</div>
+                      <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--mz-text-muted)", textTransform: "uppercase" }}>Account ID</span>
+                      <div style={{ fontSize: "0.92rem", fontWeight: 600, color: "var(--mz-blue-text)", marginTop: 4 }}>{`MZ-${String(user?._id || user?.id || "7CA59D").slice(-6).toUpperCase()}`}</div>
                     </div>
                   </div>
                 </div>
@@ -3470,7 +3470,6 @@ const Home = () => {
                     <div className="mz-overview-icon-wrap mz-icon-streak">
                       <LuFlame size={20} />
                     </div>
-                    <span className="mz-overview-badge mz-badge-streak">Daily</span>
                   </div>
                   <div className="mz-overview-metric">
                     {codingStats.streak || 0} <span className="mz-overview-unit">Days</span>
@@ -3478,7 +3477,7 @@ const Home = () => {
                   <div className="mz-overview-label">Coding Streak</div>
                   <div className="mz-overview-sub">
                     <span className="mz-overview-dot mz-dot-orange" />
-                    <span>Active momentum</span>
+                    <span>Consecutive days active</span>
                   </div>
                 </div>
 
@@ -3486,7 +3485,7 @@ const Home = () => {
                 <div
                   className="mz-overview-card"
                   onClick={() => navigate("/progress")}
-                  title="View engineering XP breakdown"
+                  title="View XP breakdown"
                 >
                   <div className="mz-overview-top">
                     <div className="mz-overview-icon-wrap mz-icon-xp">
@@ -3497,7 +3496,7 @@ const Home = () => {
                   <div className="mz-overview-metric">
                     {codingStats.totalXp != null ? codingStats.totalXp : 0} <span className="mz-overview-unit">XP</span>
                   </div>
-                  <div className="mz-overview-label">Engineering XP</div>
+                  <div className="mz-overview-label">Total XP</div>
                   <div className="mz-overview-sub">
                     <span className="mz-overview-dot mz-dot-blue" />
                     <span>Earned across challenges</span>
@@ -3508,13 +3507,12 @@ const Home = () => {
                 <div
                   className="mz-overview-card"
                   onClick={() => navigate("/coding?tab=challenges")}
-                  title="Open DSA algorithmic challenges"
+                  title="Open algorithmic challenges"
                 >
                   <div className="mz-overview-top">
                     <div className="mz-overview-icon-wrap mz-icon-challenges">
                       <LuCodeXml size={20} />
                     </div>
-                    <span className="mz-overview-badge mz-badge-challenges">Curated</span>
                   </div>
                   <div className="mz-overview-metric">
                     {codingStats.challengesSolvedCount || 0} <span className="mz-overview-total">/ 235</span>
@@ -3522,7 +3520,7 @@ const Home = () => {
                   <div className="mz-overview-label">Challenges Solved</div>
                   <div className="mz-overview-sub">
                     <span className="mz-overview-dot mz-dot-emerald" />
-                    <span>Verified unit assertions</span>
+                    <span>Practice problems completed</span>
                   </div>
                 </div>
 
@@ -3530,21 +3528,20 @@ const Home = () => {
                 <div
                   className="mz-overview-card"
                   onClick={() => navigate("/certificates")}
-                  title="View accredited certificates"
+                  title="View certificates"
                 >
                   <div className="mz-overview-top">
                     <div className="mz-overview-icon-wrap mz-icon-certs">
                       <LuAward size={20} />
                     </div>
-                    <span className="mz-overview-badge mz-badge-certs">Verified</span>
                   </div>
                   <div className="mz-overview-metric">
                     {certHistory.certificates?.length || 0} <span className="mz-overview-unit">Earned</span>
                   </div>
-                  <div className="mz-overview-label">Accredited Certificates</div>
+                  <div className="mz-overview-label">Certificates Earned</div>
                   <div className="mz-overview-sub">
                     <span className="mz-overview-dot mz-dot-purple" />
-                    <span>Proctored audit credentials</span>
+                    <span>Verified credentials</span>
                   </div>
                 </div>
               </div>
@@ -4002,9 +3999,10 @@ const Home = () => {
                       onChange={(e) => setLogActivityForm({ ...logActivityForm, task: e.target.value })}
                     >
                       <option value="Completed a lesson">Completed a lesson</option>
+                      <option value="Algorithm challenge solved">Algorithm challenge solved</option>
                       <option value="Joined study group">Joined study group</option>
-                      <option value="Workout logged">Workout logged</option>
-                      <option value="Learned new vocabulary">Learned new vocabulary</option>
+                      <option value="Built software component">Built software component</option>
+                      <option value="Code review & documentation">Code review & documentation</option>
                       <option value="Practice session completed">Practice session completed</option>
                       <option value="Module exam passed">Module exam passed</option>
                     </select>

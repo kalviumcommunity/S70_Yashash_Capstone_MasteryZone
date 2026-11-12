@@ -3566,7 +3566,7 @@ export default function MasteryZoneCompilerWorkspace({
               <LuArrowUp size={13} />
               <span>Question</span>
             </button>
-            <button type="button" className="mz-compiler-jump-btn" onClick={scrollToEditor} title="Jump to MZ-ASM Editor">
+            <button type="button" className="mz-compiler-jump-btn" onClick={scrollToEditor} title="Jump to Code Editor">
               <LuArrowDown size={13} />
               <span>Editor</span>
             </button>

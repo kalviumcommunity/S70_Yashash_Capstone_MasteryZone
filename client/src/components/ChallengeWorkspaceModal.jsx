@@ -109,7 +109,7 @@ export default function ChallengeWorkspaceModal({
   return (
     <MasteryZoneCompilerWorkspace
       key={challenge.id}
-      title={isPlayground ? `MZ-ASM Playground | ${challenge.title}` : `Assignment | ${challenge.title} Challenge`}
+      title={isPlayground ? `Code Playground | ${challenge.title}` : `Assignment | ${challenge.title} Challenge`}
       questionId={challenge.id}
       isProctored={true}
       isRetake={isRetakeRequested}

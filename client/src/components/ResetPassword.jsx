@@ -774,7 +774,7 @@ export default function ResetPassword() {
           boxSizing: "border-box",
         }}
       >
-        © {new Date().getFullYear()} Mastery Zone Inc. All Rights Reserved. • Protected by Military-Grade End-to-End Encryption.
+        © {new Date().getFullYear()} Mastery Zone. All rights reserved.
       </footer>
     </div>
   );
