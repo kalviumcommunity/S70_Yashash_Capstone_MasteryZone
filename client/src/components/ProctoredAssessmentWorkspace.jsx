@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 import AssessmentSecurityGate from "./AssessmentSecurityGate";
 import useNavigationLock from "../hooks/useNavigationLock";
 import MasteryZoneGlobalLoader from "./MasteryZoneGlobalLoader";
+import EvaluatingResultsLoader from "./EvaluatingResultsLoader";
 import ThemeToggle from "./ThemeToggle.jsx";
 import "./proctoredAssessment.css";
 
@@ -1425,20 +1426,12 @@ export default function ProctoredAssessmentWorkspace({
             ===================================================== */}
         {stage === "results_loading" && (
           <>
-            {/* 1. Results Loading Animation (Single Clean Animated Progress Bar) */}
+            {/* 1. Results Loading Animation (Professional Dynamic Loading Animation) */}
             {evaluatingState === "evaluating" && (
-              <div className="mz-results-preparing-screen">
-                <div className="mz-results-preparing-card mz-simple-loading-card">
-                  <h2 className="mz-preparing-title">Loading Results...</h2>
-                  <p className="mz-preparing-subtitle">
-                    Please wait while your submission is being evaluated.
-                  </p>
-
-                  <div className="mz-simple-progress-bar">
-                    <div className="mz-simple-progress-fill" />
-                  </div>
-                </div>
-              </div>
+              <EvaluatingResultsLoader
+                title={module?.title || "Proctored Examination"}
+                assignmentType="Proctored Assessment"
+              />
             )}
 
             {/* 2. View Report Notification Card */}
