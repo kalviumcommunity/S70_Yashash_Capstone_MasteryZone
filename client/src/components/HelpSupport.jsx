@@ -41,6 +41,7 @@ import { toast } from "react-toastify";
 import { io } from "socket.io-client";
 import "./home.css";
 import ThemeToggle from "./ThemeToggle.jsx";
+import { useTheme } from "../context/ThemeContext.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -179,6 +180,7 @@ const CATEGORIES = [
 
 const HelpSupport = () => {
   const navigate = useNavigate();
+  const { isDark } = useTheme();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTicketId = searchParams.get("ticket");
 
@@ -716,14 +718,15 @@ const HelpSupport = () => {
               display: "flex",
               alignItems: "center",
               gap: 6,
-              background: "var(--mz-surface-subtle)",
-              border: "1px solid var(--mz-border-strong)",
+              background: isDark ? "var(--mz-surface-subtle)" : "#ffffff",
+              border: isDark ? "1px solid var(--mz-border-strong)" : "1px solid #e2e8f0",
               borderRadius: 8,
               padding: "7px 12px",
               color: "var(--mz-text-secondary)",
               fontSize: 13,
               fontWeight: 600,
               cursor: "pointer",
+              boxShadow: isDark ? "none" : "0 1px 2px rgba(0,0,0,0.04)",
             }}
           >
             <LuArrowLeft style={{ width: 15, height: 15 }} />
@@ -795,16 +798,16 @@ const HelpSupport = () => {
             style={{
               padding: "8px 16px",
               borderRadius: 8,
-              border: "none",
+              border: isDark ? "none" : activeTab === "submit" && !activeTicket ? "none" : "1px solid #e2e8f0",
               fontSize: 13,
               fontWeight: 700,
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
               gap: 7,
-              background: activeTab === "submit" && !activeTicket ? "#4f46e5" : "var(--mz-surface-subtle)",
+              background: activeTab === "submit" && !activeTicket ? "#4f46e5" : isDark ? "var(--mz-surface-subtle)" : "#ffffff",
               color: activeTab === "submit" && !activeTicket ? "#ffffff" : "var(--mz-text-secondary)",
-              boxShadow: activeTab === "submit" && !activeTicket ? "0 2px 8px rgba(79, 70, 229, 0.25)" : "none",
+              boxShadow: activeTab === "submit" && !activeTicket ? "0 2px 8px rgba(79, 70, 229, 0.25)" : isDark ? "none" : "0 1px 2px rgba(0,0,0,0.04)",
               transition: "all 0.15s ease",
             }}
           >
@@ -820,16 +823,16 @@ const HelpSupport = () => {
             style={{
               padding: "8px 16px",
               borderRadius: 8,
-              border: "none",
+              border: isDark ? "none" : activeTab === "tickets" || activeTicket ? "none" : "1px solid #e2e8f0",
               fontSize: 13,
               fontWeight: 700,
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
               gap: 7,
-              background: activeTab === "tickets" || activeTicket ? "#4f46e5" : "var(--mz-surface-subtle)",
+              background: activeTab === "tickets" || activeTicket ? "#4f46e5" : isDark ? "var(--mz-surface-subtle)" : "#ffffff",
               color: activeTab === "tickets" || activeTicket ? "#ffffff" : "var(--mz-text-secondary)",
-              boxShadow: activeTab === "tickets" || activeTicket ? "0 2px 8px rgba(79, 70, 229, 0.25)" : "none",
+              boxShadow: activeTab === "tickets" || activeTicket ? "0 2px 8px rgba(79, 70, 229, 0.25)" : isDark ? "none" : "0 1px 2px rgba(0,0,0,0.04)",
               transition: "all 0.15s ease",
             }}
           >
