@@ -1891,98 +1891,14 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/support', supportRoutes);
 app.use('/api/admin/support', supportRoutes);
 
-// Authenticated & Range-Supported Meeting Recordings Streaming (Strict Database-Derived Ownership)
-app.use('/recordings', async (req, res, next) => {
-  const authHeader = req.headers.authorization;
-  const token = (authHeader && authHeader.split(' ')[1]) ||
-                req.query.token ||
-                req.cookies?.token;
-
-  if (!token) {
-    return res.status(401).send("Authentication required to access recordings");
-  }
-
-  let decoded;
-  try {
-    decoded = jwt.verify(token, getJwtSecret());
-  } catch (e) {
-    return res.status(401).send("Invalid or expired session token");
-  }
-
-  const currentUserId = String(decoded.userId || decoded.id || decoded._id || "");
-  const isAdmin = Boolean(decoded.role === "admin" || decoded.role === "SUPER_ADMIN" || decoded.isMainAdmin);
-
-  const safeFilename = path.basename(req.path);
-  const escapedFilename = safeFilename.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const Recording = require("./models/Recording");
-  const recording = await Recording.findOne({
-    $or: [
-      { streamUrl: `/api/recordings/stream/${safeFilename}` },
-      { fileUrl: `/recordings/${safeFilename}` },
-      { fileUrl: `/uploads/recordings/${safeFilename}` },
-      { filePath: { $regex: `(^|[\\\\/])${escapedFilename}$` } },
-      { fileName: safeFilename },
-      { recordingId: safeFilename.replace(/\.[^/.]+$/, "") },
-    ],
-  }).lean();
-
-  const { resolveRecordingFilePath } = require("./config/recordingStorage");
-  const filePath = resolveRecordingFilePath(safeFilename, recording);
-  if (!filePath || !fs.existsSync(filePath)) {
-    return res.status(404).send("Recording file not found");
-  }
-
-  if (recording && !isAdmin) {
-    const isHost = String(recording.hostUserId) === currentUserId;
-    const isParticipant = (recording.participantUserIds || []).includes(currentUserId);
-    let isMeetingAttendee = false;
-    if (recording.meetingId) {
-      try {
-        const Meeting = require("./models/Meeting");
-        const meeting = await Meeting.findOne({
-          meetingId: recording.meetingId,
-          $or: [{ hostUserId: currentUserId }, { "participants.userId": currentUserId }],
-        }).lean();
-        if (meeting) isMeetingAttendee = true;
-      } catch {}
-    }
-    if (!isHost && !isParticipant && !isMeetingAttendee) {
-      return res.status(403).send("Forbidden: You do not have permission to access this recording");
-    }
-  } else if (!recording && !isAdmin) {
-    return res.status(404).send("Recording record not found");
-  }
-
-  const stat = fs.statSync(filePath);
-  const fileSize = stat.size;
-  const range = req.headers.range;
-  const ext = path.extname(filePath).toLowerCase();
-  const contentType = ext === ".mp4" ? "video/mp4" : "video/webm";
-
-  if (range && fileSize > 0) {
-    const parts = range.replace(/bytes=/, "").split("-");
-    const start = parseInt(parts[0], 10);
-    const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
-    if (start >= fileSize) {
-      return res.status(416).send(`Requested range not satisfiable: ${start} >= ${fileSize}`);
-    }
-    const chunksize = end - start + 1;
-    const file = fs.createReadStream(filePath, { start, end });
-    res.writeHead(206, {
-      "Content-Range": `bytes ${start}-${end}/${fileSize}`,
-      "Accept-Ranges": "bytes",
-      "Content-Length": chunksize,
-      "Content-Type": contentType,
-    });
-    file.pipe(res);
-  } else {
-    res.writeHead(200, {
-      "Content-Length": fileSize,
-      "Content-Type": contentType,
-      "Accept-Ranges": "bytes",
-    });
-    fs.createReadStream(filePath).pipe(res);
-  }
+// Legacy recording URLs (/recordings/<file>) — served by the same unified playback engine as /api/recordings/stream
+app.use("/recordings", (req, res, next) => {
+  if (req.method !== "GET" && req.method !== "HEAD") return next();
+  const requested = path.basename(req.path || "");
+  // "/recordings" itself is a client-side (SPA) page — only file requests are media.
+  if (!requested || !path.extname(requested)) return next();
+  const { handleRecordingRequest } = require("./utils/recordingStream");
+  return handleRecordingRequest(req, res, requested);
 });
 
 // Authorized Certificate Asset Serving (Strict Owner & Admin Verification)

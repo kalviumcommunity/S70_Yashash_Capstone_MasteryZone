@@ -45,6 +45,9 @@ export function useNavigationLock(optionsOrLocked = true, warningMessageParam = 
     warningMessageRef.current = warningMessage;
   }, [warningMessage]);
 
+  // Ref to detect the initial load after page refresh
+  const isFirstLoadRef = useRef(true);
+
   useEffect(() => {
     if (!isLocked) return;
 
@@ -54,8 +57,16 @@ export function useNavigationLock(optionsOrLocked = true, warningMessageParam = 
       window.history.pushState({ mzLocked: true, lockKey }, "", currentHref);
     } catch {}
 
+    // After the initial push on mount, we consider the first load handled
+    // Subsequent popstate events caused by a refresh should be ignored
     const handlePopState = (event) => {
       if (!isLockedRef.current) return;
+
+      // If this is the first popstate after a page load/refresh, ignore it
+      if (isFirstLoadRef.current) {
+        isFirstLoadRef.current = false;
+        return;
+      }
 
       // Re-push immediately to counter browser back/forward and trackpad gesture
       try {
@@ -83,6 +94,10 @@ export function useNavigationLock(optionsOrLocked = true, warningMessageParam = 
 
     window.addEventListener("popstate", handlePopState);
     window.addEventListener("beforeunload", handleBeforeUnload);
+
+    // Ensure that after the component mounts, the first popstate (if any) is ignored
+    // This flag will be set to false on the first popstate handling above.
+    // If no popstate occurs (normal navigation), the flag remains true but will not affect future events.
 
     return () => {
       window.removeEventListener("popstate", handlePopState);

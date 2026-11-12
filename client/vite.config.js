@@ -22,6 +22,13 @@ export default defineConfig({
         target: 'http://localhost:5012',
         changeOrigin: true,
         secure: false,
+        // "/recordings" is also a React page: only proxy actual media files (e.g. /recordings/x.webm),
+        // so refreshing or revisiting the Recordings page never hits the API server.
+        bypass: (req) => {
+          const pathname = (req.url || '').split('?')[0];
+          if (!/\/recordings\/[^/]+\.[a-z0-9]+$/i.test(pathname)) return '/index.html';
+          return undefined;
+        },
       },
       '/uploads': {
         target: 'http://localhost:5012',

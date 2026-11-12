@@ -26,6 +26,7 @@ import {
   LuRadio,
 } from "react-icons/lu";
 import { toast } from "react-toastify";
+import RecordingVideo from "../RecordingVideo.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -597,9 +598,9 @@ const AdminProctoringAuditDetail = () => {
 
           {videoSrc ? (
             <div style={{ background: "#0f172a", borderRadius: 12, overflow: "hidden", position: "relative" }}>
-              <video
+              <RecordingVideo
                 id="proctoring-video-player"
-                src={videoSrc}
+                recording={{ url: recording.url, recordingId: sessionId }}
                 controls
                 playsInline
                 style={{ width: "100%", maxHeight: 520, display: "block" }}

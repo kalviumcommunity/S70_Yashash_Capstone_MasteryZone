@@ -7,6 +7,8 @@ import ThemeToggle from "./ThemeToggle.jsx";
 import FeaturedLearningCarousel from "./FeaturedLearningCarousel.jsx";
 import CertificationExamWorkspace from "./CertificationExamWorkspace.jsx";
 import UserProfileDropdown from "./UserProfileDropdown.jsx";
+import RecordingVideo from "./RecordingVideo.jsx";
+import { getRecordingStreamUrl } from "../utils/recordingMedia.js";
 import { performGlobalLogout } from "../utils/sessionAuth.js";
 import logoIcon from "../assets/logo_icon_transparent.png";
 import heroIllustration from "../assets/interests_hero_illustration.png";
@@ -68,29 +70,6 @@ import {
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
-const getMediaUrl = (url) => {
-  if (!url) return "";
-  if (url.startsWith("blob:") || url.startsWith("data:")) {
-    return url;
-  }
-  const base =
-    API_BASE ||
-    (typeof window !== "undefined" &&
-    (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
-      ? "http://localhost:5012"
-      : "");
-  let fullUrl = (url.startsWith("http://") || url.startsWith("https://"))
-    ? url
-    : `${base}${url.startsWith("/") ? url : `/${url}`}`;
-
-  // Attach token for authenticated video streaming & range requests
-  const token = typeof localStorage !== "undefined" ? localStorage.getItem("token") : null;
-  if (token && !fullUrl.includes("token=")) {
-    const sep = fullUrl.includes("?") ? "&" : "?";
-    fullUrl = `${fullUrl}${sep}token=${encodeURIComponent(token)}`;
-  }
-  return fullUrl;
-};
 
 // Vector Badge Component for Coding
 const InterestBadge = ({ type, className = "" }) => {
@@ -2698,7 +2677,7 @@ const Home = () => {
                               <LuShare2 size={13} />
                             </button>
                             <a
-                              href={rec.fileUrl}
+                              href={getRecordingStreamUrl(rec, { download: true })}
                               download={`${rec.title || "recording"}.webm`}
                               style={{
                                 border: "1px solid var(--mz-border)",
@@ -4271,12 +4250,13 @@ const Home = () => {
                 marginBottom: 12,
               }}
             >
-              <video
+              <RecordingVideo
                 ref={videoPlayerRef}
-                src={getMediaUrl(activePlayingRecording.streamUrl || activePlayingRecording.fileUrl)}
+                recording={activePlayingRecording}
                 controls
                 preload="metadata"
                 playsInline
+                errorStyle={{ borderRadius: 12 }}
                 onLoadedMetadata={(e) => {
                   if (e.target.duration && isFinite(e.target.duration) && e.target.duration > 0) {
                     const d = Math.round(e.target.duration);
@@ -4384,7 +4364,7 @@ const Home = () => {
                   <LuShare2 size={13} /> Share Link
                 </button>
                 <a
-                  href={getMediaUrl(activePlayingRecording.streamUrl || activePlayingRecording.fileUrl)}
+                  href={getRecordingStreamUrl(activePlayingRecording, { download: true })}
                   download={`${activePlayingRecording.title}.webm`}
                   style={{
                     display: "flex",

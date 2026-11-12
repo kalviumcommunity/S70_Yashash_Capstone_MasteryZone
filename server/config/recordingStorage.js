@@ -139,6 +139,12 @@ function safeDeleteRecordingFile(recordingDoc) {
 
   try {
     fs.unlinkSync(resolvedPath);
+    // Also remove any cached cross-browser MP4 rendition of this recording.
+    try {
+      const base = path.basename(resolvedPath, path.extname(resolvedPath));
+      const rendition = path.join(getRecordingsDir(), ".renditions", `${base}.mp4`);
+      if (fs.existsSync(rendition) && isPathInsideRecordingsDir(rendition)) fs.unlinkSync(rendition);
+    } catch {}
     return { success: true, deletedPath: resolvedPath };
   } catch (err) {
     return { success: false, error: err.message, path: resolvedPath };

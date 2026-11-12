@@ -5,6 +5,7 @@ import "./profile.css";
 import NotificationBell from "./NotificationBell.jsx";
 import IndiaLocationPicker from "./IndiaLocationPicker";
 import UserProfileDropdown from "./UserProfileDropdown.jsx";
+import RecordingVideo from "./RecordingVideo.jsx";
 import ThemeToggle from "./ThemeToggle.jsx";
 import logoIcon from "../assets/logo_icon_transparent.png";
 import { getExploredTracks, isTrackExplored } from "../utils/trackExploration";
@@ -53,29 +54,6 @@ import {
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
-const getMediaUrl = (url) => {
-  if (!url) return "";
-  if (url.startsWith("blob:") || url.startsWith("data:")) {
-    return url;
-  }
-  const base =
-    API_BASE ||
-    (typeof window !== "undefined" &&
-    (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
-      ? "http://localhost:5012"
-      : "");
-  let fullUrl = url.startsWith("http://") || url.startsWith("https://")
-    ? url
-    : `${base}${url.startsWith("/") ? url : `/${url}`}`;
-
-  // Attach token for authenticated video streaming & range requests
-  const token = typeof localStorage !== "undefined" ? localStorage.getItem("token") : null;
-  if (token && !fullUrl.includes("token=")) {
-    const sep = fullUrl.includes("?") ? "&" : "?";
-    fullUrl = `${fullUrl}${sep}token=${encodeURIComponent(token)}`;
-  }
-  return fullUrl;
-};
 
 // Vector Badge Component for 100% crisp logo badges across tracks
 const TrackBadge = ({ type, className = "" }) => {
@@ -1984,9 +1962,9 @@ const Profile = () => {
             </div>
 
             <div className="mz-video-player-container">
-              <video
+              <RecordingVideo
                 ref={videoPlayerRef}
-                src={getMediaUrl(activePlayingRecording.streamUrl || activePlayingRecording.fileUrl)}
+                recording={activePlayingRecording}
                 controls
                 autoPlay
                 preload="metadata"
