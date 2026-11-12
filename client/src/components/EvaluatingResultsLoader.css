@@ -1,17 +1,14 @@
-/* EvaluatingResultsLoader.css - Modern, Simple & Professional Results Evaluation Loading Effect */
+/* Simple Evaluating / Submitting loader */
 
 .mz-eval-screen {
   position: fixed;
   inset: 0;
   z-index: 100001;
-  background: var(--mz-backdrop, rgba(15, 23, 42, 0.65));
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: var(--mz-bg, #ffffff);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 24px;
-  animation: mzEvalFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   box-sizing: border-box;
 }
 
@@ -24,551 +21,50 @@
   box-sizing: border-box;
 }
 
-@keyframes mzEvalFadeIn {
-  from {
-    opacity: 0;
-    transform: scale(0.97);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-/* Card Container */
-.mz-eval-card {
-  background: var(--mz-surface, #ffffff);
-  border: 1px solid var(--mz-border, #e2e8f0);
-  border-radius: 24px;
-  box-shadow: 0 20px 48px -10px rgba(15, 23, 42, 0.16), 0 8px 20px -4px rgba(15, 23, 42, 0.08);
-  width: 100%;
-  max-width: 480px;
-  padding: 44px 36px 36px;
-  text-align: center;
-  box-sizing: border-box;
+.mz-eval-simple {
   display: flex;
   flex-direction: column;
   align-items: center;
-  position: relative;
-  overflow: hidden;
-  transition: background 0.3s ease, border-color 0.3s ease;
+  gap: 14px;
 }
 
-/* Subtle Top Accent Line */
-.mz-eval-card::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, #2563eb, #6366f1, #38bdf8);
-}
-
-/* ─────────────────────────────────────────────────────────────
-   1. Central Concentric Animated Emblem
-   ───────────────────────────────────────────────────────────── */
-.mz-eval-emblem-wrap {
-  position: relative;
-  width: 92px;
-  height: 92px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 22px;
-}
-
-/* Outer Pulsing Radial Halo */
-.mz-eval-pulse-halo {
-  position: absolute;
-  inset: -8px;
+.mz-eval-spinner {
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(37, 99, 235, 0.22) 0%, rgba(99, 102, 241, 0.08) 60%, transparent 80%);
-  animation: mzEvalHaloPulse 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  border: 3px solid rgba(37, 99, 235, 0.18);
+  border-top-color: #2563eb;
+  animation: mzEvalSpin 0.8s linear infinite;
 }
 
-@keyframes mzEvalHaloPulse {
-  0% {
-    transform: scale(0.88);
-    opacity: 0.9;
-  }
-  50% {
-    transform: scale(1.3);
-    opacity: 0.35;
-  }
-  100% {
-    transform: scale(0.88);
-    opacity: 0.9;
-  }
-}
-
-/* Conic Gradient Animated Rotating Ring */
-.mz-eval-conic-ring {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  padding: 3px;
-  background: conic-gradient(from 0deg, transparent 0%, #2563eb 35%, #6366f1 70%, #38bdf8 100%);
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  animation: mzEvalConicSpin 1.6s cubic-bezier(0.5, 0.12, 0.5, 0.88) infinite;
-}
-
-@keyframes mzEvalConicSpin {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
-}
-
-/* Center Solid Core Badge */
-.mz-eval-core-circle {
-  width: 72px;
-  height: 72px;
-  border-radius: 50%;
-  background: var(--mz-surface-2, #ffffff);
-  border: 1.5px solid var(--mz-border, #e2e8f0);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.12);
-  color: #2563eb;
-  position: relative;
-  z-index: 2;
-  transition: all 0.3s ease;
-}
-
-.mz-eval-core-icon {
-  width: 32px;
-  height: 32px;
-  color: #2563eb;
-  animation: mzEvalIconFloat 2.4s ease-in-out infinite;
-}
-
-@keyframes mzEvalIconFloat {
-  0%, 100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.08);
-  }
-}
-
-/* Micro Sparkle Orbit Pill */
-.mz-eval-sparkle-pill {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #4f46e5, #2563eb);
-  color: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.35);
-  z-index: 3;
-  animation: mzEvalSparklePulse 1.8s ease-in-out infinite alternate;
-}
-
-.mz-eval-sparkle-icon {
-  width: 13px;
-  height: 13px;
-}
-
-@keyframes mzEvalSparklePulse {
-  0% {
-    transform: scale(0.9) rotate(-10deg);
-  }
-  100% {
-    transform: scale(1.15) rotate(15deg);
-  }
-}
-
-/* ─────────────────────────────────────────────────────────────
-   2. Status Pill Badge
-   ───────────────────────────────────────────────────────────── */
-.mz-eval-status-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 5px 14px;
-  border-radius: 9999px;
-  font-size: 11.5px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  background: var(--mz-blue-bg, #eff6ff);
-  color: var(--mz-accent-primary, #2563eb);
-  border: 1px solid var(--mz-blue-border, #bfdbfe);
-  margin-bottom: 14px;
-}
-
-.mz-eval-status-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #2563eb;
-  box-shadow: 0 0 8px rgba(37, 99, 235, 0.6);
-  animation: mzEvalDotPulse 1.4s ease-in-out infinite;
-}
-
-@keyframes mzEvalDotPulse {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.45;
-    transform: scale(1.25);
-  }
-}
-
-/* ─────────────────────────────────────────────────────────────
-   3. Headline & Subtitle
-   ───────────────────────────────────────────────────────────── */
-.mz-eval-title {
-  margin: 0 0 10px;
-  font-size: 23px;
-  font-weight: 800;
-  color: var(--mz-text-primary, #0f172a);
-  letter-spacing: -0.025em;
-  display: flex;
-  align-items: baseline;
-  justify-content: center;
-}
-
-.mz-eval-dots {
-  display: inline-flex;
-  margin-left: 2px;
-}
-
-.mz-eval-dots span {
-  display: inline-block;
-  opacity: 0.2;
-  animation: mzEvalDotFade 1.4s infinite;
-}
-
-.mz-eval-dots span:nth-child(1) {
-  animation-delay: 0s;
-}
-.mz-eval-dots span:nth-child(2) {
-  animation-delay: 0.22s;
-}
-.mz-eval-dots span:nth-child(3) {
-  animation-delay: 0.44s;
-}
-
-@keyframes mzEvalDotFade {
-  0%, 100% {
-    opacity: 0.2;
-    transform: translateY(0);
-  }
-  50% {
-    opacity: 1;
-    transform: translateY(-2px);
-  }
-}
-
-.mz-eval-subtitle {
-  margin: 0 0 26px;
+.mz-eval-simple-label {
   font-size: 14px;
-  line-height: 1.6;
+  font-weight: 500;
   color: var(--mz-text-muted, #64748b);
-  max-width: 400px;
-}
-
-.mz-eval-subtitle strong {
-  color: var(--mz-text-secondary, #334155);
-  font-weight: 700;
-}
-
-/* ─────────────────────────────────────────────────────────────
-   4. Progress Bar & Real-Time Phase Tracker
-   ───────────────────────────────────────────────────────────── */
-.mz-eval-progress-box {
-  width: 100%;
-  background: var(--mz-surface-subtle, #f8fafc);
-  border: 1px solid var(--mz-border, #e2e8f0);
-  border-radius: 16px;
-  padding: 16px 18px 14px;
-  box-sizing: border-box;
-  margin-bottom: 22px;
-}
-
-.mz-eval-track {
-  width: 100%;
-  height: 6px;
-  background: var(--mz-surface-muted, #e2e8f0);
-  border-radius: 9999px;
-  overflow: hidden;
-  position: relative;
-  margin-bottom: 12px;
-}
-
-.mz-eval-bar {
-  position: absolute;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  background: linear-gradient(90deg, #2563eb 0%, #4f46e5 50%, #38bdf8 100%);
-  border-radius: 9999px;
-  transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.mz-eval-bar.submit-bar {
-  background: linear-gradient(90deg, #2563eb 0%, #3b82f6 50%, #10b981 100%);
-}
-
-.mz-eval-bar.nav-bar {
-  background: linear-gradient(90deg, #4f46e5 0%, #6366f1 50%, #06b6d4 100%);
-}
-
-/* Submitting & Navigating Variant Rings & Halos */
-.mz-eval-pulse-halo.submit-halo {
-  background: radial-gradient(circle, rgba(37, 99, 235, 0.25) 0%, rgba(16, 185, 129, 0.12) 60%, transparent 80%);
-}
-
-.mz-eval-pulse-halo.nav-halo {
-  background: radial-gradient(circle, rgba(79, 70, 229, 0.28) 0%, rgba(6, 182, 212, 0.12) 60%, transparent 80%);
-}
-
-.mz-eval-conic-ring.submit-ring {
-  background: conic-gradient(from 0deg, transparent 0%, #2563eb 35%, #3b82f6 70%, #10b981 100%);
-}
-
-.mz-eval-conic-ring.nav-ring {
-  background: conic-gradient(from 0deg, transparent 0%, #4f46e5 35%, #6366f1 70%, #06b6d4 100%);
-}
-
-.mz-eval-core-icon.submit-icon {
-  color: #2563eb;
-}
-
-.mz-eval-core-icon.nav-icon {
-  color: #4f46e5;
-}
-
-.mz-eval-status-pill.submitting {
-  background: rgba(37, 99, 235, 0.12);
-  color: #2563eb;
-  border-color: rgba(37, 99, 235, 0.28);
-}
-
-.mz-eval-status-pill.navigating {
-  background: rgba(79, 70, 229, 0.12);
-  color: #4f46e5;
-  border-color: rgba(79, 70, 229, 0.28);
-}
-
-.mz-eval-shimmer {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.5) 50%, transparent 100%);
-  animation: mzEvalShimmerSweep 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-}
-
-@keyframes mzEvalShimmerSweep {
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(100%);
-  }
-}
-
-.mz-eval-phase-info {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  font-size: 12.5px;
-}
-
-.mz-eval-phase-text {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--mz-text-secondary, #334155);
-  font-weight: 600;
-  text-align: left;
-  flex: 1;
-  min-width: 0;
-}
-
-.mz-eval-spin-icon {
-  width: 14px;
-  height: 14px;
-  color: #2563eb;
-  flex-shrink: 0;
-  animation: mzEvalSpin 1.4s linear infinite;
+  text-align: center;
 }
 
 @keyframes mzEvalSpin {
-  from {
-    transform: rotate(0deg);
-  }
   to {
     transform: rotate(360deg);
   }
 }
 
-.mz-eval-phase-fade {
-  display: inline-block;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  animation: mzEvalFadeText 0.35s ease-out;
+[data-theme="dark"] .mz-eval-screen {
+  background: var(--mz-bg, #0b0f17);
 }
 
-@keyframes mzEvalFadeText {
-  from {
-    opacity: 0;
-    transform: translateY(3px);
+[data-theme="dark"] .mz-eval-spinner {
+  border-color: rgba(96, 165, 250, 0.2);
+  border-top-color: #60a5fa;
+}
+
+[data-theme="dark"] .mz-eval-simple-label {
+  color: var(--mz-text-muted, #94a3b8);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mz-eval-spinner {
+    animation-duration: 2s;
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.mz-eval-phase-tag {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--mz-text-muted, #64748b);
-  background: var(--mz-surface-muted, #f1f5f9);
-  padding: 3px 8px;
-  border-radius: 6px;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-/* ─────────────────────────────────────────────────────────────
-   5. Security & Trust Footer
-   ───────────────────────────────────────────────────────────── */
-.mz-eval-trust-footer {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11.5px;
-  color: var(--mz-text-subtle, #94a3b8);
-  font-weight: 500;
-}
-
-.mz-eval-trust-icon {
-  width: 14px;
-  height: 14px;
-  color: #10b981;
-  flex-shrink: 0;
-}
-
-/* ─────────────────────────────────────────────────────────────
-   Dark Theme Adjustments
-   ───────────────────────────────────────────────────────────── */
-[data-theme="dark"] .mz-eval-card,
-.mz-theme-dark .mz-eval-card {
-  background: #0f172a;
-  border-color: rgba(255, 255, 255, 0.1);
-  box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.7);
-}
-
-[data-theme="dark"] .mz-eval-core-circle,
-.mz-theme-dark .mz-eval-core-circle {
-  background: #1e293b;
-  border-color: rgba(255, 255, 255, 0.12);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-  color: #60a5fa;
-}
-
-[data-theme="dark"] .mz-eval-core-icon,
-.mz-theme-dark .mz-eval-core-icon {
-  color: #60a5fa;
-}
-
-[data-theme="dark"] .mz-eval-status-pill,
-.mz-theme-dark .mz-eval-status-pill {
-  background: rgba(37, 99, 235, 0.15);
-  border-color: rgba(59, 130, 246, 0.3);
-  color: #93c5fd;
-}
-
-[data-theme="dark"] .mz-eval-status-dot,
-.mz-theme-dark .mz-eval-status-dot {
-  background: #60a5fa;
-  box-shadow: 0 0 10px rgba(96, 165, 250, 0.8);
-}
-
-[data-theme="dark"] .mz-eval-title,
-.mz-theme-dark .mz-eval-title {
-  color: #f8fafc;
-}
-
-[data-theme="dark"] .mz-eval-subtitle,
-.mz-theme-dark .mz-eval-subtitle {
-  color: #94a3b8;
-}
-
-[data-theme="dark"] .mz-eval-subtitle strong,
-.mz-theme-dark .mz-eval-subtitle strong {
-  color: #e2e8f0;
-}
-
-[data-theme="dark"] .mz-eval-progress-box,
-.mz-theme-dark .mz-eval-progress-box {
-  background: #1e293b;
-  border-color: rgba(255, 255, 255, 0.08);
-}
-
-[data-theme="dark"] .mz-eval-track,
-.mz-theme-dark .mz-eval-track {
-  background: #334155;
-}
-
-[data-theme="dark"] .mz-eval-phase-text,
-.mz-theme-dark .mz-eval-phase-text {
-  color: #e2e8f0;
-}
-
-[data-theme="dark"] .mz-eval-spin-icon,
-.mz-theme-dark .mz-eval-spin-icon {
-  color: #60a5fa;
-}
-
-[data-theme="dark"] .mz-eval-phase-tag,
-.mz-theme-dark .mz-eval-phase-tag {
-  background: rgba(255, 255, 255, 0.06);
-  color: #94a3b8;
-}
-
-[data-theme="dark"] .mz-eval-trust-footer,
-.mz-theme-dark .mz-eval-trust-footer {
-  color: #64748b;
-}
-
-[data-theme="dark"] .mz-eval-status-pill.navigating,
-.mz-theme-dark .mz-eval-status-pill.navigating {
-  background: rgba(99, 102, 241, 0.18);
-  border-color: rgba(129, 140, 248, 0.35);
-  color: #c7d2fe;
-}
-
-[data-theme="dark"] .mz-eval-status-pill.submitting,
-.mz-theme-dark .mz-eval-status-pill.submitting {
-  background: rgba(37, 99, 235, 0.18);
-  border-color: rgba(96, 165, 250, 0.35);
-  color: #bfdbfe;
-}
-
-[data-theme="dark"] .mz-eval-core-icon.nav-icon,
-.mz-theme-dark .mz-eval-core-icon.nav-icon {
-  color: #a5b4fc;
-}
-
-[data-theme="dark"] .mz-eval-core-icon.submit-icon,
-.mz-theme-dark .mz-eval-core-icon.submit-icon {
-  color: #60a5fa;
 }
