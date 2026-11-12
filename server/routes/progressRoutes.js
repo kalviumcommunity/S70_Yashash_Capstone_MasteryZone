@@ -311,7 +311,18 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
             .map((s) => String(s.challengeId || s._id))
         );
         (codingProgress?.completedChallenges || []).forEach((c) => solvedFromSubs.add(String(c)));
-        completed = solvedFromSubs.size;
+        (codingProgress?.challengesSolved || []).forEach((c) => {
+          if (typeof c === "string") solvedFromSubs.add(c);
+          else if (c?.challengeId) solvedFromSubs.add(String(c.challengeId));
+        });
+        let dsaLessons = 0;
+        if (codingProgress?.trackLessons) {
+          dsaLessons =
+            typeof codingProgress.trackLessons.get === "function"
+              ? codingProgress.trackLessons.get("dsa") || 0
+              : codingProgress.trackLessons.dsa || 0;
+        }
+        completed = Math.max(solvedFromSubs.size, dsaLessons);
         if (completed > 0) {
           currentModule = `${completed} Algorithmic Challenges Solved`;
         } else {
