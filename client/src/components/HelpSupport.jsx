@@ -41,6 +41,7 @@ import { toast } from "react-toastify";
 import { io } from "socket.io-client";
 import "./home.css";
 import { useTheme } from "../context/ThemeContext.jsx";
+import ThemeToggle from "./ThemeToggle.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -838,6 +839,8 @@ const HelpSupport = () => {
             <LuTicket style={{ width: 15, height: 15 }} />
             <span>My Support Tickets ({myTickets.length})</span>
           </button>
+
+          <ThemeToggle />
         </div>
       </header>
 

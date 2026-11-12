@@ -300,8 +300,10 @@ const AdminLayout = () => {
             )}
           </div>
 
-          {/* Right: Notifications & Admin Profile */}
+          {/* Right: Theme Toggle, Notifications & Admin Profile */}
           <div className="mz-admin-header-right">
+            <ThemeToggle />
+
             {/* Real-Time Admin Notification Center */}
             <AdminNotificationDropdown />
 
@@ -345,10 +347,6 @@ const AdminLayout = () => {
                         {adminUser?.email || "yashashyashash1@gmail.com"}
                       </span>
                     </div>
-                  </div>
-
-                  <div className="mz-c-dropdown-menu-list">
-                    <ThemeToggle variant="menu-row" />
                   </div>
 
                   <div className="mz-c-dropdown-divider" />

@@ -25,6 +25,7 @@ import {
 } from "react-icons/lu";
 import { toast } from "react-toastify";
 import NotificationBell from "../NotificationBell";
+import ThemeToggle from "../ThemeToggle.jsx";
 import UserProfileDropdown from "../UserProfileDropdown.jsx";
 import { performGlobalLogout } from "../../utils/sessionAuth.js";
 
@@ -379,6 +380,7 @@ export default function MasteryZoneLiveLanding({
         </div>
 
         <div className="mzl-nav-right">
+          <ThemeToggle />
           <NotificationBell />
 
           {/* User Profile Pill matching Coding page */}

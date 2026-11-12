@@ -44,6 +44,7 @@ import {
 import "./AssessmentReportPage.css";
 import MasteryZoneGlobalLoader from "./MasteryZoneGlobalLoader";
 import { useTheme } from "../context/ThemeContext";
+import ThemeToggle from "./ThemeToggle";
 
 const API_BASE = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || "";
 
@@ -888,6 +889,7 @@ function formatLocalReport(matched, uObj, rawId) {
           </nav>
 
           <div className="mz-breadcrumb-meta-right">
+            <ThemeToggle />
             <button
               type="button"
               className="mz-session-chip"

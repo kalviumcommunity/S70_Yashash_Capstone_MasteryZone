@@ -42,6 +42,7 @@ import {
   LuPlus,
 } from "react-icons/lu";
 
+import ThemeToggle from "./ThemeToggle";
 import NotificationBell from "./NotificationBell";
 import FeaturedLearningCarousel from "./FeaturedLearningCarousel";
 import FeaturedVideosSlider, { DEFAULT_FEATURED_VIDEOS } from "./FeaturedVideosSlider";
@@ -1898,6 +1899,8 @@ export default function Coding() {
             <span className="mz-c-live-dot" />
             + Live Meet
           </button>
+
+          <ThemeToggle />
 
           <NotificationBell />
 
