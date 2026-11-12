@@ -436,10 +436,59 @@ export default function Coding() {
         uId = u._id || u.id || u.userId || "";
       }
       const certKey = uId ? `mz_${uId}_active_cert_session` : "mz_active_cert_session";
-      const saved = localStorage.getItem(certKey) || localStorage.getItem("mz_active_cert_session") || sessionStorage.getItem("mz_active_cert_session");
+      const saved =
+        localStorage.getItem(certKey) ||
+        localStorage.getItem("mz_active_cert_session") ||
+        sessionStorage.getItem("mz_active_cert_session");
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && parsed.attemptId && parsed.status === "IN_PROGRESS") {
+          if (parsed.userId && uId && parsed.userId !== uId) return null;
+
+          // Expiration guard: Exam attempts strictly expire after 90 minutes. Stale sessions must be discarded.
+          const sessionTime = parsed.startedAt || parsed.updatedAt || parsed.timestamp;
+          if (!sessionTime || Date.now() - sessionTime > 90 * 60 * 1000) {
+            try {
+              localStorage.removeItem(certKey);
+              localStorage.removeItem("mz_active_cert_session");
+              sessionStorage.removeItem("mz_active_cert_session");
+              if (uId) {
+                localStorage.removeItem(`mz_${uId}_active_cert_session`);
+                sessionStorage.removeItem(`mz_${uId}_active_cert_session`);
+              }
+            } catch {}
+            return null;
+          }
+
+          // Check if candidate already has an earned certificate for this track
+          const cachedCertsRaw =
+            sessionStorage.getItem("mz_cached_earned_certs") ||
+            sessionStorage.getItem("mz_cert_history_cache") ||
+            localStorage.getItem("mz_certificates");
+          if (cachedCertsRaw) {
+            try {
+              const cachedData = JSON.parse(cachedCertsRaw);
+              const list = Array.isArray(cachedData) ? cachedData : cachedData.certificates || [];
+              const targetCertId = parsed.certId || "dsa_cert";
+              const alreadyHas = list.some(
+                (c) =>
+                  (c.certificationId || c.certId || "").toLowerCase() === targetCertId.toLowerCase()
+              );
+              if (alreadyHas) {
+                try {
+                  localStorage.removeItem(certKey);
+                  localStorage.removeItem("mz_active_cert_session");
+                  sessionStorage.removeItem("mz_active_cert_session");
+                  if (uId) {
+                    localStorage.removeItem(`mz_${uId}_active_cert_session`);
+                    sessionStorage.removeItem(`mz_${uId}_active_cert_session`);
+                  }
+                } catch {}
+                return null;
+              }
+            } catch {}
+          }
+
           return {
             id: parsed.certId || "dsa_cert",
             name: parsed.certTitle || "Data Structures & Algorithms (DSA)",
@@ -1058,22 +1107,19 @@ export default function Coding() {
 
   const completedCount = useMemo(() => {
     return displayModules.filter((m) => {
+      const isStudyDone = Boolean(m.isStudied);
       const isCodingDone = Boolean(m.assignmentPassed || m.exercisePassed);
       const isAssessmentDone = Boolean(m.assessmentPassed);
       const isCutoffCleared = Boolean(
         (m.assessmentPassed && (m.bestScore == null || m.bestScore >= 80)) ||
-        (m.bestScore != null && m.bestScore >= 80) ||
-        m.moduleCompletionEmailSent
+        (m.bestScore != null && m.bestScore >= 80)
       );
-      return Boolean(
-        m.isCompleted ||
-        m.status === "completed" ||
-        isCutoffCleared ||
-        (isCodingDone && isAssessmentDone) ||
-        (Boolean(m.isStudied) && isCodingDone && isAssessmentDone) ||
-        (isAssessmentDone && !m.codingExercise) ||
-        (isCodingDone && !m.assessment)
-      );
+
+      // Module is strictly completed ONLY when all 3 criteria are satisfied:
+      // 1. All learning module (theory) is studied
+      // 2. Practical coding test is passed
+      // 3. 10 MCQs are attempted AND cutoff (>= 80%) is met
+      return Boolean(isStudyDone && isCodingDone && isAssessmentDone && isCutoffCleared);
     }).length;
   }, [displayModules]);
 
@@ -2060,19 +2106,14 @@ export default function Coding() {
                       const isAssessmentDone = Boolean(mod.assessmentPassed);
                       const isCutoffCleared = Boolean(
                         (mod.assessmentPassed && (mod.bestScore == null || mod.bestScore >= 80)) ||
-                        (mod.bestScore != null && mod.bestScore >= 80) ||
-                        mod.moduleCompletionEmailSent
+                        (mod.bestScore != null && mod.bestScore >= 80)
                       );
 
-                      const isComplete = Boolean(
-                        mod.isCompleted ||
-                        mod.status === "completed" ||
-                        isCutoffCleared ||
-                        (isCodingDone && isAssessmentDone) ||
-                        (isStudyDone && isCodingDone && isAssessmentDone) ||
-                        (isAssessmentDone && !mod.codingExercise) ||
-                        (isCodingDone && !mod.assessment)
-                      );
+                      // Module should ONLY be marked as completed if all 3 are completed:
+                      // 1. Learning module studied
+                      // 2. Practical coding test passed
+                      // 3. 10 MCQs attempted and cutoff (>= 80%) met
+                      const isComplete = Boolean(isStudyDone && isCodingDone && isAssessmentDone && isCutoffCleared);
 
                       return (
                         <div key={mod.id || idx} className="mz-c-timeline-step">
@@ -2175,7 +2216,7 @@ export default function Coding() {
 
                                 <button
                                   type="button"
-                                  className={`mz-c-step-badge ${isAssessmentDone ? "done" : isCodingDone ? "active-step" : ""}`}
+                                  className={`mz-c-step-badge ${isAssessmentDone && isCutoffCleared ? "done" : isCodingDone ? "active-step" : ""}`}
                                   onClick={() => {
                                     const mIdx = typeof mod.moduleIndex === "number" ? mod.moduleIndex : idx;
                                     if (!isStudyDone) {
@@ -2194,8 +2235,10 @@ export default function Coding() {
                                 >
                                   <LuShieldCheck size={13} />
                                   <span>
-                                    {isAssessmentDone
+                                    {isAssessmentDone && isCutoffCleared
                                       ? `✓ Step 3: Exam Passed (${mod.bestScore || 100}%)`
+                                      : isAssessmentDone
+                                      ? `Step 3: Retake (Score ${mod.bestScore || 0}% < 80%)`
                                       : "Step 3: 10-MCQ Exam (≥80%)"}
                                   </span>
                                 </button>

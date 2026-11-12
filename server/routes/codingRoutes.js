@@ -1409,19 +1409,16 @@ router.get("/curriculum/:trackId", authenticateToken, async (req, res) => {
       }));
 
       const isStudied = !!state?.isStudied;
-      const exercisePassed = !!state?.exercisePassed;
+      const exercisePassed = !!(state?.exercisePassed || state?.assignmentPassed);
       const assessmentPassed = !!state?.assessmentPassed;
-      const hasCoding = !!m.codingExercise;
-      const hasAssessment = !!m.assessment;
+      const bestScore = state?.bestScore || 0;
+      const isMcqCutoffCleared = assessmentPassed && (bestScore == null || bestScore >= 80);
 
-      const isCompleted = Boolean(
-        state?.isCompleted ||
-        state?.status === "completed" ||
-        (exercisePassed && assessmentPassed) ||
-        (hasCoding && hasAssessment ? (exercisePassed && assessmentPassed) : (exercisePassed || assessmentPassed)) ||
-        (assessmentPassed && !hasCoding) ||
-        (exercisePassed && !hasAssessment)
-      );
+      // Module is strictly completed ONLY when all 3 criteria are met:
+      // 1. Learning module studied
+      // 2. Practical coding passed
+      // 3. 10 MCQs attempted and cutoff (>= 80%) met
+      const isCompleted = Boolean(isStudied && exercisePassed && assessmentPassed && isMcqCutoffCleared);
 
       const status = isCompleted
         ? "completed"
@@ -1573,24 +1570,22 @@ router.get("/curriculum/:trackId/:moduleIndex", authenticateToken, async (req, r
       },
       progressState: {
         isStudied: !!state?.isStudied,
-        exercisePassed: !!state?.exercisePassed,
+        exercisePassed: !!(state?.exercisePassed || state?.assignmentPassed),
         assessmentPassed: !!state?.assessmentPassed,
         isCompleted: Boolean(
-          state?.isCompleted ||
-          state?.status === "completed" ||
-          (state?.exercisePassed && state?.assessmentPassed) ||
-          (state?.assessmentPassed && !module.codingExercise) ||
-          (state?.exercisePassed && !module.assessment)
+          !!state?.isStudied &&
+          !!(state?.exercisePassed || state?.assignmentPassed) &&
+          !!state?.assessmentPassed &&
+          (state?.bestScore == null || state?.bestScore >= 80)
         ),
         status: (
-          state?.isCompleted ||
-          state?.status === "completed" ||
-          (state?.exercisePassed && state?.assessmentPassed) ||
-          (state?.assessmentPassed && !module.codingExercise) ||
-          (state?.exercisePassed && !module.assessment)
+          !!state?.isStudied &&
+          !!(state?.exercisePassed || state?.assignmentPassed) &&
+          !!state?.assessmentPassed &&
+          (state?.bestScore == null || state?.bestScore >= 80)
         )
           ? "completed"
-          : (state?.isStudied || state?.exercisePassed || state?.assessmentPassed)
+          : (state?.isStudied || state?.exercisePassed || state?.assignmentPassed || state?.assessmentPassed)
           ? "in-progress"
           : "available",
         bestScore: state?.bestScore || 0,
@@ -1851,11 +1846,9 @@ router.post("/curriculum/exercise/submit", authenticateToken, async (req, res) =
 
     const newBestScore = Math.max(current.bestScore || 0, score);
 
-    const willBeCompleted = isAccepted && Boolean(
-      current.assessmentPassed ||
-      !module.assessment ||
-      current.isCompleted
-    );
+    const isStudyDone = Boolean(current.isStudied);
+    const isMcqCutoffCleared = Boolean(current.assessmentPassed && (current.bestScore == null || current.bestScore >= 80));
+    const willBeCompleted = isAccepted && Boolean(isStudyDone && isMcqCutoffCleared);
 
     // Save current solution as draft, track attempt history and record scores
     progress.moduleProgress.set(pKey, {
@@ -2367,11 +2360,15 @@ router.post("/curriculum/assessment/submit", authenticateToken, async (req, res)
     const newBest = Math.max(prevBest, percentage);
     const attempts = (current.attemptsCount || 0) + 1;
 
-    const willBeCompleted = passed && Boolean(
-      current.exercisePassed ||
-      !module.codingExercise ||
-      current.isCompleted
-    );
+    const isStudyDone = Boolean(current.isStudied);
+    const isCodingDone = Boolean(current.exercisePassed || current.assignmentPassed || current.codingPassed);
+    const isMcqCutoffCleared = Boolean((passed || percentage >= 80 || newBest >= 80) && (marksObtained >= 8 || percentage >= 80 || newBest >= 80));
+
+    // Module is strictly completed ONLY when all 3 criteria are satisfied:
+    // 1. Learning module studied
+    // 2. Practical coding test passed
+    // 3. 10 MCQs attempted and cutoff (>= 80%) met
+    const willBeCompleted = Boolean(isStudyDone && isCodingDone && isMcqCutoffCleared);
 
     progress.moduleProgress.set(pKey, {
       ...current,
@@ -2380,7 +2377,7 @@ router.post("/curriculum/assessment/submit", authenticateToken, async (req, res)
       assessmentPassedAt: passed ? new Date() : current.assessmentPassedAt,
       bestScore: newBest,
       attemptsCount: attempts,
-      isCompleted: willBeCompleted || current.isCompleted,
+      isCompleted: willBeCompleted,
       status: willBeCompleted ? "completed" : "in-progress",
     });
 
@@ -2389,6 +2386,11 @@ router.post("/curriculum/assessment/submit", authenticateToken, async (req, res)
       let subProg = await SubjectProgress.findOne({ userId, subjectKey: "coding" });
       if (!subProg) subProg = new SubjectProgress({ userId, subjectKey: "coding", activeTrack: trackId });
       const curSp = subProg.moduleProgress.get(pKey) || {};
+      const subStudyDone = Boolean(curSp.isStudied || current.isStudied);
+      const subCodingDone = Boolean(curSp.exercisePassed || curSp.assignmentPassed || current.exercisePassed || current.assignmentPassed);
+      const subCutoffCleared = Boolean(isMcqCutoffCleared || (curSp.bestScore && curSp.bestScore >= 80));
+      const subCompleted = Boolean(subStudyDone && subCodingDone && subCutoffCleared);
+
       subProg.moduleProgress.set(pKey, {
         ...curSp,
         assessmentPassed: passed || !!curSp.assessmentPassed,
@@ -2396,8 +2398,8 @@ router.post("/curriculum/assessment/submit", authenticateToken, async (req, res)
         assessmentPassedAt: passed ? new Date() : curSp.assessmentPassedAt,
         bestScore: Math.max(curSp.bestScore || 0, percentage),
         attemptsCount: (curSp.attemptsCount || 0) + 1,
-        isCompleted: willBeCompleted || curSp.isCompleted,
-        status: willBeCompleted ? "completed" : "in-progress",
+        isCompleted: subCompleted,
+        status: subCompleted ? "completed" : "in-progress",
       });
       subProg.markModified("moduleProgress");
       await subProg.save();
@@ -2424,13 +2426,17 @@ router.post("/curriculum/assessment/submit", authenticateToken, async (req, res)
       progress.trackUnlocks.set(trackId, nextLevel);
       nextUnlockedModule = nextLevel;
 
-      // Count total completed modules in track
+      // Count total completed modules in track (strictly requires all 3 criteria)
       const trackModules = CURRICULUM[trackId] || [];
       let completedCount = 0;
       for (const tm of trackModules) {
         const k = `${trackId}_${tm.moduleIndex}`;
-        const st = progress.moduleProgress.get(k);
-        if (st?.assessmentPassed) completedCount++;
+        const rawSt = progress.moduleProgress.get(k);
+        const st = (rawSt && typeof rawSt.toObject === "function") ? rawSt.toObject() : (rawSt || {});
+        const sStudy = Boolean(st.isStudied);
+        const sCoding = Boolean(st.exercisePassed || st.assignmentPassed || st.codingPassed);
+        const sAssessment = Boolean(st.assessmentPassed && (st.bestScore == null || st.bestScore >= 80));
+        if (sStudy && sCoding && sAssessment) completedCount++;
       }
       progress.trackLessons.set(trackId, completedCount);
 
@@ -2499,11 +2505,13 @@ router.post("/curriculum/assessment/submit", authenticateToken, async (req, res)
     try {
       const candidateUser = await User.findById(userId).select("fullName username email role").lean();
       if (candidateUser && candidateUser.email && !isGuestAccount(candidateUser.email, candidateUser.role)) {
-        // Cutoff requirement: 8 marks out of 10 (80%)
-        const isMcqCutoffMet = marksObtained >= 8;
+        // Cutoff requirement: 8 marks out of 10 (80%) AND learning module studied AND coding passed
+        const isStudyDone = Boolean(current.isStudied);
+        const isCodingDone = Boolean(current.exercisePassed || current.assignmentPassed || current.codingPassed);
+        const isMcqCutoffMet = marksObtained >= 8 || percentage >= 80 || newBest >= 80;
         const alreadySent = Boolean(current.moduleCompletionEmailSent);
 
-        if (isMcqCutoffMet && !alreadySent) {
+        if (isStudyDone && isCodingDone && isMcqCutoffMet && !alreadySent) {
           // Fetch actual coding assessment marks for this specific module
           let actualCodingScore = null;
           let actualCodingMaxScore = 100;
@@ -4606,16 +4614,23 @@ router.post(["/proctored-session/:sessionId/submit", "/proctored-session/submit"
       if (!userProg) userProg = new CodingProgress({ userId });
       if (!userProg.moduleProgress) userProg.moduleProgress = new Map();
 
-      const existingMod = userProg.moduleProgress.get(modKey) || {};
+      const rawUserMod = userProg.moduleProgress.get(modKey);
+      const existingMod = (rawUserMod && typeof rawUserMod.toObject === "function") ? rawUserMod.toObject() : (rawUserMod || {});
+      const userStudyDone = Boolean(existingMod.isStudied);
+      const userCodingDone = Boolean(isAccepted || existingMod.exercisePassed || existingMod.assignmentPassed || existingMod.codingPassed);
+      const userMcqCutoffCleared = Boolean(existingMod.assessmentPassed && (existingMod.bestScore == null || existingMod.bestScore >= 80));
+      const userWillBeCompleted = Boolean(userStudyDone && userCodingDone && userMcqCutoffCleared);
+
       userProg.moduleProgress.set(modKey, {
         ...existingMod,
-        exercisePassed: isAccepted,
-        exerciseCode: primaryQ.submittedCode,
+        exercisePassed: isAccepted || !!existingMod.exercisePassed,
+        exerciseCode: primaryQ.submittedCode || existingMod.exerciseCode,
         exerciseScore: overallPercentage,
         exercisePassedAt: isAccepted ? now : existingMod.exercisePassedAt,
         bestScore: Math.max(existingMod.bestScore || 0, overallPercentage),
         attemptsCount: (existingMod.attemptsCount || 0) + 1,
-        isStudied: true,
+        isCompleted: userWillBeCompleted,
+        status: userWillBeCompleted ? "completed" : "in-progress",
       });
 
       if (isAccepted) {
@@ -4623,10 +4638,24 @@ router.post(["/proctored-session/:sessionId/submit", "/proctored-session/submit"
         if (parsedIdx >= currentUnlock) {
           userProg.trackUnlocks.set(parsedTrack, parsedIdx + 1);
         }
-        const currentCompleted = userProg.trackLessons?.get(parsedTrack) || 0;
-        userProg.trackLessons.set(parsedTrack, Math.max(currentCompleted, parsedIdx + 1));
+        // Count strictly completed modules (all 3 criteria met)
+        const trackModules = CURRICULUM[parsedTrack] || [];
+        let completedCount = 0;
+        for (const tm of trackModules) {
+          const k = `${parsedTrack}_${tm.moduleIndex}`;
+          const rawSt = userProg.moduleProgress.get(k);
+          const st = (rawSt && typeof rawSt.toObject === "function") ? rawSt.toObject() : (rawSt || {});
+          const sStudy = Boolean(st.isStudied);
+          const sCoding = Boolean(st.exercisePassed || st.assignmentPassed || st.codingPassed || (k === modKey && isAccepted));
+          const sAssessment = Boolean(st.assessmentPassed && (st.bestScore == null || st.bestScore >= 80));
+          if (sStudy && sCoding && sAssessment) completedCount++;
+        }
+        userProg.trackLessons.set(parsedTrack, completedCount);
       }
       userProg.totalScore = (userProg.totalScore || 0) + (isAccepted ? 100 : 25);
+      userProg.markModified("moduleProgress");
+      userProg.markModified("trackUnlocks");
+      userProg.markModified("trackLessons");
       await userProg.save();
     } catch (e) {
       console.warn("Could not update CodingProgress:", e);
@@ -4637,16 +4666,23 @@ router.post(["/proctored-session/:sessionId/submit", "/proctored-session/submit"
       if (!subjProg) subjProg = new SubjectProgress({ userId, subjectKey: "coding" });
       if (!subjProg.moduleProgress) subjProg.moduleProgress = new Map();
 
-      const existingSubjMod = subjProg.moduleProgress.get(modKey) || {};
+      const rawSubjMod = subjProg.moduleProgress.get(modKey);
+      const existingSubjMod = (rawSubjMod && typeof rawSubjMod.toObject === "function") ? rawSubjMod.toObject() : (rawSubjMod || {});
+      const subjStudyDone = Boolean(existingSubjMod.isStudied);
+      const subjCodingDone = Boolean(isAccepted || existingSubjMod.exercisePassed || existingSubjMod.assignmentPassed || existingSubjMod.codingPassed);
+      const subjMcqCutoffCleared = Boolean(existingSubjMod.assessmentPassed && (existingSubjMod.bestScore == null || existingSubjMod.bestScore >= 80));
+      const subjWillBeCompleted = Boolean(subjStudyDone && subjCodingDone && subjMcqCutoffCleared);
+
       subjProg.moduleProgress.set(modKey, {
         ...existingSubjMod,
-        exercisePassed: isAccepted,
-        exerciseCode: primaryQ.submittedCode,
-        assignmentPassed: isAccepted,
+        exercisePassed: isAccepted || !!existingSubjMod.exercisePassed,
+        exerciseCode: primaryQ.submittedCode || existingSubjMod.exerciseCode,
+        assignmentPassed: isAccepted || !!existingSubjMod.assignmentPassed,
         assignmentPassedAt: isAccepted ? now : existingSubjMod.assignmentPassedAt,
         bestScore: Math.max(existingSubjMod.bestScore || 0, overallPercentage),
         attemptsCount: (existingSubjMod.attemptsCount || 0) + 1,
-        isStudied: true,
+        isCompleted: subjWillBeCompleted,
+        status: subjWillBeCompleted ? "completed" : "in-progress",
       });
 
       if (isAccepted) {
@@ -4654,9 +4690,22 @@ router.post(["/proctored-session/:sessionId/submit", "/proctored-session/submit"
         if (parsedIdx >= currentUnlock) {
           subjProg.trackUnlocks.set(parsedTrack, parsedIdx + 1);
         }
-        const currentCompleted = subjProg.trackLessons?.get(parsedTrack) || 0;
-        subjProg.trackLessons.set(parsedTrack, Math.max(currentCompleted, parsedIdx + 1));
+        const trackModules = CURRICULUM[parsedTrack] || [];
+        let completedCount = 0;
+        for (const tm of trackModules) {
+          const k = `${parsedTrack}_${tm.moduleIndex}`;
+          const rawSt = subjProg.moduleProgress.get(k);
+          const st = (rawSt && typeof rawSt.toObject === "function") ? rawSt.toObject() : (rawSt || {});
+          const sStudy = Boolean(st.isStudied);
+          const sCoding = Boolean(st.exercisePassed || st.assignmentPassed || st.codingPassed || (k === modKey && isAccepted));
+          const sAssessment = Boolean(st.assessmentPassed && (st.bestScore == null || st.bestScore >= 80));
+          if (sStudy && sCoding && sAssessment) completedCount++;
+        }
+        subjProg.trackLessons.set(parsedTrack, completedCount);
       }
+      subjProg.markModified("moduleProgress");
+      subjProg.markModified("trackUnlocks");
+      subjProg.markModified("trackLessons");
       await subjProg.save();
     } catch (e) {
       console.warn("Could not update SubjectProgress:", e);

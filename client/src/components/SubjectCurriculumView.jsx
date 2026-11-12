@@ -305,19 +305,14 @@ export default function SubjectCurriculumView({
           const isAssessmentDone = Boolean(module.assessmentPassed);
           const isCutoffCleared = Boolean(
             (module.assessmentPassed && (module.bestScore == null || module.bestScore >= 80)) ||
-            (module.bestScore != null && module.bestScore >= 80) ||
-            module.moduleCompletionEmailSent
+            (module.bestScore != null && module.bestScore >= 80)
           );
 
-          const isPassed = Boolean(
-            module.isCompleted ||
-            module.status === "completed" ||
-            isCutoffCleared ||
-            (isAssignmentDone && isAssessmentDone) ||
-            (isStudyDone && isAssignmentDone && isAssessmentDone) ||
-            (isAssessmentDone && !module.practicalAssignment && !module.codingExercise) ||
-            (isAssignmentDone && !module.assessment)
-          );
+          // Module is strictly completed ONLY when all 3 criteria are satisfied:
+          // 1. Learning module studied
+          // 2. Practical coding test passed
+          // 3. 10 MCQs attempted and cutoff (>= 80%) met
+          const isPassed = Boolean(isStudyDone && isAssignmentDone && isAssessmentDone && isCutoffCleared);
 
           return (
             <div
@@ -450,14 +445,30 @@ export default function SubjectCurriculumView({
                         fontWeight: "600",
                         padding: "3px 9px",
                         borderRadius: "12px",
-                        background: module.assessmentPassed ? "var(--mz-emerald-soft)" : "var(--mz-surface-subtle)",
-                        border: `1px solid ${module.assessmentPassed ? "var(--mz-emerald-border)" : "var(--mz-border)"}`,
-                        color: module.assessmentPassed ? "var(--mz-emerald-text)" : "var(--mz-text-muted)",
+                        background: isAssessmentDone && isCutoffCleared
+                          ? "var(--mz-emerald-soft)"
+                          : isAssessmentDone
+                          ? "var(--mz-amber-soft, #fef3c7)"
+                          : "var(--mz-surface-subtle)",
+                        border: `1px solid ${
+                          isAssessmentDone && isCutoffCleared
+                            ? "var(--mz-emerald-border)"
+                            : isAssessmentDone
+                            ? "#f59e0b"
+                            : "var(--mz-border)"
+                        }`,
+                        color: isAssessmentDone && isCutoffCleared
+                          ? "var(--mz-emerald-text)"
+                          : isAssessmentDone
+                          ? "#b45309"
+                          : "var(--mz-text-muted)",
                       }}
                     >
-                      {module.assessmentPassed
-                        ? `✓ Assessment Passed (${module.bestScore}%)`
-                        : "🛡️ Proctored Exam (≥80%)"}
+                      {isAssessmentDone && isCutoffCleared
+                        ? `✓ Assessment Passed (${module.bestScore ?? module.assessmentScore}%)`
+                        : isAssessmentDone
+                        ? `⚠️ Retake Required (${module.bestScore ?? module.assessmentScore}% < 80% Cutoff)`
+                        : "🛡️ Proctored Exam (≥80% Cutoff)"}
                     </span>
                   </div>
                 </div>
@@ -533,21 +544,25 @@ export default function SubjectCurriculumView({
                   style={{
                     padding: "8px 16px",
                     borderRadius: "10px",
-                    background: module.assessmentPassed
+                    background: isAssessmentDone && isCutoffCleared
                       ? "linear-gradient(135deg, #10b981, #059669)"
+                      : isAssessmentDone
+                      ? "linear-gradient(135deg, #f59e0b, #d97706)"
                       : "linear-gradient(135deg, #3b82f6, #2563eb)",
                     border: "none",
                     color: "#ffffff",
                     fontSize: "12.5px",
                     fontWeight: "700",
                     cursor: "pointer",
-                    boxShadow: "0 2px 8px rgba(37, 99, 235, 0.25)",
+                    boxShadow: isAssessmentDone && isCutoffCleared
+                      ? "0 2px 8px rgba(16, 185, 129, 0.25)"
+                      : "0 2px 8px rgba(37, 99, 235, 0.25)",
                     display: "flex",
                     alignItems: "center",
                     gap: "6px",
                   }}
                 >
-                  <LuTrophy size={14} /> {module.assessmentPassed ? `Retake (${module.bestScore}%)` : "Take Exam"}
+                  <LuTrophy size={14} /> {isAssessmentDone && isCutoffCleared ? `Retake (${module.bestScore}%)` : isAssessmentDone ? `Retake (${module.bestScore}% - Need ≥80%)` : "Take Exam"}
                 </button>
               </div>
             </div>
