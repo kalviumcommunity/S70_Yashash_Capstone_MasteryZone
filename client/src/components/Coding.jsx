@@ -779,114 +779,103 @@ export default function Coding() {
      1. Fetch Unified Dashboard Data
      ──────────────────────────────────────────────────────────── */
   const fetchDashboardData = useCallback(async () => {
-    try {
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
-      const res = await fetch(`${API_BASE}/api/coding/data`, { headers });
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data.tracks) && data.tracks.length > 0) {
-          // Merge modules from default tracks and dynamically compute module status from genuine user progress
-          const merged = data.tracks.map((t) => {
-            const def = DEFAULT_TRACKS.find((dt) => dt.id === t.id);
-            const completed = Number(t.completedLessons) || 0;
-            const total = Number(t.totalLessons) || def?.totalLessons || (def?.modules || []).length || 8;
-            const rawModules = Array.isArray(t.modules) && t.modules.length > 0 ? t.modules : (def?.modules || []);
-            const modules = rawModules.map((mod, idx) => ({
-              ...mod,
-              status: idx < completed ? "completed" : (idx === completed && completed < total ? "in_progress" : "available"),
-            }));
-            return {
-              ...t,
-              badgeText: t.badgeText || def?.badgeText || "Core",
-              modules,
-            };
-          });
-          setTracks(merged);
-        }
-        if (Array.isArray(data.challenges) && data.challenges.length > 0) {
-          setChallenges(data.challenges);
-        }
-        if (Array.isArray(data.videoCourses) && data.videoCourses.length > 0) {
-          setVideoCourses(data.videoCourses);
-        }
-        if (Array.isArray(data.projects) && data.projects.length > 0) {
-          setProjects(data.projects);
-        }
-        if (Array.isArray(data.resources) && data.resources.length > 0) {
-          setResources(data.resources);
-        }
-        if (data.stats) {
-          setStats(data.stats);
-        }
-      }
-    } catch (err) {
-      console.warn("Could not load /api/coding/data, falling back to local catalog:", err);
-    }
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-    // Always fetch challenges directly to guarantee full catalog with question numbers
-    try {
-      const chRes = await fetch(`${API_BASE}/api/coding/challenges`);
-      if (chRes.ok) {
-        const chData = await chRes.json();
-        if (Array.isArray(chData.challenges) && chData.challenges.length > 0) {
-          setChallenges(chData.challenges);
-        }
-      }
-    } catch {}
-
-    // Fetch earned certificates
-    if (token) {
-      try {
-        const certRes = await fetch(`${API_BASE}/api/certifications/my-history`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (certRes.ok) {
-          const certData = await certRes.json();
-          if (Array.isArray(certData.certificates)) {
-            setEarnedCertificates(certData.certificates);
-            if (certData.certificates.length === 0) {
-              try {
-                const uKey = currentUser?._id || currentUser?.id || "guest";
-                ["python_cert", "js_cert", "fullstack_cert", "java_cert", "cpp_cert", "dsa_cert"].forEach((k) => {
-                  localStorage.removeItem(`mz_${uKey}_cert_${k}_submitted`);
-                  localStorage.removeItem(`mz_cert_${k}_submitted`);
-                  localStorage.removeItem(`mz_${uKey}_cert_passed_${k}`);
-                  localStorage.removeItem(`mz_cert_passed_${k}`);
-                  localStorage.removeItem(`mz_${uKey}_cert_${k}_report_url`);
-                });
-              } catch {}
-            }
+    const pData = fetch(`${API_BASE}/api/coding/data`, { headers })
+      .then(async (res) => {
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.tracks) && data.tracks.length > 0) {
+            const merged = data.tracks.map((t) => {
+              const def = DEFAULT_TRACKS.find((dt) => dt.id === t.id);
+              const completed = Number(t.completedLessons) || 0;
+              const total = Number(t.totalLessons) || def?.totalLessons || (def?.modules || []).length || 8;
+              const rawModules = Array.isArray(t.modules) && t.modules.length > 0 ? t.modules : (def?.modules || []);
+              const modules = rawModules.map((mod, idx) => ({
+                ...mod,
+                status: idx < completed ? "completed" : (idx === completed && completed < total ? "in_progress" : "available"),
+              }));
+              return {
+                ...t,
+                badgeText: t.badgeText || def?.badgeText || "Core",
+                modules,
+              };
+            });
+            setTracks(merged);
           }
-          if (Array.isArray(certData.attempts)) {
-            setCertAttempts(certData.attempts);
+          if (Array.isArray(data.challenges) && data.challenges.length > 0) {
+            setChallenges(data.challenges);
+          }
+          if (Array.isArray(data.videoCourses) && data.videoCourses.length > 0) {
+            setVideoCourses(data.videoCourses);
+          }
+          if (Array.isArray(data.projects) && data.projects.length > 0) {
+            setProjects(data.projects);
+          }
+          if (Array.isArray(data.resources) && data.resources.length > 0) {
+            setResources(data.resources);
+          }
+          if (data.stats) {
+            setStats(data.stats);
           }
         }
-      } catch {}
-    }
+      })
+      .catch((err) => {
+        console.warn("Could not load /api/coding/data, falling back to local catalog:", err);
+      });
 
-    // Fetch active collaborative study rooms
-    try {
-      const meetRes = await fetch(`${API_BASE}/api/meetings/study-rooms`);
-      if (meetRes.ok) {
-        const mData = await meetRes.json();
-        if (Array.isArray(mData.rooms) && mData.rooms.length > 0) {
-          setStudyGroups((prev) =>
-            prev.map((pod) => {
-              const liveRoom = mData.rooms.find((r) => r.key === pod.key);
-              if (liveRoom) {
-                return {
-                  ...pod,
-                  activeMeetingId: liveRoom.activeMeetingId || pod.activeMeetingId || pod.id,
-                  peersCount: liveRoom.liveParticipantsCount > 0 ? liveRoom.liveParticipantsCount : pod.peersCount,
-                };
+    const pChallenges = fetch(`${API_BASE}/api/coding/challenges`)
+      .then(async (chRes) => {
+        if (chRes.ok) {
+          const chData = await chRes.json();
+          if (Array.isArray(chData.challenges) && chData.challenges.length > 0) {
+            setChallenges(chData.challenges);
+          }
+        }
+      })
+      .catch(() => {});
+
+    const pCert = token
+      ? fetch(`${API_BASE}/api/certifications/my-history`, { headers })
+          .then(async (certRes) => {
+            if (certRes.ok) {
+              const certData = await certRes.json();
+              if (Array.isArray(certData.certificates)) {
+                setEarnedCertificates(certData.certificates);
+                if (certData.certificates.length === 0) {
+                  try {
+                    const uKey = currentUser?._id || currentUser?.id || "guest";
+                    ["python_cert", "js_cert", "fullstack_cert", "java_cert", "cpp_cert", "dsa_cert"].forEach((k) => {
+                      localStorage.removeItem(`mz_${uKey}_cert_${k}_submitted`);
+                      localStorage.removeItem(`mz_cert_${k}_submitted`);
+                      localStorage.removeItem(`mz_${uKey}_cert_passed_${k}`);
+                      localStorage.removeItem(`mz_cert_passed_${k}`);
+                      localStorage.removeItem(`mz_${uKey}_cert_${k}_report_url`);
+                    });
+                  } catch {}
+                }
               }
-              return pod;
-            })
-          );
+              if (Array.isArray(certData.attempts)) {
+                setCertAttempts(certData.attempts);
+              }
+            }
+          })
+          .catch(() => {})
+      : Promise.resolve();
+
+    const pRooms = fetch(`${API_BASE}/api/meetings/study-rooms`)
+      .then(async (meetRes) => {
+        if (meetRes.ok) {
+          const meetData = await meetRes.json();
+          if (Array.isArray(meetData.rooms)) {
+            setStudyRooms(meetData.rooms);
+          }
         }
-      }
-    } catch {}
-  }, [token]);
+      })
+      .catch(() => {});
+
+    await Promise.allSettled([pData, pChallenges, pCert, pRooms]);
+  }, [token, currentUser]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -2408,18 +2397,22 @@ export default function Coding() {
                     <span className="mz-c-live-metric-title">XP EARNED TODAY</span>
                     <div className="mz-c-live-metric-val" style={{ color: "#d97706" }}>
                       <LuFlame size={14} color="#f59e0b" />
-                      <span>+{Math.max(120, ((stats?.totalXp || 350) % 250) + 60)} XP</span>
+                      <span>+{stats?.todayXp ?? 0} XP</span>
                     </div>
-                    <span className="mz-c-live-metric-tag xp">⚡ High Velocity</span>
+                    <span className="mz-c-live-metric-tag xp">
+                      {(stats?.todayXp || 0) > 0 ? "⚡ Active Momentum" : "Target: 50 XP"}
+                    </span>
                   </div>
 
                   <div className="mz-c-live-metric-box">
                     <span className="mz-c-live-metric-title">TEST SUITE PASS</span>
                     <div className="mz-c-live-metric-val" style={{ color: "#059669" }}>
                       <LuCircleCheck size={14} color="#10b981" />
-                      <span>100% Passed</span>
+                      <span>{stats?.accuracyRate ?? (stats?.solvedCount > 0 ? 100 : 0)}% Passed</span>
                     </div>
-                    <span className="mz-c-live-metric-tag pass">5/5 Verified</span>
+                    <span className="mz-c-live-metric-tag pass">
+                      {stats?.solvedCount || 0} Solved
+                    </span>
                   </div>
                 </div>
 
@@ -3915,7 +3908,10 @@ export default function Coding() {
                           type="button"
                           className="mz-c-btn-solve"
                           style={{ flex: 1, minWidth: "100px", padding: "8px 12px", fontSize: "12px", justifyContent: "center", background: "#2563eb", color: "#ffffff", borderRadius: "8px" }}
-                          onClick={() => window.open(`${API_BASE}/api/certifications/download/${cert.certificateId}`, "_blank")}
+                          onClick={() => {
+                            const authToken = localStorage.getItem("token") || token || "";
+                            window.open(`${API_BASE}/api/certifications/download/${cert.certificateId}?token=${encodeURIComponent(authToken)}`, "_blank");
+                          }}
                         >
                           <LuDownload size={13} /> Download PDF
                         </button>

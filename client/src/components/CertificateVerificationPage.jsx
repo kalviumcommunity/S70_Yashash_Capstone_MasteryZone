@@ -574,7 +574,7 @@ export default function CertificateVerificationPage() {
             {/* Actions: Download PDF, Share on LinkedIn, Copy URL */}
             <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
               <a
-                href={`${API_BASE}/api/certifications/certificate/${certData.certificateId}/download`}
+                href={`${API_BASE}/api/certifications/certificate/${certData.certificateId}/download${localStorage.getItem("token") ? `?token=${encodeURIComponent(localStorage.getItem("token"))}` : ""}`}
                 download
                 style={{
                   padding: "9px 18px",

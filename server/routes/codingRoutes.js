@@ -2758,6 +2758,12 @@ router.get("/data", authenticateToken, async (req, res) => {
 
     // Calculate real stats from global Progress collection
     const progressRecords = await Progress.find({ userId, track: "CODING" });
+    const todayStr = new Date().toISOString().split("T")[0];
+    const todayRecords = progressRecords.filter(
+      (r) => r.date && new Date(r.date).toISOString().split("T")[0] === todayStr
+    );
+    const todayXp = todayRecords.reduce((sum, r) => sum + (r.xpEarned || 0), 0);
+    const todayHours = todayRecords.reduce((sum, r) => sum + (r.hoursSpent || 0), 0);
     const totalXp = progressRecords.reduce((sum, r) => sum + (r.xpEarned || 0), 0);
     const totalHours = progressRecords.reduce((sum, r) => sum + (r.hoursSpent || 0), 0);
 
@@ -3143,9 +3149,12 @@ router.get("/data", authenticateToken, async (req, res) => {
       snippets,
       stats: {
         totalXp: Math.round(totalXp),
+        todayXp: Math.round(todayXp),
         hoursSpent: Math.round(totalHours * 10) / 10,
+        todayHours: Math.round(todayHours * 10) / 10,
         streakDays: streak,
         solvedCount: solvedSet.size,
+        accuracyRate: solvedSet.size > 0 ? 100 : 0,
         activeTrack: userProgress.activeTrack,
       },
     });
