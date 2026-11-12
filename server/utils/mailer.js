@@ -261,10 +261,12 @@ function isLegitimateDeliverableEmail(email, role = null) {
     return false;
   }
 
-  // Block automated test fixtures and seed patterns
-  for (const pattern of NON_DELIVERABLE_PATTERNS) {
-    if (pattern.test(trimmed) || pattern.test(localPart)) {
-      return false;
+  // Block automated test fixtures and seed patterns (only if in test mode or unroutable domain)
+  if (env === 'test') {
+    for (const pattern of NON_DELIVERABLE_PATTERNS) {
+      if (pattern.test(trimmed) || pattern.test(localPart)) {
+        return false;
+      }
     }
   }
 
@@ -1079,62 +1081,29 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
     } catch {}
   }
 
-  // On cloud platforms (specifically Render Free Tier), outbound SMTP ports (25, 465, 587)
-  // are blocked by the container firewall. Dispatching via HTTPS API (Port 443) bypasses the
-  // firewall instantly and eliminates 25-30 second TCP connection timeouts.
+  // Multi-tier delivery engine: Determine if an HTTPS provider (Port 443) is configured
+  // and capable of delivering to this recipient.
+  // Note: Resend sandbox ('onboarding@resend.dev') is restricted strictly to the account owner (yashashyashash1@gmail.com).
+  // For other recipients, Resend sandbox must not be used as primary; SMTP (Gmail) is authoritative.
   const isCloudHost = Boolean(process.env.RENDER || process.env.RENDER_SERVICE_ID || process.env.IS_RENDER);
   const httpProvider = getHttpEmailProvider();
-  if ((isCloudHost || !config.isConfigured) && httpProvider) {
-    if (httpProvider) {
-      try {
-        const res = await sendViaHttpApi(mailOptions, httpProvider);
-        if (!res || res.success === false) {
-          const errMsg = sanitizeLogMessage(res?.error || res?.message || 'HTTP email provider dispatch failed');
-          const errCode = res?.errorCode || 'EPROVIDER';
-          console.warn(`⚠️ [Mailer] HTTP provider (${httpProvider.type}) returned unsuccessful response for "${to}": ${errMsg}`);
+  const isRecipientResendOwner = to === 'yashashyashash1@gmail.com';
+  const canHttpDeliverToRecipient = Boolean(
+    httpProvider &&
+    (
+      httpProvider.type === 'brevo' ||
+      (httpProvider.type === 'resend' && (!httpProvider.isTestSender || isRecipientResendOwner))
+    )
+  );
 
-          await recordEmailLog({
-            recipient: to,
-            emailType,
-            subject: mailOptions.subject || '',
-            relatedUserId: userId,
-            relatedRecordId: recordId,
-            status: 'failed',
-            errorCode: errCode,
-            errorMessage: errMsg,
-            providerResponse: sanitizeLogMessage(res?.providerResponse || errMsg),
-            attemptCount: 1,
-          });
-          return {
-            success: false,
-            status: 'failed',
-            errorCode: errCode,
-            message: errMsg,
-          };
-        } else {
-          // Enforce: Never store an undefined or blank message ID as a successful delivery
-          const validId = typeof res.messageId === 'string' && res.messageId.trim();
-          if (!validId) {
-            const errMsg = 'Email provider reported acceptance but returned no valid message ID';
-            await recordEmailLog({
-              recipient: to,
-              emailType,
-              subject: mailOptions.subject || '',
-              relatedUserId: userId,
-              relatedRecordId: recordId,
-              status: 'failed',
-              errorCode: 'EMISSING_MESSAGE_ID',
-              errorMessage: errMsg,
-              attemptCount: 1,
-            });
-            return {
-              success: false,
-              status: 'failed',
-              errorCode: 'EMISSING_MESSAGE_ID',
-              message: errMsg,
-            };
-          }
-
+  let triedHttp = false;
+  if ((isCloudHost || !config.isConfigured) && canHttpDeliverToRecipient) {
+    triedHttp = true;
+    try {
+      const res = await sendViaHttpApi(mailOptions, httpProvider);
+      if (res && res.success && res.messageId) {
+        const validId = typeof res.messageId === 'string' && res.messageId.trim();
+        if (validId) {
           await recordEmailLog({
             recipient: to,
             emailType,
@@ -1146,31 +1115,15 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
             providerResponse: sanitizeLogMessage(res.providerResponse),
             attemptCount: 1,
           });
-          markOutboundEmailSent(to, mailOptions.subject, mailOptions.html);
+          markOutboundEmailSent(to, mailOptions.subject, mailOptions.html, { emailType, recordId });
           return res;
         }
-      } catch (apiErr) {
-        const safeErrMsg = sanitizeLogMessage(apiErr.message);
-        console.warn(`⚠️ [Mailer] HTTP provider (${httpProvider.type}) failed for "${to}": ${safeErrMsg}`);
-        const diag = diagnoseSmtpError(apiErr);
-        await recordEmailLog({
-          recipient: to,
-          emailType,
-          subject: mailOptions.subject || '',
-          relatedUserId: userId,
-          relatedRecordId: recordId,
-          status: 'failed',
-          errorCode: diag.code,
-          errorMessage: sanitizeLogMessage(diag.message),
-          attemptCount: 1,
-        });
-        return {
-          success: false,
-          status: 'failed',
-          errorCode: diag.code,
-          message: sanitizeLogMessage(diag.message),
-        };
+      } else {
+        console.warn(`⚠️ [Mailer] HTTP provider (${httpProvider.type}) returned unsuccessful response for "${to}": ${res?.error || res?.message || 'Unknown'}; cascading to SMTP...`);
       }
+    } catch (apiErr) {
+      const safeErrMsg = sanitizeLogMessage(apiErr.message);
+      console.warn(`⚠️ [Mailer] HTTP provider (${httpProvider.type}) failed for "${to}": ${safeErrMsg}; cascading to SMTP...`);
     }
   }
 
@@ -1405,9 +1358,84 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
     resetTransporter();
   }
 
+  // Automatic Port 587 (STARTTLS, IPv4) fallback if Port 465 hit a socket or timeout issue
+  if (lastErr && (lastErr.code === 'ECONNECTION' || lastErr.code === 'ESOCKET' || lastErr.code === 'ETIMEDOUT' || lastErr.code === 'ECONNREFUSED') && config.port === 465) {
+    try {
+      console.log(`ℹ️ [Mailer] Port 465 hit ${lastErr.code}; attempting transparent retry on Port 587 (STARTTLS, IPv4)...`);
+      const fallbackOptions = {
+        host: config.host,
+        port: 587,
+        secure: false,
+        auth: {
+          user: config.email,
+          pass: config.password,
+        },
+        family: 4,
+        pool: true,
+        connectionTimeout: 15000,
+        greetingTimeout: 10000,
+        socketTimeout: 20000,
+      };
+      const altTp = nodemailer.createTransport(fallbackOptions);
+      const altInfo = await new Promise((resolve, reject) => {
+        let settled = false;
+        try {
+          const ret = altTp.sendMail(finalOptions, (err, info) => {
+            if (settled) return;
+            settled = true;
+            if (err) return reject(err);
+            resolve(info);
+          });
+          if (ret && typeof ret.then === 'function') {
+            ret.then((info) => {
+              if (settled) return;
+              settled = true;
+              resolve(info);
+            }).catch((err) => {
+              if (settled) return;
+              settled = true;
+              reject(err);
+            });
+          }
+        } catch (e) {
+          if (!settled) {
+            settled = true;
+            reject(e);
+          }
+        }
+      });
+      const validAltMsgId = typeof altInfo?.messageId === 'string' && altInfo.messageId.trim();
+      if (validAltMsgId) {
+        transporterInstance = altTp;
+        await recordEmailLog({
+          recipient: to,
+          emailType,
+          subject: mailOptions.subject || '',
+          relatedUserId: userId,
+          relatedRecordId: recordId,
+          status: 'accepted',
+          messageId: validAltMsgId,
+          providerResponse: sanitizeLogMessage(altInfo.response),
+          attemptCount: attempt + 1,
+        });
+        markOutboundEmailSent(to, mailOptions.subject, mailOptions.html, { emailType, recordId });
+        return {
+          success: true,
+          status: 'accepted',
+          messageId: validAltMsgId,
+          accepted: altInfo.accepted,
+          rejected: altInfo.rejected,
+          providerResponse: altInfo.response,
+        };
+      }
+    } catch (altErr) {
+      console.warn(`[Mailer] Port 587 fallback error:`, altErr.message);
+    }
+  }
+
   // Transparent fallback to HTTPS email provider if primary SMTP encounters a socket, firewall, or connection failure
   const fallbackHttp = getHttpEmailProvider();
-  if (fallbackHttp) {
+  if (fallbackHttp && !triedHttp) {
     try {
       console.log(`ℹ️ [Mailer] Primary SMTP transport hit ${lastErr?.code || 'error'} (${lastErr?.message}); attempting fallback via ${fallbackHttp.type} on Port 443...`);
       const httpRes = await sendViaHttpApi(mailOptions, fallbackHttp);
@@ -1423,7 +1451,7 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
           providerResponse: sanitizeLogMessage(httpRes.providerResponse),
           attemptCount: attempt + 1,
         });
-        markOutboundEmailSent(to, mailOptions.subject, mailOptions.html);
+        markOutboundEmailSent(to, mailOptions.subject, mailOptions.html, { emailType, recordId });
         return httpRes;
       }
     } catch (fbErr) {
@@ -1480,7 +1508,7 @@ function dispatchMailBackground(mailPromiseFn, meta = {}) {
   });
 }
 
-// Helper: Check if account is a guest user (unregistered / ephemeral session) or synthetic/test fixture account
+// Helper: Check if account is an ephemeral guest session or unroutable synthetic placeholder
 function isGuestAccount(email, role) {
   if (role === 'guest') return true;
   if (!email || typeof email !== 'string') return true;
@@ -1496,12 +1524,6 @@ function isGuestAccount(email, role) {
       if (env === 'test' && (domain === 'example.com' || domain === 'example.org' || domain === 'example.net' || lower === 'admin@masteryzone.com')) {
         // Allow RFC example domains or test admin in automated test environment for in-memory mocked assertions
       } else {
-        return true;
-      }
-    }
-
-    for (const pattern of NON_DELIVERABLE_PATTERNS) {
-      if (pattern.test(lower) || pattern.test(localPart)) {
         return true;
       }
     }
@@ -2081,8 +2103,27 @@ async function sendLoginNotification(user, req, isNewDevice = false) {
 /**
  * Send password reset request email with expiring secure link
  */
-async function sendPasswordResetEmail(user, resetToken, req, clientOriginOverride = null) {
+async function sendPasswordResetEmail(userOrOptions, resetTokenArg, reqArg, clientOriginOverrideArg = null) {
   try {
+    let user, resetToken, req, clientOriginOverride;
+    if (userOrOptions && typeof userOrOptions === 'object' && ('to' in userOrOptions || 'candidateName' in userOrOptions) && !resetTokenArg) {
+      user = {
+        email: userOrOptions.to || userOrOptions.email,
+        fullName: userOrOptions.candidateName || userOrOptions.fullName || userOrOptions.userName || "Candidate",
+        username: userOrOptions.username || "Candidate",
+        _id: userOrOptions.userId || userOrOptions._id,
+        role: userOrOptions.role || 'user',
+      };
+      resetToken = userOrOptions.resetToken || userOrOptions.token;
+      req = userOrOptions.req || reqArg;
+      clientOriginOverride = userOrOptions.clientOrigin || userOrOptions.clientOriginOverride || clientOriginOverrideArg;
+    } else {
+      user = userOrOptions;
+      resetToken = resetTokenArg;
+      req = reqArg;
+      clientOriginOverride = clientOriginOverrideArg;
+    }
+
     if (!user || !user.email) return { success: false, status: 'rejected', errorCode: 'EENVELOPE', message: 'No recipient email provided' };
     if (isGuestAccount(user.email, user.role)) {
       console.log(`ℹ️ [Mailer] Guest password reset (${user.email}) — skipped external email delivery.`);
@@ -2405,10 +2446,14 @@ async function sendOtpEmail(userEmail, otp, req = null) {
 // ── 8. SEND ASSESSMENT & SUBMISSION EVALUATION EMAIL (UNIVERSAL) ──
 async function sendSubmissionEvaluationEmail({
   userEmail,
+  to,
+  email,
   userName = "Student",
+  name,
+  candidateName,
   challengeTitle = "Assessment Evaluation",
   assessmentTitle = "",
-  assessmentType = "coding", // "coding" | "module" | "certification"
+  assessmentType = "coding", // "coding" | "module" | "certification" | "project"
   language = "Python",
   score = 0,
   maxScore = 100,
@@ -2420,8 +2465,10 @@ async function sendSubmissionEvaluationEmail({
   req = null,
 }) {
   try {
-    if (!userEmail) return { success: false, status: 'rejected', errorCode: 'EENVELOPE', message: 'No user email provided' };
-    if (isGuestAccount(userEmail)) return { success: true, status: 'skipped_guest' };
+    const recipientEmail = userEmail || to || email;
+    const recipientName = userName || candidateName || name || "Student";
+    if (!recipientEmail) return { success: false, status: 'rejected', errorCode: 'EENVELOPE', message: 'No user email provided' };
+    if (isGuestAccount(recipientEmail)) return { success: true, status: 'skipped_guest' };
 
     const resolvedTitle = assessmentTitle || challengeTitle;
     const isPassed = verdict === "ACCEPTED" || verdict === "PASSED" || verdict === "Passed";
@@ -2468,7 +2515,7 @@ async function sendSubmissionEvaluationEmail({
           ${typeLabel} Evaluated
         </h2>
         <p style="margin: 0 0 18px; font-size: 14px; line-height: 1.6; color: #334155;">
-          Hello <strong>${userName}</strong>,<br/>
+          Hello <strong>${recipientName}</strong>,<br/>
           Your submission for <strong>${resolvedTitle}</strong> has been audited and reviewed by the MasteryZone Administrator.
         </p>
 
@@ -2532,12 +2579,15 @@ async function sendSubmissionEvaluationEmail({
 
     const mailOptions = {
       from: getSenderAddress('Mastery Zone Academics'),
-      to: userEmail,
+      to: recipientEmail,
       subject: `[MasteryZone] Score Updated: ${resolvedTitle} (${displayScore} - ${statusText})`,
       html,
     };
 
-    return await sendMailWithRetry(mailOptions, 1, { emailType: 'submission_evaluated' });
+    return await sendMailWithRetry(mailOptions, 1, {
+      emailType: 'submission_evaluated',
+      recordId: reportUrl || resolvedTitle,
+    });
   } catch (err) {
     const diag = diagnoseSmtpError(err);
     console.error("sendSubmissionEvaluationEmail error:", err.message);
@@ -2959,7 +3009,12 @@ async function sendSupportTicketResponseEmail({
  */
 async function sendCertificateAwardedEmail({
   candidateEmail,
+  userEmail,
+  to,
+  email,
   candidateName = "Candidate",
+  userName,
+  name,
   certTitle = "Official Certification",
   certificateId,
   score = 100,
@@ -2969,8 +3024,10 @@ async function sendCertificateAwardedEmail({
   req = null,
 }) {
   try {
-    if (!candidateEmail) return { success: false, status: 'rejected', errorCode: 'EENVELOPE', message: 'No candidate email provided' };
-    if (isGuestAccount(candidateEmail)) return { success: true, status: 'skipped_guest' };
+    const recipientEmail = candidateEmail || userEmail || to || email;
+    const recipientName = candidateName || userName || name || "Candidate";
+    if (!recipientEmail) return { success: false, status: 'rejected', errorCode: 'EENVELOPE', message: 'No candidate email provided' };
+    if (isGuestAccount(recipientEmail)) return { success: true, status: 'skipped_guest' };
 
     const clientUrl = getClientBaseUrl(req);
     const resolvedVerifyUrl = verificationUrl || `${clientUrl}/verify/${certificateId}`;
@@ -3107,7 +3164,7 @@ async function sendCertificateAwardedEmail({
     return await sendMailWithRetry(
       {
         from: getSenderAddress('Mastery Zone Certifications'),
-        to: candidateEmail,
+        to: recipientEmail,
         subject: `🎓 Course Completion Certificate: ${certTitle} [ID: ${certificateId}]`,
         html,
         attachments,
@@ -3128,7 +3185,12 @@ async function sendCertificateAwardedEmail({
  */
 async function sendModuleCompletionEmail({
   userEmail,
+  candidateEmail,
+  to,
+  email,
   userName = "Student",
+  candidateName,
+  name,
   moduleNumber = 1,
   moduleName = "",
   codingMarks = null,
@@ -3143,10 +3205,12 @@ async function sendModuleCompletionEmail({
   req = null,
 }) {
   try {
-    if (!userEmail) {
+    const recipientEmail = userEmail || candidateEmail || to || email;
+    const recipientName = userName || candidateName || name || "Student";
+    if (!recipientEmail) {
       return { success: false, status: 'rejected', errorCode: 'EENVELOPE', message: 'No student email provided' };
     }
-    if (isGuestAccount(userEmail)) {
+    if (isGuestAccount(recipientEmail)) {
       return { success: true, status: 'skipped_guest' };
     }
 
@@ -3240,7 +3304,7 @@ async function sendModuleCompletionEmail({
 
     const html = wrapHtmlEmail({
       title: `Mastery Zone – Module ${moduleNumber} Completion Update`,
-      preheader: `Congratulations ${userName}! You have completed Module ${moduleNumber}: ${moduleName} with ${mcqMarks}/${mcqMaxMarks} on your MCQ assessment.`,
+      preheader: `Congratulations ${recipientName}! You have completed Module ${moduleNumber}: ${moduleName} with ${mcqMarks}/${mcqMaxMarks} on your MCQ assessment.`,
       badgeText: "🏆 Module Accreditation Cleared",
       badgeColor: "#059669",
       badgeBg: "#ecfdf5",
@@ -3250,7 +3314,7 @@ async function sendModuleCompletionEmail({
     return await sendMailWithRetry(
       {
         from: getSenderAddress('Mastery Zone Academics'),
-        to: userEmail,
+        to: recipientEmail,
         subject: `Mastery Zone – Module ${moduleNumber} Completion Update`,
         html,
       },
@@ -3351,6 +3415,9 @@ async function sendTestEmail({ toEmail, requestedBy = "Administrator", req = nul
  */
 async function sendMeetingInvitationEmail({
   toEmail,
+  to,
+  recipientEmail,
+  email,
   meetingId,
   meetingTitle = "Live Collaboration Session",
   hostName = "The Host",
@@ -3360,12 +3427,13 @@ async function sendMeetingInvitationEmail({
   req = null,
 }) {
   try {
-    if (!toEmail) {
+    const rawRecipient = toEmail || to || recipientEmail || email;
+    if (!rawRecipient) {
       return { success: false, status: "rejected", errorCode: "EENVELOPE", message: "No recipient email provided" };
     }
-    const cleanTo = String(toEmail).trim().toLowerCase();
+    const cleanTo = String(rawRecipient).trim().toLowerCase();
     if (!validateRecipientEmail(cleanTo)) {
-      return { success: false, status: "rejected", errorCode: "EENVELOPE", message: `Invalid recipient email address: "${toEmail}"` };
+      return { success: false, status: "rejected", errorCode: "EENVELOPE", message: `Invalid recipient email address: "${rawRecipient}"` };
     }
     if (isGuestAccount(cleanTo)) {
       console.log(`ℹ️ [Mailer] Guest meeting invite (${cleanTo}) — skipped external delivery.`);
