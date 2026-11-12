@@ -1545,123 +1545,568 @@
 }
 
 /* =========================================================================
-   DARK THEME COMPREHENSIVE SUPPORT
+   DARK THEME COMPREHENSIVE SUPPORT — OBSIDIAN PALETTE WITH HIGH CONTRAST
    ========================================================================= */
-.mz-theme-dark .mz-report-root {
+.mz-theme-dark .mz-report-root,
+[data-theme="dark"] .mz-report-root {
   background:
     radial-gradient(circle at 12% 0%, rgba(99, 102, 241, 0.12) 0%, transparent 42%),
     radial-gradient(circle at 88% 4%, rgba(124, 58, 237, 0.10) 0%, transparent 38%),
-    var(--mz-bg-primary, #090d16);
-  color: var(--mz-text-primary, #f1f5f9);
+    #000000;
+  color: #f4f4f6;
 }
 
+/* Cards, Modals, Panels */
 .mz-theme-dark .mz-report-card,
+[data-theme="dark"] .mz-report-card,
 .mz-theme-dark .mz-report-score-card,
+[data-theme="dark"] .mz-report-score-card,
 .mz-theme-dark .mz-breakdown-card,
+[data-theme="dark"] .mz-breakdown-card,
 .mz-theme-dark .mz-question-card,
+[data-theme="dark"] .mz-question-card,
 .mz-theme-dark .mz-q-nav-box,
+[data-theme="dark"] .mz-q-nav-box,
 .mz-theme-dark .mz-security-status-card,
+[data-theme="dark"] .mz-security-status-card,
 .mz-theme-dark .mz-event-timeline-card,
+[data-theme="dark"] .mz-event-timeline-card,
 .mz-theme-dark .mz-code-fullscreen-content,
-.mz-theme-dark .mz-questions-main-panel {
-  background: var(--mz-surface, #0f172a);
-  border-color: var(--mz-border, #1e293b);
-  color: var(--mz-text-primary, #f1f5f9);
-  box-shadow: 0 8px 28px -6px rgba(0, 0, 0, 0.45);
+[data-theme="dark"] .mz-code-fullscreen-content,
+.mz-theme-dark .mz-questions-main-panel,
+[data-theme="dark"] .mz-questions-main-panel,
+.mz-theme-dark .mz-q-navigator-sidebar,
+[data-theme="dark"] .mz-q-navigator-sidebar,
+.mz-theme-dark .mz-code-fullscreen-modal,
+[data-theme="dark"] .mz-code-fullscreen-modal {
+  background: #0c0d12 !important;
+  border-color: #20222a !important;
+  color: #f4f4f6 !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6) !important;
+}
+
+/* Top Breadcrumbs & Chips */
+.mz-theme-dark .mz-report-breadcrumbs,
+[data-theme="dark"] .mz-report-breadcrumbs {
+  color: #8e8e99 !important;
 }
 
 .mz-theme-dark .mz-breadcrumb-current,
+[data-theme="dark"] .mz-breadcrumb-current,
 .mz-theme-dark .mz-report-title-lg,
+[data-theme="dark"] .mz-report-title-lg,
 .mz-theme-dark .mz-hero-meta-val,
+[data-theme="dark"] .mz-hero-meta-val,
 .mz-theme-dark .mz-grade-title,
+[data-theme="dark"] .mz-grade-title,
 .mz-theme-dark .mz-stat-metric-val,
+[data-theme="dark"] .mz-stat-metric-val,
 .mz-theme-dark .mz-breakdown-card-title,
+[data-theme="dark"] .mz-breakdown-card-title,
 .mz-theme-dark .mz-timeline-event-title,
+[data-theme="dark"] .mz-timeline-event-title,
 .mz-theme-dark .mz-question-card-title,
+[data-theme="dark"] .mz-question-card-title,
 .mz-theme-dark .mz-q-detail-title,
-.mz-theme-dark .mz-q-spec-cell-val {
-  color: var(--mz-text-primary, #f1f5f9);
+[data-theme="dark"] .mz-q-detail-title,
+.mz-theme-dark .mz-q-spec-cell-val,
+[data-theme="dark"] .mz-q-spec-cell-val,
+.mz-theme-dark .mz-q-title-text,
+[data-theme="dark"] .mz-q-title-text,
+.mz-theme-dark .mz-q-nav-title,
+[data-theme="dark"] .mz-q-nav-title,
+.mz-theme-dark .mz-report-code-lang,
+[data-theme="dark"] .mz-report-code-lang {
+  color: #f4f4f6 !important;
 }
 
 .mz-theme-dark .mz-hero-meta-lbl,
+[data-theme="dark"] .mz-hero-meta-lbl,
 .mz-theme-dark .mz-report-desc-sub,
+[data-theme="dark"] .mz-report-desc-sub,
 .mz-theme-dark .mz-stat-metric-lbl,
+[data-theme="dark"] .mz-stat-metric-lbl,
 .mz-theme-dark .mz-grade-subtitle,
+[data-theme="dark"] .mz-grade-subtitle,
 .mz-theme-dark .mz-hero-meta-val-muted,
+[data-theme="dark"] .mz-hero-meta-val-muted,
 .mz-theme-dark .mz-timeline-event-desc,
+[data-theme="dark"] .mz-timeline-event-desc,
 .mz-theme-dark .mz-q-spec-cell-lbl,
+[data-theme="dark"] .mz-q-spec-cell-lbl,
 .mz-theme-dark .mz-breadcrumb-sep,
-.mz-theme-dark .mz-feedback-list {
-  color: var(--mz-text-secondary, #94a3b8);
+[data-theme="dark"] .mz-breadcrumb-sep,
+.mz-theme-dark .mz-feedback-list,
+[data-theme="dark"] .mz-feedback-list,
+.mz-theme-dark .mz-q-time-badge,
+[data-theme="dark"] .mz-q-time-badge,
+.mz-theme-dark .mz-strip-label,
+[data-theme="dark"] .mz-strip-label,
+.mz-theme-dark .mz-strip-sub,
+[data-theme="dark"] .mz-strip-sub,
+.mz-theme-dark .mz-score-mini-lbl,
+[data-theme="dark"] .mz-score-mini-lbl,
+.mz-theme-dark .mz-score-ring-pct,
+[data-theme="dark"] .mz-score-ring-pct,
+.mz-theme-dark .mz-q-section-title,
+[data-theme="dark"] .mz-q-section-title,
+.mz-theme-dark .mz-q-panel-label,
+[data-theme="dark"] .mz-q-panel-label {
+  color: #8e8e99 !important;
+}
+
+.mz-theme-dark .mz-q-desc-p,
+[data-theme="dark"] .mz-q-desc-p,
+.mz-theme-dark .mz-q-nav-filter-item,
+[data-theme="dark"] .mz-q-nav-filter-item {
+  color: #d4d4d8 !important;
+}
+
+/* Hero Meta Sub-Grid */
+.mz-theme-dark .mz-hero-meta-grid-6,
+[data-theme="dark"] .mz-hero-meta-grid-6 {
+  background: #07080b !important;
+  border-color: #20222a !important;
 }
 
 .mz-theme-dark .mz-hero-meta-cell,
-.mz-theme-dark .mz-q-spec-grid,
-.mz-theme-dark .mz-stat-metric-box,
-.mz-theme-dark .mz-score-metric-tile,
-.mz-theme-dark .mz-audit-score-tile,
+[data-theme="dark"] .mz-hero-meta-cell {
+  background: #0c0d12 !important;
+  border-color: #1a1b24 !important;
+  color: #f4f4f6 !important;
+}
+
+.mz-theme-dark .mz-hero-meta-icon,
+[data-theme="dark"] .mz-hero-meta-icon {
+  background: rgba(99, 102, 241, 0.16) !important;
+  color: #818cf8 !important;
+}
+
+.mz-theme-dark .mz-hero-meta-icon.purple,
+[data-theme="dark"] .mz-hero-meta-icon.purple {
+  background: rgba(139, 92, 246, 0.16) !important;
+  color: #a78bfa !important;
+}
+
+.mz-theme-dark .mz-hero-meta-icon.blue,
+[data-theme="dark"] .mz-hero-meta-icon.blue {
+  background: rgba(37, 99, 235, 0.16) !important;
+  color: #60a5fa !important;
+}
+
+/* Session Chip */
 .mz-theme-dark .mz-session-chip,
-.mz-theme-dark .mz-testcase-pill,
-.mz-theme-dark .mz-code-snippet-box,
-.mz-theme-dark .mz-testcase-card {
-  background: var(--mz-bg-secondary, #131b2e);
-  border-color: var(--mz-border, #1e293b);
-  color: var(--mz-text-primary, #f1f5f9);
+[data-theme="dark"] .mz-session-chip {
+  background: #121319 !important;
+  border-color: #20222a !important;
+  color: #d4d4d8 !important;
 }
 
-.mz-theme-dark .mz-session-chip:hover {
-  background: var(--mz-surface-hover, #1e293b);
-  border-color: #6366f1;
+.mz-theme-dark .mz-session-chip:hover,
+[data-theme="dark"] .mz-session-chip:hover {
+  background: #1e293b !important;
+  border-color: #6366f1 !important;
+  color: #ffffff !important;
 }
 
-.mz-theme-dark .mz-report-tab-btn {
-  background: var(--mz-surface, #0f172a);
-  border-color: var(--mz-border, #1e293b);
-  color: var(--mz-text-secondary, #94a3b8);
+/* Score Overview & Circular Ring */
+.mz-theme-dark .mz-score-ring-inner-disc,
+[data-theme="dark"] .mz-score-ring-inner-disc {
+  fill: #0c0d12 !important;
 }
 
-.mz-theme-dark .mz-report-tab-btn:hover {
-  background: var(--mz-surface-hover, #1e293b);
-  color: var(--mz-text-primary, #f1f5f9);
+.mz-theme-dark .mz-score-ring-bg,
+[data-theme="dark"] .mz-score-ring-bg {
+  stroke: #1a1b24 !important;
 }
 
-.mz-theme-dark .mz-report-tab-btn.active {
-  background: #6366f1;
-  color: #ffffff;
-  border-color: #6366f1;
+.mz-theme-dark .mz-score-ring-val,
+[data-theme="dark"] .mz-score-ring-val,
+.mz-theme-dark .mz-score-ring-pct-symbol,
+[data-theme="dark"] .mz-score-ring-pct-symbol {
+  color: #f4f4f6 !important;
 }
 
+.mz-theme-dark .mz-score-mini-card,
+[data-theme="dark"] .mz-score-mini-card {
+  background: #121319 !important;
+  border-color: #20222a !important;
+}
+
+.mz-theme-dark .mz-score-mini-card.grade-pass,
+[data-theme="dark"] .mz-score-mini-card.grade-pass {
+  background: rgba(34, 197, 94, 0.12) !important;
+  border-color: rgba(34, 197, 94, 0.3) !important;
+}
+
+.mz-theme-dark .mz-score-mini-card.grade-partial,
+[data-theme="dark"] .mz-score-mini-card.grade-partial {
+  background: rgba(245, 158, 11, 0.12) !important;
+  border-color: rgba(245, 158, 11, 0.3) !important;
+}
+
+.mz-theme-dark .mz-score-mini-card.grade-fail,
+[data-theme="dark"] .mz-score-mini-card.grade-fail {
+  background: rgba(239, 68, 68, 0.12) !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+}
+
+.mz-theme-dark .mz-score-mini-val,
+[data-theme="dark"] .mz-score-mini-val {
+  color: #f4f4f6 !important;
+}
+
+/* Buttons */
 .mz-theme-dark .mz-report-btn-secondary,
-.mz-theme-dark .mz-q-filter-btn {
-  background: var(--mz-surface, #0f172a);
-  border-color: var(--mz-border, #1e293b);
-  color: var(--mz-text-primary, #f1f5f9);
+[data-theme="dark"] .mz-report-btn-secondary,
+.mz-theme-dark .mz-q-filter-btn,
+[data-theme="dark"] .mz-q-filter-btn {
+  background: #121319 !important;
+  border-color: #232530 !important;
+  color: #f4f4f6 !important;
 }
 
 .mz-theme-dark .mz-report-btn-secondary:hover,
-.mz-theme-dark .mz-q-filter-btn:hover {
-  background: var(--mz-surface-hover, #1e293b);
+[data-theme="dark"] .mz-report-btn-secondary:hover,
+.mz-theme-dark .mz-q-filter-btn:hover,
+[data-theme="dark"] .mz-q-filter-btn:hover {
+  background: #1a1b24 !important;
+  border-color: #3b82f6 !important;
 }
 
-.mz-theme-dark .mz-q-nav-item {
-  background: var(--mz-bg-secondary, #131b2e);
-  border-color: var(--mz-border, #1e293b);
-  color: var(--mz-text-primary, #f1f5f9);
+/* Analytics Strip Cards */
+.mz-theme-dark .mz-analytics-strip-card,
+[data-theme="dark"] .mz-analytics-strip-card {
+  background: #0c0d12 !important;
+  border-color: #20222a !important;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4) !important;
+}
+
+.mz-theme-dark .mz-analytics-strip-card:hover,
+[data-theme="dark"] .mz-analytics-strip-card:hover {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6) !important;
+}
+
+.mz-theme-dark .mz-strip-val,
+[data-theme="dark"] .mz-strip-val {
+  color: #f4f4f6 !important;
+}
+
+/* Navigation Tabs */
+.mz-theme-dark .mz-report-pill-tab,
+[data-theme="dark"] .mz-report-pill-tab {
+  background: #0c0d12 !important;
+  border-color: #20222a !important;
+  color: #8e8e99 !important;
+}
+
+.mz-theme-dark .mz-report-pill-tab:hover,
+[data-theme="dark"] .mz-report-pill-tab:hover {
+  background: #15161f !important;
+  color: #f4f4f6 !important;
+  border-color: #3b82f6 !important;
+}
+
+.mz-theme-dark .mz-report-pill-tab.active,
+[data-theme="dark"] .mz-report-pill-tab.active {
+  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%) !important;
+  color: #ffffff !important;
+  border-color: transparent !important;
+  box-shadow: 0 4px 16px rgba(79, 70, 229, 0.45) !important;
+}
+
+/* Question Navigator Sidebar */
+.mz-theme-dark .mz-q-nav-filter-item:hover,
+[data-theme="dark"] .mz-q-nav-filter-item:hover {
+  background: #14151e !important;
+  color: #f4f4f6 !important;
+}
+
+.mz-theme-dark .mz-q-nav-filter-item.active,
+[data-theme="dark"] .mz-q-nav-filter-item.active {
+  background: rgba(99, 102, 241, 0.16) !important;
+  border-color: rgba(99, 102, 241, 0.35) !important;
+  color: #818cf8 !important;
+}
+
+.mz-theme-dark .mz-q-jump-grid,
+[data-theme="dark"] .mz-q-jump-grid {
+  border-color: #1a1b24 !important;
+}
+
+.mz-theme-dark .mz-q-jump-pill,
+[data-theme="dark"] .mz-q-jump-pill {
+  background: #121319 !important;
+  border-color: #20222a !important;
+  color: #a1a1aa !important;
+}
+
+.mz-theme-dark .mz-q-jump-pill:hover,
+[data-theme="dark"] .mz-q-jump-pill:hover {
+  border-color: #6366f1 !important;
+  color: #ffffff !important;
+}
+
+.mz-theme-dark .mz-q-jump-pill.passed,
+[data-theme="dark"] .mz-q-jump-pill.passed {
+  background: rgba(34, 197, 94, 0.16) !important;
+  border-color: rgba(34, 197, 94, 0.35) !important;
+  color: #4ade80 !important;
+}
+
+.mz-theme-dark .mz-q-jump-pill.partial,
+[data-theme="dark"] .mz-q-jump-pill.partial {
+  background: rgba(245, 158, 11, 0.16) !important;
+  border-color: rgba(245, 158, 11, 0.35) !important;
+  color: #fbbf24 !important;
+}
+
+.mz-theme-dark .mz-q-jump-pill.failed,
+[data-theme="dark"] .mz-q-jump-pill.failed {
+  background: rgba(239, 68, 68, 0.16) !important;
+  border-color: rgba(239, 68, 68, 0.35) !important;
+  color: #f87171 !important;
+}
+
+.mz-theme-dark .mz-laurel-callout-card,
+[data-theme="dark"] .mz-laurel-callout-card {
+  background: #090a0e !important;
+  border-color: #20222a !important;
+}
+
+.mz-theme-dark .mz-laurel-title,
+[data-theme="dark"] .mz-laurel-title,
+.mz-theme-dark .mz-laurel-sub strong,
+[data-theme="dark"] .mz-laurel-sub strong {
+  color: #f4f4f6 !important;
+}
+
+.mz-theme-dark .mz-laurel-sub,
+[data-theme="dark"] .mz-laurel-sub {
+  color: #8e8e99 !important;
+}
+
+/* Questions Main Panel */
+.mz-theme-dark .mz-questions-panel-toolbar,
+[data-theme="dark"] .mz-questions-panel-toolbar,
+.mz-theme-dark .mz-question-card-body,
+[data-theme="dark"] .mz-question-card-body {
+  border-color: #1a1b24 !important;
 }
 
 .mz-theme-dark .mz-q-search-input,
-.mz-theme-dark .mz-q-search-dropdown {
-  background: var(--mz-surface, #0f172a);
-  border-color: var(--mz-border, #1e293b);
-  color: var(--mz-text-primary, #f1f5f9);
+[data-theme="dark"] .mz-q-search-input {
+  background: #090a0e !important;
+  border-color: #20222a !important;
+  color: #f4f4f6 !important;
 }
 
-.mz-theme-dark .mz-score-ring-inner-disc {
-  fill: var(--mz-surface, #0f172a);
+.mz-theme-dark .mz-q-search-input:focus,
+[data-theme="dark"] .mz-q-search-input:focus {
+  border-color: #3b82f6 !important;
+  background: #0e0f15 !important;
 }
 
-.mz-theme-dark .mz-score-ring-bg {
-  stroke: var(--mz-border, #1e293b);
+.mz-theme-dark .mz-expand-all-btn,
+[data-theme="dark"] .mz-expand-all-btn {
+  color: #818cf8 !important;
+}
+
+.mz-theme-dark .mz-expand-all-btn:hover,
+[data-theme="dark"] .mz-expand-all-btn:hover {
+  background: #14151e !important;
+}
+
+.mz-theme-dark .mz-question-card-header,
+[data-theme="dark"] .mz-question-card-header {
+  background: #0c0d12 !important;
+}
+
+.mz-theme-dark .mz-question-card:hover,
+[data-theme="dark"] .mz-question-card:hover {
+  border-color: #3b82f6 !important;
+}
+
+.mz-theme-dark .mz-q-marks-pill,
+[data-theme="dark"] .mz-q-marks-pill {
+  background: #121319 !important;
+  border-color: #20222a !important;
+  color: #d4d4d8 !important;
+}
+
+/* 3-Column Answer / Review Grid */
+.mz-theme-dark .mz-q-answer-panel,
+[data-theme="dark"] .mz-q-answer-panel {
+  background: #090a0e !important;
+  border-color: #20222a !important;
+}
+
+.mz-theme-dark .mz-q-answer-box,
+[data-theme="dark"] .mz-q-answer-box {
+  background: #121319 !important;
+  border-color: #262938 !important;
+  color: #f4f4f6 !important;
+}
+
+.mz-theme-dark .mz-q-answer-box.correct,
+[data-theme="dark"] .mz-q-answer-box.correct {
+  background: rgba(34, 197, 94, 0.12) !important;
+  border-color: rgba(34, 197, 94, 0.4) !important;
+  color: #4ade80 !important;
+}
+
+.mz-theme-dark .mz-q-answer-box.wrong,
+[data-theme="dark"] .mz-q-answer-box.wrong {
+  background: rgba(239, 68, 68, 0.12) !important;
+  border-color: rgba(239, 68, 68, 0.4) !important;
+  color: #f87171 !important;
+}
+
+.mz-theme-dark .mz-q-answer-panel.explanation-green,
+[data-theme="dark"] .mz-q-answer-panel.explanation-green {
+  background: rgba(34, 197, 94, 0.08) !important;
+  border-color: rgba(34, 197, 94, 0.25) !important;
+}
+
+.mz-theme-dark .mz-q-answer-panel.explanation-amber,
+[data-theme="dark"] .mz-q-answer-panel.explanation-amber {
+  background: rgba(245, 158, 11, 0.08) !important;
+  border-color: rgba(245, 158, 11, 0.25) !important;
+}
+
+.mz-theme-dark .mz-q-answer-panel.explanation-red,
+[data-theme="dark"] .mz-q-answer-panel.explanation-red {
+  background: rgba(239, 68, 68, 0.08) !important;
+  border-color: rgba(239, 68, 68, 0.25) !important;
+}
+
+/* Problem Statement & Constraints */
+.mz-theme-dark .mz-q-desc-box,
+[data-theme="dark"] .mz-q-desc-box {
+  background: #090a0e !important;
+  border-color: #20222a !important;
+}
+
+/* Code Viewer & Header */
+.mz-theme-dark .mz-report-code-wrap,
+[data-theme="dark"] .mz-report-code-wrap {
+  background: #090a0e !important;
+  border-color: #20222a !important;
+}
+
+.mz-theme-dark .mz-report-code-header,
+[data-theme="dark"] .mz-report-code-header {
+  background: #0c0d12 !important;
+  border-color: #1a1b24 !important;
+}
+
+.mz-theme-dark .mz-report-copy-btn,
+[data-theme="dark"] .mz-report-copy-btn {
+  background: #121319 !important;
+  border-color: #262938 !important;
+  color: #d4d4d8 !important;
+}
+
+.mz-theme-dark .mz-report-copy-btn:hover,
+[data-theme="dark"] .mz-report-copy-btn:hover {
+  background: #1a1b24 !important;
+  color: #ffffff !important;
+  border-color: #3b82f6 !important;
+}
+
+.mz-theme-dark .mz-empty-code-banner,
+[data-theme="dark"] .mz-empty-code-banner {
+  background: rgba(245, 158, 11, 0.12) !important;
+  border-color: rgba(245, 158, 11, 0.3) !important;
+  color: #fbbf24 !important;
+}
+
+/* Test Cases Table */
+.mz-theme-dark .mz-report-test-table th,
+[data-theme="dark"] .mz-report-test-table th {
+  background: #090a0e !important;
+  color: #8e8e99 !important;
+  border-color: #1a1b24 !important;
+}
+
+.mz-theme-dark .mz-report-test-table td,
+[data-theme="dark"] .mz-report-test-table td {
+  color: #d4d4d8 !important;
+  border-color: #171820 !important;
+}
+
+.mz-theme-dark .mz-report-test-table tbody tr:hover td,
+[data-theme="dark"] .mz-report-test-table tbody tr:hover td {
+  background: #121319 !important;
+}
+
+/* Status Badges */
+.mz-theme-dark .mz-report-pill.pass,
+[data-theme="dark"] .mz-report-pill.pass {
+  background: rgba(34, 197, 94, 0.16) !important;
+  border-color: rgba(34, 197, 94, 0.35) !important;
+  color: #4ade80 !important;
+}
+
+.mz-theme-dark .mz-report-pill.partial,
+[data-theme="dark"] .mz-report-pill.partial {
+  background: rgba(245, 158, 11, 0.16) !important;
+  border-color: rgba(245, 158, 11, 0.35) !important;
+  color: #fbbf24 !important;
+}
+
+.mz-theme-dark .mz-report-pill.fail,
+[data-theme="dark"] .mz-report-pill.fail {
+  background: rgba(239, 68, 68, 0.16) !important;
+  border-color: rgba(239, 68, 68, 0.35) !important;
+  color: #f87171 !important;
+}
+
+.mz-theme-dark .mz-report-pill.proctored,
+[data-theme="dark"] .mz-report-pill.proctored {
+  background: rgba(99, 102, 241, 0.16) !important;
+  border-color: rgba(99, 102, 241, 0.35) !important;
+  color: #818cf8 !important;
+}
+
+.mz-theme-dark .mz-report-pill.readonly,
+[data-theme="dark"] .mz-report-pill.readonly {
+  background: #15161e !important;
+  border-color: #20222a !important;
+  color: #8e8e99 !important;
+}
+
+/* Audit & Telemetry */
+.mz-theme-dark .mz-audit-chances-card,
+[data-theme="dark"] .mz-audit-chances-card {
+  background: #090a0e !important;
+  border-color: #20222a !important;
+}
+
+.mz-theme-dark .mz-chance-pill-dot.preserved,
+[data-theme="dark"] .mz-chance-pill-dot.preserved {
+  background: rgba(34, 197, 94, 0.16) !important;
+  border-color: #22c55e !important;
+  color: #4ade80 !important;
+}
+
+.mz-theme-dark .mz-chance-pill-dot.consumed,
+[data-theme="dark"] .mz-chance-pill-dot.consumed {
+  background: rgba(239, 68, 68, 0.16) !important;
+  border-color: #ef4444 !important;
+  color: #f87171 !important;
+}
+
+.mz-theme-dark .mz-feedback-box,
+[data-theme="dark"] .mz-feedback-box {
+  background: #090a0e !important;
+  border-color: #20222a !important;
+}
+
+.mz-theme-dark .mz-code-fullscreen-body,
+[data-theme="dark"] .mz-code-fullscreen-body {
+  background: #050608 !important;
 }
 
 /* Print Friendly Styles */

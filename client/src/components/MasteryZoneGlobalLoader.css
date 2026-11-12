@@ -170,3 +170,24 @@
     transition: opacity 0.1s ease;
   }
 }
+
+/* Dark Theme Support */
+[data-theme="dark"] .mz-simple-loader-overlay,
+.mz-theme-dark .mz-simple-loader-overlay {
+  background-color: #0f172a;
+}
+
+[data-theme="dark"] .mz-simple-brand-title,
+.mz-theme-dark .mz-simple-brand-title {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .mz-simple-progress-bar-track,
+.mz-theme-dark .mz-simple-progress-bar-track {
+  background-color: #1e293b;
+}
+
+[data-theme="dark"] .mz-simple-status-text,
+.mz-theme-dark .mz-simple-status-text {
+  color: #94a3b8;
+}

@@ -1967,7 +1967,7 @@ const Home = () => {
                 <div style={{ display: "flex", flexDirection: "column", gap: "12px", width: "100%" }}>
                   {/* Row 1: Subject Filter Pills */}
                   <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-                    <span style={{ fontSize: "12px", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px", marginRight: "4px" }}>
+                    <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--mz-text-muted)", textTransform: "uppercase", letterSpacing: "0.5px", marginRight: "4px" }}>
                       Category:
                     </span>
                     {[

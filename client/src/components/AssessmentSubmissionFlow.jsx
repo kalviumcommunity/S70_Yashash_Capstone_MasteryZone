@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "./AssessmentSubmissionFlow.css";
 import EvaluatingResultsLoader from "./EvaluatingResultsLoader";
@@ -28,8 +28,14 @@ export default function AssessmentSubmissionFlow({
   onViewReport = null,
   onRetake = null,
   onReturn = null,
+  autoNavigate = false,
+  autoNavigateDelay = 3,
 }) {
   const navigate = useNavigate();
+  const [isNavigating, setIsNavigating] = useState(false);
+  const [countdown, setCountdown] = useState(
+    autoNavigate ? (typeof autoNavigate === "number" ? autoNavigate : autoNavigateDelay) : null
+  );
 
   const data = summaryData || summary || {};
   const hasScore = data.score !== undefined || data.scoreObtained !== undefined;
@@ -56,12 +62,29 @@ export default function AssessmentSubmissionFlow({
   const targetReportUrl = reportUrl || `/assessment-report/${resolvedSessionId}`;
 
   const handleNavigateToReport = () => {
-    if (typeof onViewReport === "function") {
-      onViewReport();
-    } else {
-      navigate(targetReportUrl, { replace: true });
-    }
+    if (isNavigating) return;
+    setIsNavigating(true);
+    setTimeout(() => {
+      if (typeof onViewReport === "function") {
+        onViewReport();
+      } else {
+        navigate(targetReportUrl, { replace: true });
+      }
+    }, 700);
   };
+
+  // Optional auto-redirect countdown to smooth out workflow from submit to report
+  useEffect(() => {
+    if (stage !== "ready" || countdown === null || isNavigating) return;
+    if (countdown <= 0) {
+      handleNavigateToReport();
+      return;
+    }
+    const timer = setTimeout(() => {
+      setCountdown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [stage, countdown, isNavigating]);
 
   const handleNavigateReturn = () => {
     if (typeof onReturn === "function") {
@@ -72,13 +95,29 @@ export default function AssessmentSubmissionFlow({
   };
 
   // ---------------------------------------------------------------------------
-  // 1. STAGE: PREPARING RESULTS (Professional Dynamic Loading Animation)
+  // 0. STAGE: NAVIGATING TO REPORT (Simple & Good Loading Animation)
+  // ---------------------------------------------------------------------------
+  if (isNavigating) {
+    return (
+      <EvaluatingResultsLoader
+        title={title}
+        assignmentType={assignmentType}
+        mode="navigating"
+        isNavigating={true}
+        subtitle="Opening your official performance report and verified ledger..."
+      />
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // 1. STAGE: PREPARING RESULTS (Simple & Good Loading Animation)
   // ---------------------------------------------------------------------------
   if (stage === "preparing") {
     return (
       <EvaluatingResultsLoader
         title={title}
         assignmentType={assignmentType}
+        mode={assignmentType.toLowerCase().includes("assignment") ? "submitting" : "evaluating"}
       />
     );
   }
@@ -148,16 +187,79 @@ export default function AssessmentSubmissionFlow({
             </div>
           </div>
 
+          {countdown !== null && (
+            <div
+              className="mz-report-autonav-banner"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+                width: "100%",
+                padding: "10px 16px",
+                borderRadius: "10px",
+                background: "rgba(37, 99, 235, 0.08)",
+                border: "1px solid rgba(37, 99, 235, 0.22)",
+                color: "var(--mz-accent-primary, #2563eb)",
+                fontSize: "13px",
+                fontWeight: 600,
+                marginBottom: "16px",
+                boxSizing: "border-box",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span
+                  style={{
+                    width: "8px",
+                    height: "8px",
+                    borderRadius: "50%",
+                    background: "#2563eb",
+                    boxShadow: "0 0 8px rgba(37, 99, 235, 0.7)",
+                    display: "inline-block",
+                  }}
+                />
+                <span>
+                  Navigating to official report in <strong>{countdown}s</strong>...
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCountdown(null)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "var(--mz-text-muted, #64748b)",
+                  fontSize: "12px",
+                  cursor: "pointer",
+                  textDecoration: "underline",
+                  padding: 0,
+                }}
+              >
+                Pause
+              </button>
+            </div>
+          )}
+
           <div className="mz-report-ready-actions">
             <button
               type="button"
               className="mz-view-report-primary-btn"
               onClick={handleNavigateToReport}
+              disabled={isNavigating}
               data-testid="view-assessment-report-btn"
             >
-              <LuFileText size={18} />
-              <span>View Report</span>
-              <LuArrowRight size={18} />
+              {isNavigating ? (
+                <>
+                  <LuRefreshCw size={18} className="mz-spin" />
+                  <span>Loading Report...</span>
+                </>
+              ) : (
+                <>
+                  <LuFileText size={18} />
+                  <span>View Report</span>
+                  <LuArrowRight size={18} />
+                </>
+              )}
             </button>
 
             <div className="mz-report-secondary-actions">

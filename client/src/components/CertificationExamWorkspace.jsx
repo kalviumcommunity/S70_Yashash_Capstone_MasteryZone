@@ -1795,6 +1795,7 @@ export default function CertificationExamWorkspace({
           grade: submissionSuccessData.passed ? "CERTIFIED" : "COMPLETED",
           details: `MCQs: ${submissionSuccessData.mcqScore}/20 • Coding: ${submissionSuccessData.codingScore}/20`,
         }}
+        autoNavigate={true}
         onViewReport={() => {
           navigate(submissionSuccessData.reportUrl, { replace: true });
         }}
