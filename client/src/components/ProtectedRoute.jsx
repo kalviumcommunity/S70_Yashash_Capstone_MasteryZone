@@ -29,11 +29,16 @@ const ProtectedRoute = ({ children }) => {
       }
 
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 7000);
+
         const response = await fetch(`${API_BASE}/auth/me`, {
+          signal: controller.signal,
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
+        clearTimeout(timeoutId);
 
         if (!isMounted) return;
 
@@ -49,13 +54,25 @@ const ProtectedRoute = ({ children }) => {
           clearMasteryZoneStorage();
           setAuthState("unauthenticated");
         } else {
-          // Server error or non-auth status: fail-closed, do not mark authenticated
-          setAuthState("unauthenticated");
+          // Server error (e.g. 500/502/503 during deployment restart):
+          // If valid user exists locally, allow graceful entry rather than deadlocking
+          const cachedUser = localStorage.getItem("user");
+          if (cachedUser) {
+            setAuthState("authenticated");
+          } else {
+            setAuthState("unauthenticated");
+          }
         }
       } catch (err) {
-        // Network failure: fail-closed, do not mark authenticated
-        console.warn("Protected route verification error:", err.message);
-        if (isMounted) setAuthState("unauthenticated");
+        // Network timeout / Render cold start:
+        console.warn("Protected route verification notice:", err.message);
+        if (!isMounted) return;
+        const cachedUser = localStorage.getItem("user");
+        if (cachedUser) {
+          setAuthState("authenticated");
+        } else {
+          setAuthState("unauthenticated");
+        }
       }
     };
 

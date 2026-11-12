@@ -811,6 +811,18 @@ router.post(
         }
         // Broadcast real-time synchronization to Super Admin dashboard
         io.emit("NEW_RECORDING_SAVED", recording);
+
+        // Real-time synchronization to host and participant personal accounts across all active devices
+        if (hostUserId && hostUserId !== "guest") {
+          io.to(`user_${hostUserId}`).emit("RECORDING_SAVED", recording);
+        }
+        if (Array.isArray(participantUserIds)) {
+          participantUserIds.forEach((pId) => {
+            if (pId && pId !== hostUserId && pId !== "guest") {
+              io.to(`user_${pId}`).emit("RECORDING_SAVED", recording);
+            }
+          });
+        }
       }
 
       res.status(201).json({
@@ -899,12 +911,26 @@ router.get("/stream/:filename", async (req, res) => {
       }
     }
 
-    // 4. Stream Partial / Full HTTP Content
+    // 4. Stream Partial / Full HTTP Content (Cross-OS & Safari HTTP 206 / Range support)
     const stat = fs.statSync(filePath);
     const fileSize = stat.size;
     const range = req.headers.range;
     const ext = path.extname(filePath).toLowerCase();
     const contentType = ext === ".mp4" ? "video/mp4" : "video/webm";
+
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Headers", "Range, Authorization, Content-Type");
+    res.setHeader("Access-Control-Expose-Headers", "Content-Range, Accept-Ranges, Content-Length, Content-Type");
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+
+    if (req.method === "HEAD") {
+      res.writeHead(200, {
+        "Accept-Ranges": "bytes",
+        "Content-Length": fileSize,
+        "Content-Type": contentType,
+      });
+      return res.end();
+    }
 
     if (range && fileSize > 0) {
       const parts = range.replace(/bytes=/, "").split("-");
@@ -913,12 +939,19 @@ router.get("/stream/:filename", async (req, res) => {
       const end = parts[1] ? parseInt(parts[1], 10) : Math.min(start + CHUNK_SIZE - 1, fileSize - 1);
 
       if (start >= fileSize) {
-        res.status(416).send(`Requested range not satisfiable: ${start} >= ${fileSize}`);
+        res.status(416).setHeader("Content-Range", `bytes */${fileSize}`).send(`Requested range not satisfiable: ${start} >= ${fileSize}`);
         return;
       }
 
       const chunksize = end - start + 1;
       const file = fs.createReadStream(filePath, { start, end });
+      file.on("error", () => {
+        if (!res.headersSent) res.status(500).end();
+      });
+      req.on("close", () => {
+        file.destroy();
+      });
+
       const head = {
         "Content-Range": `bytes ${start}-${end}/${fileSize}`,
         "Accept-Ranges": "bytes",
@@ -934,7 +967,14 @@ router.get("/stream/:filename", async (req, res) => {
         "Accept-Ranges": "bytes",
       };
       res.writeHead(200, head);
-      fs.createReadStream(filePath).pipe(res);
+      const file = fs.createReadStream(filePath);
+      file.on("error", () => {
+        if (!res.headersSent) res.status(500).end();
+      });
+      req.on("close", () => {
+        file.destroy();
+      });
+      file.pipe(res);
     }
   } catch (streamErr) {
     console.error("Stream error:", streamErr);
@@ -1255,6 +1295,22 @@ router.patch("/:recordingId/rename", authenticateToken, async (req, res) => {
     recording.title = title.trim();
     await recording.save();
 
+    // Broadcast real-time update to host and participants across all active sessions
+    const io = req.app.get("io");
+    if (io) {
+      io.emit("RECORDING_UPDATED", recording);
+      if (recording.hostUserId && recording.hostUserId !== "guest") {
+        io.to(`user_${recording.hostUserId}`).emit("RECORDING_UPDATED", recording);
+      }
+      if (Array.isArray(recording.participantUserIds)) {
+        recording.participantUserIds.forEach((pId) => {
+          if (pId && pId !== String(recording.hostUserId) && pId !== "guest") {
+            io.to(`user_${pId}`).emit("RECORDING_UPDATED", recording);
+          }
+        });
+      }
+    }
+
     res.json({ success: true, message: "Recording renamed", recording });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1305,6 +1361,23 @@ router.delete("/:recordingId", authenticateToken, async (req, res) => {
 
     // Only after physical file is safely removed (or was already missing on disk), remove the MongoDB record
     await Recording.deleteOne({ _id: recording._id });
+
+    // Broadcast real-time deletion to host and participants across all active sessions
+    const io = req.app.get("io");
+    if (io) {
+      const payload = { recordingId: recording.recordingId };
+      io.emit("RECORDING_DELETED", payload);
+      if (recording.hostUserId && recording.hostUserId !== "guest") {
+        io.to(`user_${recording.hostUserId}`).emit("RECORDING_DELETED", payload);
+      }
+      if (Array.isArray(recording.participantUserIds)) {
+        recording.participantUserIds.forEach((pId) => {
+          if (pId && pId !== String(recording.hostUserId) && pId !== "guest") {
+            io.to(`user_${pId}`).emit("RECORDING_DELETED", payload);
+          }
+        });
+      }
+    }
 
     res.json({ success: true, message: "Recording deleted successfully" });
   } catch (err) {

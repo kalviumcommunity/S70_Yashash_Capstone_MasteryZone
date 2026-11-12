@@ -88,12 +88,24 @@ if (authChannel) {
   };
 }
 
+export const isJwtExpired = (token) => {
+  if (!token || typeof token !== "string") return true;
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return false;
+    const base64Url = parts[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const payload = JSON.parse(window.atob(base64));
+    if (!payload.exp) return false;
+    return Date.now() >= payload.exp * 1000;
+  } catch {
+    return false;
+  }
+};
+
 /**
  * Verifies if there is an active session in the current tab or currently running browser context.
- * If this tab has mz_session_active === 'true', it returns true immediately (for page reloads and route changes).
- * If not, it queries other open tabs via BroadcastChannel.
- * If no open tab confirms an active session within timeoutMs, the user has re-entered the webpage after closing it:
- * Stored credentials and tokens are wiped, and it returns false (triggering /login).
+ * If this tab has mz_session_active === 'true' or a valid non-expired JWT, it returns true immediately.
  */
 export const verifyActiveSession = async (timeoutMs = 80) => {
   if (typeof window === "undefined") return false;
@@ -101,7 +113,7 @@ export const verifyActiveSession = async (timeoutMs = 80) => {
   // 1. Current tab already marked with active session (persists across reloads)
   if (sessionStorage.getItem("mz_session_active") === "true") {
     const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-    if (token) return true;
+    if (token && !isJwtExpired(token)) return true;
   }
 
   // 2. If no token exists at all in storage
@@ -111,53 +123,15 @@ export const verifyActiveSession = async (timeoutMs = 80) => {
     return false;
   }
 
-  // 3. Token exists in localStorage, but current tab's sessionStorage does not have mz_session_active.
-  // Query other open tabs to see if a session is currently active in another tab of this browser.
-  if (authChannel) {
-    const isOtherTabActive = await new Promise((resolve) => {
-      let resolved = false;
-
-      const messageListener = (event) => {
-        if (event.data?.type === "MZ_SESSION_CONFIRMED" && event.data.token) {
-          resolved = true;
-          try {
-            sessionStorage.setItem("mz_session_active", "true");
-            if (event.data.token) {
-              sessionStorage.setItem("token", event.data.token);
-              localStorage.setItem("token", event.data.token);
-            }
-            if (event.data.user) {
-              sessionStorage.setItem("user", typeof event.data.user === "string" ? event.data.user : JSON.stringify(event.data.user));
-              localStorage.setItem("user", typeof event.data.user === "string" ? event.data.user : JSON.stringify(event.data.user));
-            }
-          } catch {}
-          if (authChannel) {
-            authChannel.removeEventListener("message", messageListener);
-          }
-          resolve(true);
-        }
-      };
-
-      authChannel.addEventListener("message", messageListener);
-      authChannel.postMessage({ type: "MZ_CHECK_SESSION" });
-
-      setTimeout(() => {
-        if (!resolved) {
-          if (authChannel) {
-            authChannel.removeEventListener("message", messageListener);
-          }
-          resolve(false);
-        }
-      }, timeoutMs);
-    });
-
-    if (isOtherTabActive) {
-      return true;
-    }
+  // 3. Valid non-expired JWT token exists in storage: keep session active across re-opens & devices
+  if (!isJwtExpired(localToken)) {
+    try {
+      sessionStorage.setItem("mz_session_active", "true");
+    } catch {}
+    return true;
   }
 
-  // 4. No active session confirmed — user re-entered the webpage after closing!
-  // Purge all stored tokens and user details so they are not remembered.
+  // 4. Token exists but is expired
   clearMasteryZoneStorage();
   return false;
 };

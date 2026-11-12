@@ -754,41 +754,53 @@ export default function MasteryZoneLiveMeeting({
       let cameraAvailable = false;
       let micAvailable = false;
 
+      const withTimeout = (promise, ms = 4000) =>
+        Promise.race([
+          promise,
+          new Promise((_, reject) => setTimeout(() => reject(new Error("Media acquisition timeout")), ms)),
+        ]);
+
       if (navigator?.mediaDevices?.getUserMedia) {
         // Strategy 1: Ideal 720p constraints (reliable on modern laptops & phones)
         try {
-          stream = await navigator.mediaDevices.getUserMedia({
-            video: { width: { ideal: 1280 }, height: { ideal: 720 } },
-            audio: true,
-          });
+          stream = await withTimeout(
+            navigator.mediaDevices.getUserMedia({
+              video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+              audio: true,
+            }),
+            3500
+          );
           cameraAvailable = stream.getVideoTracks().length > 0;
           micAvailable = stream.getAudioTracks().length > 0;
         } catch (combErr) {
-          console.warn("720p getUserMedia rejected, falling back to simple { video: true, audio: true }:", combErr);
+          console.warn("720p getUserMedia rejected or timed out, trying simple constraints:", combErr.message);
           // Strategy 2: Simple constraints
           try {
-            stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            stream = await withTimeout(
+              navigator.mediaDevices.getUserMedia({ video: true, audio: true }),
+              3000
+            );
             cameraAvailable = stream.getVideoTracks().length > 0;
             micAvailable = stream.getAudioTracks().length > 0;
           } catch (simpleErr) {
-            console.warn("Simple getUserMedia rejected, acquiring video and audio separately:", simpleErr);
+            console.warn("Simple getUserMedia rejected, acquiring video and audio separately:", simpleErr.message);
             // Strategy 3: Acquire video and audio independently
             let vTrack = null;
             let aTrack = null;
             try {
-              const vStream = await navigator.mediaDevices.getUserMedia({ video: true });
+              const vStream = await withTimeout(navigator.mediaDevices.getUserMedia({ video: true }), 2500);
               vTrack = vStream.getVideoTracks()[0];
               if (vTrack) cameraAvailable = true;
             } catch (ve) {
-              console.warn("Independent camera acquisition failed:", ve);
+              console.warn("Independent camera acquisition failed:", ve.message);
             }
 
             try {
-              const aStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+              const aStream = await withTimeout(navigator.mediaDevices.getUserMedia({ audio: true }), 2500);
               aTrack = aStream.getAudioTracks()[0];
               if (aTrack) micAvailable = true;
             } catch (ae) {
-              console.warn("Independent mic acquisition failed:", ae);
+              console.warn("Independent mic acquisition failed:", ae.message);
             }
 
             if (vTrack || aTrack) {
@@ -1740,9 +1752,10 @@ export default function MasteryZoneLiveMeeting({
         }
       } catch (rawErr) {
         // Method 2: Resilient streaming multipart/form-data fallback (No Base64 buffering)
+        const ext = (blob.type && blob.type.includes("mp4")) || (activeMimeType && activeMimeType.includes("mp4")) ? "mp4" : "webm";
         try {
           const formData = new FormData();
-          formData.append("file", blob, `recording_${meetingId}.webm`);
+          formData.append("file", blob, `recording_${meetingId}.${ext}`);
           formData.append("meetingId", meetingId);
           formData.append("title", meetingTitle);
           formData.append("durationSeconds", String(finalDuration));
@@ -1758,7 +1771,7 @@ export default function MasteryZoneLiveMeeting({
           });
         } catch {
           const formData = new FormData();
-          formData.append("file", blob, `recording_${meetingId}.webm`);
+          formData.append("file", blob, `recording_${meetingId}.${ext}`);
           formData.append("meetingId", meetingId);
           formData.append("title", meetingTitle);
           formData.append("durationSeconds", String(finalDuration));
