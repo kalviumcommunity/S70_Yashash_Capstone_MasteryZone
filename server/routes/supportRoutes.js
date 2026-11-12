@@ -90,7 +90,7 @@ router.post("/upload", authenticateToken, async (req, res) => {
 
     await fs.promises.writeFile(filePath, buffer);
 
-    const fileUrl = `/uploads/support_attachments/${uniqueFileName}`;
+    const fileUrl = `/api/support/attachments/${uniqueFileName}`;
     res.status(200).json({
       success: true,
       attachment: {
@@ -158,7 +158,8 @@ router.get("/attachments/:filename", async (req, res) => {
       }
     }
 
-    res.sendFile(filePath);
+    res.setHeader("Content-Disposition", "inline");
+    return res.sendFile(filePath);
   } catch (err) {
     res.status(500).json({ success: false, message: "Error retrieving attachment", error: err.message });
   }

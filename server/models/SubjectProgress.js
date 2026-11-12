@@ -48,6 +48,10 @@ const subjectProgressSchema = new mongoose.Schema(
           assessmentPassedAt: { type: Date },
           bestScore: { type: Number, default: 0 },
           attemptsCount: { type: Number, default: 0 },
+          isCompleted: { type: Boolean, default: false },
+          status: { type: String, default: "in_progress" },
+          moduleCompletionEmailSent: { type: Boolean, default: false },
+          passedAt: { type: Date },
         },
         { _id: false }
       ),

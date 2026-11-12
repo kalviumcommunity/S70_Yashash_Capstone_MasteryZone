@@ -303,10 +303,16 @@ export default function SubjectCurriculumView({
           const isStudyDone = Boolean(module.isStudied);
           const isAssignmentDone = Boolean(module.assignmentPassed || module.exercisePassed);
           const isAssessmentDone = Boolean(module.assessmentPassed);
+          const isCutoffCleared = Boolean(
+            (module.assessmentPassed && (module.bestScore == null || module.bestScore >= 80)) ||
+            (module.bestScore != null && module.bestScore >= 80) ||
+            module.moduleCompletionEmailSent
+          );
 
           const isPassed = Boolean(
             module.isCompleted ||
             module.status === "completed" ||
+            isCutoffCleared ||
             (isAssignmentDone && isAssessmentDone) ||
             (isStudyDone && isAssignmentDone && isAssessmentDone) ||
             (isAssessmentDone && !module.practicalAssignment && !module.codingExercise) ||

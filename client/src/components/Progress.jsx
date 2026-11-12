@@ -49,50 +49,56 @@ import {
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
-// Vector Track Badge component for 100% crisp visuals
+// Vector Track Badge component for 100% crisp visuals across coding tracks
 const TrackBadge = ({ type, size = 38, className = "" }) => {
-  switch (type) {
+  const norm = String(type || "CODING").toUpperCase();
+  switch (norm) {
+    case "PYTHON":
+      return (
+        <div className={`mz-p-badge mz-p-badge-coding ${className}`} style={{ width: size, height: size, background: "linear-gradient(135deg, rgba(59, 130, 246, 0.16) 0%, rgba(99, 102, 241, 0.16) 100%)", color: "#3b82f6" }}>
+          <LuCodeXml size={size * 0.52} />
+        </div>
+      );
+    case "DSA":
+      return (
+        <div className={`mz-p-badge mz-p-badge-coding ${className}`} style={{ width: size, height: size, background: "linear-gradient(135deg, rgba(139, 92, 246, 0.16) 0%, rgba(168, 85, 247, 0.16) 100%)", color: "#8b5cf6" }}>
+          <LuZap size={size * 0.52} />
+        </div>
+      );
+    case "JAVASCRIPT":
+    case "JS":
+      return (
+        <div className={`mz-p-badge mz-p-badge-coding ${className}`} style={{ width: size, height: size, background: "linear-gradient(135deg, rgba(245, 158, 11, 0.16) 0%, rgba(251, 191, 36, 0.16) 100%)", color: "#f59e0b" }}>
+          <span style={{ fontWeight: 800, fontSize: size * 0.38 }}>JS</span>
+        </div>
+      );
+    case "CPP":
+    case "C++":
+      return (
+        <div className={`mz-p-badge mz-p-badge-coding ${className}`} style={{ width: size, height: size, background: "linear-gradient(135deg, rgba(6, 182, 212, 0.16) 0%, rgba(14, 165, 233, 0.16) 100%)", color: "#06b6d4" }}>
+          <span style={{ fontWeight: 800, fontSize: size * 0.36 }}>C++</span>
+        </div>
+      );
+    case "JAVA":
+      return (
+        <div className={`mz-p-badge mz-p-badge-coding ${className}`} style={{ width: size, height: size, background: "linear-gradient(135deg, rgba(239, 68, 68, 0.16) 0%, rgba(244, 63, 94, 0.16) 100%)", color: "#ef4444" }}>
+          <span style={{ fontWeight: 800, fontSize: size * 0.38 }}>☕</span>
+        </div>
+      );
+    case "WEBDEV":
+      return (
+        <div className={`mz-p-badge mz-p-badge-coding ${className}`} style={{ width: size, height: size, background: "linear-gradient(135deg, rgba(16, 185, 129, 0.16) 0%, rgba(20, 184, 166, 0.16) 100%)", color: "#10b981" }}>
+          <LuCode size={size * 0.52} />
+        </div>
+      );
     case "CODING":
+    default:
       return (
         <div className={`mz-p-badge mz-p-badge-coding ${className}`} style={{ width: size, height: size }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="mz-p-badge-svg">
             <polyline points="16 18 22 12 16 6" />
             <polyline points="8 6 2 12 8 18" />
           </svg>
-        </div>
-      );
-    case "LANGUAGE":
-      return (
-        <div className={`mz-p-badge mz-p-badge-language ${className}`} style={{ width: size, height: size }}>
-          <span className="mz-p-badge-text-glyph">文A</span>
-        </div>
-      );
-    case "VEHICLES":
-      return (
-        <div className={`mz-p-badge mz-p-badge-vehicles ${className}`} style={{ width: size, height: size }}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" className="mz-p-badge-svg">
-            <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.5 2.8C2.1 10.7 2 10.8 2 11v5c0 .6.4 1 1 1h2" />
-            <circle cx="7" cy="17" r="2" />
-            <path d="M9 17h6" />
-            <circle cx="17" cy="17" r="2" />
-          </svg>
-        </div>
-      );
-    case "FITNESS":
-      return (
-        <div className={`mz-p-badge mz-p-badge-fitness ${className}`} style={{ width: size, height: size }}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="mz-p-badge-svg">
-            <path d="M6.5 6.5h11" />
-            <path d="M6.5 17.5h11" />
-            <path d="M6 20v-2a6 6 0 0 1 12 0v2" />
-            <path d="M18 4v2a6 6 0 0 1-12 0V4" />
-          </svg>
-        </div>
-      );
-    default:
-      return (
-        <div className={`mz-p-badge mz-p-badge-general ${className}`} style={{ width: size, height: size }}>
-          <LuSparkles size={18} />
         </div>
       );
   }
@@ -891,7 +897,7 @@ const Progress = () => {
                         <div className="mz-p-track-sub-line">
                           <span className="mz-p-track-subtitle">{track.subtitle}</span>
                           <span className="mz-p-track-fraction">
-                            {track.completedLessons} / {track.totalLessons} {track.key === "FITNESS" ? "sessions" : "lessons"}
+                            {track.completedLessons} / {track.totalLessons} {track.key === "DSA" ? "challenges" : "modules"}
                           </span>
                         </div>
 
@@ -952,7 +958,7 @@ const Progress = () => {
                       <LuSparkles size={24} className="mz-p-empty-icon" />
                       <p className="mz-p-empty-title">No learning activity recorded yet</p>
                       <p className="mz-p-empty-desc">
-                        Complete lessons in Coding, Language, Vehicles, or Fitness to track your daily progress.
+                        Complete lessons in Python, JavaScript, Java, C++, or DSA to track your daily progress.
                       </p>
                       <button
                         type="button"
@@ -1297,7 +1303,7 @@ const Progress = () => {
                   <span>Proctored Assessment Reports & Grades</span>
                 </h3>
                 <p className="mz-p-card-subtitle">
-                  Permanent accredited assessment attempts across Coding, Fitness, Driving, and Language
+                  Permanent accredited assessment attempts across Algorithms, Software Engineering, and Practical Systems
                 </p>
               </div>
               <button
@@ -1340,7 +1346,7 @@ const Progress = () => {
                       title={`Open complete grade report for ${rep.assessmentTitle}`}
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-                        <TrackBadge type={subjKey === "DRIVING" ? "VEHICLES" : subjKey} size={40} />
+                        <TrackBadge type={subjKey} size={40} />
                         <div>
                           <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
                             <span style={{ fontSize: "11px", fontWeight: 800, padding: "2px 8px", borderRadius: "4px", background: "var(--mz-surface-subtle)", color: "var(--mz-text-secondary)", textTransform: "uppercase" }}>
@@ -1537,10 +1543,12 @@ const Progress = () => {
                     <label className="mz-p-form-label">Learning Track</label>
                     <div className="mz-p-track-select-grid">
                       {[
-                        { key: "CODING", name: "Coding" },
-                        { key: "LANGUAGE", name: "Language" },
-                        { key: "VEHICLES", name: "Vehicles" },
-                        { key: "FITNESS", name: "Gym & Fitness" },
+                        { key: "PYTHON", name: "Python" },
+                        { key: "DSA", name: "DSA & Algorithms" },
+                        { key: "JAVASCRIPT", name: "JavaScript" },
+                        { key: "JAVA", name: "Java" },
+                        { key: "CPP", name: "C++" },
+                        { key: "WEBDEV", name: "Web Development" },
                       ].map((t) => (
                         <button
                           type="button"
@@ -1641,7 +1649,7 @@ const Progress = () => {
             <div className="mz-p-modal-header">
               <div>
                 <h3 className="mz-p-modal-title">Learning Tracks & Active Modules</h3>
-                <p className="mz-p-modal-sub">Continue your learning journey across all 4 tracks</p>
+                <p className="mz-p-modal-sub">Continue your learning journey across all engineering tracks</p>
               </div>
               <button
                 type="button"
@@ -1838,7 +1846,7 @@ const Progress = () => {
               ) : (
                 <div className="mz-p-empty-cert-box">
                   <p className="mz-p-empty-desc">
-                    No certifications completed yet. Enroll and pass module exams in Coding, Language, Driving, or Fitness to earn authenticated certificates.
+                    No certifications completed yet. Enroll and pass proctored exams across Python, DSA, Web Development, and Algorithms to earn authenticated credentials.
                   </p>
                 </div>
               )}
@@ -2061,64 +2069,36 @@ const Progress = () => {
                     onChange={() => setResetScope("all")}
                   />
                   <div className="mz-reset-radio-content">
-                    <strong>Reset Everything (All Tracks & Platforms)</strong>
-                    <span>Resets Coding, Language, Driving, Fitness, all test scores, and activity history.</span>
+                    <strong>Reset All Progress & Submissions</strong>
+                    <span>Resets all programming tracks (Python, JS, Java, C++, DSA), exercises, challenge attempts, and projects.</span>
                   </div>
                 </label>
 
-                <label className={`mz-reset-radio-option ${resetScope === "coding" ? "selected" : ""}`}>
+                <label className={`mz-reset-radio-option ${resetScope === "dsa" ? "selected" : ""}`}>
                   <input
                     type="radio"
                     name="progressResetScope"
-                    value="coding"
-                    checked={resetScope === "coding"}
-                    onChange={() => setResetScope("coding")}
+                    value="dsa"
+                    checked={resetScope === "dsa"}
+                    onChange={() => setResetScope("dsa")}
                   />
                   <div className="mz-reset-radio-content">
-                    <strong>Coding Curriculum & Challenges Only</strong>
-                    <span>Resets all programming tracks (Python, JS, Java, C++, DSA), exercises, and tests.</span>
+                    <strong>DSA Arena Challenges Only</strong>
+                    <span>Resets challenge submissions and algorithmic problem states.</span>
                   </div>
                 </label>
 
-                <label className={`mz-reset-radio-option ${resetScope === "language" ? "selected" : ""}`}>
+                <label className={`mz-reset-radio-option ${resetScope === "python" ? "selected" : ""}`}>
                   <input
                     type="radio"
                     name="progressResetScope"
-                    value="language"
-                    checked={resetScope === "language"}
-                    onChange={() => setResetScope("language")}
+                    value="python"
+                    checked={resetScope === "python"}
+                    onChange={() => setResetScope("python")}
                   />
                   <div className="mz-reset-radio-content">
-                    <strong>Language Curriculum Only</strong>
-                    <span>Resets Spanish, French, German, Japanese, and English modules & test exams.</span>
-                  </div>
-                </label>
-
-                <label className={`mz-reset-radio-option ${resetScope === "driving" ? "selected" : ""}`}>
-                  <input
-                    type="radio"
-                    name="progressResetScope"
-                    value="driving"
-                    checked={resetScope === "driving"}
-                    onChange={() => setResetScope("driving")}
-                  />
-                  <div className="mz-reset-radio-content">
-                    <strong>Driving & Vehicle Modules Only</strong>
-                    <span>Resets road rules, defensive driving, and DMV-style tests.</span>
-                  </div>
-                </label>
-
-                <label className={`mz-reset-radio-option ${resetScope === "fitness" ? "selected" : ""}`}>
-                  <input
-                    type="radio"
-                    name="progressResetScope"
-                    value="fitness"
-                    checked={resetScope === "fitness"}
-                    onChange={() => setResetScope("fitness")}
-                  />
-                  <div className="mz-reset-radio-content">
-                    <strong>Fitness & Training Modules Only</strong>
-                    <span>Resets workout programs, nutrition modules, and fitness tests.</span>
+                    <strong>Python Track Curriculum Only</strong>
+                    <span>Resets Python modules, code exercises, and module assessment tests.</span>
                   </div>
                 </label>
               </div>
