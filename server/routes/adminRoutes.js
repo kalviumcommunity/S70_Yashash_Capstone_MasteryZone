@@ -788,16 +788,22 @@ router.get("/users/:id", async (req, res) => {
     // Sort timeline chronologically descending
     timeline.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
+    // Fetch verified daily coding activity & heatmap for student
+    const { getUserCodingActivity } = require("../utils/activityTracker");
+    const activityStats = await getUserCodingActivity(id, req.query.tz);
+
     res.status(200).json({
       success: true,
       data: {
         user: {
           ...user,
+          streak: activityStats.currentStreak,
           bio: user.bio || "Not Provided",
           location: user.location || "Not Provided",
           phoneNumber: user.phoneNumber || "Not Provided",
           interests: user.interests && user.interests.length > 0 ? user.interests : ["Not Provided"],
         },
+        activityStats,
         submissions,
         certAttempts,
         moduleAttempts,

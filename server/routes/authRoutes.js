@@ -647,27 +647,15 @@ router.get('/me', verifyToken, async (req, res) => {
     }
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    // Update real activity streak
-    const now = new Date();
-    if (!user.lastActiveDate) {
-      user.lastActiveDate = now;
-      user.streak = 1;
-      await user.save();
-    } else {
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-      const lastActive = new Date(user.lastActiveDate);
-      const lastDay = new Date(lastActive.getFullYear(), lastActive.getMonth(), lastActive.getDate()).getTime();
-      const diffDays = Math.round((today - lastDay) / (1000 * 60 * 60 * 24));
+    // Fetch verified LeetCode-style activity streak & calendar from database
+    const { getUserCodingActivity } = require("../utils/activityTracker");
+    const clientTimezone = req.query.tz || req.headers["x-timezone"] || "Asia/Kolkata";
+    const activityData = await getUserCodingActivity(user._id, clientTimezone);
 
-      if (diffDays === 1) {
-        user.streak = (user.streak || 1) + 1;
-        user.lastActiveDate = now;
-        await user.save();
-      } else if (diffDays > 1) {
-        user.streak = 1;
-        user.lastActiveDate = now;
-        await user.save();
-      }
+    // Sync calculated genuine streak to user document
+    if (user.streak !== activityData.currentStreak) {
+      user.streak = activityData.currentStreak;
+      await user.save();
     }
 
     // Aggregate genuine learning records from Certification database
@@ -724,14 +712,20 @@ router.get('/me', verifyToken, async (req, res) => {
     res.status(200).json({ 
       user: safeUser,
       stats: {
-        streak: user.streak || 1,
+        streak: activityData.currentStreak,
+        longestStreak: activityData.longestStreak,
+        activeDays: activityData.activeDays,
+        totalSubmissions: activityData.totalSubmissions,
+        activityCalendar: activityData.calendarData,
+        todaySubmissions: activityData.todaySubmissions,
+        streakActiveToday: activityData.streakActiveToday,
         learningHours: Math.round((learningTimeHours + codingHours) * 10) / 10,
         achievements,
         completedModules,
         certificationsCount: certs.length,
         certifications: certs,
         exploredTracks: safeUser.exploredTracks,
-        solvedChallengesCount,
+        solvedChallengesCount: Math.max(solvedChallengesCount, activityData.totalProblemsSolved),
         challengesSolved: solvedChallenges,
         totalCodingXp,
       }

@@ -30,6 +30,7 @@ import AssessmentSubmissionFlow from "./AssessmentSubmissionFlow";
 import ThemeToggle from "./ThemeToggle.jsx";
 import { useTheme } from "../context/ThemeContext.jsx";
 import { getProjectById } from "../data/projectsCatalog";
+import TestCaseExecutionPanel from "./TestCaseExecutionPanel";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "";
 
@@ -1522,210 +1523,20 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
 
               {/* TAB 1: TEST CASES TABLE */}
               {bottomTab === "testcases" && (
-                <div className="mz-pw-tc-table-wrap">
-                  {isRunningTests && (
-                    <div style={{ padding: "8px 14px", background: "var(--mz-blue-bg)", borderBottom: "1px solid var(--mz-blue-border)", display: "flex", alignItems: "center", gap: "8px", fontSize: "12px", color: "var(--mz-blue-text)", fontWeight: 600 }}>
-                      <FiRefreshCw size={13} className="mz-spin" />
-                      <span>Compiler Sandboxed Runner: Evaluating project files against test suite...</span>
-                    </div>
-                  )}
-                  <table className="mz-pw-tc-table" data-testid="pw-testcases-table">
-                    <thead>
-                      <tr>
-                        <th style={{ width: 48 }}>#</th>
-                        <th>Input</th>
-                        <th>Expected Output</th>
-                        <th>Actual Output</th>
-                        <th style={{ width: 110 }}>Status</th>
-                        <th style={{ width: 80 }}>Time</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {effectiveTestCases.length > 0 ? (
-                        effectiveTestCases.map((tc, idx) => {
-                          const isEvaluated = tc.passed !== undefined;
-                          const isPassed = tc.passed === true;
-                          return (
-                            <tr
-                              key={idx}
-                              data-testid={`pw-testcase-row-${idx + 1}`}
-                              style={{
-                                background: isEvaluated
-                                  ? isPassed
-                                    ? "var(--mz-green-bg, #f0fdf4)"
-                                    : "var(--mz-red-bg, #fef2f2)"
-                                  : "transparent",
-                              }}
-                            >
-                              <td style={{ fontWeight: 800, color: "var(--mz-text-primary)" }}>
-                                {tc.testIndex || idx + 1}
-                              </td>
-                              <td>
-                                <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                                  {tc.name && (
-                                    <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--mz-text-primary)" }}>
-                                      {tc.name}
-                                    </span>
-                                  )}
-                                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                    <code className="mz-pw-tc-code" title={tc.input}>
-                                      {tc.isHidden ? "Hidden Edge Case" : tc.input}
-                                    </code>
-                                    {!tc.isHidden && tc.input && (
-                                      <button
-                                        type="button"
-                                        title="Use this input in console stdin"
-                                        onClick={() => {
-                                          setCustomInput(tc.input);
-                                          setBottomTab("console");
-                                          setStatusToast({ type: "success", text: `Loaded Test Case #${idx + 1} input into Console stdin` });
-                                        }}
-                                        style={{
-                                          background: "none",
-                                          border: "none",
-                                          cursor: "pointer",
-                                          color: "#2563eb",
-                                          fontSize: 11,
-                                          fontWeight: 600,
-                                          padding: "1px 4px",
-                                        }}
-                                      >
-                                        Use in Stdin
-                                      </button>
-                                    )}
-                                  </div>
-                                </div>
-                              </td>
-                              <td>
-                                <code className="mz-pw-tc-code" title={tc.expectedOutput}>
-                                  {tc.isHidden ? "Hidden Spec" : tc.expectedOutput}
-                                </code>
-                              </td>
-                              <td>
-                                {isEvaluated ? (
-                                  <code
-                                    className="mz-pw-tc-code"
-                                    title={tc.actualOutput || tc.error || ""}
-                                    style={{
-                                      color: isPassed ? "var(--mz-green-text, #16a34a)" : "var(--mz-red-text, #dc2626)",
-                                      borderColor: isPassed ? "var(--mz-green-border, #bbf7d0)" : "var(--mz-red-border, #fecaca)",
-                                    }}
-                                  >
-                                    {tc.actualOutput || tc.error || "(empty)"}
-                                  </code>
-                                ) : (
-                                  <span style={{ fontSize: 12, color: "var(--mz-text-muted)", fontStyle: "italic" }}>
-                                    Pending Run — Click &apos;Run Tests&apos;
-                                  </span>
-                                )}
-                              </td>
-                              <td>
-                                {isEvaluated ? (
-                                  <span
-                                    style={{
-                                      display: "inline-flex",
-                                      alignItems: "center",
-                                      gap: 4,
-                                      padding: "3px 9px",
-                                      borderRadius: 999,
-                                      fontSize: 11.5,
-                                      fontWeight: 800,
-                                      background: isPassed ? "var(--mz-green-bg, #dcfce7)" : "var(--mz-red-bg, #fee2e2)",
-                                      color: isPassed ? "var(--mz-green-text, #15803d)" : "var(--mz-red-text, #b91c1c)",
-                                    }}
-                                  >
-                                    {isPassed ? "✓ Passed" : "✗ Failed"}
-                                  </span>
-                                ) : (
-                                  <span
-                                    style={{
-                                      display: "inline-flex",
-                                      alignItems: "center",
-                                      gap: 4,
-                                      padding: "3px 9px",
-                                      borderRadius: 999,
-                                      fontSize: 11.5,
-                                      fontWeight: 700,
-                                      background: "var(--mz-surface-subtle)",
-                                      color: "var(--mz-text-secondary)",
-                                    }}
-                                  >
-                                    ● Ready
-                                  </span>
-                                )}
-                              </td>
-                              <td style={{ fontWeight: 600, color: "var(--mz-text-muted)", fontSize: 12 }}>
-                                {isEvaluated ? `${tc.durationMs || 1}ms` : "-"}
-                              </td>
-                            </tr>
-                          );
-                        })
-                      ) : (
-                        <tr>
-                          <td colSpan={6} style={{ borderBottom: "none", padding: 0 }}>
-                            <div
-                              className="mz-pw-tc-empty-state"
-                              data-testid="pw-testcases-empty"
-                            >
-                              {/* Laptop with </> and Green Check Illustration matching blueprint */}
-                              <svg
-                                width="74"
-                                height="56"
-                                viewBox="0 0 74 56"
-                                fill="none"
-                                xmlns="http://www.w3.org/2000/svg"
-                              >
-                                <rect
-                                  x="10"
-                                  y="6"
-                                  width="48"
-                                  height="32"
-                                  rx="5"
-                                  fill="#DBEAFE"
-                                  stroke="#60A5FA"
-                                  strokeWidth="2"
-                                />
-                                <rect x="14" y="10" width="40" height="24" rx="2" fill="#EFF6FF" />
-                                <path
-                                  d="M29 18L24 22L29 26"
-                                  stroke="#2563EB"
-                                  strokeWidth="2.2"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                />
-                                <path
-                                  d="M39 18L44 22L39 26"
-                                  stroke="#2563EB"
-                                  strokeWidth="2.2"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                />
-                                <path
-                                  d="M35.5 16.5L32.5 27.5"
-                                  stroke="#3B82F6"
-                                  strokeWidth="2"
-                                  strokeLinecap="round"
-                                />
-                                <path
-                                  d="M4 39H64L60 44H8L4 39Z"
-                                  fill="#93C5FD"
-                                />
-                                <circle cx="56" cy="39" r="11" fill="#10B981" />
-                                <path
-                                  d="M51.5 39L54.5 42L61 35.5"
-                                  stroke="white"
-                                  strokeWidth="2.4"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                />
-                              </svg>
-                              <span>Run the project to view test cases</span>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
+                <div className="mz-pw-tc-table-wrap" style={{ flex: 1, minHeight: 320, display: "flex", flexDirection: "column" }}>
+                  <TestCaseExecutionPanel
+                    testCases={effectiveTestCases}
+                    isRunning={isRunningTests}
+                    onRunTests={handleRunTests}
+                    canRun={!isRunningTests && !isSubmitting}
+                    isDark={isDark}
+                    dataTestIdPrefix="pw-testcase"
+                    onUseStdin={(val) => {
+                      setCustomInput(val);
+                      setBottomTab("console");
+                      setStatusToast({ type: "success", text: "Loaded test case input into Console stdin" });
+                    }}
+                  />
                 </div>
               )}
 

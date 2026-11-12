@@ -1,0 +1,714 @@
+/* =========================================================================
+   MASTERY ZONE REUSABLE TEST CASE EXECUTION PANEL
+   Smooth animations, Waiting / Running / Passed / Failed states,
+   high contrast Light & Dark theme support, accessible typography.
+   ========================================================================= */
+
+.mz-tc-exec-panel {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background: var(--mz-surface, #ffffff);
+  color: var(--mz-text-primary, #0f172a);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* --------------------------------------------------------------------------
+   1. Header Bar: Suite Title, Statistics & Run Button
+   -------------------------------------------------------------------------- */
+.mz-tc-exec-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  background: var(--mz-surface-subtle, #f8fafc);
+  border-bottom: 1px solid var(--mz-border, #e2e8f0);
+  gap: 12px;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.mz-tc-exec-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.mz-tc-suite-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mz-tc-suite-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--mz-text-primary, #0f172a);
+  letter-spacing: -0.01em;
+}
+
+.mz-tc-suite-count-badge {
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: var(--mz-surface, #ffffff);
+  border: 1px solid var(--mz-border, #cbd5e1);
+  color: var(--mz-text-secondary, #475569);
+}
+
+/* Evaluation Status Pill */
+.mz-tc-eval-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 16px;
+  animation: mz-tc-fade-in 0.2s ease;
+}
+
+.mz-tc-eval-pill.running {
+  background: rgba(37, 99, 235, 0.12);
+  color: #2563eb;
+  border: 1px solid rgba(37, 99, 235, 0.3);
+}
+
+.mz-tc-eval-pill.all-passed {
+  background: rgba(16, 185, 129, 0.14);
+  color: #059669;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.mz-tc-eval-pill.passed {
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.28);
+}
+
+.mz-tc-eval-pill.failed {
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.28);
+}
+
+/* Run Tests Button */
+.mz-tc-btn-run-tests {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: #2563eb;
+  color: #ffffff;
+  border: 1px solid #1d4ed8;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.25);
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.mz-tc-btn-run-tests:hover:not(:disabled) {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(37, 99, 235, 0.35);
+}
+
+.mz-tc-btn-run-tests:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* --------------------------------------------------------------------------
+   2. Progress Bar
+   -------------------------------------------------------------------------- */
+.mz-tc-progress-bar-track {
+  width: 100%;
+  height: 3px;
+  background: var(--mz-border, #e2e8f0);
+  display: flex;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.mz-tc-progress-fill {
+  height: 100%;
+  transition: width 0.35s ease;
+}
+
+.mz-tc-progress-fill.passed {
+  background: #10b981;
+}
+
+.mz-tc-progress-fill.failed {
+  background: #ef4444;
+}
+
+/* --------------------------------------------------------------------------
+   3. Main Body Split: Left List & Right Detail Pane
+   -------------------------------------------------------------------------- */
+.mz-tc-body-split {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Left Sidebar (Test Cases list) */
+.mz-tc-sidebar-list {
+  width: 200px;
+  background: var(--mz-surface-subtle, #f8fafc);
+  border-right: 1px solid var(--mz-border, #e2e8f0);
+  padding: 8px 6px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+  scrollbar-width: thin;
+}
+
+.mz-tc-sidebar-list::-webkit-scrollbar {
+  width: 5px;
+}
+
+.mz-tc-sidebar-list::-webkit-scrollbar-thumb {
+  background: var(--mz-border, #cbd5e1);
+  border-radius: 4px;
+}
+
+/* Individual Test Case Item in Left List */
+.mz-tc-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 10px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--mz-text-secondary, #475569);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  font-size: 12px;
+  font-weight: 500;
+  gap: 6px;
+  user-select: none;
+}
+
+.mz-tc-item:hover {
+  background: var(--mz-surface-hover, rgba(0, 0, 0, 0.04));
+  color: var(--mz-text-primary, #0f172a);
+}
+
+.mz-tc-item.selected {
+  background: var(--mz-surface, #ffffff);
+  border-color: var(--mz-border-strong, #cbd5e1);
+  color: var(--mz-text-primary, #0f172a);
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* Left item status styles */
+.mz-tc-item.passed.selected {
+  border-left: 3px solid #10b981;
+}
+
+.mz-tc-item.failed.selected {
+  border-left: 3px solid #ef4444;
+}
+
+.mz-tc-item.running {
+  background: rgba(37, 99, 235, 0.06);
+  border-left: 3px solid #2563eb;
+}
+
+.mz-tc-item.running.selected {
+  border-left: 3px solid #2563eb;
+  background: rgba(37, 99, 235, 0.1);
+}
+
+.mz-tc-item-left {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  flex: 1;
+}
+
+.mz-tc-item-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mz-tc-item-status-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Badge in Left Item */
+.mz-tc-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+
+.mz-tc-badge.running {
+  background: rgba(37, 99, 235, 0.15);
+  color: #2563eb;
+  animation: mz-tc-pulse 1.4s infinite;
+}
+
+.mz-tc-badge.passed {
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+}
+
+.mz-tc-badge.failed {
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+}
+
+.mz-tc-badge.waiting {
+  background: var(--mz-surface-subtle, #f1f5f9);
+  color: var(--mz-text-muted, #94a3b8);
+}
+
+/* --------------------------------------------------------------------------
+   4. Right Detail Pane
+   -------------------------------------------------------------------------- */
+.mz-tc-detail-pane {
+  flex: 1;
+  background: var(--mz-surface, #ffffff);
+  overflow-y: auto;
+  padding: 12px 18px;
+  scrollbar-width: thin;
+}
+
+.mz-tc-detail-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: mz-tc-fade-in 0.18s ease;
+}
+
+.mz-tc-detail-top-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--mz-border, #e2e8f0);
+  padding-bottom: 8px;
+  gap: 10px;
+}
+
+.mz-tc-detail-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mz-tc-detail-case-heading {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--mz-text-primary, #0f172a);
+}
+
+.mz-tc-detail-state-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2.5px 8px;
+  border-radius: 12px;
+}
+
+.mz-tc-detail-state-pill.running {
+  background: rgba(37, 99, 235, 0.12);
+  color: #2563eb;
+  border: 1px solid rgba(37, 99, 235, 0.3);
+}
+
+.mz-tc-detail-state-pill.passed {
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.mz-tc-detail-state-pill.failed {
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.mz-tc-detail-state-pill.waiting {
+  background: var(--mz-surface-subtle, #f1f5f9);
+  color: var(--mz-text-muted, #64748b);
+  border: 1px solid var(--mz-border, #e2e8f0);
+}
+
+.mz-tc-hidden-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(147, 51, 234, 0.12);
+  color: #9333ea;
+  border: 1px solid rgba(147, 51, 234, 0.3);
+}
+
+.mz-tc-btn-use-stdin {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  border: 1px solid #bfdbfe;
+  color: #2563eb;
+  padding: 3px 8px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mz-tc-btn-use-stdin:hover {
+  background: #eff6ff;
+  border-color: #93c5fd;
+}
+
+/* --------------------------------------------------------------------------
+   5. IO Stack: Input, Expected, and Actual Output Cards
+   -------------------------------------------------------------------------- */
+.mz-tc-io-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mz-tc-io-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mz-tc-io-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.mz-tc-io-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--mz-text-secondary, #475569);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.mz-tc-exec-time-pill {
+  font-size: 10.5px;
+  font-family: ui-monospace, Menlo, Monaco, Consolas, monospace;
+  color: var(--mz-text-muted, #64748b);
+  font-weight: 600;
+}
+
+.mz-tc-btn-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  color: var(--mz-text-muted, #64748b);
+  cursor: pointer;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.mz-tc-btn-copy:hover {
+  background: var(--mz-surface-subtle, #f1f5f9);
+  color: var(--mz-text-primary, #0f172a);
+}
+
+/* Monospace Code Boxes */
+.mz-tc-code-box {
+  margin: 0;
+  padding: 8px 12px;
+  background: var(--mz-surface-subtle, #f8fafc);
+  border: 1px solid var(--mz-border, #cbd5e1);
+  border-radius: 6px;
+  font-family: "JetBrains Mono", Consolas, "Courier New", monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--mz-text-primary, #0f172a);
+  white-space: pre-wrap;
+  word-break: break-all;
+  min-height: 38px;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.mz-tc-code-box.is-waiting {
+  color: var(--mz-text-muted, #94a3b8);
+  font-style: italic;
+}
+
+.mz-tc-code-box.is-passed {
+  background: rgba(16, 185, 129, 0.06);
+  border-color: #86efac;
+  color: #15803d;
+  font-weight: 600;
+}
+
+.mz-tc-code-box.is-failed {
+  background: rgba(239, 68, 68, 0.06);
+  border-color: #fca5a5;
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+/* Running Placeholder */
+.mz-tc-running-placeholder {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: rgba(37, 99, 235, 0.05);
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  border-radius: 6px;
+  font-size: 12px;
+  color: #2563eb;
+  font-weight: 600;
+}
+
+/* Error / Diagnostic Box */
+.mz-tc-error-box {
+  margin-top: 6px;
+  border: 1px solid #f87171;
+  background: rgba(239, 68, 68, 0.08);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.mz-tc-error-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: rgba(239, 68, 68, 0.15);
+  color: #dc2626;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.mz-tc-error-body {
+  margin: 0;
+  padding: 8px 10px;
+  font-family: Consolas, monospace;
+  font-size: 11.5px;
+  color: #b91c1c;
+  white-space: pre-wrap;
+  line-height: 1.45;
+}
+
+/* --------------------------------------------------------------------------
+   6. Utilities & Colors
+   -------------------------------------------------------------------------- */
+.mz-tc-spin {
+  animation: mz-tc-spin 0.85s linear infinite;
+}
+
+.text-blue {
+  color: #2563eb;
+}
+
+.text-green {
+  color: #10b981;
+}
+
+.text-red {
+  color: #ef4444;
+}
+
+.text-muted {
+  color: var(--mz-text-muted, #94a3b8);
+}
+
+@keyframes mz-tc-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes mz-tc-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(0.97); }
+}
+
+@keyframes mz-tc-fade-in {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* --------------------------------------------------------------------------
+   7. Dark Mode Specific Overrides
+   -------------------------------------------------------------------------- */
+[data-theme="dark"] .mz-tc-exec-panel,
+.is-dark .mz-tc-exec-panel,
+.mz-tc-exec-panel.is-dark {
+  background: #181818;
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .mz-tc-exec-header,
+.is-dark .mz-tc-exec-header,
+.mz-tc-exec-panel.is-dark .mz-tc-exec-header {
+  background: #1e1e1e;
+  border-bottom-color: #27272a;
+}
+
+[data-theme="dark"] .mz-tc-suite-count-badge,
+.is-dark .mz-tc-suite-count-badge,
+.mz-tc-exec-panel.is-dark .mz-tc-suite-count-badge {
+  background: #27272a;
+  border-color: #3f3f46;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .mz-tc-sidebar-list,
+.is-dark .mz-tc-sidebar-list,
+.mz-tc-exec-panel.is-dark .mz-tc-sidebar-list {
+  background: #1e1e1e;
+  border-right-color: #27272a;
+}
+
+[data-theme="dark"] .mz-tc-item,
+.is-dark .mz-tc-item,
+.mz-tc-exec-panel.is-dark .mz-tc-item {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .mz-tc-item:hover,
+.is-dark .mz-tc-item:hover,
+.mz-tc-exec-panel.is-dark .mz-tc-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+}
+
+[data-theme="dark"] .mz-tc-item.selected,
+.is-dark .mz-tc-item.selected,
+.mz-tc-exec-panel.is-dark .mz-tc-item.selected {
+  background: #27272a;
+  border-color: #3f3f46;
+  color: #ffffff;
+}
+
+[data-theme="dark"] .mz-tc-detail-pane,
+.is-dark .mz-tc-detail-pane,
+.mz-tc-exec-panel.is-dark .mz-tc-detail-pane {
+  background: #181818;
+}
+
+[data-theme="dark"] .mz-tc-detail-top-strip,
+.is-dark .mz-tc-detail-top-strip,
+.mz-tc-exec-panel.is-dark .mz-tc-detail-top-strip {
+  border-bottom-color: #27272a;
+}
+
+[data-theme="dark"] .mz-tc-code-box,
+.is-dark .mz-tc-code-box,
+.mz-tc-exec-panel.is-dark .mz-tc-code-box {
+  background: #141414;
+  border-color: #27272a;
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .mz-tc-code-box.is-passed,
+.is-dark .mz-tc-code-box.is-passed,
+.mz-tc-exec-panel.is-dark .mz-tc-code-box.is-passed {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.35);
+  color: #34d399;
+}
+
+[data-theme="dark"] .mz-tc-code-box.is-failed,
+.is-dark .mz-tc-code-box.is-failed,
+.mz-tc-exec-panel.is-dark .mz-tc-code-box.is-failed {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #f87171;
+}
+
+[data-theme="dark"] .mz-tc-error-box,
+.is-dark .mz-tc-error-box,
+.mz-tc-exec-panel.is-dark .mz-tc-error-box {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+[data-theme="dark"] .mz-tc-error-body,
+.is-dark .mz-tc-error-body,
+.mz-tc-exec-panel.is-dark .mz-tc-error-body {
+  color: #fca5a5;
+}
+
+/* --------------------------------------------------------------------------
+   8. Light Mode Explicit Overrides
+   -------------------------------------------------------------------------- */
+.mz-tc-exec-panel.is-light {
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.mz-tc-exec-panel.is-light .mz-tc-exec-header,
+.mz-tc-exec-panel.is-light .mz-tc-sidebar-list {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+.mz-tc-exec-panel.is-light .mz-tc-item {
+  color: #475569;
+}
+
+.mz-tc-exec-panel.is-light .mz-tc-item:hover {
+  background: rgba(0, 0, 0, 0.04);
+  color: #0f172a;
+}
+
+.mz-tc-exec-panel.is-light .mz-tc-item.selected {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+.mz-tc-exec-panel.is-light .mz-tc-detail-pane {
+  background: #ffffff;
+}
+
+.mz-tc-exec-panel.is-light .mz-tc-detail-top-strip {
+  border-bottom-color: #e2e8f0;
+}
+
+.mz-tc-exec-panel.is-light .mz-tc-code-box {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  color: #0f172a;
+}

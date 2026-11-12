@@ -7,6 +7,7 @@ import IndiaLocationPicker from "./IndiaLocationPicker";
 import UserProfileDropdown from "./UserProfileDropdown.jsx";
 import RecordingVideo from "./RecordingVideo.jsx";
 import ThemeToggle from "./ThemeToggle.jsx";
+import LeetCodeActivityCalendar from "./LeetCodeActivityCalendar.jsx";
 import logoIcon from "../assets/logo_icon_transparent.png";
 import { getExploredTracks, isTrackExplored } from "../utils/trackExploration";
 import { performGlobalLogout } from "../utils/sessionAuth.js";
@@ -1294,6 +1295,9 @@ const Profile = () => {
                 </div>
               </section>
 
+              {/* 2.5 LeetCode-style Daily Activity Streak Calendar */}
+              <LeetCodeActivityCalendar onNavigate={(path) => navigate(path)} />
+
               {/* 3. Recorded Meeting Videos Section */}
               <section className="mz-recordings-card">
                 <div className="mz-side-card-header" style={{ marginBottom: "16px" }}>
@@ -1424,7 +1428,7 @@ const Profile = () => {
                       </div>
                       <LuChevronRight size={15} className="mz-stat-arrow" />
                     </div>
-                    <div className="mz-stat-value">{stats.streak || 1}</div>
+                    <div className="mz-stat-value">{stats.streak !== undefined ? stats.streak : 0}</div>
                     <div className="mz-stat-label">Day Streak</div>
                   </div>
 

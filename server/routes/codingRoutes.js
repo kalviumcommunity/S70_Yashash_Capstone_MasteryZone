@@ -26,6 +26,10 @@ const { sendSubmissionEvaluationEmail, sendModuleCompletionEmail, dispatchMailBa
 const SubjectProgress = require("../models/SubjectProgress");
 const crypto = require("crypto");
 const { CURRICULUM } = require("../data/codingCurriculum");
+const {
+  recordDailyCodingActivity,
+  getUserCodingActivity,
+} = require("../utils/activityTracker");
 
 const {
   JAVAC_BIN,
@@ -719,14 +723,15 @@ router.post("/challenges/:id/test", optionalAuthenticateToken, async (req, res) 
       problemId: challenge.id,
     });
     const testResults = testCasesToRun.map((test, i) => {
-      const outcome = outcomes[i] || { passed: false, actual: "", expected: test.expectedOutput, error: "Evaluation failed", duration: 0 };
+      const expVal = test.expectedOutput !== undefined ? test.expectedOutput : (test.expected !== undefined ? test.expected : "");
+      const outcome = outcomes[i] || { passed: false, actual: "", expected: expVal, error: "Evaluation failed", duration: 0 };
       const isHidden = Boolean(test.isHidden);
       return {
         testIndex: i + 1,
         testNumber: i + 1,
         input: isHidden ? "[Hidden Edge-Case Input]" : test.input,
-        expected: isHidden ? "[Hidden Expected Output]" : test.expectedOutput,
-        expectedOutput: isHidden ? "[Hidden Expected Output]" : test.expectedOutput,
+        expected: isHidden ? "[Hidden Expected Output]" : expVal,
+        expectedOutput: isHidden ? "[Hidden Expected Output]" : expVal,
         actual: isHidden ? (outcome.passed ? "[Passed]" : "[Failed Output]") : outcome.actual,
         actualOutput: isHidden ? (outcome.passed ? "[Passed]" : "[Failed Output]") : outcome.actual,
         passed: outcome.passed,
@@ -825,7 +830,8 @@ router.post("/challenges/:id/submit", optionalAuthenticateToken, async (req, res
       });
     }
     const testResults = allTests.map((test, i) => {
-      const outcome = outcomes[i] || { passed: false, actual: "", expected: test.expectedOutput, error: "Evaluation failed", duration: 0 };
+      const expVal = test.expectedOutput !== undefined ? test.expectedOutput : (test.expected !== undefined ? test.expected : "");
+      const outcome = outcomes[i] || { passed: false, actual: "", expected: expVal, error: "Evaluation failed", duration: 0 };
       const isHidden = isPlayground ? false : (test.isHidden !== undefined ? test.isHidden : i >= 3);
       return {
         testIndex: i + 1,
@@ -836,8 +842,8 @@ router.post("/challenges/:id/submit", optionalAuthenticateToken, async (req, res
         durationMs: outcome.duration,
         error: outcome.passed ? null : (isHidden ? (outcome.error ? "Runtime Error on Hidden Case" : "Wrong Answer on Hidden Case") : outcome.error),
         input: isHidden ? "[Hidden Test Case]" : test.input,
-        expected: isHidden ? "[Hidden Test Case]" : test.expectedOutput,
-        expectedOutput: isHidden ? "[Hidden Test Case]" : test.expectedOutput,
+        expected: isHidden ? "[Hidden Test Case]" : expVal,
+        expectedOutput: isHidden ? "[Hidden Test Case]" : expVal,
         actual: isHidden ? (outcome.passed ? "[Passed]" : "[Output Hidden]") : outcome.actual,
         actualOutput: isHidden ? (outcome.passed ? "[Passed]" : "[Output Hidden]") : outcome.actual,
       };
@@ -908,6 +914,21 @@ router.post("/challenges/:id/submit", optionalAuthenticateToken, async (req, res
           ? `Challenge completed! 100% test cases passed (${passedCount}/${allTests.length}).`
           : `Challenge incomplete. Passed ${passedCount}/${allTests.length} tests (${score}%). 100% pass rate required.`,
         error: testResults.find((r) => !r.passed)?.error || "",
+      });
+
+      // Permanently record daily coding activity and streak in database
+      await recordDailyCodingActivity({
+        userId,
+        activityType: "challenge",
+        targetId: challenge.id,
+        title: challenge.title,
+        status: isAccepted ? "ACCEPTED" : "WRONG_ANSWER",
+        language,
+        score,
+        passedTests: passedCount,
+        totalTests: allTests.length,
+        timeZone: req.body.timeZone || req.headers["x-timezone"] || req.query.tz,
+        app: req.app,
       });
 
       // Notify Super Admin of genuine coding execution
@@ -1033,6 +1054,46 @@ router.get("/challenges/:id/history", authenticateToken, async (req, res) => {
     res.json(submissions);
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// -------------------------------------------------------------
+// GET /api/coding/activity
+// Retrieves authenticated user's LeetCode-style activity calendar & streak stats
+// -------------------------------------------------------------
+router.get("/activity", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId || req.user.id || req.user._id;
+    const clientTimezone = req.query.tz || req.headers["x-timezone"] || "Asia/Kolkata";
+    const data = await getUserCodingActivity(userId, clientTimezone);
+    res.json({ success: true, ...data });
+  } catch (err) {
+    console.error("Error fetching activity:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// -------------------------------------------------------------
+// GET /api/coding/activity/:userId
+// Retrieves activity calendar & streak stats for a specific user (Admin or Self)
+// -------------------------------------------------------------
+router.get("/activity/:userId", authenticateToken, async (req, res) => {
+  try {
+    const requesterId = String(req.user.userId || req.user.id || req.user._id);
+    const targetUserId = req.params.userId;
+    const isAdmin = req.user.role === "admin" || req.user.role === "SUPER_ADMIN" || req.user.isMainAdmin;
+
+    // Only allow user to view their own activity unless they are an admin
+    if (requesterId !== targetUserId && !isAdmin) {
+      return res.status(403).json({ success: false, message: "Unauthorized to view other user's activity" });
+    }
+
+    const clientTimezone = req.query.tz || req.headers["x-timezone"] || "Asia/Kolkata";
+    const data = await getUserCodingActivity(targetUserId, clientTimezone);
+    res.json({ success: true, ...data });
+  } catch (err) {
+    console.error("Error fetching user activity:", err);
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
@@ -1871,6 +1932,23 @@ router.post("/curriculum/exercise/submit", authenticateToken, async (req, res) =
             exercisePassed: false,
           }),
     });
+
+    // Record verified daily coding activity and streak in database
+    if (userId && userId !== "guest") {
+      await recordDailyCodingActivity({
+        userId,
+        activityType: "curriculum_exercise",
+        targetId: `${trackId}_${idx}`,
+        title: `${module.title} — ${module.codingExercise.taskTitle}`,
+        status: isAccepted ? "ACCEPTED" : "WRONG_ANSWER",
+        language: lang,
+        score,
+        passedTests: passedCount,
+        totalTests: testCases.length,
+        timeZone: req.body.timeZone || req.headers["x-timezone"] || req.query.tz,
+        app: req.app,
+      });
+    }
 
     if (isAccepted) {
       progress.lastActivity = {
@@ -4709,6 +4787,22 @@ router.post(["/proctored-session/:sessionId/submit", "/proctored-session/submit"
       await subjProg.save();
     } catch (e) {
       console.warn("Could not update SubjectProgress:", e);
+    }
+
+    if (userId && userId !== "guest") {
+      await recordDailyCodingActivity({
+        userId,
+        activityType: "assessment_session",
+        targetId: session.sessionId || String(session._id),
+        title: session.assessmentTitle || "Coding Assessment",
+        status: isAccepted ? "ACCEPTED" : "WRONG_ANSWER",
+        language: primaryQ.language,
+        score: overallPercentage,
+        passedTests: totalPassedTests,
+        totalTests: totalTestCases,
+        timeZone: req.body.timeZone || req.headers["x-timezone"] || req.query.tz,
+        app: req.app,
+      });
     }
 
     await pushNotification(req.app, {
