@@ -155,11 +155,16 @@ export default function CertificationExamWorkspace({
   // 1. Session Persistence Recovery State strictly isolated to authenticated user
   const savedSession = (() => {
     try {
-      if (!currentUserId) return null;
-      const item = localStorage.getItem(`mz_${currentUserId}_active_cert_session`);
-      if (!item) return null;
-      const parsed = JSON.parse(item);
-      if (parsed.userId && parsed.userId !== currentUserId) return null;
+      let raw = null;
+      if (currentUserId) {
+        raw = localStorage.getItem(`mz_${currentUserId}_active_cert_session`);
+      }
+      if (!raw) {
+        raw = localStorage.getItem("mz_active_cert_session") || sessionStorage.getItem("mz_active_cert_session");
+      }
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (parsed.userId && currentUserId && parsed.userId !== currentUserId) return null;
       return parsed;
     } catch {
       return null;
@@ -547,21 +552,21 @@ export default function CertificationExamWorkspace({
         setRecoveryChancesRemaining(5);
       }
 
-      // Save active session to localStorage so reload won't exit the test
+      // Save active session to localStorage and sessionStorage so reload won't exit the test
+      const sessionObj = JSON.stringify({
+        userId: currentUserId,
+        attemptId: data.attemptId,
+        certId,
+        certTitle,
+        currentQuestionIndex: currentQuestionIndexRef.current || 0,
+        secondsRemaining: data.durationMinutes ? data.durationMinutes * 60 : 5400,
+        status: "IN_PROGRESS",
+      });
       if (currentUserId) {
-        localStorage.setItem(
-          `mz_${currentUserId}_active_cert_session`,
-          JSON.stringify({
-            userId: currentUserId,
-            attemptId: data.attemptId,
-            certId,
-            certTitle,
-            currentQuestionIndex: 0,
-            secondsRemaining: data.durationMinutes ? data.durationMinutes * 60 : 5400,
-            status: "IN_PROGRESS",
-          })
-        );
+        localStorage.setItem(`mz_${currentUserId}_active_cert_session`, sessionObj);
       }
+      localStorage.setItem("mz_active_cert_session", sessionObj);
+      sessionStorage.setItem("mz_active_cert_session", sessionObj);
 
       // Enter fullscreen if permitted
       try {
@@ -618,31 +623,14 @@ export default function CertificationExamWorkspace({
               setAttemptNumber(data.attemptNumber);
             }
 
-            // Only auto-resume if user actually had an active session stored locally
-            if (isResumingActive && data.hasActiveAttempt) {
+            // Auto-resume if active attempt exists locally or on server
+            if (data.hasActiveAttempt || isResumingActive) {
               startOrResumeAttempt(null, true);
             }
           }
         })
         .catch(() => {});
     }
-
-    const handlePopState = () => {
-      const uKey = currentUserId && currentUserId !== "guest" ? currentUserId : "guest";
-      const checkSubmitted =
-        isSubmittedRef.current ||
-        localStorage.getItem(`mz_${uKey}_cert_${certId}_submitted`) === "true" ||
-        (attemptId && localStorage.getItem(`mz_${uKey}_cert_${attemptId}_submitted`) === "true");
-      if (checkSubmitted) {
-        const repUrl =
-          localStorage.getItem(`mz_${uKey}_cert_${certId}_report_url`) ||
-          (attemptId ? `/assessment-report/${attemptId}` : "/home");
-        navigate(repUrl, { replace: true });
-      }
-    };
-    window.addEventListener("popstate", handlePopState);
-
-    return () => window.removeEventListener("popstate", handlePopState);
   }, []);
 
   // -------------------------------------------------------------
@@ -948,20 +936,20 @@ export default function CertificationExamWorkspace({
       if (isSubmittedRef.current || isTerminated) return;
       try {
         sessionStorage.setItem("mz_cert_pending_refresh_violation", "true");
+        const sessionPayload = JSON.stringify({
+          userId: currentUserId,
+          attemptId,
+          certId,
+          certTitle,
+          currentQuestionIndex: currentQuestionIndexRef.current,
+          secondsRemaining: secondsRemainingRef.current,
+          status: "IN_PROGRESS",
+        });
         if (currentUserId) {
-          localStorage.setItem(
-            `mz_${currentUserId}_active_cert_session`,
-            JSON.stringify({
-              userId: currentUserId,
-              attemptId,
-              certId,
-              certTitle,
-              currentQuestionIndex: currentQuestionIndexRef.current,
-              secondsRemaining: secondsRemainingRef.current,
-              status: "IN_PROGRESS",
-            })
-          );
+          localStorage.setItem(`mz_${currentUserId}_active_cert_session`, sessionPayload);
         }
+        localStorage.setItem("mz_active_cert_session", sessionPayload);
+        sessionStorage.setItem("mz_active_cert_session", sessionPayload);
       } catch {}
       e.preventDefault();
       e.returnValue = "Are you sure you want to reload? An integrity violation will be logged and 1 recovery chance deducted.";

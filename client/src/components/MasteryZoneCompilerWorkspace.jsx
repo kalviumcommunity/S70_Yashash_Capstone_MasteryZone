@@ -1525,8 +1525,8 @@ export default function MasteryZoneCompilerWorkspace({
         const data = await res.json();
         if (!isMounted) return;
 
-        // If session is already submitted or terminated, redirect immediately to immutable report
-        if (data.status === "submitted" || data.status === "terminated") {
+        // If session is already submitted or terminated, redirect immediately to immutable report (unless embedded)
+        if (!isEmbedded && (data.status === "submitted" || data.status === "terminated")) {
           navigate(`/assessment-report/${routeSessionId}`, { replace: true });
           return;
         }
@@ -1537,9 +1537,9 @@ export default function MasteryZoneCompilerWorkspace({
             setAllTestCases(
               data.problemData.testCases.map((tc, idx) => ({
                 index: idx + 1,
-                input: tc.isHidden || idx >= 3 ? `[Hidden Test Case #${idx + 1}]` : tc.input,
-                expectedOutput: tc.isHidden || idx >= 3 ? `[Hidden Output #${idx + 1}]` : tc.expectedOutput,
-                isHidden: !!tc.isHidden || idx >= 3,
+                input: tc.isHidden ? `[Hidden Test Case #${idx + 1}]` : (tc.input || ""),
+                expectedOutput: tc.isHidden ? `[Hidden Output #${idx + 1}]` : (tc.expectedOutput || ""),
+                isHidden: !!tc.isHidden,
                 passed: null,
                 actualOutput: "",
                 duration: 0,
@@ -2521,7 +2521,7 @@ export default function MasteryZoneCompilerWorkspace({
                 error: r.error || null,
                 input: r.input || copy[idx].input,
                 expectedOutput: r.expected || r.expectedOutput || copy[idx].expectedOutput,
-                isHidden: copy[idx].isHidden !== undefined ? copy[idx].isHidden : idx >= 3,
+                isHidden: copy[idx].isHidden !== undefined ? copy[idx].isHidden : false,
               };
             }
           });
@@ -2618,7 +2618,7 @@ export default function MasteryZoneCompilerWorkspace({
               error: isPassed ? null : (r.error || null),
               input: r.input || updated[i]?.input || `Test Case #${i + 1}`,
               expectedOutput: r.expected || r.expectedOutput || updated[i]?.expectedOutput || "Expected Output",
-              isHidden: r.isHidden !== undefined ? r.isHidden : (updated[i]?.isHidden !== undefined ? updated[i].isHidden : i >= 3),
+              isHidden: r.isHidden !== undefined ? r.isHidden : (updated[i]?.isHidden !== undefined ? updated[i].isHidden : false),
             };
           } else {
             // Unexecuted case in sample run remains neutral (passed: null), not falsely marked failed or passed!
@@ -2631,7 +2631,7 @@ export default function MasteryZoneCompilerWorkspace({
               error: null,
               input: updated[i]?.input || `Test Case #${i + 1}`,
               expectedOutput: updated[i]?.expectedOutput || "Expected Output",
-              isHidden: updated[i]?.isHidden !== undefined ? updated[i].isHidden : i >= 3,
+              isHidden: updated[i]?.isHidden !== undefined ? updated[i].isHidden : false,
             };
           }
         }
@@ -2804,7 +2804,7 @@ export default function MasteryZoneCompilerWorkspace({
             error: isPassed ? null : (r.error || null),
             input: r.input || tc?.input || `Test Case #${i + 1}`,
             expectedOutput: r.expected || r.expectedOutput || tc?.expectedOutput || "Expected Output",
-            isHidden: r.isHidden !== undefined ? r.isHidden : (tc?.isHidden !== undefined ? tc.isHidden : i >= 3),
+            isHidden: r.isHidden !== undefined ? r.isHidden : (tc?.isHidden !== undefined ? tc.isHidden : false),
           };
         } else if (result?.passedCount !== undefined && i < result.passedCount) {
           pCount++;
@@ -2817,7 +2817,7 @@ export default function MasteryZoneCompilerWorkspace({
             error: null,
             input: tc?.input || `Test Case #${i + 1}`,
             expectedOutput: tc?.expectedOutput || "Expected Output",
-            isHidden: tc?.isHidden !== undefined ? tc.isHidden : i >= 3,
+            isHidden: tc?.isHidden !== undefined ? tc.isHidden : false,
           };
         } else {
           return {
@@ -2829,7 +2829,7 @@ export default function MasteryZoneCompilerWorkspace({
             error: "Test case did not pass",
             input: tc?.input || `Test Case #${i + 1}`,
             expectedOutput: tc?.expectedOutput || "Expected Output",
-            isHidden: tc?.isHidden !== undefined ? tc.isHidden : i >= 3,
+            isHidden: tc?.isHidden !== undefined ? tc.isHidden : false,
           };
         }
       });
@@ -2848,8 +2848,8 @@ export default function MasteryZoneCompilerWorkspace({
         testNumber: idx + 1,
         passed: tc.passed !== null ? tc.passed : (idx < finalPassed),
         durationMs: tc.duration || 35,
-        input: tc.isHidden ? "[Hidden Test Case]" : (tc.input || `Test Case #${idx + 1}`),
-        expected: tc.isHidden ? "[Hidden Output]" : (tc.expectedOutput || "Expected Output"),
+        input: tc.input || `Test Case #${idx + 1}`,
+        expected: tc.expectedOutput || "Expected Output",
         actual: tc.actualOutput || (tc.passed ? "[Passed]" : "[Failed Output]"),
         error: tc.error || null,
         isHidden: !!tc.isHidden,

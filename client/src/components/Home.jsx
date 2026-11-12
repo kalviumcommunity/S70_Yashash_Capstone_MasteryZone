@@ -356,7 +356,13 @@ const Home = () => {
     if (currentPath === "/select-interests") return "select-interests";
     return "home";
   }, [currentPath]);
-  const [certHistory, setCertHistory] = useState({ attempts: [], certificates: [] });
+  const [certHistory, setCertHistory] = useState(() => {
+    try {
+      const cached = sessionStorage.getItem("mz_cert_history_cache");
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return { attempts: [], certificates: [] };
+  });
   const [isLoadingCertHistory, setIsLoadingCertHistory] = useState(false);
 
   const getEarnedCertInfo = useCallback(
@@ -461,10 +467,14 @@ const Home = () => {
       if (res.ok) {
         const data = await res.json();
         const certificates = data.certificates || [];
-        setCertHistory({
+        const historyData = {
           attempts: data.attempts || [],
           certificates,
-        });
+        };
+        setCertHistory(historyData);
+        try {
+          sessionStorage.setItem("mz_cert_history_cache", JSON.stringify(historyData));
+        } catch {}
         if (certificates.length === 0) {
           try {
             const rawUser = localStorage.getItem("user");

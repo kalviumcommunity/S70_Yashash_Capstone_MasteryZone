@@ -29,6 +29,7 @@ import "./projectWorkspace.css";
 import AssessmentSubmissionFlow from "./AssessmentSubmissionFlow";
 import ThemeToggle from "./ThemeToggle.jsx";
 import { useTheme } from "../context/ThemeContext.jsx";
+import { getProjectById } from "../data/projectsCatalog";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "";
 
@@ -82,6 +83,7 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
   const { isDark } = useTheme();
   const token = localStorage.getItem("token");
   const projectId = initialProject?.id || initialProject?._id || routeProjectId;
+  const fallbackSpec = useMemo(() => getProjectById(projectId), [projectId]);
 
   const currentUserId = (() => {
     try {
@@ -95,7 +97,10 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
     return "";
   })();
 
-  const [projectSpec, setProjectSpec] = useState(initialProject || null);
+  const [projectSpec, setProjectSpec] = useState(() => {
+    if (initialProject && initialProject.problemStatement) return initialProject;
+    return fallbackSpec || initialProject || null;
+  });
   const [files, setFiles] = useState(() => {
     // Check user-scoped localStorage backup first if available
     try {
@@ -110,11 +115,19 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
         }
       }
     } catch {}
-    return Array.isArray(initialProject?.files) && initialProject.files.length > 0
-      ? initialProject.files.map((f, idx) => ({
+    const candidateFiles =
+      Array.isArray(initialProject?.files) && initialProject.files.length > 0 && initialProject.files.some((f) => f.content)
+        ? initialProject.files
+        : Array.isArray(fallbackSpec?.files) && fallbackSpec.files.length > 0
+        ? fallbackSpec.files
+        : Array.isArray(initialProject?.files) && initialProject.files.length > 0
+        ? initialProject.files
+        : [];
+    return candidateFiles.length > 0
+      ? candidateFiles.map((f, idx) => ({
           id: f.id || `file_${idx}`,
           name: f.name,
-          language: f.language || getEditorLanguage(f.name, initialProject?.starterLanguage),
+          language: f.language || getEditorLanguage(f.name, initialProject?.starterLanguage || fallbackSpec?.starterLanguage),
           content: f.content || "",
         }))
       : [{ id: "file_0", name: "main.js", language: "javascript", content: "" }];
@@ -199,9 +212,21 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
       .then((data) => {
         if (cancelled || !data?.success) return;
         if (data.project) {
-          setProjectSpec(data.project);
-          if (!customInput && data.project.testCases?.[0]?.input && !data.project.testCases[0].isHidden) {
-            setCustomInput(data.project.testCases[0].input);
+          setProjectSpec((prev) => ({
+            ...(fallbackSpec || {}),
+            ...data.project,
+            problemStatement: data.project.problemStatement || fallbackSpec?.problemStatement || prev?.problemStatement,
+            objectives: (data.project.objectives?.length ? data.project.objectives : fallbackSpec?.objectives) || prev?.objectives || [],
+            milestones: (data.project.milestones?.length ? data.project.milestones : fallbackSpec?.milestones) || prev?.milestones || [],
+            testCases: (data.project.testCases?.length ? data.project.testCases : fallbackSpec?.testCases) || prev?.testCases || [],
+            files: (data.project.files?.length ? data.project.files : fallbackSpec?.files) || prev?.files || [],
+            ioSpecification: data.project.ioSpecification || fallbackSpec?.ioSpecification || prev?.ioSpecification || {},
+          }));
+          if (!customInput && (data.project.testCases?.[0]?.input || fallbackSpec?.testCases?.[0]?.input)) {
+            const firstInput = data.project.testCases?.[0]?.input || fallbackSpec?.testCases?.[0]?.input;
+            if (firstInput && !firstInput.includes("[Hidden")) {
+              setCustomInput(firstInput);
+            }
           }
         }
         if (Array.isArray(data.workspace?.files) && data.workspace.files.length > 0) {
@@ -395,15 +420,16 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
 
   // Run Project (Executes both live output AND test cases so Output, Console, and Test Cases all update)
   const handleRunProject = async () => {
-    if (!token || !projectId) return;
+    if (!projectId) return;
     setIsRunningProject(true);
     setIsRunningTests(true);
     setStatusToast(null);
 
+    const activeAuthToken = localStorage.getItem("token") || localStorage.getItem("Step2Dev_token") || token || "";
     try {
       const authHeaders = {
         "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(activeAuthToken ? { Authorization: `Bearer ${activeAuthToken}` } : {}),
       };
       const [customRes, testsRes] = await Promise.all([
         fetch(`${API_BASE_URL}/api/projects/${projectId}/run`, {
@@ -470,12 +496,13 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
     setIsRunningTests(true);
     setBottomTab("testcases");
     setStatusToast(null);
+    const activeAuthToken = localStorage.getItem("token") || localStorage.getItem("Step2Dev_token") || token || "";
     try {
       const res = await fetch(`${API_BASE_URL}/api/projects/${projectId}/run`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(activeAuthToken ? { Authorization: `Bearer ${activeAuthToken}` } : {}),
         },
         body: JSON.stringify({
           mode: "tests",
@@ -521,6 +548,23 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
       setIsRunningTests(false);
     }
   };
+
+  const effectiveTestCases = useMemo(() => {
+    if (testSuiteResults && Array.isArray(testSuiteResults.testResults) && testSuiteResults.testResults.length > 0) {
+      return testSuiteResults.testResults;
+    }
+    const rawCases = projectSpec?.testCases || fallbackSpec?.testCases || [];
+    return rawCases.map((tc, idx) => ({
+      testIndex: tc.testIndex || idx + 1,
+      name: tc.name || `Test Case #${idx + 1}`,
+      input: tc.input || "",
+      expectedOutput: tc.expectedOutput || "",
+      actualOutput: "",
+      passed: undefined,
+      durationMs: 0,
+      isHidden: Boolean(tc.isHidden),
+    }));
+  }, [testSuiteResults, projectSpec, fallbackSpec]);
 
   // Copy active file code
   const handleCopyCode = () => {
@@ -1024,50 +1068,185 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
                 <div className="mz-pw-details-icon">
                   <FiFileText size={17} />
                 </div>
-                <h2 className="mz-pw-details-title">Project Details</h2>
+                <h2 className="mz-pw-details-title">
+                  {topNavTab === "overview" ? "Project Overview" : "Problem Statement & Question Tasks"}
+                </h2>
               </div>
 
-              {/* Description Section */}
+              {/* Problem Statement / Description */}
               <div className="mz-pw-detail-block">
-                <h3 className="mz-pw-detail-heading">Description</h3>
-                <p className="mz-pw-detail-desc">
-                  {projectSpec?.description || projectSpec?.problemStatement}
+                <h3 className="mz-pw-detail-heading">
+                  {projectSpec?.problemStatement ? "Problem Statement" : "Description"}
+                </h3>
+                <p className="mz-pw-detail-desc" style={{ fontWeight: 500, color: "var(--mz-text-primary)" }}>
+                  {projectSpec?.problemStatement || projectSpec?.description}
                 </p>
 
-                {topNavTab === "overview" && projectSpec?.problemStatement && (
-                  <p
-                    className="mz-pw-detail-desc"
-                    style={{ marginTop: 8, fontSize: 12.8, color: "var(--mz-text-secondary)" }}
-                  >
-                    {projectSpec.problemStatement}
-                  </p>
-                )}
-
-                {topNavTab === "overview" && projectSpec?.ioSpecification?.inputFormat && (
+                {projectSpec?.realWorldScenario && (
                   <div
                     style={{
                       marginTop: 8,
-                      padding: "8px 10px",
+                      padding: "10px 12px",
+                      borderRadius: 8,
+                      background: "rgba(37, 99, 235, 0.06)",
+                      border: "1px solid rgba(37, 99, 235, 0.18)",
+                      fontSize: 12.5,
+                      color: "var(--mz-text-secondary)",
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    <strong style={{ color: "#2563eb" }}>Engineering Context: </strong>
+                    {projectSpec.realWorldScenario}
+                  </div>
+                )}
+              </div>
+
+              {/* Questions & Milestone Tasks (Step-by-Step Question Breakdown) */}
+              {Array.isArray(projectSpec?.milestones) && projectSpec.milestones.length > 0 && (
+                <div className="mz-pw-detail-block">
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <h3 className="mz-pw-detail-heading">
+                      Project Tasks ({projectSpec.milestones.length} Questions)
+                    </h3>
+                    <span style={{ fontSize: 11.5, fontWeight: 700, color: "#2563eb", background: "rgba(37, 99, 235, 0.1)", padding: "2px 8px", borderRadius: 6 }}>
+                      {checkedTasks.length} / {projectSpec.milestones.length} Done
+                    </span>
+                  </div>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 6 }}>
+                    {projectSpec.milestones.map((m, idx) => {
+                      const taskId = m.id || `task_${idx}`;
+                      const isTaskChecked = checkedTasks.includes(taskId);
+                      return (
+                        <div
+                          key={taskId}
+                          style={{
+                            padding: "12px",
+                            borderRadius: 10,
+                            background: "var(--mz-surface-subtle)",
+                            border: isTaskChecked ? "1px solid var(--mz-green-border, #86efac)" : "1px solid var(--mz-border)",
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 6,
+                          }}
+                        >
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                            <span style={{ fontSize: 12.5, fontWeight: 800, color: "var(--mz-text-primary)", display: "flex", alignItems: "center", gap: 6 }}>
+                              <span style={{
+                                width: 22,
+                                height: 22,
+                                borderRadius: "50%",
+                                background: isTaskChecked ? "#10b981" : "#2563eb",
+                                color: "#ffffff",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                fontSize: 11,
+                                fontWeight: 800,
+                                flexShrink: 0,
+                              }}>
+                                {m.stepNumber || idx + 1}
+                              </span>
+                              {m.title}
+                            </span>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--mz-text-muted)" }}>
+                              {m.marksAllocated ? `${m.marksAllocated} Marks` : ""}
+                            </span>
+                          </div>
+
+                          {m.question && (
+                            <div style={{
+                              fontSize: 12.5,
+                              color: "var(--mz-text-primary)",
+                              fontWeight: 600,
+                              background: "var(--mz-card-bg, #ffffff)",
+                              padding: "8px 10px",
+                              borderRadius: 6,
+                              border: "1px solid var(--mz-border)",
+                              lineHeight: 1.45,
+                            }}>
+                              <span style={{ color: "#2563eb", fontWeight: 800 }}>Question: </span>
+                              {m.question}
+                            </div>
+                          )}
+
+                          {m.expectedFunctionality && (
+                            <div style={{ fontSize: 11.8, color: "var(--mz-text-secondary)", lineHeight: 1.4 }}>
+                              <strong>Expected: </strong>{m.expectedFunctionality}
+                            </div>
+                          )}
+
+                          {m.acceptanceCriteria && (
+                            <div style={{ fontSize: 11.5, color: "#059669", fontWeight: 600 }}>
+                              <strong>Validation Criteria: </strong>{m.acceptanceCriteria}
+                            </div>
+                          )}
+
+                          {m.targetFile && (
+                            <div style={{ fontSize: 11, color: "var(--mz-text-muted)", marginTop: 2 }}>
+                              Target: <code style={{ padding: "1px 5px", borderRadius: 4, background: "rgba(0,0,0,0.06)", fontWeight: 600 }}>{m.targetFile}</code>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* I/O Specification */}
+              {projectSpec?.ioSpecification?.inputFormat && (
+                <div className="mz-pw-detail-block">
+                  <h3 className="mz-pw-detail-heading">Input & Output Specification</h3>
+                  <div
+                    style={{
+                      padding: "10px 12px",
                       borderRadius: 8,
                       background: "var(--mz-surface-subtle)",
                       border: "1px solid var(--mz-border)",
                       fontSize: 12,
                       color: "var(--mz-text-secondary)",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 6,
                     }}
                   >
                     <div>
-                      <strong>Input:</strong> {projectSpec.ioSpecification.inputFormat}
+                      <strong style={{ color: "var(--mz-text-primary)" }}>Input Format:</strong>
+                      <div style={{ marginTop: 2, fontFamily: "monospace", fontSize: 11.5 }}>
+                        {projectSpec.ioSpecification.inputFormat}
+                      </div>
                     </div>
-                    <div style={{ marginTop: 4 }}>
-                      <strong>Output:</strong> {projectSpec.ioSpecification.outputFormat}
-                    </div>
+                    {projectSpec.ioSpecification.outputFormat && (
+                      <div style={{ marginTop: 4 }}>
+                        <strong style={{ color: "var(--mz-text-primary)" }}>Output Format:</strong>
+                        <div style={{ marginTop: 2, fontFamily: "monospace", fontSize: 11.5 }}>
+                          {projectSpec.ioSpecification.outputFormat}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
+
+              {/* Objectives List (if available) */}
+              {Array.isArray(projectSpec?.objectives) && projectSpec.objectives.length > 0 && (
+                <div className="mz-pw-detail-block">
+                  <h3 className="mz-pw-detail-heading">Key Objectives</h3>
+                  <ul className="mz-pw-req-list">
+                    {projectSpec.objectives.map((obj, idx) => (
+                      <li key={idx} className="mz-pw-req-item">
+                        <FiCheck size={15} strokeWidth={3} className="mz-pw-req-check" />
+                        <span>{obj}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               {/* Requirements Section with Green Checkmarks */}
               <div className="mz-pw-detail-block">
-                <h3 className="mz-pw-detail-heading">Requirements</h3>
+                <h3 className="mz-pw-detail-heading">Requirements & Constraints</h3>
                 <ul className="mz-pw-req-list" data-testid="pw-requirements-list">
                   {requirementsList.map((reqTitle, idx) => (
                     <li key={idx} className="mz-pw-req-item">
@@ -1319,16 +1498,23 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
                   </button>
                 </div>
 
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  {effectiveTestCases.length > 0 && (
+                    <span style={{ fontSize: 12, fontWeight: 700, color: "var(--mz-text-secondary)" }}>
+                      {testSuiteResults
+                        ? `${testSuiteResults.passedTests || 0} / ${testSuiteResults.totalTests || effectiveTestCases.length} Tests Passed`
+                        : `${effectiveTestCases.length} Automated Test Cases`}
+                    </span>
+                  )}
                   <button
                     type="button"
                     className="mz-pw-tool-btn"
                     onClick={handleRunTests}
                     disabled={isRunningTests}
-                    style={{ padding: "5px 11px", fontSize: 12 }}
+                    style={{ padding: "5px 12px", fontSize: 12, background: "#2563eb", color: "#ffffff", border: "none" }}
                     data-testid="pw-run-tests-btn"
                   >
-                    <FiPlay size={12} color="#2563eb" />
+                    <FiPlay size={12} color="#ffffff" />
                     <span>{isRunningTests ? "Running Tests..." : "Run Tests"}</span>
                   </button>
                 </div>
@@ -1355,64 +1541,125 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
                       </tr>
                     </thead>
                     <tbody>
-                      {testSuiteResults && Array.isArray(testSuiteResults.testResults) && testSuiteResults.testResults.length > 0 ? (
-                        testSuiteResults.testResults.map((tc, idx) => (
-                          <tr
-                            key={idx}
-                            data-testid={`pw-testcase-row-${idx + 1}`}
-                            style={{
-                              background: tc.passed
-                                ? "var(--mz-green-bg)"
-                                : "var(--mz-red-bg)",
-                            }}
-                          >
-                            <td style={{ fontWeight: 800, color: "var(--mz-text-primary)" }}>
-                              {tc.testIndex || idx + 1}
-                            </td>
-                            <td>
-                              <code className="mz-pw-tc-code" title={tc.input}>
-                                {tc.isHidden ? "Hidden Edge Case" : tc.input}
-                              </code>
-                            </td>
-                            <td>
-                              <code className="mz-pw-tc-code" title={tc.expectedOutput}>
-                                {tc.isHidden ? "Hidden Spec" : tc.expectedOutput}
-                              </code>
-                            </td>
-                            <td>
-                              <code
-                                className="mz-pw-tc-code"
-                                title={tc.actualOutput || tc.error || ""}
-                                style={{
-                                  color: tc.passed ? "var(--mz-green-text)" : "var(--mz-red-text)",
-                                  borderColor: tc.passed ? "var(--mz-green-border)" : "var(--mz-red-border)",
-                                }}
-                              >
-                                {tc.actualOutput || tc.error || "(empty)"}
-                              </code>
-                            </td>
-                            <td>
-                              <span
-                                style={{
-                                  display: "inline-flex",
-                                  alignItems: "center",
-                                  gap: 4,
-                                  padding: "3px 9px",
-                                  borderRadius: 999,
-                                  fontSize: 11.5,
-                                  fontWeight: 800,
-                                  background: tc.passed ? "var(--mz-green-bg)" : "var(--mz-red-bg)",
-                                  color: tc.passed ? "var(--mz-green-text)" : "var(--mz-red-text)",
-                                }}
-                              >
-                                {tc.passed ? "✓ Passed" : "✗ Failed"}
-                              </span>
-                            </td>
-                            <td style={{ fontWeight: 600, color: "var(--mz-text-muted)", fontSize: 12 }}>
-                              {tc.durationMs || 1}ms
-                            </td>
-                          </tr>
-                        ))
+                      {effectiveTestCases.length > 0 ? (
+                        effectiveTestCases.map((tc, idx) => {
+                          const isEvaluated = tc.passed !== undefined;
+                          const isPassed = tc.passed === true;
+                          return (
+                            <tr
+                              key={idx}
+                              data-testid={`pw-testcase-row-${idx + 1}`}
+                              style={{
+                                background: isEvaluated
+                                  ? isPassed
+                                    ? "var(--mz-green-bg, #f0fdf4)"
+                                    : "var(--mz-red-bg, #fef2f2)"
+                                  : "transparent",
+                              }}
+                            >
+                              <td style={{ fontWeight: 800, color: "var(--mz-text-primary)" }}>
+                                {tc.testIndex || idx + 1}
+                              </td>
+                              <td>
+                                <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                                  {tc.name && (
+                                    <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--mz-text-primary)" }}>
+                                      {tc.name}
+                                    </span>
+                                  )}
+                                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                    <code className="mz-pw-tc-code" title={tc.input}>
+                                      {tc.isHidden ? "Hidden Edge Case" : tc.input}
+                                    </code>
+                                    {!tc.isHidden && tc.input && (
+                                      <button
+                                        type="button"
+                                        title="Use this input in console stdin"
+                                        onClick={() => {
+                                          setCustomInput(tc.input);
+                                          setBottomTab("console");
+                                          setStatusToast({ type: "success", text: `Loaded Test Case #${idx + 1} input into Console stdin` });
+                                        }}
+                                        style={{
+                                          background: "none",
+                                          border: "none",
+                                          cursor: "pointer",
+                                          color: "#2563eb",
+                                          fontSize: 11,
+                                          fontWeight: 600,
+                                          padding: "1px 4px",
+                                        }}
+                                      >
+                                        Use in Stdin
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              </td>
+                              <td>
+                                <code className="mz-pw-tc-code" title={tc.expectedOutput}>
+                                  {tc.isHidden ? "Hidden Spec" : tc.expectedOutput}
+                                </code>
+                              </td>
+                              <td>
+                                {isEvaluated ? (
+                                  <code
+                                    className="mz-pw-tc-code"
+                                    title={tc.actualOutput || tc.error || ""}
+                                    style={{
+                                      color: isPassed ? "var(--mz-green-text, #16a34a)" : "var(--mz-red-text, #dc2626)",
+                                      borderColor: isPassed ? "var(--mz-green-border, #bbf7d0)" : "var(--mz-red-border, #fecaca)",
+                                    }}
+                                  >
+                                    {tc.actualOutput || tc.error || "(empty)"}
+                                  </code>
+                                ) : (
+                                  <span style={{ fontSize: 12, color: "var(--mz-text-muted)", fontStyle: "italic" }}>
+                                    Pending Run — Click &apos;Run Tests&apos;
+                                  </span>
+                                )}
+                              </td>
+                              <td>
+                                {isEvaluated ? (
+                                  <span
+                                    style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: 4,
+                                      padding: "3px 9px",
+                                      borderRadius: 999,
+                                      fontSize: 11.5,
+                                      fontWeight: 800,
+                                      background: isPassed ? "var(--mz-green-bg, #dcfce7)" : "var(--mz-red-bg, #fee2e2)",
+                                      color: isPassed ? "var(--mz-green-text, #15803d)" : "var(--mz-red-text, #b91c1c)",
+                                    }}
+                                  >
+                                    {isPassed ? "✓ Passed" : "✗ Failed"}
+                                  </span>
+                                ) : (
+                                  <span
+                                    style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: 4,
+                                      padding: "3px 9px",
+                                      borderRadius: 999,
+                                      fontSize: 11.5,
+                                      fontWeight: 700,
+                                      background: "var(--mz-surface-subtle)",
+                                      color: "var(--mz-text-secondary)",
+                                    }}
+                                  >
+                                    ● Ready
+                                  </span>
+                                )}
+                              </td>
+                              <td style={{ fontWeight: 600, color: "var(--mz-text-muted)", fontSize: 12 }}>
+                                {isEvaluated ? `${tc.durationMs || 1}ms` : "-"}
+                              </td>
+                            </tr>
+                          );
+                        })
                       ) : (
                         <tr>
                           <td colSpan={6} style={{ borderBottom: "none", padding: 0 }}>

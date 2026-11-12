@@ -1741,7 +1741,7 @@ router.post("/curriculum/exercise/run", authenticateToken, async (req, res) => {
     }
     const results = testsToRun.map((tc, i) => {
       const outcome = outcomes[i] || { passed: false, actual: "", expected: tc.expectedOutput, error: "Evaluation failed", duration: 0 };
-      const isHidden = Boolean(tc.isHidden || (shouldRunAll && i >= 3));
+      const isHidden = Boolean(tc.isHidden);
       return {
         testIndex: i + 1,
         testNumber: i + 1,
@@ -3517,7 +3517,7 @@ router.post("/proctored-session/init", optionalAuthenticateToken, async (req, re
       const qTestCases = (resolved.testCases || []).map((t, tcIdx) => ({
         input: t.input,
         expectedOutput: t.expectedOutput,
-        isHidden: t.isHidden !== undefined ? t.isHidden : tcIdx >= 3,
+        isHidden: t.isHidden !== undefined ? t.isHidden : false,
       }));
       return {
         questionId: resolved.id || `q_${idx + 1}`,
@@ -3686,7 +3686,7 @@ router.post("/proctored-session/start", optionalAuthenticateToken, async (req, r
       const qTestCases = (problem.testCases || []).map((t, idx) => ({
         input: t.input,
         expectedOutput: t.expectedOutput,
-        isHidden: t.isHidden !== undefined ? t.isHidden : idx >= 3,
+        isHidden: t.isHidden !== undefined ? t.isHidden : false,
       }));
 
       const initialQ = {
@@ -4338,7 +4338,7 @@ router.post(["/proctored-session/:sessionId/submit", "/proctored-session/submit"
       const qTestCases = (pData.testCases || []).map((t, idx) => ({
         input: t.input,
         expectedOutput: t.expectedOutput,
-        isHidden: t.isHidden !== undefined ? t.isHidden : idx >= 3,
+        isHidden: t.isHidden !== undefined ? t.isHidden : false,
       }));
 
       session.questions = [
@@ -4432,7 +4432,7 @@ router.post(["/proctored-session/:sessionId/submit", "/proctored-session/submit"
           actualPassedTests = outcomes.filter((o) => o.passed).length;
           evaluatedResults = officialTestCases.map((tc, idx) => {
             const outcome = outcomes[idx] || { passed: false, actual: "", expected: tc.expectedOutput, error: "Evaluation failed", duration: 0 };
-            const isHidden = tc.isHidden !== undefined ? tc.isHidden : idx >= 3;
+            const isHidden = tc.isHidden !== undefined ? tc.isHidden : false;
             return {
               testIndex: idx + 1,
               passed: outcome.passed,
@@ -4499,7 +4499,7 @@ router.post(["/proctored-session/:sessionId/submit", "/proctored-session/submit"
         actualPassedTests = outcomes.filter((o) => o.passed).length;
         evaluatedResults = officialTestCases.map((tc, idx) => {
           const outcome = outcomes[idx] || { passed: false, actual: "", expected: tc.expectedOutput, error: "Evaluation failed", duration: 0 };
-          const isHidden = tc.isHidden !== undefined ? tc.isHidden : idx >= 3;
+          const isHidden = tc.isHidden !== undefined ? tc.isHidden : false;
           return {
             testIndex: idx + 1,
             passed: outcome.passed,
@@ -5024,7 +5024,7 @@ router.get("/proctored-session/:sessionId/report", optionalAuthenticateToken, as
         const testResults = [];
         for (let tIdx = 0; tIdx < totalTests; tIdx++) {
           const tc = testCasesList[tIdx] || {};
-          const isHidden = tc.isHidden !== undefined ? tc.isHidden : tIdx >= 3;
+          const isHidden = tc.isHidden !== undefined ? tc.isHidden : false;
           const passed = tIdx < passedTests;
           testResults.push({
             testIndex: tIdx + 1,
@@ -5274,7 +5274,7 @@ router.get("/proctored-session/:sessionId/report", optionalAuthenticateToken, as
             fullResults.push(existingResults[tIdx]);
           } else {
             const tc = testCasesList[tIdx] || {};
-            const isHidden = tc.isHidden !== undefined ? tc.isHidden : tIdx >= 3;
+            const isHidden = tc.isHidden !== undefined ? tc.isHidden : false;
             const isPassed = tIdx < passTarget;
             fullResults.push({
               testIndex: tIdx + 1,
