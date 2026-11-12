@@ -7,9 +7,17 @@ const PROJECTS_CATALOG = [...PROJECTS_PART_1, ...PROJECTS_PART_2].map((proj, ind
   tasks: (proj.milestones || []).map((m) => m.title),
 }));
 
+const PROJECT_ID_ALIASES = {
+  proj_algo_trading: "proj_trading_bot",
+  proj_ecommerce_api: "proj_ecommerce_platform",
+  proj_collab_canvas: "proj_realtime_chat",
+  proj_task_queue: "proj_task_api",
+};
+
 function getProjectById(projectId) {
   if (!projectId) return null;
-  return PROJECTS_CATALOG.find((p) => p.id === projectId) || null;
+  const canonicalId = PROJECT_ID_ALIASES[projectId] || projectId;
+  return PROJECTS_CATALOG.find((p) => p.id === canonicalId || p.id === projectId) || null;
 }
 
 function getPublicProjectSpec(project) {

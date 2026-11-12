@@ -53,6 +53,7 @@ import FullScreenConceptLearning from "./FullScreenConceptLearning";
 import { performGlobalLogout } from "../utils/sessionAuth.js";
 import PracticalAssignmentModal from "./PracticalAssignmentModal";
 import ProctoredAssessmentWorkspace from "./ProctoredAssessmentWorkspace";
+import { PROJECTS_CATALOG } from "../data/projectsCatalog";
 import logoIcon from "../assets/logo_icon_transparent.png";
 import "./coding.css";
 
@@ -242,154 +243,9 @@ const DEFAULT_TRACKS = [
 ];
 
 /* ══════════════════════════════════════════════════════════════
-   DEFAULT PRACTICAL PROJECTS DATA (12 Industry Labs)
+   DEFAULT PRACTICAL PROJECTS DATA (14 Production-Grade Industry Labs)
    ══════════════════════════════════════════════════════════════ */
-const DEFAULT_PROJECTS = [
-  {
-    id: "proj_task_queue",
-    title: "Distributed Task Queue & Job Scheduler",
-    domain: "Backend Systems",
-    starterLanguage: "javascript",
-    description: "Architect a resilient background job queue with concurrency limits, exponential backoff retries, and dead-letter queues.",
-    technologies: ["Node.js", "Redis", "TypeScript", "Docker"],
-    milestones: ["Worker Daemon & IPC", "Priority Queue Engine", "Exponential Backoff & Telemetry"],
-    progressPercent: 35,
-    difficulty: "Advanced",
-    xpReward: 350,
-  },
-  {
-    id: "proj_collab_canvas",
-    title: "Real-Time Collaborative Code Canvas",
-    domain: "Real-Time Systems",
-    starterLanguage: "react",
-    description: "Build an interactive multi-cursor live code editor powered by WebSockets, Operational Transformation (OT), and presence tracking.",
-    technologies: ["React", "WebSockets", "Monaco Editor", "Express"],
-    milestones: ["WebSocket Protocol & Auth", "Cursor Broadcasting", "Conflict Resolution Engine"],
-    progressPercent: 0,
-    difficulty: "Intermediate",
-    xpReward: 300,
-  },
-  {
-    id: "proj_algo_trading",
-    title: "Algorithmic Order Matching Engine",
-    domain: "Financial Engineering",
-    starterLanguage: "cpp",
-    description: "Construct a high-throughput Limit Order Book (LOB) engine in Modern C++ processing bid/ask orders with sub-millisecond execution.",
-    technologies: ["C++20", "STL", "Memory Pools", "CMake"],
-    milestones: ["Price-Time Priority Book", "Trade Execution Engine", "Performance Benchmark Suite"],
-    progressPercent: 0,
-    difficulty: "Hard",
-    xpReward: 400,
-  },
-  {
-    id: "proj_ecommerce_api",
-    title: "Enterprise E-Commerce Microservices API",
-    domain: "Full-Stack Web",
-    starterLanguage: "python",
-    description: "Design modular RESTful microservices for product catalogs, cart state, payment webhook gateways, and JWT authentication.",
-    technologies: ["Python", "FastAPI", "PostgreSQL", "Docker"],
-    milestones: ["Schema & Database Migrations", "Payment Webhook Dispatcher", "Inventory Concurrency Lock"],
-    progressPercent: 0,
-    difficulty: "Intermediate",
-    xpReward: 320,
-  },
-  {
-    id: "proj_portfolio",
-    title: "Modern Developer Portfolio & Terminal Resume",
-    domain: "Full-Stack Web",
-    starterLanguage: "javascript",
-    description: "Build a fast, responsive developer portfolio engine featuring dynamic project filtering, an interactive terminal resume parser, and contact form validation.",
-    technologies: ["HTML5", "CSS3 Grid", "JavaScript ES6", "DOM Validation"],
-    milestones: ["Interactive Project Filter", "Terminal Resume CLI", "Sanitized Contact Endpoint"],
-    progressPercent: 0,
-    difficulty: "Beginner",
-    xpReward: 250,
-  },
-  {
-    id: "proj_task_api",
-    title: "RESTful Task Management Engine",
-    domain: "Backend Systems",
-    starterLanguage: "python",
-    description: "Develop a secure RESTful API featuring role-based access control, encrypted session tokens, and relational schema validation.",
-    technologies: ["Python", "Flask", "SQLite", "JWT Auth"],
-    milestones: ["Token Authentication Middleware", "CRUD Task Lifecycle", "Filter & Pagination API"],
-    progressPercent: 0,
-    difficulty: "Intermediate",
-    xpReward: 280,
-  },
-  {
-    id: "proj_banking_system",
-    title: "Java Enterprise OOP Banking Engine",
-    domain: "Enterprise Systems",
-    starterLanguage: "java",
-    description: "Architect an object-oriented banking transaction platform supporting checking/savings polymorphism, atomic fund transfers, and ledger persistence.",
-    technologies: ["Java 17", "OOP Polymorphism", "Atomic Transactions", "JUnit"],
-    milestones: ["Account Hierarchy & Overdraft", "Atomic Ledger Transfers", "Interest Accrual Service"],
-    progressPercent: 0,
-    difficulty: "Intermediate",
-    xpReward: 320,
-  },
-  {
-    id: "proj_realtime_chat",
-    title: "Real-Time Chat & Multi-Room Presence",
-    domain: "Real-Time Systems",
-    starterLanguage: "javascript",
-    description: "Engineer an instant messaging backbone with peer-to-peer room routing, typing presence indicators, and message caching.",
-    technologies: ["Node.js", "Socket.io", "Redis Pub/Sub", "Express"],
-    milestones: ["Room Broadcasting Protocol", "Heartbeat Presence Tracker", "Message History Cache"],
-    progressPercent: 0,
-    difficulty: "Intermediate",
-    xpReward: 300,
-  },
-  {
-    id: "proj_online_exam",
-    title: "Online Examination & Proctoring Engine",
-    domain: "Full-Stack Web",
-    starterLanguage: "react",
-    description: "Construct an online assessment system with synchronized countdown timers, randomized question banks, and real-time proctoring event monitoring.",
-    technologies: ["React", "Node.js", "MongoDB", "WebRTC"],
-    milestones: ["Timed Exam State Machine", "Automated MCQ Auto-Grading", "Proctoring Event Listeners"],
-    progressPercent: 0,
-    difficulty: "Advanced",
-    xpReward: 350,
-  },
-  {
-    id: "proj_resume_analyzer",
-    title: "AI-Powered Resume Analyzer & Keyword Parser",
-    domain: "AI & Data Engineering",
-    starterLanguage: "python",
-    description: "Implement an algorithmic resume screening pipeline that extracts technical competencies, computes JD match scores, and highlights missing keywords.",
-    technologies: ["Python", "NLP Regex", "FastAPI", "JSON Schema"],
-    milestones: ["Resume Tokenizer & Section Extractor", "Skills TF-IDF Matching Engine", "Match Scoring Algorithm"],
-    progressPercent: 0,
-    difficulty: "Intermediate",
-    xpReward: 320,
-  },
-  {
-    id: "proj_inventory_warehouse",
-    title: "Inventory & Warehouse State Management",
-    domain: "Enterprise Systems",
-    starterLanguage: "java",
-    description: "Build a warehouse management platform tracking product SKUs, multi-bin storage allocations, and automated low-stock reorder thresholds.",
-    technologies: ["Java", "Spring Boot", "PostgreSQL", "JPA"],
-    milestones: ["SKU Tracking & Stock Levels", "Order Fulfillment Pipeline", "Low-Stock Event Dispatcher"],
-    progressPercent: 0,
-    difficulty: "Intermediate",
-    xpReward: 310,
-  },
-  {
-    id: "proj_url_shortener",
-    title: "High-Scale URL Shortener & Analytics",
-    domain: "Backend Systems",
-    starterLanguage: "javascript",
-    description: "Design a high-throughput URL shortening service with Base62 collision-free encoding, Redis cache lookups, and click geocoding metrics.",
-    technologies: ["Node.js", "Base62 Encoding", "Redis", "PostgreSQL"],
-    milestones: ["Base62 Hash Tokenizer", "Sub-Millisecond Redis Cache", "Click Analytics Stream"],
-    progressPercent: 0,
-    difficulty: "Intermediate",
-    xpReward: 290,
-  },
-];
+const DEFAULT_PROJECTS = PROJECTS_CATALOG;
 
 /* ══════════════════════════════════════════════════════════════
    DEFAULT CURATED RESOURCES
@@ -494,7 +350,7 @@ export default function Coding() {
     return "learning_path";
   };
 
-  const rawInitialTab = searchParams.get("tab") || location.state?.tab;
+  const rawInitialTab = searchParams.get("tab") || sessionStorage.getItem("mz_coding_active_tab") || location.state?.tab;
   const initialTab = normalizeTabName(rawInitialTab);
   const [activeTab, setActiveTab] = useState(initialTab);
 
@@ -504,9 +360,26 @@ export default function Coding() {
     if (tabParam) {
       const normalized = normalizeTabName(tabParam);
       setActiveTab(normalized);
+      try {
+        sessionStorage.setItem("mz_coding_active_tab", normalized);
+      } catch {}
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
   }, [searchParams, location.state]);
+
+  // Persist activeTab across browser refreshes and sync with URL query
+  useEffect(() => {
+    try {
+      sessionStorage.setItem("mz_coding_active_tab", activeTab);
+      if (typeof window !== "undefined") {
+        const url = new URL(window.location.href);
+        if (url.searchParams.get("tab") !== activeTab) {
+          url.searchParams.set("tab", activeTab);
+          window.history.replaceState(window.history.state, "", url.toString());
+        }
+      }
+    } catch {}
+  }, [activeTab]);
 
   // Global search & suggestions
   const [searchQuery, setSearchQuery] = useState("");
@@ -532,8 +405,20 @@ export default function Coding() {
     solvedCount: 0,
     activeTrack: "Python Track",
   });
-  const [earnedCertificates, setEarnedCertificates] = useState([]);
-  const [certAttempts, setCertAttempts] = useState([]);
+  const [earnedCertificates, setEarnedCertificates] = useState(() => {
+    try {
+      const cached = sessionStorage.getItem("mz_cached_earned_certs");
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return [];
+  });
+  const [certAttempts, setCertAttempts] = useState(() => {
+    try {
+      const cached = sessionStorage.getItem("mz_cached_cert_attempts");
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return [];
+  });
 
   // Filter states inside Challenges tab
   const [challengeDifficulty, setChallengeDifficulty] = useState("all");
@@ -542,7 +427,30 @@ export default function Coding() {
   // Modals & Active Workspaces
   const [selectedChallengeModal, setSelectedChallengeModal] = useState(null);
   const [selectedProjectModal, setSelectedProjectModal] = useState(null);
-  const [selectedExamWorkspace, setSelectedExamWorkspace] = useState(null);
+  const [selectedExamWorkspace, setSelectedExamWorkspace] = useState(() => {
+    try {
+      const rawUser = localStorage.getItem("user");
+      let uId = "";
+      if (rawUser) {
+        const u = JSON.parse(rawUser);
+        uId = u._id || u.id || u.userId || "";
+      }
+      const certKey = uId ? `mz_${uId}_active_cert_session` : "mz_active_cert_session";
+      const saved = localStorage.getItem(certKey) || localStorage.getItem("mz_active_cert_session") || sessionStorage.getItem("mz_active_cert_session");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.attemptId && parsed.status === "IN_PROGRESS") {
+          return {
+            id: parsed.certId || "dsa_cert",
+            name: parsed.certTitle || "Data Structures & Algorithms (DSA)",
+            attemptId: parsed.attemptId,
+            language: "python",
+          };
+        }
+      }
+    } catch {}
+    return null;
+  });
   const [activeVideoModal, setActiveVideoModal] = useState(null);
 
   // Video Library states
@@ -842,6 +750,9 @@ export default function Coding() {
               const certData = await certRes.json();
               if (Array.isArray(certData.certificates)) {
                 setEarnedCertificates(certData.certificates);
+                try {
+                  sessionStorage.setItem("mz_cached_earned_certs", JSON.stringify(certData.certificates));
+                } catch {}
                 if (certData.certificates.length === 0) {
                   try {
                     const uKey = currentUser?._id || currentUser?.id || "guest";
@@ -857,6 +768,9 @@ export default function Coding() {
               }
               if (Array.isArray(certData.attempts)) {
                 setCertAttempts(certData.attempts);
+                try {
+                  sessionStorage.setItem("mz_cached_cert_attempts", JSON.stringify(certData.attempts));
+                } catch {}
               }
             }
           })
@@ -3136,7 +3050,7 @@ export default function Coding() {
                   </span>
                 </div>
                 <h2 className="mz-c-proj-cover-title">
-                  12 Production-Grade Industry Engineering Projects
+                  {projects.length || 14} Production-Grade Industry Engineering Projects
                 </h2>
                 <p className="mz-c-proj-cover-desc">
                   Architect and deploy end-to-end distributed systems, real-time WebSockets engines, microservices APIs, and high-frequency order books with milestone-by-milestone guided verification.
@@ -3146,7 +3060,7 @@ export default function Coding() {
                 <div className="mz-c-proj-cover-filter-row">
                   <span className="mz-c-proj-filter-label">Filter Labs:</span>
                   {[
-                    { id: "all", label: "All Projects (12)" },
+                    { id: "all", label: `All Projects (${projects.length || 14})` },
                     { id: "backend", label: "Backend Systems" },
                     { id: "real-time", label: "Real-Time Systems" },
                     { id: "financial", label: "Financial Engineering" },
@@ -3170,7 +3084,7 @@ export default function Coding() {
               <div className="mz-c-proj-cover-stats">
                 <div className="mz-c-proj-stat-box">
                   <div className="mz-c-proj-stat-label">Total Labs</div>
-                  <div className="mz-c-proj-stat-num">12</div>
+                  <div className="mz-c-proj-stat-num">{projects.length || 14}</div>
                   <div className="mz-c-proj-stat-sub">Production Grade</div>
                 </div>
                 <div className="mz-c-proj-stat-box">
@@ -3193,7 +3107,9 @@ export default function Coding() {
                 </div>
                 <div className="mz-c-proj-stat-box">
                   <div className="mz-c-proj-stat-label">Max Reward</div>
-                  <div className="mz-c-proj-stat-num" style={{ color: "#38bdf8" }}>+3,600</div>
+                  <div className="mz-c-proj-stat-num" style={{ color: "#38bdf8" }}>
+                    +{projects.reduce((acc, p) => acc + (p.xpReward || 350), 0).toLocaleString()}
+                  </div>
                   <div className="mz-c-proj-stat-sub">Total XP</div>
                 </div>
               </div>

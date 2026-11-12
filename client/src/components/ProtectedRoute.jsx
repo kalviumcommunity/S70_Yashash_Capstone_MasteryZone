@@ -1,12 +1,21 @@
 import React, { useState, useEffect } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { GlobalLoader } from "./Loaders.jsx";
-import { verifyActiveSession, clearMasteryZoneStorage } from "../utils/sessionAuth.js";
+import { verifyActiveSession, clearMasteryZoneStorage, isJwtExpired } from "../utils/sessionAuth.js";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
 const ProtectedRoute = ({ children }) => {
-  const [authState, setAuthState] = useState("loading"); // "loading" | "authenticated" | "unauthenticated"
+  const [authState, setAuthState] = useState(() => {
+    try {
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const user = localStorage.getItem("user") || sessionStorage.getItem("user");
+      if (token && user && !isJwtExpired(token)) {
+        return "authenticated";
+      }
+    } catch {}
+    return "loading";
+  });
   const location = useLocation();
 
   useEffect(() => {
