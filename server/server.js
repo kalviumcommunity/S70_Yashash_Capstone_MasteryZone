@@ -2075,6 +2075,13 @@ app.use('/proctoring-evidence', async (req, res, next) => {
   return res.sendFile(filePath);
 });
 
+// Forward legacy /uploads/support_attachments to authorized /api/support/attachments endpoint
+app.use('/uploads/support_attachments/:filename', (req, res) => {
+  const safeFilename = path.basename(req.params.filename);
+  const tokenQuery = req.query.token ? `?token=${encodeURIComponent(req.query.token)}` : '';
+  return res.redirect(`/api/support/attachments/${safeFilename}${tokenQuery}`);
+});
+
 // Generic Uploads: Prevent Direct Access to Evidence/Recordings/Certificates/Support subdirectories
 app.use('/uploads', (req, res, next) => {
   const norm = path.normalize(req.path);

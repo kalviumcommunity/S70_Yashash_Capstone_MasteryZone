@@ -26,7 +26,7 @@ import {
   LuSparkles,
   LuExternalLink,
   LuPaperclip,
-  LuDownload,
+  LuEye,
   LuCloudUpload,
   LuZoomIn,
   LuImage,
@@ -46,26 +46,53 @@ const formatFileSize = (bytes) => {
 
 const isImageAttachment = (att) => {
   if (!att) return false;
-  const mt = (att.mimeType || "").toLowerCase();
-  const fn = (att.fileName || att.originalName || "").toLowerCase();
+  if (typeof att === "string") {
+    const s = att.toLowerCase().trim();
+    return s.startsWith("data:image/") || /\.(png|jpe?g|webp|gif|svg|bmp|ico|avif|jfif|tiff)(\?.*)?$/i.test(s);
+  }
+  const mt = (att.mimeType || att.type || "").toLowerCase().trim();
+  const fn = (att.fileName || att.originalName || att.name || "").toLowerCase().trim();
+  const url = (att.fileUrl || att.previewUrl || "").toLowerCase().trim();
   return (
     mt.startsWith("image/") ||
-    fn.endsWith(".png") ||
-    fn.endsWith(".jpg") ||
-    fn.endsWith(".jpeg") ||
-    fn.endsWith(".webp") ||
-    fn.endsWith(".gif") ||
-    fn.endsWith(".svg")
+    /\.(png|jpe?g|webp|gif|svg|bmp|ico|avif|jfif|tiff)(\?.*)?$/i.test(fn) ||
+    /\.(png|jpe?g|webp|gif|svg|bmp|ico|avif|jfif|tiff)(\?.*)?$/i.test(url) ||
+    url.startsWith("data:image/")
   );
 };
 
-const getAttachmentUrl = (fileUrl) => {
+const isPdfAttachment = (att) => {
+  if (!att) return false;
+  const mt = (att.mimeType || att.type || "").toLowerCase().trim();
+  const fn = (att.fileName || att.originalName || att.name || "").toLowerCase().trim();
+  const url = (att.fileUrl || att.previewUrl || "").toLowerCase().trim();
+  return mt === "application/pdf" || fn.endsWith(".pdf") || url.includes(".pdf");
+};
+
+const getAttachmentUrl = (fileUrl, fileName) => {
   if (!fileUrl) return "";
-  if (fileUrl.startsWith("data:") || fileUrl.startsWith("blob:") || fileUrl.startsWith("http://") || fileUrl.startsWith("https://")) {
+  if (fileUrl.startsWith("data:") || fileUrl.startsWith("blob:")) {
     return fileUrl;
   }
-  const clean = fileUrl.startsWith("/") ? fileUrl : `/${fileUrl}`;
-  return `${API_BASE}${clean}`;
+  const token = localStorage.getItem("token") || "";
+  const tokenQuery = token ? `token=${encodeURIComponent(token)}` : "";
+
+  let cleanUrl = fileUrl;
+  if (fileUrl.includes("/uploads/support_attachments/")) {
+    const fn = fileName || fileUrl.split("/uploads/support_attachments/")[1].split("?")[0];
+    cleanUrl = `/api/support/attachments/${fn}`;
+  } else if (!fileUrl.startsWith("/api/support/attachments/") && fileName) {
+    cleanUrl = `/api/support/attachments/${fileName}`;
+  }
+
+  const base = cleanUrl.startsWith("http://") || cleanUrl.startsWith("https://")
+    ? cleanUrl
+    : `${API_BASE}${cleanUrl.startsWith("/") ? cleanUrl : `/${cleanUrl}`}`;
+
+  if (tokenQuery && !base.includes("token=")) {
+    return base.includes("?") ? `${base}&${tokenQuery}` : `${base}?${tokenQuery}`;
+  }
+  return base;
 };
 
 const CATEGORIES = [
@@ -457,30 +484,32 @@ const AdminHelpSupport = () => {
   const renderAttachments = (attachments, isWhiteTheme = false) => {
     if (!attachments || attachments.length === 0) return null;
     return (
-      <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 10 }}>
+      <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 12 }}>
         {attachments.map((att, idx) => {
           const isImg = isImageAttachment(att);
-          const attUrl = getAttachmentUrl(att.previewUrl || att.fileUrl);
+          const isPdf = isPdfAttachment(att);
+          const attUrl = getAttachmentUrl(att.previewUrl || att.fileUrl, att.fileName || att.originalName);
+
           if (isImg) {
             return (
               <div
                 key={att._id || idx}
-                onClick={() => setLightboxAttachment({ ...att, fileUrl: attUrl })}
+                onClick={() => setLightboxAttachment({ ...att, fileUrl: attUrl, isImage: true })}
                 style={{
                   position: "relative",
                   cursor: "pointer",
-                  borderRadius: 8,
+                  borderRadius: 10,
                   overflow: "hidden",
-                  border: isWhiteTheme ? "1px solid rgba(255,255,255,0.3)" : "1px solid var(--mz-border-strong)",
+                  border: isWhiteTheme ? "1px solid rgba(255,255,255,0.4)" : "1px solid var(--mz-border-strong)",
                   background: isWhiteTheme ? "rgba(255,255,255,0.15)" : "var(--mz-surface-muted)",
-                  width: 140,
-                  height: 95,
+                  width: 160,
+                  height: 110,
                   display: "flex",
                   flexDirection: "column",
                   transition: "all 0.2s ease",
-                  boxShadow: "0 2px 6px rgba(0,0,0,0.06)",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
                 }}
-                title="Click to inspect high-resolution evidence"
+                title="Click to inspect file image in high resolution"
               >
                 <img
                   src={attUrl}
@@ -488,8 +517,9 @@ const AdminHelpSupport = () => {
                   style={{ width: "100%", height: "100%", objectFit: "cover" }}
                   onError={(e) => {
                     const fname = att.fileName || (att.fileUrl ? att.fileUrl.split("/").pop() : "");
+                    const token = localStorage.getItem("token") || "";
                     if (fname && !e.currentTarget.src.includes(`/api/support/attachments/${fname}`)) {
-                      e.currentTarget.src = `${API_BASE}/api/support/attachments/${fname}`;
+                      e.currentTarget.src = `${API_BASE}/api/support/attachments/${fname}${token ? `?token=${encodeURIComponent(token)}` : ""}`;
                     }
                   }}
                 />
@@ -497,53 +527,97 @@ const AdminHelpSupport = () => {
                   style={{
                     position: "absolute",
                     inset: 0,
-                    background: "rgba(0,0,0,0.4)",
+                    background: "rgba(15, 23, 42, 0.45)",
                     opacity: 0,
                     display: "flex",
+                    flexDirection: "column",
                     alignItems: "center",
                     justifyContent: "center",
                     color: "#ffffff",
                     transition: "opacity 0.2s ease",
+                    padding: 6,
+                    textAlign: "center",
                   }}
                   onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
                   onMouseLeave={(e) => (e.currentTarget.style.opacity = "0")}
                 >
-                  <LuZoomIn size={22} />
+                  <LuZoomIn size={24} style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.4))" }} />
+                  <span style={{ fontSize: 11, fontWeight: 700, marginTop: 4, textShadow: "0 1px 2px rgba(0,0,0,0.6)" }}>
+                    View Image
+                  </span>
+                </div>
+                {/* Filename sub-bar */}
+                <div
+                  style={{
+                    position: "absolute",
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    background: "linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 75%, transparent 100%)",
+                    padding: "14px 6px 4px 6px",
+                    color: "#ffffff",
+                    fontSize: 10,
+                    fontWeight: 600,
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                >
+                  {att.originalName}
                 </div>
               </div>
             );
           }
+
+          // Document attachment (PDF, logs, code, text) - directly inspectable without download
           return (
-            <a
+            <div
               key={att._id || idx}
-              href={attUrl}
-              target="_blank"
-              rel="noreferrer"
-              download={att.originalName}
+              onClick={() => setLightboxAttachment({ ...att, fileUrl: attUrl, isImage: false, isPdf })}
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: 8,
-                padding: "8px 12px",
-                borderRadius: 8,
+                gap: 10,
+                padding: "10px 14px",
+                borderRadius: 10,
                 background: isWhiteTheme ? "rgba(255,255,255,0.15)" : "var(--mz-surface)",
                 color: isWhiteTheme ? "#ffffff" : "var(--mz-text-body)",
-                border: isWhiteTheme ? "1px solid rgba(255,255,255,0.25)" : "1px solid var(--mz-border-strong)",
+                border: isWhiteTheme ? "1px solid rgba(255,255,255,0.3)" : "1px solid var(--mz-border-strong)",
                 fontSize: 12,
                 fontWeight: 600,
-                textDecoration: "none",
-                maxWidth: 260,
-                boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
-                transition: "all 0.15s ease",
+                cursor: "pointer",
+                maxWidth: 280,
+                boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
+                transition: "all 0.2s ease",
               }}
+              title="Click to preview file directly without downloading"
             >
-              <LuFileText size={18} color={isWhiteTheme ? "#ffffff" : "#4f46e5"} />
-              <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                <div style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{att.originalName}</div>
-                <span style={{ fontSize: 10.5, opacity: 0.75 }}>{formatFileSize(att.fileSize)}</span>
+              <div
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 8,
+                  background: isWhiteTheme ? "rgba(255,255,255,0.2)" : "rgba(79, 70, 229, 0.1)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                <LuFileText size={18} color={isWhiteTheme ? "#ffffff" : "#4f46e5"} />
               </div>
-              <LuDownload size={14} style={{ marginLeft: "auto", flexShrink: 0 }} />
-            </a>
+              <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
+                <div style={{ overflow: "hidden", textOverflow: "ellipsis", fontWeight: 700 }}>
+                  {att.originalName}
+                </div>
+                <div style={{ fontSize: 10.5, opacity: 0.75, display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+                  <span>{formatFileSize(att.fileSize)}</span>
+                  <span>•</span>
+                  <span style={{ color: isWhiteTheme ? "#93c5fd" : "#4f46e5", fontWeight: 700 }}>Preview</span>
+                </div>
+              </div>
+              <LuEye size={16} color={isWhiteTheme ? "#ffffff" : "#4f46e5"} style={{ flexShrink: 0 }} />
+            </div>
           );
         })}
       </div>
@@ -1546,7 +1620,7 @@ const AdminHelpSupport = () => {
         </div>
       )}
 
-      {/* ────────────────── LIGHTBOX IMAGE VIEWER MODAL ────────────────── */}
+      {/* ────────────────── LIGHTBOX FILE VIEWER MODAL ────────────────── */}
       {lightboxAttachment && (
         <div
           style={{
@@ -1567,14 +1641,14 @@ const AdminHelpSupport = () => {
             style={{
               position: "relative",
               maxWidth: "92vw",
-              maxHeight: "88vh",
+              maxHeight: "90vh",
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Top Bar */}
+            {/* Top Bar - No download button for admin, direct view only */}
             <div
               style={{
                 width: "100%",
@@ -1587,13 +1661,18 @@ const AdminHelpSupport = () => {
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                {isImageAttachment(lightboxAttachment) ? (
+                  <LuImage size={18} color="#60a5fa" />
+                ) : (
+                  <LuFileText size={18} color="#60a5fa" />
+                )}
                 <span style={{ fontWeight: 700, fontSize: 15 }}>
                   {lightboxAttachment.originalName || lightboxAttachment.fileName}
                 </span>
                 <span
                   style={{
                     fontSize: 12,
-                    opacity: 0.8,
+                    opacity: 0.85,
                     background: "rgba(255,255,255,0.2)",
                     padding: "2px 8px",
                     borderRadius: 4,
@@ -1601,29 +1680,21 @@ const AdminHelpSupport = () => {
                 >
                   {formatFileSize(lightboxAttachment.fileSize)}
                 </span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <a
-                  href={getAttachmentUrl(lightboxAttachment.fileUrl)}
-                  download={lightboxAttachment.originalName || "attachment"}
-                  target="_blank"
-                  rel="noreferrer"
+                <span
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    background: "#4f46e5",
-                    color: "#ffffff",
-                    padding: "7px 14px",
-                    borderRadius: 8,
-                    fontSize: 12.5,
+                    fontSize: 11,
                     fontWeight: 700,
-                    textDecoration: "none",
+                    background: "rgba(99, 102, 241, 0.25)",
+                    border: "1px solid rgba(129, 140, 248, 0.4)",
+                    color: "#a5b4fc",
+                    padding: "2px 8px",
+                    borderRadius: 4,
                   }}
                 >
-                  <LuDownload size={14} />
-                  Download
-                </a>
+                  {isImageAttachment(lightboxAttachment) ? "Direct Image View" : "Direct Document Preview"}
+                </span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <button
                   onClick={() => setLightboxAttachment(null)}
                   style={{
@@ -1638,31 +1709,61 @@ const AdminHelpSupport = () => {
                     justifyContent: "center",
                     cursor: "pointer",
                   }}
+                  title="Close viewer"
                 >
                   <LuX size={20} />
                 </button>
               </div>
             </div>
 
-            {/* Main Preview Image */}
-            <img
-              src={getAttachmentUrl(lightboxAttachment.fileUrl)}
-              alt={lightboxAttachment.originalName || "Attachment"}
-              style={{
-                maxWidth: "100%",
-                maxHeight: "80vh",
-                objectFit: "contain",
-                borderRadius: 12,
-                boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
-                border: "1px solid rgba(255, 255, 255, 0.15)",
-              }}
-              onError={(e) => {
-                const fname = lightboxAttachment.fileName || (lightboxAttachment.fileUrl ? lightboxAttachment.fileUrl.split("/").pop() : "");
-                if (fname && !e.currentTarget.src.includes(`/api/support/attachments/${fname}`)) {
-                  e.currentTarget.src = `${API_BASE}/api/support/attachments/${fname}`;
-                }
-              }}
-            />
+            {/* Direct File Image or Document View */}
+            {isImageAttachment(lightboxAttachment) ? (
+              <img
+                src={getAttachmentUrl(lightboxAttachment.fileUrl, lightboxAttachment.fileName || lightboxAttachment.originalName)}
+                alt={lightboxAttachment.originalName || "Attachment"}
+                style={{
+                  maxWidth: "100%",
+                  maxHeight: "80vh",
+                  objectFit: "contain",
+                  borderRadius: 12,
+                  boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
+                  border: "1px solid rgba(255, 255, 255, 0.15)",
+                }}
+                onError={(e) => {
+                  const fname = lightboxAttachment.fileName || (lightboxAttachment.fileUrl ? lightboxAttachment.fileUrl.split("/").pop() : "");
+                  const token = localStorage.getItem("token") || "";
+                  if (fname && !e.currentTarget.src.includes(`/api/support/attachments/${fname}`)) {
+                    e.currentTarget.src = `${API_BASE}/api/support/attachments/${fname}${token ? `?token=${encodeURIComponent(token)}` : ""}`;
+                  }
+                }}
+              />
+            ) : isPdfAttachment(lightboxAttachment) ? (
+              <iframe
+                src={getAttachmentUrl(lightboxAttachment.fileUrl, lightboxAttachment.fileName || lightboxAttachment.originalName)}
+                title={lightboxAttachment.originalName || "PDF Document"}
+                style={{
+                  width: "82vw",
+                  height: "78vh",
+                  border: "none",
+                  borderRadius: 12,
+                  background: "#ffffff",
+                  boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
+                }}
+              />
+            ) : (
+              <iframe
+                src={getAttachmentUrl(lightboxAttachment.fileUrl, lightboxAttachment.fileName || lightboxAttachment.originalName)}
+                title={lightboxAttachment.originalName || "Document"}
+                style={{
+                  width: "78vw",
+                  height: "75vh",
+                  border: "none",
+                  borderRadius: 12,
+                  background: "#ffffff",
+                  boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
+                }}
+              />
+            )}
           </div>
         </div>
       )}

@@ -13,6 +13,7 @@ const ProctoredCodingSession = require("../models/ProctoredCodingSession");
 const ProjectWorkspaceState = require("../models/ProjectWorkspaceState");
 const ProjectSubmission = require("../models/ProjectSubmission");
 const { PROJECTS_CATALOG, getProjectById } = require("../data/projectsCatalog");
+const { CURRICULUM: codingCurriculum } = require("../data/codingCurriculum");
 const { pushNotification } = require("../utils/notificationService");
 
 // Helper to calculate relative time string (e.g., "2 hours ago", "1 day ago")
@@ -82,11 +83,26 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
       await user.save();
     }
 
-    // 2. Fetch User's Genuine Data Records
-    const certs = await Certification.find({ userId }).sort({ createdAt: -1 });
-    const progressRecords = await Progress.find({ userId }).sort({ date: -1 });
-    const projectStates = await ProjectWorkspaceState.find({ userId }).sort({ updatedAt: -1 }).lean();
-    const projectSubmissions = await ProjectSubmission.find({ userId }).sort({ submittedAt: -1 }).lean();
+    // 2. Fetch User's Genuine Data Records (Strictly Coding & Software Engineering)
+    const [
+      certs,
+      progressRecords,
+      projectStates,
+      projectSubmissions,
+      codingProgress,
+      subjectProgress,
+      challengeSubmissions,
+      recentAttempts,
+    ] = await Promise.all([
+      Certification.find({ userId }).sort({ createdAt: -1 }),
+      Progress.find({ userId, track: { $nin: ["LANGUAGE", "VEHICLES", "FITNESS", "DRIVING"] } }).sort({ date: -1 }),
+      ProjectWorkspaceState.find({ userId }).sort({ updatedAt: -1 }).lean(),
+      ProjectSubmission.find({ userId }).sort({ submittedAt: -1 }).lean(),
+      CodingProgress.findOne({ userId }).lean(),
+      SubjectProgress.findOne({ userId, subjectKey: "coding" }).lean(),
+      ChallengeSubmission.find({ userId }).sort({ createdAt: -1 }).lean(),
+      ModuleAssessmentAttempt.find({ userId }).sort({ createdAt: -1 }).lean(),
+    ]);
 
     const completedProjects = projectStates
       .filter((st) => st.passed && st.badgeAwarded)
@@ -126,7 +142,7 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
     const oneWeekAgo = new Date();
     oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
 
-    // 4. Calculate Completed Modules
+    // 4. Calculate Completed Modules & Lessons
     let certCompletedModules = 0;
     let certCompletedThisWeek = 0;
     certs.forEach((c) => {
@@ -151,117 +167,211 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
       (p) => new Date(p.date || p.createdAt) >= oneWeekAgo
     );
 
-    const totalCompletedModules = certCompletedModules + completedProgressItems.length;
-    const modulesCompletedThisWeek = certCompletedThisWeek + completedProgressThisWeek.length;
+    const acceptedChallengesCount = challengeSubmissions.filter((s) => s.status === "ACCEPTED").length;
+    const passedAssessmentsCount = recentAttempts.filter((a) => a.passed).length;
+
+    const totalCompletedModules =
+      certCompletedModules +
+      completedProgressItems.length +
+      acceptedChallengesCount +
+      completedProjects.length +
+      passedAssessmentsCount;
+
+    const recentChallengesThisWeek = challengeSubmissions.filter(
+      (c) => new Date(c.createdAt) >= oneWeekAgo && c.status === "ACCEPTED"
+    ).length;
+    const recentProjectsThisWeek = completedProjects.filter((p) => new Date(p.completedAt) >= oneWeekAgo).length;
+
+    const modulesCompletedThisWeek =
+      certCompletedThisWeek +
+      completedProgressThisWeek.length +
+      recentChallengesThisWeek +
+      recentProjectsThisWeek;
 
     // 5. Calculate Real Learning Hours
+    let moduleStudySeconds = 0;
+    if (subjectProgress?.moduleProgress) {
+      const entries =
+        subjectProgress.moduleProgress instanceof Map
+          ? Array.from(subjectProgress.moduleProgress.values())
+          : Object.values(subjectProgress.moduleProgress);
+      entries.forEach((m) => {
+        moduleStudySeconds += Number(m?.studyTimeSeconds || 0);
+      });
+    }
+
     const progressHours = progressRecords.reduce((acc, curr) => acc + (Number(curr.hoursSpent) || 0.5), 0);
+    const challengeHours = (challengeSubmissions.length * 15) / 60; // 15 mins per challenge
+    const projectHours = completedProjects.length * 2.5; // 2.5 hours per project
+    const studyHours = Math.round((moduleStudySeconds / 3600) * 10) / 10;
     const certHours = certCompletedModules * 1.5;
-    const totalLearningHours = Math.round(((user.learningHours || 0) + progressHours + certHours) * 10) / 10;
+
+    const totalLearningHours =
+      Math.round(
+        ((user.learningHours || 0) + progressHours + challengeHours + projectHours + studyHours + certHours) * 10
+      ) / 10;
 
     const progressHoursThisWeek = completedProgressThisWeek.reduce(
       (acc, curr) => acc + (Number(curr.hoursSpent) || 0.5),
       0
     );
-    const certHoursThisWeek = certCompletedThisWeek * 1.5;
-    const learningHoursThisWeek = Math.round((progressHoursThisWeek + certHoursThisWeek) * 10) / 10;
+    const learningHoursThisWeek =
+      Math.round(
+        (progressHoursThisWeek +
+          certCompletedThisWeek * 1.5 +
+          (recentChallengesThisWeek * 15) / 60 +
+          recentProjectsThisWeek * 2.5) *
+          10
+      ) / 10;
 
-    // 6. Track Progress Calculations (Coding, Language, Vehicles, Fitness)
-    const trackConfigs = [
+    // 6. Track Progress Calculations (Exclusively Coding: Python, DSA, JavaScript, C++, Java, Web Development)
+    const codingTrackConfigs = [
       {
-        key: "CODING",
-        title: "Coding",
-        subtitle: "Python • JavaScript • Web Development",
-        route: "/coding",
-        totalLessons: 20,
-        defaultCurrent: "Python Fundamentals & Syntax",
+        key: "PYTHON",
+        trackId: "python",
+        title: "Python Programming",
+        subtitle: "Basics, OOP, File I/O & Core Syntax",
+        route: "/coding?tab=learning_path&track=python",
+        totalLessons: codingCurriculum.python?.length || 5,
+        defaultCurrent: "Python Basics & Core",
         color: "#3b82f6",
         badgeBg: "linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)",
         fillColor: "linear-gradient(90deg, #3b82f6 0%, #6366f1 100%)",
       },
       {
-        key: "LANGUAGE",
-        title: "Language",
-        subtitle: "English • Spanish • French",
-        route: "/language",
-        totalLessons: 15,
-        defaultCurrent: "Conversational Spanish & Vocabulary",
+        key: "DSA",
+        trackId: "dsa",
+        title: "Data Structures & Algorithms",
+        subtitle: "Arrays, Trees, Graphs & Dynamic Programming",
+        route: "/coding?tab=challenges",
+        totalLessons: 235,
+        defaultCurrent: "Array Manipulation & Two Pointers",
+        color: "#8b5cf6",
+        badgeBg: "linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)",
+        fillColor: "linear-gradient(90deg, #8b5cf6 0%, #c084fc 100%)",
+      },
+      {
+        key: "JAVASCRIPT",
+        trackId: "javascript",
+        title: "JavaScript Essentials",
+        subtitle: "ES6+, Async Programming & Event Loop",
+        route: "/coding?tab=learning_path&track=javascript",
+        totalLessons: codingCurriculum.javascript?.length || 5,
+        defaultCurrent: "JavaScript Fundamentals & Scope",
+        color: "#f59e0b",
+        badgeBg: "linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)",
+        fillColor: "linear-gradient(90deg, #f59e0b 0%, #fbbf24 100%)",
+      },
+      {
+        key: "CPP",
+        trackId: "cpp",
+        title: "Modern C++ Systems",
+        subtitle: "Pointers, References, Memory & STL",
+        route: "/coding?tab=learning_path&track=cpp",
+        totalLessons: codingCurriculum.cpp?.length || 4,
+        defaultCurrent: "C++ Syntax & Pointers",
+        color: "#06b6d4",
+        badgeBg: "linear-gradient(135deg, #ecfeff 0%, #cffafe 100%)",
+        fillColor: "linear-gradient(90deg, #06b6d4 0%, #38bdf8 100%)",
+      },
+      {
+        key: "JAVA",
+        trackId: "java",
+        title: "Java Development",
+        subtitle: "Object-Oriented Design, Inheritance & JVM",
+        route: "/coding?tab=learning_path&track=java",
+        totalLessons: codingCurriculum.java?.length || 5,
+        defaultCurrent: "Java Basics & Class Architecture",
+        color: "#ef4444",
+        badgeBg: "linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)",
+        fillColor: "linear-gradient(90deg, #ef4444 0%, #f87171 100%)",
+      },
+      {
+        key: "WEBDEV",
+        trackId: "webdev",
+        title: "Full-Stack Web Development",
+        subtitle: "HTML5, CSS3, Modern Layouts & Web Services",
+        route: "/coding?tab=projects",
+        totalLessons: codingCurriculum.webdev?.length || 4,
+        defaultCurrent: "HTML5 & Semantic Structure",
         color: "#10b981",
         badgeBg: "linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)",
-        fillColor: "linear-gradient(90deg, #10b981 0%, #14b8a6 100%)",
-      },
-      {
-        key: "VEHICLES",
-        title: "Vehicles",
-        subtitle: "Automotive • Electric Vehicles • Maintenance",
-        route: "/driving",
-        totalLessons: 12,
-        defaultCurrent: "EV Powertrain & Battery Diagnostics",
-        color: "#0284c7",
-        badgeBg: "linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)",
-        fillColor: "linear-gradient(90deg, #0284c7 0%, #38bdf8 100%)",
-      },
-      {
-        key: "FITNESS",
-        title: "Gym & Fitness",
-        subtitle: "Strength • Nutrition • Wellness",
-        route: "/fitness",
-        totalLessons: 10,
-        defaultCurrent: "Progressive Overload & Periodization",
-        color: "#ec4899",
-        badgeBg: "linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%)",
-        fillColor: "linear-gradient(90deg, #ec4899 0%, #f43f5e 100%)",
+        fillColor: "linear-gradient(90deg, #10b981 0%, #34d399 100%)",
       },
     ];
 
-    const tracksProgress = trackConfigs.map((trackCfg) => {
-      // Find certs for this zone
-      const zoneCert = certs.find(
-        (c) =>
-          c.zone === trackCfg.key ||
-          (trackCfg.key === "VEHICLES" && c.zone === "DRIVING")
-      );
-
-      // Find progress tasks for this track
-      const trackProgressItems = progressRecords.filter(
-        (p) =>
-          p.track === trackCfg.key ||
-          (trackCfg.key === "VEHICLES" && p.track === "DRIVING")
-      );
-
+    const tracksProgress = codingTrackConfigs.map((trackCfg) => {
       let completed = 0;
       let currentModule = trackCfg.defaultCurrent;
 
-      if (zoneCert) {
-        if (zoneCert.status === "completed") {
-          completed = trackCfg.totalLessons;
-          currentModule = `${zoneCert.name} (Certified)`;
+      if (trackCfg.trackId === "dsa") {
+        const solvedFromSubs = new Set(
+          challengeSubmissions
+            .filter((s) => s.status === "ACCEPTED")
+            .map((s) => String(s.challengeId || s._id))
+        );
+        (codingProgress?.completedChallenges || []).forEach((c) => solvedFromSubs.add(String(c)));
+        completed = solvedFromSubs.size;
+        if (completed > 0) {
+          currentModule = `${completed} Algorithmic Challenges Solved`;
         } else {
-          completed = Math.min(
-            trackCfg.totalLessons,
-            zoneCert.currentModule || 1
-          );
-          currentModule = `${zoneCert.name} - Module ${zoneCert.currentModule}`;
+          currentModule = "Array Manipulation & Two Pointers";
         }
-      }
+      } else {
+        let subLessons = 0;
+        if (subjectProgress?.trackLessons) {
+          subLessons =
+            subjectProgress.trackLessons instanceof Map
+              ? subjectProgress.trackLessons.get(trackCfg.trackId) || 0
+              : subjectProgress.trackLessons[trackCfg.trackId] || 0;
+        }
+        let codeLessons = 0;
+        if (codingProgress?.trackLessons) {
+          codeLessons =
+            codingProgress.trackLessons instanceof Map
+              ? codingProgress.trackLessons.get(trackCfg.trackId) || 0
+              : codingProgress.trackLessons[trackCfg.trackId] || 0;
+        }
 
-      // Add standalone progress items
-      completed = Math.min(trackCfg.totalLessons, completed + trackProgressItems.length);
-      if (trackProgressItems.length > 0 && (!zoneCert || zoneCert.status !== "completed")) {
-        currentModule = trackProgressItems[0].moduleName || trackProgressItems[0].task || currentModule;
+        let passedModCount = 0;
+        const modProg = subjectProgress?.moduleProgress || codingProgress?.moduleProgress;
+        if (modProg) {
+          const entries = modProg instanceof Map ? Array.from(modProg.entries()) : Object.entries(modProg);
+          entries.forEach(([k, v]) => {
+            if (k.startsWith(`${trackCfg.trackId}_`) && (v?.exercisePassed || v?.assessmentPassed || v?.isStudied)) {
+              passedModCount++;
+            }
+          });
+        }
+
+        completed = Math.max(subLessons, codeLessons, passedModCount);
+
+        const trackModules = codingCurriculum[trackCfg.trackId] || [];
+        if (completed >= trackCfg.totalLessons) {
+          currentModule = `${trackModules[trackModules.length - 1]?.title || trackCfg.defaultCurrent} (Completed)`;
+        } else if (completed > 0) {
+          const activeIdx = Math.min(completed, trackModules.length - 1);
+          currentModule = `Module ${activeIdx + 1}: ${trackModules[activeIdx]?.title || "In Progress"}`;
+        } else {
+          currentModule = `Module 1: ${trackModules[0]?.title || trackCfg.defaultCurrent}`;
+        }
       }
 
       const percentage = Math.min(
         100,
-        Math.round((completed / trackCfg.totalLessons) * 100)
+        Math.round((completed / (trackCfg.totalLessons || 1)) * 100)
       );
 
-      const isExplored = (user.exploredTracks || []).some(
-        (t) => t.toLowerCase().includes(trackCfg.title.toLowerCase().slice(0, 4))
-      ) || completed > 0;
+      const isExplored =
+        (user.exploredTracks || []).some(
+          (t) =>
+            t.toLowerCase().includes(trackCfg.trackId) ||
+            t.toLowerCase().includes(trackCfg.title.toLowerCase().slice(0, 4))
+        ) || completed > 0;
 
       return {
         key: trackCfg.key,
+        trackId: trackCfg.trackId,
         title: trackCfg.title,
         subtitle: trackCfg.subtitle,
         route: trackCfg.route,
@@ -276,12 +386,11 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
       };
     });
 
-    // 7. Overall Progress Calculation (Weighted average of tracks)
+    // 7. Overall Progress Calculation (Weighted average of coding tracks)
     const totalPossibleLessons = tracksProgress.reduce((acc, t) => acc + t.totalLessons, 0);
     const totalFinishedLessons = tracksProgress.reduce((acc, t) => acc + t.completedLessons, 0);
-    const overallPercentage = totalPossibleLessons > 0
-      ? Math.round((totalFinishedLessons / totalPossibleLessons) * 100)
-      : 0;
+    const overallPercentage =
+      totalPossibleLessons > 0 ? Math.round((totalFinishedLessons / totalPossibleLessons) * 100) : 0;
 
     const overallBreakdown = tracksProgress.map((t) => ({
       key: t.key,
@@ -293,7 +402,6 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
     // 8. Weekly Learning Activity Bar Chart (Mon - Sun of Current Week)
     const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     const curr = new Date();
-    // Calculate Monday of current week
     const currentDayOfWeek = curr.getDay(); // 0 is Sunday, 1 is Monday...
     const distanceToMonday = (currentDayOfWeek + 6) % 7;
     const monday = new Date(curr);
@@ -305,7 +413,6 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
       dayDate.setDate(monday.getDate() + idx);
       const dayKey = getLocalDateKey(dayDate);
 
-      // Aggregate progress records matching this day
       let dayHours = 0;
       let dayLessons = 0;
 
@@ -317,7 +424,22 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
         }
       });
 
-      // Also check certs updated on this day
+      challengeSubmissions.forEach((c) => {
+        const cKey = getLocalDateKey(c.createdAt);
+        if (cKey === dayKey) {
+          dayHours += 0.25;
+          dayLessons += 1;
+        }
+      });
+
+      completedProjects.forEach((proj) => {
+        const prKey = getLocalDateKey(proj.completedAt);
+        if (prKey === dayKey) {
+          dayHours += 1.5;
+          dayLessons += 1;
+        }
+      });
+
       certs.forEach((c) => {
         const cKey = getLocalDateKey(c.updatedAt || c.createdAt);
         if (cKey === dayKey && c.status === "completed") {
@@ -335,72 +457,63 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
       };
     });
 
-    // 9. Verified Performance-Based Achievements Calculation
+    // 9. Verified Coding Performance Achievements
+    const pythonTrackProgress = tracksProgress.find((t) => t.key === "PYTHON")?.completedLessons || 0;
+    const dsaTrackProgress = tracksProgress.find((t) => t.key === "DSA")?.completedLessons || 0;
+
     const allPossibleAchievements = [
       {
         id: "ach_getting_started",
         name: "Getting Started",
-        description: "Completed your first module",
+        description: "Completed your first module or challenge",
         track: "GENERAL",
         iconType: "shield_check",
         badgeColor: "#10b981",
         grade: "Grade B",
         tier: "Bronze",
-        isEligible: totalCompletedModules >= 1,
-        earnedAt: progressRecords[progressRecords.length - 1]?.date || certs[0]?.createdAt || user.createdAt,
+        isEligible: totalCompletedModules >= 1 || acceptedChallengesCount >= 1,
+        earnedAt: challengeSubmissions[challengeSubmissions.length - 1]?.createdAt || user.createdAt,
       },
       {
         id: "ach_code_explorer",
         name: "Code Explorer",
-        description: "Completed 5 coding lessons",
+        description: "Completed 5 coding lessons across tracks",
         track: "CODING",
         iconType: "code",
         badgeColor: "#8b5cf6",
         grade: "Grade A",
         tier: "Silver",
-        isEligible: tracksProgress.find((t) => t.key === "CODING")?.completedLessons >= 5,
-        earnedAt: progressRecords.find((p) => p.track === "CODING")?.date || user.lastActiveDate,
+        isEligible: totalCompletedModules >= 5,
+        earnedAt: user.lastActiveDate,
       },
       {
-        id: "ach_fitness_enthusiast",
-        name: "Fitness Enthusiast",
-        description: "Logged 5 workout sessions",
-        track: "FITNESS",
-        iconType: "fitness",
-        badgeColor: "#ec4899",
+        id: "ach_dsa_warrior",
+        name: "Algorithm Pioneer",
+        description: "Solved 10+ algorithmic challenges in DSA Arena",
+        track: "CODING",
+        iconType: "code",
+        badgeColor: "#3b82f6",
         grade: "Grade A",
         tier: "Silver",
-        isEligible: tracksProgress.find((t) => t.key === "FITNESS")?.completedLessons >= 5,
-        earnedAt: progressRecords.find((p) => p.track === "FITNESS")?.date || user.lastActiveDate,
+        isEligible: dsaTrackProgress >= 10 || acceptedChallengesCount >= 10,
+        earnedAt: challengeSubmissions[0]?.createdAt || user.lastActiveDate,
       },
       {
-        id: "ach_polyglot_novice",
-        name: "Language Scholar",
-        description: "Completed 5 language practices",
-        track: "LANGUAGE",
-        iconType: "language",
-        badgeColor: "#10b981",
+        id: "ach_python_specialist",
+        name: "Python Craftsperson",
+        description: "Mastered 3+ Python Programming curriculum modules",
+        track: "CODING",
+        iconType: "code",
+        badgeColor: "#f59e0b",
         grade: "Grade A",
         tier: "Silver",
-        isEligible: tracksProgress.find((t) => t.key === "LANGUAGE")?.completedLessons >= 5,
-        earnedAt: progressRecords.find((p) => p.track === "LANGUAGE")?.date || user.lastActiveDate,
-      },
-      {
-        id: "ach_vehicle_mechanic",
-        name: "Drive Master",
-        description: "Mastered 3 vehicle diagnostics modules",
-        track: "VEHICLES",
-        iconType: "car",
-        badgeColor: "#0284c7",
-        grade: "Grade A",
-        tier: "Silver",
-        isEligible: tracksProgress.find((t) => t.key === "VEHICLES")?.completedLessons >= 3,
-        earnedAt: progressRecords.find((p) => p.track === "VEHICLES")?.date || user.lastActiveDate,
+        isEligible: pythonTrackProgress >= 3,
+        earnedAt: user.lastActiveDate,
       },
       {
         id: "ach_streak_flame",
         name: "Consistency Flame",
-        description: "Maintained a 5-day learning streak",
+        description: "Maintained a 5-day coding streak",
         track: "GENERAL",
         iconType: "flame",
         badgeColor: "#f59e0b",
@@ -412,7 +525,7 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
       {
         id: "ach_certified_master",
         name: "Certified Specialist",
-        description: "Earned an official Mastery Zone certification",
+        description: "Earned an official Mastery Zone engineering certification",
         track: "GENERAL",
         iconType: "trophy",
         badgeColor: "#6366f1",
@@ -423,7 +536,7 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
       },
       {
         id: "ach_project_architect",
-        name: "Project Completed Architect",
+        name: "Production Architect",
         description: "Passed a real-world multi-file engineering project with >= 80/100 marks",
         track: "CODING",
         iconType: "trophy",
@@ -466,15 +579,63 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
       (a) => new Date(a.earnedAt) >= oneWeekAgo
     ).length;
 
-    // 10. Recent Activity Log Generation (Zero Fake Data)
+    // 10. Recent Activity Log Generation (Exclusively Real Coding Submissions & Verifications)
     const recentActivities = [];
 
+    // Add challenge submissions
+    challengeSubmissions.slice(0, 10).forEach((cs) => {
+      recentActivities.push({
+        id: `cs_${cs._id}`,
+        type: "coding",
+        track: "DSA",
+        title: cs.challengeTitle || "Algorithm Challenge Submission",
+        subtitle: `Evaluated with score ${cs.score || 0}/100 • ${cs.status || "ACCEPTED"}`,
+        timestamp: cs.createdAt,
+        timeAgo: getRelativeTime(cs.createdAt),
+        xp: cs.status === "ACCEPTED" ? 50 : 20,
+        hours: 0.25,
+      });
+    });
+
+    // Add project submissions
+    projectSubmissions.slice(0, 5).forEach((ps) => {
+      recentActivities.push({
+        id: `proj_${ps._id}`,
+        type: "project",
+        track: "WEBDEV",
+        title: ps.projectTitle || "Software Engineering Project",
+        subtitle: `Project evaluation: ${ps.overallVerdict || "ACCEPTED"} (${ps.percentage || 100}%)`,
+        timestamp: ps.submittedAt || ps.createdAt,
+        timeAgo: getRelativeTime(ps.submittedAt || ps.createdAt),
+        xp: 400,
+        hours: 1.0,
+      });
+    });
+
+    // Add module assessment attempts
+    recentAttempts.slice(0, 6).forEach((att) => {
+      const trackKey = (att.trackId || "python").toUpperCase();
+      recentActivities.push({
+        id: `att_${att._id}`,
+        type: "assessment",
+        track: trackKey,
+        title: att.assessmentTitle || `${trackKey} Module Assessment`,
+        subtitle: `Score: ${att.score}/${att.totalQuestions || 10} (${att.percentage || 0}%) • ${
+          att.passed ? "Passed" : "Needs Review"
+        }`,
+        timestamp: att.submittedAt || att.createdAt,
+        timeAgo: getRelativeTime(att.submittedAt || att.createdAt),
+        xp: att.passed ? 80 : 30,
+        hours: 0.5,
+      });
+    });
+
     // Add progress items
-    progressRecords.slice(0, 10).forEach((p) => {
+    progressRecords.slice(0, 8).forEach((p) => {
       recentActivities.push({
         id: p._id.toString(),
         type: "progress",
-        track: p.track,
+        track: p.track || "CODING",
         title: p.task || "Completed a lesson",
         subtitle: p.moduleName || p.notes || "Learning session",
         timestamp: p.date || p.createdAt,
@@ -489,9 +650,11 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
       recentActivities.push({
         id: `cert_${c._id.toString()}`,
         type: "cert",
-        track: c.zone === "DRIVING" ? "VEHICLES" : c.zone,
+        track: "CODING",
         title: c.status === "completed" ? "Completed certification" : "Enrolled in certification",
-        subtitle: `${c.name} (${c.status === "completed" ? "100% Certified" : `Module ${c.currentModule}/${c.totalModules}`})`,
+        subtitle: `${c.name} (${
+          c.status === "completed" ? "100% Certified" : `Module ${c.currentModule}/${c.totalModules}`
+        })`,
         timestamp: c.updatedAt || c.createdAt,
         timeAgo: getRelativeTime(c.updatedAt || c.createdAt),
         xp: c.status === "completed" ? 100 : 25,

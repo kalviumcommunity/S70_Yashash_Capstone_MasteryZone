@@ -1145,9 +1145,15 @@ export default function Coding() {
     return displayModules.filter((m) => {
       const isCodingDone = Boolean(m.assignmentPassed || m.exercisePassed);
       const isAssessmentDone = Boolean(m.assessmentPassed);
+      const isCutoffCleared = Boolean(
+        (m.assessmentPassed && (m.bestScore == null || m.bestScore >= 80)) ||
+        (m.bestScore != null && m.bestScore >= 80) ||
+        m.moduleCompletionEmailSent
+      );
       return Boolean(
         m.isCompleted ||
         m.status === "completed" ||
+        isCutoffCleared ||
         (isCodingDone && isAssessmentDone) ||
         (Boolean(m.isStudied) && isCodingDone && isAssessmentDone) ||
         (isAssessmentDone && !m.codingExercise) ||
@@ -2158,10 +2164,16 @@ export default function Coding() {
                       const isStudyDone = Boolean(mod.isStudied);
                       const isCodingDone = Boolean(mod.assignmentPassed || mod.exercisePassed);
                       const isAssessmentDone = Boolean(mod.assessmentPassed);
+                      const isCutoffCleared = Boolean(
+                        (mod.assessmentPassed && (mod.bestScore == null || mod.bestScore >= 80)) ||
+                        (mod.bestScore != null && mod.bestScore >= 80) ||
+                        mod.moduleCompletionEmailSent
+                      );
 
                       const isComplete = Boolean(
                         mod.isCompleted ||
                         mod.status === "completed" ||
+                        isCutoffCleared ||
                         (isCodingDone && isAssessmentDone) ||
                         (isStudyDone && isCodingDone && isAssessmentDone) ||
                         (isAssessmentDone && !mod.codingExercise) ||
