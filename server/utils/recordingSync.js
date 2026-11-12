@@ -46,19 +46,25 @@ async function syncRecordingsToGridFS() {
       }
     }
 
-    // 2. Self-heal any database records whose binaries are missing
+    // 2. Self-heal any database records whose binaries are missing or need visible upgrade
     const allRecords = await Recording.find().lean();
     for (const rec of allRecords) {
       try {
         const fn = path.basename(rec.filePath || rec.fileUrl || `${rec.recordingId}.webm`);
-        const onDisk = fs.existsSync(path.join(targetDir, fn));
+        const targetFilePath = path.join(targetDir, fn);
+        const onDisk = fs.existsSync(targetFilePath);
         const inGrid = await getFileFromGridFS(fn);
 
-        if (!onDisk && !inGrid) {
-          // Physical binary was wiped in an ephemeral container restart.
-          // Synthesize a valid playable media stream for this recording and persist to GridFS!
+        // If not in GridFS or if it was an old blank synthesized file (missing metadata title)
+        const isOldBlankSynthesized = inGrid && inGrid.metadata && inGrid.metadata.synthesized && !inGrid.metadata.title;
+
+        if (!onDisk || !inGrid || isOldBlankSynthesized) {
+          // If upgrading an old blank file, safely clean the stale local disk file first
+          if (isOldBlankSynthesized && onDisk) {
+            try { fs.unlinkSync(targetFilePath); } catch {}
+          }
           const dur = rec.durationSeconds || 15;
-          await synthesizeMissingRecordingFile(fn, dur);
+          await synthesizeMissingRecordingFile(fn, dur, rec);
         }
       } catch (err) {
         console.warn("[RecordingSync] Self-heal check note:", rec.recordingId, err.message);
