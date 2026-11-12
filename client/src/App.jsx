@@ -32,6 +32,7 @@ const LandingPage = lazyWithRetry(() => import("./components/LandingPage.jsx"));
 import { NotificationProvider } from "./context/NotificationContext.jsx";
 import { LoadingProvider } from "./context/LoadingContext.jsx";
 import { ThemeProvider, useTheme } from "./context/ThemeContext.jsx";
+import { SessionInactivityManager } from "./hooks/useSessionInactivityMonitor.js";
 
 // Lazy load secondary/authenticated components
 const Signup = lazyWithRetry(() => import("./components/signup.jsx"));
@@ -91,6 +92,7 @@ function App() {
     <ErrorBoundary>
       <ThemeProvider>
         <Router>
+          <SessionInactivityManager />
           <LoadingProvider>
             <NotificationProvider>
               <Routes>

@@ -705,7 +705,7 @@ router.post("/:meetingId/invite", optionalAuthToken, async (req, res) => {
     const results = [];
     if (!Array.isArray(meeting.inviteAccessTokens)) meeting.inviteAccessTokens = [];
     meeting.inviteAccessTokens = meeting.inviteAccessTokens.filter((entry) => new Date(entry.expiresAt).getTime() > Date.now());
-    for (const targetEmail of targetEmails) {
+    const sendPromises = targetEmails.map(async (targetEmail) => {
       const rawInviteToken = crypto.randomBytes(32).toString("hex");
       const tokenHash = crypto.createHash("sha256").update(rawInviteToken).digest("hex");
       const joinUrl = fullJoinUrl
@@ -721,14 +721,25 @@ router.post("/:meetingId/invite", optionalAuthToken, async (req, res) => {
         customNote: customNote ? String(customNote).slice(0, 300) : "",
         req,
       });
-      if (mailRes.success) {
+      return {
+        targetEmail,
+        rawInviteToken,
+        tokenHash,
+        mailRes,
+      };
+    });
+
+    const inviteDispatches = await Promise.all(sendPromises);
+
+    for (const item of inviteDispatches) {
+      if (item.mailRes.success) {
         meeting.inviteAccessTokens.push({
-          email: targetEmail,
-          tokenHash,
+          email: item.targetEmail,
+          tokenHash: item.tokenHash,
           expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         });
       }
-      results.push({ email: targetEmail, ...mailRes });
+      results.push({ email: item.targetEmail, ...item.mailRes });
     }
     if (results.some((r) => r.success)) await meeting.save();
 

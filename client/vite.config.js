@@ -58,10 +58,27 @@ export default defineConfig({
     chunkSizeWarningLimit: 1200,
     rollupOptions: {
       output: {
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-icons': ['react-icons'],
-          'vendor-firebase': ['firebase/app', 'firebase/auth'],
+        manualChunks: (id) => {
+          if (id.includes('node_modules')) {
+            if (id.includes('@monaco-editor') || id.includes('monaco-editor')) {
+              return 'vendor-monaco';
+            }
+            if (id.includes('@jitsi')) {
+              return 'vendor-jitsi';
+            }
+            if (id.includes('firebase')) {
+              return 'vendor-firebase';
+            }
+            if (id.includes('socket.io-client')) {
+              return 'vendor-socket';
+            }
+            if (id.includes('react-icons')) {
+              return 'vendor-icons';
+            }
+            if (id.includes('react-router-dom') || id.includes('react-dom') || id.includes('react/')) {
+              return 'vendor-react';
+            }
+          }
         }
       }
     }

@@ -260,14 +260,14 @@ async function getUserCodingActivity(userId, clientTimezone) {
     };
   }
 
-  // 1. Fetch DailyCodingActivity documents
-  const dailyRecords = await DailyCodingActivity.find({ userId }).sort({ date: 1 }).lean();
-
-  // 2. Fetch historical ChallengeSubmissions to ensure 100% preservation of historical records
-  const historicalSubmissions = await ChallengeSubmission.find({ userId })
-    .select("challengeId challengeTitle language status score passedTests totalTests createdAt")
-    .sort({ createdAt: -1 })
-    .lean();
+  // 1. Fetch DailyCodingActivity documents and historical submissions in parallel
+  const [dailyRecords, historicalSubmissions] = await Promise.all([
+    DailyCodingActivity.find({ userId }).sort({ date: 1 }).lean(),
+    ChallengeSubmission.find({ userId })
+      .select("challengeId challengeTitle language status score passedTests totalTests createdAt")
+      .sort({ createdAt: -1 })
+      .lean(),
+  ]);
 
   // Build calendar map: key = YYYY-MM-DD
   const calendarMap = new Map();

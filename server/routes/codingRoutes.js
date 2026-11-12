@@ -2829,8 +2829,15 @@ router.post("/track/select", authenticateToken, async (req, res) => {
 router.get("/data", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId || req.user.id || req.user._id;
-    let userProgress = await CodingProgress.findOne({ userId });
 
+    // Fetch progress, snippets, and records concurrently for maximum responsiveness
+    const [userProgressDoc, snippets, progressRecords] = await Promise.all([
+      CodingProgress.findOne({ userId }),
+      CodingSnippet.find({ userId }).sort({ updatedAt: -1 }).lean(),
+      Progress.find({ userId, track: "CODING" }).lean(),
+    ]);
+
+    let userProgress = userProgressDoc;
     if (!userProgress) {
       userProgress = await CodingProgress.create({
         userId,
@@ -2840,10 +2847,7 @@ router.get("/data", authenticateToken, async (req, res) => {
       });
     }
 
-    const snippets = await CodingSnippet.find({ userId }).sort({ updatedAt: -1 });
-
     // Calculate real stats from global Progress collection
-    const progressRecords = await Progress.find({ userId, track: "CODING" });
     const todayStr = new Date().toISOString().split("T")[0];
     const todayRecords = progressRecords.filter(
       (r) => r.date && new Date(r.date).toISOString().split("T")[0] === todayStr

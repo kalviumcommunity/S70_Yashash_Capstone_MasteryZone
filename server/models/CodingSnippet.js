@@ -33,6 +33,8 @@ const codingSnippetSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+codingSnippetSchema.index({ userId: 1, updatedAt: -1 });
+
 module.exports =
   mongoose.models.CodingSnippet ||
   mongoose.model("CodingSnippet", codingSnippetSchema);

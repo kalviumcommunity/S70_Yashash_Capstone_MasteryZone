@@ -103,6 +103,9 @@ const challengeSubmissionSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+challengeSubmissionSchema.index({ userId: 1, createdAt: -1 });
+challengeSubmissionSchema.index({ userId: 1, challengeId: 1 });
+
 module.exports =
   mongoose.models.ChallengeSubmission ||
   mongoose.model("ChallengeSubmission", challengeSubmissionSchema);

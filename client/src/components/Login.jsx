@@ -18,6 +18,7 @@ import logoIcon from "../assets/logo_icon_transparent.png";
 import illustrationImg from "../assets/login_illustration.png";
 import "./Login.css";
 import ThemeToggle from "./ThemeToggle.jsx";
+import { updateLastActivityTime } from "../utils/sessionAuth.js";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 const AUTH_BASE = API_BASE ? `${API_BASE}/auth` : "/auth";
@@ -35,12 +36,18 @@ const Login = () => {
   const location = useLocation();
   const redirectTarget = location.state?.from?.pathname || "/home";
 
-  // Enforce zero credential retention: reset fields on mount
+  // Enforce zero credential retention: reset fields on mount & show inactivity notice if present
   useEffect(() => {
     setIdentifier("");
     setPassword("");
     setTouched({});
     setValidationErrors({});
+
+    const notice = sessionStorage.getItem("mz_inactivity_notice");
+    if (notice) {
+      toast.info(notice);
+      sessionStorage.removeItem("mz_inactivity_notice");
+    }
   }, []);
 
   useEffect(() => {
@@ -112,6 +119,7 @@ const Login = () => {
             localStorage.setItem("userName", data.user.fullName || data.user.username || data.user.email);
             localStorage.setItem("userEmail", data.user.email);
           }
+          updateLastActivityTime();
           toast.success("Login successful via Firebase!");
           navigate(redirectTarget, { replace: true });
           setIsSubmitting(false);
@@ -156,6 +164,7 @@ const Login = () => {
         localStorage.setItem("userName", data.user.fullName || data.user.username || data.user.email);
         localStorage.setItem("userEmail", data.user.email);
       }
+      updateLastActivityTime();
       toast.success("Login successful!");
       if (
         data.user?.role === "SUPER_ADMIN" ||
@@ -228,6 +237,7 @@ const Login = () => {
         localStorage.setItem("userName", data.user.fullName || data.user.username || data.user.email);
         localStorage.setItem("userEmail", data.user.email);
       }
+      updateLastActivityTime();
       toast.success("Login successful!");
       if (
         data.user?.role === "SUPER_ADMIN" ||
@@ -291,6 +301,7 @@ const Login = () => {
         localStorage.setItem("userName", data.user.fullName || data.user.username || data.user.email);
         localStorage.setItem("userEmail", data.user.email);
       }
+      updateLastActivityTime();
       toast.success("Guest login successful!");
       navigate(redirectTarget, { replace: true });
     } catch (error) {

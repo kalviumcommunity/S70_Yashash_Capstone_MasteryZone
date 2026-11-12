@@ -34,7 +34,7 @@ const MAIN_ADMIN_EMAIL = (
  * Generates an authoritative, properly isolated user JWT token
  * containing consistent identifiers (userId, id, _id) and authorization claims.
  */
-function issueUserJwt(user, expiresIn = '1d') {
+function issueUserJwt(user, expiresIn = '12h') {
   const userEmail = (user.email || '').toLowerCase().trim();
   const isMainAdmin = userEmail === MAIN_ADMIN_EMAIL || user.isMainAdmin === true;
   const role = isMainAdmin ? 'admin' : (user.role || 'user');
@@ -261,7 +261,7 @@ router.post('/login', async (req, res) => {
     }
     await user.save();
 
-    const token = issueUserJwt(user, '1d');
+    const token = issueUserJwt(user, '12h');
 
     res.status(200).json({
       message: 'Login successful',
@@ -301,7 +301,7 @@ router.post('/guest-login', async (req, res) => {
       isSuspended: false
     });
 
-    const token = issueUserJwt(user, '7d');
+    const token = issueUserJwt(user, '12h');
 
     res.status(200).json({
       message: 'Guest login successful',
@@ -614,7 +614,7 @@ router.post('/firebase-login', verifyFirebaseToken, async (req, res) => {
     await user.save();
 
     // Issue standard JWT with complete isolation & authorization claims
-    const token = issueUserJwt(user, '1d');
+    const token = issueUserJwt(user, '12h');
 
     return res.status(200).json({
       message: 'Firebase login successful',
@@ -647,20 +647,25 @@ router.get('/me', verifyToken, async (req, res) => {
     }
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    // Fetch verified LeetCode-style activity streak & calendar from database
+    // Fetch verified LeetCode-style activity streak & calendar, certs, coding progress, and progress records in parallel
     const { getUserCodingActivity } = require("../utils/activityTracker");
-    const clientTimezone = req.query.tz || req.headers["x-timezone"] || "Asia/Kolkata";
-    const activityData = await getUserCodingActivity(user._id, clientTimezone);
+    const Certification = require('../models/CertificationSchema');
+    const CodingProgress = require('../models/CodingProgress');
+    const Progress = require('../models/ProgressSchema');
 
-    // Sync calculated genuine streak to user document
+    const clientTimezone = req.query.tz || req.headers["x-timezone"] || "Asia/Kolkata";
+    const [activityData, certs, codingProg, codingProgressRecords] = await Promise.all([
+      getUserCodingActivity(user._id, clientTimezone),
+      Certification.find({ userId: user._id }).lean(),
+      CodingProgress.findOne({ userId: user._id }).lean(),
+      Progress.find({ userId: user._id, track: 'CODING' }).lean(),
+    ]);
+
+    // Sync calculated genuine streak to user document asynchronously
     if (user.streak !== activityData.currentStreak) {
       user.streak = activityData.currentStreak;
-      await user.save();
+      User.updateOne({ _id: user._id }, { streak: activityData.currentStreak }).catch(() => {});
     }
-
-    // Aggregate genuine learning records from Certification database
-    const Certification = require('../models/CertificationSchema');
-    const certs = await Certification.find({ userId: req.user.userId });
     
     // Accurately calculate completed modules across enrolled certs
     let completedModules = 0;
@@ -674,18 +679,10 @@ router.get('/me', verifyToken, async (req, res) => {
       }
     });
 
-    // Real recorded learning time (or calculated 1.5h per module completed)
     const learningTimeHours = Math.round(((user.learningHours || 0) + (completedModules * 1.5)) * 10) / 10;
-
-    // Fetch CodingProgress to accurately reflect completed challenges and coding XP
-    const CodingProgress = require('../models/CodingProgress');
-    const codingProg = await CodingProgress.findOne({ userId: req.user.userId });
     const solvedChallenges = codingProg?.challengesSolved || [];
     const solvedChallengesCount = solvedChallenges.length;
 
-    // Fetch coding progress records to calculate coding XP and time accurately
-    const Progress = require('../models/ProgressSchema');
-    const codingProgressRecords = await Progress.find({ userId: req.user.userId, track: 'CODING' });
     const totalCodingXp = codingProgressRecords.reduce((sum, r) => sum + (r.xpEarned || 0), 0);
     const codingHours = codingProgressRecords.reduce((sum, r) => sum + (r.hoursSpent || 0), 0);
 

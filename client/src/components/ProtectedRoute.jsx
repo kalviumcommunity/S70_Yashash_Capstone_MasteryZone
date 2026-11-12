@@ -8,9 +8,15 @@ const API_BASE = import.meta.env.VITE_API_URL || "";
 const ProtectedRoute = ({ children }) => {
   const [authState, setAuthState] = useState(() => {
     try {
-      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const user = localStorage.getItem("user") || sessionStorage.getItem("user");
-      if (token && user && !isJwtExpired(token)) {
+      const isSessionActive = sessionStorage.getItem("mz_session_active") === "true";
+      const token = sessionStorage.getItem("token") || localStorage.getItem("token");
+      const user = sessionStorage.getItem("user") || localStorage.getItem("user");
+      const lastActive = Number(
+        sessionStorage.getItem("mz_last_activity") || localStorage.getItem("mz_last_activity") || 0
+      );
+      const isInactive = lastActive > 0 && Date.now() - lastActive > 12 * 60 * 60 * 1000;
+
+      if (isSessionActive && token && user && !isJwtExpired(token) && !isInactive) {
         return "authenticated";
       }
     } catch {}
@@ -22,6 +28,15 @@ const ProtectedRoute = ({ children }) => {
     let isMounted = true;
 
     const verifyAuth = async () => {
+      // Fast path: if current tab already has an active session and token, authenticate immediately without blocking UI
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const isSessionActive = sessionStorage.getItem("mz_session_active") === "true";
+      const cachedUser = localStorage.getItem("user") || sessionStorage.getItem("user");
+
+      if (isSessionActive && token && cachedUser && !isJwtExpired(token)) {
+        if (isMounted) setAuthState("authenticated");
+      }
+
       // 1. Enforce active browser session check.
       // If the user closed the webpage and re-enters, no active session exists:
       // verifyActiveSession() clears stale stored tokens and returns false.
@@ -31,7 +46,6 @@ const ProtectedRoute = ({ children }) => {
         return;
       }
 
-      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
       if (!token) {
         if (isMounted) setAuthState("unauthenticated");
         return;
@@ -54,6 +68,8 @@ const ProtectedRoute = ({ children }) => {
         if (response.ok) {
           const data = await response.json().catch(() => null);
           if (data && data.user) {
+            sessionStorage.setItem("user", JSON.stringify(data.user));
+            sessionStorage.setItem("mz_user", JSON.stringify(data.user));
             localStorage.setItem("user", JSON.stringify(data.user));
             localStorage.setItem("mz_user", JSON.stringify(data.user));
           }
