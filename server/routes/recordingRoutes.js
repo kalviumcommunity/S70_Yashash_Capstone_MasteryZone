@@ -764,6 +764,15 @@ router.post(
       }
       if (!hostName) hostName = "Host";
 
+      // Deduplicate participants to accurately reflect genuine participants count
+      const rawNames = Array.isArray(participantNames) ? participantNames : [];
+      const dedupedNames = Array.from(new Set(rawNames.map((n) => String(n || "").trim()).filter(Boolean)));
+      if (dedupedNames.length === 0 && hostName) {
+        dedupedNames.push(hostName);
+      }
+      const dedupedUserIds = Array.from(new Set(participantUserIds.map((u) => String(u || "").trim()).filter(Boolean)));
+      const finalParticipantsCount = Math.max(1, dedupedNames.length);
+
       const streamUrl = `/api/recordings/stream/${fileName}`;
       const fileUrl = `/recordings/${fileName}`;
 
@@ -784,9 +793,9 @@ router.post(
         status: "ready",
         startTime: new Date(Date.now() - (Math.round(Number(durationSeconds) || 0) * 1000)),
         endTime: new Date(),
-        participantsCount: Math.max(1, participantNames.length),
-        participantUserIds,
-        participantNames: Array.isArray(participantNames) ? participantNames : [],
+        participantsCount: finalParticipantsCount,
+        participantUserIds: dedupedUserIds,
+        participantNames: dedupedNames,
         thumbnailUrl: thumbnailUrl || "",
         chapters: [
           { timestampSeconds: 0, title: "Meeting Started & Introductions" },
@@ -1087,9 +1096,21 @@ router.get("/", authenticateToken, async (req, res) => {
     } catch {}
 
     // Support personal and shared recordings strictly bounded by database user IDs and meetings
+    const userFilterOr = [
+      { hostUserId: currentUserId },
+      { participantUserIds: currentUserId },
+      ...(currentUserDoc?.email ? [{ hostEmail: currentUserDoc.email }] : []),
+      ...(userMeetingIds.length > 0 ? [{ meetingId: { $in: userMeetingIds } }] : []),
+    ];
+
     let filter = {};
     if (scope === "personal") {
-      filter = { hostUserId: currentUserId };
+      filter = {
+        $or: [
+          { hostUserId: currentUserId },
+          ...(currentUserDoc?.email ? [{ hostEmail: currentUserDoc.email }] : []),
+        ],
+      };
     } else if (scope === "shared") {
       filter = {
         hostUserId: { $ne: currentUserId },
@@ -1100,11 +1121,7 @@ router.get("/", authenticateToken, async (req, res) => {
       };
     } else {
       filter = {
-        $or: [
-          { hostUserId: currentUserId },
-          { participantUserIds: currentUserId },
-          ...(userMeetingIds.length > 0 ? [{ meetingId: { $in: userMeetingIds } }] : []),
-        ],
+        $or: userFilterOr,
       };
     }
 

@@ -2135,6 +2135,205 @@
   line-height: 1.45;
 }
 
+/* ================= RECORDINGS SECTION IN PROFILE ================= */
+.mz-recordings-card {
+  background-color: var(--mz-card-bg);
+  border-radius: 20px;
+  border: 1px solid var(--mz-card-border);
+  box-shadow: var(--mz-shadow-sm);
+  padding: 24px;
+  margin-top: 24px;
+}
+
+.mz-btn-view-all-recs {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--mz-indigo-bg, #eff6ff);
+  color: var(--mz-indigo-text, #0284c7);
+  border: 1px solid var(--mz-indigo-border, #bae6fd);
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mz-btn-view-all-recs:hover {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #0284c7;
+}
+
+.mz-rec-items-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.mz-rec-item-card {
+  display: flex;
+  gap: 14px;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--mz-surface-subtle);
+  border: 1px solid var(--mz-border-subtle);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  align-items: center;
+}
+
+.mz-rec-item-card:hover {
+  border-color: #38bdf8;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 14px rgba(56, 189, 248, 0.12);
+}
+
+.mz-rec-thumb-box {
+  width: 90px;
+  height: 60px;
+  border-radius: 10px;
+  background: #0f172a;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.mz-rec-play-overlay {
+  color: #38bdf8;
+  transition: transform 0.2s ease;
+}
+
+.mz-rec-item-card:hover .mz-rec-play-overlay {
+  transform: scale(1.15);
+  color: #ffffff;
+}
+
+.mz-rec-duration-badge {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  background: rgba(0, 0, 0, 0.75);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+.mz-rec-meta-box {
+  flex: 1;
+  min-width: 0;
+}
+
+.mz-rec-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--mz-text-primary);
+  margin: 0 0 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mz-rec-sub-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--mz-text-muted);
+  flex-wrap: wrap;
+}
+
+.mz-rec-host-badge {
+  color: var(--mz-text-secondary);
+  font-weight: 500;
+}
+
+/* Video Player Modal in Profile */
+.mz-video-player-backdrop {
+  z-index: 10000;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(8px);
+}
+
+.mz-video-modal-dialog {
+  background: #0f172a;
+  border-radius: 18px;
+  border: 1px solid #334155;
+  width: 92%;
+  max-width: 860px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.mz-video-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 24px;
+  border-bottom: 1px solid #1e293b;
+  gap: 16px;
+}
+
+.mz-video-modal-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #f8fafc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mz-video-modal-sub {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mz-video-modal-close {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.mz-video-modal-close:hover {
+  background: #1e293b;
+  color: #ffffff;
+}
+
+.mz-video-player-container {
+  background: #000000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-height: 70vh;
+}
+
+.mz-video-player-container video {
+  width: 100%;
+  max-height: 70vh;
+  outline: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, ::before, ::after {
     animation-duration: 0.01ms !important;

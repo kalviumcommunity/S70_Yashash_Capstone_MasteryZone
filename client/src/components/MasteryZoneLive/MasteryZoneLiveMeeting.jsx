@@ -1723,10 +1723,14 @@ export default function MasteryZoneLiveMeeting({
       const finalDuration = durationFromBlob || exactSeconds;
 
       const token = localStorage.getItem("token") || "";
-      const allNames = [
-        currentUser?.fullName || "You",
-        ...participants.map((p) => p.fullName || p.username || "Participant"),
-      ];
+      const nameSet = new Set();
+      if (currentUser?.fullName) nameSet.add(currentUser.fullName);
+      (participants || []).forEach((p) => {
+        const n = p.fullName || p.username;
+        if (n && n !== "You" && n !== (currentUser?.fullName || "")) nameSet.add(n);
+      });
+      const allNames = Array.from(nameSet);
+      if (allNames.length === 0) allNames.push(currentUser?.fullName || "Host");
       const meetingTitle = `${meetingData.title || "Live Meeting"} — Screen Recording (${new Date().toLocaleDateString()})`;
 
       let res = null;
