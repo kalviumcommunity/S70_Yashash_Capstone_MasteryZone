@@ -858,10 +858,10 @@ const AdminAssessments = () => {
         >
           <div>
             <h2 style={{ fontSize: 15, fontWeight: 700, color: "var(--mz-text-primary)", margin: 0 }}>
-              Genuine Assessment Submissions
+              Assessment Submissions
             </h2>
             <p style={{ fontSize: 12, color: "var(--mz-text-subtle)", margin: "2px 0 0 0" }}>
-              Real attempts from registered student examinations
+              Recent attempts from registered student examinations
             </p>
           </div>
 
@@ -1036,7 +1036,7 @@ const AdminAssessments = () => {
                       No assessment records found
                     </p>
                     <p style={{ fontSize: 13, color: "var(--mz-text-muted)", margin: 0 }}>
-                      {search ? "No submissions match your search query" : "No genuine student submissions in this category"}
+                      {search ? "No submissions match your search query" : "No submissions found in this category"}
                     </p>
                   </td>
                 </tr>

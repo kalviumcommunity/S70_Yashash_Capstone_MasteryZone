@@ -5319,8 +5319,7 @@
   border-radius: 50%;
   pointer-events: none;
   filter: blur(100px);
-  opacity: 0.22;
-  animation: mzGlowDrift 18s ease-in-out infinite alternate;
+  opacity: 0.08;
 }
 
 .mz-c-ambient-glow.mz-c-glow-1,
@@ -5335,7 +5334,6 @@
   bottom: -100px;
   right: -120px;
   background: radial-gradient(circle, #8b5cf6 0%, #38bdf8 70%, transparent 100%);
-  animation-delay: -9s;
 }
 
 .mz-c-nav-anim {

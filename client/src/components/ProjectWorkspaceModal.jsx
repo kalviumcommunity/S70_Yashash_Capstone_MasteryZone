@@ -1962,7 +1962,7 @@ export function ProjectsHubSection({ projects = [], onOpenProjectWorkspace }) {
             Production Engineering & Full-Stack Capstone Projects
           </h2>
           <p className="mz-projects-hero-sub">
-            Develop real-world, multi-file software systems inside the dedicated MZ-ASM Project Workspace. Every project features structured engineering tasks, 6 automated sandbox test cases, a deterministic 100-mark grading rubric, permanent assessment reports, and verifiable{" "}
+            Develop real-world, multi-file software systems inside the interactive Project Workspace. Every project features structured engineering tasks, 6 automated sandbox test cases, a deterministic 100-mark grading rubric, permanent assessment reports, and verifiable{" "}
             <strong>PROJECT COMPLETED</strong> credentials.
           </p>
         </div>

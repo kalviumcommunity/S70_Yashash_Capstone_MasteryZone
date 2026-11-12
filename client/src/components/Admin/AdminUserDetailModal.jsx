@@ -1990,7 +1990,7 @@ const AdminUserDetailModal = ({
               }}
             >
               <span style={{ fontSize: 11.5, color: "var(--mz-text-subtle)" }}>
-                {activeReport.adminNote ? `Latest Note: ${activeReport.adminNote}` : "MasteryZone Academic Engine • Genuine Real-Time Records"}
+                {activeReport.adminNote ? `Latest Note: ${activeReport.adminNote}` : "Assessment Performance Record"}
               </span>
               <button
                 type="button"

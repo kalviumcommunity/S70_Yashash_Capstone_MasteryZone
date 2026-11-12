@@ -1453,10 +1453,10 @@ const AdminSettings = () => {
                 Administrative Security Audit Log
               </h3>
               <span style={{ fontSize: 12, color: "var(--mz-text-subtle)" }}>
-                Immutable ledger of all administrator actions, credential changes, and score updates
+                System record of all administrator actions, credential changes, and score updates
               </span>
             </div>
-            <span className="mz-admin-badge-purple">Tamper Proof Ledger</span>
+            <span className="mz-admin-badge-purple">Audit Log</span>
           </div>
 
           <div className="mz-admin-table-wrap">

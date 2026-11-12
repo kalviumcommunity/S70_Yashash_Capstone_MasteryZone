@@ -550,14 +550,64 @@
 }
 
 .mzl-hero-preview-box {
-  background: #ffffff;
-  padding: 14px;
-  border-radius: 20px;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
-  border: 1px solid #e2e8f0;
+  background: #0f172a;
+  padding: 12px;
+  border-radius: 14px;
+  box-shadow: 0 16px 36px -8px rgba(15, 23, 42, 0.25);
+  border: 1px solid #1e293b;
   width: 100%;
-  max-width: 360px;
+  max-width: 400px;
   position: relative;
+}
+
+.mzl-preview-window-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 6px 12px 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 12px;
+}
+
+.mzl-preview-window-dots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mzl-preview-window-dots .dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.mzl-preview-window-dots .dot-red { background: #ef4444; }
+.mzl-preview-window-dots .dot-yellow { background: #f59e0b; }
+.mzl-preview-window-dots .dot-green { background: #10b981; }
+
+.mzl-preview-window-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  letter-spacing: 0.02em;
+}
+
+.mzl-preview-window-status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #34d399;
+}
+
+.mzl-preview-window-status .status-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
 }
 
 .mzl-preview-grid {
@@ -567,87 +617,80 @@
 }
 
 .mzl-preview-tile {
-  background: #f1f5f9;
-  border-radius: 12px;
+  background: #1e293b;
+  border-radius: 10px;
   aspect-ratio: 4 / 3;
   position: relative;
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid #e2e8f0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.mzl-tile-host {
+  background: #182234;
+}
+
+.mzl-tile-editor {
+  background: #0a0f1d;
+  padding: 10px 12px;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
+.mzl-editor-snippet {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 10px;
+  line-height: 1.45;
+  color: #e2e8f0;
+  opacity: 0.9;
+  text-align: left;
+}
+
+.mzl-editor-snippet .token-kw {
+  color: #60a5fa;
+  font-weight: 600;
+}
+
+.mzl-editor-snippet .token-fn {
+  color: #fbbf24;
+}
+
+.mzl-editor-snippet .token-cm {
+  color: #64748b;
+  font-style: italic;
+}
+
+.mzl-tile-peer {
+  background: #141b2a;
 }
 
 .mzl-preview-avatar {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 16px;
+  font-size: 14px;
   color: #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
 }
 
 .mzl-preview-name-tag {
   position: absolute;
   bottom: 6px;
   left: 6px;
-  background: rgba(15, 23, 42, 0.75);
-  color: #ffffff;
-  font-size: 10.5px;
+  background: rgba(15, 23, 42, 0.85);
+  color: #f1f5f9;
+  font-size: 10px;
   font-weight: 600;
-  padding: 2px 7px;
-  border-radius: 6px;
+  padding: 2px 6px;
+  border-radius: 4px;
   backdrop-filter: blur(4px);
-}
-
-.mzl-preview-speech {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  background: #ffffff;
-  color: var(--mzl-navy);
-  font-size: 11px;
-  font-weight: 600;
-  padding: 3px 8px;
-  border-radius: 10px;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
-  border: 1px solid #e2e8f0;
-  animation: mzlFloat 3s ease-in-out infinite;
-}
-
-/* Floating Badges */
-.mzl-float-badge {
-  position: absolute;
-  background: #ffffff;
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12);
-  border: 1px solid #e2e8f0;
-  animation: mzlPulseFloat 4s ease-in-out infinite;
-  z-index: 2;
-}
-
-.mzl-fb-1 { top: -14px; left: -14px; animation-delay: 0s; }
-.mzl-fb-2 { top: 20px; right: -16px; animation-delay: 1s; }
-.mzl-fb-3 { bottom: 12px; left: -18px; animation-delay: 2s; }
-.mzl-fb-4 { bottom: -12px; right: 18px; animation-delay: 3s; }
-
-@keyframes mzlFloat {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-4px); }
-}
-
-@keyframes mzlPulseFloat {
-  0%, 100% { transform: translateY(0) scale(1); }
-  50% { transform: translateY(-6px) scale(1.05); }
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 /* Study Rooms Section */

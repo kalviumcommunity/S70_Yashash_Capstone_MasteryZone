@@ -94,17 +94,26 @@ router.get("/reports", authenticateToken, async (req, res) => {
       };
     });
 
-    // 2. Fetch Practical Coding Proctored Sessions
+    // 2. Fetch Practical Coding Proctored Sessions & Challenge Submissions
     let formattedCoding = [];
     try {
-      const codingSessions = await ProctoredCodingSession.find({
-        $or: [{ userId }, { userId: userObjId }],
-        $and: [{ $or: [{ status: "submitted" }, { "submissionResult.submittedAt": { $exists: true } }] }],
-      })
-        .sort({ "submissionResult.submittedAt": -1, updatedAt: -1 })
-        .lean();
+      const ChallengeSubmission = require("../models/ChallengeSubmission");
+      const { resolveQuestionData } = require("./codingRoutes");
+      const [codingSessions, challengeSubs] = await Promise.all([
+        ProctoredCodingSession.find({
+          $or: [{ userId }, { userId: userObjId }],
+          $and: [{ $or: [{ status: "submitted" }, { "submissionResult.submittedAt": { $exists: true } }] }],
+        })
+          .sort({ "submissionResult.submittedAt": -1, updatedAt: -1 })
+          .lean(),
+        ChallengeSubmission.find({
+          $or: [{ userId }, { userId: userObjId }],
+        })
+          .sort({ createdAt: -1 })
+          .lean(),
+      ]);
 
-      formattedCoding = codingSessions.map((s) => {
+      const proctoredCoding = codingSessions.map((s) => {
         const isPass = !!s.submissionResult?.passed || (s.submissionResult?.score || 0) >= 80;
         return {
           id: s.sessionId,
@@ -133,6 +142,49 @@ router.get("/reports", authenticateToken, async (req, res) => {
           reportUrl: `/assessment-report/${s.sessionId}`,
         };
       });
+
+      const challengeCoding = (challengeSubs || []).map((cs) => {
+        const totalT = cs.totalTests || 10;
+        const passedT = cs.passedTests !== undefined ? cs.passedTests : 0;
+        const score = cs.score !== undefined ? cs.score : Math.round((passedT / Math.max(1, totalT)) * 100);
+        const isPass = cs.status === "ACCEPTED";
+        const resolvedProblem = resolveQuestionData(cs.challengeId, cs.language);
+        const title = cs.challengeTitle || resolvedProblem.title || "Coding Challenge";
+        return {
+          id: String(cs._id),
+          sessionId: String(cs._id),
+          attemptId: String(cs._id),
+          subjectKey: "coding",
+          trackId: resolvedProblem.category || "dsa",
+          moduleIndex: 0,
+          assessmentTitle: `${title} — Challenge Report`,
+          questionTitle: title,
+          difficulty: resolvedProblem.difficulty || "Challenge",
+          category: "CODING Arena Challenge",
+          type: "coding_challenge",
+          typeLabel: "Algorithmic Challenge Submission",
+          candidateDetails: {
+            fullName: req.user?.fullName || req.user?.username || "Candidate",
+            email: req.user?.email || "",
+          },
+          submittedAt: cs.createdAt,
+          score,
+          marksObtained: score,
+          totalMarks: 100,
+          percentage: score,
+          grade: isPass ? "A" : "F",
+          accuracy: totalT > 0 ? Math.round((passedT / totalT) * 100) : score,
+          passedTests: passedT,
+          totalTests: totalT,
+          durationSeconds: Math.round((cs.runtimeMs || 0) / 1000) || 15,
+          language: cs.language || "python",
+          passed: isPass,
+          violationsCount: 0,
+          reportUrl: `/assessment-report/${cs._id}`,
+        };
+      });
+
+      formattedCoding = [...proctoredCoding, ...challengeCoding];
     } catch {}
 
     // 3. Fetch Real-World Project Submissions

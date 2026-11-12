@@ -311,10 +311,9 @@ function formatLocalReport(matched, uObj, rawId) {
         targetUrl = `${API_BASE}/api/projects/submissions/${cleanId}/report`;
       } else if (isAttemptId) {
         targetUrl = `${API_BASE}/api/curriculum/assessment-attempt/${cleanId}`;
-      } else if (rawId.startsWith("mz_proc_") || rawId.startsWith("session_") || rawId.startsWith("psess_")) {
-        targetUrl = `${API_BASE}/api/coding/proctored-session/${rawId}/report`;
       } else {
-        targetUrl = `${API_BASE}/api/curriculum/assessment-attempt/${cleanId}`;
+        // Universal coding & challenge submission report endpoint
+        targetUrl = `${API_BASE}/api/coding/proctored-session/${rawId}/report`;
       }
 
       let serverReport = null;
@@ -330,14 +329,18 @@ function formatLocalReport(matched, uObj, rawId) {
           setError("Access denied. You do not have permission to view another user's assessment report.");
           setLoading(false);
           return;
-        } else if (!isCertAttemptId && !isProjectSubId && !isAttemptId) {
-          const codingRes = await fetch(`${API_BASE}/api/coding/proctored-session/${rawId}/report`, { headers: authHeaders });
-          if (codingRes.ok) {
-            const codingData = await codingRes.json().catch(() => ({}));
-            if (codingData?.report) {
-              serverReport = codingData.report;
+        } else if (!isCertAttemptId && !isProjectSubId) {
+          // If first endpoint didn't have it, check curriculum assessment attempt endpoint
+          const fallbackUrl = targetUrl.includes("/proctored-session/")
+            ? `${API_BASE}/api/curriculum/assessment-attempt/${cleanId}`
+            : `${API_BASE}/api/coding/proctored-session/${rawId}/report`;
+          const altRes = await fetch(fallbackUrl, { headers: authHeaders });
+          if (altRes.ok) {
+            const altData = await altRes.json().catch(() => ({}));
+            if (altData?.report) {
+              serverReport = altData.report;
             }
-          } else if (codingRes.status === 403) {
+          } else if (altRes.status === 403) {
             setError("Access denied. You do not have permission to view another user's assessment report.");
             setLoading(false);
             return;
