@@ -95,8 +95,11 @@ const RecordingVideo = forwardRef(function RecordingVideo(
     );
   }
 
+  const recTitle = recording?.title || "Mastery Zone Recording";
+  const recHost = recording?.hostName || recording?.candidateName || "";
+
   return (
-    <div style={{ position: "relative", width: "100%", ...wrapperStyle }}>
+    <div style={{ position: "relative", width: "100%", background: "#090d16", borderRadius: 8, overflow: "hidden", ...wrapperStyle }}>
       <video
         ref={ref}
         src={pb.src}
@@ -104,7 +107,7 @@ const RecordingVideo = forwardRef(function RecordingVideo(
         playsInline
         preload="metadata"
         {...videoProps}
-        style={style}
+        style={{ width: "100%", height: "100%", objectFit: "contain", display: "block", ...style }}
         onLoadedMetadata={(e) => {
           pb.onLoadedMetadata(e);
           onLoadedMetadata?.(e);
@@ -115,6 +118,43 @@ const RecordingVideo = forwardRef(function RecordingVideo(
           pb.onError(e);
         }}
       />
+
+      {/* Floating HUD Watermark & Session Identifier */}
+      <div
+        className="mz-rec-video-hud"
+        style={{
+          position: "absolute",
+          top: 12,
+          left: 12,
+          pointerEvents: "none",
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          background: "rgba(15, 23, 42, 0.75)",
+          backdropFilter: "blur(6px)",
+          padding: "5px 12px",
+          borderRadius: 6,
+          border: "1px solid rgba(255, 255, 255, 0.12)",
+          fontSize: 12,
+          color: "#e2e8f0",
+          zIndex: 5,
+          userSelect: "none",
+        }}
+      >
+        <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#ef4444", display: "inline-block" }} />
+        <span style={{ fontWeight: 700, color: "#ffffff", letterSpacing: 0.5 }}>REC</span>
+        <span style={{ color: "#64748b" }}>|</span>
+        <span style={{ fontWeight: 600, maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {recTitle}
+        </span>
+        {recHost && (
+          <>
+            <span style={{ color: "#64748b" }}>•</span>
+            <span style={{ color: "#94a3b8", fontSize: 11 }}>{recHost}</span>
+          </>
+        )}
+      </div>
+
       {(pb.status === "loading" || pb.isConverting) && (
         <div
           aria-live="polite"
