@@ -79,6 +79,7 @@ import {
 } from "react-icons/vsc";
 import AssessmentSecurityGate from "./AssessmentSecurityGate";
 import AssessmentSubmissionFlow from "./AssessmentSubmissionFlow";
+import EvaluatingResultsLoader from "./EvaluatingResultsLoader";
 import ThemeToggle from "./ThemeToggle.jsx";
 import { useTheme } from "../context/ThemeContext.jsx";
 import "./MasteryZoneCompiler.css";
@@ -1008,6 +1009,7 @@ export default function MasteryZoneCompilerWorkspace({
   const [isRunning, setIsRunning] = useState(false);
   const [isRunningTests, setIsRunningTests] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isNavigatingToReport, setIsNavigatingToReport] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [lastSavedTime, setLastSavedTime] = useState(null);
 
@@ -3164,13 +3166,32 @@ export default function MasteryZoneCompilerWorkspace({
     );
   }
 
+  const isAssignment = Boolean(
+    (title && /assignment/i.test(title)) ||
+    (problemData && (problemData.assignmentType || problemData.isAssignment)) ||
+    (questionDetails && /assignment/i.test(questionDetails.category || ""))
+  );
+
+  // When user initiates navigation to assessment report: show simple and good loading animation
+  if (isNavigatingToReport) {
+    return (
+      <EvaluatingResultsLoader
+        title={questionDetails.title || title}
+        assignmentType={isAssignment ? "Assignment" : "Coding Assessment"}
+        mode="navigating"
+        isNavigating={true}
+        subtitle="Opening your official performance report and audit ledger..."
+      />
+    );
+  }
+
   // When preparing results, ready with report, or in submission error state: DO NOT show old assessment screen!
   if (submissionFlowStage === "preparing" || (isSubmitting && !submissionSummary)) {
     return (
       <AssessmentSubmissionFlow
         stage="preparing"
         title={questionDetails.title || title}
-        assignmentType="Coding Assessment"
+        assignmentType={isAssignment ? "Assignment" : "Coding Assessment"}
         attemptNumber={attemptsCount || 1}
       />
     );
@@ -3214,12 +3235,16 @@ export default function MasteryZoneCompilerWorkspace({
       <AssessmentSubmissionFlow
         stage="ready"
         title={questionDetails.title || title}
-        assignmentType="Coding Assessment"
+        assignmentType={isAssignment ? "Assignment" : "Coding Assessment"}
         summary={summaryData}
         sessionId={reportSid}
         reportUrl={`/assessment-report/${reportSid}`}
+        autoNavigate={true}
         onViewReport={() => {
-          navigate(`/assessment-report/${reportSid}`, { replace: true });
+          setIsNavigatingToReport(true);
+          setTimeout(() => {
+            navigate(`/assessment-report/${reportSid}`, { replace: true });
+          }, 700);
         }}
         onRetake={() => {
           cleanupAllMediaAndProctoring();
@@ -5287,7 +5312,10 @@ export default function MasteryZoneCompilerWorkspace({
                 (submissionSuccessData?.reportUrl ? submissionSuccessData.reportUrl.replace("/assessment-report/", "") : null) ||
                 `sub_${(questionId || problemData?.id || "assignment").replace(/[^a-zA-Z0-9_-]/g, "_")}`;
 
-              navigate(`/assessment-report/${sid}`, { replace: true });
+              setIsNavigatingToReport(true);
+              setTimeout(() => {
+                navigate(`/assessment-report/${sid}`, { replace: true });
+              }, 700);
             }}
           >
             <LuAward size={18} />
@@ -5303,16 +5331,16 @@ export default function MasteryZoneCompilerWorkspace({
             {isSubmitting ? (
               <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
                 <LuRefreshCw size={14} className="mz-spin" />
-                <span>Evaluating & Grading...</span>
+                <span>{isAssignment ? "Submitting Assignment..." : "Evaluating & Grading..."}</span>
               </span>
             ) : isAllPassed ? (
               <>
                 <LuCircleCheck size={16} />
-                <span>Accept & Grade (100%)</span>
+                <span>{isAssignment ? "Submit Assignment (100%)" : "Accept & Grade (100%)"}</span>
               </>
             ) : (
               <>
-                <span>Accept & Grade Solution</span>
+                <span>{isAssignment ? "Submit Assignment" : "Accept & Grade Solution"}</span>
                 <LuSend size={14} />
               </>
             )}
@@ -5384,7 +5412,14 @@ export default function MasteryZoneCompilerWorkspace({
                 onClick={executeSubmit}
                 disabled={isSubmitting}
               >
-                {isSubmitting ? "Evaluating & Submitting..." : "Confirm & Save Submission"}
+                {isSubmitting ? (
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                    <LuRefreshCw size={14} className="mz-spin" />
+                    <span>Submitting Assignment...</span>
+                  </span>
+                ) : (
+                  <span>{isAssignment ? "Confirm & Submit Assignment" : "Confirm & Save Submission"}</span>
+                )}
               </button>
             </div>
           </div>
@@ -5712,7 +5747,10 @@ export default function MasteryZoneCompilerWorkspace({
                 className="mz-proc-btn-report"
                 onClick={() => {
                   const sid = proctoredSessionId || routeSessionId;
-                  navigate(`/assessment-report/${sid}`, { replace: true });
+                  setIsNavigatingToReport(true);
+                  setTimeout(() => {
+                    navigate(`/assessment-report/${sid}`, { replace: true });
+                  }, 700);
                 }}
               >
                 <LuAward size={18} />
@@ -5754,7 +5792,10 @@ export default function MasteryZoneCompilerWorkspace({
                 type="button"
                 className="mz-proc-btn-report"
                 onClick={() => {
-                  navigate(submissionSuccessData.reportUrl, { replace: true });
+                  setIsNavigatingToReport(true);
+                  setTimeout(() => {
+                    navigate(submissionSuccessData.reportUrl, { replace: true });
+                  }, 700);
                 }}
               >
                 <LuAward size={18} />

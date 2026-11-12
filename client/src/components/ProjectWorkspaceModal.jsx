@@ -825,6 +825,7 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
         reportUrl={projectReportReadyData.reportUrl}
         sessionId={projectReportReadyData.sessionId}
         summaryData={projectReportReadyData.summary}
+        autoNavigate={true}
         onViewReport={() => {
           navigate(projectReportReadyData.reportUrl, {
             replace: true,

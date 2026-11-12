@@ -11,6 +11,7 @@ import {
   LuTriangleAlert,
   LuArrowRight,
   LuRotateCcw,
+  LuRefreshCw,
   LuTrophy,
   LuSparkles,
   LuX,
@@ -673,8 +674,17 @@ export default function PracticalAssignmentModal({
                 boxShadow: "0 4px 14px rgba(37, 99, 235, 0.25)",
               }}
             >
-              <LuSend size={15} />
-              <span>{isEvaluating ? "Evaluating Solution..." : "Run & Evaluate Assignment"}</span>
+              {isEvaluating ? (
+                <>
+                  <LuRefreshCw size={15} className="mz-spin" />
+                  <span>Submitting Assignment...</span>
+                </>
+              ) : (
+                <>
+                  <LuSend size={15} />
+                  <span>Submit Assignment</span>
+                </>
+              )}
             </button>
 
             {isPassed && (

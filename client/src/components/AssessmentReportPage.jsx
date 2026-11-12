@@ -43,6 +43,7 @@ import {
 } from "react-icons/fi";
 import "./AssessmentReportPage.css";
 import MasteryZoneGlobalLoader from "./MasteryZoneGlobalLoader";
+import EvaluatingResultsLoader from "./EvaluatingResultsLoader";
 import { useTheme } from "../context/ThemeContext";
 import ThemeToggle from "./ThemeToggle";
 
@@ -727,7 +728,15 @@ function formatLocalReport(matched, uObj, rawId) {
   }, [normalizedQuestions, questionFilter, questionSearch]);
 
   if (loading) {
-    return <MasteryZoneGlobalLoader message="Loading assessment report..." />;
+    return (
+      <EvaluatingResultsLoader
+        title={initialPassedReport?.assessmentTitle || initialPassedReport?.title || "Assessment Report"}
+        assignmentType="Assessment"
+        mode="navigating"
+        isNavigating={true}
+        subtitle="Retrieving verified audit ledger, test telemetry, and performance scorecard..."
+      />
+    );
   }
 
   if (error || !report) {
@@ -735,10 +744,10 @@ function formatLocalReport(matched, uObj, rawId) {
       <div className="mz-report-root" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div className="mz-report-card" style={{ maxWidth: 480, textAlign: "center", padding: 36 }}>
           <AlertTriangle size={44} color="#ef4444" style={{ marginBottom: 12 }} />
-          <h2 style={{ margin: "0 0 8px", fontSize: "1.3rem", fontWeight: 800, color: "#0f172a" }}>
+          <h2 style={{ margin: "0 0 8px", fontSize: "1.3rem", fontWeight: 800, color: "var(--mz-text-primary, #0f172a)" }}>
             Assessment Report Unavailable
           </h2>
-          <p style={{ color: "#64748b", fontSize: "0.9rem", marginBottom: 24 }}>
+          <p style={{ color: "var(--mz-text-muted, #64748b)", fontSize: "0.9rem", marginBottom: 24 }}>
             {error || "This assessment session does not exist or could not be found."}
           </p>
           <button className="mz-report-btn mz-report-btn-primary" onClick={() => navigate("/home")}>
@@ -1596,7 +1605,7 @@ function formatLocalReport(matched, uObj, rawId) {
                       </div>
                     )}
                   </div>
-                  <span style={{ fontSize: "0.8rem", color: "#64748b", fontWeight: 600 }}>
+                  <span style={{ fontSize: "0.8rem", color: "var(--mz-text-muted, #64748b)", fontWeight: 600 }}>
                     Showing {filteredQuestions.length} of {normalizedQuestions.length}{" "}
                     {normalizedQuestions.length === 1 ? "Question" : "Questions"}
                   </span>
@@ -1616,7 +1625,7 @@ function formatLocalReport(matched, uObj, rawId) {
               </div>
 
               {filteredQuestions.length === 0 ? (
-                <div style={{ textAlign: "center", padding: "40px 20px", color: "#64748b" }}>
+                <div style={{ textAlign: "center", padding: "40px 20px", color: "var(--mz-text-muted, #64748b)" }}>
                   <p style={{ margin: "0 0 12px", fontWeight: 600 }}>
                     No questions match the selected filter ({questionFilter}).
                   </p>
@@ -1720,7 +1729,7 @@ function formatLocalReport(matched, uObj, rawId) {
                                 <div
                                   style={{
                                     fontSize: "0.85rem",
-                                    color: "#1e293b",
+                                    color: "var(--mz-text-primary, #1e293b)",
                                     lineHeight: 1.55,
                                   }}
                                 >
@@ -1828,7 +1837,7 @@ function formatLocalReport(matched, uObj, rawId) {
                                 <div
                                   style={{
                                     fontSize: "0.76rem",
-                                    color: "#475569",
+                                    color: "var(--mz-text-secondary, #475569)",
                                     marginTop: 4,
                                     fontWeight: 600,
                                   }}
@@ -1855,7 +1864,7 @@ function formatLocalReport(matched, uObj, rawId) {
                                 <div
                                   style={{
                                     fontSize: "0.76rem",
-                                    color: "#475569",
+                                    color: "var(--mz-text-secondary, #475569)",
                                     marginTop: 4,
                                     fontWeight: 600,
                                   }}
@@ -1878,7 +1887,7 @@ function formatLocalReport(matched, uObj, rawId) {
                               <div
                                 style={{
                                   fontSize: "0.84rem",
-                                  color: "#1e293b",
+                                  color: "var(--mz-text-primary, #1e293b)",
                                   lineHeight: 1.5,
                                 }}
                               >
@@ -1912,7 +1921,7 @@ function formatLocalReport(matched, uObj, rawId) {
                                       margin: 0,
                                       paddingLeft: 18,
                                       fontSize: "0.82rem",
-                                      color: "#475569",
+                                      color: "var(--mz-text-secondary, #475569)",
                                     }}
                                   >
                                     {q.constraints.map((c, cIdx) => (
@@ -1946,7 +1955,7 @@ function formatLocalReport(matched, uObj, rawId) {
                                   <span
                                     style={{
                                       fontSize: "0.75rem",
-                                      color: "#64748b",
+                                      color: "var(--mz-text-muted, #64748b)",
                                       fontWeight: 500,
                                     }}
                                   >
@@ -2203,7 +2212,7 @@ function formatLocalReport(matched, uObj, rawId) {
                                           >
                                             {tc.actual || tc.actualOutput || (tc.passed ? "[Passed]" : "[No Output]")}
                                           </td>
-                                          <td style={{ color: "#64748b", fontSize: "0.78rem" }}>
+                                          <td style={{ color: "var(--mz-text-muted, #64748b)", fontSize: "0.78rem" }}>
                                             {tc.durationMs ?? tc.duration ?? 0}ms
                                           </td>
                                           <td>
@@ -2229,9 +2238,9 @@ function formatLocalReport(matched, uObj, rawId) {
                                             <td
                                               colSpan={7}
                                               style={{
-                                                background: "#f8fafc",
+                                                background: "var(--mz-surface-subtle, #f8fafc)",
                                                 padding: "12px 16px",
-                                                borderBottom: "1px solid #e2e8f0",
+                                                borderBottom: "1px solid var(--mz-border, #e2e8f0)",
                                               }}
                                             >
                                               <div
@@ -2245,16 +2254,17 @@ function formatLocalReport(matched, uObj, rawId) {
                                                 }}
                                               >
                                                 <div>
-                                                  <strong style={{ color: "#475569" }}>
+                                                  <strong style={{ color: "var(--mz-text-secondary, #475569)" }}>
                                                     Input:
                                                   </strong>
                                                   <pre
                                                     style={{
                                                       margin: "4px 0 0",
                                                       padding: 8,
-                                                      background: "#ffffff",
+                                                      background: "var(--mz-surface, #ffffff)",
                                                       borderRadius: 6,
-                                                      border: "1px solid #e2e8f0",
+                                                      border: "1px solid var(--mz-border, #e2e8f0)",
+                                                      color: "var(--mz-text-primary, #0f172a)",
                                                       whiteSpace: "pre-wrap",
                                                     }}
                                                   >
@@ -2262,16 +2272,17 @@ function formatLocalReport(matched, uObj, rawId) {
                                                   </pre>
                                                 </div>
                                                 <div>
-                                                  <strong style={{ color: "#475569" }}>
+                                                  <strong style={{ color: "var(--mz-text-secondary, #475569)" }}>
                                                     Expected Output:
                                                   </strong>
                                                   <pre
                                                     style={{
                                                       margin: "4px 0 0",
                                                       padding: 8,
-                                                      background: "#ffffff",
+                                                      background: "var(--mz-surface, #ffffff)",
                                                       borderRadius: 6,
-                                                      border: "1px solid #e2e8f0",
+                                                      border: "1px solid var(--mz-border, #e2e8f0)",
+                                                      color: "var(--mz-text-primary, #0f172a)",
                                                       whiteSpace: "pre-wrap",
                                                     }}
                                                   >
@@ -2279,16 +2290,16 @@ function formatLocalReport(matched, uObj, rawId) {
                                                   </pre>
                                                 </div>
                                                 <div>
-                                                  <strong style={{ color: "#475569" }}>
+                                                  <strong style={{ color: "var(--mz-text-secondary, #475569)" }}>
                                                     Actual Output:
                                                   </strong>
                                                   <pre
                                                     style={{
                                                       margin: "4px 0 0",
                                                       padding: 8,
-                                                      background: "#ffffff",
+                                                      background: "var(--mz-surface, #ffffff)",
                                                       borderRadius: 6,
-                                                      border: "1px solid #e2e8f0",
+                                                      border: "1px solid var(--mz-border, #e2e8f0)",
                                                       whiteSpace: "pre-wrap",
                                                       color: tc.passed ? "#059669" : "#dc2626",
                                                     }}
@@ -2353,10 +2364,10 @@ function formatLocalReport(matched, uObj, rawId) {
               }}
             >
               <div>
-                <h3 style={{ margin: 0, fontSize: "1.15rem", fontWeight: 800, color: "#0f172a" }}>
+                <h3 style={{ margin: 0, fontSize: "1.15rem", fontWeight: 800, color: "var(--mz-text-primary, #0f172a)" }}>
                   Code Execution & Runtime Telemetry
                 </h3>
-                <p style={{ margin: "4px 0 0", fontSize: "0.86rem", color: "#64748b" }}>
+                <p style={{ margin: "4px 0 0", fontSize: "0.86rem", color: "var(--mz-text-muted, #64748b)" }}>
                   Immutable source code snapshots, compiler verification, and test-suite execution logs.
                 </p>
               </div>
@@ -2366,7 +2377,7 @@ function formatLocalReport(matched, uObj, rawId) {
             </div>
 
             {isMcqReport ? (
-              <div style={{ padding: "24px", background: "#f8fafc", borderRadius: 12, color: "#475569" }}>
+              <div style={{ padding: "24px", background: "var(--mz-surface-subtle, #f8fafc)", borderRadius: 12, color: "var(--mz-text-secondary, #475569)" }}>
                 This was a Multiple-Choice Question (MCQ) examination. Switch to the{" "}
                 <strong>Question-Wise Analysis</strong> tab to inspect your selected options and answer explanations.
               </div>
@@ -2376,10 +2387,10 @@ function formatLocalReport(matched, uObj, rawId) {
                   <div
                     key={`exec_${qIdx}`}
                     style={{
-                      border: "1px solid #e2e8f0",
+                      border: "1px solid var(--mz-border, #e2e8f0)",
                       borderRadius: 16,
                       padding: 20,
-                      background: "#fcfdff",
+                      background: "var(--mz-surface, #fcfdff)",
                     }}
                   >
                     <div
@@ -2395,10 +2406,10 @@ function formatLocalReport(matched, uObj, rawId) {
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                         <span className={`mz-q-circle-num ${q.status}`}>{qIdx + 1}</span>
                         <div>
-                          <h4 style={{ margin: 0, fontSize: "1rem", fontWeight: 800 }}>
+                          <h4 style={{ margin: 0, fontSize: "1rem", fontWeight: 800, color: "var(--mz-text-primary, #0f172a)" }}>
                             {q.title}
                           </h4>
-                          <span style={{ fontSize: "0.78rem", color: "#64748b" }}>
+                          <span style={{ fontSize: "0.78rem", color: "var(--mz-text-muted, #64748b)" }}>
                             {q.compilationStatus} • {q.executionStatus} • Runtime: {q.runtimeMs}ms • Memory:{" "}
                             {q.memoryMb} MB
                           </span>
@@ -2475,10 +2486,10 @@ function formatLocalReport(matched, uObj, rawId) {
               }}
             >
               <div>
-                <h3 style={{ margin: 0, fontSize: "1.15rem", fontWeight: 800, color: "#0f172a" }}>
+                <h3 style={{ margin: 0, fontSize: "1.15rem", fontWeight: 800, color: "var(--mz-text-primary, #0f172a)" }}>
                   Proctoring & Environment Integrity Audit
                 </h3>
-                <p style={{ margin: "4px 0 0", fontSize: "0.86rem", color: "#64748b" }}>
+                <p style={{ margin: "4px 0 0", fontSize: "0.86rem", color: "var(--mz-text-muted, #64748b)" }}>
                   Hardware permission verification, violation chances, and session security events.
                 </p>
               </div>
@@ -2506,7 +2517,7 @@ function formatLocalReport(matched, uObj, rawId) {
             <div className="mz-report-audit-grid">
               <div className="mz-audit-chances-card">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: "0.9rem", fontWeight: 700, color: "#0f172a" }}>
+                  <span style={{ fontSize: "0.9rem", fontWeight: 700, color: "var(--mz-text-primary, #0f172a)" }}>
                     Violation Chances Used
                   </span>
                   <span style={{ fontSize: "0.9rem", fontWeight: 800, color: "#4f46e5" }}>
@@ -2588,8 +2599,8 @@ function formatLocalReport(matched, uObj, rawId) {
                 </div>
               </div>
 
-              <div className="mz-audit-chances-card" style={{ background: "#ffffff" }}>
-                <span style={{ fontSize: "0.9rem", fontWeight: 800, color: "#0f172a" }}>
+              <div className="mz-audit-chances-card">
+                <span style={{ fontSize: "0.9rem", fontWeight: 800, color: "var(--mz-text-primary, #0f172a)" }}>
                   Chronological Session Event Log
                 </span>
 
@@ -2597,10 +2608,11 @@ function formatLocalReport(matched, uObj, rawId) {
                   <div
                     style={{
                       padding: "10px 14px",
-                      background: "#f8fafc",
+                      background: "var(--mz-surface-subtle, #f8fafc)",
                       borderRadius: 10,
-                      border: "1px solid #e2e8f0",
+                      border: "1px solid var(--mz-border, #e2e8f0)",
                       fontSize: "0.82rem",
+                      color: "var(--mz-text-primary, #0f172a)",
                     }}
                   >
                     <strong>Assessment Started</strong> — {formatDateTime(startTime)}
@@ -2612,9 +2624,10 @@ function formatLocalReport(matched, uObj, rawId) {
                         key={idx}
                         style={{
                           padding: "10px 14px",
-                          background: "#fffbeb",
+                          background: "var(--mz-amber-bg, #fffbeb)",
                           borderRadius: 10,
-                          border: "1px solid #fde68a",
+                          border: "1px solid var(--mz-amber-border, #fde68a)",
+                          color: "var(--mz-amber-text, #b45309)",
                           fontSize: "0.82rem",
                         }}
                       >
@@ -2627,11 +2640,11 @@ function formatLocalReport(matched, uObj, rawId) {
                   <div
                     style={{
                       padding: "10px 14px",
-                      background: "#ecfdf5",
+                      background: "var(--mz-green-bg, #ecfdf5)",
                       borderRadius: 10,
-                      border: "1px solid #a7f3d0",
+                      border: "1px solid var(--mz-green-border, #a7f3d0)",
                       fontSize: "0.82rem",
-                      color: "#065f46",
+                      color: "var(--mz-green-text, #065f46)",
                     }}
                   >
                     <strong>Assessment Finalized & Locked</strong> — {formatDateTime(submissionTime)}
@@ -2647,10 +2660,10 @@ function formatLocalReport(matched, uObj, rawId) {
             ===================================================================== */}
         {activeTab === "insights" && (
           <section className="mz-report-card">
-            <h3 style={{ margin: "0 0 6px", fontSize: "1.15rem", fontWeight: 800, color: "#0f172a" }}>
+            <h3 style={{ margin: "0 0 6px", fontSize: "1.15rem", fontWeight: 800, color: "var(--mz-text-primary, #0f172a)" }}>
               Performance Insights & Engineering Recommendations
             </h3>
-            <p style={{ margin: "0 0 18px", fontSize: "0.88rem", color: "#64748b" }}>
+            <p style={{ margin: "0 0 18px", fontSize: "0.88rem", color: "var(--mz-text-muted, #64748b)" }}>
               {evaluationFeedback.summary ||
                 (isPass
                   ? "Strong technical execution and high problem-solving accuracy demonstrated across this assessment."
@@ -2673,8 +2686,9 @@ function formatLocalReport(matched, uObj, rawId) {
                     style={{
                       padding: 16,
                       borderRadius: 12,
-                      border: "1px solid #e2e8f0",
-                      background: "#f8fafc",
+                      border: "1px solid var(--mz-border, #e2e8f0)",
+                      background: "var(--mz-surface-subtle, #f8fafc)",
+                      color: "var(--mz-text-primary, #0f172a)",
                     }}
                   >
                     <div
@@ -2687,11 +2701,11 @@ function formatLocalReport(matched, uObj, rawId) {
                       }}
                     >
                       <span>{r.label}</span>
-                      <span style={{ color: "#4f46e5" }}>
+                      <span style={{ color: "var(--mz-accent-indigo, #4f46e5)" }}>
                         {r.earnedMarks} / {r.maxMarks}
                       </span>
                     </div>
-                    <p style={{ margin: 0, fontSize: "0.78rem", color: "#64748b" }}>{r.details}</p>
+                    <p style={{ margin: 0, fontSize: "0.78rem", color: "var(--mz-text-muted, #64748b)" }}>{r.details}</p>
                   </div>
                 ))}
               </div>
