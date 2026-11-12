@@ -1,6 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import "./AssessmentSubmissionFlow.css";
+import EvaluatingResultsLoader from "./EvaluatingResultsLoader";
 import {
   LuRefreshCw,
   LuCircleCheck,
@@ -71,23 +72,14 @@ export default function AssessmentSubmissionFlow({
   };
 
   // ---------------------------------------------------------------------------
-  // 1. STAGE: PREPARING RESULTS (Single Clean Animated Progress Bar)
+  // 1. STAGE: PREPARING RESULTS (Professional Dynamic Loading Animation)
   // ---------------------------------------------------------------------------
   if (stage === "preparing") {
     return (
-      <div className="mz-results-preparing-screen" data-testid="assessment-results-preparing">
-        <div className="mz-results-preparing-card mz-simple-loading-card">
-          <h2 className="mz-preparing-title">Loading Results...</h2>
-
-          <p className="mz-preparing-subtitle">
-            Please wait while your submission is being evaluated.
-          </p>
-
-          <div className="mz-simple-progress-bar">
-            <div className="mz-simple-progress-fill" />
-          </div>
-        </div>
-      </div>
+      <EvaluatingResultsLoader
+        title={title}
+        assignmentType={assignmentType}
+      />
     );
   }
 
