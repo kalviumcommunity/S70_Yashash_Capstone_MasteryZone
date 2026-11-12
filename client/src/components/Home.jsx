@@ -2603,7 +2603,11 @@ const Home = () => {
                           >
                             <span>Host: <strong>{rec.hostName}</strong></span>
                             <span>•</span>
-                            <span>{rec.participantsCount || 1} participant(s)</span>
+                            <span>{(() => {
+                              const unique = Array.from(new Set((rec.participantNames || []).map((n) => String(n || "").trim()).filter(Boolean)));
+                              const count = unique.length > 0 ? unique.length : (rec.participantsCount || 1);
+                              return `${count} participant${count === 1 ? "" : "s"}`;
+                            })()}</span>
                           </div>
                           <div
                             style={{
@@ -4222,7 +4226,11 @@ const Home = () => {
                   </button>
                 </div>
                 <p style={{ margin: "4px 0 0", fontSize: 12, color: "#94a3b8", display: "flex", alignItems: "center", gap: 8 }}>
-                  <span>Host: {activePlayingRecording.hostName} • {activePlayingRecording.participantsCount || 1} participant(s)</span>
+                  <span>Host: {activePlayingRecording.hostName} • {(() => {
+                    const unique = Array.from(new Set((activePlayingRecording.participantNames || []).map((n) => String(n || "").trim()).filter(Boolean)));
+                    const count = unique.length > 0 ? unique.length : (activePlayingRecording.participantsCount || 1);
+                    return `${count} participant${count === 1 ? "" : "s"}`;
+                  })()}</span>
                   <span>•</span>
                   <span style={{ color: "#38bdf8", fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
                     <LuClock size={12} />

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "react-toastify";
 import "./profile.css";
@@ -47,9 +47,35 @@ import {
   LuSparkles,
   LuBookOpen,
   LuFolderGit2,
+  LuPlay,
+  LuUsers,
 } from "react-icons/lu";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
+
+const getMediaUrl = (url) => {
+  if (!url) return "";
+  if (url.startsWith("blob:") || url.startsWith("data:")) {
+    return url;
+  }
+  const base =
+    API_BASE ||
+    (typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
+      ? "http://localhost:5012"
+      : "");
+  let fullUrl = url.startsWith("http://") || url.startsWith("https://")
+    ? url
+    : `${base}${url.startsWith("/") ? url : `/${url}`}`;
+
+  // Attach token for authenticated video streaming & range requests
+  const token = typeof localStorage !== "undefined" ? localStorage.getItem("token") : null;
+  if (token && !fullUrl.includes("token=")) {
+    const sep = fullUrl.includes("?") ? "&" : "?";
+    fullUrl = `${fullUrl}${sep}token=${encodeURIComponent(token)}`;
+  }
+  return fullUrl;
+};
 
 // Vector Badge Component for 100% crisp logo badges across tracks
 const TrackBadge = ({ type, className = "" }) => {
@@ -165,6 +191,12 @@ const Profile = () => {
   const [isDeletePhotoModalOpen, setIsDeletePhotoModalOpen] = useState(false);
   const [isDeletingPhoto, setIsDeletingPhoto] = useState(false);
 
+  // Recorded Meeting Videos State
+  const [recordings, setRecordings] = useState([]);
+  const [isLoadingRecordings, setIsLoadingRecordings] = useState(false);
+  const [activePlayingRecording, setActivePlayingRecording] = useState(null);
+  const videoPlayerRef = useRef(null);
+
   const fileInputRef = useRef(null);
   const dropdownRef = useRef(null);
 
@@ -231,6 +263,41 @@ const Profile = () => {
   useEffect(() => {
     fetchUserProfile();
   }, [navigate]);
+
+  // Fetch user recordings for real-time profile showcase
+  const fetchRecordings = useCallback(async () => {
+    setIsLoadingRecordings(true);
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+      const res = await fetch(`${API_BASE}/api/recordings?sort=newest`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.recordings)) {
+          setRecordings(data.recordings);
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to load user recordings:", err);
+    } finally {
+      setIsLoadingRecordings(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchRecordings();
+    const handleRecUpdate = () => fetchRecordings();
+    window.addEventListener("mz_recording_saved", handleRecUpdate);
+    window.addEventListener("mz_recording_updated", handleRecUpdate);
+    window.addEventListener("mz_recording_deleted", handleRecUpdate);
+    return () => {
+      window.removeEventListener("mz_recording_saved", handleRecUpdate);
+      window.removeEventListener("mz_recording_updated", handleRecUpdate);
+      window.removeEventListener("mz_recording_deleted", handleRecUpdate);
+    };
+  }, [fetchRecordings]);
 
   // Handle Photo Selection
   const handlePhotoSelect = (e) => {
@@ -1235,6 +1302,111 @@ const Profile = () => {
                   </div>
                 </div>
               </section>
+
+              {/* 3. Recorded Meeting Videos Section */}
+              <section className="mz-recordings-card">
+                <div className="mz-side-card-header" style={{ marginBottom: "16px" }}>
+                  <div className="mz-stat-header-icon-box" style={{ background: "rgba(56, 189, 248, 0.12)", color: "#0284c7" }}>
+                    <LuVideo size={20} />
+                  </div>
+                  <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "8px" }}>
+                    <div>
+                      <h2 className="mz-info-title" style={{ fontSize: "18px", margin: 0 }}>Recorded Meeting Videos</h2>
+                      <p className="mz-info-subtitle" style={{ margin: "2px 0 0" }}>
+                        {recordings.length} {recordings.length === 1 ? "recording" : "recordings"} saved to your account
+                      </p>
+                    </div>
+                    {recordings.length > 0 && (
+                      <button
+                        type="button"
+                        className="mz-btn-view-all-recs"
+                        onClick={() => navigate("/recordings")}
+                        title="Open full recordings studio"
+                      >
+                        <span>Open Studio</span>
+                        <LuChevronRight size={14} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {isLoadingRecordings ? (
+                  <div className="mz-rec-loading-box">
+                    <div className="mz-skeleton-shimmer" style={{ height: "64px", borderRadius: "10px", marginBottom: "8px" }} />
+                    <div className="mz-skeleton-shimmer" style={{ height: "64px", borderRadius: "10px" }} />
+                  </div>
+                ) : recordings.length > 0 ? (
+                  <div className="mz-rec-items-grid">
+                    {recordings.map((rec) => {
+                      const uniqueParticipants = Array.from(
+                        new Set((rec.participantNames || []).map((n) => String(n || "").trim()).filter(Boolean))
+                      );
+                      const pCount = uniqueParticipants.length > 0 ? uniqueParticipants.length : (rec.participantsCount || 1);
+                      const pText = `${pCount} participant${pCount === 1 ? "" : "s"}`;
+
+                      const durSec = Math.max(0, Math.round(rec.durationSeconds || 0));
+                      const durMins = Math.floor(durSec / 60);
+                      const durRemSec = durSec % 60;
+                      const durationFormatted = `${durMins}:${durRemSec.toString().padStart(2, "0")}`;
+
+                      const dateFormatted = rec.createdAt
+                        ? new Date(rec.createdAt).toLocaleDateString(undefined, {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })
+                        : "Recent";
+
+                      return (
+                        <div
+                          key={rec.recordingId || rec._id}
+                          className="mz-rec-item-card"
+                          onClick={() => setActivePlayingRecording(rec)}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") setActivePlayingRecording(rec);
+                          }}
+                        >
+                          <div className="mz-rec-thumb-box">
+                            <div className="mz-rec-play-overlay">
+                              <LuPlay size={20} fill="currentColor" />
+                            </div>
+                            <span className="mz-rec-duration-badge">{durationFormatted}</span>
+                          </div>
+                          <div className="mz-rec-meta-box">
+                            <h4 className="mz-rec-title" title={rec.title}>{rec.title || "Live Meeting Recording"}</h4>
+                            <div className="mz-rec-sub-info">
+                              <span><LuCalendar size={12} style={{ display: "inline", verticalAlign: "middle", marginRight: "3px" }} />{dateFormatted}</span>
+                              <span>•</span>
+                              <span><LuUsers size={12} style={{ display: "inline", verticalAlign: "middle", marginRight: "3px" }} />{pText}</span>
+                              <span>•</span>
+                              <span className="mz-rec-host-badge">Host: {rec.hostName || "You"}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="mz-empty-challenges-box" style={{ padding: "24px 16px" }}>
+                    <LuVideo size={28} style={{ color: "#94a3b8", marginBottom: "8px" }} />
+                    <p className="mz-empty-ch-title">No meeting recordings yet</p>
+                    <p className="mz-empty-ch-desc">
+                      Recorded live study sessions and code reviews will automatically appear here with duration, participants, and high-definition playback.
+                    </p>
+                    <button
+                      type="button"
+                      className="mz-btn-start-challenges"
+                      onClick={() => navigate("/live")}
+                      style={{ margin: "0 auto", display: "inline-flex" }}
+                    >
+                      <span>Start a Live Session</span>
+                      <LuChevronRight size={14} />
+                    </button>
+                  </div>
+                )}
+              </section>
             </div>
 
             {/* ================= RIGHT COLUMN ================= */}
@@ -1761,6 +1933,65 @@ const Profile = () => {
               >
                 Done
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= RECORDING VIDEO PLAYER MODAL ================= */}
+      {activePlayingRecording && (
+        <div
+          className="mz-modal-backdrop mz-video-player-backdrop"
+          onClick={() => setActivePlayingRecording(null)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="mz-video-modal-dialog"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mz-video-modal-header">
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <h3 className="mz-video-modal-title">{activePlayingRecording.title}</h3>
+                <p className="mz-video-modal-sub">
+                  <span>Host: {activePlayingRecording.hostName || "You"}</span>
+                  <span>•</span>
+                  <span>{(() => {
+                    const unique = Array.from(new Set((activePlayingRecording.participantNames || []).map((n) => String(n || "").trim()).filter(Boolean)));
+                    const count = unique.length > 0 ? unique.length : (activePlayingRecording.participantsCount || 1);
+                    return `${count} participant${count === 1 ? "" : "s"}`;
+                  })()}</span>
+                  <span>•</span>
+                  <span>
+                    <LuClock size={12} style={{ display: "inline", verticalAlign: "middle", marginRight: "3px" }} />
+                    {(() => {
+                      const t = Math.max(0, Math.round(activePlayingRecording.durationSeconds || 0));
+                      const m = Math.floor(t / 60);
+                      const s = t % 60;
+                      return `${m}:${s.toString().padStart(2, "0")}`;
+                    })()}
+                  </span>
+                </p>
+              </div>
+              <button
+                type="button"
+                className="mz-video-modal-close"
+                onClick={() => setActivePlayingRecording(null)}
+                aria-label="Close video player"
+              >
+                <LuX size={22} />
+              </button>
+            </div>
+
+            <div className="mz-video-player-container">
+              <video
+                ref={videoPlayerRef}
+                src={getMediaUrl(activePlayingRecording.streamUrl || activePlayingRecording.fileUrl)}
+                controls
+                autoPlay
+                preload="metadata"
+                playsInline
+              />
             </div>
           </div>
         </div>
