@@ -250,16 +250,19 @@ router.get("/reports", authenticateToken, async (req, res) => {
 
       formattedCerts = certAttempts.map((ca) => {
         const isPass = ca.status === "PASSED" || ca.finalVerdict === "PASSED";
-        const totalMarks = ca.maxScore || 100;
-        const pct = ca.percentage != null ? ca.percentage : (ca.finalPercentage || 0);
-        const marksObtained = ca.score != null ? ca.score : pct;
+        const totalMarks = ca.totalMaxMarks || 40;
+        const marksObtained = ca.totalMarksObtained != null ? ca.totalMarksObtained : (ca.score != null ? ca.score : 0);
+        const pct = ca.finalScorePercentage != null ? ca.finalScorePercentage : (ca.percentage != null ? ca.percentage : (totalMarks > 0 ? Math.round((marksObtained / totalMarks) * 100) : 0));
+        const passedTestsCount = Array.isArray(ca.codingSubmissions)
+          ? ca.codingSubmissions.reduce((acc, s) => acc + (s.passedTests || 0), 0)
+          : (ca.codingScore || 0);
         return {
           id: ca.attemptId,
           sessionId: ca.attemptId,
           attemptId: ca.attemptId,
           certificateId: ca.certificateId,
           subjectKey: "coding",
-          trackId: ca.certId || "python",
+          trackId: ca.certId || "dsa_cert",
           moduleIndex: 0,
           assessmentTitle: `${ca.certTitle} — Proctored Credential Examination`,
           questionTitle: ca.certTitle,
@@ -270,7 +273,7 @@ router.get("/reports", authenticateToken, async (req, res) => {
           candidateDetails: {
             fullName: ca.candidateName,
             email: ca.candidateEmail,
-            candidateId: String(ca.userId),
+            candidateId: ca.userId ? `CAND-${String(ca.userId).slice(-6).toUpperCase()}` : "CAND-CERT",
           },
           submittedAt: ca.submittedAt || ca.updatedAt || ca.createdAt,
           score: marksObtained,
@@ -278,13 +281,13 @@ router.get("/reports", authenticateToken, async (req, res) => {
           totalMarks,
           percentage: pct,
           adminNote: ca.adminNote || "",
-          grade: ca.grade || (pct >= 90 ? "A+" : pct >= 80 ? "A" : pct >= 70 ? "B" : "F"),
+          grade: ca.grade || (pct >= 90 ? "A+" : pct >= 80 ? "A" : pct >= 70 ? "B" : pct >= 60 ? "C" : "F"),
           accuracy: pct,
-          passedTests: ca.codingScore || 0,
+          passedTests: passedTestsCount,
           totalTests: 20,
-          durationSeconds: ca.timeSpentSeconds || 0,
+          durationSeconds: (ca.durationMinutes || 90) * 60,
           passed: isPass,
-          violationsCount: ca.interruptionCount || 0,
+          violationsCount: ca.proctoring?.violationsCount || 0,
           reportUrl: `/assessment-report/${ca.attemptId}`,
         };
       });
@@ -304,9 +307,18 @@ router.get("/reports", authenticateToken, async (req, res) => {
       const tLower = type.toLowerCase();
       allReports = allReports.filter((r) => {
         const rType = (r.type || "").toLowerCase();
-        if (tLower === "mcq_exam" || tLower === "exam_mcq") return rType.includes("mcq") || rType.includes("exam");
-        if (tLower === "coding_assessment" || tLower === "practical_code") return rType.includes("code") || rType.includes("practical") || rType.includes("coding");
-        if (tLower === "project_assessment" || tLower === "project") return rType.includes("project");
+        if (tLower === "certification_exam" || tLower === "certification" || tLower === "cert") {
+          return rType.includes("cert");
+        }
+        if (tLower === "mcq_exam" || tLower === "exam_mcq") {
+          return rType === "mcq_exam" || (rType.includes("mcq") && !rType.includes("cert"));
+        }
+        if (tLower === "coding_assessment" || tLower === "practical_code") {
+          return (rType.includes("code") || rType.includes("practical") || rType.includes("coding")) && !rType.includes("cert");
+        }
+        if (tLower === "project_assessment" || tLower === "project") {
+          return rType.includes("project");
+        }
         return rType === tLower;
       });
     }

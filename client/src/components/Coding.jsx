@@ -1109,6 +1109,10 @@ export default function Coding() {
           (ch) =>
             ch.title?.toLowerCase().includes(q) ||
             ch.category?.toLowerCase().includes(q) ||
+            ch.difficulty?.toLowerCase().includes(q) ||
+            ch.topic?.toLowerCase().includes(q) ||
+            ch.description?.toLowerCase().includes(q) ||
+            (Array.isArray(ch.tags) && ch.tags.some((t) => t.toLowerCase().includes(q))) ||
             String(ch.questionNumber) === q ||
             `#${ch.questionNumber}` === q
         );

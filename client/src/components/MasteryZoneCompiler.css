@@ -35,9 +35,49 @@
   display: none !important;
 }
 
+.mz-compiler-overlay.mz-compiler-embedded .mz-compiler-question-card {
+  display: none !important;
+}
+
+.mz-compiler-overlay.mz-compiler-embedded .mz-compiler-scroll-body {
+  padding: 0 !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 !important;
+  height: 100% !important;
+}
+
+.mz-compiler-overlay.mz-compiler-embedded .mz-compiler-container {
+  max-width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  flex: 1 !important;
+  display: flex !important;
+}
+
 .mz-compiler-overlay.mz-compiler-embedded .mz-compiler-container.has-proctoring {
   display: flex !important;
   grid-template-columns: 1fr !important;
+}
+
+.mz-compiler-overlay.mz-compiler-embedded .mz-compiler-main-content {
+  width: 100% !important;
+  height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 !important;
+}
+
+.mz-compiler-overlay.mz-compiler-embedded .mz-vscode-card {
+  border-radius: 0 !important;
+  border: none !important;
+  flex: 1 !important;
+  height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
 }
 
 /* --------------------------------------------------------------------------
@@ -3252,8 +3292,24 @@
 }
 
 .mz-vscode-card.is-light .mz-vscode-activity-bar {
-  background: #2c2c2c;
-  border-right-color: #e5e7eb;
+  background: #f8fafc;
+  border-right-color: #e2e8f0;
+}
+
+.mz-vscode-card.is-light .mz-vscode-activity-item {
+  color: #64748b;
+}
+
+.mz-vscode-card.is-light .mz-vscode-activity-item:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.mz-vscode-card.is-light .mz-vscode-activity-item.active {
+  background: #ffffff;
+  color: #2563eb;
+  border-left: 2px solid #2563eb;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
 }
 
 .mz-vscode-activity-item {
@@ -3441,6 +3497,10 @@
   min-width: 0;
   position: relative;
   background: #1e1e1e;
+}
+
+.mz-vscode-card.is-light .mz-vscode-editor-pane {
+  background: #ffffff;
 }
 
 .mz-vscode-editor-inner {
@@ -3660,4 +3720,145 @@
 .mz-vscode-theme-item.active {
   color: #38bdf8;
   font-weight: 700;
+}
+
+/* =========================================================================
+   AUTHENTIC LIGHT THEME POLISH FOR VS CODE COMPILER & TEST RUNNER
+   ========================================================================= */
+.mz-vscode-card.is-light .mz-compiler-drawer-sidebar {
+  background: #f8fafc;
+  border-right: 1px solid #e2e8f0;
+}
+
+.mz-vscode-card.is-light .mz-compiler-btn-run-tests {
+  background: #2563eb;
+  color: #ffffff;
+  border: 1px solid #1d4ed8;
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.25);
+}
+
+.mz-vscode-card.is-light .mz-compiler-btn-run-tests:hover:not(:disabled) {
+  background: #1d4ed8;
+  border-color: #1e40af;
+}
+
+.mz-vscode-card.is-light .mz-compiler-tc-item {
+  color: #475569;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  margin-bottom: 4px;
+}
+
+.mz-vscode-card.is-light .mz-compiler-tc-item:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+
+.mz-vscode-card.is-light .mz-compiler-tc-item.active {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #93c5fd;
+  border-left: 3px solid #2563eb;
+  font-weight: 700;
+}
+
+.mz-vscode-card.is-light .mz-compiler-tc-item.is-evaluating {
+  background: #eff6ff;
+  border-left: 3px solid #3b82f6;
+}
+
+.mz-vscode-card.is-light .mz-compiler-drawer-detail {
+  background: #ffffff;
+}
+
+.mz-vscode-card.is-light .mz-compiler-detail-section-title {
+  color: #1e293b;
+  font-weight: 700;
+  font-size: 12.5px;
+}
+
+.mz-vscode-card.is-light .mz-compiler-io-box {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
+}
+
+.mz-vscode-card.is-light .mz-compiler-io-box.success-box {
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  color: #15803d;
+  font-weight: 500;
+}
+
+.mz-vscode-card.is-light .mz-compiler-io-box.error-box {
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  color: #b91c1c;
+}
+
+.mz-vscode-card.is-light .mz-compiler-custom-stdin-textarea {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
+}
+
+.mz-vscode-card.is-light .mz-compiler-custom-stdin-textarea:focus {
+  border-color: #2563eb;
+  outline: none;
+}
+
+.mz-vscode-card.is-light .mz-running-pipeline {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+.mz-vscode-card.is-light .mz-running-radar-circle {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.mz-vscode-card.is-light .mz-compiler-hints-panel {
+  background: #ffffff;
+}
+
+.mz-vscode-card.is-light .mz-hint-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.mz-vscode-card.is-light .mz-hint-card-header {
+  color: #1e293b;
+}
+
+.mz-vscode-card.is-light .mz-hint-content {
+  color: #334155;
+}
+
+/* Light Mode Footer Controls */
+[data-theme="light"] .mz-compiler-footer,
+.mz-vscode-card.is-light ~ .mz-compiler-footer {
+  background: #ffffff;
+  border-top: 1px solid #e2e8f0;
+  color: #0f172a;
+}
+
+[data-theme="light"] .mz-compiler-btn-save,
+.mz-vscode-card.is-light ~ .mz-compiler-footer .mz-compiler-btn-save {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+}
+
+[data-theme="light"] .mz-compiler-btn-save:hover:not(:disabled),
+.mz-vscode-card.is-light ~ .mz-compiler-footer .mz-compiler-btn-save:hover:not(:disabled) {
+  background: #f8fafc;
+  color: #0f172a;
+  border-color: #94a3b8;
+}
+
+[data-theme="light"] .mz-compiler-btn-submit,
+.mz-vscode-card.is-light ~ .mz-compiler-footer .mz-compiler-btn-submit {
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
 }

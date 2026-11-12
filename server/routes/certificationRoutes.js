@@ -1454,6 +1454,201 @@ router.post("/attempt/:attemptId/finalize", authenticateToken, async (req, res) 
   }
 });
 
+async function buildCertificationReportPayload(attempt, reqUser = null) {
+  let resolvedCandidateName = attempt.candidateName || "Verified Candidate";
+  let resolvedCandidateEmail = attempt.candidateEmail || "candidate@masteryzone.edu";
+  let targetUid = attempt.userId;
+  if (!targetUid && reqUser) {
+    targetUid = reqUser.userId || reqUser.id || reqUser._id;
+  }
+
+  if (targetUid && mongoose.Types.ObjectId.isValid(targetUid)) {
+    const u = await User.findById(targetUid).select("fullName username email").lean();
+    if (u) {
+      resolvedCandidateName = u.fullName || u.username || resolvedCandidateName;
+      resolvedCandidateEmail = u.email || resolvedCandidateEmail;
+    }
+  }
+
+  const certificate = attempt.certificateId
+    ? await IssuedCertificate.findOne({ certificateId: attempt.certificateId })
+    : null;
+
+  const selectedCodingQuestions = Array.isArray(attempt.selectedCodingQuestions) ? attempt.selectedCodingQuestions : [];
+  const codingSubmissions = Array.isArray(attempt.codingSubmissions) ? attempt.codingSubmissions : [];
+  const selectedMcqs = Array.isArray(attempt.selectedMcqs) ? attempt.selectedMcqs : [];
+
+  // Rich coding questions list for AssessmentReportPage
+  const codingQuestionsReport = selectedCodingQuestions.map((q, idx) => {
+    const sub = codingSubmissions[idx] || {};
+    const tResults = Array.isArray(sub.testResults) ? sub.testResults : [];
+    return {
+      questionId: q.questionId,
+      title: q.title,
+      difficulty: q.difficulty || "Medium",
+      category: q.category || "Algorithms",
+      description: q.description || "",
+      inputFormat: q.inputFormat || "",
+      outputFormat: q.outputFormat || "",
+      constraints: q.constraints || [],
+      examples: q.examples || [],
+      submittedCode: sub.code || "",
+      language: sub.language || "python",
+      status: sub.solved ? "passed" : "failed",
+      score: Math.round(((sub.passedTests || 0) / Math.max(1, sub.totalTests || 10)) * 100),
+      marksObtained: Math.round(((sub.passedTests || 0) / Math.max(1, sub.totalTests || 10)) * 50),
+      totalMarks: 50,
+      passedTests: sub.passedTests || 0,
+      totalTests: sub.totalTests || 10,
+      testResults: tResults.map((tr, tIdx) => ({
+        testIndex: tr.testIndex || tIdx + 1,
+        passed: Boolean(tr.passed),
+        input: tr.input || (q.testCases?.[tIdx]?.input) || (q.publicTests?.[tIdx]?.input) || "Test input",
+        expectedOutput: tr.expectedOutput || (q.testCases?.[tIdx]?.expectedOutput) || (q.publicTests?.[tIdx]?.expectedOutput) || "Expected output",
+        actualOutput: tr.actualOutput || (tr.passed ? (tr.expectedOutput || "Passed") : "Failed output"),
+        durationMs: tr.durationMs || 12,
+        isHidden: false,
+      })),
+      submittedAt: attempt.submittedAt || new Date(),
+    };
+  });
+
+  // Rich MCQ breakdown for AssessmentReportPage
+  const reviewBreakdown = selectedMcqs.map((mcq, idx) => {
+    const answersMap = attempt.mcqAnswers;
+    const selected =
+      answersMap instanceof Map
+        ? answersMap.get(String(mcq.id))
+        : answersMap
+        ? answersMap[String(mcq.id)]
+        : undefined;
+    const isUnanswered = selected === undefined || selected === null || selected === -1;
+    const isCorrect = !isUnanswered && Number(selected) === Number(mcq.correctAnswer);
+    return {
+      questionId: mcq.id,
+      question: mcq.question,
+      options: mcq.options,
+      userSelected: isUnanswered ? null : Number(selected),
+      selectedOption: isUnanswered ? null : Number(selected),
+      correctIndex: Number(mcq.correctAnswer),
+      correctOption: Number(mcq.correctAnswer),
+      isCorrect: Boolean(isCorrect),
+      topic: mcq.topic || "Algorithm & Complexity",
+      explanation: mcq.explanation || "Review fundamental concepts of algorithm analysis and data structures.",
+      codeSnippet: mcq.codeSnippet || "",
+      marksAwarded: isCorrect ? 1 : 0,
+      maxMarks: 1,
+    };
+  });
+
+  const verdict = calculateCertificationVerdict(attempt);
+  const isPassed = attempt.status === "PASSED" || attempt.finalVerdict === "PASSED" || verdict.passed;
+  const totalMaxMarks = verdict.totalMarksMax || 40;
+  const marksObtainedFinal = attempt.totalMarksObtained != null && attempt.totalMarksObtained > 0
+    ? attempt.totalMarksObtained
+    : (attempt.score != null ? Math.round((attempt.score / 100) * totalMaxMarks) : verdict.totalMarksObtained);
+  const overallPercentage = attempt.finalScorePercentage != null && attempt.finalScorePercentage > 0
+    ? attempt.finalScorePercentage
+    : (attempt.percentage != null ? attempt.percentage : verdict.finalScorePercentage);
+
+  const totalPassedCodingTests = codingSubmissions.reduce((acc, s) => acc + (s.passedTests || 0), 0);
+  const totalCodingTests = codingSubmissions.reduce((acc, s) => acc + (s.totalTests || 10), 0);
+
+  const answeredMcqsCount = selectedMcqs.filter((m) => {
+    const answersMap = attempt.mcqAnswers;
+    const sel =
+      answersMap instanceof Map
+        ? answersMap.get(String(m.id))
+        : answersMap
+        ? answersMap[String(m.id)]
+        : undefined;
+    return sel !== undefined && sel !== null && sel !== -1;
+  }).length;
+  const answeredCodingCount = codingSubmissions.filter((s) => s.solved || s.passedTests > 0).length;
+  const totalAttemptedQuestions = answeredMcqsCount + answeredCodingCount;
+  const totalQuestionsCount = selectedMcqs.length + selectedCodingQuestions.length;
+
+  return {
+    sessionId: attempt.attemptId,
+    attemptId: attempt.attemptId,
+    certId: attempt.certId,
+    assessmentTitle: `${attempt.certTitle} — Proctored Credential Examination`,
+    certTitle: attempt.certTitle,
+    attemptNumber: attempt.attemptNumber,
+    candidateName: resolvedCandidateName,
+    candidateEmail: resolvedCandidateEmail,
+    candidateDetails: {
+      fullName: resolvedCandidateName,
+      email: resolvedCandidateEmail,
+      candidateId: attempt.userId ? `CAND-${attempt.userId.toString().slice(-6).toUpperCase()}` : "CAND-CERT",
+    },
+    startTime: attempt.startTime,
+    submissionTime: attempt.submittedAt || attempt.updatedAt || new Date(),
+    submittedAt: attempt.submittedAt,
+    durationSeconds: (attempt.durationMinutes || 90) * 60,
+    timeLimitMinutes: attempt.durationMinutes || 90,
+    status: isPassed ? "passed" : "failed",
+    finalVerdict: attempt.finalVerdict,
+    scorecard: {
+      totalQuestions: totalQuestionsCount,
+      questionsAttempted: totalAttemptedQuestions,
+      questionsUnanswered: Math.max(0, totalQuestionsCount - totalAttemptedQuestions),
+      totalMarks: totalMaxMarks,
+      marksObtained: marksObtainedFinal,
+      overallPercentage,
+      totalTestCases: totalCodingTests,
+      totalPassedTests: totalPassedCodingTests,
+      passed: isPassed,
+      grade:
+        overallPercentage >= 90
+          ? "A+"
+          : overallPercentage >= 80
+          ? "A"
+          : overallPercentage >= 70
+          ? "B"
+          : overallPercentage >= 60
+          ? "C"
+          : "F",
+    },
+    performance: {
+      score: overallPercentage,
+      passed: isPassed,
+      passedTests: totalPassedCodingTests,
+      totalTests: totalCodingTests,
+      marksObtained: marksObtainedFinal,
+      totalMarks: totalMaxMarks,
+      mcqScore: attempt.mcqScore,
+      mcqTotal: selectedMcqs.length,
+      codingSolvedCount: codingSubmissions.filter((s) => s.solved).length,
+      passingThreshold: 80,
+    },
+    adminNote: attempt.adminNote || "",
+    adminModifiedAt: attempt.adminModifiedAt || null,
+    adminModifiedBy: attempt.adminModifiedBy || "",
+    isMcq: false,
+    questions: codingQuestionsReport,
+    reviewBreakdown,
+    proctoring: {
+      status: (attempt.proctoring?.violationsCount || 0) === 0 ? "Compliant" : "Audit Flagged",
+      violationsCount: attempt.proctoring?.violationsCount || 0,
+      tabSwitches: attempt.proctoring?.tabSwitches || 0,
+      fullscreenExits: attempt.proctoring?.fullscreenExits || 0,
+      candidatePhoto: attempt.proctoring?.candidatePhoto || null,
+      deviceVerified: true,
+      integrityRating: Math.max(50, 100 - (attempt.proctoring?.violationsCount || 0) * 10),
+    },
+    certificate: certificate
+      ? {
+          certificateId: certificate.certificateId,
+          issueDate: certificate.issueDate,
+          verificationUrl: certificate.verificationUrl,
+          downloadUrl: `/api/certifications/certificate/${certificate.certificateId}/download`,
+          status: certificate.status,
+        }
+      : null,
+  };
+}
+
 // -------------------------------------------------------------
 // 9. GET /api/certifications/attempt/:attemptId/report
 // Returns complete verified assessment report
@@ -1481,206 +1676,20 @@ router.get("/attempt/:attemptId/report", authenticateToken, async (req, res) => 
     const callerUserId = req.user ? String(req.user.userId || req.user.id || req.user._id || "") : null;
     const isPrivileged = req.user?.role === "admin" || req.user?.role === "SUPER_ADMIN" || req.user?.isMainAdmin;
     const ownerId = attempt.userId ? String(attempt.userId) : null;
+    const safeUserId = await resolveSafeUserId(req.user);
+    const isOwner = Boolean(
+      (ownerId && (callerUserId === ownerId || String(safeUserId) === ownerId)) ||
+      (attempt.candidateEmail && req.user?.email && attempt.candidateEmail.toLowerCase().trim() === req.user.email.toLowerCase().trim())
+    );
 
-    if (!isPrivileged && (!ownerId || callerUserId !== ownerId)) {
+    if (!isPrivileged && !isOwner) {
       return res.status(403).json({ error: "Access denied. You do not have permission to view this certification report." });
     }
 
-    // Enrich candidate details with actual registered user if available
-    let resolvedCandidateName = attempt.candidateName || "Verified Candidate";
-    let resolvedCandidateEmail = attempt.candidateEmail || "candidate@masteryzone.edu";
-    let targetUid = attempt.userId;
-    if (!targetUid && req.user) {
-      targetUid = req.user.userId || req.user.id || req.user._id;
-    }
-
-    if (targetUid && mongoose.Types.ObjectId.isValid(targetUid)) {
-      const u = await User.findById(targetUid).select("fullName username email").lean();
-      if (u) {
-        resolvedCandidateName = u.fullName || u.username || resolvedCandidateName;
-        resolvedCandidateEmail = u.email || resolvedCandidateEmail;
-      }
-    }
-
-    const certificate = attempt.certificateId
-      ? await IssuedCertificate.findOne({ certificateId: attempt.certificateId })
-      : null;
-
-    const selectedCodingQuestions = Array.isArray(attempt.selectedCodingQuestions) ? attempt.selectedCodingQuestions : [];
-    const codingSubmissions = Array.isArray(attempt.codingSubmissions) ? attempt.codingSubmissions : [];
-    const selectedMcqs = Array.isArray(attempt.selectedMcqs) ? attempt.selectedMcqs : [];
-
-    // Rich coding questions list for AssessmentReportPage
-    const codingQuestionsReport = selectedCodingQuestions.map((q, idx) => {
-      const sub = codingSubmissions[idx] || {};
-      const tResults = Array.isArray(sub.testResults) ? sub.testResults : [];
-      return {
-        questionId: q.questionId,
-        title: q.title,
-        difficulty: q.difficulty || "Medium",
-        category: q.category || "Algorithms",
-        description: q.description || "",
-        inputFormat: q.inputFormat || "",
-        outputFormat: q.outputFormat || "",
-        constraints: q.constraints || [],
-        examples: q.examples || [],
-        submittedCode: sub.code || "",
-        language: sub.language || "python",
-        status: sub.solved ? "passed" : "failed",
-        score: Math.round(((sub.passedTests || 0) / Math.max(1, sub.totalTests || 10)) * 100),
-        marksObtained: Math.round(((sub.passedTests || 0) / Math.max(1, sub.totalTests || 10)) * 50),
-        totalMarks: 50,
-        passedTests: sub.passedTests || 0,
-        totalTests: sub.totalTests || 10,
-        testResults: tResults.map((tr, tIdx) => ({
-          testIndex: tr.testIndex || tIdx + 1,
-          passed: Boolean(tr.passed),
-          input: tr.input || (q.testCases?.[tIdx]?.input) || (q.publicTests?.[tIdx]?.input) || "Test input",
-          expectedOutput: tr.expectedOutput || (q.testCases?.[tIdx]?.expectedOutput) || (q.publicTests?.[tIdx]?.expectedOutput) || "Expected output",
-          actualOutput: tr.actualOutput || (tr.passed ? (tr.expectedOutput || "Passed") : "Failed output"),
-          durationMs: tr.durationMs || 12,
-          isHidden: false,
-        })),
-        submittedAt: attempt.submittedAt || new Date(),
-      };
-    });
-
-    // Rich MCQ breakdown for AssessmentReportPage
-    const reviewBreakdown = selectedMcqs.map((mcq, idx) => {
-      const answersMap = attempt.mcqAnswers;
-      const selected =
-        answersMap instanceof Map
-          ? answersMap.get(String(mcq.id))
-          : answersMap
-          ? answersMap[String(mcq.id)]
-          : undefined;
-      const isUnanswered = selected === undefined || selected === null || selected === -1;
-      const isCorrect = !isUnanswered && Number(selected) === Number(mcq.correctAnswer);
-      return {
-        questionId: mcq.id,
-        question: mcq.question,
-        options: mcq.options,
-        userSelected: isUnanswered ? null : Number(selected),
-        selectedOption: isUnanswered ? null : Number(selected),
-        correctIndex: Number(mcq.correctAnswer),
-        correctOption: Number(mcq.correctAnswer),
-        isCorrect: Boolean(isCorrect),
-        topic: mcq.topic || "Algorithm & Complexity",
-        explanation: mcq.explanation || "Review fundamental concepts of algorithm analysis and data structures.",
-        codeSnippet: mcq.codeSnippet || "",
-        marksAwarded: isCorrect ? 1 : 0,
-        maxMarks: 1,
-      };
-    });
-
-    const verdict = calculateCertificationVerdict(attempt);
-    const isPassed = attempt.status === "PASSED" || attempt.finalVerdict === "PASSED" || verdict.passed;
-    const totalMaxMarks = verdict.totalMarksMax || 40;
-    const marksObtainedFinal = attempt.totalMarksObtained != null && attempt.totalMarksObtained > 0
-      ? attempt.totalMarksObtained
-      : (attempt.score != null ? Math.round((attempt.score / 100) * totalMaxMarks) : verdict.totalMarksObtained);
-    const overallPercentage = attempt.finalScorePercentage != null && attempt.finalScorePercentage > 0
-      ? attempt.finalScorePercentage
-      : (attempt.percentage != null ? attempt.percentage : verdict.finalScorePercentage);
-
-    const totalPassedCodingTests = codingSubmissions.reduce((acc, s) => acc + (s.passedTests || 0), 0);
-    const totalCodingTests = codingSubmissions.reduce((acc, s) => acc + (s.totalTests || 10), 0);
-
-    const answeredMcqsCount = selectedMcqs.filter((m) => {
-      const answersMap = attempt.mcqAnswers;
-      const sel =
-        answersMap instanceof Map
-          ? answersMap.get(String(m.id))
-          : answersMap
-          ? answersMap[String(m.id)]
-          : undefined;
-      return sel !== undefined && sel !== null && sel !== -1;
-    }).length;
-    const answeredCodingCount = codingSubmissions.filter((s) => s.solved || s.passedTests > 0).length;
-    const totalAttemptedQuestions = answeredMcqsCount + answeredCodingCount;
-    const totalQuestionsCount = selectedMcqs.length + selectedCodingQuestions.length;
-
+    const report = await buildCertificationReportPayload(attempt, req.user);
     res.json({
       success: true,
-      report: {
-        sessionId: attempt.attemptId,
-        attemptId: attempt.attemptId,
-        certId: attempt.certId,
-        assessmentTitle: `${attempt.certTitle} — Proctored Credential Examination`,
-        certTitle: attempt.certTitle,
-        attemptNumber: attempt.attemptNumber,
-        candidateName: resolvedCandidateName,
-        candidateEmail: resolvedCandidateEmail,
-        candidateDetails: {
-          fullName: resolvedCandidateName,
-          email: resolvedCandidateEmail,
-          candidateId: attempt.userId ? `CAND-${attempt.userId.toString().slice(-6).toUpperCase()}` : "CAND-CERT",
-        },
-        startTime: attempt.startTime,
-        submissionTime: attempt.submittedAt || attempt.updatedAt || new Date(),
-        submittedAt: attempt.submittedAt,
-        durationSeconds: (attempt.durationMinutes || 90) * 60,
-        timeLimitMinutes: attempt.durationMinutes || 90,
-        status: isPassed ? "passed" : "failed",
-        finalVerdict: attempt.finalVerdict,
-        scorecard: {
-          totalQuestions: totalQuestionsCount,
-          questionsAttempted: totalAttemptedQuestions,
-          questionsUnanswered: Math.max(0, totalQuestionsCount - totalAttemptedQuestions),
-          totalMarks: totalMaxMarks,
-          marksObtained: marksObtainedFinal,
-          overallPercentage,
-          totalTestCases: totalCodingTests,
-          totalPassedTests: totalPassedCodingTests,
-          passed: isPassed,
-          grade:
-            overallPercentage >= 90
-              ? "A+"
-              : overallPercentage >= 80
-              ? "A"
-              : overallPercentage >= 70
-              ? "B"
-              : overallPercentage >= 60
-              ? "C"
-              : "F",
-        },
-        performance: {
-          score: overallPercentage,
-          passed: isPassed,
-          passedTests: totalPassedCodingTests,
-          totalTests: totalCodingTests,
-          marksObtained: marksObtainedFinal,
-          totalMarks: totalMaxMarks,
-          mcqScore: attempt.mcqScore,
-          mcqTotal: selectedMcqs.length,
-          codingSolvedCount: codingSubmissions.filter((s) => s.solved).length,
-          passingThreshold: 80,
-        },
-        adminNote: attempt.adminNote || "",
-        adminModifiedAt: attempt.adminModifiedAt || null,
-        adminModifiedBy: attempt.adminModifiedBy || "",
-        isMcq: false,
-        questions: codingQuestionsReport,
-        reviewBreakdown,
-        proctoring: {
-          status: (attempt.proctoring?.violationsCount || 0) === 0 ? "Compliant" : "Audit Flagged",
-          violationsCount: attempt.proctoring?.violationsCount || 0,
-          tabSwitches: attempt.proctoring?.tabSwitches || 0,
-          fullscreenExits: attempt.proctoring?.fullscreenExits || 0,
-          candidatePhoto: attempt.proctoring?.candidatePhoto || null,
-          deviceVerified: true,
-          integrityRating: Math.max(50, 100 - (attempt.proctoring?.violationsCount || 0) * 10),
-        },
-        certificate: certificate
-          ? {
-              certificateId: certificate.certificateId,
-              issueDate: certificate.issueDate,
-              verificationUrl: certificate.verificationUrl,
-              downloadUrl: `/api/certifications/certificate/${certificate.certificateId}/download`,
-              status: certificate.status,
-            }
-          : null,
-      },
+      report,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -2130,5 +2139,7 @@ router.post("/reset-all", authenticateToken, async (req, res) => {
 
 router.calculateCertificationVerdict = calculateCertificationVerdict;
 router.parseAndValidatePdfStructure = parseAndValidatePdfStructure;
+router.buildCertificationReportPayload = buildCertificationReportPayload;
 
 module.exports = router;
+module.exports.buildCertificationReportPayload = buildCertificationReportPayload;

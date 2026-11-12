@@ -749,12 +749,12 @@ const Profile = () => {
         {/* Top Navbar */}
         <header className="mz-topbar">
           {/* Search Bar */}
-          <div className="mz-search-bar-wrap" ref={searchContainerRef} style={{ position: "relative" }}>
+          <div className="mz-search-bar-wrap" ref={searchContainerRef}>
             <LuSearch className="mz-search-bar-icon" size={17} />
             <input
               type="text"
               className="mz-search-bar-input"
-              placeholder="Search..."
+              placeholder="Search features, profile settings, credentials..."
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
@@ -768,25 +768,34 @@ const Profile = () => {
               }}
               aria-label="Search"
             />
-            {searchQuery && (
-              <button
-                type="button"
-                className="mz-search-clear-btn"
-                onClick={() => {
-                  setSearchQuery("");
-                  setShowSearchDropdown(false);
-                }}
-                title="Clear search"
-              >
-                <LuX size={14} />
-              </button>
-            )}
+            <div className="mz-search-input-actions">
+              {searchQuery ? (
+                <>
+                  <span className="mz-search-count-pill">
+                    {totalProfileResults} {totalProfileResults === 1 ? "result" : "results"}
+                  </span>
+                  <button
+                    type="button"
+                    className="mz-search-clear-btn"
+                    onClick={() => {
+                      setSearchQuery("");
+                      setShowSearchDropdown(false);
+                    }}
+                    title="Clear search"
+                  >
+                    <LuX size={13} />
+                  </button>
+                </>
+              ) : (
+                <span className="mz-search-shortcut-pill">⌘K</span>
+              )}
+            </div>
 
             {showSearchDropdown && searchQuery.trim().length > 0 && (
-              <div className="mz-global-search-dropdown" style={{ minWidth: 380 }}>
+              <div className="mz-global-search-dropdown">
                 <div className="mz-global-search-header">
                   <span>Results for &ldquo;{searchQuery.trim()}&rdquo;</span>
-                  <span className="mz-global-search-esc">Press ESC to dismiss</span>
+                  <span className="mz-global-search-esc"><kbd>ESC</kbd> to dismiss</span>
                 </div>
 
                 {totalProfileResults === 0 ? (
@@ -810,7 +819,7 @@ const Profile = () => {
                               navigate(link.route);
                             }}
                           >
-                            <span className="mz-global-search-item-icon">{link.icon}</span>
+                            <span className="mz-global-search-item-icon mz-icon-project">{link.icon}</span>
                             <div className="mz-global-search-item-content">
                               <div className="mz-global-search-item-title">{link.title}</div>
                               <div className="mz-global-search-item-sub">{link.sub}</div>
@@ -836,12 +845,14 @@ const Profile = () => {
                                 setShowSearchDropdown(false);
                               }}
                             >
-                              <span className="mz-global-search-item-icon">🎯</span>
+                              <span className="mz-global-search-item-icon mz-icon-track">
+                                <LuTarget size={15} />
+                              </span>
                               <div className="mz-global-search-item-content">
                                 <div className="mz-global-search-item-title">{name}</div>
                                 <div className="mz-global-search-item-sub">Enrolled Interest</div>
                               </div>
-                              <span className="mz-global-search-item-action">View →</span>
+                              <span className="mz-global-search-item-action">View Track →</span>
                             </div>
                           );
                         })}
@@ -864,7 +875,9 @@ const Profile = () => {
                                 navigate("/coding");
                               }}
                             >
-                              <span className="mz-global-search-item-icon">✅</span>
+                              <span className="mz-global-search-item-icon mz-icon-challenge">
+                                <LuCircleCheck size={15} />
+                              </span>
                               <div className="mz-global-search-item-content">
                                 <div className="mz-global-search-item-title">{title}</div>
                                 <div className="mz-global-search-item-sub">Solved & Verified</div>

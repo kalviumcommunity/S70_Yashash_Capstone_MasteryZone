@@ -400,10 +400,10 @@ const AdminProctoring = () => {
             )}
 
             {showSearchDropdown && searchTerm.trim().length > 0 && (
-              <div className="mz-global-search-dropdown" style={{ minWidth: 340, left: 0 }}>
+              <div className="mz-global-search-dropdown">
                 <div className="mz-global-search-header">
                   <span>Sessions matching &ldquo;{searchTerm.trim()}&rdquo;</span>
-                  <span className="mz-global-search-esc">Press ESC</span>
+                  <span className="mz-global-search-esc"><kbd>ESC</kbd> to dismiss</span>
                 </div>
                 {sessions.length === 0 ? (
                   <div className="mz-global-search-empty">

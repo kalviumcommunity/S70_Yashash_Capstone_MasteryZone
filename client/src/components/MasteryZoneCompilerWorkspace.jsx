@@ -4301,6 +4301,15 @@ export default function MasteryZoneCompilerWorkspace({
 
                 <button
                   type="button"
+                  className={`mz-vscode-activity-item ${activeVsCodeSidebar === "problem" ? "active" : ""}`}
+                  onClick={() => setActiveVsCodeSidebar(activeVsCodeSidebar === "problem" ? null : "problem")}
+                  title="Problem Statement & Constraints"
+                >
+                  <LuFileCode size={20} />
+                </button>
+
+                <button
+                  type="button"
                   className={`mz-vscode-activity-item ${activeVsCodeSidebar === "search" ? "active" : ""}`}
                   onClick={() => setActiveVsCodeSidebar(activeVsCodeSidebar === "search" ? null : "search")}
                   title="Search & Replace"
@@ -4387,11 +4396,63 @@ export default function MasteryZoneCompilerWorkspace({
                         <div style={{ marginTop: "16px", fontSize: "11px", fontWeight: 700, color: "var(--mz-text-muted)", textTransform: "uppercase" }}>
                           Problem Info
                         </div>
-                        <div style={{ padding: "8px 10px", background: "var(--mz-surface-subtle)", border: "1px solid var(--mz-border)", borderRadius: "4px", fontSize: "11.5px" }}>
-                          <div style={{ fontWeight: 700, color: "var(--mz-accent-primary)", marginBottom: "4px" }}>{questionDetails.title}</div>
-                          <div style={{ color: "var(--mz-text-muted)" }}>Level: {questionDetails.difficulty}</div>
-                          <div style={{ color: "var(--mz-text-muted)" }}>Target: 80% passing</div>
+                        <div style={{ padding: "10px", background: "var(--mz-surface-subtle)", border: "1px solid var(--mz-border)", borderRadius: "6px", fontSize: "12px", display: "flex", flexDirection: "column", gap: "6px" }}>
+                          <div style={{ fontWeight: 700, color: "var(--mz-accent-primary)", fontSize: "12.5px" }}>{questionDetails.title}</div>
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                            <span className={`mz-badge-diff ${(questionDetails.difficulty || "medium").toLowerCase()}`} style={{ fontSize: "10px", padding: "1px 6px" }}>
+                              {questionDetails.difficulty}
+                            </span>
+                            <span style={{ fontSize: "11px", color: "var(--mz-text-muted)" }}>Target: 10/10 Tests Passed</span>
+                          </div>
+                          {questionDetails.description && (
+                            <div style={{ color: "var(--mz-text-secondary)", fontSize: "11.5px", lineHeight: "1.45", maxHeight: "180px", overflowY: "auto", marginTop: "4px" }}>
+                              {questionDetails.description}
+                            </div>
+                          )}
                         </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* VIEW: PROBLEM SPECIFICATIONS & SAMPLES */}
+                  {activeVsCodeSidebar === "problem" && (
+                    <>
+                      <div className="mz-vscode-sidebar-header">
+                        <span>Problem Statement</span>
+                        <span className={`mz-badge-diff ${(questionDetails.difficulty || "medium").toLowerCase()}`} style={{ fontSize: "10px" }}>
+                          {questionDetails.difficulty}
+                        </span>
+                      </div>
+                      <div className="mz-vscode-sidebar-body" style={{ overflowY: "auto", maxHeight: "calc(100vh - 360px)" }}>
+                        <div style={{ fontWeight: 800, fontSize: "13.5px", color: "var(--mz-text-primary)" }}>
+                          {questionDetails.title}
+                        </div>
+                        <div style={{ fontSize: "11px", color: "var(--mz-accent-primary)", fontWeight: 600 }}>
+                          10 Marks • Cutoff: ≥80% (10 Tests)
+                        </div>
+
+                        <div style={{ fontSize: "12px", color: "var(--mz-text-secondary)", lineHeight: "1.5" }}>
+                          {questionDetails.description}
+                        </div>
+
+                        {questionDetails.examples && questionDetails.examples.length > 0 && (
+                          <div style={{ marginTop: "10px", display: "flex", flexDirection: "column", gap: "8px" }}>
+                            <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--mz-text-muted)", textTransform: "uppercase" }}>
+                              Example Test Cases
+                            </div>
+                            {questionDetails.examples.slice(0, 2).map((ex, exIdx) => (
+                              <div key={exIdx} style={{ background: "var(--mz-surface-subtle)", border: "1px solid var(--mz-border)", borderRadius: "4px", padding: "8px" }}>
+                                <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--mz-text-primary)", marginBottom: "4px" }}>Example {exIdx + 1}</div>
+                                <div style={{ fontSize: "11px", fontFamily: "monospace", color: "var(--mz-text-secondary)" }}>
+                                  Input: <code>{ex.input}</code>
+                                </div>
+                                <div style={{ fontSize: "11px", fontFamily: "monospace", color: "#10b981", marginTop: "2px" }}>
+                                  Output: <code>{ex.output}</code>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </>
                   )}

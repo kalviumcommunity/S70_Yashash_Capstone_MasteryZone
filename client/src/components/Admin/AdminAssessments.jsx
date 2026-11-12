@@ -750,10 +750,10 @@ const AdminAssessments = () => {
           )}
 
           {showSearchDropdown && search.trim().length > 0 && (
-            <div className="mz-global-search-dropdown" style={{ minWidth: 360, left: 0 }}>
+            <div className="mz-global-search-dropdown">
               <div className="mz-global-search-header">
                 <span>Assessments matching &ldquo;{search.trim()}&rdquo;</span>
-                <span className="mz-global-search-esc">Press ESC</span>
+                <span className="mz-global-search-esc"><kbd>ESC</kbd> to dismiss</span>
               </div>
               {filteredList.length === 0 ? (
                 <div className="mz-global-search-empty">

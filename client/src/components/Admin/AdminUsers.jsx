@@ -89,8 +89,11 @@ const AdminUsers = () => {
   };
 
   useEffect(() => {
-    fetchUsers();
-  }, [page, status]);
+    const timer = setTimeout(() => {
+      fetchUsers();
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [page, status, search]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -287,10 +290,10 @@ const AdminUsers = () => {
             placeholder="Search..."
           />
           {showDropdown && search.trim().length > 0 && (
-            <div className="mz-global-search-dropdown" style={{ minWidth: 320, left: 0 }}>
+            <div className="mz-global-search-dropdown">
               <div className="mz-global-search-header">
                 <span>Users matching &ldquo;{search.trim()}&rdquo;</span>
-                <span className="mz-global-search-esc">Press ESC</span>
+                <span className="mz-global-search-esc"><kbd>ESC</kbd> to dismiss</span>
               </div>
               {filteredUsersList.length === 0 ? (
                 <div className="mz-global-search-empty">
@@ -308,7 +311,9 @@ const AdminUsers = () => {
                         handleOpenUserDetail(u._id);
                       }}
                     >
-                      <span className="mz-global-search-item-icon">👤</span>
+                      <span className="mz-global-search-item-icon mz-icon-track">
+                        <LuUser size={15} />
+                      </span>
                       <div className="mz-global-search-item-content">
                         <div className="mz-global-search-item-title">{u.fullName || u.username || "User"}</div>
                         <div className="mz-global-search-item-sub">{u.email}</div>
