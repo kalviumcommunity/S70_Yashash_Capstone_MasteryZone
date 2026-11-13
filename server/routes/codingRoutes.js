@@ -1050,8 +1050,10 @@ router.get("/challenges/:id/history", authenticateToken, async (req, res) => {
       userId: req.user.userId,
       challengeId: req.params.id,
     })
+      .select("challengeId challengeTitle language status score passedTests totalTests runtimeMs code createdAt")
       .sort({ createdAt: -1 })
-      .limit(10);
+      .limit(10)
+      .lean();
     res.json(submissions);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -3927,12 +3929,14 @@ router.get(["/proctored-session/user-reports", "/reports", "/my-reports"], authe
       })
         .select("sessionId assessmentTitle trackId candidateDetails questions problemData submissionResult draftLanguage violationsCount updatedAt createdAt serverStartTime")
         .sort({ "submissionResult.submittedAt": -1, updatedAt: -1 })
+        .limit(100)
         .lean(),
       ChallengeSubmission.find({
         $or: [{ userId }, ...(userObjId ? [{ userId: userObjId }] : [])],
       })
         .select("challengeId challengeTitle language status score passedTests totalTests runtimeMs createdAt")
         .sort({ createdAt: -1 })
+        .limit(100)
         .lean(),
     ]);
 

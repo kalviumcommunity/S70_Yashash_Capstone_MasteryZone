@@ -2,7 +2,7 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, setPersistence, browserSessionPersistence } from "firebase/auth";
 
-const env = (typeof import.meta !== "undefined" && import.meta && import.meta.env) ? import.meta.env : (typeof process !== "undefined" && process.env ? process.env : {});
+const env = (typeof import.meta !== "undefined" && import.meta?.env) ? import.meta.env : {};
 
 const firebaseConfig = {
   apiKey: env.VITE_FIREBASE_API_KEY || "AIzaSyCNNyPGmBuV57e0LR0r2zOVdsEBl3bccBU",

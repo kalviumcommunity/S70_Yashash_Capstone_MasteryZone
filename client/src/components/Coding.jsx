@@ -403,6 +403,7 @@ export default function Coding() {
   const [projects, setProjects] = useState(DEFAULT_PROJECTS);
   const [resources, setResources] = useState(DEFAULT_RESOURCES);
   const [studyGroups, setStudyGroups] = useState(DEFAULT_STUDY_GROUPS);
+  const [studyRooms, setStudyRooms] = useState([]);
   const [stats, setStats] = useState({
     totalXp: 0,
     hoursSpent: 0,

@@ -24,6 +24,14 @@ const { getRecordingsDir, resolveRecordingFilePath } = require("../config/record
 
 const router = express.Router();
 
+const getMainAdminEmail = () => (
+  process.env.MAIN_ADMIN_EMAIL ||
+  process.env.ADMIN_EMAIL ||
+  ""
+)
+  .toLowerCase()
+  .trim();
+
 // Apply Super Admin verification to all routes in this router
 router.use(verifySuperAdmin);
 
@@ -160,18 +168,14 @@ router.get("/overview", async (req, res) => {
     const { startDate, endDate } = parseDateRange(range, qStart, qEnd);
     const now = new Date();
 
-    // 1. Genuine Registered Users (strictly excluding Super Admin, guests, and demo emails)
-    const [totalRegisteredUsers, activeUsersInRange, genuineUsers] = await Promise.all([
+    // 1. Genuine Registered Users (directly counted via indexed queries, zero in-memory user array)
+    const [totalRegisteredUsers, activeUsersInRange] = await Promise.all([
       User.countDocuments(REAL_USER_FILTER),
       User.countDocuments({
         ...REAL_USER_FILTER,
         lastActiveDate: { $gte: startDate, $lte: endDate },
       }),
-      User.find(REAL_USER_FILTER).select("_id email").limit(2000).lean(),
     ]);
-
-    const genuineUserIds = genuineUsers.map((u) => u._id);
-    const genuineUserEmails = genuineUsers.map((u) => (u.email || "").toLowerCase());
 
     // 2. Live Active Sessions (genuine registered students)
     const activeSessionsMap = req.app.get("activeUserSessions");
@@ -209,29 +213,112 @@ router.get("/overview", async (req, res) => {
       });
     }
 
-    // 3. Parallelized Real Analytics Counts
+    // 3. Database-Side MongoDB Aggregations Joining Genuine Users
+    const genuineUserLookup = {
+      $lookup: {
+        from: "users",
+        let: { uid: "$userId" },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $or: [
+                  { $eq: ["$_id", "$$uid"] },
+                  { $eq: [{ $toString: "$_id" }, { $toString: "$$uid" }] },
+                ],
+              },
+              role: { $nin: ["SUPER_ADMIN", "admin"] },
+              isGuest: { $ne: true },
+              isAutomatedTestUser: { $ne: true },
+              $nor: [
+                { email: { $regex: /@masteryzone\.com$/i } },
+                { email: { $regex: /@example\.com$/i } },
+                { email: { $regex: /@test\.com$/i } },
+                { email: { $regex: /^guest_/i } },
+                { email: { $regex: /^candidate_/i } },
+                { email: { $regex: /^cert_candidate_/i } },
+                { email: { $regex: /^testuser_/i } },
+                { email: { $regex: /^host_/i } },
+                { username: { $regex: /^guest_/i } },
+                { username: { $regex: /^candidate_/i } },
+                { username: { $regex: /^testuser_/i } },
+                { username: { $regex: /^host_/i } },
+              ],
+            },
+          },
+        ],
+        as: "userDoc",
+      },
+    };
+
+    const certUserLookup = {
+      $lookup: {
+        from: "users",
+        let: { uid: "$userId", email: "$candidateEmail" },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $or: [
+                  { $eq: ["$_id", "$$uid"] },
+                  { $eq: [{ $toString: "$_id" }, { $toString: "$$uid" }] },
+                  { $and: [{ $ne: ["$$email", null] }, { $eq: [{ $toLower: "$email" }, { $toLower: "$$email" }] }] },
+                ],
+              },
+              role: { $nin: ["SUPER_ADMIN", "admin"] },
+              isGuest: { $ne: true },
+              isAutomatedTestUser: { $ne: true },
+              $nor: [
+                { email: { $regex: /@masteryzone\.com$/i } },
+                { email: { $regex: /@example\.com$/i } },
+                { email: { $regex: /@test\.com$/i } },
+                { email: { $regex: /^guest_/i } },
+                { email: { $regex: /^candidate_/i } },
+                { email: { $regex: /^cert_candidate_/i } },
+                { email: { $regex: /^testuser_/i } },
+                { email: { $regex: /^host_/i } },
+                { username: { $regex: /^guest_/i } },
+                { username: { $regex: /^candidate_/i } },
+                { username: { $regex: /^testuser_/i } },
+                { username: { $regex: /^host_/i } },
+              ],
+            },
+          },
+        ],
+        as: "userDoc",
+      },
+    };
+
     const [
-      certAllTime,
-      moduleAllTime,
-      totalCodingSubmissionsAllTime,
+      certAllTimeRes,
+      moduleAllTimeRes,
+      totalCodingSubmissionsRes,
       dailySubmissions,
       dailyCerts,
       codingTracks,
       recentCertAttempts,
       recentSubmissions,
-      proctoredCount,
+      proctoredRes,
     ] = await Promise.all([
-      CertificationAttempt.countDocuments({
-        $or: [{ userId: { $in: genuineUserIds } }, { candidateEmail: { $in: genuineUserEmails } }],
-      }),
-      ModuleAssessmentAttempt.countDocuments({
-        userId: { $in: genuineUserIds },
-      }),
-      ChallengeSubmission.countDocuments({
-        userId: { $in: genuineUserIds },
-      }),
+      CertificationAttempt.aggregate([
+        certUserLookup,
+        { $unwind: "$userDoc" },
+        { $count: "total" },
+      ]),
+      ModuleAssessmentAttempt.aggregate([
+        genuineUserLookup,
+        { $unwind: "$userDoc" },
+        { $count: "total" },
+      ]),
       ChallengeSubmission.aggregate([
-        { $match: { userId: { $in: genuineUserIds }, createdAt: { $gte: startDate, $lte: endDate } } },
+        genuineUserLookup,
+        { $unwind: "$userDoc" },
+        { $count: "total" },
+      ]),
+      ChallengeSubmission.aggregate([
+        { $match: { createdAt: { $gte: startDate, $lte: endDate } } },
+        genuineUserLookup,
+        { $unwind: "$userDoc" },
         {
           $group: {
             _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
@@ -240,12 +327,9 @@ router.get("/overview", async (req, res) => {
         },
       ]),
       CertificationAttempt.aggregate([
-        {
-          $match: {
-            $or: [{ userId: { $in: genuineUserIds } }, { candidateEmail: { $in: genuineUserEmails } }],
-            createdAt: { $gte: startDate, $lte: endDate },
-          },
-        },
+        { $match: { createdAt: { $gte: startDate, $lte: endDate } } },
+        certUserLookup,
+        { $unwind: "$userDoc" },
         {
           $group: {
             _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
@@ -254,25 +338,68 @@ router.get("/overview", async (req, res) => {
         },
       ]),
       ChallengeSubmission.aggregate([
-        { $match: { userId: { $in: genuineUserIds } } },
+        genuineUserLookup,
+        { $unwind: "$userDoc" },
         { $group: { _id: "$language", count: { $sum: 1 } } },
         { $sort: { count: -1 } },
       ]),
-      CertificationAttempt.find({
-        $or: [{ userId: { $in: genuineUserIds } }, { candidateEmail: { $in: genuineUserEmails } }],
-      })
-        .select("_id candidateName candidateEmail certTitle score percentage passed finalVerdict status createdAt submittedAt")
-        .sort({ createdAt: -1 })
-        .limit(6)
-        .lean(),
-      ChallengeSubmission.find({ userId: { $in: genuineUserIds } })
-        .select("_id challengeTitle status score language adminNote createdAt userId username")
-        .sort({ createdAt: -1 })
-        .limit(6)
-        .lean(),
-      ProctoredCodingSession.countDocuments({ userId: { $in: genuineUserIds }, status: "IN_PROGRESS" }),
+      CertificationAttempt.aggregate([
+        certUserLookup,
+        { $unwind: "$userDoc" },
+        { $sort: { createdAt: -1 } },
+        { $limit: 6 },
+        {
+          $project: {
+            _id: 1,
+            candidateName: 1,
+            candidateEmail: 1,
+            certTitle: 1,
+            score: 1,
+            percentage: 1,
+            passed: 1,
+            finalVerdict: 1,
+            status: 1,
+            createdAt: 1,
+            submittedAt: 1,
+            userFullName: "$userDoc.fullName",
+            userUsername: "$userDoc.username",
+            userEmail: "$userDoc.email",
+          },
+        },
+      ]),
+      ChallengeSubmission.aggregate([
+        genuineUserLookup,
+        { $unwind: "$userDoc" },
+        { $sort: { createdAt: -1 } },
+        { $limit: 6 },
+        {
+          $project: {
+            _id: 1,
+            challengeTitle: 1,
+            status: 1,
+            score: 1,
+            language: 1,
+            adminNote: 1,
+            createdAt: 1,
+            userId: 1,
+            username: "$userDoc.username",
+            fullName: "$userDoc.fullName",
+            email: "$userDoc.email",
+          },
+        },
+      ]),
+      ProctoredCodingSession.aggregate([
+        { $match: { status: "IN_PROGRESS" } },
+        genuineUserLookup,
+        { $unwind: "$userDoc" },
+        { $count: "total" },
+      ]),
     ]);
 
+    const certAllTime = certAllTimeRes[0]?.total || 0;
+    const moduleAllTime = moduleAllTimeRes[0]?.total || 0;
+    const totalCodingSubmissionsAllTime = totalCodingSubmissionsRes[0]?.total || 0;
+    const proctoredCount = proctoredRes[0]?.total || 0;
     const totalAssessmentsAllTime = certAllTime + moduleAllTime;
 
     // 4. Cached Storage Calculation
@@ -341,7 +468,8 @@ router.get("/overview", async (req, res) => {
     if (trackDistribution.length === 0) {
       // Query enrolled subjects from SubjectProgress if no submissions exist yet
       const enrolledProgress = await SubjectProgress.aggregate([
-        { $match: { userId: { $in: genuineUserIds } } },
+        genuineUserLookup,
+        { $unwind: "$userDoc" },
         { $group: { _id: "$subjectKey", count: { $sum: 1 } } },
       ]);
       const totalEnrolledTracks = enrolledProgress.reduce((sum, p) => sum + p.count, 0);
@@ -376,16 +504,9 @@ router.get("/overview", async (req, res) => {
       activeProctoredSessions: proctoredCount,
     };
 
-    // 8. Recent Assessment Results (strictly genuine registered students)
-    const userMap = {};
-    genuineUsers.forEach((u) => {
-      userMap[u._id.toString()] = u;
-      userMap[(u.email || "").toLowerCase()] = u;
-    });
-
+    // 8. Recent Assessment Results (strictly genuine registered students with projected profile)
     const formattedCerts = recentCertAttempts.map((a) => {
-      const u = userMap[a.userId?.toString()] || userMap[(a.candidateEmail || "").toLowerCase()] || {};
-      const userName = u.fullName || a.candidateName || u.username || "Registered Student";
+      const userName = a.userFullName || a.candidateName || a.userUsername || "Registered Student";
       const scoreNum =
         a.percentage != null
           ? a.percentage
@@ -399,7 +520,7 @@ router.get("/overview", async (req, res) => {
       return {
         id: a._id,
         user: userName,
-        email: u.email || a.candidateEmail || "",
+        email: a.userEmail || a.candidateEmail || "",
         assessment: a.certTitle || "Data Structures & Algorithms (DSA)",
         type: "Certification",
         score: `${scoreNum}/100`,
@@ -409,8 +530,7 @@ router.get("/overview", async (req, res) => {
     });
 
     const formattedSubs = recentSubmissions.map((s) => {
-      const u = userMap[s.userId?.toString()] || {};
-      const userName = u.fullName || s.username || "Registered Student";
+      const userName = s.fullName || s.username || "Registered Student";
       const isAccepted = s.status === "ACCEPTED" || s.adminNote?.status === "PASSED";
       const score = s.adminNote?.score != null ? s.adminNote.score : isAccepted ? 100 : s.status === "PARTIAL" ? 75 : 60;
       const isPassed = isAccepted || score >= 70;
@@ -418,7 +538,7 @@ router.get("/overview", async (req, res) => {
       return {
         id: s._id,
         user: userName,
-        email: u.email || "",
+        email: s.email || "",
         assessment: s.challengeTitle || "Algorithm Challenge",
         type: "Coding",
         score: `${score}/100`,
@@ -898,8 +1018,8 @@ router.put("/users/:id/role", async (req, res) => {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    const mainAdminEmail = (process.env.MAIN_ADMIN_EMAIL || "yashashyashash1@gmail.com").toLowerCase().trim();
-    if (user.email.toLowerCase().trim() === mainAdminEmail || user.role === "SUPER_ADMIN") {
+    const mainAdminEmail = getMainAdminEmail();
+    if ((mainAdminEmail && user.email.toLowerCase().trim() === mainAdminEmail) || user.role === "SUPER_ADMIN" || user.isMainAdmin === true) {
       return res.status(403).json({
         success: false,
         message: "Cannot modify role of the exclusive Main Admin account.",
@@ -951,8 +1071,8 @@ router.delete("/users/:id", async (req, res) => {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    const mainAdminEmail = (process.env.MAIN_ADMIN_EMAIL || "yashashyashash1@gmail.com").toLowerCase().trim();
-    if (user.email.toLowerCase().trim() === mainAdminEmail || user.role === "SUPER_ADMIN") {
+    const mainAdminEmail = getMainAdminEmail();
+    if ((mainAdminEmail && user.email.toLowerCase().trim() === mainAdminEmail) || user.role === "SUPER_ADMIN" || user.isMainAdmin === true) {
       return res.status(403).json({
         success: false,
         message: "Cannot delete the exclusive Main Admin account.",
@@ -3276,7 +3396,7 @@ router.patch("/proctoring/session/:sessionId/mark-viewed", async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 router.get("/reports", async (req, res) => {
   try {
-    const genuineUsers = await User.find(REAL_USER_FILTER).select("_id email fullName username").lean();
+    const genuineUsers = await User.find(REAL_USER_FILTER).select("_id email fullName username").limit(1500).lean();
     const genuineUserIds = genuineUsers.map((u) => u._id);
     const genuineUserEmails = genuineUsers.map((u) => (u.email || "").toLowerCase()).filter(Boolean);
 
@@ -4156,9 +4276,6 @@ router.get("/email/logs", async (req, res) => {
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const AdminOtp = require("../models/AdminOtp");
-const {
-  MAIN_ADMIN_EMAIL = "yashashyashash1@gmail.com",
-} = require("../middleware/adminAuth");
 const { getJwtSecret } = require("../config/jwtConfig");
 const JWT_SECRET = getJwtSecret();
 const {
@@ -4168,11 +4285,15 @@ const {
   dispatchMailBackground,
 } = require("../utils/mailer");
 
+// Dynamically resolved configured Main Admin email
+const MAIN_ADMIN_EMAIL = getMainAdminEmail();
+
 // Step 1: Main Admin Password Verification & 6-Digit OTP Dispatch
 router.post("/main-admin/verify-password", async (req, res) => {
   try {
     const userEmail = (req.user?.email || "").toLowerCase().trim();
-    if (userEmail !== MAIN_ADMIN_EMAIL) {
+    const mainAdminEmail = getMainAdminEmail();
+    if (!mainAdminEmail || userEmail !== mainAdminEmail) {
       return res.status(403).json({
         success: false,
         message: `Access Denied: Only designated Main Administrator (${MAIN_ADMIN_EMAIL}) has authority to manage administrators.`,

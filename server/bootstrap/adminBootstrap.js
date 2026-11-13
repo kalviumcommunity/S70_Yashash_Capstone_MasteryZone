@@ -1,10 +1,10 @@
 const bcrypt = require("bcrypt");
 const User = require("../models/User");
 
-const MAIN_ADMIN_EMAIL = (
+const getMainAdminEmail = () => (
   process.env.MAIN_ADMIN_EMAIL ||
   process.env.ADMIN_EMAIL ||
-  "yashashyashash1@gmail.com"
+  ""
 )
   .toLowerCase()
   .trim();
@@ -12,15 +12,21 @@ const MAIN_ADMIN_EMAIL = (
 const MAIN_ADMIN_RAW_PASS = process.env.ADMIN_PASSWORD;
 
 /**
- * Ensures the designated Main Admin (yashashyashash1@gmail.com) is initialized,
+ * Ensures the designated Main Admin is initialized,
  * verified with role SUPER_ADMIN, isMainAdmin: true, and full permissions.
  * Preserves secondary admins, existing passwords, and legacy accounts without destructive wipes.
  */
 async function bootstrapSuperAdmin() {
   try {
-    console.log(`🔐 Verifying Main Admin account (${MAIN_ADMIN_EMAIL})...`);
+    const adminEmail = getMainAdminEmail();
+    if (!adminEmail) {
+      console.log("ℹ️ [Bootstrap] No administrator email configured in environment (MAIN_ADMIN_EMAIL / ADMIN_EMAIL). Skipping admin bootstrap.");
+      return null;
+    }
 
-    let mainAdmin = await User.findOne({ email: MAIN_ADMIN_EMAIL });
+    console.log(`🔐 Verifying Main Admin account (${adminEmail})...`);
+
+    let mainAdmin = await User.findOne({ email: adminEmail });
 
     if (!mainAdmin) {
       // Missing password credentials handling
@@ -35,7 +41,7 @@ async function bootstrapSuperAdmin() {
         }
       }
 
-      console.log(`✨ Initializing designated Main Admin account: ${MAIN_ADMIN_EMAIL}`);
+      console.log(`✨ Initializing designated Main Admin account: ${adminEmail}`);
       const hashedPassword = await bcrypt.hash(rawPass, 10);
       let username = "main_admin";
       const existingUsername = await User.findOne({ username });
@@ -45,7 +51,7 @@ async function bootstrapSuperAdmin() {
 
       mainAdmin = await User.create({
         username,
-        email: MAIN_ADMIN_EMAIL,
+        email: adminEmail,
         fullName: "MasteryZone Main Admin",
         role: "SUPER_ADMIN",
         isMainAdmin: true,
@@ -66,7 +72,7 @@ async function bootstrapSuperAdmin() {
         mainAdmin.isMainAdmin = true;
         needsSave = true;
       }
-      if (!mainAdmin.adminPermissions || mainAdmin.adminPermissions.length === 0) {
+      if (!mainAdmin.adminPermissions || !mainAdmin.adminPermissions.includes("*")) {
         mainAdmin.adminPermissions = ["*"];
         needsSave = true;
       }
@@ -75,35 +81,28 @@ async function bootstrapSuperAdmin() {
         needsSave = true;
       }
 
-      // DO NOT reset or overwrite an existing admin's password during startup.
-      // Passwords are cryptographically preserved in database. Only if an explicit ADMIN_PASSWORD
-      // is provided via environment and matches a manual rotation request should it change.
-
       if (needsSave) {
         await mainAdmin.save();
-        console.log(`✅ Main Admin verified & synchronized: ${MAIN_ADMIN_EMAIL}`);
+        console.log(`✅ Main Admin privileges synchronized for ${adminEmail}`);
       } else {
-        console.log(`✅ Main Admin already initialized & verified: ${MAIN_ADMIN_EMAIL}`);
+        console.log(`✅ Main Admin already initialized & verified: ${adminEmail}`);
       }
     }
 
-    // Also ensure previous legacy admin (yashashyash1@gmail.com) remains a valid administrator
-    // so all historical marks, sessions, and audits stay completely intact
-    const legacyAdmin = await User.findOne({ email: "yashashyash1@gmail.com" });
-    if (legacyAdmin && legacyAdmin.role !== "SUPER_ADMIN" && legacyAdmin.role !== "admin") {
-      legacyAdmin.role = "admin";
-      legacyAdmin.adminPermissions = ["*"];
-      await legacyAdmin.save();
-    }
-
     return mainAdmin;
-  } catch (err) {
-    console.error("❌ Error bootstrapping Main Admin:", err.message);
+  } catch (error) {
+    console.error("❌ Error verifying/bootstrapping Main Admin account:", error.message);
+    return null;
   }
 }
 
 module.exports = {
   bootstrapSuperAdmin,
-  MAIN_ADMIN_EMAIL,
-  SUPER_ADMIN_EMAIL: MAIN_ADMIN_EMAIL,
+  getMainAdminEmail,
+  get MAIN_ADMIN_EMAIL() {
+    return getMainAdminEmail();
+  },
+  get SUPER_ADMIN_EMAIL() {
+    return getMainAdminEmail();
+  },
 };

@@ -23,10 +23,10 @@ const router = express.Router();
 
 const JWT_SECRET = getJwtSecret();
 
-const MAIN_ADMIN_EMAIL = (
+const getMainAdminEmail = () => (
   process.env.MAIN_ADMIN_EMAIL ||
   process.env.ADMIN_EMAIL ||
-  "yashashyashash1@gmail.com"
+  ""
 )
   .toLowerCase()
   .trim();
@@ -37,7 +37,8 @@ const MAIN_ADMIN_EMAIL = (
  */
 function issueUserJwt(user, expiresIn = '12h') {
   const userEmail = (user.email || '').toLowerCase().trim();
-  const isMainAdmin = userEmail === MAIN_ADMIN_EMAIL || user.isMainAdmin === true;
+  const mainAdminEmail = getMainAdminEmail();
+  const isMainAdmin = (mainAdminEmail && userEmail === mainAdminEmail) || user.isMainAdmin === true;
   const role = isMainAdmin ? 'admin' : (user.role || 'user');
   const uid = user._id ? user._id.toString() : String(user.userId || user.id || '');
 

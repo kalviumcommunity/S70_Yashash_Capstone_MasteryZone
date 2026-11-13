@@ -1,14 +1,24 @@
 /**
  * Centralized High-Performance Fetch Client with In-Flight Deduplication & User-Isolated Caching
- * Ensures identical simultaneous requests (e.g. React StrictMode, multi-component mounts,
- * concurrent focus events) share a single in-flight Promise and do not spam the network or MongoDB.
- * Provides strict user cache isolation, AbortController handling, and selective cache invalidation.
+ * - Bounded LRU/FIFO cache storage with automatic eviction to prevent heap bloat.
+ * - Decoupled AbortController logic ensuring individual caller aborts never break shared requests.
+ * - Cache epoch/generation counter preventing in-flight requests from repopulating cache after logout.
+ * - Strict user-token isolated keys and automatic cache purge on account switches.
+ * - Comprehensive mutation invalidation covering all platform write operations.
+ * - Reliable response cloning and detailed error preservation.
  */
+
+const MAX_CACHE_ENTRIES = 120;
+export const DEFAULT_CACHE_TTL_MS = 2500; // 2.5 seconds short-lived memory cache for identical views
 
 const inFlightRequests = new Map();
 const responseCache = new Map();
 
-export const DEFAULT_CACHE_TTL_MS = 2500; // 2.5 seconds short-lived memory cache for identical views
+// Generation counter increments on logout / account switch to prevent orphaned responses from writing to cache
+let cacheGeneration = 0;
+
+// Track active token to purge stale cache on account change
+let lastKnownToken = typeof localStorage !== "undefined" ? localStorage.getItem("token") || "" : "";
 
 /**
  * Extracts and normalizes the Authorization token for strict cache key isolation
@@ -28,8 +38,36 @@ function extractToken(options) {
   if (!token && typeof localStorage !== "undefined") {
     token = localStorage.getItem("token") || "";
   }
-  return token;
+  return token ? token.trim() : "";
 }
+
+/**
+ * Stores response in bounded cache, evicting oldest entries when capacity is reached
+ */
+function setBoundedCache(key, entry) {
+  if (responseCache.has(key)) {
+    responseCache.delete(key);
+  } else if (responseCache.size >= MAX_CACHE_ENTRIES) {
+    const oldestKey = responseCache.keys().next().value;
+    if (oldestKey) responseCache.delete(oldestKey);
+  }
+  responseCache.set(key, entry);
+}
+
+const MUTATION_PREFIXES = [
+  "/api/coding",
+  "/auth",
+  "/api/notifications",
+  "/api/curriculum",
+  "/api/progress",
+  "/api/certifications",
+  "/api/admin",
+  "/api/projects",
+  "/api/support",
+  "/api/meetings",
+  "/api/recordings",
+  "/api/members",
+];
 
 /**
  * Deduplicated fetch utility.
@@ -42,48 +80,91 @@ export async function deduplicatedFetch(url, options = {}) {
   const isGet = method === "GET";
   const forceFresh = options.forceFresh === true;
   const cacheTtlMs = options.cacheTtlMs ?? DEFAULT_CACHE_TTL_MS;
+  const callerSignal = options.signal;
 
-  // We only cache and deduplicate safe GET requests
+  // Handle immediate caller abort
+  if (callerSignal && callerSignal.aborted) {
+    throw new DOMException("The user aborted a request.", "AbortError");
+  }
+
+  const currentToken = extractToken(options);
+  if (currentToken !== lastKnownToken) {
+    lastKnownToken = currentToken;
+    clearClientCache();
+  }
+
+  // Mutating requests automatically invalidate matching cache segments
   if (!isGet) {
-    // If a mutating action occurs, selectively invalidate matching cache entries
-    if (url.includes("/api/coding")) invalidateCachePattern("/api/coding");
-    if (url.includes("/auth")) invalidateCachePattern("/auth");
-    if (url.includes("/api/notifications")) invalidateCachePattern("/api/notifications");
-    if (url.includes("/api/curriculum")) invalidateCachePattern("/api/curriculum");
-    if (url.includes("/api/progress")) invalidateCachePattern("/api/progress");
-    if (url.includes("/api/certifications")) invalidateCachePattern("/api/certifications");
+    for (const prefix of MUTATION_PREFIXES) {
+      if (url.includes(prefix)) {
+        invalidateCachePattern(prefix);
+      }
+    }
     return fetch(url, options);
   }
 
-  // Construct deduplication key strictly isolated by method, clean URL, and user token
-  const token = extractToken(options);
-  const dedupKey = `${method}::${url}::${token}`;
+  // Key is strictly partitioned by method, URL, and user token
+  const dedupKey = `${method}::${url}::${currentToken || "anonymous"}`;
 
-  // 1. Check for cached response within TTL
+  // 1. Check bounded response cache
   if (!forceFresh && cacheTtlMs > 0) {
     const cached = responseCache.get(dedupKey);
-    if (cached && Date.now() - cached.timestamp < cacheTtlMs) {
-      return cached.response.clone();
+    if (cached) {
+      if (Date.now() - cached.timestamp < cacheTtlMs) {
+        return cached.response.clone();
+      } else {
+        responseCache.delete(dedupKey);
+      }
     }
   }
 
-  // 2. Check for an in-flight request already executing
-  if (inFlightRequests.has(dedupKey)) {
+  // 2. Check for an active in-flight request
+  let inFlight = inFlightRequests.get(dedupKey);
+
+  if (inFlight) {
+    // If caller provided an AbortSignal, decouple so caller's abort doesn't kill the shared request
+    if (callerSignal) {
+      return new Promise((resolve, reject) => {
+        const onAbort = () => {
+          callerSignal.removeEventListener("abort", onAbort);
+          reject(new DOMException("The user aborted a request.", "AbortError"));
+        };
+        callerSignal.addEventListener("abort", onAbort);
+
+        inFlight.sharedPromise
+          .then((res) => {
+            callerSignal.removeEventListener("abort", onAbort);
+            resolve(res.clone());
+          })
+          .catch((err) => {
+            callerSignal.removeEventListener("abort", onAbort);
+            reject(err);
+          });
+      });
+    }
+
     try {
-      const pendingResponse = await inFlightRequests.get(dedupKey);
-      return pendingResponse.clone();
+      const sharedRes = await inFlight.sharedPromise;
+      return sharedRes.clone();
     } catch {
-      // If the in-flight failed, proceed to try fresh below
+      // If shared in-flight failed, proceed to try fresh below
     }
   }
 
-  // 3. Initiate request and register in-flight Promise
-  // If caller provided an AbortSignal, link it gracefully
-  const requestPromise = (async () => {
+  // 3. Initiate fresh underlying fetch with internal controller
+  const currentGen = cacheGeneration;
+  const internalController = typeof AbortController !== "undefined" ? new AbortController() : null;
+  const fetchOptions = {
+    ...options,
+    signal: internalController ? internalController.signal : undefined,
+  };
+
+  const sharedPromise = (async () => {
     try {
-      const res = await fetch(url, options);
-      if (res.ok && cacheTtlMs > 0) {
-        responseCache.set(dedupKey, {
+      const res = await fetch(url, fetchOptions);
+      // Only cache if generation has NOT changed (e.g. user hasn't logged out / switched account)
+      if (res.ok && cacheTtlMs > 0 && currentGen === cacheGeneration) {
+        setBoundedCache(dedupKey, {
           timestamp: Date.now(),
           response: res.clone(),
         });
@@ -94,8 +175,32 @@ export async function deduplicatedFetch(url, options = {}) {
     }
   })();
 
-  inFlightRequests.set(dedupKey, requestPromise);
-  const result = await requestPromise;
+  inFlightRequests.set(dedupKey, {
+    sharedPromise,
+    controller: internalController,
+  });
+
+  if (callerSignal) {
+    return new Promise((resolve, reject) => {
+      const onAbort = () => {
+        callerSignal.removeEventListener("abort", onAbort);
+        reject(new DOMException("The user aborted a request.", "AbortError"));
+      };
+      callerSignal.addEventListener("abort", onAbort);
+
+      sharedPromise
+        .then((res) => {
+          callerSignal.removeEventListener("abort", onAbort);
+          resolve(res.clone());
+        })
+        .catch((err) => {
+          callerSignal.removeEventListener("abort", onAbort);
+          reject(err);
+        });
+    });
+  }
+
+  const result = await sharedPromise;
   return result.clone();
 }
 
@@ -127,9 +232,10 @@ export function invalidateCachePattern(pattern) {
 }
 
 /**
- * Clear entire in-memory cache when user logs out
+ * Clear entire in-memory cache when user logs out or switches accounts
  */
 export function clearClientCache() {
+  cacheGeneration++;
   responseCache.clear();
   inFlightRequests.clear();
 }

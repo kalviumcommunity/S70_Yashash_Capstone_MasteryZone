@@ -8,14 +8,10 @@ if (process.env.NODE_ENV !== "test" && !process.env.JUDGE0_API_HOST && !process.
   process.env.JUDGE0_API_HOST = "https://ce.judge0.com";
 }
 
-// Ensure designated Super Admin email identifier is recognized if not configured in environment
-if (process.env.NODE_ENV !== "test") {
-  if (!process.env.MAIN_ADMIN_EMAIL && !process.env.ADMIN_EMAIL) {
-    process.env.MAIN_ADMIN_EMAIL = "yashashyashash1@gmail.com";
-  }
-  if (!process.env.ADMIN_EMAIL) {
-    process.env.ADMIN_EMAIL = process.env.MAIN_ADMIN_EMAIL || "yashashyashash1@gmail.com";
-  }
+// Require explicit administrator email configuration in environment
+const configuredAdminEmail = (process.env.MAIN_ADMIN_EMAIL || process.env.ADMIN_EMAIL || "").toLowerCase().trim();
+if (!configuredAdminEmail && process.env.NODE_ENV === "production") {
+  console.warn("⚠️ [Security] MAIN_ADMIN_EMAIL or ADMIN_EMAIL is not set. Administrator provisioning will remain disabled until explicitly configured.");
 }
 
 const express = require("express")
@@ -2239,6 +2235,13 @@ if (process.env.NODE_ENV !== "test") {
     });
 }
 
+const gracefulShutdown = () => {
+  if (sessionCleanupInterval) clearInterval(sessionCleanupInterval);
+  if (onlineUsersUpdateTimer) clearTimeout(onlineUsersUpdateTimer);
+};
+process.on("SIGTERM", gracefulShutdown);
+process.on("SIGINT", gracefulShutdown);
+
 module.exports = {
   app,
   server,
@@ -2248,4 +2251,5 @@ module.exports = {
   corsOriginValidator,
   corsOptions,
   EXPLICIT_ALLOWED_ORIGINS,
+  gracefulShutdown,
 };

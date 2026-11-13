@@ -94,14 +94,14 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
       challengeSubmissions,
       recentAttempts,
     ] = await Promise.all([
-      Certification.find({ userId }).select("status totalModules currentModule updatedAt createdAt certId title").sort({ createdAt: -1 }).lean(),
-      Progress.find({ userId, track: { $nin: ["LANGUAGE", "VEHICLES", "FITNESS", "DRIVING"] } }).select("date createdAt hoursSpent xpEarned status").sort({ date: -1 }).lean(),
-      ProjectWorkspaceState.find({ userId }).select("projectId passed badgeAwarded latestReportSessionId bestScore bestPercentage bestGrade attemptsCount completedAt updatedAt status").sort({ updatedAt: -1 }).lean(),
-      ProjectSubmission.find({ userId }).select("projectId passed projectTitle projectCategory difficulty language marksObtained percentage grade xpReward submittedAt sessionId").sort({ submittedAt: -1 }).lean(),
+      Certification.find({ userId }).select("status totalModules currentModule updatedAt createdAt certId title").sort({ createdAt: -1 }).limit(50).lean(),
+      Progress.find({ userId, track: { $nin: ["LANGUAGE", "VEHICLES", "FITNESS", "DRIVING"] } }).select("date createdAt hoursSpent xpEarned status").sort({ date: -1 }).limit(100).lean(),
+      ProjectWorkspaceState.find({ userId }).select("projectId passed badgeAwarded latestReportSessionId bestScore bestPercentage bestGrade attemptsCount completedAt updatedAt status").sort({ updatedAt: -1 }).limit(50).lean(),
+      ProjectSubmission.find({ userId }).select("projectId passed projectTitle projectCategory difficulty language marksObtained percentage grade xpReward submittedAt sessionId").sort({ submittedAt: -1 }).limit(100).lean(),
       CodingProgress.findOne({ userId }).lean(),
       SubjectProgress.findOne({ userId, subjectKey: "coding" }).lean(),
-      ChallengeSubmission.find({ userId }).select("challengeId status createdAt").sort({ createdAt: -1 }).lean(),
-      ModuleAssessmentAttempt.find({ userId }).select("passed createdAt").sort({ createdAt: -1 }).lean(),
+      ChallengeSubmission.find({ userId }).select("challengeId status createdAt").sort({ createdAt: -1 }).limit(200).lean(),
+      ModuleAssessmentAttempt.find({ userId }).select("passed createdAt").sort({ createdAt: -1 }).limit(100).lean(),
     ]);
 
     const completedProjects = projectStates

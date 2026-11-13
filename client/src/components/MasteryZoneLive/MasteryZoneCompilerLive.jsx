@@ -1847,9 +1847,9 @@ export default function MasteryZoneCompilerLive({
                     selectedIndex={selectedCaseIndex}
                     onSelectIndex={setSelectedCaseIndex}
                     canRun={!isRunningTests && !isReadOnlyForUser}
-                    isDark={editorTheme !== "vs"}
+                    isDark={isDark}
                     onUseStdin={(val) => {
-                      setCustomInput(val);
+                      setStdinInput(val);
                       setActiveTab("run");
                       toast.info("Test case input copied to Interactive STDIN");
                     }}
