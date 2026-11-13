@@ -20,6 +20,7 @@ import {
   LuTrendingUp,
   LuCheck,
 } from "react-icons/lu";
+import { deduplicatedFetch, isDocumentVisible } from "../../utils/apiClient";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -101,8 +102,9 @@ const AdminOverview = () => {
         url += `&startDate=${start}&endDate=${end}`;
       }
 
-      const res = await fetch(url, {
+      const res = await deduplicatedFetch(url, {
         headers: { Authorization: `Bearer ${token}` },
+        cacheTtlMs: 4000,
       });
 
       if (res.ok) {
@@ -121,7 +123,10 @@ const AdminOverview = () => {
   useEffect(() => {
     fetchOverview(filterRange, customStart, customEnd);
     const interval = setInterval(() => {
-      fetchOverview(filterRange, customStart, customEnd);
+      // Pause automatic polling when tab/page is hidden
+      if (isDocumentVisible()) {
+        fetchOverview(filterRange, customStart, customEnd);
+      }
     }, 20000); // 20s auto-refresh for real-time live data
 
     const handleOutside = (e) => {

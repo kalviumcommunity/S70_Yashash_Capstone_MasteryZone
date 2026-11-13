@@ -52,7 +52,7 @@ function getLocalDateKey(date) {
 router.get("/dashboard", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
-    const user = await User.findById(userId).select("-password");
+    const user = await User.findById(userId).select("-password -knownDevices -resetPasswordToken -resetPasswordExpires -otpCodeHash -otpExpires");
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -70,17 +70,17 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
         currentStreak = (user.streak || 1) + 1;
         user.streak = currentStreak;
         user.lastActiveDate = now;
-        await user.save();
+        await User.updateOne({ _id: userId }, { streak: currentStreak, lastActiveDate: now }).catch(() => {});
       } else if (diffDays > 1) {
         currentStreak = 1;
         user.streak = 1;
         user.lastActiveDate = now;
-        await user.save();
+        await User.updateOne({ _id: userId }, { streak: 1, lastActiveDate: now }).catch(() => {});
       }
     } else {
       user.lastActiveDate = now;
       user.streak = 1;
-      await user.save();
+      await User.updateOne({ _id: userId }, { streak: 1, lastActiveDate: now }).catch(() => {});
     }
 
     // 2. Fetch User's Genuine Data Records (Strictly Coding & Software Engineering)
@@ -94,14 +94,14 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
       challengeSubmissions,
       recentAttempts,
     ] = await Promise.all([
-      Certification.find({ userId }).sort({ createdAt: -1 }),
-      Progress.find({ userId, track: { $nin: ["LANGUAGE", "VEHICLES", "FITNESS", "DRIVING"] } }).sort({ date: -1 }),
-      ProjectWorkspaceState.find({ userId }).sort({ updatedAt: -1 }).lean(),
-      ProjectSubmission.find({ userId }).sort({ submittedAt: -1 }).lean(),
+      Certification.find({ userId }).select("status totalModules currentModule updatedAt createdAt certId title").sort({ createdAt: -1 }).lean(),
+      Progress.find({ userId, track: { $nin: ["LANGUAGE", "VEHICLES", "FITNESS", "DRIVING"] } }).select("date createdAt hoursSpent xpEarned status").sort({ date: -1 }).lean(),
+      ProjectWorkspaceState.find({ userId }).select("projectId passed badgeAwarded latestReportSessionId bestScore bestPercentage bestGrade attemptsCount completedAt updatedAt status").sort({ updatedAt: -1 }).lean(),
+      ProjectSubmission.find({ userId }).select("projectId passed projectTitle projectCategory difficulty language marksObtained percentage grade xpReward submittedAt sessionId").sort({ submittedAt: -1 }).lean(),
       CodingProgress.findOne({ userId }).lean(),
       SubjectProgress.findOne({ userId, subjectKey: "coding" }).lean(),
-      ChallengeSubmission.find({ userId }).sort({ createdAt: -1 }).lean(),
-      ModuleAssessmentAttempt.find({ userId }).sort({ createdAt: -1 }).lean(),
+      ChallengeSubmission.find({ userId }).select("challengeId status createdAt").sort({ createdAt: -1 }).lean(),
+      ModuleAssessmentAttempt.find({ userId }).select("passed createdAt").sort({ createdAt: -1 }).lean(),
     ]);
 
     const completedProjects = projectStates

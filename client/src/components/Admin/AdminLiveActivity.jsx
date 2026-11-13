@@ -11,6 +11,7 @@ import {
   LuClock,
 } from "react-icons/lu";
 import { io } from "socket.io-client";
+import { deduplicatedFetch } from "../../utils/apiClient";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -26,10 +27,11 @@ const AdminLiveActivity = () => {
     const fetchLiveFeed = async () => {
       try {
         const token = localStorage.getItem("token");
-        const res = await fetch(`${API_BASE}/api/admin/live-activity`, {
+        const res = await deduplicatedFetch(`${API_BASE}/api/admin/live-activity`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
+          cacheTtlMs: 2500,
         });
         if (res.ok) {
           const json = await res.json();

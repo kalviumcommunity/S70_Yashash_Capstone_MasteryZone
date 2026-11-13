@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { deduplicatedFetch, invalidateCachePattern } from "../utils/apiClient";
 import {
   LuLifeBuoy,
   LuTicket,
@@ -314,9 +315,9 @@ const HelpSupport = () => {
     try {
       if (!silent) setLoadingTickets(true);
       const token = localStorage.getItem("token");
-      const res = await fetch(`${API_BASE}/api/support/my-tickets`, {
+      const res = await deduplicatedFetch(`${API_BASE}/api/support/my-tickets`, {
         headers: { Authorization: `Bearer ${token}` },
-      });
+      }, { ttlMs: 8000 });
       if (res.ok) {
         const data = await res.json();
         if (data.success) {
@@ -481,6 +482,7 @@ const HelpSupport = () => {
 
       const data = await res.json();
       if (res.ok && data.success) {
+        invalidateCachePattern("/api/support");
         toast.dismiss();
         toast.success(`🎉 Ticket ${data.ticket.ticketId} submitted! Confirmation email sent.`, {
           toastId: "ticket_submit_success",
@@ -548,6 +550,7 @@ const HelpSupport = () => {
 
       const data = await res.json();
       if (res.ok && data.success) {
+        invalidateCachePattern("/api/support");
         toast.success("Reply added to ticket discussion.");
         setReplyText("");
         setReplyAttachments([]);

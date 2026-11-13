@@ -197,6 +197,7 @@ router.get("/reports", authenticateToken, async (req, res) => {
       const projectSubs = await ProjectSubmission.find({
         $or: [{ userId }, { userId: String(userId) }],
       })
+        .select("sessionId projectId projectTitle difficulty projectCategory language candidateDetails submittedAt createdAt marksObtained percentage grade passed badgeAwarded attemptNumber durationSeconds testResults.passed testResults.name testResults.title")
         .sort({ submittedAt: -1, createdAt: -1 })
         .lean();
 
@@ -248,6 +249,7 @@ router.get("/reports", authenticateToken, async (req, res) => {
       const certAttempts = await CertificationAttempt.find({
         $or: userMatchOr,
       })
+        .select("attemptId certificateId certId certTitle candidateName candidateEmail status finalVerdict totalMaxMarks totalMarksObtained score finalScorePercentage percentage codingScore codingSubmissions.passedTests timeSpentSeconds submittedAt createdAt violationsCount")
         .sort({ submittedAt: -1, createdAt: -1 })
         .lean();
 

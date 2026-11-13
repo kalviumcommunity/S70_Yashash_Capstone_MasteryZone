@@ -14,7 +14,9 @@ try {
     twilioConfigured = true;
   }
 } catch (err) {
-  console.warn('Twilio package not available. SMS OTP will be logged to console instead.');
+  if (process.env.NODE_ENV !== "production") {
+    console.warn("Twilio package not available or unconfigured.");
+  }
 }
 
 const sendSmsOtp = async (phoneNumber, otp) => {
@@ -25,19 +27,29 @@ const sendSmsOtp = async (phoneNumber, otp) => {
       const result = await twilioClient.messages.create({
         body: message,
         from: fromPhone,
-        to: phoneNumber
+        to: phoneNumber,
       });
 
-      console.log(`✅ SMS OTP sent to ${phoneNumber}: ${result.sid}`);
-      return { success: true, channel: 'sms', sid: result.sid };
+      console.log(`✅ SMS OTP dispatched to ${phoneNumber.slice(0, 3)}***${phoneNumber.slice(-2)}`);
+      return { success: true, channel: "sms", sid: result.sid };
     } catch (error) {
-      console.error('Error sending SMS OTP via Twilio:', error.message || error);
-      return { success: false, channel: 'sms-error', error: error.message || error };
+      console.error("Error sending SMS OTP via Twilio:", error.message || error);
+      return { success: false, channel: "sms-error", error: error.message || error };
     }
   }
 
-  console.log(`[Mock SMS] OTP for ${phoneNumber}: ${otp}`);
-  return { success: false, channel: 'mock' };
+  // In production, reject unconfigured SMS provider fail-closed without leaking OTP
+  if (process.env.NODE_ENV === "production") {
+    console.warn(`[SMS Alert] Cannot dispatch SMS to ${phoneNumber.slice(0, 3)}***${phoneNumber.slice(-2)}: SMS provider not configured.`);
+    return { success: false, channel: "unconfigured", error: "SMS service not configured in production" };
+  }
+
+  // Non-production test mode
+  if (process.env.ALLOW_MOCK_SMS === "true") {
+    return { success: true, channel: "mock-test" };
+  }
+
+  return { success: false, channel: "unconfigured" };
 };
 
 module.exports = { sendSmsOtp, twilioConfigured };

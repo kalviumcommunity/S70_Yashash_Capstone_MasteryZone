@@ -157,6 +157,28 @@ server.codingRooms = codingRooms;
 const activeUserSessions = new Map();
 app.set("activeUserSessions", activeUserSessions);
 
+// Debounced online users broadcaster to prevent network flooding
+let onlineUsersUpdateTimer = null;
+function broadcastOnlineUsers() {
+  if (onlineUsersUpdateTimer) return;
+  onlineUsersUpdateTimer = setTimeout(() => {
+    onlineUsersUpdateTimer = null;
+    io.emit("update_online_users", Array.from(new Set(onlineUsers.values())));
+  }, 1000);
+}
+
+// Periodic cleanup for stale active user sessions (heartbeat older than 5 minutes)
+const sessionCleanupInterval = setInterval(() => {
+  const staleThreshold = Date.now() - 5 * 60 * 1000;
+  for (const [sId, sess] of activeUserSessions.entries()) {
+    if (sess.lastHeartbeat && sess.lastHeartbeat < staleThreshold) {
+      activeUserSessions.delete(sId);
+      io.to("super_admin_room").emit("live_session_ended", { socketId: sId, userId: sess.userId });
+    }
+  }
+}, 5 * 60 * 1000);
+if (sessionCleanupInterval.unref) sessionCleanupInterval.unref();
+
 io.on("connection", (socket) => {
   console.log("🔌 User connected:", socket.id);
 
@@ -260,7 +282,7 @@ io.on("connection", (socket) => {
         socket.data.username = decoded.username || "";
         const verifiedName = socket.data.userFullName || socket.data.username || socket.data.userEmail || `User_${uid.slice(-4)}`;
         onlineUsers.set(socket.id, verifiedName);
-        io.emit("update_online_users", Array.from(new Set(onlineUsers.values())));
+        broadcastOnlineUsers();
         socket.join(`user_${uid}`);
         console.log(`📡 Socket ${socket.id} authenticated into room user_${uid}`);
         return uid;
@@ -319,7 +341,7 @@ io.on("connection", (socket) => {
       delete socket.data.meetingId;
       delete socket.data.meetingUser;
       onlineUsers.delete(socket.id);
-      io.emit("update_online_users", Array.from(new Set(onlineUsers.values())));
+      broadcastOnlineUsers();
       console.log(`🔌 Socket ${socket.id} logged out and purged private rooms for user_${oldUid}`);
     }
   });
@@ -358,7 +380,7 @@ io.on("connection", (socket) => {
     }
     const verifiedName = socket.data.userFullName || socket.data.username || socket.data.userEmail || `User_${socket.data.userId.slice(-4)}`;
     onlineUsers.set(socket.id, verifiedName);
-    io.emit("update_online_users", Array.from(new Set(onlineUsers.values())));
+    broadcastOnlineUsers();
   });
 
   // Real-time Support Ticket Chat & Typing Rooms (Strictly Authenticated & Authorized)
@@ -1837,7 +1859,7 @@ io.on("connection", (socket) => {
     onlineUsers.delete(socket.id);
     codingChatLimitMap.delete(socket.id);
     codingEditLimitMap.delete(socket.id);
-    io.emit("update_online_users", Array.from(onlineUsers.values()));
+    broadcastOnlineUsers();
 
     handleUserLeavingMeeting(socket);
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
+import { deduplicatedFetch, invalidateCachePattern } from "../../utils/apiClient";
 import {
   LuLifeBuoy,
   LuTicket,
@@ -221,9 +222,9 @@ const AdminHelpSupport = () => {
     try {
       if (!silent) setLoading(true);
       const token = localStorage.getItem("token");
-      const res = await fetch(`${API_BASE}/api/support/admin/tickets`, {
+      const res = await deduplicatedFetch(`${API_BASE}/api/support/admin/tickets`, {
         headers: { Authorization: `Bearer ${token}` },
-      });
+      }, { ttlMs: 8000 });
       if (res.ok) {
         const data = await res.json();
         if (data.success) {
@@ -394,6 +395,7 @@ const AdminHelpSupport = () => {
 
       const data = await res.json();
       if (res.ok && data.success) {
+        invalidateCachePattern("/api/support");
         toast.success(`✅ Response sent to student (${activeTicket.userEmail}) and email delivered.`);
         setResponseMessage("");
         setAdminReplyAttachments([]);
@@ -434,6 +436,7 @@ const AdminHelpSupport = () => {
 
       const data = await res.json();
       if (res.ok && data.success) {
+        invalidateCachePattern("/api/support");
         toast.success(`Status updated to ${statusToSet}. Notification sent.`);
         setNewStatus(statusToSet);
         setActiveTicket(data.ticket);

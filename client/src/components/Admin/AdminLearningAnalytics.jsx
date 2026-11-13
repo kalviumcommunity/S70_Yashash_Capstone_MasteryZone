@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { deduplicatedFetch } from "../../utils/apiClient";
 import {
   LuTrendingUp,
   LuBookOpen,
@@ -21,9 +22,9 @@ const AdminLearningAnalytics = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem("token");
-      const res = await fetch(`${API_BASE}/api/admin/learning-analytics?range=${selectedRange}`, {
+      const res = await deduplicatedFetch(`${API_BASE}/api/admin/learning-analytics?range=${selectedRange}`, {
         headers: { Authorization: `Bearer ${token}` },
-      });
+      }, { ttlMs: 15000 });
       if (res.ok) {
         const json = await res.json();
         if (json.success) setData(json.data);
