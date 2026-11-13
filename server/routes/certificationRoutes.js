@@ -13,6 +13,7 @@ const authenticateToken = require("../middleware/authMiddleware");
 const { optionalAuthenticateToken } = require("../middleware/authMiddleware");
 const { pushNotification } = require("../utils/notificationService");
 const { pushAdminNotification } = require("../utils/adminNotificationService");
+const { logActivityAndBroadcast } = require("../utils/activityLogger");
 const { sendCertificateAwardedEmail, sendSubmissionEvaluationEmail, dispatchMailBackground, isGuestAccount } = require("../utils/mailer");
 const { DSA_MCQ_BANK } = require("../data/dsaQuestionsBank");
 const CHALLENGES_CATALOG = require("../data/challengesCatalog");
@@ -1040,6 +1041,18 @@ router.post("/attempt/:attemptId/proctoring-event", authenticateToken, async (re
         actionUrl: "/admin/assessments",
         io: req.app.get("io"),
       }).catch(() => {});
+      logActivityAndBroadcast({
+        userId: attempt.userId,
+        userEmail: attempt.candidateEmail,
+        userName: attempt.candidateName,
+        type: "PROCTORING_VIOLATION",
+        title: "Proctoring Integrity Flagged — 5 Violations",
+        detail: `${attempt.candidateName || "Candidate"} exhausted all 5 recovery chances during ${attempt.certTitle || "Certification Exam"}. Assessment auto-locked.`,
+        category: "proctoring",
+        severity: "high",
+        metadata: { attemptId: String(attempt._id), violationsCount: attempt.proctoring.violationsCount },
+        io: req.app.get("io"),
+      }).catch(() => {});
     }
 
     await attempt.save();
@@ -1407,6 +1420,18 @@ router.post("/attempt/:attemptId/finalize", authenticateToken, async (req, res) 
       severity: passed ? "success" : "warning",
       targetId: String(attempt._id),
       actionUrl: "/admin/assessments",
+      io: req.app.get("io"),
+    }).catch(() => {});
+    logActivityAndBroadcast({
+      userId: attempt.userId,
+      userEmail: attempt.candidateEmail,
+      userName: attempt.candidateName,
+      type: passed ? "CERTIFICATION_ISSUED" : "ASSESSMENT_COMPLETED",
+      title: passed ? "Certification Exam Passed" : "Certification Exam Completed",
+      detail: `${attempt.candidateName || "Candidate"} completed ${attempt.certTitle} — Verdict: ${finalVerdict} (MCQ: ${mcqScore}/20, Coding: ${passedCodingTests}/20 tests).`,
+      category: "assessment",
+      severity: passed ? "low" : "medium",
+      metadata: { attemptId: String(attempt._id), passed, finalVerdict },
       io: req.app.get("io"),
     }).catch(() => {});
 

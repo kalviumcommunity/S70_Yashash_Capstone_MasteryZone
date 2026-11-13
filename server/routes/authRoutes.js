@@ -18,6 +18,7 @@ const {
 } = require('../utils/mailer');
 const { pushNotification } = require('../utils/notificationService');
 const { pushAdminNotification } = require('../utils/adminNotificationService');
+const { logActivityAndBroadcast } = require("../utils/activityLogger");
 const { getJwtSecret } = require('../config/jwtConfig');
 const { attachAuthCookies, clearAuthCookies, generateCsrfToken, getCsrfCookieOptions } = require('../utils/authCookies');
 const router = express.Router();
@@ -156,6 +157,18 @@ router.post(['/signup', '/register'], async (req, res) => {
       actionUrl: "/admin/users",
       io: req.app.get("io"),
     }).catch(() => {});
+
+    logActivityAndBroadcast({
+      userId: newUser._id,
+      userEmail: newUser.email,
+      userName: newUser.fullName || newUser.username,
+      type: "USER_REGISTER",
+      title: "Account Registered",
+      detail: `New student account created with email ${newUser.email}`,
+      category: "auth",
+      severity: "success",
+      io: req.app.get("io"),
+    }).catch(() => {});
     const safeUser = {
       username: newUser.username,
       email: newUser.email,
@@ -267,6 +280,20 @@ router.post('/login', async (req, res) => {
     const token = issueUserJwt(user, '12h');
     const csrfToken = attachAuthCookies(res, token);
 
+    logActivityAndBroadcast({
+      userId: user._id,
+      userEmail: user.email,
+      userName: user.fullName || user.username,
+      type: "USER_LOGIN",
+      title: "User Signed In",
+      detail: `${user.fullName || user.username} (${user.email}) signed in successfully`,
+      category: "auth",
+      severity: "info",
+      device: deviceSummary || "Desktop / Chrome",
+      ipAddress: clientIp || "",
+      io: req.app.get("io"),
+    }).catch(() => {});
+
     res.status(200).json({
       message: 'Login successful',
       token,
@@ -308,6 +335,20 @@ router.post('/guest-login', async (req, res) => {
 
     const token = issueUserJwt(user, '12h');
     const csrfToken = attachAuthCookies(res, token);
+
+    logActivityAndBroadcast({
+      userId: user._id,
+      userEmail: user.email,
+      userName: user.fullName || user.username,
+      type: "USER_LOGIN",
+      title: "User Signed In",
+      detail: `${user.fullName || user.username} (${user.email}) signed in successfully`,
+      category: "auth",
+      severity: "info",
+      device: deviceSummary || "Desktop / Chrome",
+      ipAddress: clientIp || "",
+      io: req.app.get("io"),
+    }).catch(() => {});
 
     res.status(200).json({
       message: 'Guest login successful',

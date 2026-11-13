@@ -22,6 +22,7 @@ const User = require("../models/User");
 const ProctoredCodingSession = require("../models/ProctoredCodingSession");
 const { pushNotification } = require("../utils/notificationService");
 const { pushAdminNotification } = require("../utils/adminNotificationService");
+const { logActivityAndBroadcast } = require("../utils/activityLogger");
 const { sendSubmissionEvaluationEmail, sendModuleCompletionEmail, dispatchMailBackground, isGuestAccount } = require("../utils/mailer");
 const SubjectProgress = require("../models/SubjectProgress");
 const crypto = require("crypto");
@@ -975,6 +976,27 @@ router.post("/challenges/:id/submit", optionalAuthenticateToken, async (req, res
         severity: isAccepted ? "success" : "info",
         targetId: String(submission._id),
         actionUrl: "/admin/coding-analytics",
+        io: req.app.get("io"),
+      }).catch(() => {});
+
+      logActivityAndBroadcast({
+        userId,
+        userEmail: req.user?.email || "",
+        userName: req.user?.fullName || req.user?.username || req.user?.name || "Student",
+        type: isAccepted ? "CODING_CHALLENGE_SOLVED" : "CODING_SUBMISSION",
+        title: isAccepted ? "Coding Challenge Solved!" : "Code Executed",
+        detail: `Executed ${challenge.title} (${language.toUpperCase()}) — ${isAccepted ? "ACCEPTED" : "WRONG ANSWER"} (${passedCount}/${allTests.length} tests passed)`,
+        category: "coding",
+        severity: isAccepted ? "success" : "info",
+        metadata: {
+          submissionId: String(submission._id),
+          challengeId: challenge.id,
+          language,
+          status: isAccepted ? "ACCEPTED" : "WRONG_ANSWER",
+          passedTests: passedCount,
+          totalTests: allTests.length,
+          score,
+        },
         io: req.app.get("io"),
       }).catch(() => {});
 
@@ -3983,6 +4005,24 @@ router.post("/proctored-session/start", optionalAuthenticateToken, async (req, r
       return res.status(400).json({ error: "Invalid session configuration" });
     }
 
+    logActivityAndBroadcast({
+      userId: mongoose.Types.ObjectId.isValid(userId) ? userId : null,
+      userEmail: session.candidateDetails?.email || req.user?.email || "",
+      userName: session.candidateDetails?.fullName || req.user?.name || "Candidate",
+      type: "PROCTORING_STARTED",
+      title: "Proctored Exam Started",
+      detail: `${session.candidateDetails?.fullName || "Candidate"} started proctored examination: "${session.assessmentTitle}"`,
+      category: "proctoring",
+      severity: "info",
+      metadata: {
+        sessionId: session.sessionId,
+        trackId: session.trackId,
+        assessmentTitle: session.assessmentTitle,
+        timeLimitSeconds: session.timeLimitSeconds,
+      },
+      io: req.app.get("io"),
+    }).catch(() => {});
+
     res.json({
       success: true,
       sessionId: session.sessionId,
@@ -4220,6 +4260,28 @@ router.post(["/proctored-session/:sessionId/heartbeat", "/proctored-session/hear
     session.markModified("violationsLog");
     await session.save();
 
+    logActivityAndBroadcast({
+      userId: mongoose.Types.ObjectId.isValid(session.userId) ? session.userId : null,
+      userEmail: session.candidateDetails?.email || "",
+      userName: session.candidateDetails?.fullName || "Candidate",
+      type: isTerminated ? "PROCTORING_TERMINATED" : "PROCTORING_VIOLATION",
+      title: isTerminated ? "Proctored Exam Terminated" : `Proctoring Security Alert (Chance ${chanceNumber}/5)`,
+      detail: isTerminated
+        ? `${session.candidateDetails?.fullName || "Candidate"} terminated from "${session.assessmentTitle}" — all recovery chances exhausted.`
+        : `${session.candidateDetails?.fullName || "Candidate"} triggered ${resolvedType}: ${resolvedDetail}`,
+      category: "proctoring",
+      severity: isTerminated ? "danger" : "warning",
+      metadata: {
+        sessionId: session.sessionId,
+        assessmentTitle: session.assessmentTitle,
+        violationType: resolvedType,
+        chanceNumber,
+        isTerminated,
+        status: session.status,
+      },
+      io: req.app.get("io"),
+    }).catch(() => {});
+
     res.json({
       success: true,
       status: session.status,
@@ -4367,6 +4429,28 @@ router.post(["/proctored-session/:sessionId/interruption", "/proctored-session/i
     session.markModified("submissionResult");
     session.markModified("violationsLog");
     await session.save();
+
+    logActivityAndBroadcast({
+      userId: mongoose.Types.ObjectId.isValid(session.userId) ? session.userId : null,
+      userEmail: session.candidateDetails?.email || "",
+      userName: session.candidateDetails?.fullName || "Candidate",
+      type: isTerminated ? "PROCTORING_TERMINATED" : "PROCTORING_VIOLATION",
+      title: isTerminated ? "Proctored Exam Terminated" : `Proctoring Security Alert (Chance ${chanceNumber}/5)`,
+      detail: isTerminated
+        ? `${session.candidateDetails?.fullName || "Candidate"} terminated from "${session.assessmentTitle}" — all recovery chances exhausted.`
+        : `${session.candidateDetails?.fullName || "Candidate"} triggered ${resolvedType}: ${resolvedDetail}`,
+      category: "proctoring",
+      severity: isTerminated ? "danger" : "warning",
+      metadata: {
+        sessionId: session.sessionId,
+        assessmentTitle: session.assessmentTitle,
+        violationType: resolvedType,
+        chanceNumber,
+        isTerminated,
+        status: session.status,
+      },
+      io: req.app.get("io"),
+    }).catch(() => {});
 
     res.json({
       success: true,
@@ -4929,6 +5013,26 @@ router.post(["/proctored-session/:sessionId/submit", "/proctored-session/submit"
       severity: isAccepted ? "success" : "info",
       targetId: String(session._id),
       actionUrl: `/assessment-report/${session.sessionId}`,
+      io: req.app.get("io"),
+    }).catch(() => {});
+
+    logActivityAndBroadcast({
+      userId: mongoose.Types.ObjectId.isValid(session.userId) ? session.userId : null,
+      userEmail: session.candidateDetails?.email || "",
+      userName: session.candidateDetails?.fullName || "Candidate",
+      type: isAccepted ? "ASSESSMENT_COMPLETED" : "PROCTORING_COMPLETED",
+      title: isAccepted ? "Proctored Assessment Passed!" : "Proctored Assessment Completed",
+      detail: `${session.candidateDetails?.fullName || "Candidate"} completed ${session.assessmentTitle || "Assessment"} — Score: ${overallPercentage}% (${totalPassedTests}/${totalTestCases} Tests Passed)`,
+      category: "proctoring",
+      severity: isAccepted ? "success" : "info",
+      metadata: {
+        sessionId: session.sessionId,
+        assessmentTitle: session.assessmentTitle,
+        score: overallPercentage,
+        passed: isAccepted,
+        violationsCount: session.violationsCount || 0,
+        grade,
+      },
       io: req.app.get("io"),
     }).catch(() => {});
 
