@@ -4,6 +4,7 @@ import "./Admin.css";
 import AdminNotificationDropdown from "./AdminNotificationDropdown.jsx";
 import ThemeToggle from "../ThemeToggle.jsx";
 import { performGlobalLogout } from "../../utils/sessionAuth.js";
+import logoIcon from "../../assets/logo_icon_transparent.png";
 import {
   LuLayoutGrid,
   LuUsers,
@@ -22,7 +23,6 @@ import {
   LuExternalLink,
   LuMenu,
   LuX,
-  LuGraduationCap,
   LuLifeBuoy,
 } from "react-icons/lu";
 
@@ -49,6 +49,7 @@ const AdminLayout = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const searchContainerRef = useRef(null);
+  const profileDropdownRef = useRef(null);
   const [adminUser, setAdminUser] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem("user") || "{}");
@@ -88,10 +89,17 @@ const AdminLayout = () => {
           searchInput.focus();
         }
       }
+      if (e.key === "Escape") {
+        setShowSearchDropdown(false);
+        setProfileDropdownOpen(false);
+      }
     };
     const handleClickOutside = (e) => {
       if (searchContainerRef.current && !searchContainerRef.current.contains(e.target)) {
         setShowSearchDropdown(false);
+      }
+      if (profileDropdownRef.current && !profileDropdownRef.current.contains(e.target)) {
+        setProfileDropdownOpen(false);
       }
     };
     window.addEventListener("keydown", handleKeyDown);

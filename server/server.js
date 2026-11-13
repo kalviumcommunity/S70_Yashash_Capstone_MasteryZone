@@ -302,47 +302,47 @@ io.on("connection", (socket) => {
     const oldUid = socket.data.userId;
     if (oldUid) {
       socket.leave(`user_${oldUid}`);
-      if (socket.data.meetingId) {
-        handleUserLeavingMeeting(socket);
-      }
-      for (const roomName of socket.rooms) {
-        if (
-          roomName.startsWith("ticket_") ||
-          roomName.startsWith("meeting_") ||
-          roomName.startsWith("coding_room_") ||
-          roomName === "super_admin_room"
-        ) {
-          socket.leave(roomName);
-        }
-      }
-      if (socket.data.codingRoomId && codingRooms.has(socket.data.codingRoomId)) {
-        const cRoom = codingRooms.get(socket.data.codingRoomId);
-        cRoom.participants.delete(socket.id);
-        const rKey = `coding_room_${socket.data.codingRoomId}`;
-        io.to(rKey).emit("coding_room_participants", Array.from(cRoom.participants.values()));
-        if (cRoom.participants.size === 0) {
-          codingRooms.delete(socket.data.codingRoomId);
-        }
-        delete socket.data.codingRoomId;
-      }
-      if (activeUserSessions.has(socket.id)) {
-        const sess = activeUserSessions.get(socket.id);
-        activeUserSessions.delete(socket.id);
-        io.to("super_admin_room").emit("live_session_ended", { socketId: socket.id, userId: sess?.userId });
-      }
-      delete socket.data.userId;
-      delete socket.data.userRole;
-      delete socket.data.role;
-      delete socket.data.isMainAdmin;
-      delete socket.data.userEmail;
-      delete socket.data.userFullName;
-      delete socket.data.username;
-      delete socket.data.meetingId;
-      delete socket.data.meetingUser;
-      onlineUsers.delete(socket.id);
-      broadcastOnlineUsers();
-      console.log(`🔌 Socket ${socket.id} logged out and purged private rooms for user_${oldUid}`);
     }
+    if (socket.data.meetingId) {
+      handleUserLeavingMeeting(socket);
+    }
+    for (const roomName of socket.rooms) {
+      if (
+        roomName.startsWith("ticket_") ||
+        roomName.startsWith("meeting_") ||
+        roomName.startsWith("coding_room_") ||
+        roomName === "super_admin_room"
+      ) {
+        socket.leave(roomName);
+      }
+    }
+    if (socket.data.codingRoomId && codingRooms.has(socket.data.codingRoomId)) {
+      const cRoom = codingRooms.get(socket.data.codingRoomId);
+      cRoom.participants.delete(socket.id);
+      const rKey = `coding_room_${socket.data.codingRoomId}`;
+      io.to(rKey).emit("coding_room_participants", Array.from(cRoom.participants.values()));
+      if (cRoom.participants.size === 0) {
+        codingRooms.delete(socket.data.codingRoomId);
+      }
+      delete socket.data.codingRoomId;
+    }
+    if (activeUserSessions.has(socket.id)) {
+      const sess = activeUserSessions.get(socket.id);
+      activeUserSessions.delete(socket.id);
+      io.to("super_admin_room").emit("live_session_ended", { socketId: socket.id, userId: sess?.userId });
+    }
+    delete socket.data.userId;
+    delete socket.data.userRole;
+    delete socket.data.role;
+    delete socket.data.isMainAdmin;
+    delete socket.data.userEmail;
+    delete socket.data.userFullName;
+    delete socket.data.username;
+    delete socket.data.meetingId;
+    delete socket.data.meetingUser;
+    onlineUsers.delete(socket.id);
+    broadcastOnlineUsers();
+    console.log(`🔌 Socket ${socket.id} logged out and purged private rooms${oldUid ? ` for user_${oldUid}` : ""}`);
   });
 
   // Authenticated user room registration for real-time notifications & progress updates
@@ -913,6 +913,12 @@ io.on("connection", (socket) => {
     }
 
     socket.data.codingRoomId = roomId;
+    if (authUser && authUser.userId) {
+      socket.data.userId = authUser.userId;
+      socket.data.userRole = authUser.role;
+      socket.data.userEmail = authUser.email;
+      socket.data.userFullName = authUser.fullName;
+    }
     const roomKey = `coding_room_${roomId}`;
     socket.join(roomKey);
 
@@ -1930,6 +1936,46 @@ app.get(["/health/db", "/api/health/db", "/api/admin/db-pool-status"], (_req, re
   });
 });
 
+// In-memory cache for SPA index.html to avoid disk I/O and threadpool saturation on every request
+const indexPath = path.join(__dirname, '../client/dist/index.html');
+let cachedIndexHtml = null;
+let cachedIndexEtag = null;
+let cachedIndexMtime = null;
+
+function getCachedIndexHtml() {
+  try {
+    if (fs.existsSync(indexPath)) {
+      const stat = fs.statSync(indexPath);
+      if (!cachedIndexHtml || cachedIndexMtime !== stat.mtimeMs) {
+        cachedIndexHtml = fs.readFileSync(indexPath, 'utf8');
+        cachedIndexMtime = stat.mtimeMs;
+        const hash = crypto.createHash('md5').update(cachedIndexHtml).digest('hex').slice(0, 16);
+        cachedIndexEtag = `W/"index-${hash}"`;
+      }
+    }
+  } catch {}
+  return { html: cachedIndexHtml, etag: cachedIndexEtag };
+}
+
+function serveSpaIndex(req, res) {
+  const { html, etag } = getCachedIndexHtml();
+  if (html) {
+    res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    if (etag) {
+      res.setHeader('ETag', etag);
+      if (req.headers['if-none-match'] === etag) {
+        return res.status(304).end();
+      }
+    }
+    return res.type('html').send(html);
+  }
+  return res.status(200).send('Mastery Zone Academy of Computer Science');
+}
+
+// Serve root SPA entrypoint immediately from memory before body parsers and API routers (0 DB queries, <0.5ms)
+app.get(['/', '/index.html'], serveSpaIndex);
+
 // Standard JSON and URL-encoded body limit (video recording uploads use streaming multipart/binary directly)
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
@@ -2229,43 +2275,8 @@ app.use('/assets', (req, res) => {
   res.status(404).type('text/plain').send('Asset chunk not found');
 });
 
-// In-memory cache for SPA index.html to avoid disk I/O and threadpool saturation on every request
-const indexPath = path.join(__dirname, '../client/dist/index.html');
-let cachedIndexHtml = null;
-let cachedIndexEtag = null;
-let cachedIndexMtime = null;
-
-function getCachedIndexHtml() {
-  try {
-    if (fs.existsSync(indexPath)) {
-      const stat = fs.statSync(indexPath);
-      if (!cachedIndexHtml || cachedIndexMtime !== stat.mtimeMs) {
-        cachedIndexHtml = fs.readFileSync(indexPath, 'utf8');
-        cachedIndexMtime = stat.mtimeMs;
-        const hash = crypto.createHash('md5').update(cachedIndexHtml).digest('hex').slice(0, 16);
-        cachedIndexEtag = `W/"index-${hash}"`;
-      }
-    }
-  } catch {}
-  return { html: cachedIndexHtml, etag: cachedIndexEtag };
-}
-
 // Catch-all route to serve the React app for non-API requests (SPA routing)
-app.get(/.*/, (req, res) => {
-  const { html, etag } = getCachedIndexHtml();
-  if (html) {
-    res.setHeader('Cache-Control', 'no-cache, must-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    if (etag) {
-      res.setHeader('ETag', etag);
-      if (req.headers['if-none-match'] === etag) {
-        return res.status(304).end();
-      }
-    }
-    return res.type('html').send(html);
-  }
-  res.sendFile(indexPath);
-});
+app.get(/.*/, serveSpaIndex);
 
 // Start Server
 if (process.env.NODE_ENV !== "test") {

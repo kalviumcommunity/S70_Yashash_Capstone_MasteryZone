@@ -270,7 +270,7 @@ const AdminRecordings = () => {
   return (
     <div className="mz-admin-view-container" style={{ paddingBottom: 60 }}>
       {/* Header */}
-      <div className="mz-admin-header">
+      <div className="mz-admin-page-header">
         <div className="mz-admin-page-title-box">
           <div className="mz-admin-page-icon">
             <LuVideo style={{ width: 22, height: 22 }} />

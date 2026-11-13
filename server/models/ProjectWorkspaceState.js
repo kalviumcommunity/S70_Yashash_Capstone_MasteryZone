@@ -93,5 +93,6 @@ const ProjectWorkspaceStateSchema = new mongoose.Schema(
 );
 
 ProjectWorkspaceStateSchema.index({ userId: 1, projectId: 1 }, { unique: true });
+ProjectWorkspaceStateSchema.index({ userId: 1, updatedAt: -1 });
 
 module.exports = mongoose.model("ProjectWorkspaceState", ProjectWorkspaceStateSchema);

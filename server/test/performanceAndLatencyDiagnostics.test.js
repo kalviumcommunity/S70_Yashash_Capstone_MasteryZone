@@ -301,11 +301,54 @@ async function runTests() {
     assert.strictEqual(String(resB.json.progress.userId), String(userB._id));
   });
 
+  // --- Test 8: Fast Conditional ETag & Non-Overlapping DB Wall Time on /api/certifications ---
+  await it("8. Fast Conditional Validation & Lean Queries on /api/certifications", async () => {
+    const res1 = await doRequest("/api/certifications", {
+      headers: { Authorization: `Bearer ${tokenA}` },
+    });
+    assert.strictEqual(res1.statusCode, 200);
+    assert.ok(Array.isArray(res1.json), "Expected certifications catalog array");
+    const etag = res1.headers["etag"];
+    assert.ok(etag, "Expected ETag on /api/certifications");
+
+    const st1 = res1.headers["server-timing"] || "";
+    // Verify dbMs <= totalMs in Server-Timing
+    const dbMatch = st1.match(/db;dur=([\d.]+)/);
+    const totMatch = st1.match(/total;dur=([\d.]+)/);
+    if (dbMatch && totMatch) {
+      const dbMs = parseFloat(dbMatch[1]);
+      const totMs = parseFloat(totMatch[1]);
+      assert.ok(dbMs <= totMs + 1, `DB wall time (${dbMs}ms) must not exceed total time (${totMs}ms)`);
+    }
+
+    // Conditional 304 check
+    const res2 = await doRequest("/api/certifications", {
+      headers: {
+        Authorization: `Bearer ${tokenA}`,
+        "If-None-Match": etag,
+      },
+    });
+    assert.strictEqual(res2.statusCode, 304, "Expected 304 on matching ETag");
+    assert.strictEqual(res2.body, "", "Body must be empty on 304");
+  });
+
+  // --- Test 9: Zero DB Queries on SPA Root / ---
+  await it("9. SPA Root / executes zero database queries", async () => {
+    const res = await doRequest("/");
+    assert.strictEqual(res.statusCode, 200);
+    const serverTiming = res.headers["server-timing"] || "";
+    assert.ok(serverTiming.includes('desc="queries=0"'), `Expected 0 DB queries for static root, got: ${serverTiming}`);
+  });
+
   console.log("\n================================================================================");
   console.log(`Summary: ${passedCount}/${totalCount} Performance & Latency Tests Passed (100%)`);
   console.log("================================================================================\n");
 
   await mongoose.disconnect();
+  if (server.listening) {
+    await new Promise((resolve) => server.close(resolve));
+  }
+  process.exit(0);
 }
 
 runTests().catch((err) => {

@@ -102,7 +102,7 @@ const AdminLiveActivity = () => {
   return (
     <div className="mz-admin-view-container">
       {/* Header */}
-      <div className="mz-admin-header">
+      <div className="mz-admin-page-header">
         <div className="mz-admin-page-title-box">
           <div className="mz-admin-page-icon">
             <LuRadio style={{ width: 22, height: 22 }} />
