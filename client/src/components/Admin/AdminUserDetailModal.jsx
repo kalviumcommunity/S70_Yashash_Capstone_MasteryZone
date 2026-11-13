@@ -292,8 +292,11 @@ const AdminUserDetailModal = ({
                 <span className={user.isSuspended ? "mz-admin-badge-suspended" : "mz-admin-badge-active"}>
                   {user.isSuspended ? "Suspended" : "Active"}
                 </span>
-                <span className="mz-admin-badge-gray" style={{ textTransform: "uppercase", fontSize: 10 }}>
-                  {user.role === "SUPER_ADMIN" ? "Super Admin" : "Student"}
+                <span
+                  className={user.role === "SUPER_ADMIN" ? "mz-admin-badge-gray" : "mz-admin-badge-blue"}
+                  style={{ textTransform: "capitalize", fontSize: 11, fontWeight: 700 }}
+                >
+                  {user.role === "SUPER_ADMIN" ? "Super Admin" : user.role || "Student"}
                 </span>
                 <span className="mz-admin-badge-blue" style={{ fontSize: 10 }}>
                   {user.authProvider === "google" ? "Google Account" : "Email & Password"}
@@ -317,31 +320,6 @@ const AdminUserDetailModal = ({
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             {user.role !== "SUPER_ADMIN" && (
               <>
-                {/* Role Switcher */}
-                <select
-                  value={user.role || "student"}
-                  onChange={(e) => onRoleChange && onRoleChange(user._id, e.target.value)}
-                  className="mz-admin-btn-action"
-                  style={{
-                    padding: "6px 10px",
-                    borderRadius: 8,
-                    fontSize: 12,
-                    fontWeight: 700,
-                    background: "var(--mz-surface-muted)",
-                    color: "var(--mz-text-primary)",
-                    border: "1px solid var(--mz-border)",
-                    cursor: "pointer",
-                    outline: "none",
-                  }}
-                  title="Change User Role"
-                >
-                  <option value="student">Student</option>
-                  <option value="mentor">Mentor</option>
-                  <option value="instructor">Instructor</option>
-                  <option value="admin">Admin</option>
-                  <option value="user">User</option>
-                </select>
-
                 <button
                   onClick={() => {
                     const temp = window.prompt(

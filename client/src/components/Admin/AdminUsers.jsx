@@ -398,34 +398,14 @@ const AdminUsers = () => {
                       </div>
                     </td>
 
-                    {/* Role Selector / Badge */}
+                    {/* Role Badge */}
                     <td>
-                      {u.role === "SUPER_ADMIN" ? (
-                        <span className="mz-admin-badge-gray" style={{ textTransform: "uppercase", fontSize: 10 }}>Super Admin</span>
-                      ) : (
-                        <select
-                          value={u.role || "student"}
-                          onChange={(e) => handleRoleChange(u._id, e.target.value)}
-                          style={{
-                            padding: "4px 8px",
-                            borderRadius: 6,
-                            fontSize: 11,
-                            fontWeight: 600,
-                            background: "var(--mz-surface-muted)",
-                            color: "var(--mz-text-primary)",
-                            border: "1px solid var(--mz-border)",
-                            cursor: "pointer",
-                            outline: "none",
-                          }}
-                          title="Change user role"
-                        >
-                          <option value="student">Student</option>
-                          <option value="mentor">Mentor</option>
-                          <option value="instructor">Instructor</option>
-                          <option value="admin">Admin</option>
-                          <option value="user">User</option>
-                        </select>
-                      )}
+                      <span
+                        className={u.role === "SUPER_ADMIN" ? "mz-admin-badge-gray" : "mz-admin-badge-blue"}
+                        style={{ textTransform: "capitalize", fontSize: 11, fontWeight: 600 }}
+                      >
+                        {u.role === "SUPER_ADMIN" ? "Super Admin" : u.role || "Student"}
+                      </span>
                     </td>
 
                     {/* Status Badge */}
