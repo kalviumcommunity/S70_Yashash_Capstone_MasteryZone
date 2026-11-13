@@ -1178,10 +1178,22 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
     };
   }
 
+  const clientBaseUrl = getClientBaseUrl();
+  const unsubscribeUrl = `${clientBaseUrl}/settings`;
+
   const finalOptions = {
     ...mailOptions,
     from: finalFrom,
     text: plainText,
+    headers: {
+      'Precedence': 'bulk',
+      'Auto-Submitted': 'auto-generated',
+      'X-Auto-Response-Suppress': 'OOF, AutoReply',
+      'List-Unsubscribe': `<${unsubscribeUrl}>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+      'Feedback-ID': `masteryzone:${emailType}:production`,
+      ...(mailOptions.headers || {}),
+    },
   };
 
   // Automatically attach Mastery Zone logo DP as an inline CID attachment if referenced in HTML
