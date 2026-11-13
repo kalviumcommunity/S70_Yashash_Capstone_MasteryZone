@@ -1154,7 +1154,7 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
     };
   }
 
-  const plainText = mailOptions.text || (mailOptions.html ? mailOptions.html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : '');
+  const plainText = mailOptions.text || (mailOptions.html ? mailOptions.html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '').replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : '');
 
   const finalFrom = mailOptions.from || getSenderAddress() || config.from;
   if (!finalFrom && !isTrustedLocal) {
