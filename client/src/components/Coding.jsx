@@ -48,7 +48,7 @@ import FeaturedLearningCarousel from "./FeaturedLearningCarousel";
 import FeaturedVideosSlider, { DEFAULT_FEATURED_VIDEOS } from "./FeaturedVideosSlider";
 import ChallengeWorkspaceModal from "./ChallengeWorkspaceModal";
 import { ProjectWorkspaceModal } from "./ProjectWorkspaceModal";
-import { deduplicatedFetch } from "../utils/apiClient";
+import { deduplicatedFetch, invalidateCachePattern } from "../utils/apiClient";
 import CertificationExamWorkspace from "./CertificationExamWorkspace";
 import FullScreenConceptLearning from "./FullScreenConceptLearning";
 import { performGlobalLogout } from "../utils/sessionAuth.js";
@@ -965,6 +965,10 @@ export default function Coding() {
   // Real-time synchronization for curriculum progress across tabs & windows
   useEffect(() => {
     const handleSync = () => {
+      trackCurriculumCache.clear();
+      moduleDetailCache.clear();
+      invalidateCachePattern("/api/curriculum");
+      invalidateCachePattern("/api/coding");
       if (activeTrackId) {
         fetchCurriculum(activeTrackId, true);
       }
@@ -977,6 +981,7 @@ export default function Coding() {
         e.key === "mz_module_progress_updated" ||
         e.key === "mz_exam_completed" ||
         e.key === "mz_assignment_passed" ||
+        e.key === "mz_learning_progress_reset" ||
         e.key === "user"
       ) {
         handleSync();
@@ -1006,6 +1011,7 @@ export default function Coding() {
     window.addEventListener("mz_module_studied", handleCustomEvent);
     window.addEventListener("mz_assignment_passed", handleCustomEvent);
     window.addEventListener("mz_exam_completed", handleCustomEvent);
+    window.addEventListener("mz_learning_progress_reset", handleCustomEvent);
 
     return () => {
       window.removeEventListener("storage", handleStorage);
@@ -1014,6 +1020,7 @@ export default function Coding() {
       window.removeEventListener("mz_module_studied", handleCustomEvent);
       window.removeEventListener("mz_assignment_passed", handleCustomEvent);
       window.removeEventListener("mz_exam_completed", handleCustomEvent);
+      window.removeEventListener("mz_learning_progress_reset", handleCustomEvent);
       if (bc) {
         try {
           bc.close();
@@ -1623,8 +1630,10 @@ export default function Coding() {
             studyTimeSeconds: Math.max(30, studyTimeElapsed),
           }),
         });
-        fetchCurriculum(activeTrackId);
-        fetchDashboardData();
+        trackCurriculumCache.delete(activeTrackId);
+        invalidateCachePattern("/api/curriculum");
+        await fetchCurriculum(activeTrackId, true);
+        await fetchDashboardData();
       } catch (err) {
         console.warn("Failed to record study duration:", err);
       }
@@ -1633,7 +1642,9 @@ export default function Coding() {
 
   // ── Step 2 Complete: Practical Coding Test Passed ──
   const handleAssignmentPassed = () => {
-    fetchCurriculum(activeTrackId);
+    trackCurriculumCache.delete(activeTrackId);
+    invalidateCachePattern("/api/curriculum");
+    fetchCurriculum(activeTrackId, true);
     fetchDashboardData();
     toast.success("Practical Coding Test Passed! Step 3: Proctored 10-MCQ Exam is unlocked.", {
       toastId: "practical_test_result",
@@ -1647,7 +1658,9 @@ export default function Coding() {
 
   // ── Step 3 Complete: 10-MCQ Exam Passed ──
   const handleAssessmentCompleted = () => {
-    fetchCurriculum(activeTrackId);
+    trackCurriculumCache.delete(activeTrackId);
+    invalidateCachePattern("/api/curriculum");
+    fetchCurriculum(activeTrackId, true);
     fetchDashboardData();
   };
 
@@ -1674,10 +1687,77 @@ export default function Coding() {
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        toast.success(data.message || "Learning progress reset successfully!");
+        // Invalidate all client-side and network caches for curriculum and coding
+        trackCurriculumCache.delete(activeTrackId);
+        trackCurriculumCache.clear();
+        moduleDetailCache.clear();
+        invalidateCachePattern("/api/curriculum");
+        invalidateCachePattern("/api/coding");
+        invalidateCachePattern("/api/progress");
+
+        // Immediately update React state optimistically so UI switches "Resume Learning" -> "Start Learning" instantly
+        setCurriculumData((prev) => {
+          if (!prev || !Array.isArray(prev.modules)) return prev;
+          return {
+            ...prev,
+            unlockLevel: 0,
+            modules: prev.modules.map((m, idx) => ({
+              ...m,
+              isStudied: false,
+              assignmentPassed: false,
+              exercisePassed: false,
+              assessmentPassed: false,
+              isCompleted: false,
+              isComplete: false,
+              isUnlocked: idx === 0,
+              score: 0,
+              bestScore: 0,
+              attemptsCount: 0,
+              status: idx === 0 ? "available" : "locked",
+            })),
+          };
+        });
+
+        setTracks((prev) =>
+          prev.map((t) =>
+            t.id === activeTrackId
+              ? {
+                  ...t,
+                  completedLessons: 0,
+                  unlockedLevel: 0,
+                  status: "Start",
+                  modules: (t.modules || []).map((mod, idx) => ({
+                    ...mod,
+                    status: idx === 0 ? "available" : "locked",
+                  })),
+                }
+              : t
+          )
+        );
+
         setIsResetModalOpen(false);
-        fetchCurriculum(activeTrackId);
-        fetchDashboardData();
+        toast.success(data.message || "Learning progress reset successfully!");
+
+        // Refresh live data from server with forceRefresh = true
+        await Promise.all([
+          fetchCurriculum(activeTrackId, true),
+          fetchDashboardData(),
+        ]);
+
+        // Broadcast reset event across tabs, windows, and components
+        window.dispatchEvent(
+          new CustomEvent("mz_learning_progress_reset", {
+            detail: { trackId: activeTrackId, subjectKey: "coding" },
+          })
+        );
+        try {
+          localStorage.setItem("mz_learning_progress_reset", Date.now().toString());
+          if (typeof BroadcastChannel !== "undefined") {
+            const bc = new BroadcastChannel("mz_module_sync");
+            bc.postMessage({ type: "reset", trackId: activeTrackId });
+            bc.close();
+          }
+        } catch {}
       } else {
         toast.error(data.error || data.message || "Failed to reset progress");
       }
@@ -4997,7 +5077,9 @@ export default function Coding() {
           trackId={activeTrackId}
           onClose={() => setActiveAssignmentModule(null)}
           onAssignmentPassed={() => {
-            fetchCurriculum(activeTrackId);
+            trackCurriculumCache.delete(activeTrackId);
+            invalidateCachePattern("/api/curriculum");
+            fetchCurriculum(activeTrackId, true);
             fetchDashboardData();
           }}
           onLaunchAssessment={(mod) => {
@@ -5015,7 +5097,9 @@ export default function Coding() {
           trackId={activeTrackId}
           onClose={() => setActiveAssessmentModule(null)}
           onAssessmentCompleted={() => {
-            fetchCurriculum(activeTrackId);
+            trackCurriculumCache.delete(activeTrackId);
+            invalidateCachePattern("/api/curriculum");
+            fetchCurriculum(activeTrackId, true);
             fetchDashboardData();
           }}
         />
