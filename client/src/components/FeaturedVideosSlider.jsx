@@ -345,27 +345,13 @@ export default function FeaturedVideosSlider({
   const scrollLeftRef = useRef(0);
   const hasMovedRef = useRef(false);
 
-  // If videos prop is not provided, fetch from backend API
+  // Synchronize videos from parent prop or fall back to default curated catalog
   useEffect(() => {
     if (videos && videos.length > 0) {
       setRawVideos(videos);
-      return;
+    } else if (DEFAULT_FEATURED_VIDEOS && DEFAULT_FEATURED_VIDEOS.length > 0) {
+      setRawVideos(DEFAULT_FEATURED_VIDEOS);
     }
-
-    const token = localStorage.getItem("token");
-    deduplicatedFetch(`${API_BASE}/api/coding/data`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-      cacheTtlMs: 3500,
-    })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data && data.videoCourses && data.videoCourses.length > 0) {
-          setRawVideos(data.videoCourses);
-        }
-      })
-      .catch(() => {
-        // Fall back gracefully to DEFAULT_FEATURED_VIDEOS
-      });
   }, [videos]);
 
   // Filter categories
