@@ -148,10 +148,35 @@ router.get("/", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId || req.user.id;
     const [userCerts, issuedCerts, passedAttempts] = await Promise.all([
-      Certification.find({ userId }).lean(),
-      IssuedCertificate.find({ userId, status: "VALID" }).lean(),
-      CertificationAttempt.find({ userId, status: "PASSED", finalVerdict: "PASSED" }).lean(),
+      Certification.find({ userId }).select("certId progress currentModule createdAt updatedAt").lean(),
+      IssuedCertificate.find({ userId, status: "VALID" }).select("certificationId updatedAt").lean(),
+      CertificationAttempt.find({ userId, status: "PASSED", finalVerdict: "PASSED" }).select("certId updatedAt").lean(),
     ]);
+
+    // Fast Conditional ETag validation before catalog enrichment and serialization
+    let maxUpdate = 0;
+    for (const c of userCerts) {
+      const t = c.updatedAt ? new Date(c.updatedAt).getTime() : 0;
+      if (t > maxUpdate) maxUpdate = t;
+    }
+    for (const ic of issuedCerts) {
+      const t = ic.updatedAt ? new Date(ic.updatedAt).getTime() : 0;
+      if (t > maxUpdate) maxUpdate = t;
+    }
+    for (const pa of passedAttempts) {
+      const t = pa.updatedAt ? new Date(pa.updatedAt).getTime() : 0;
+      if (t > maxUpdate) maxUpdate = t;
+    }
+
+    const rawVersion = `${userId}_${userCerts.length}_${issuedCerts.length}_${passedAttempts.length}_${maxUpdate}`;
+    const certEtag = `W/"cert_${crypto.createHash("md5").update(rawVersion).digest("hex").slice(0, 16)}"`;
+
+    res.setHeader("ETag", certEtag);
+    res.setHeader("Cache-Control", "private, no-cache, must-revalidate");
+
+    if (req.headers["if-none-match"] === certEtag) {
+      return res.status(304).end();
+    }
 
     const userCertMap = new Map(userCerts.map((c) => [c.certId, c]));
     const issuedCertIds = new Set(issuedCerts.map((ic) => (ic.certificationId || "").toLowerCase()));

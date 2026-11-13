@@ -34,13 +34,29 @@ function resetTransporter() {
 }
 
 function getSmtpConfig() {
-  const host = (process.env.SMTP_HOST || 'smtp.gmail.com').trim();
+  const host = (
+    process.env.SMTP_HOST ||
+    (process.env.BREVO_SMTP_KEY ? 'smtp-relay.brevo.com' : 'smtp.gmail.com')
+  ).trim();
   const rawPort = process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : null;
-  const port = rawPort || (process.env.SMTP_SECURE === 'false' ? 587 : 465);
+  const isBrevoHost = host.includes('brevo.com') || host.includes('sendinblue.com');
+  const port = rawPort || (isBrevoHost ? 587 : (process.env.SMTP_SECURE === 'false' ? 587 : 465));
   const isSecure = port === 465 ? true : (port === 587 ? false : process.env.SMTP_SECURE === 'true');
 
-  const email = (process.env.SMTP_EMAIL || process.env.EMAIL_USER || '').trim();
-  const password = (process.env.SMTP_PASSWORD || process.env.EMAIL_PASS || '').trim().replace(/\s+/g, '');
+  const email = (
+    process.env.SMTP_EMAIL ||
+    process.env.EMAIL_USER ||
+    process.env.BREVO_SMTP_USER ||
+    process.env.BREVO_USER ||
+    ''
+  ).trim();
+  const password = (
+    process.env.SMTP_PASSWORD ||
+    process.env.EMAIL_PASS ||
+    process.env.BREVO_SMTP_KEY ||
+    process.env.BREVO_SMTP_PASSWORD ||
+    ''
+  ).trim().replace(/\s+/g, '');
   const defaultFrom = process.env.SMTP_FROM || `"Mastery Zone" <${email || 'notifications@masteryzone.com'}>`;
 
   const isConfigured = Boolean(
@@ -132,12 +148,28 @@ function getOutboundEmailDedupKey(to, subject, html, options = {}) {
 
 const CRITICAL_NOTIFICATION_TYPES = new Set([
   'password_reset',
+  'password_reset_success',
   'admin_otp',
   'otp',
+  'user_otp',
   'login_notification',
+  'signup_welcome',
   'meeting_invitation',
   'admin_password_changed',
   'new_admin_welcome',
+  'ticket_submitted',
+  'ticket_response',
+  'admin_test_email',
+  'admin_announcement',
+  'account_status_changed',
+  'user_role_updated',
+  'certificate_awarded',
+  'module_completion_update',
+  'module_assessment_evaluation',
+  'coding_assessment_completed',
+  'coding_challenge_submitted',
+  'project_evaluated',
+  'certification_evaluated',
 ]);
 
 function isDuplicateOutboundEmail(to, subject, html, options = {}) {
@@ -194,10 +226,13 @@ function validateRecipientEmail(email) {
 function isTestEnvironment() {
   const env = (process.env.NODE_ENV || "").trim().toLowerCase();
   if (env === "test") return true;
-  if (Boolean(process.env.TEST_MONGODB_URI)) return true;
   if (Boolean(process.env.JEST_WORKER_ID)) return true;
   if (process.env.npm_lifecycle_event === "test") return true;
-  if (Array.isArray(process.argv) && process.argv.some((arg) => typeof arg === "string" && (arg.includes("test") || arg.endsWith(".test.js")))) {
+  if (Array.isArray(process.argv) && process.argv.some((arg) => {
+    if (typeof arg !== "string") return false;
+    const lower = arg.toLowerCase();
+    return lower.endsWith(".test.js") || lower.endsWith(".spec.js") || lower.endsWith("mocha") || lower.endsWith("jest");
+  })) {
     return true;
   }
   return false;
@@ -237,7 +272,10 @@ const NON_DELIVERABLE_PATTERNS = [
   /^testcandidate/i,
   /^admintester/i,
   /^candidate[_-]/i,
-  /^candidate/i,
+  /^candidate_sec/i,
+  /^candidate_test/i,
+  /^candidate_\d{3,}/i,
+  /^candidate-[0-9a-f]{6,}/i,
   /^alice_cert/i,
   /^alice_\d+/i,
   /^bob_\d+/i,
@@ -524,6 +562,36 @@ async function sendViaHttpApi(mailOptions, provider) {
       brevoHtml = brevoHtml.replace(/cid:masteryzone_logo_dp/g, 'https://mastery-zone.onrender.com/logo_icon.png');
     }
 
+    let brevoAttachments;
+    if (Array.isArray(mailOptions.attachments) && mailOptions.attachments.length > 0) {
+      const fs = require('fs');
+      brevoAttachments = mailOptions.attachments.map((att) => {
+        let content = att.content;
+        if (!content && att.path && fs.existsSync(att.path)) {
+          content = fs.readFileSync(att.path).toString('base64');
+        } else if (Buffer.isBuffer(content)) {
+          content = content.toString('base64');
+        }
+        return {
+          name: att.filename || 'attachment',
+          content,
+        };
+      }).filter((att) => att.content);
+    }
+
+    const payload = {
+      sender: {
+        name: fromName,
+        email: fromEmail,
+      },
+      to: cleanTo.map((e) => ({ email: e })),
+      subject: mailOptions.subject,
+      htmlContent: brevoHtml,
+      ...(mailOptions.text ? { textContent: mailOptions.text } : {}),
+      replyTo: { email: fromEmail, name: fromName },
+      ...(brevoAttachments && brevoAttachments.length > 0 ? { attachment: brevoAttachments } : {}),
+    };
+
     const res = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: {
@@ -531,17 +599,7 @@ async function sendViaHttpApi(mailOptions, provider) {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
-      body: JSON.stringify({
-        sender: {
-          name: fromName,
-          email: fromEmail,
-        },
-        to: cleanTo.map((e) => ({ email: e })),
-        subject: mailOptions.subject,
-        htmlContent: brevoHtml,
-        ...(mailOptions.text ? { textContent: mailOptions.text } : {}),
-        replyTo: { email: fromEmail, name: fromName },
-      }),
+      body: JSON.stringify(payload),
     });
 
     const data = await res.json().catch(() => ({}));
@@ -670,6 +728,7 @@ function getTransporter() {
         host: config.host,
         port: config.port,
         secure: config.secure,
+        ...(config.port === 587 || (config.host && config.host.includes("brevo")) ? { requireTLS: true } : {}),
         auth: {
           user: config.email,
           pass: config.password,

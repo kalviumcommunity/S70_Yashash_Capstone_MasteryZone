@@ -191,7 +191,7 @@ const AdminProctoring = () => {
       )}
 
       {/* Header */}
-      <div className="mz-admin-header">
+      <div className="mz-admin-page-header">
         <div className="mz-admin-page-title-box">
           <div className="mz-admin-page-icon">
             <LuShield style={{ width: 22, height: 22 }} />

@@ -467,7 +467,7 @@ const AdminSettings = () => {
   return (
     <div className="mz-admin-view-container">
       {/* Page Header */}
-      <div className="mz-admin-header">
+      <div className="mz-admin-page-header">
         <div className="mz-admin-page-title-box">
           <div className="mz-admin-page-icon">
             <LuSettings style={{ width: 22, height: 22 }} />
