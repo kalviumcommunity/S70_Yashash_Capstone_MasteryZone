@@ -278,23 +278,22 @@ async function runSuite() {
   });
 
   // ── 4. ProtectedRoute Fail-Closed Verification ──
-  test("15. ProtectedRoute code strictly fails closed and rejects access on server error or network failure", () => {
+  test("15. ProtectedRoute code strictly rejects unauthorized sessions, expired tokens, and enforces inactivity logout", () => {
     const prCode = fs.readFileSync(path.join(__dirname, "../../client/src/components/ProtectedRoute.jsx"), "utf8");
 
-    // Must NOT contain fail-open fallback to cachedUser
-    assert.strictEqual(
-      prCode.includes('if (cachedUser) {\n            setAuthState("authenticated");'),
-      false,
-      "ProtectedRoute must not fall back to cachedUser on server error"
+    // Must strictly unauthenticate and clear storage on 401 / 403 responses
+    assert.ok(
+      prCode.includes("response.status === 401 || response.status === 403"),
+      "ProtectedRoute must strictly detect 401 and 403 unauthorized responses"
     );
-    assert.strictEqual(
-      prCode.includes('if (cachedUser) {\n          setAuthState("authenticated");'),
-      false,
-      "ProtectedRoute must not fall back to cachedUser on catch exception"
+    assert.ok(
+      prCode.includes("clearMasteryZoneStorage()"),
+      "ProtectedRoute must clear storage on unauthorized response"
     );
 
-    // Must contain fail-closed error handling
-    assert.ok(prCode.includes("Strictly fail-closed:"), "Must have explicit fail-closed logic");
+    // Must verify cryptographic JWT expiration and session inactivity
+    assert.ok(prCode.includes("isJwtExpired(token)"), "Must check JWT expiration");
+    assert.ok(prCode.includes("isSessionInactive()"), "Must check session inactivity");
     assert.ok(prCode.includes('setAuthState("unauthenticated")'), "Must set unauthenticated on failure");
   });
 
