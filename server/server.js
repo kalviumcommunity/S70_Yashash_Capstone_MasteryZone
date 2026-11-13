@@ -45,6 +45,7 @@ const { getCachedDecodedToken } = require("./middleware/authMiddleware");
 const User = require("./models/User");
 const { pushNotification, setGlobalIo } = require("./utils/notificationService");
 const { setGlobalAdminIo } = require("./utils/adminNotificationService");
+const { setGlobalActivityIo, logActivityAndBroadcast } = require("./utils/activityLogger");
 const http = require('http');
 const { Server } = require('socket.io');
 dotenv.config(); // Load environment variables from .env file
@@ -138,9 +139,11 @@ const io = new Server(server, {
 // Wire Socket.IO globally for instantaneous notification dispatch
 setGlobalIo(io);
 setGlobalAdminIo(io);
+setGlobalActivityIo(io);
 
 // Make io accessible throughout Express app routes
 app.set("io", io);
+app.set("logActivityAndBroadcast", logActivityAndBroadcast);
 
 // Store online users: { socketId: username }
 const onlineUsers = new Map();
@@ -503,8 +506,8 @@ io.on("connection", (socket) => {
     io.to("super_admin_room").emit("live_session_update", sessionObj);
   });
 
-  // Super Admin joins real-time live monitoring room (Restricted to verified administrators)
-  socket.on("join_admin_monitoring", async (payload) => {
+  // Super Admin joins real-time live monitoring & proctoring feed room (Restricted to verified administrators)
+  const handleAdminJoin = async (payload) => {
     let isAdmin = socket.data.userRole === "admin" || socket.data.userRole === "SUPER_ADMIN";
     
     // Check if a token was sent with the event or handshake
@@ -538,7 +541,11 @@ io.on("connection", (socket) => {
         !String(s.username || "").startsWith("guest_")
     );
     socket.emit("live_sessions_snapshot", validSessions);
-  });
+    socket.emit("admin_feed_connected", { success: true, timestamp: new Date() });
+  };
+
+  socket.on("join_admin_monitoring", handleAdminJoin);
+  socket.on("join_admin_feed", handleAdminJoin);
 
   // Rate limiting helper for chat and direct messaging
   const checkChatRateLimit = (sock) => {
@@ -2245,6 +2252,11 @@ async function connectDB() {
     try {
       const { syncRecordingsToGridFS } = require("./utils/recordingSync");
       syncRecordingsToGridFS().catch((sErr) => console.warn("[RecordingSync] Background sync note:", sErr.message));
+    } catch {}
+    // Idempotent ActivityLog backfill for Admin Live Activity monitoring
+    try {
+      const { backfillHistoricalActivities } = require("./utils/activityBackfill");
+      backfillHistoricalActivities().catch((bErr) => console.warn("[ActivityBackfill] Note:", bErr.message));
     } catch {}
   } catch (err) {
     console.error("🔌 MongoDB connection failed:", err.message);

@@ -20,6 +20,7 @@ const CodingProgress = require("../models/CodingProgress");
 const User = require("../models/User");
 const { pushNotification } = require("../utils/notificationService");
 const { pushAdminNotification } = require("../utils/adminNotificationService");
+const { logActivityAndBroadcast } = require("../utils/activityLogger");
 const { sendSubmissionEvaluationEmail, dispatchMailBackground, isGuestAccount } = require("../utils/mailer");
 
 const {
@@ -1547,6 +1548,18 @@ router.post("/:projectId/submit", authenticateToken, async (req, res) => {
       severity: evaluation.passed ? "success" : "info",
       targetId: String(submissionDoc._id),
       actionUrl: `/assessment-report/${sessionId}`,
+      io: req.app.get("io"),
+    }).catch(() => {});
+    logActivityAndBroadcast({
+      userId: user?._id || req.user?.id,
+      userEmail: user?.email || req.user?.email,
+      userName: user?.fullName || user?.username,
+      type: "PROJECT_SUBMITTED",
+      title: evaluation.passed ? "Project Completed & Passed!" : "Project Assessment Evaluated",
+      detail: `${user?.fullName || user?.username || "Candidate"} completed ${project.title} (${evaluation.marksObtained}/100 Marks, Grade ${evaluation.grade}).`,
+      category: "assessment",
+      severity: evaluation.passed ? "low" : "medium",
+      metadata: { submissionId: String(submissionDoc._id), passed: evaluation.passed, marks: evaluation.marksObtained },
       io: req.app.get("io"),
     }).catch(() => {});
 

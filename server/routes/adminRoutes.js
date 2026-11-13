@@ -15,6 +15,7 @@ const ProjectSubmission = require("../models/ProjectSubmission");
 const Meeting = require("../models/Meeting");
 const SupportTicket = require("../models/SupportTicket");
 const AdminActivityLog = require("../models/AdminActSchema");
+const ActivityLog = require("../models/ActivityLog");
 const AdminNotification = require("../models/AdminNotification");
 const PlatformSettings = require("../models/PlatformSettings");
 const EmailLog = require("../models/EmailLog");
@@ -653,8 +654,8 @@ router.get("/users", async (req, res) => {
     const userIds = users.map((u) => u._id);
     const userEmails = users.map((u) => (u.email || "").toLowerCase()).filter(Boolean);
 
-    // High-speed parallel aggregation for instant response
-    const [subCounts, certCounts] = await Promise.all([
+    // High-speed parallel aggregation across all assessment models for accurate user metrics
+    const [subCounts, certCounts, moduleCounts, procCounts] = await Promise.all([
       ChallengeSubmission.aggregate([
         { $match: { userId: { $in: userIds } } },
         { $group: { _id: "$userId", count: { $sum: 1 } } },
@@ -672,6 +673,32 @@ router.get("/users", async (req, res) => {
           },
         },
       ]),
+      ModuleAssessmentAttempt.aggregate([
+        {
+          $match: {
+            $or: [{ userId: { $in: userIds } }, { candidateEmail: { $in: userEmails } }, { userEmail: { $in: userEmails } }],
+          },
+        },
+        {
+          $group: {
+            _id: { $ifNull: ["$userId", "$candidateEmail"] },
+            count: { $sum: 1 },
+          },
+        },
+      ]),
+      ProctoredCodingSession.aggregate([
+        {
+          $match: {
+            $or: [{ userId: { $in: userIds } }, { "candidateDetails.email": { $in: userEmails } }],
+          },
+        },
+        {
+          $group: {
+            _id: { $ifNull: ["$userId", "$candidateDetails.email"] },
+            count: { $sum: 1 },
+          },
+        },
+      ]),
     ]);
 
     const subMap = new Map();
@@ -680,11 +707,20 @@ router.get("/users", async (req, res) => {
     const certMap = new Map();
     certCounts.forEach((c) => certMap.set(String(c._id).toLowerCase(), c.count));
 
+    const moduleMap = new Map();
+    moduleCounts.forEach((m) => moduleMap.set(String(m._id).toLowerCase(), m.count));
+
+    const procMap = new Map();
+    procCounts.forEach((p) => procMap.set(String(p._id).toLowerCase(), p.count));
+
     const enhancedUsers = users.map((u) => {
-      const uIdStr = String(u._id);
+      const uIdStr = String(u._id).toLowerCase();
       const emailStr = String(u.email || "").toLowerCase();
-      const submissionsCount = subMap.get(uIdStr) || 0;
-      const assessmentsCount = certMap.get(uIdStr) || certMap.get(emailStr) || 0;
+      const submissionsCount = subMap.get(String(u._id)) || 0;
+      const certCount = certMap.get(uIdStr) || certMap.get(emailStr) || 0;
+      const modCount = moduleMap.get(uIdStr) || moduleMap.get(emailStr) || 0;
+      const pCount = procMap.get(uIdStr) || procMap.get(emailStr) || 0;
+      const assessmentsCount = certCount + modCount + pCount;
 
       return {
         ...u,
@@ -2703,12 +2739,25 @@ router.delete("/notifications/clear", async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 router.get("/live-activity", async (req, res) => {
   try {
+    const {
+      category = "all",
+      type = "all",
+      range = "30d",
+      startDate: qStart,
+      endDate: qEnd,
+      q = "",
+      page = 1,
+      limit = 50,
+    } = req.query;
+
+    const { startDate, endDate } = parseDateRange(range, qStart, qEnd);
+
+    // 1. Live Connected Active Sockets
     const activeSessionsMap = req.app.get("activeUserSessions");
     const activeList = [];
 
     if (activeSessionsMap && activeSessionsMap.size > 0) {
       activeSessionsMap.forEach((sess) => {
-        // Strictly filter out non-registered or guest users
         if (
           sess.userId &&
           sess.userId !== "guest" &&
@@ -2735,10 +2784,64 @@ router.get("/live-activity", async (req, res) => {
       });
     }
 
+    // 2. Build Query for Genuine Historical & Live-Persisted Activities
+    const activityQuery = {
+      createdAt: { $gte: startDate, $lte: endDate },
+    };
+
+    if (category && category !== "all") {
+      activityQuery.category = category;
+    }
+
+    if (type && type !== "all") {
+      activityQuery.type = type;
+    }
+
+    if (q && q.trim()) {
+      const regex = new RegExp(q.trim(), "i");
+      activityQuery.$or = [
+        { userName: regex },
+        { userEmail: regex },
+        { title: regex },
+        { detail: regex },
+      ];
+    }
+
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.max(1, Math.min(100, parseInt(limit, 10) || 50));
+    const skip = (pageNum - 1) * limitNum;
+
+    const [activities, totalActivities, todayCount, codingCount, procCount, assessCount] =
+      await Promise.all([
+        ActivityLog.find(activityQuery)
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limitNum)
+          .lean(),
+        ActivityLog.countDocuments(activityQuery),
+        ActivityLog.countDocuments({
+          createdAt: { $gte: new Date(new Date().setHours(0, 0, 0, 0)) },
+        }),
+        ActivityLog.countDocuments({ category: "coding" }),
+        ActivityLog.countDocuments({ category: "proctoring" }),
+        ActivityLog.countDocuments({ category: "assessment" }),
+      ]);
+
     res.status(200).json({
       success: true,
       activeSessions: activeList,
       onlineCount: activeList.length,
+      activities: activities || [],
+      totalActivities,
+      page: pageNum,
+      totalPages: Math.ceil(totalActivities / limitNum) || 1,
+      stats: {
+        online: activeList.length,
+        today: todayCount,
+        coding: codingCount,
+        proctoring: procCount,
+        assessment: assessCount,
+      },
     });
   } catch (error) {
     console.error("Admin live activity feed error:", error);
@@ -2932,7 +3035,7 @@ router.get("/coding-analytics", async (req, res) => {
     // High-speed recent submissions with candidate details (projected fields for instant performance)
     const Notification = require("../models/NotificationSchema");
     const recentSubmissions = await ChallengeSubmission.find(filter)
-      .select("_id userId challengeId challengeTitle language status score executionTime passedTests totalTests adminNote createdAt notificationSent notificationViewed notificationViewedAt notificationInAppId")
+      .select("_id userId challengeId challengeTitle language code status score executionTime passedTests totalTests adminNote createdAt notificationSent notificationViewed notificationViewedAt notificationInAppId")
       .populate("userId", "fullName username email")
       .sort({ createdAt: -1 })
       .limit(60)
@@ -3033,7 +3136,7 @@ router.get("/assessments", async (req, res) => {
         ? {}
         : { createdAt: { $gte: startDate, $lte: endDate } };
 
-    const [certAttempts, moduleAttempts, challengeSubs, projectSubs] = await Promise.all([
+    const [certAttempts, moduleAttempts, challengeSubs, projectSubs, proctoredSessions] = await Promise.all([
       CertificationAttempt.find({
         ...baseDateFilter,
         $or: [{ userId: { $in: genuineUserIds } }, { candidateEmail: { $in: genuineUserEmails } }],
@@ -3073,6 +3176,15 @@ router.get("/assessments", async (req, res) => {
         .populate("userId", "fullName username email")
         .sort({ createdAt: -1 })
         .limit(100)
+        .lean(),
+      ProctoredCodingSession.find({
+        ...baseDateFilter,
+        $or: [{ userId: { $in: genuineUserIds } }, { "candidateDetails.email": { $in: genuineUserEmails } }],
+      })
+        .select("_id sessionId userId assessmentTitle questionId status durationSeconds score violationsCount deviceInfo violationFlags recordingUrl submissionResult submittedAt createdAt candidateDetails")
+        .populate("userId", "fullName username email")
+        .sort({ createdAt: -1 })
+        .limit(150)
         .lean(),
     ]);
 
@@ -3177,7 +3289,34 @@ router.get("/assessments", async (req, res) => {
       };
     });
 
-    const allAssessments = [...formattedCerts, ...formattedMcqs, ...formattedCoding, ...formattedProjects].sort(
+    const formattedProctored = proctoredSessions.map((p) => {
+      const userObj = p.userId && typeof p.userId === "object" ? p.userId : null;
+      const user = p.candidateDetails?.fullName || userObj?.fullName || userObj?.username || "Candidate";
+      const email = p.candidateDetails?.email || userObj?.email || "";
+      const score = p.submissionResult?.score != null ? p.submissionResult.score : (p.score != null ? p.score : 0);
+      const isPassed = p.status === "submitted" && (score >= 70 || p.submissionResult?.passed);
+      return {
+        id: p._id,
+        rawId: p._id,
+        itemType: "proctoring",
+        attemptId: p.sessionId,
+        user,
+        email,
+        title: p.assessmentTitle || "Proctored Coding Exam",
+        type: "Proctored Exam",
+        category: "Proctored Exam",
+        score: `${score}/100 (${score}%)`,
+        rawScore: score,
+        maxScore: 100,
+        status: isPassed ? "Passed" : p.status === "terminated" ? "Terminated" : p.status === "active" ? "In Progress" : "Failed",
+        passed: isPassed,
+        date: p.submissionResult?.submittedAt || p.updatedAt || p.createdAt,
+        timeSpent: p.durationSeconds ? `${Math.round(p.durationSeconds / 60)}m` : "N/A",
+        verificationCode: String(p.sessionId).slice(-8).toUpperCase(),
+      };
+    });
+
+    const allAssessments = [...formattedCerts, ...formattedProctored, ...formattedMcqs, ...formattedCoding, ...formattedProjects].sort(
       (a, b) => new Date(b.date) - new Date(a.date)
     );
 
@@ -3271,11 +3410,11 @@ router.get("/proctoring", async (req, res) => {
     }
 
     const enrichedSessions = sessions.map((s) => {
-      const matchedUser = usersMap[String(s.userId)];
+      const userObj = s.userId && typeof s.userId === "object" ? s.userId : usersMap[String(s.userId)];
       const candidate = {
-        fullName: s.candidateDetails?.fullName || matchedUser?.fullName || matchedUser?.username || "Candidate",
-        email: s.candidateDetails?.email || matchedUser?.email || "",
-        avatar: matchedUser?.avatar || "",
+        fullName: s.candidateDetails?.fullName || userObj?.fullName || userObj?.username || "Candidate",
+        email: s.candidateDetails?.email || userObj?.email || "",
+        avatar: userObj?.avatar || "",
       };
 
       const cameraGranted = s.deviceInfo?.camera !== false;
@@ -3301,8 +3440,15 @@ router.get("/proctoring", async (req, res) => {
     const activeSessionsCount = await ProctoredCodingSession.countDocuments({ status: "active" });
     const totalMonitored = await ProctoredCodingSession.countDocuments();
     let totalViolations = 0;
+    let cameraActiveCount = 0;
+    let micActiveCount = 0;
+    let screenActiveCount = 0;
+
     enrichedSessions.forEach((s) => {
       totalViolations += Number(s.violationsCount || 0);
+      if (s.deviceInfo?.camera) cameraActiveCount++;
+      if (s.deviceInfo?.microphone) micActiveCount++;
+      if (s.deviceInfo?.screenShare) screenActiveCount++;
     });
 
     res.status(200).json({
@@ -3311,9 +3457,12 @@ router.get("/proctoring", async (req, res) => {
         activeSessions: activeSessionsCount,
         totalMonitored,
         totalViolations,
-        cameraOnline: true,
-        microphoneOnline: true,
-        screenSharingOnline: true,
+        cameraOnline: cameraActiveCount > 0 || activeSessionsCount > 0,
+        microphoneOnline: micActiveCount > 0 || activeSessionsCount > 0,
+        screenSharingOnline: screenActiveCount > 0 || activeSessionsCount > 0,
+        cameraActiveCount,
+        micActiveCount,
+        screenActiveCount,
       },
       sessions: enrichedSessions,
     });
@@ -3439,10 +3588,11 @@ router.get("/proctoring/session/:sessionId", async (req, res) => {
                 session.problemData?.description ||
                 "Implement an optimal algorithmic solution meeting the constraints.",
               submittedCode:
+                session.submissionResult?.code ||
                 session.draftCode ||
                 session.problemData?.starterCode?.python ||
                 "# Python candidate submission\ndef solution():\n    pass",
-              language: session.draftLanguage || "python",
+              language: session.submissionResult?.language || session.draftLanguage || "python",
               status: session.status === "submitted" ? "PASSED" : "FAILED",
               score: session.score || 0,
               totalMarks: session.maxScore || 100,

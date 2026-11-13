@@ -63,7 +63,8 @@ const AdminProctoring = () => {
     // Setup real-time Socket.io listener for proctoring violations & sessions
     let socket;
     const handleConnect = () => {
-      if (socket) socket.emit("join_admin_feed");
+      const token = localStorage.getItem("token");
+      if (socket) socket.emit("join_admin_feed", { token });
     };
 
     const handleViolation = (payload) => {
@@ -90,7 +91,8 @@ const AdminProctoring = () => {
 
       socket.on("connect", handleConnect);
       if (socket.connected) {
-        socket.emit("join_admin_feed");
+        const token = localStorage.getItem("token");
+        socket.emit("join_admin_feed", { token });
       }
 
       socket.on("PROCTORING_VIOLATION", handleViolation);

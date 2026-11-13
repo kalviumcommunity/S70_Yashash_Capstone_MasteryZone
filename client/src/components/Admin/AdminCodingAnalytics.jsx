@@ -81,7 +81,7 @@ const AdminCodingAnalytics = () => {
   });
 
   // Open Inspector Modal & Populate Fields
-  const handleOpenInspector = (sub) => {
+  const handleOpenInspector = async (sub) => {
     setInspectedCode(sub);
     const initialScore =
       sub.score != null
@@ -97,6 +97,24 @@ const AdminCodingAnalytics = () => {
     setEditComment(sub.adminNote || "");
     setUpdateSuccessMsg("");
     setCopiedCode(false);
+
+    // If code body is not already attached, fetch full submission details
+    if (!sub.code && sub._id) {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await fetch(`${API_BASE}/api/admin/coding-submissions/${sub._id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.submission?.code) {
+            setInspectedCode((prev) => (prev?._id === sub._id ? { ...prev, code: json.submission.code } : prev));
+          }
+        }
+      } catch (err) {
+        console.warn("Could not fetch full submission code:", err);
+      }
+    }
   };
 
   // Copy code helper

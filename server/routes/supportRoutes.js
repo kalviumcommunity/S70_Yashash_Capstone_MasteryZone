@@ -9,6 +9,7 @@ const authenticateToken = require("../middleware/authMiddleware");
 const { verifyAdmin, recordAdminAudit } = require("../middleware/adminAuth");
 const { pushNotification } = require("../utils/notificationService");
 const { pushAdminNotification } = require("../utils/adminNotificationService");
+const { logActivityAndBroadcast } = require("../utils/activityLogger");
 const {
   sendSupportTicketSubmittedEmail,
   sendSupportTicketResponseEmail,
@@ -258,6 +259,23 @@ router.post("/tickets", authenticateToken, async (req, res) => {
       targetId: ticketId,
       targetUser: user._id,
       actionUrl: `/admin/help?ticket=${ticketId}`,
+      io,
+    }).catch(() => {});
+
+    logActivityAndBroadcast({
+      userId: user._id,
+      userEmail,
+      userName,
+      type: "SUPPORT_TICKET_CREATED",
+      title: `Support Ticket: ${category || "General"}`,
+      detail: `${userName} opened ticket #${ticketId}: "${subject}"`,
+      category: "support",
+      severity: priority === "Critical" || priority === "High" ? "warning" : "info",
+      metadata: {
+        ticketId,
+        category,
+        priority,
+      },
       io,
     }).catch(() => {});
 
