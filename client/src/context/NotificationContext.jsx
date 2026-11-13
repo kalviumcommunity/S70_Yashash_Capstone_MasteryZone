@@ -122,6 +122,7 @@ export function NotificationProvider({ children }) {
   const socketRef = useRef(null);
   const toastTimerRef = useRef(null);
   const isExamRouteRef = useRef(false);
+  const lastRefreshRef = useRef(0);
 
   // Keep track of whether user is inside a live proctored exam (/assessment/:sessionId)
   useEffect(() => {
@@ -157,7 +158,7 @@ export function NotificationProvider({ children }) {
     setLiveToast(null);
   }, []);
 
-  const refreshNotifications = useCallback(async () => {
+  const refreshNotifications = useCallback(async (force = false) => {
     const token = localStorage.getItem("token");
     if (!token) {
       setNotifications([]);
@@ -165,13 +166,19 @@ export function NotificationProvider({ children }) {
       return;
     }
 
+    const now = Date.now();
+    if (!force && now - lastRefreshRef.current < 8000) {
+      return;
+    }
+    lastRefreshRef.current = now;
+
     setIsLoading(true);
     try {
       const res = await deduplicatedFetch(`${API_BASE}/api/notifications`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-        cacheTtlMs: 3000,
+        cacheTtlMs: 5000,
       });
       if (!res.ok) return;
       const data = await res.json();

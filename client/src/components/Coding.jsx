@@ -847,18 +847,7 @@ export default function Coding() {
           .catch(() => {})
       : Promise.resolve();
 
-    const pRooms = deduplicatedFetch(`${API_BASE}/api/meetings/study-rooms`, { cacheTtlMs: 4000 })
-      .then(async (meetRes) => {
-        if (meetRes.ok) {
-          const meetData = await meetRes.json();
-          if (Array.isArray(meetData.rooms)) {
-            setStudyRooms(meetData.rooms);
-          }
-        }
-      })
-      .catch(() => {});
-
-    await Promise.allSettled([pData, pChallenges, pCert, pRooms]);
+    await Promise.allSettled([pData, pChallenges, pCert]);
   }, [token, currentUserId]);
 
   useEffect(() => {
@@ -937,9 +926,10 @@ export default function Coding() {
     setLoadingCurriculum(true);
     const token = localStorage.getItem("token");
     try {
-      const res = await fetch(`${API_BASE}/api/curriculum/coding/${trackId}`, {
+      const res = await deduplicatedFetch(`${API_BASE}/api/curriculum/coding/${trackId}`, {
         signal: controller.signal,
         headers: token ? { Authorization: `Bearer ${token}` } : {},
+        cacheTtlMs: 10000,
       });
       if (res.ok) {
         const data = await res.json();
