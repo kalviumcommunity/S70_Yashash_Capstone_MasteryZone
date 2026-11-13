@@ -215,7 +215,7 @@ router.get("/ice-config", optionalAuthToken, (req, res) => {
 router.get("/study-rooms", async (req, res) => {
   try {
     const activeMeetings = await Meeting.find({ status: "active" })
-      .select("meetingId title groupKey participants createdAt")
+      .select("meetingId title groupKey participants.userId participants.leftAt createdAt")
       .lean();
 
     const rooms = STUDY_ROOMS_CATALOG.map((room) => {
