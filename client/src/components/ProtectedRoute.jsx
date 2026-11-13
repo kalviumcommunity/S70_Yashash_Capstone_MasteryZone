@@ -1,22 +1,23 @@
 import React, { useState, useEffect } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { GlobalLoader } from "./Loaders.jsx";
-import { verifyActiveSession, clearMasteryZoneStorage, isJwtExpired } from "../utils/sessionAuth.js";
+import {
+  verifyActiveSession,
+  clearMasteryZoneStorage,
+  isJwtExpired,
+  isSessionInactive,
+  updateLastActivityTime,
+} from "../utils/sessionAuth.js";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
 const ProtectedRoute = ({ children }) => {
   const [authState, setAuthState] = useState(() => {
     try {
-      const isSessionActive = sessionStorage.getItem("mz_session_active") === "true";
       const token = sessionStorage.getItem("token") || localStorage.getItem("token");
       const user = sessionStorage.getItem("user") || localStorage.getItem("user");
-      const lastActive = Number(
-        sessionStorage.getItem("mz_last_activity") || localStorage.getItem("mz_last_activity") || 0
-      );
-      const isInactive = lastActive > 0 && Date.now() - lastActive > 12 * 60 * 60 * 1000;
 
-      if (isSessionActive && token && user && !isJwtExpired(token) && !isInactive) {
+      if (token && user && !isJwtExpired(token) && !isSessionInactive()) {
         return "authenticated";
       }
     } catch {}
@@ -28,32 +29,39 @@ const ProtectedRoute = ({ children }) => {
     let isMounted = true;
 
     const verifyAuth = async () => {
-      // Fast path: if current tab already has an active session and token, authenticate immediately without blocking UI
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const isSessionActive = sessionStorage.getItem("mz_session_active") === "true";
       const cachedUser = localStorage.getItem("user") || sessionStorage.getItem("user");
 
-      if (isSessionActive && token && cachedUser && !isJwtExpired(token)) {
-        if (isMounted) setAuthState("authenticated");
+      // 1. Initial fast checks
+      if (!token || isJwtExpired(token) || isSessionInactive()) {
+        if (isMounted) {
+          clearMasteryZoneStorage();
+          setAuthState("unauthenticated");
+        }
+        return;
       }
 
-      // 1. Enforce active browser session check.
-      // If the user closed the webpage and re-enters, no active session exists:
-      // verifyActiveSession() clears stale stored tokens and returns false.
+      // Fast-path: if valid token and cached user exist, authenticate immediately
+      if (cachedUser && isMounted) {
+        setAuthState("authenticated");
+      }
+
+      // 2. Enforce active session verification
       const hasActiveSession = await verifyActiveSession();
       if (!hasActiveSession) {
-        if (isMounted) setAuthState("unauthenticated");
+        if (isMounted) {
+          clearMasteryZoneStorage();
+          setAuthState("unauthenticated");
+        }
         return;
       }
 
-      if (!token) {
-        if (isMounted) setAuthState("unauthenticated");
-        return;
-      }
+      updateLastActivityTime();
 
+      // 3. Revalidate with backend /auth/me in background
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 7000);
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
 
         const response = await fetch(`${API_BASE}/auth/me`, {
           signal: controller.signal,
@@ -74,22 +82,31 @@ const ProtectedRoute = ({ children }) => {
             localStorage.setItem("user", JSON.stringify(data.user));
             localStorage.setItem("mz_user", JSON.stringify(data.user));
             setAuthState("authenticated");
+          }
+        } else if (response.status === 401 || response.status === 403) {
+          // Token explicitly rejected by backend: purge session and redirect to login
+          clearMasteryZoneStorage();
+          setAuthState("unauthenticated");
+        } else {
+          // Server error (e.g. 500/502/503 during restart/cold-start):
+          // If valid token and cached user exist, maintain authentication rather than deadlocking
+          if (cachedUser) {
+            setAuthState("authenticated");
           } else {
-            // Fail closed if payload lacks user object
             clearMasteryZoneStorage();
             setAuthState("unauthenticated");
           }
+        }
+      } catch (err) {
+        // Network timeout / offline / Render cold-start:
+        console.warn("Protected route server verification notice:", err.message);
+        if (!isMounted) return;
+        if (cachedUser) {
+          setAuthState("authenticated");
         } else {
-          // Strictly fail-closed: Any non-200 response (401, 403, 500, etc.) rejects access
           clearMasteryZoneStorage();
           setAuthState("unauthenticated");
         }
-      } catch (err) {
-        // Strictly fail-closed: Network failure or timeout must reject access, never fail open
-        console.warn("Protected route verification notice (failing closed):", err.message);
-        if (!isMounted) return;
-        clearMasteryZoneStorage();
-        setAuthState("unauthenticated");
       }
     };
 

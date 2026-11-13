@@ -269,12 +269,10 @@ const queryPeerSession = (timeoutMs = 100) => {
  * Verifies if there is an active session in the current tab or currently running browser context.
  * Strict rules:
  * 1. If inactive for > 12 hours -> automatic logout with notice.
- * 2. If tab has mz_session_active === 'true' (persists on reload) and valid token -> active.
- * 3. If tab has no mz_session_active, query other running tabs via BroadcastChannel:
- *    - If peer tab confirms active session -> sync and active.
- *    - If NO peer tab confirms (app was reopened after closing) -> purge storage, return false (logged out).
+ * 2. If valid token exists in sessionStorage or localStorage and is not expired -> session is active.
+ * 3. Synchronizes session across storages for consistent state across tabs and navigation.
  */
-export const verifyActiveSession = async (timeoutMs = 100) => {
+export const verifyActiveSession = async (timeoutMs = 300) => {
   if (typeof window === "undefined") return false;
 
   // 1. Enforce 12-hour inactivity policy
@@ -283,32 +281,50 @@ export const verifyActiveSession = async (timeoutMs = 100) => {
     return false;
   }
 
-  // 2. Current tab already marked with active session (persists across page reloads in this tab)
-  if (sessionStorage.getItem("mz_session_active") === "true") {
-    const token = sessionStorage.getItem("token") || localStorage.getItem("token");
-    if (token && !isJwtExpired(token)) {
+  // 2. Check for token in sessionStorage or localStorage
+  const token = sessionStorage.getItem("token") || localStorage.getItem("token");
+  if (!token) {
+    // If no token exists in current tab, query peer tabs via BroadcastChannel before concluding
+    const hasPeerSession = await queryPeerSession(timeoutMs);
+    if (hasPeerSession) {
+      if (isSessionInactive()) {
+        handleInactivityLogout();
+        return false;
+      }
       return true;
     }
+    return false;
+  }
+
+  // 3. Verify cryptographic JWT token expiration
+  if (isJwtExpired(token)) {
     clearMasteryZoneStorage();
     return false;
   }
 
-  // 3. Tab was just opened: check if any peer tab in the browser is active
-  const hasPeerSession = await queryPeerSession(timeoutMs);
-  if (hasPeerSession) {
-    if (isSessionInactive()) {
-      handleInactivityLogout();
-      return false;
-    }
-    return true;
-  }
-
-  // 4. App was closed and reopened: ZERO saved login details, automatically logged out!
-  clearMasteryZoneStorage();
+  // 4. Session is valid: mark active and ensure synchronization across storages
   try {
-    signOut(auth).catch(() => {});
+    sessionStorage.setItem("mz_session_active", "true");
+    if (!sessionStorage.getItem("token")) {
+      sessionStorage.setItem("token", token);
+    }
+    if (!localStorage.getItem("token")) {
+      localStorage.setItem("token", token);
+    }
+    const user = sessionStorage.getItem("user") || localStorage.getItem("user");
+    if (user) {
+      if (!sessionStorage.getItem("user")) {
+        sessionStorage.setItem("user", user);
+        sessionStorage.setItem("mz_user", user);
+      }
+      if (!localStorage.getItem("user")) {
+        localStorage.setItem("user", user);
+        localStorage.setItem("mz_user", user);
+      }
+    }
   } catch {}
-  return false;
+
+  return true;
 };
 
 /**

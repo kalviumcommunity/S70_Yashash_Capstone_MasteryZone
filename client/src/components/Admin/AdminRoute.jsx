@@ -28,12 +28,17 @@ const AdminRoute = ({ children }) => {
       }
 
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+
         const response = await fetch(`${API_BASE}/auth/me`, {
+          signal: controller.signal,
           credentials: "include",
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
+        clearTimeout(timeoutId);
 
         if (!isMounted) return;
 
