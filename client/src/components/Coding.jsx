@@ -314,6 +314,10 @@ const DEFAULT_RESOURCES = [
    ══════════════════════════════════════════════════════════════ */
 const DEFAULT_STUDY_GROUPS = [];
 
+// In-memory curriculum and module caches for instant navigation and duplicate request elimination
+const trackCurriculumCache = new Map();
+const moduleDetailCache = new Map();
+
 /* ══════════════════════════════════════════════════════════════
    MAIN CODING DASHBOARD COMPONENT
    ══════════════════════════════════════════════════════════════ */
@@ -893,25 +897,48 @@ export default function Coding() {
     };
   }, [fetchDashboardData]);
 
-  // Fetch real curriculum modules from server
-  const fetchCurriculum = useCallback(async (trackId) => {
+  // Fetch real curriculum modules from server with request deduplication, cancellation and in-memory caching
+  const curriculumAbortRef = useRef(null);
+
+  const fetchCurriculum = useCallback(async (trackId, forceRefresh = false) => {
     if (!trackId) return;
+
+    // Fast-path: return cached curriculum data instantly
+    if (!forceRefresh && trackCurriculumCache.has(trackId)) {
+      setCurriculumData(trackCurriculumCache.get(trackId));
+      setLoadingCurriculum(false);
+      return;
+    }
+
+    // Cancel in-flight request for previous track to prevent race conditions and stale response overwrites
+    if (curriculumAbortRef.current) {
+      curriculumAbortRef.current.abort();
+    }
+    const controller = new AbortController();
+    curriculumAbortRef.current = controller;
+
     setLoadingCurriculum(true);
     const token = localStorage.getItem("token");
     try {
       const res = await fetch(`${API_BASE}/api/curriculum/coding/${trackId}`, {
+        signal: controller.signal,
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data.modules)) {
+          trackCurriculumCache.set(trackId, data);
           setCurriculumData(data);
         }
       }
     } catch (err) {
-      console.error("Failed to fetch curriculum modules:", err);
+      if (err.name !== "AbortError") {
+        console.error("Failed to fetch curriculum modules:", err);
+      }
     } finally {
-      setLoadingCurriculum(false);
+      if (curriculumAbortRef.current === controller) {
+        setLoadingCurriculum(false);
+      }
     }
   }, []);
 
@@ -923,7 +950,7 @@ export default function Coding() {
   useEffect(() => {
     const handleSync = () => {
       if (activeTrackId) {
-        fetchCurriculum(activeTrackId);
+        fetchCurriculum(activeTrackId, true);
       }
       fetchDashboardData();
     };
@@ -1522,6 +1549,13 @@ export default function Coding() {
   // ── Step 1: Open Theory / Concept Learning Lesson ──
   const handleOpenStudy = async (module) => {
     setShowSearchDropdown(false);
+    const cacheKey = `${activeTrackId}_${module.moduleIndex}`;
+    if (moduleDetailCache.has(cacheKey)) {
+      setActiveStudyModule(moduleDetailCache.get(cacheKey));
+      setStudyTimeElapsed(0);
+      return;
+    }
+
     const token = localStorage.getItem("token");
     try {
       const res = await fetch(`${API_BASE}/api/curriculum/coding/${activeTrackId}/${module.moduleIndex}`, {
@@ -1529,6 +1563,7 @@ export default function Coding() {
       });
       if (res.ok) {
         const data = await res.json();
+        moduleDetailCache.set(cacheKey, data);
         setActiveStudyModule(data);
         setStudyTimeElapsed(0);
       } else {
@@ -1546,6 +1581,12 @@ export default function Coding() {
     const mod = completedMod || activeStudyModule;
     setActiveStudyModule(null);
     if (!mod) return;
+
+    const cacheKey = `${activeTrackId}_${mod.moduleIndex}`;
+    if (moduleDetailCache.has(cacheKey)) {
+      const cached = moduleDetailCache.get(cacheKey);
+      moduleDetailCache.set(cacheKey, { ...cached, isStudied: true, progressState: { ...(cached.progressState || {}), isStudied: true } });
+    }
 
     // Immediately transition candidate to Step 2: Practical Coding Test
     setActiveAssignmentModule(mod);

@@ -33,6 +33,9 @@ import MasteryZoneGlobalLoader from "./MasteryZoneGlobalLoader";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
+// Module cache to prevent duplicate requests and enable instant navigation
+const conceptModuleCache = new Map();
+
 export default function FullScreenConceptLearning({
   module: propModule,
   subjectKey = "coding",
@@ -66,7 +69,7 @@ export default function FullScreenConceptLearning({
   const [quizAnswers, setQuizAnswers] = useState({}); // { [questionId]: selectedOptionIndex }
   const [copiedUrlIndex, setCopiedUrlIndex] = useState(null);
 
-  // Fetch module if standalone / not supplied via prop
+  // Fetch module if standalone / not supplied via prop with deduplication & caching
   useEffect(() => {
     if (propModule) {
       setModule(propModule);
@@ -75,20 +78,45 @@ export default function FullScreenConceptLearning({
       return;
     }
 
+    const cacheKey = `${effectiveTrackId}_${effectiveModuleIndex}`;
+    const cached = conceptModuleCache.get(cacheKey);
+    if (cached) {
+      setModule(cached);
+      setIsCompleted(Boolean(cached.progressState?.isStudied || cached.isStudied));
+      setLoading(false);
+      return;
+    }
+
     const token = localStorage.getItem("token");
     setLoading(true);
+    const controller = new AbortController();
+
     fetch(`${API_BASE}/api/coding/curriculum/${effectiveTrackId}/${effectiveModuleIndex}`, {
+      signal: controller.signal,
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data) {
+          conceptModuleCache.set(cacheKey, data);
           setModule(data);
           setIsCompleted(Boolean(data.progressState?.isStudied || data.isStudied));
         }
       })
-      .catch((err) => console.error("Failed to load concept learning module:", err))
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        if (err.name !== "AbortError") {
+          console.error("Failed to load concept learning module:", err);
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      controller.abort();
+    };
   }, [propModule, effectiveTrackId, effectiveModuleIndex]);
 
   // Synchronize initial sandbox code when module loads
@@ -682,6 +710,11 @@ self.addEventListener("unhandledrejection", function(e) {
       }
 
       setIsCompleted(true);
+      const cacheKey = `${tId}_${mIdx}`;
+      if (conceptModuleCache.has(cacheKey)) {
+        const cached = conceptModuleCache.get(cacheKey);
+        conceptModuleCache.set(cacheKey, { ...cached, isStudied: true, progressState: { ...(cached.progressState || {}), isStudied: true } });
+      }
       toast.success("✓ Theory marked as completed! Unlocking exercises...", {
         autoClose: 2000,
       });

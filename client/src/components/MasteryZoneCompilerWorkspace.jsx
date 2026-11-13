@@ -2548,7 +2548,11 @@ export default function MasteryZoneCompilerWorkspace({
         setCustomDuration(res.duration || 0);
       } else if (res.results) {
         setAllTestCases((prev) => {
-          const base = prev.length > 0 ? prev : (effectiveTestCases.length > 0 ? effectiveTestCases : Array.from({ length: res.results.length }));
+          const base = prev.length > 0
+            ? prev
+            : (effectiveTestCases.length > 0
+                ? effectiveTestCases
+                : (Array.isArray(res.results) ? res.results.map((r, i) => ({ index: i + 1, input: r.input || "", expectedOutput: r.expected || "" })) : []));
           const copy = [...base];
           let pCount = 0;
           res.results.forEach((r, idx) => {
@@ -2559,7 +2563,7 @@ export default function MasteryZoneCompilerWorkspace({
                 ...(copy[idx] || {}),
                 index: idx + 1,
                 passed: isPassed,
-                actualOutput: r.actual || r.actualOutput || (isPassed ? (r.expected || r.expectedOutput) : "[No Output]"),
+                actualOutput: r.actual !== undefined && r.actual !== null ? String(r.actual) : (r.actualOutput !== undefined && r.actualOutput !== null ? String(r.actualOutput) : ""),
                 duration: r.duration || r.durationMs || 0,
                 error: r.error || null,
                 input: r.input || copy[idx].input,
@@ -2645,7 +2649,15 @@ export default function MasteryZoneCompilerWorkspace({
       setAllTestCases((prev) => {
         const base = prev.length > 0
           ? prev
-          : (effectiveTestCases.length > 0 ? effectiveTestCases : (resultsArray.length > 0 ? Array.from({ length: resultsArray.length }) : Array.from({ length: 10 })));
+          : (effectiveTestCases.length > 0
+              ? effectiveTestCases
+              : (resultsArray.length > 0
+                  ? resultsArray.map((r, idx) => ({
+                      index: idx + 1,
+                      input: r.input || `Test Case #${idx + 1}`,
+                      expectedOutput: r.expected || r.expectedOutput || "",
+                    }))
+                  : []));
         const updated = [...base];
         for (let i = 0; i < updated.length; i++) {
           const r = resultsArray[i];
@@ -2656,8 +2668,8 @@ export default function MasteryZoneCompilerWorkspace({
               ...(updated[i] || {}),
               index: i + 1,
               passed: isPassed,
-              actualOutput: r.actual || r.actualOutput || (isPassed ? "[Passed]" : "[Failed Output]"),
-              duration: r.duration || r.durationMs || 35,
+              actualOutput: r.actual !== undefined && r.actual !== null ? String(r.actual) : (r.actualOutput !== undefined && r.actualOutput !== null ? String(r.actualOutput) : ""),
+              duration: r.duration || r.durationMs || 0,
               error: isPassed ? null : (r.error || null),
               input: r.input || updated[i]?.input || `Test Case #${i + 1}`,
               expectedOutput: r.expected || r.expectedOutput || updated[i]?.expectedOutput || "Expected Output",
@@ -2669,7 +2681,7 @@ export default function MasteryZoneCompilerWorkspace({
               ...(updated[i] || {}),
               index: i + 1,
               passed: null,
-              actualOutput: "[Awaiting Full Evaluation]",
+              actualOutput: "",
               duration: 0,
               error: null,
               input: updated[i]?.input || `Test Case #${i + 1}`,
@@ -2831,22 +2843,29 @@ export default function MasteryZoneCompilerWorkspace({
         ? allTestCases
         : (effectiveTestCases && effectiveTestCases.length > 0)
           ? effectiveTestCases
-          : (resultsArray.length > 0 ? Array.from({ length: resultsArray.length }) : Array.from({ length: 10 }));
+          : (resultsArray.length > 0
+              ? resultsArray.map((r, idx) => ({
+                  index: idx + 1,
+                  input: r.input || `Test Case #${idx + 1}`,
+                  expectedOutput: r.expected || r.expectedOutput || "",
+                }))
+              : []);
 
       const updatedCases = baseCases.map((tc, i) => {
         const r = resultsArray[i];
         if (r) {
           const isPassed = Boolean(r.passed === true || r.passed === "true" || r.passed === 1 || r.status === "PASSED" || r.status === "ACCEPTED");
           if (isPassed) pCount++;
+          const realActual = r.actual !== undefined && r.actual !== null ? String(r.actual) : (r.actualOutput !== undefined && r.actualOutput !== null ? String(r.actualOutput) : "");
           return {
             ...(tc || {}),
             index: i + 1,
             passed: isPassed,
-            actualOutput: r.actual || r.actualOutput || (isPassed ? "[Passed]" : "[Failed Output]"),
-            duration: r.duration || r.durationMs || 35,
+            actualOutput: realActual,
+            duration: r.duration || r.durationMs || 0,
             error: isPassed ? null : (r.error || null),
             input: r.input || tc?.input || `Test Case #${i + 1}`,
-            expectedOutput: r.expected || r.expectedOutput || tc?.expectedOutput || "Expected Output",
+            expectedOutput: r.expected || r.expectedOutput || tc?.expectedOutput || "",
             isHidden: r.isHidden !== undefined ? r.isHidden : (tc?.isHidden !== undefined ? tc.isHidden : false),
           };
         } else if (result?.passedCount !== undefined && i < result.passedCount) {
@@ -2855,11 +2874,11 @@ export default function MasteryZoneCompilerWorkspace({
             ...(tc || {}),
             index: i + 1,
             passed: true,
-            actualOutput: "[Passed]",
-            duration: 35,
+            actualOutput: "",
+            duration: 0,
             error: null,
             input: tc?.input || `Test Case #${i + 1}`,
-            expectedOutput: tc?.expectedOutput || "Expected Output",
+            expectedOutput: tc?.expectedOutput || "",
             isHidden: tc?.isHidden !== undefined ? tc.isHidden : false,
           };
         } else {
@@ -2867,11 +2886,11 @@ export default function MasteryZoneCompilerWorkspace({
             ...(tc || {}),
             index: i + 1,
             passed: false,
-            actualOutput: "[Failed Output]",
+            actualOutput: "",
             duration: 0,
             error: "Test case did not pass",
             input: tc?.input || `Test Case #${i + 1}`,
-            expectedOutput: tc?.expectedOutput || "Expected Output",
+            expectedOutput: tc?.expectedOutput || "",
             isHidden: tc?.isHidden !== undefined ? tc.isHidden : false,
           };
         }
@@ -2880,20 +2899,20 @@ export default function MasteryZoneCompilerWorkspace({
       setAllTestCases(updatedCases);
 
       const finalPassed = result?.passedCount !== undefined ? result.passedCount : pCount;
-      const totalTestsCount = updatedCases.length || 10;
+      const totalTestsCount = updatedCases.length;
       setPassedCount(finalPassed);
       setHasEvaluated(true);
       setIsCodeModifiedAfterEval(false);
 
-      // Construct verified 10-test suite execution objects
+      // Construct verified test suite execution objects
       const submittedTestResults = updatedCases.map((tc, idx) => ({
         testIndex: idx + 1,
         testNumber: idx + 1,
         passed: tc.passed !== null ? tc.passed : (idx < finalPassed),
-        durationMs: tc.duration || 35,
+        durationMs: tc.duration || 0,
         input: tc.input || `Test Case #${idx + 1}`,
-        expected: tc.expectedOutput || "Expected Output",
-        actual: tc.actualOutput || (tc.passed ? "[Passed]" : "[Failed Output]"),
+        expected: tc.expectedOutput || "",
+        actual: tc.actualOutput !== undefined && tc.actualOutput !== null ? String(tc.actualOutput) : "",
         error: tc.error || null,
         isHidden: !!tc.isHidden,
       }));

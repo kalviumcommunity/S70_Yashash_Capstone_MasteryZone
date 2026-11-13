@@ -232,6 +232,10 @@ const proctoredCodingSessionSchema = new mongoose.Schema(
   }
 );
 
+proctoredCodingSessionSchema.index({ userId: 1, createdAt: -1 });
+proctoredCodingSessionSchema.index({ status: 1, createdAt: -1 });
+proctoredCodingSessionSchema.index({ createdAt: -1 });
+
 module.exports =
   mongoose.models.ProctoredCodingSession ||
   mongoose.model("ProctoredCodingSession", proctoredCodingSessionSchema);

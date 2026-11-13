@@ -57,6 +57,7 @@ const ProtectedRoute = ({ children }) => {
 
         const response = await fetch(`${API_BASE}/auth/me`, {
           signal: controller.signal,
+          credentials: "include",
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -72,32 +73,23 @@ const ProtectedRoute = ({ children }) => {
             sessionStorage.setItem("mz_user", JSON.stringify(data.user));
             localStorage.setItem("user", JSON.stringify(data.user));
             localStorage.setItem("mz_user", JSON.stringify(data.user));
-          }
-          setAuthState("authenticated");
-        } else if (response.status === 401 || response.status === 403) {
-          // Token is invalid or expired — purge Mastery Zone session storage for strict isolation
-          clearMasteryZoneStorage();
-          setAuthState("unauthenticated");
-        } else {
-          // Server error (e.g. 500/502/503 during deployment restart):
-          // If valid user exists locally, allow graceful entry rather than deadlocking
-          const cachedUser = localStorage.getItem("user");
-          if (cachedUser) {
             setAuthState("authenticated");
           } else {
+            // Fail closed if payload lacks user object
+            clearMasteryZoneStorage();
             setAuthState("unauthenticated");
           }
-        }
-      } catch (err) {
-        // Network timeout / Render cold start:
-        console.warn("Protected route verification notice:", err.message);
-        if (!isMounted) return;
-        const cachedUser = localStorage.getItem("user");
-        if (cachedUser) {
-          setAuthState("authenticated");
         } else {
+          // Strictly fail-closed: Any non-200 response (401, 403, 500, etc.) rejects access
+          clearMasteryZoneStorage();
           setAuthState("unauthenticated");
         }
+      } catch (err) {
+        // Strictly fail-closed: Network failure or timeout must reject access, never fail open
+        console.warn("Protected route verification notice (failing closed):", err.message);
+        if (!isMounted) return;
+        clearMasteryZoneStorage();
+        setAuthState("unauthenticated");
       }
     };
 

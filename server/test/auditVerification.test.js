@@ -150,10 +150,13 @@ async function runTests() {
     assert.strictEqual(serverCode.includes("ATLAS_FALLBACK_URI"), false);
   });
 
-  test("Admin Bootstrap does not contain hardcoded default password", () => {
+  test("Admin Bootstrap and Server do not contain hardcoded default password or SMTP credentials", () => {
     const fs = require("fs");
     const bootstrapCode = fs.readFileSync(path.join(__dirname, "../bootstrap/adminBootstrap.js"), "utf8");
-    assert.strictEqual(bootstrapCode.includes("miqtinlszsdfayvi"), false, "Insecure password must be removed");
+    const serverCode = fs.readFileSync(path.join(__dirname, "../server.js"), "utf8");
+    assert.strictEqual(bootstrapCode.includes("miqtinlszsdfayvi"), false, "Insecure password must be removed from bootstrap");
+    assert.strictEqual(serverCode.includes("miqtinlszsdfayvi"), false, "Insecure password must be removed from server");
+    assert.strictEqual(serverCode.includes('process.env.SMTP_PASSWORD = "'), false, "Hardcoded SMTP password fallback must be removed");
   });
 
   test("Gitignore blocks user uploaded recordings, certificates, and evidence", () => {

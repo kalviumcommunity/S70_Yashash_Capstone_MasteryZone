@@ -55,6 +55,7 @@ const dailyCodingActivitySchema = new mongoose.Schema(
 
 // Guarantee atomic idempotency per user per calendar day
 dailyCodingActivitySchema.index({ userId: 1, date: 1 }, { unique: true });
+dailyCodingActivitySchema.index({ date: -1 });
 
 module.exports =
   mongoose.models.DailyCodingActivity ||

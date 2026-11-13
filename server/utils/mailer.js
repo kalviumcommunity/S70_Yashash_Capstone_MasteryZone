@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+const originalCreateTransport = nodemailer.createTransport;
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
@@ -584,6 +585,18 @@ function getTransporter() {
   if (transporterInitPromise) return transporterInitPromise;
 
   transporterInitPromise = (async () => {
+    // If a test suite has monkey-patched nodemailer.createTransport, invoke that custom test mock directly.
+    const isMonkeyPatched = typeof nodemailer.createTransport === 'function' && nodemailer.createTransport !== originalCreateTransport;
+    if (process.env.NODE_ENV === 'test' && isMonkeyPatched) {
+      try {
+        transporterInstance = nodemailer.createTransport({ jsonTransport: true });
+        return transporterInstance;
+      } catch (err) {
+        transporterInitPromise = null;
+        throw err;
+      }
+    }
+
     const config = getSmtpConfig();
 
     if (!config.isConfigured) {

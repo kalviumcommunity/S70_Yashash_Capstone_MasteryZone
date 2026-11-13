@@ -2210,7 +2210,11 @@ function formatLocalReport(matched, uObj, rawId) {
                                               fontWeight: 600,
                                             }}
                                           >
-                                            {tc.actual || tc.actualOutput || (tc.passed ? "[Passed]" : "[No Output]")}
+                                            {tc.actual !== undefined && tc.actual !== null && String(tc.actual).length > 0
+                                              ? String(tc.actual)
+                                              : (tc.actualOutput !== undefined && tc.actualOutput !== null && String(tc.actualOutput).length > 0
+                                                  ? String(tc.actualOutput)
+                                                  : "(No output produced)")}
                                           </td>
                                           <td style={{ color: "var(--mz-text-muted, #64748b)", fontSize: "0.78rem" }}>
                                             {tc.durationMs ?? tc.duration ?? 0}ms

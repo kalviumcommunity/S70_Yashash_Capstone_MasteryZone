@@ -150,6 +150,8 @@ const codingProgressSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+codingProgressSchema.index({ updatedAt: -1 });
+
 module.exports =
   mongoose.models.CodingProgress ||
   mongoose.model("CodingProgress", codingProgressSchema);

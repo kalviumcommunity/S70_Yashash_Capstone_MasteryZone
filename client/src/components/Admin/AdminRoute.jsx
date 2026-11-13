@@ -29,6 +29,7 @@ const AdminRoute = ({ children }) => {
 
       try {
         const response = await fetch(`${API_BASE}/auth/me`, {
+          credentials: "include",
           headers: {
             Authorization: `Bearer ${token}`,
           },

@@ -18,6 +18,7 @@ const {
 const { pushNotification } = require('../utils/notificationService');
 const { pushAdminNotification } = require('../utils/adminNotificationService');
 const { getJwtSecret } = require('../config/jwtConfig');
+const { attachAuthCookies, clearAuthCookies, generateCsrfToken, getCsrfCookieOptions } = require('../utils/authCookies');
 const router = express.Router();
 
 const JWT_SECRET = getJwtSecret();
@@ -262,10 +263,12 @@ router.post('/login', async (req, res) => {
     await user.save();
 
     const token = issueUserJwt(user, '12h');
+    const csrfToken = attachAuthCookies(res, token);
 
     res.status(200).json({
       message: 'Login successful',
       token,
+      csrfToken,
       user: {
         _id: user._id,
         username: user.username,
@@ -302,10 +305,12 @@ router.post('/guest-login', async (req, res) => {
     });
 
     const token = issueUserJwt(user, '12h');
+    const csrfToken = attachAuthCookies(res, token);
 
     res.status(200).json({
       message: 'Guest login successful',
       token,
+      csrfToken,
       user: {
         _id: user._id,
         username: user.username,
@@ -615,10 +620,12 @@ router.post('/firebase-login', verifyFirebaseToken, async (req, res) => {
 
     // Issue standard JWT with complete isolation & authorization claims
     const token = issueUserJwt(user, '12h');
+    const csrfToken = attachAuthCookies(res, token);
 
     return res.status(200).json({
       message: 'Firebase login successful',
       token,
+      csrfToken,
       user: {
         _id: user._id,
         username: user.username,
@@ -949,6 +956,23 @@ router.put('/interests', verifyToken, async (req, res) => {
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
+});
+
+// Logout Route (Clears HttpOnly JWT and CSRF cookies)
+router.post('/logout', (req, res) => {
+  clearAuthCookies(res);
+  res.status(200).json({ message: 'Logged out successfully' });
+});
+
+// Fetch active CSRF Token
+router.get('/csrf-token', (req, res) => {
+  const existing = req.cookies?.mz_csrf_token;
+  if (existing) {
+    return res.status(200).json({ csrfToken: existing });
+  }
+  const csrfToken = generateCsrfToken();
+  res.cookie('mz_csrf_token', csrfToken, getCsrfCookieOptions());
+  res.status(200).json({ csrfToken });
 });
 
 module.exports = router;

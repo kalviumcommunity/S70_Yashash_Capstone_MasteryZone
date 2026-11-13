@@ -8,19 +8,13 @@ if (process.env.NODE_ENV !== "test" && !process.env.JUDGE0_API_HOST && !process.
   process.env.JUDGE0_API_HOST = "https://ce.judge0.com";
 }
 
-// Ensure authentic Gmail SMTP credentials are initialized for production and development mail delivery
+// Ensure designated Super Admin email identifier is recognized if not configured in environment
 if (process.env.NODE_ENV !== "test") {
-  if (!process.env.SMTP_EMAIL && !process.env.EMAIL_USER) {
-    process.env.SMTP_EMAIL = "yashashyashash1@gmail.com";
-  }
-  if (!process.env.SMTP_PASSWORD && !process.env.EMAIL_PASS) {
-    process.env.SMTP_PASSWORD = "miqtinlszsdfayvi";
-  }
   if (!process.env.MAIN_ADMIN_EMAIL && !process.env.ADMIN_EMAIL) {
     process.env.MAIN_ADMIN_EMAIL = "yashashyashash1@gmail.com";
   }
   if (!process.env.ADMIN_EMAIL) {
-    process.env.ADMIN_EMAIL = "yashashyashash1@gmail.com";
+    process.env.ADMIN_EMAIL = process.env.MAIN_ADMIN_EMAIL || "yashashyashash1@gmail.com";
   }
 }
 
@@ -119,6 +113,9 @@ const corsOptions = {
     "x-duration-seconds",
     "x-participant-names",
     "x-thumbnail-url",
+    "X-CSRF-Token",
+    "x-csrf-token",
+    "X-XSRF-Token",
     "Range",
   ],
   exposedHeaders: ["Content-Range", "Accept-Ranges", "Content-Length", "Content-Type"],
@@ -1917,6 +1914,8 @@ app.get("/health", (_req, res) => {
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use(cookieParser()); // Use cookie parser
+const csrfProtection = require('./middleware/csrfProtection');
+app.use(csrfProtection);
 app.use('/auth', authRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/coding', codingRoutes);
