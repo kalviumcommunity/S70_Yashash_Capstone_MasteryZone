@@ -10,7 +10,7 @@ import {
   LuSmartphone,
   LuClock,
 } from "react-icons/lu";
-import { io } from "socket.io-client";
+import { getSharedSocket, releaseSharedSocket } from "../../utils/socketClient";
 import { deduplicatedFetch } from "../../utils/apiClient";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
@@ -52,17 +52,15 @@ const AdminLiveActivity = () => {
     // Connect to Socket.IO for real-time live events
     try {
       const socketUrl = API_BASE || window.location.origin;
-      socket = io(socketUrl, {
-        auth: { token: localStorage.getItem("token") },
-        transports: ["websocket", "polling"],
-        reconnection: true,
-        reconnectionAttempts: Infinity,
-        reconnectionDelay: 1000,
-      });
+      socket = getSharedSocket(socketUrl);
 
       socket.on("connect", () => {
         socket.emit("join_admin_monitoring");
       });
+
+      if (socket.connected) {
+        socket.emit("join_admin_monitoring");
+      }
 
       socket.on("live_sessions_snapshot", (snapshot) => {
         if (isMounted && Array.isArray(snapshot) && snapshot.length > 0) {
@@ -97,7 +95,7 @@ const AdminLiveActivity = () => {
     return () => {
       isMounted = false;
       clearInterval(interval);
-      if (socket) socket.disconnect();
+      if (socket) releaseSharedSocket(socket);
     };
   }, []);
 

@@ -9,7 +9,7 @@ import React, {
 } from "react";
 import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
-import { io } from "socket.io-client";
+import { getSharedSocket, releaseSharedSocket } from "../utils/socketClient";
 import {
   LuAward,
   LuBell,
@@ -197,7 +197,7 @@ export function NotificationProvider({ children }) {
   useEffect(() => {
     if (!authToken) {
       if (socketRef.current) {
-        socketRef.current.disconnect();
+        releaseSharedSocket(socketRef.current, 0);
         socketRef.current = null;
       }
       setIsSocketConnected(false);
@@ -214,12 +214,8 @@ export function NotificationProvider({ children }) {
       window.location.hostname.includes("netlify.app")
     );
     const socketTarget = import.meta.env.VITE_API_URL || (isCloudHosted ? "https://mastery-zone.onrender.com" : window.location.origin);
-    const socket = io(socketTarget, {
+    const socket = getSharedSocket(socketTarget, {
       auth: { token: authToken },
-      transports: ["websocket", "polling"],
-      reconnection: true,
-      reconnectionAttempts: Infinity,
-      reconnectionDelay: 1000,
     });
 
     socketRef.current = socket;
@@ -331,7 +327,7 @@ export function NotificationProvider({ children }) {
       socket.off("RECORDING_SAVED");
       socket.off("RECORDING_UPDATED");
       socket.off("RECORDING_DELETED");
-      socket.disconnect();
+      releaseSharedSocket(socket);
       if (socketRef.current === socket) {
         socketRef.current = null;
       }

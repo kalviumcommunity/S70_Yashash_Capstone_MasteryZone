@@ -11,7 +11,7 @@ import {
   LuExternalLink,
   LuClock,
 } from "react-icons/lu";
-import { io } from "socket.io-client";
+import { getSharedSocket, releaseSharedSocket } from "../../utils/socketClient";
 import { deduplicatedFetch } from "../../utils/apiClient";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
@@ -95,25 +95,25 @@ const AdminNotificationDropdown = () => {
 
     // Connect to Socket.IO for real-time admin notifications
     let socket = null;
+    const handleAdminNotif = (notif) => {
+      setNotifications((prev) => [notif, ...prev]);
+      setUnreadCount((prev) => prev + 1);
+    };
+
     try {
       const socketTarget = API_BASE || window.location.origin;
-      socket = io(socketTarget, {
-        auth: { token: localStorage.getItem("token") },
-        transports: ["websocket", "polling"],
-        reconnection: true,
-        reconnectionAttempts: Infinity,
-        reconnectionDelay: 1000,
-      });
+      socket = getSharedSocket(socketTarget);
 
       socket.on("connect", () => {
         socket.emit("join_admin_monitoring");
         fetchNotifications();
       });
 
-      socket.on("admin_notification_received", (notif) => {
-        setNotifications((prev) => [notif, ...prev]);
-        setUnreadCount((prev) => prev + 1);
-      });
+      if (socket.connected) {
+        socket.emit("join_admin_monitoring");
+      }
+
+      socket.on("admin_notification_received", handleAdminNotif);
     } catch (e) {
       console.warn("Admin notification socket connection error:", e);
     }
@@ -128,7 +128,10 @@ const AdminNotificationDropdown = () => {
 
     return () => {
       document.removeEventListener("mousedown", handleOutsideClick);
-      if (socket) socket.disconnect();
+      if (socket) {
+        socket.off("admin_notification_received", handleAdminNotif);
+        releaseSharedSocket(socket);
+      }
     };
   }, []);
 

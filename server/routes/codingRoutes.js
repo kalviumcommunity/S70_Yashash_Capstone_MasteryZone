@@ -590,13 +590,27 @@ router.get("/challenges", optionalAuthenticateToken, async (req, res) => {
     const userId = req.user?.userId || req.user?.id || req.user?._id;
     let solvedSet = new Set();
     let solvedMap = new Map();
+    let progressUpdated = 0;
 
     if (userId) {
-      const userProgress = await CodingProgress.findOne({ userId });
+      const userProgress = await CodingProgress.findOne({ userId })
+        .select("challengesSolved updatedAt")
+        .lean();
       if (userProgress && Array.isArray(userProgress.challengesSolved)) {
         solvedSet = new Set(userProgress.challengesSolved.map((c) => c.challengeId));
         solvedMap = new Map(userProgress.challengesSolved.map((c) => [c.challengeId, c]));
+        progressUpdated = userProgress.updatedAt ? new Date(userProgress.updatedAt).getTime() : 0;
       }
+    }
+
+    // Fast conditional validation using lightweight ETag
+    const catalogVersion = CHALLENGES_CATALOG.length;
+    const etag = `W/"challenges-${catalogVersion}-${userId || 'anon'}-${progressUpdated}-${solvedSet.size}"`;
+    res.setHeader("ETag", etag);
+    res.setHeader("Cache-Control", "private, no-cache, must-revalidate");
+
+    if (req.headers["if-none-match"] === etag) {
+      return res.status(304).end();
     }
 
     const challenges = CHALLENGES_CATALOG.map((ch, idx) => {
@@ -2838,11 +2852,18 @@ router.get("/data", authenticateToken, async (req, res) => {
     const isValidUser = userId && mongoose.Types.ObjectId.isValid(String(userId));
     const userObjId = isValidUser ? new mongoose.Types.ObjectId(String(userId)) : null;
 
+    // Helper to safely read Map or Plain Object track counters
+    const getTrackVal = (mapOrObj, key) => {
+      if (!mapOrObj) return 0;
+      if (typeof mapOrObj.get === "function") return mapOrObj.get(key) || 0;
+      return mapOrObj[key] || 0;
+    };
+
     // Fetch progress, snippets, records, and project workspace states concurrently with lean projections
     const [userProgressDoc, snippets, progressRecords, userProjectStates] = await Promise.all([
-      CodingProgress.findOne({ userId }),
+      CodingProgress.findOne({ userId }).lean(),
       CodingSnippet.find({ userId }).select("title language code updatedAt").sort({ updatedAt: -1 }).lean(),
-      Progress.find({ userId, track: "CODING" }).select("date xpEarned hoursSpent").lean(),
+      Progress.find({ userId, track: "CODING" }).select("date xpEarned hoursSpent updatedAt").lean(),
       userObjId
         ? ProjectWorkspaceState.find({ userId: userObjId })
             .select("projectId status checkedTasks bestScore bestPercentage bestGrade passed badgeAwarded attemptsCount latestReportSessionId completedAt lastSavedAt updatedAt")
@@ -2863,10 +2884,24 @@ router.get("/data", authenticateToken, async (req, res) => {
             },
           },
           { upsert: true, new: true, setDefaultsOnInsert: true }
-        );
+        ).lean();
       } catch {
-        userProgress = await CodingProgress.findOne({ userId });
+        userProgress = await CodingProgress.findOne({ userId }).lean();
       }
+    }
+
+    // Fast conditional validation using lightweight ETag
+    const progressVer = userProgress?.updatedAt ? new Date(userProgress.updatedAt).getTime() : 0;
+    const projVer = userProjectStates.reduce((max, p) => Math.max(max, p.updatedAt ? new Date(p.updatedAt).getTime() : 0), 0);
+    const snippetVer = snippets[0]?.updatedAt ? new Date(snippets[0].updatedAt).getTime() : 0;
+    const solvedCount = Array.isArray(userProgress?.challengesSolved) ? userProgress.challengesSolved.length : 0;
+    const dataEtag = `W/"codingdata-${userId}-${progressVer}-${projVer}-${snippetVer}-${solvedCount}-${progressRecords.length}"`;
+
+    res.setHeader("ETag", dataEtag);
+    res.setHeader("Cache-Control", "private, no-cache, must-revalidate");
+
+    if (req.headers["if-none-match"] === dataEtag) {
+      return res.status(304).end();
     }
 
     // Calculate real stats from global Progress collection
@@ -2904,11 +2939,11 @@ router.get("/data", authenticateToken, async (req, res) => {
         subtitle: "Variables, control flow, functions, OOP, and data structures.",
         icon: "python",
         totalLessons: 8,
-        completedLessons: Math.min(8, userProgress.trackLessons?.get("python") || 0),
-        unlockedLevel: userProgress.trackUnlocks?.get("python") || 0,
-        status: (userProgress.trackLessons?.get("python") || 0) >= (CURRICULUM.python || []).length && (CURRICULUM.python || []).length > 0
+        completedLessons: Math.min(8, getTrackVal(userProgress.trackLessons, "python")),
+        unlockedLevel: getTrackVal(userProgress.trackUnlocks, "python"),
+        status: getTrackVal(userProgress.trackLessons, "python") >= (CURRICULUM.python || []).length && (CURRICULUM.python || []).length > 0
           ? "Completed"
-          : (userProgress.trackLessons?.get("python") || 0) > 0 || (userProgress.trackUnlocks?.get("python") || 0) > 0
+          : getTrackVal(userProgress.trackLessons, "python") > 0 || getTrackVal(userProgress.trackUnlocks, "python") > 0
           ? "In Progress"
           : "Start",
       },
@@ -2918,11 +2953,11 @@ router.get("/data", authenticateToken, async (req, res) => {
         subtitle: "DOM manipulation, async/await, closures, and ES6+ features.",
         icon: "javascript",
         totalLessons: 10,
-        completedLessons: Math.min(10, userProgress.trackLessons?.get("javascript") || 0),
-        unlockedLevel: userProgress.trackUnlocks?.get("javascript") || 0,
-        status: (userProgress.trackLessons?.get("javascript") || 0) >= (CURRICULUM.javascript || []).length && (CURRICULUM.javascript || []).length > 0
+        completedLessons: Math.min(10, getTrackVal(userProgress.trackLessons, "javascript")),
+        unlockedLevel: getTrackVal(userProgress.trackUnlocks, "javascript"),
+        status: getTrackVal(userProgress.trackLessons, "javascript") >= (CURRICULUM.javascript || []).length && (CURRICULUM.javascript || []).length > 0
           ? "Completed"
-          : (userProgress.trackLessons?.get("javascript") || 0) > 0 || (userProgress.trackUnlocks?.get("javascript") || 0) > 0
+          : getTrackVal(userProgress.trackLessons, "javascript") > 0 || getTrackVal(userProgress.trackUnlocks, "javascript") > 0
           ? "In Progress"
           : "Start",
       },
@@ -2932,11 +2967,11 @@ router.get("/data", authenticateToken, async (req, res) => {
         subtitle: "OOP principles, collections, multithreading, and enterprise design.",
         icon: "java",
         totalLessons: 12,
-        completedLessons: Math.min(12, userProgress.trackLessons?.get("java") || 0),
-        unlockedLevel: userProgress.trackUnlocks?.get("java") || 0,
-        status: (userProgress.trackLessons?.get("java") || 0) >= (CURRICULUM.java || []).length && (CURRICULUM.java || []).length > 0
+        completedLessons: Math.min(12, getTrackVal(userProgress.trackLessons, "java")),
+        unlockedLevel: getTrackVal(userProgress.trackUnlocks, "java"),
+        status: getTrackVal(userProgress.trackLessons, "java") >= (CURRICULUM.java || []).length && (CURRICULUM.java || []).length > 0
           ? "Completed"
-          : (userProgress.trackLessons?.get("java") || 0) > 0 || (userProgress.trackUnlocks?.get("java") || 0) > 0
+          : getTrackVal(userProgress.trackLessons, "java") > 0 || getTrackVal(userProgress.trackUnlocks, "java") > 0
           ? "In Progress"
           : "Start",
       },
@@ -2946,9 +2981,9 @@ router.get("/data", authenticateToken, async (req, res) => {
         subtitle: "Pointers, memory management, STL containers, and performance.",
         icon: "cpp",
         totalLessons: 8,
-        completedLessons: userProgress.trackLessons?.get("cpp") || 0,
-        unlockedLevel: userProgress.trackUnlocks?.get("cpp") || 0,
-        status: (userProgress.trackLessons?.get("cpp") || 0) >= (CURRICULUM.cpp || []).length ? "Completed" : (userProgress.trackUnlocks?.get("cpp") || 0) > 0 ? "In Progress" : "Start",
+        completedLessons: getTrackVal(userProgress.trackLessons, "cpp"),
+        unlockedLevel: getTrackVal(userProgress.trackUnlocks, "cpp"),
+        status: getTrackVal(userProgress.trackLessons, "cpp") >= (CURRICULUM.cpp || []).length ? "Completed" : getTrackVal(userProgress.trackUnlocks, "cpp") > 0 ? "In Progress" : "Start",
       },
       {
         id: "webdev",
@@ -2956,9 +2991,9 @@ router.get("/data", authenticateToken, async (req, res) => {
         subtitle: "HTML5 semantic markup, CSS3 Flex/Grid, React, and REST APIs.",
         icon: "webdev",
         totalLessons: 10,
-        completedLessons: userProgress.trackLessons?.get("webdev") || 0,
-        unlockedLevel: userProgress.trackUnlocks?.get("webdev") || 0,
-        status: (userProgress.trackLessons?.get("webdev") || 0) >= (CURRICULUM.webdev || []).length ? "Completed" : (userProgress.trackUnlocks?.get("webdev") || 0) > 0 ? "In Progress" : "Start",
+        completedLessons: getTrackVal(userProgress.trackLessons, "webdev"),
+        unlockedLevel: getTrackVal(userProgress.trackUnlocks, "webdev"),
+        status: getTrackVal(userProgress.trackLessons, "webdev") >= (CURRICULUM.webdev || []).length ? "Completed" : getTrackVal(userProgress.trackUnlocks, "webdev") > 0 ? "In Progress" : "Start",
       },
       {
         id: "dsa",
@@ -2966,9 +3001,9 @@ router.get("/data", authenticateToken, async (req, res) => {
         subtitle: "Arrays, stacks, queues, trees, graphs, and dynamic programming.",
         icon: "dsa",
         totalLessons: 12,
-        completedLessons: userProgress.trackLessons?.get("dsa") || 0,
-        unlockedLevel: userProgress.trackUnlocks?.get("dsa") || 0,
-        status: (userProgress.trackLessons?.get("dsa") || 0) >= (CURRICULUM.dsa || []).length ? "Completed" : (userProgress.trackUnlocks?.get("dsa") || 0) > 0 ? "In Progress" : "Start",
+        completedLessons: getTrackVal(userProgress.trackLessons, "dsa"),
+        unlockedLevel: getTrackVal(userProgress.trackUnlocks, "dsa"),
+        status: getTrackVal(userProgress.trackLessons, "dsa") >= (CURRICULUM.dsa || []).length ? "Completed" : getTrackVal(userProgress.trackUnlocks, "dsa") > 0 ? "In Progress" : "Start",
       },
     ];
 

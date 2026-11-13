@@ -16,7 +16,10 @@ if (!configuredAdminEmail && process.env.NODE_ENV === "production") {
 
 const express = require("express")
 const fs = require("fs")
+const crypto = require("crypto")
 const mongoose = require("mongoose")
+const { initMongooseTiming, timingDiagnosticsMiddleware } = require("./middleware/timingDiagnostics")
+initMongooseTiming(mongoose)
 const dotenv = require("dotenv")
 const cors = require("cors")
 const router = require("./route")
@@ -117,7 +120,7 @@ const corsOptions = {
     "X-XSRF-Token",
     "Range",
   ],
-  exposedHeaders: ["Content-Range", "Accept-Ranges", "Content-Length", "Content-Type"],
+  exposedHeaders: ["Content-Range", "Accept-Ranges", "Content-Length", "Content-Type", "Server-Timing", "ETag"],
   credentials: true,
 };
 
@@ -1904,26 +1907,9 @@ app.use(compression({
   }
 }));
 
-// Lightweight API latency diagnostics. Log only slow requests and never include query
-// strings or request bodies, so tokens and user data are not written to application logs.
-app.use((req, res, next) => {
-  const isApiRequest = req.path.startsWith("/api/") || req.path.startsWith("/auth/");
-  if (!isApiRequest) return next();
-
-  const startedAt = process.hrtime.bigint();
-  res.once("finish", () => {
-    const durationMs = Number(process.hrtime.bigint() - startedAt) / 1e6;
-    if (durationMs >= 1000) {
-      console.warn("[PERF] Slow API request", JSON.stringify({
-        method: req.method,
-        path: req.path,
-        status: res.statusCode,
-        durationMs: Math.round(durationMs),
-      }));
-    }
-  });
-  next();
-});
+// Comprehensive API and static route latency diagnostics with stage breakdown (auth, db, serialize, total)
+// Logs slow requests (>=1000ms) with sanitized timing diagnostics and attaches W3C Server-Timing header.
+app.use(timingDiagnosticsMiddleware);
 
 const { initPoolMonitoring, getPoolStatus } = require("./config/dbPoolMonitor");
 
@@ -2229,9 +2215,8 @@ const databaseReady = connectDB();
 app.use(express.static(path.join(__dirname, '../client/dist'), {
   setHeaders: (res, filePath) => {
     if (filePath.endsWith('index.html')) {
-      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader('Cache-Control', 'no-cache, must-revalidate');
       res.setHeader('Pragma', 'no-cache');
-      res.setHeader('Expires', '0');
     } else if (filePath.includes('/assets/')) {
       res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
     }
@@ -2244,12 +2229,42 @@ app.use('/assets', (req, res) => {
   res.status(404).type('text/plain').send('Asset chunk not found');
 });
 
+// In-memory cache for SPA index.html to avoid disk I/O and threadpool saturation on every request
+const indexPath = path.join(__dirname, '../client/dist/index.html');
+let cachedIndexHtml = null;
+let cachedIndexEtag = null;
+let cachedIndexMtime = null;
+
+function getCachedIndexHtml() {
+  try {
+    if (fs.existsSync(indexPath)) {
+      const stat = fs.statSync(indexPath);
+      if (!cachedIndexHtml || cachedIndexMtime !== stat.mtimeMs) {
+        cachedIndexHtml = fs.readFileSync(indexPath, 'utf8');
+        cachedIndexMtime = stat.mtimeMs;
+        const hash = crypto.createHash('md5').update(cachedIndexHtml).digest('hex').slice(0, 16);
+        cachedIndexEtag = `W/"index-${hash}"`;
+      }
+    }
+  } catch {}
+  return { html: cachedIndexHtml, etag: cachedIndexEtag };
+}
+
 // Catch-all route to serve the React app for non-API requests (SPA routing)
 app.get(/.*/, (req, res) => {
-  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-  res.setHeader('Pragma', 'no-cache');
-  res.setHeader('Expires', '0');
-  res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+  const { html, etag } = getCachedIndexHtml();
+  if (html) {
+    res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    if (etag) {
+      res.setHeader('ETag', etag);
+      if (req.headers['if-none-match'] === etag) {
+        return res.status(304).end();
+      }
+    }
+    return res.type('html').send(html);
+  }
+  res.sendFile(indexPath);
 });
 
 // Start Server

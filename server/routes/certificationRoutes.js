@@ -1730,6 +1730,18 @@ router.get("/my-history", authenticateToken, async (req, res) => {
       certificatesQuery,
     ]);
 
+    const latestAttemptId = attempts[0]?.attemptId || "none";
+    const latestAttemptTime = attempts[0]?.submittedAt ? new Date(attempts[0].submittedAt).getTime() : 0;
+    const latestCertId = certificates[0]?.certificateId || "none";
+    const etag = `W/"cert-history-${userId}-${totalAttempts}-${totalCertificates}-${latestAttemptId}-${latestAttemptTime}-${latestCertId}"`;
+
+    res.setHeader("ETag", etag);
+    res.setHeader("Cache-Control", "private, no-cache, must-revalidate");
+
+    if (req.headers["if-none-match"] === etag) {
+      return res.status(304).end();
+    }
+
     const formattedAttempts = attempts.map((att) => ({
       attemptId: att.attemptId,
       certId: att.certId,

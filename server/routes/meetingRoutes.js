@@ -214,9 +214,27 @@ router.get("/ice-config", optionalAuthToken, (req, res) => {
 // -------------------------------------------------------------
 router.get("/study-rooms", async (req, res) => {
   try {
-    const activeMeetings = await Meeting.find({ status: "active" })
+    const studyRoomKeys = STUDY_ROOMS_CATALOG.map((r) => r.key);
+    const activeMeetings = await Meeting.find({
+      status: "active",
+      groupKey: { $in: studyRoomKeys },
+    })
       .select("meetingId title groupKey participants.userId participants.leftAt createdAt")
       .lean();
+
+    const activeCount = activeMeetings.length;
+    const rawHashInput = activeMeetings
+      .map((m) => `${m.meetingId}:${(m.participants || []).filter((p) => !p.leftAt).length}`)
+      .join(";");
+    const participantsHash = crypto.createHash("md5").update(rawHashInput).digest("hex").slice(0, 16);
+    const etag = `W/"study-rooms-${activeCount}-${participantsHash}"`;
+
+    res.setHeader("ETag", etag);
+    res.setHeader("Cache-Control", "public, no-cache, must-revalidate");
+
+    if (req.headers["if-none-match"] === etag) {
+      return res.status(304).end();
+    }
 
     const rooms = STUDY_ROOMS_CATALOG.map((room) => {
       const activeForGroup = activeMeetings.filter((m) => m.groupKey === room.key);

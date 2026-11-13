@@ -739,11 +739,20 @@ export default function Coding() {
     };
   }, [activeTrackId]);
 
+  const lastDashboardFetchRef = useRef(0);
+
   /* ────────────────────────────────────────────────────────────
      1. Fetch Unified Dashboard Data
      ──────────────────────────────────────────────────────────── */
-  const fetchDashboardData = useCallback(async () => {
+  const fetchDashboardData = useCallback(async (force = false) => {
+    const now = Date.now();
+    if (!force && now - lastDashboardFetchRef.current < 1200) {
+      return;
+    }
+    lastDashboardFetchRef.current = now;
+
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    let challengesLoadedFromData = false;
 
     const pData = deduplicatedFetch(`${API_BASE}/api/coding/data`, { headers, cacheTtlMs: 3500 })
       .then(async (res) => {
@@ -769,6 +778,7 @@ export default function Coding() {
           }
           if (Array.isArray(data.challenges) && data.challenges.length > 0) {
             setChallenges(data.challenges);
+            challengesLoadedFromData = true;
           }
           if (Array.isArray(data.videoCourses) && data.videoCourses.length > 0) {
             setVideoCourses(data.videoCourses);
@@ -788,16 +798,19 @@ export default function Coding() {
         console.warn("Could not load /api/coding/data, falling back to local catalog:", err);
       });
 
-    const pChallenges = deduplicatedFetch(`${API_BASE}/api/coding/challenges`, { cacheTtlMs: 5000 })
-      .then(async (chRes) => {
+    const pChallenges = pData.then(async () => {
+      // If challenges were already populated by /api/coding/data, skip duplicate request
+      if (challengesLoadedFromData) return;
+      try {
+        const chRes = await deduplicatedFetch(`${API_BASE}/api/coding/challenges`, { cacheTtlMs: 5000 });
         if (chRes.ok) {
           const chData = await chRes.json();
           if (Array.isArray(chData.challenges) && chData.challenges.length > 0) {
             setChallenges(chData.challenges);
           }
         }
-      })
-      .catch(() => {});
+      } catch {}
+    });
 
     const pCert = token
       ? deduplicatedFetch(`${API_BASE}/api/certifications/my-history`, { headers, cacheTtlMs: 4000 })
@@ -811,7 +824,7 @@ export default function Coding() {
                 } catch {}
                 if (certData.certificates.length === 0) {
                   try {
-                    const uKey = currentUser?._id || currentUser?.id || "guest";
+                    const uKey = currentUserId || "guest";
                     ["python_cert", "js_cert", "fullstack_cert", "java_cert", "cpp_cert", "dsa_cert"].forEach((k) => {
                       localStorage.removeItem(`mz_${uKey}_cert_${k}_submitted`);
                       localStorage.removeItem(`mz_cert_${k}_submitted`);
@@ -845,7 +858,7 @@ export default function Coding() {
       .catch(() => {});
 
     await Promise.allSettled([pData, pChallenges, pCert, pRooms]);
-  }, [token, currentUser]);
+  }, [token, currentUserId]);
 
   useEffect(() => {
     fetchDashboardData();
