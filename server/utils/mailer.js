@@ -2878,7 +2878,7 @@ async function sendSupportTicketSubmittedEmail({
           </table>
           <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid #f1f5f9; font-size: 13px; color: #475569; line-height: 1.5;">
             <strong>Problem Description:</strong><br/>
-            ${description.replace(/\n/g, "<br/>")}
+            ${(description || "").replace(/\n/g, "<br/>")}
           </div>
         </div>
 
@@ -2985,7 +2985,7 @@ async function sendSupportTicketResponseEmail({
 
           <div style="margin-top: 16px; padding: 14px 16px; background: #f8fafc; border-left: 4px solid #4f46e5; border-radius: 6px; font-size: 13.5px; color: #1e293b; line-height: 1.6;">
             <strong>Administrator Message:</strong><br/>
-            ${adminResponse.replace(/\n/g, "<br/>")}
+            ${(adminResponse || "").replace(/\n/g, "<br/>")}
           </div>
         </div>
 
