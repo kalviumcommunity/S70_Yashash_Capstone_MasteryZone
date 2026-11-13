@@ -1017,7 +1017,7 @@ router.post("/assignment/submit", authenticateToken, async (req, res) => {
 
       testResults = testCases.map((tc, i) => {
         const out = outcomes[i] || { passed: false, actual: "", expected: tc.expectedOutput, error: "Evaluation failed", duration: 0 };
-        const isHidden = tc.isHidden || i >= 2;
+        const isHidden = Boolean(tc.isHidden);
         return {
           testNumber: i + 1,
           testIndex: i + 1,
@@ -1025,10 +1025,10 @@ router.post("/assignment/submit", authenticateToken, async (req, res) => {
           passed: Boolean(out.passed),
           input: isHidden ? "[Hidden Test Case]" : tc.input,
           expectedOutput: isHidden ? "[Hidden Test Case]" : tc.expectedOutput,
-          actualOutput: isHidden ? (out.passed ? "[Passed]" : "[Output Hidden]") : out.actual,
+          actualOutput: isHidden ? (out.passed ? "[Hidden Spec Passed]" : "[Output Hidden]") : (out.actual !== undefined && out.actual !== null ? out.actual : ""),
           error: isHidden ? (out.passed ? null : "Hidden Test Case Failed") : (out.error || null),
-          durationMs: out.duration || 35,
-          duration: out.duration || 35,
+          durationMs: out.duration || 0,
+          duration: out.duration || 0,
         };
       });
       passedCount = testResults.filter((r) => r.passed).length;

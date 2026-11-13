@@ -767,7 +767,7 @@ export default function CertificationExamWorkspace({
             language: "python",
             solved: false,
             passedTests: 0,
-            totalTests: (q.testCases || []).length || 10,
+            totalTests: Array.isArray(q.testCases) ? q.testCases.length : 0,
             testResults: [],
           })),
           durationMinutes: 90,

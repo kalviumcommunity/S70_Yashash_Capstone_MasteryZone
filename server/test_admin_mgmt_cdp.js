@@ -22,7 +22,7 @@ async function runE2ETest() {
     throw new Error("Main Admin yashashyashash1@gmail.com not found!");
   }
   const bcrypt = require("bcrypt");
-  const rawPass = process.env.ADMIN_PASSWORD || "your_app_password";
+  const rawPass = process.env.ADMIN_PASSWORD || "TestAdminSecure2026!";
   const passMatches = await bcrypt.compare(rawPass, mainAdmin.password);
   console.log("Password matches DB hash?", passMatches);
   if (!passMatches) {

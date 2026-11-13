@@ -2512,17 +2512,21 @@ router.get("/learning-analytics", async (req, res) => {
       userQuery._id = userId;
     }
 
-    // 1. Get real registered users
-    const registeredUsers = await User.find(userQuery).lean();
-    const totalEnrolled = registeredUsers.length;
-
-    // 2. Aggregate actual hours and streaks
-    let totalLearningHours = 0;
-    let totalStreaks = 0;
-    registeredUsers.forEach((u) => {
-      totalLearningHours += Number(u.learningHours || 0);
-      totalStreaks += Number(u.streak || 0);
-    });
+    // 1. Efficiently aggregate user metrics without transferring entire user collection to Node
+    const [userAgg] = await User.aggregate([
+      { $match: userQuery },
+      {
+        $group: {
+          _id: null,
+          totalEnrolled: { $sum: 1 },
+          totalLearningHours: { $sum: { $ifNull: ["$learningHours", 0] } },
+          totalStreaks: { $sum: { $ifNull: ["$streak", 0] } },
+        },
+      },
+    ]);
+    const totalEnrolled = userAgg?.totalEnrolled || 0;
+    const totalLearningHours = userAgg?.totalLearningHours || 0;
+    const totalStreaks = userAgg?.totalStreaks || 0;
 
     // 3. Query SubjectProgress for the 4 tracks
     const subjectProgressDocs = await SubjectProgress.find({
@@ -2646,29 +2650,37 @@ router.get("/coding-analytics", async (req, res) => {
       createdAt: { $gte: startDate, $lte: endDate },
     };
 
-    const totalSubmissions = await ChallengeSubmission.countDocuments(filter);
-    const acceptedCount = await ChallengeSubmission.countDocuments({
-      ...filter,
-      status: "ACCEPTED",
-    });
-    const wrongAnswerCount = await ChallengeSubmission.countDocuments({
-      ...filter,
-      status: "WRONG_ANSWER",
-    });
-    const errorCount = await ChallengeSubmission.countDocuments({
-      ...filter,
-      status: { $in: ["RUNTIME_ERROR", "COMPILATION_ERROR", "TIME_LIMIT_EXCEEDED"] },
+    const [aggResult] = await ChallengeSubmission.aggregate([
+      { $match: filter },
+      {
+        $facet: {
+          statusCounts: [
+            { $group: { _id: "$status", count: { $sum: 1 } } },
+          ],
+          languages: [
+            { $group: { _id: "$language", count: { $sum: 1 } } },
+            { $sort: { count: -1 } },
+          ],
+          total: [
+            { $count: "count" },
+          ],
+        },
+      },
+    ]);
+
+    const totalSubmissions = aggResult?.total?.[0]?.count || 0;
+    let acceptedCount = 0;
+    let wrongAnswerCount = 0;
+    let errorCount = 0;
+    (aggResult?.statusCounts || []).forEach((sc) => {
+      if (sc._id === "ACCEPTED") acceptedCount += sc.count;
+      else if (sc._id === "WRONG_ANSWER") wrongAnswerCount += sc.count;
+      else if (["RUNTIME_ERROR", "COMPILATION_ERROR", "TIME_LIMIT_EXCEEDED"].includes(sc._id)) errorCount += sc.count;
     });
 
     const accuracyRate =
       totalSubmissions > 0 ? Math.round((acceptedCount / totalSubmissions) * 100) : 0;
-
-    // Actual language aggregation
-    const languages = await ChallengeSubmission.aggregate([
-      { $match: filter },
-      { $group: { _id: "$language", count: { $sum: 1 } } },
-      { $sort: { count: -1 } },
-    ]);
+    const languages = aggResult?.languages || [];
 
     // High-speed recent submissions with candidate details (projected fields for instant performance)
     const Notification = require("../models/NotificationSchema");
@@ -3534,23 +3546,27 @@ router.get("/recordings", async (req, res) => {
       .sort({ createdAt: -1 })
       .lean();
 
-    // 3. Inspect physical files on disk
+    // 3. Inspect physical files on disk with error resilience
     let diskFiles = {};
     if (fs.existsSync(recordingsDir)) {
-      const files = fs.readdirSync(recordingsDir);
-      files.forEach((f) => {
-        if (!f.startsWith(".")) {
-          const filePath = path.join(recordingsDir, f);
-          const stat = fs.statSync(filePath);
-          totalBytes += stat.size;
-          diskFiles[f] = {
-            filename: f,
-            sizeBytes: stat.size,
-            sizeMB: (stat.size / (1024 * 1024)).toFixed(2),
-            createdAt: stat.birthtime || stat.mtime,
-          };
+      try {
+        const files = fs.readdirSync(recordingsDir);
+        for (const f of files) {
+          if (!f.startsWith(".")) {
+            try {
+              const filePath = path.join(recordingsDir, f);
+              const stat = fs.statSync(filePath);
+              totalBytes += stat.size;
+              diskFiles[f] = {
+                filename: f,
+                sizeBytes: stat.size,
+                sizeMB: (stat.size / (1024 * 1024)).toFixed(2),
+                createdAt: stat.birthtime || stat.mtime,
+              };
+            } catch {}
+          }
         }
-      });
+      } catch {}
     }
 
     // Lookup users for host email/name resolution

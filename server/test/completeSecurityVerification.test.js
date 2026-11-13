@@ -495,27 +495,27 @@ async function runSuite() {
     assert(aCreatedState && aCreatedState.roomId === "private_room_guessing_test", "Host must receive room created confirmation");
 
     // 3. User B attempts to squat/overwrite User A's created room
-    let squatError = null;
-    clientB.on("coding_room_error", (data) => {
-      squatError = data.message;
+    const squatPromise = new Promise((resolve) => {
+      clientB.once("coding_room_error", (data) => resolve(data.message));
+      setTimeout(() => resolve(null), 1200);
     });
     clientB.emit("create_coding_room", {
       roomId: "private_room_guessing_test",
       token: tokenB,
     });
-    await new Promise((r) => setTimeout(r, 200));
+    const squatError = await squatPromise;
     assert(squatError && squatError.includes("already exists"), "User cannot overwrite or squat an existing room");
 
     // 4. User B attempts to join User A's private room without invitation
-    let joinDeniedError = null;
-    clientB.on("coding_room_error", (data) => {
-      joinDeniedError = data.message;
+    const joinDeniedPromise = new Promise((resolve) => {
+      clientB.once("coding_room_error", (data) => resolve(data.message));
+      setTimeout(() => resolve(null), 1200);
     });
     clientB.emit("join_coding_room", {
       roomId: "private_room_guessing_test",
       token: tokenB,
     });
-    await new Promise((r) => setTimeout(r, 200));
+    const joinDeniedError = await joinDeniedPromise;
     assert(joinDeniedError && joinDeniedError.includes("not authorized"), "Uninvited user must be rejected with Access denied");
 
     clientA.disconnect();

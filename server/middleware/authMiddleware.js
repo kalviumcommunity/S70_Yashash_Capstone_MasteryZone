@@ -3,7 +3,11 @@ const { getJwtSecret } = require('../config/jwtConfig');
 
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Format: "Bearer <token>"
+  let token = authHeader && authHeader.split(' ')[1]; // Format: "Bearer <token>"
+
+  if (!token && req.cookies && req.cookies.token) {
+    token = req.cookies.token;
+  }
 
   if (!token) {
     return res.status(401).json({ message: 'Access denied. No token provided.' });
@@ -20,7 +24,11 @@ const authenticateToken = (req, res, next) => {
 
 const optionalAuthenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  let token = authHeader && authHeader.split(' ')[1];
+
+  if (!token && req.cookies && req.cookies.token) {
+    token = req.cookies.token;
+  }
 
   if (!token) {
     req.user = null;

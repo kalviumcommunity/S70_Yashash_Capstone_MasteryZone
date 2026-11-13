@@ -91,6 +91,10 @@ const userSchema = new mongoose.Schema({
   ]
 }, { timestamps: true });
 
+userSchema.index({ role: 1, createdAt: -1 });
+userSchema.index({ createdAt: -1 });
+userSchema.index({ isSuspended: 1 });
+
 const User = mongoose.models.User || mongoose.model('User', userSchema);
 
 module.exports = User;

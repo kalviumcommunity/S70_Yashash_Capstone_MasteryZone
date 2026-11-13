@@ -20,7 +20,7 @@ import logoIcon from "../assets/logo_icon_transparent.png";
 import illustrationImg from "../assets/login_illustration.png";
 import "./Signup.css";
 import ThemeToggle from "./ThemeToggle.jsx";
-import { updateLastActivityTime } from "../utils/sessionAuth.js";
+import { updateLastActivityTime, clearMasteryZoneStorage } from "../utils/sessionAuth.js";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 const AUTH_BASE = API_BASE ? `${API_BASE}/auth` : "/auth";
@@ -155,6 +155,7 @@ const Signup = () => {
     try {
       const response = await fetch(`${AUTH_BASE}/register`, {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
           ...(firebaseToken ? { Authorization: `Bearer ${firebaseToken}` } : {}),
@@ -195,6 +196,7 @@ const Signup = () => {
 
       const response = await fetch(`${AUTH_BASE}/firebase-login`, {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
@@ -222,8 +224,7 @@ const Signup = () => {
       }
 
       // Purge any prior session residual data completely to ensure strict individual isolation
-      localStorage.clear();
-      sessionStorage.clear();
+      clearMasteryZoneStorage();
       sessionStorage.setItem("mz_session_active", "true");
       sessionStorage.setItem("token", data.token);
 

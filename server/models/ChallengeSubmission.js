@@ -58,6 +58,10 @@ const challengeSubmissionSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    testResults: {
+      type: Array,
+      default: [],
+    },
     adminModifiedAt: {
       type: Date,
       default: null,
@@ -105,6 +109,9 @@ const challengeSubmissionSchema = new mongoose.Schema(
 
 challengeSubmissionSchema.index({ userId: 1, createdAt: -1 });
 challengeSubmissionSchema.index({ userId: 1, challengeId: 1 });
+challengeSubmissionSchema.index({ status: 1, createdAt: -1 });
+challengeSubmissionSchema.index({ createdAt: -1 });
+challengeSubmissionSchema.index({ challengeId: 1, status: 1 });
 
 module.exports =
   mongoose.models.ChallengeSubmission ||

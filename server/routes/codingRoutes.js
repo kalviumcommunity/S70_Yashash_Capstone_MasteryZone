@@ -914,6 +914,7 @@ router.post("/challenges/:id/submit", optionalAuthenticateToken, async (req, res
           ? `Challenge completed! 100% test cases passed (${passedCount}/${allTests.length}).`
           : `Challenge incomplete. Passed ${passedCount}/${allTests.length} tests (${score}%). 100% pass rate required.`,
         error: testResults.find((r) => !r.passed)?.error || "",
+        testResults,
       });
 
       // Permanently record daily coding activity and streak in database
@@ -5163,32 +5164,35 @@ router.get("/proctored-session/:sessionId/report", optionalAuthenticateToken, as
         const testCasesList = (resolvedProblem.testCases && resolvedProblem.testCases.length > 0)
           ? resolvedProblem.testCases
           : [];
-        const totalTests = challengeSub.totalTests || testCasesList.length || 10;
+        const hasSavedResults = Array.isArray(challengeSub.testResults) && challengeSub.testResults.length > 0;
+        const totalTests = hasSavedResults
+          ? challengeSub.testResults.length
+          : (testCasesList.length > 0 ? testCasesList.length : (challengeSub.totalTests || 0));
         const passedTests = challengeSub.passedTests !== undefined ? challengeSub.passedTests : 0;
         const score = challengeSub.score !== undefined ? challengeSub.score : Math.round((passedTests / Math.max(1, totalTests)) * 100);
         const isPassed = challengeSub.status === "ACCEPTED";
         const grade = calculateGrade(score);
 
-        // Generate verified test results from actual submission status and test case assertions
-        const testResults = [];
-        for (let tIdx = 0; tIdx < totalTests; tIdx++) {
-          const tc = testCasesList[tIdx] || {};
-          const isHidden = tc.isHidden !== undefined ? tc.isHidden : false;
-          const passed = tIdx < passedTests;
-          testResults.push({
-            testIndex: tIdx + 1,
-            testNumber: tIdx + 1,
-            passed,
-            durationMs: challengeSub.runtimeMs ? Math.round(challengeSub.runtimeMs / Math.max(1, totalTests)) : 25,
-            input: isHidden ? "[Hidden Test Case]" : (tc.input || `Test Case #${tIdx + 1}`),
-            expected: isHidden ? "[Hidden Output]" : (tc.expectedOutput || "Expected Output"),
-            actual: isHidden
-              ? (passed ? "[Passed]" : "[Output Hidden]")
-              : (passed ? (tc.expectedOutput || "[Passed]") : (challengeSub.error || challengeSub.output || "[Wrong Output]")),
-            isHidden,
-            error: passed ? null : (challengeSub.error || "Assertion failed"),
-          });
-        }
+        // Retrieve verified test results from actual submission or test case assertions
+        const testResults = hasSavedResults
+          ? challengeSub.testResults
+          : testCasesList.map((tc, tIdx) => {
+              const isHidden = tc.isHidden !== undefined ? tc.isHidden : false;
+              const passed = tIdx < passedTests;
+              return {
+                testIndex: tIdx + 1,
+                testNumber: tIdx + 1,
+                passed,
+                durationMs: challengeSub.runtimeMs ? Math.round(challengeSub.runtimeMs / Math.max(1, totalTests)) : 0,
+                input: isHidden ? "[Hidden Test Case]" : (tc.input || `Test Case #${tIdx + 1}`),
+                expected: isHidden ? "[Hidden Output]" : (tc.expectedOutput || ""),
+                actual: isHidden
+                  ? (passed ? "[Passed]" : "[Output Hidden]")
+                  : (passed ? (tc.expectedOutput || "") : (challengeSub.error || challengeSub.output || "")),
+                isHidden,
+                error: passed ? null : (challengeSub.error || "Assertion failed"),
+              };
+            });
 
         const candidateName = subUser.fullName || subUser.username || "Verified Candidate";
         const candidateEmail = subUser.email || "candidate@masteryzone.com";
@@ -5398,10 +5402,10 @@ router.get("/proctored-session/:sessionId/report", optionalAuthenticateToken, as
         }
       }
 
-      // If testResults has fewer items than totalTests (or is empty), expand or synthesize the full test suite
+      // Only evaluate genuine test cases from problem definition or existing testResults
       const resolvedProblem = resolveQuestionData(q.questionId, session.trackId);
       const testCasesList = (q.testCases && q.testCases.length > 0) ? q.testCases : (resolvedProblem?.testCases || []);
-      const totalRequired = Math.max(testCasesList.length || 0, q.totalTests || 10);
+      const totalRequired = testCasesList.length > 0 ? testCasesList.length : (Array.isArray(q.testResults) ? q.testResults.length : 0);
       q.totalTests = totalRequired;
       const passTarget = q.passedTests !== undefined ? q.passedTests : (q.score === 100 ? totalRequired : Math.round(((q.score || 0) / 100) * totalRequired));
       q.passedTests = passTarget;
@@ -5415,7 +5419,7 @@ router.get("/proctored-session/:sessionId/report", optionalAuthenticateToken, as
         q.attempted = true;
       }
 
-      if (!Array.isArray(q.testResults) || q.testResults.length < totalRequired) {
+      if (!Array.isArray(q.testResults) || q.testResults.length !== totalRequired) {
         const existingResults = Array.isArray(q.testResults) ? q.testResults : [];
         const fullResults = [];
         for (let tIdx = 0; tIdx < totalRequired; tIdx++) {
@@ -5430,11 +5434,11 @@ router.get("/proctored-session/:sessionId/report", optionalAuthenticateToken, as
               testNumber: tIdx + 1,
               passed: isPassed,
               input: isHidden ? "[Hidden Test Case]" : (tc.input || `Test Case #${tIdx + 1}`),
-              expected: isHidden ? "[Hidden Output]" : (tc.expectedOutput || "Expected Output"),
+              expected: isHidden ? "[Hidden Output]" : (tc.expectedOutput || ""),
               actual: isHidden
                 ? (isPassed ? "[Passed]" : "[Output Hidden]")
-                : (isPassed ? (tc.expectedOutput || "[Passed]") : (codeIsEmpty ? "[No Output]" : "[Wrong Output]")),
-              durationMs: codeIsEmpty ? 0 : 35,
+                : (isPassed ? (tc.expectedOutput || "") : (codeIsEmpty ? "" : "Output assertion mismatch")),
+              durationMs: 0,
               isHidden,
               error: isPassed ? null : (codeIsEmpty ? "No executable code provided." : "Output assertion mismatch"),
             });

@@ -99,6 +99,12 @@ export const updateLastActivityTime = () => {
   } catch {}
 };
 
+export function getCsrfToken() {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie.match(/(?:^|;\s*)mz_csrf_token=([^;]*)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
 export const getJwtPayload = (token) => {
   if (!token || typeof token !== "string") return null;
   try {
@@ -320,6 +326,14 @@ export const performGlobalLogout = (inactivityReason = null) => {
 
   try {
     signOut(auth).catch(() => {});
+  } catch {}
+
+  try {
+    const API_BASE = (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_API_URL) || "";
+    fetch(`${API_BASE}/auth/logout`, {
+      method: "POST",
+      credentials: "include",
+    }).catch(() => {});
   } catch {}
 
   clearMasteryZoneStorage();

@@ -218,6 +218,9 @@ async function runTests() {
       const prevBrevo = process.env.BREVO_SENDER_EMAIL;
       const prevSmtpFrom = process.env.SMTP_FROM;
       const prevSmtpEmail = process.env.SMTP_EMAIL;
+      const prevEmailUser = process.env.EMAIL_USER;
+      const prevMainAdmin = process.env.MAIN_ADMIN_EMAIL;
+      const prevAdminEmail = process.env.ADMIN_EMAIL;
       try {
         process.env.NODE_ENV = "production";
         delete process.env.BREVO_SENDER_EMAIL;
@@ -231,9 +234,12 @@ async function runTests() {
         assert.strictEqual(sender, null, "In production without configured sender, getSenderAddress must fail-closed (return null)");
       } finally {
         process.env.NODE_ENV = prevEnv;
-        if (prevBrevo) process.env.BREVO_SENDER_EMAIL = prevBrevo;
-        if (prevSmtpFrom) process.env.SMTP_FROM = prevSmtpFrom;
-        if (prevSmtpEmail) process.env.SMTP_EMAIL = prevSmtpEmail;
+        if (prevBrevo !== undefined) process.env.BREVO_SENDER_EMAIL = prevBrevo;
+        if (prevSmtpFrom !== undefined) process.env.SMTP_FROM = prevSmtpFrom;
+        if (prevSmtpEmail !== undefined) process.env.SMTP_EMAIL = prevSmtpEmail;
+        if (prevEmailUser !== undefined) process.env.EMAIL_USER = prevEmailUser;
+        if (prevMainAdmin !== undefined) process.env.MAIN_ADMIN_EMAIL = prevMainAdmin;
+        if (prevAdminEmail !== undefined) process.env.ADMIN_EMAIL = prevAdminEmail;
       }
     });
 

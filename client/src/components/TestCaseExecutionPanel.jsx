@@ -72,18 +72,7 @@ export default function TestCaseExecutionPanel({
   // Normalize test case states from various sources (compiler sandbox, project evaluator, judge runner)
   const normalizedCases = useMemo(() => {
     if (!Array.isArray(testCases) || testCases.length === 0) {
-      return Array.from({ length: 5 }, (_, idx) => ({
-        index: idx + 1,
-        title: `Test Case ${idx + 1}`,
-        input: "",
-        expectedOutput: "",
-        actualOutput: "",
-        error: null,
-        status: "waiting",
-        passed: null,
-        duration: null,
-        isHidden: false,
-      }));
+      return [];
     }
 
     return testCases.map((tc, idx) => {
@@ -233,6 +222,11 @@ export default function TestCaseExecutionPanel({
       )}
 
       {/* 3. MAIN TWO-COLUMN SPLIT: TEST CASE LIST (LEFT) & DETAIL VIEW (RIGHT) */}
+      {normalizedCases.length === 0 ? (
+        <div className="mz-tc-empty-state" style={{ padding: "40px 20px", textAlign: "center", color: "var(--mz-text-secondary, #94a3b8)" }}>
+          <p style={{ margin: 0, fontSize: "14px", fontWeight: 500 }}>No test cases configured for this problem.</p>
+        </div>
+      ) : (
       <div className="mz-tc-body-split">
         {/* Left Sidebar: Test Cases List */}
         <div className="mz-tc-sidebar-list" role="tablist" aria-label="Test Cases List">
@@ -448,7 +442,9 @@ export default function TestCaseExecutionPanel({
                     <div className="mz-tc-output-container">
                       <pre className={`mz-tc-code-box ${activeCase.status === "passed" ? "is-passed" : "is-failed"}`}>
                         <code>
-                          {activeCase.actualOutput || (activeCase.status === "passed" ? "[Passed]" : "[No output produced]")}
+                          {activeCase.actualOutput !== undefined && activeCase.actualOutput !== null && String(activeCase.actualOutput).length > 0
+                            ? activeCase.actualOutput
+                            : "(No output produced)"}
                         </code>
                       </pre>
 
@@ -472,6 +468,7 @@ export default function TestCaseExecutionPanel({
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }

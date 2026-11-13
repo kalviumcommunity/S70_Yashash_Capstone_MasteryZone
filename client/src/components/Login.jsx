@@ -18,7 +18,7 @@ import logoIcon from "../assets/logo_icon_transparent.png";
 import illustrationImg from "../assets/login_illustration.png";
 import "./Login.css";
 import ThemeToggle from "./ThemeToggle.jsx";
-import { updateLastActivityTime } from "../utils/sessionAuth.js";
+import { updateLastActivityTime, clearMasteryZoneStorage } from "../utils/sessionAuth.js";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 const AUTH_BASE = API_BASE ? `${API_BASE}/auth` : "/auth";
@@ -90,6 +90,7 @@ const Login = () => {
 
         const response = await fetch(`${AUTH_BASE}/firebase-login`, {
           method: "POST",
+          credentials: "include",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${idToken}`,
@@ -105,8 +106,7 @@ const Login = () => {
         const data = await response.json();
 
         if (response.ok) {
-          localStorage.clear();
-          sessionStorage.clear();
+          clearMasteryZoneStorage();
           sessionStorage.setItem("mz_session_active", "true");
           sessionStorage.setItem("token", data.token);
 
@@ -135,6 +135,7 @@ const Login = () => {
     try {
       const response = await fetch(`${AUTH_BASE}/login`, {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           usernameOrEmail: trimmedIdentifier,
@@ -150,8 +151,7 @@ const Login = () => {
       }
 
       // Purge any prior session residual data completely to ensure strict individual isolation
-      localStorage.clear();
-      sessionStorage.clear();
+      clearMasteryZoneStorage();
       sessionStorage.setItem("mz_session_active", "true");
       sessionStorage.setItem("token", data.token);
 
@@ -193,6 +193,7 @@ const Login = () => {
 
       const response = await fetch(`${AUTH_BASE}/firebase-login`, {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
@@ -223,8 +224,7 @@ const Login = () => {
       }
 
       // Purge any prior session residual data completely to ensure strict individual isolation
-      localStorage.clear();
-      sessionStorage.clear();
+      clearMasteryZoneStorage();
       sessionStorage.setItem("mz_session_active", "true");
       sessionStorage.setItem("token", data.token);
 
@@ -276,6 +276,7 @@ const Login = () => {
     try {
       const response = await fetch(`${AUTH_BASE}/guest-login`, {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
       });
 
@@ -287,8 +288,7 @@ const Login = () => {
       }
 
       // Purge any prior session residual data completely to ensure strict individual isolation
-      localStorage.clear();
-      sessionStorage.clear();
+      clearMasteryZoneStorage();
       sessionStorage.setItem("mz_session_active", "true");
       sessionStorage.setItem("token", data.token);
 
