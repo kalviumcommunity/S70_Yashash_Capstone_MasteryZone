@@ -58,6 +58,7 @@ async function parseAndValidatePdfStructure(filePath) {
 }
 
 const isValidPdfFile = parseAndValidatePdfStructure;
+const userResolutionCache = new Map();
 
 /**
  * Ensures any candidate token identity (MongoDB ObjectId, custom string, guest ID, email)
@@ -72,10 +73,18 @@ async function resolveSafeUserId(userPayload) {
   if (rawId && mongoose.Types.ObjectId.isValid(rawId)) {
     return new mongoose.Types.ObjectId(rawId);
   }
-  if (userPayload.email) {
+  const emailKey = (userPayload.email || "").toLowerCase().trim();
+  if (emailKey) {
+    if (userResolutionCache.has(emailKey)) {
+      return userResolutionCache.get(emailKey);
+    }
     try {
-      const dbUser = await User.findOne({ email: userPayload.email.toLowerCase().trim() });
-      if (dbUser && dbUser._id) return dbUser._id;
+      const dbUser = await User.findOne({ email: emailKey }).select("_id").lean();
+      if (dbUser && dbUser._id) {
+        if (userResolutionCache.size > 1000) userResolutionCache.clear();
+        userResolutionCache.set(emailKey, dbUser._id);
+        return dbUser._id;
+      }
     } catch {}
   }
   const str = String(rawId || userPayload.email || "guest_cert_candidate");

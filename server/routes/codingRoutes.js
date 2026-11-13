@@ -628,7 +628,16 @@ router.get("/challenges", optionalAuthenticateToken, async (req, res) => {
     const challenges = CHALLENGES_CATALOG.map((ch, idx) => {
       const isSolved = solvedSet.has(ch.id);
       return {
-        ...ch,
+        id: ch.id,
+        title: ch.title,
+        difficulty: ch.difficulty,
+        category: ch.category,
+        topic: ch.topic,
+        tags: ch.tags || [],
+        points: ch.points || 50,
+        acceptanceRate: ch.acceptanceRate || 85,
+        starterLanguage: ch.starterLanguage || "python",
+        description: ch.description,
         questionNumber: ch.questionNumber || (idx + 1),
         solved: isSolved,
         isCompleted: isSolved,
@@ -2910,21 +2919,13 @@ router.get("/data", authenticateToken, async (req, res) => {
 
     let userProgress = userProgressDoc;
     if (!userProgress) {
-      try {
-        userProgress = await CodingProgress.findOneAndUpdate(
-          { userId: userObjId || userId },
-          {
-            $setOnInsert: {
-              activeTrack: "Python Track",
-              trackUnlocks: { python: 0, javascript: 0, java: 0, cpp: 0, webdev: 0, dsa: 0 },
-              trackLessons: { python: 0, javascript: 0, java: 0, cpp: 0, webdev: 0, dsa: 0 },
-            },
-          },
-          { upsert: true, new: true, setDefaultsOnInsert: true }
-        ).lean();
-      } catch {
-        userProgress = await CodingProgress.findOne({ userId: userObjId || userId }).lean();
-      }
+      userProgress = {
+        userId: userObjId || userId,
+        activeTrack: "Python Track",
+        trackUnlocks: { python: 0, javascript: 0, java: 0, cpp: 0, webdev: 0, dsa: 0 },
+        trackLessons: { python: 0, javascript: 0, java: 0, cpp: 0, webdev: 0, dsa: 0 },
+        challengesSolved: [],
+      };
     }
 
     // Fast conditional validation using lightweight ETag
@@ -3051,7 +3052,16 @@ router.get("/data", authenticateToken, async (req, res) => {
     const annotatedChallenges = CHALLENGES_CATALOG.map((ch, idx) => {
       const isSolved = solvedSet.has(ch.id);
       return {
-        ...ch,
+        id: ch.id,
+        title: ch.title,
+        difficulty: ch.difficulty,
+        category: ch.category,
+        topic: ch.topic,
+        tags: ch.tags || [],
+        points: ch.points || 50,
+        acceptanceRate: ch.acceptanceRate || 85,
+        starterLanguage: ch.starterLanguage || "python",
+        description: ch.description,
         questionNumber: ch.questionNumber || (idx + 1),
         solved: isSolved,
         isCompleted: isSolved,
