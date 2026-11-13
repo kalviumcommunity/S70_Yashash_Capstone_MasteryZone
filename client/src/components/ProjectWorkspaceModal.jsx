@@ -28,6 +28,7 @@ import {
 import "./projectWorkspace.css";
 import AssessmentSubmissionFlow from "./AssessmentSubmissionFlow";
 import ThemeToggle from "./ThemeToggle.jsx";
+import { deduplicatedFetch } from "../utils/apiClient";
 import { useTheme } from "../context/ThemeContext.jsx";
 import { getProjectById } from "../data/projectsCatalog";
 import TestCaseExecutionPanel from "./TestCaseExecutionPanel";
@@ -206,8 +207,9 @@ export function ProjectWorkspaceModal({ project: initialProject, onClose, onProj
     let cancelled = false;
     setIsLoadingWorkspace(true);
 
-    fetch(`${API_BASE_URL}/api/projects/${projectId}`, {
+    deduplicatedFetch(`${API_BASE_URL}/api/projects/${projectId}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
+      cacheTtlMs: 5000,
     })
       .then((r) => r.json())
       .then((data) => {

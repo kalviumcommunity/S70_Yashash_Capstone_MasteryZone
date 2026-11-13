@@ -161,17 +161,17 @@ router.get("/overview", async (req, res) => {
     const now = new Date();
 
     // 1. Genuine Registered Users (strictly excluding Super Admin, guests, and demo emails)
-    const genuineUsers = await User.find(REAL_USER_FILTER)
-      .select("_id email fullName username lastActiveDate createdAt")
-      .lean();
+    const [totalRegisteredUsers, activeUsersInRange, genuineUsers] = await Promise.all([
+      User.countDocuments(REAL_USER_FILTER),
+      User.countDocuments({
+        ...REAL_USER_FILTER,
+        lastActiveDate: { $gte: startDate, $lte: endDate },
+      }),
+      User.find(REAL_USER_FILTER).select("_id email").limit(2000).lean(),
+    ]);
 
-    const totalRegisteredUsers = genuineUsers.length;
     const genuineUserIds = genuineUsers.map((u) => u._id);
     const genuineUserEmails = genuineUsers.map((u) => (u.email || "").toLowerCase());
-
-    const activeUsersInRange = genuineUsers.filter(
-      (u) => u.lastActiveDate && new Date(u.lastActiveDate) >= startDate && new Date(u.lastActiveDate) <= endDate
-    ).length;
 
     // 2. Live Active Sessions (genuine registered students)
     const activeSessionsMap = req.app.get("activeUserSessions");

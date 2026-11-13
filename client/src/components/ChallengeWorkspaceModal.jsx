@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import MasteryZoneCompilerWorkspace from "./MasteryZoneCompilerWorkspace";
 import MasteryZoneGlobalLoader from "./MasteryZoneGlobalLoader";
+import { deduplicatedFetch } from "../utils/apiClient";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -45,8 +46,9 @@ export default function ChallengeWorkspaceModal({
     if (!challengeId) return;
 
     setLoading(true);
-    fetch(`${API_BASE}/api/coding/challenges/${challengeId}`, {
+    deduplicatedFetch(`${API_BASE}/api/coding/challenges/${challengeId}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
+      cacheTtlMs: 5000,
     })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
@@ -60,8 +62,9 @@ export default function ChallengeWorkspaceModal({
 
   useEffect(() => {
     if (!effectiveChallengeId || !token) return;
-    fetch(`${API_BASE}/api/coding/challenges/${effectiveChallengeId}/history`, {
+    deduplicatedFetch(`${API_BASE}/api/coding/challenges/${effectiveChallengeId}/history`, {
       headers: { Authorization: `Bearer ${token}` },
+      cacheTtlMs: 3000,
     })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { deduplicatedFetch, invalidateCachePattern } from "../../utils/apiClient";
 import {
   LuSettings,
   LuShieldCheck,
@@ -127,9 +128,9 @@ const AdminSettings = () => {
   const fetchSettingsAndAudit = async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`${API_BASE}/api/admin/settings`, {
+      const res = await deduplicatedFetch(`${API_BASE}/api/admin/settings`, {
         headers: { Authorization: `Bearer ${token}` },
-      });
+      }, { ttlMs: 10000 });
       if (res.ok) {
         const json = await res.json();
         if (json.success) {
@@ -149,9 +150,9 @@ const AdminSettings = () => {
     setLoadingAdmins(true);
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`${API_BASE}/api/admin/admins`, {
+      const res = await deduplicatedFetch(`${API_BASE}/api/admin/admins`, {
         headers: { Authorization: `Bearer ${token}` },
-      });
+      }, { ttlMs: 10000 });
       if (res.ok) {
         const json = await res.json();
         if (json.success) {
@@ -188,6 +189,7 @@ const AdminSettings = () => {
 
       const json = await res.json();
       if (res.ok && json.success) {
+        invalidateCachePattern("/api/admin/settings");
         toast.success("Platform settings updated successfully!");
         fetchSettingsAndAudit();
       } else {

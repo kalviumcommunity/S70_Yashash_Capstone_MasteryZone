@@ -18,6 +18,7 @@ import {
   LuSparkles,
 } from "react-icons/lu";
 import "./Admin.css";
+import { deduplicatedFetch } from "../../utils/apiClient";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -41,8 +42,9 @@ const AdminCodingAnalytics = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem("token");
-      const res = await fetch(`${API_BASE}/api/admin/coding-analytics?range=${selectedRange}`, {
+      const res = await deduplicatedFetch(`${API_BASE}/api/admin/coding-analytics?range=${selectedRange}`, {
         headers: { Authorization: `Bearer ${token}` },
+        cacheTtlMs: 3000,
       });
       if (res.ok) {
         const json = await res.json();

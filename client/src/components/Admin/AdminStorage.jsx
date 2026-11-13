@@ -6,6 +6,7 @@ import {
   LuFileText,
   LuVideo,
 } from "react-icons/lu";
+import { deduplicatedFetch } from "../../utils/apiClient";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -17,8 +18,9 @@ const AdminStorage = () => {
     const fetchStorage = async () => {
       try {
         const token = localStorage.getItem("token");
-        const res = await fetch(`${API_BASE}/api/admin/storage`, {
+        const res = await deduplicatedFetch(`${API_BASE}/api/admin/storage`, {
           headers: { Authorization: `Bearer ${token}` },
+          cacheTtlMs: 4000,
         });
         if (res.ok) {
           const json = await res.json();

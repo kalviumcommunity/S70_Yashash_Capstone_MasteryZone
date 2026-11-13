@@ -17,6 +17,7 @@ import {
 } from "react-icons/lu";
 import { toast } from "react-toastify";
 import AdminUserDetailModal from "./AdminUserDetailModal.jsx";
+import { deduplicatedFetch } from "../../utils/apiClient";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -65,10 +66,11 @@ const AdminUsers = () => {
         limit: 15,
       });
 
-      const res = await fetch(`${API_BASE}/api/admin/users?${query.toString()}`, {
+      const res = await deduplicatedFetch(`${API_BASE}/api/admin/users?${query.toString()}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
+        cacheTtlMs: 3000,
       });
 
       if (res.ok) {

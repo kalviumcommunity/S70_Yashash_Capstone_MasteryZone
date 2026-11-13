@@ -16,6 +16,7 @@ import {
   LuX,
 } from "react-icons/lu";
 import io from "socket.io-client";
+import { deduplicatedFetch } from "../../utils/apiClient";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -41,8 +42,9 @@ const AdminProctoring = () => {
   const fetchProctoring = async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`${API_BASE}/api/admin/proctoring`, {
+      const res = await deduplicatedFetch(`${API_BASE}/api/admin/proctoring`, {
         headers: { Authorization: `Bearer ${token}` },
+        cacheTtlMs: 3000,
       });
       if (res.ok) {
         const json = await res.json();

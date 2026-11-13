@@ -26,6 +26,7 @@ import io from "socket.io-client";
 import { toast } from "react-toastify";
 import RecordingVideo from "../RecordingVideo.jsx";
 import { getRecordingStreamUrl } from "../../utils/recordingMedia.js";
+import { deduplicatedFetch } from "../../utils/apiClient.js";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -98,8 +99,9 @@ const AdminRecordings = () => {
   const fetchRecordings = async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`${API_BASE}/api/admin/recordings`, {
+      const res = await deduplicatedFetch(`${API_BASE}/api/admin/recordings`, {
         headers: { Authorization: `Bearer ${token}` },
+        cacheTtlMs: 3000,
       });
       if (res.ok) {
         const json = await res.json();

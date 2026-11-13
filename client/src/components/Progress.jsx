@@ -8,6 +8,7 @@ import ThemeToggle from "./ThemeToggle.jsx";
 import logoIcon from "../assets/logo_icon_transparent.png";
 import heroIllustration from "../assets/interests_hero_illustration.png";
 import { performGlobalLogout } from "../utils/sessionAuth.js";
+import { deduplicatedFetch } from "../utils/apiClient.js";
 
 import {
   LuHouse,
@@ -207,8 +208,9 @@ const Progress = () => {
     }
 
     try {
-      const res = await fetch(`${API_BASE}/api/progress/dashboard`, {
+      const res = await deduplicatedFetch(`${API_BASE}/api/progress/dashboard`, {
         headers: { Authorization: `Bearer ${token}` },
+        cacheTtlMs: 3500,
       });
 
       if (!res.ok) {
@@ -226,8 +228,9 @@ const Progress = () => {
 
       // Fetch official assessment attempts & reports from all sources (MCQ, Proctored Coding, Projects)
       try {
-        const repRes = await fetch(`${API_BASE}/api/curriculum/reports`, {
+        const repRes = await deduplicatedFetch(`${API_BASE}/api/curriculum/reports`, {
           headers: { Authorization: `Bearer ${token}` },
+          cacheTtlMs: 4000,
         });
         const repList = [];
         if (repRes.ok) {
@@ -238,8 +241,9 @@ const Progress = () => {
         }
 
         try {
-          const codeRes = await fetch(`${API_BASE}/api/coding/proctored-session/user-reports`, {
+          const codeRes = await deduplicatedFetch(`${API_BASE}/api/coding/proctored-session/user-reports`, {
             headers: { Authorization: `Bearer ${token}` },
+            cacheTtlMs: 4000,
           });
           if (codeRes.ok) {
             const codeData = await codeRes.json();

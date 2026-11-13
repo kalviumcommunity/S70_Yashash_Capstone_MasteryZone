@@ -6,6 +6,7 @@ import AssessmentSubmissionFlow from "./AssessmentSubmissionFlow";
 import MasteryZoneCompilerWorkspace from "./MasteryZoneCompilerWorkspace";
 import ThemeToggle from "./ThemeToggle.jsx";
 import useNavigationLock from "../hooks/useNavigationLock";
+import { deduplicatedFetch } from "../utils/apiClient";
 import "./CertificationExamWorkspace.css";
 import {
   LuAward,
@@ -910,10 +911,11 @@ export default function CertificationExamWorkspace({
     let isCancelled = false;
     const token = localStorage.getItem("token") || sessionStorage.getItem("token");
     if (token && certId) {
-      fetch(`${API_BASE}/api/certifications/check/${certId}`, {
+      deduplicatedFetch(`${API_BASE}/api/certifications/check/${certId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
+        cacheTtlMs: 4000,
       })
         .then(async (res) => {
           if (!res.ok) return;

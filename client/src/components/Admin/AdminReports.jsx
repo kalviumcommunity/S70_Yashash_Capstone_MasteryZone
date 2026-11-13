@@ -27,6 +27,7 @@ import {
 } from "react-icons/lu";
 import { toast } from "react-toastify";
 import { io } from "socket.io-client";
+import { deduplicatedFetch } from "../../utils/apiClient";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -73,8 +74,9 @@ const AdminReports = () => {
     try {
       if (showToast) setLoading(true);
       const token = localStorage.getItem("token");
-      const res = await fetch(`${API_BASE}/api/admin/reports`, {
+      const res = await deduplicatedFetch(`${API_BASE}/api/admin/reports`, {
         headers: { Authorization: `Bearer ${token}` },
+        cacheTtlMs: 3500,
       });
       if (res.ok) {
         const json = await res.json();
@@ -281,8 +283,9 @@ const AdminReports = () => {
       const itemId = reportItem.rawId || reportItem.id || reportItem.attemptId;
 
       const token = localStorage.getItem("token");
-      const res = await fetch(`${API_BASE}/api/admin/attempt-report/${itemType}/${itemId}`, {
+      const res = await deduplicatedFetch(`${API_BASE}/api/admin/attempt-report/${itemType}/${itemId}`, {
         headers: { Authorization: `Bearer ${token}` },
+        cacheTtlMs: 5000,
       });
 
       if (res.ok) {
