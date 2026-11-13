@@ -1886,6 +1886,33 @@ app.use(compression({
   }
 }));
 
+// Lightweight API latency diagnostics. Log only slow requests and never include query
+// strings or request bodies, so tokens and user data are not written to application logs.
+app.use((req, res, next) => {
+  const isApiRequest = req.path.startsWith("/api/") || req.path.startsWith("/auth/");
+  if (!isApiRequest) return next();
+
+  const startedAt = process.hrtime.bigint();
+  res.once("finish", () => {
+    const durationMs = Number(process.hrtime.bigint() - startedAt) / 1e6;
+    if (durationMs >= 1000) {
+      console.warn("[PERF] Slow API request", JSON.stringify({
+        method: req.method,
+        path: req.path,
+        status: res.statusCode,
+        durationMs: Math.round(durationMs),
+      }));
+    }
+  });
+  next();
+});
+
+// Cheap process-liveness endpoint for Render health checks. Keep this independent of
+// MongoDB so a transient database slowdown does not make the web process look dead.
+app.get("/health", (_req, res) => {
+  res.status(200).json({ status: "ok", uptimeSeconds: Math.floor(process.uptime()) });
+});
+
 // Standard JSON and URL-encoded body limit (video recording uploads use streaming multipart/binary directly)
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
@@ -2106,7 +2133,13 @@ async function connectDB() {
   const mongoUri = PRIMARY_MONGO_URI || "mongodb://127.0.0.1:27017/masteryzone";
 
   try {
-    await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 3000 });
+    await mongoose.connect(mongoUri, {
+      serverSelectionTimeoutMS: 5000,
+      maxPoolSize: 10,
+      minPoolSize: 1,
+      maxIdleTimeMS: 30000,
+      waitQueueTimeoutMS: 5000,
+    });
     console.log("✅ MongoDB Connected Successfully");
     await bootstrapSuperAdmin();
     // Asynchronously trigger background cloud recording self-healing and GridFS sync
