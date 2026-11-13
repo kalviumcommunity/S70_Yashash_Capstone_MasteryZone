@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { deduplicatedFetch } from "../utils/apiClient";
 import {
   LuPlay,
   LuChevronLeft,
@@ -352,8 +353,9 @@ export default function FeaturedVideosSlider({
     }
 
     const token = localStorage.getItem("token");
-    fetch(`${API_BASE}/api/coding/data`, {
+    deduplicatedFetch(`${API_BASE}/api/coding/data`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
+      cacheTtlMs: 3500,
     })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {

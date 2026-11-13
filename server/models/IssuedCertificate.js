@@ -72,6 +72,8 @@ const issuedCertificateSchema = new mongoose.Schema(
 );
 
 issuedCertificateSchema.index({ userId: 1, certificationId: 1 });
+issuedCertificateSchema.index({ userId: 1, status: 1, createdAt: -1 });
+issuedCertificateSchema.index({ userId: 1, createdAt: -1 });
 
 const IssuedCertificate =
   mongoose.models.IssuedCertificate ||
