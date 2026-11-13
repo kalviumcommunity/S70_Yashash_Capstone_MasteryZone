@@ -807,6 +807,7 @@ router.get("/:subjectKey/:trackId", authenticateToken, async (req, res, next) =>
       };
     });
 
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
     res.json({
       subjectKey: normSubject,
       trackId: normTrack,

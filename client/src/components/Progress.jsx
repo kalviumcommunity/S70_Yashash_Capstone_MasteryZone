@@ -8,7 +8,7 @@ import ThemeToggle from "./ThemeToggle.jsx";
 import logoIcon from "../assets/logo_icon_transparent.png";
 import heroIllustration from "../assets/interests_hero_illustration.png";
 import { performGlobalLogout } from "../utils/sessionAuth.js";
-import { deduplicatedFetch } from "../utils/apiClient.js";
+import { deduplicatedFetch, invalidateCachePattern } from "../utils/apiClient.js";
 
 import {
   LuHouse,
@@ -166,6 +166,24 @@ const Progress = () => {
       });
       const data = await res.json();
       if (res.ok && data.success) {
+        invalidateCachePattern("/api/curriculum");
+        invalidateCachePattern("/api/coding");
+        invalidateCachePattern("/api/progress");
+
+        window.dispatchEvent(
+          new CustomEvent("mz_learning_progress_reset", {
+            detail: { scope: resetScope },
+          })
+        );
+        try {
+          localStorage.setItem("mz_learning_progress_reset", Date.now().toString());
+          if (typeof BroadcastChannel !== "undefined") {
+            const bc = new BroadcastChannel("mz_module_sync");
+            bc.postMessage({ type: "reset", scope: resetScope });
+            bc.close();
+          }
+        } catch {}
+
         toast.success(data.message || "Learning process successfully reset! Modules and tests have returned to initial state.", { toastId: "prog_reset_ok" });
         setIsResetModalOpen(false);
         fetchDashboardData(true);
