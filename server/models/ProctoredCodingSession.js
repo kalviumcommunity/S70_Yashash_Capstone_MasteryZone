@@ -233,6 +233,9 @@ const proctoredCodingSessionSchema = new mongoose.Schema(
 );
 
 proctoredCodingSessionSchema.index({ userId: 1, createdAt: -1 });
+proctoredCodingSessionSchema.index({ userId: 1, "submissionResult.submittedAt": -1, updatedAt: -1 });
+proctoredCodingSessionSchema.index({ userId: 1, updatedAt: -1 });
+proctoredCodingSessionSchema.index({ userId: 1, status: 1 });
 proctoredCodingSessionSchema.index({ status: 1, createdAt: -1 });
 proctoredCodingSessionSchema.index({ createdAt: -1 });
 

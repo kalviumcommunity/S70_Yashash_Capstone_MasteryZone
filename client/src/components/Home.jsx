@@ -510,8 +510,9 @@ const Home = () => {
     try {
       const token = localStorage.getItem("token");
       if (!token) return;
-      const res = await fetch(`${API_BASE}/api/certifications/my-history`, {
+      const res = await deduplicatedFetch(`${API_BASE}/api/certifications/my-history`, {
         headers: { Authorization: `Bearer ${token}` },
+        cacheTtlMs: 4000,
       });
       if (res.ok) {
         const data = await res.json();
@@ -1313,7 +1314,12 @@ const Home = () => {
       fetchUser();
     };
 
+    let syncThrottleTimer = null;
     const handleSync = () => {
+      if (syncThrottleTimer) return;
+      syncThrottleTimer = setTimeout(() => {
+        syncThrottleTimer = null;
+      }, 1500);
       fetchUser();
       fetchReports(false);
       fetchRecordings(false);
@@ -1329,6 +1335,7 @@ const Home = () => {
     window.addEventListener("focus", handleSync);
 
     return () => {
+      if (syncThrottleTimer) clearTimeout(syncThrottleTimer);
       window.removeEventListener("user_profile_updated", handleProfileUpdated);
       window.removeEventListener("new_recording_saved", handleSync);
       window.removeEventListener("mz_certificate_awarded", handleSync);

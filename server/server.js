@@ -1925,10 +1925,23 @@ app.use((req, res, next) => {
   next();
 });
 
+const { initPoolMonitoring, getPoolStatus } = require("./config/dbPoolMonitor");
+
 // Cheap process-liveness endpoint for Render health checks. Keep this independent of
 // MongoDB so a transient database slowdown does not make the web process look dead.
 app.get("/health", (_req, res) => {
   res.status(200).json({ status: "ok", uptimeSeconds: Math.floor(process.uptime()) });
+});
+
+// Dedicated connection pool and database diagnostics endpoint
+app.get(["/health/db", "/api/health/db", "/api/admin/db-pool-status"], (_req, res) => {
+  const status = getPoolStatus(mongoose.connection);
+  const isHealthy = status.readyState === 1;
+  res.status(isHealthy ? 200 : 503).json({
+    connectionState: status.status,
+    ...status,
+    status: isHealthy ? "healthy" : "degraded",
+  });
 });
 
 // Standard JSON and URL-encoded body limit (video recording uploads use streaming multipart/binary directly)
@@ -2120,6 +2133,27 @@ function isSameOrProductionDatabase(testUri, prodUri) {
   return false;
 }
 
+function getMongoConnectionOptions(overrides = {}) {
+  const maxPoolSize = Math.max(10, parseInt(process.env.MONGO_MAX_POOL_SIZE, 10) || 50);
+  const minPoolSize = Math.max(1, parseInt(process.env.MONGO_MIN_POOL_SIZE, 10) || 5);
+  const waitQueueTimeoutMS = Math.max(5000, parseInt(process.env.MONGO_WAIT_QUEUE_TIMEOUT_MS, 10) || 30000);
+  const serverSelectionTimeoutMS = Math.max(3000, parseInt(process.env.MONGO_SERVER_SELECTION_TIMEOUT_MS, 10) || 15000);
+  const connectTimeoutMS = 30000;
+  const socketTimeoutMS = 45000;
+  const maxIdleTimeMS = 30000;
+
+  return {
+    maxPoolSize,
+    minPoolSize,
+    waitQueueTimeoutMS,
+    serverSelectionTimeoutMS,
+    connectTimeoutMS,
+    socketTimeoutMS,
+    maxIdleTimeMS,
+    ...overrides,
+  };
+}
+
 async function connectDB() {
   if (process.env.NODE_ENV === "test") {
     const testUri = process.env.TEST_MONGODB_URI;
@@ -2132,7 +2166,9 @@ async function connectDB() {
       throw new Error("TEST_MONGODB_URI points to production database");
     }
     try {
-      await mongoose.connect(testUri, { serverSelectionTimeoutMS: 3000 });
+      const testOpts = getMongoConnectionOptions({ serverSelectionTimeoutMS: 5000, minPoolSize: 2 });
+      initPoolMonitoring(mongoose.connection, testOpts);
+      await mongoose.connect(testUri, testOpts);
       console.log("✅ MongoDB Connected to Isolated Test Database");
       await bootstrapSuperAdmin();
     } catch (err) {
@@ -2151,16 +2187,12 @@ async function connectDB() {
   }
 
   const mongoUri = PRIMARY_MONGO_URI || "mongodb://127.0.0.1:27017/masteryzone";
+  const poolOpts = getMongoConnectionOptions();
+  initPoolMonitoring(mongoose.connection, poolOpts);
 
   try {
-    await mongoose.connect(mongoUri, {
-      serverSelectionTimeoutMS: 5000,
-      maxPoolSize: 10,
-      minPoolSize: 1,
-      maxIdleTimeMS: 30000,
-      waitQueueTimeoutMS: 5000,
-    });
-    console.log("✅ MongoDB Connected Successfully");
+    await mongoose.connect(mongoUri, poolOpts);
+    console.log(`✅ MongoDB Connected Successfully [Pool: min=${poolOpts.minPoolSize}, max=${poolOpts.maxPoolSize}, waitQueueTimeout=${poolOpts.waitQueueTimeoutMS}ms]`);
     await bootstrapSuperAdmin();
     // Asynchronously trigger background cloud recording self-healing and GridFS sync
     try {
@@ -2175,7 +2207,9 @@ async function connectDB() {
         await mongoose.disconnect();
       } catch {}
       try {
-        await mongoose.connect("mongodb://127.0.0.1:27017/masteryzone", { serverSelectionTimeoutMS: 3000 });
+        const localOpts = getMongoConnectionOptions({ serverSelectionTimeoutMS: 3000, minPoolSize: 2 });
+        initPoolMonitoring(mongoose.connection, localOpts);
+        await mongoose.connect("mongodb://127.0.0.1:27017/masteryzone", localOpts);
         console.log("✅ MongoDB Connected Successfully (Local Fallback)");
         await bootstrapSuperAdmin();
       } catch (localErr) {
@@ -2235,9 +2269,15 @@ if (process.env.NODE_ENV !== "test") {
     });
 }
 
-const gracefulShutdown = () => {
+const gracefulShutdown = async () => {
   if (sessionCleanupInterval) clearInterval(sessionCleanupInterval);
   if (onlineUsersUpdateTimer) clearTimeout(onlineUsersUpdateTimer);
+  try {
+    if (mongoose.connection && mongoose.connection.readyState !== 0) {
+      await mongoose.connection.close(false);
+      console.log("🔌 MongoDB connection pool closed cleanly on shutdown");
+    }
+  } catch {}
 };
 process.on("SIGTERM", gracefulShutdown);
 process.on("SIGINT", gracefulShutdown);
@@ -2252,4 +2292,6 @@ module.exports = {
   corsOptions,
   EXPLICIT_ALLOWED_ORIGINS,
   gracefulShutdown,
+  getPoolStatus,
+  getMongoConnectionOptions,
 };

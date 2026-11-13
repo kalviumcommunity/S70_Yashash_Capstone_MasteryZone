@@ -2833,22 +2833,40 @@ router.post("/track/select", authenticateToken, async (req, res) => {
 router.get("/data", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId || req.user.id || req.user._id;
+    const mongoose = require("mongoose");
+    const ProjectWorkspaceState = require("../models/ProjectWorkspaceState");
+    const isValidUser = userId && mongoose.Types.ObjectId.isValid(String(userId));
+    const userObjId = isValidUser ? new mongoose.Types.ObjectId(String(userId)) : null;
 
-    // Fetch progress, snippets, and records concurrently with lean projections
-    const [userProgressDoc, snippets, progressRecords] = await Promise.all([
+    // Fetch progress, snippets, records, and project workspace states concurrently with lean projections
+    const [userProgressDoc, snippets, progressRecords, userProjectStates] = await Promise.all([
       CodingProgress.findOne({ userId }),
       CodingSnippet.find({ userId }).select("title language code updatedAt").sort({ updatedAt: -1 }).lean(),
       Progress.find({ userId, track: "CODING" }).select("date xpEarned hoursSpent").lean(),
+      userObjId
+        ? ProjectWorkspaceState.find({ userId: userObjId })
+            .select("projectId status checkedTasks bestScore bestPercentage bestGrade passed badgeAwarded attemptsCount latestReportSessionId completedAt lastSavedAt updatedAt")
+            .lean()
+        : Promise.resolve([]),
     ]);
 
     let userProgress = userProgressDoc;
     if (!userProgress) {
-      userProgress = await CodingProgress.create({
-        userId,
-        activeTrack: "Python Track",
-        trackUnlocks: { python: 0, javascript: 0, java: 0, cpp: 0, webdev: 0, dsa: 0 },
-        trackLessons: { python: 0, javascript: 0, java: 0, cpp: 0, webdev: 0, dsa: 0 },
-      });
+      try {
+        userProgress = await CodingProgress.findOneAndUpdate(
+          { userId },
+          {
+            $setOnInsert: {
+              activeTrack: "Python Track",
+              trackUnlocks: { python: 0, javascript: 0, java: 0, cpp: 0, webdev: 0, dsa: 0 },
+              trackLessons: { python: 0, javascript: 0, java: 0, cpp: 0, webdev: 0, dsa: 0 },
+            },
+          },
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
+      } catch {
+        userProgress = await CodingProgress.findOne({ userId });
+      }
     }
 
     // Calculate real stats from global Progress collection
@@ -2970,13 +2988,6 @@ router.get("/data", authenticateToken, async (req, res) => {
 
     // Real-world practical projects (14 full-stack & domain engineering projects enriched with live user progress)
     const { PROJECTS_CATALOG, getPublicProjectSpec } = require("../data/projectsCatalog");
-    const ProjectWorkspaceState = require("../models/ProjectWorkspaceState");
-    const mongoose = require("mongoose");
-    const isValidUser = userId && mongoose.Types.ObjectId.isValid(String(userId));
-    const userObjId = isValidUser ? new mongoose.Types.ObjectId(String(userId)) : null;
-    const userProjectStates = userObjId
-      ? await ProjectWorkspaceState.find({ userId: userObjId }).lean()
-      : [];
     const projStateMap = new Map(userProjectStates.map((s) => [s.projectId, s]));
 
     const projects = PROJECTS_CATALOG.map((proj) => {
