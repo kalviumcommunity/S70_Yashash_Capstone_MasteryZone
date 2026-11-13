@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const Notification = require("../models/NotificationSchema");
 const User = require("../models/User");
+const { invalidateEtag } = require("./etagCache");
 
 let globalIo = null;
 const initializedUsersCache = new Set();
@@ -75,6 +76,8 @@ async function pushNotification(
       isRead: false,
       createdAt: new Date(),
     });
+
+    invalidateEtag("notifications", userObjId.toString());
 
     if (recentNotificationsCache.size > 200) {
       for (const [k, v] of recentNotificationsCache.entries()) {

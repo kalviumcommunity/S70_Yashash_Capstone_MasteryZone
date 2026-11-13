@@ -22,7 +22,7 @@ import {
   LuTrash2,
   LuPencil,
 } from "react-icons/lu";
-import io from "socket.io-client";
+import { getSharedSocket, releaseSharedSocket } from "../../utils/socketClient";
 import { toast } from "react-toastify";
 import RecordingVideo from "../RecordingVideo.jsx";
 import { getRecordingStreamUrl } from "../../utils/recordingMedia.js";
@@ -117,13 +117,12 @@ const AdminRecordings = () => {
   useEffect(() => {
     fetchRecordings();
 
-    // Real-time synchronization via Socket.io
+    // Real-time synchronization via shared Socket.io client
     let socket;
     try {
       const token = localStorage.getItem("token");
-      socket = io(API_BASE || window.location.origin, {
+      socket = getSharedSocket(API_BASE || window.location.origin, {
         auth: { token },
-        transports: ["websocket", "polling"],
       });
 
       socket.on("connect", () => {
@@ -151,7 +150,7 @@ const AdminRecordings = () => {
     }
 
     return () => {
-      if (socket) socket.disconnect();
+      if (socket) releaseSharedSocket(socket);
     };
   }, []);
 

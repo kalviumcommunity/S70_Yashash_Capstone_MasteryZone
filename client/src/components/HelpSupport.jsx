@@ -39,7 +39,7 @@ import {
   LuZoomIn,
 } from "react-icons/lu";
 import { toast } from "react-toastify";
-import { io } from "socket.io-client";
+import { getSharedSocket, releaseSharedSocket } from "../utils/socketClient";
 import "./home.css";
 import { useTheme } from "../context/ThemeContext.jsx";
 import ThemeToggle from "./ThemeToggle.jsx";
@@ -348,9 +348,8 @@ const HelpSupport = () => {
     let socket;
     try {
       const token = localStorage.getItem("token");
-      socket = io(API_BASE || window.location.origin, {
+      socket = getSharedSocket(API_BASE || window.location.origin, {
         auth: { token },
-        transports: ["websocket", "polling"],
       });
       socketRef.current = socket;
 
@@ -417,7 +416,7 @@ const HelpSupport = () => {
     }
 
     return () => {
-      if (socket) socket.disconnect();
+      if (socket) releaseSharedSocket(socket);
     };
   }, []);
 

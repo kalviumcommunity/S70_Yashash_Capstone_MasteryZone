@@ -25,6 +25,7 @@ const { pushAdminNotification } = require("../utils/adminNotificationService");
 const { sendSubmissionEvaluationEmail, sendModuleCompletionEmail, dispatchMailBackground, isGuestAccount } = require("../utils/mailer");
 const SubjectProgress = require("../models/SubjectProgress");
 const crypto = require("crypto");
+const { isValidEtag, setEtag, invalidateEtag } = require("../utils/etagCache");
 const { CURRICULUM } = require("../data/codingCurriculum");
 const {
   recordDailyCodingActivity,
@@ -588,12 +589,22 @@ function getPlaygroundChallenge(id) {
 router.get("/challenges", optionalAuthenticateToken, async (req, res) => {
   try {
     const userId = req.user?.userId || req.user?.id || req.user?._id;
+    const clientEtag = req.headers["if-none-match"];
+    const cacheKey = userId ? String(userId) : "anon";
+
+    if (clientEtag && isValidEtag("challenges", cacheKey, clientEtag)) {
+      res.setHeader("ETag", clientEtag);
+      res.setHeader("Cache-Control", "private, no-cache, must-revalidate");
+      return res.status(304).end();
+    }
+
     let solvedSet = new Set();
     let solvedMap = new Map();
     let progressUpdated = 0;
 
     if (userId) {
-      const userProgress = await CodingProgress.findOne({ userId })
+      const userObjId = mongoose.Types.ObjectId.isValid(String(userId)) ? new mongoose.Types.ObjectId(String(userId)) : null;
+      const userProgress = await CodingProgress.findOne({ userId: userObjId || userId })
         .select("challengesSolved updatedAt")
         .lean();
       if (userProgress && Array.isArray(userProgress.challengesSolved)) {
@@ -606,10 +617,11 @@ router.get("/challenges", optionalAuthenticateToken, async (req, res) => {
     // Fast conditional validation using lightweight ETag
     const catalogVersion = CHALLENGES_CATALOG.length;
     const etag = `W/"challenges-${catalogVersion}-${userId || 'anon'}-${progressUpdated}-${solvedSet.size}"`;
+    setEtag("challenges", cacheKey, etag);
     res.setHeader("ETag", etag);
     res.setHeader("Cache-Control", "private, no-cache, must-revalidate");
 
-    if (req.headers["if-none-match"] === etag) {
+    if (clientEtag === etag) {
       return res.status(304).end();
     }
 
@@ -2854,6 +2866,14 @@ router.post("/track/select", authenticateToken, async (req, res) => {
 router.get("/data", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId || req.user.id || req.user._id;
+    const clientEtag = req.headers["if-none-match"];
+
+    if (clientEtag && isValidEtag("codingData", userId, clientEtag)) {
+      res.setHeader("ETag", clientEtag);
+      res.setHeader("Cache-Control", "private, no-cache, must-revalidate");
+      return res.status(304).end();
+    }
+
     const mongoose = require("mongoose");
     const ProjectWorkspaceState = require("../models/ProjectWorkspaceState");
     const isValidUser = userId && mongoose.Types.ObjectId.isValid(String(userId));
@@ -2868,9 +2888,9 @@ router.get("/data", authenticateToken, async (req, res) => {
 
     // Fetch progress, snippets, records, and project workspace states concurrently with lean projections
     const [userProgressDoc, snippets, progressRecords, userProjectStates] = await Promise.all([
-      CodingProgress.findOne({ userId }).lean(),
-      CodingSnippet.find({ userId }).select("title language code updatedAt").sort({ updatedAt: -1 }).lean(),
-      Progress.find({ userId, track: "CODING" }).select("date xpEarned hoursSpent updatedAt").lean(),
+      CodingProgress.findOne({ userId: userObjId || userId }).lean(),
+      CodingSnippet.find({ userId: userObjId || userId }).select("title language code updatedAt").sort({ updatedAt: -1 }).lean(),
+      Progress.find({ userId: userObjId || userId, track: "CODING" }).select("date xpEarned hoursSpent updatedAt").lean(),
       userObjId
         ? ProjectWorkspaceState.find({ userId: userObjId })
             .select("projectId status checkedTasks bestScore bestPercentage bestGrade passed badgeAwarded attemptsCount latestReportSessionId completedAt lastSavedAt updatedAt")
@@ -2882,7 +2902,7 @@ router.get("/data", authenticateToken, async (req, res) => {
     if (!userProgress) {
       try {
         userProgress = await CodingProgress.findOneAndUpdate(
-          { userId },
+          { userId: userObjId || userId },
           {
             $setOnInsert: {
               activeTrack: "Python Track",
@@ -2893,7 +2913,7 @@ router.get("/data", authenticateToken, async (req, res) => {
           { upsert: true, new: true, setDefaultsOnInsert: true }
         ).lean();
       } catch {
-        userProgress = await CodingProgress.findOne({ userId }).lean();
+        userProgress = await CodingProgress.findOne({ userId: userObjId || userId }).lean();
       }
     }
 
@@ -2904,10 +2924,11 @@ router.get("/data", authenticateToken, async (req, res) => {
     const solvedCount = Array.isArray(userProgress?.challengesSolved) ? userProgress.challengesSolved.length : 0;
     const dataEtag = `W/"codingdata-${userId}-${progressVer}-${projVer}-${snippetVer}-${solvedCount}-${progressRecords.length}"`;
 
+    setEtag("codingData", userId, dataEtag);
     res.setHeader("ETag", dataEtag);
     res.setHeader("Cache-Control", "private, no-cache, must-revalidate");
 
-    if (req.headers["if-none-match"] === dataEtag) {
+    if (clientEtag === dataEtag) {
       return res.status(304).end();
     }
 

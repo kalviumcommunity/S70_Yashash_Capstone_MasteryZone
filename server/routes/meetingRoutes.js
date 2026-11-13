@@ -14,10 +14,15 @@ function isValidMeetingInviteToken(meeting, token, email = "") {
 }
 const jwt = require("jsonwebtoken");
 const { getJwtSecret } = require("../config/jwtConfig");
-const JWT_SECRET = getJwtSecret();
 const Meeting = require("../models/Meeting");
 const User = require("../models/User");
 const authenticateToken = require("../middleware/authMiddleware");
+const { getCachedDecodedToken } = require("../middleware/authMiddleware");
+const {
+  getCachedStudyRooms,
+  setCachedStudyRooms,
+  invalidateStudyRoomsCache,
+} = require("../utils/etagCache");
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
@@ -30,8 +35,13 @@ function optionalAuthToken(req, res, next) {
     req.user = null;
     return next();
   }
+  const cached = getCachedDecodedToken(token);
+  if (cached) {
+    req.user = cached;
+    return next();
+  }
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, getJwtSecret());
     req.user = decoded;
   } catch {
     req.user = null;
@@ -214,6 +224,19 @@ router.get("/ice-config", optionalAuthToken, (req, res) => {
 // -------------------------------------------------------------
 router.get("/study-rooms", async (req, res) => {
   try {
+    const clientEtag = req.headers["if-none-match"];
+    const cached = getCachedStudyRooms(clientEtag);
+    if (cached) {
+      res.setHeader("ETag", cached.etag);
+      res.setHeader("Cache-Control", "public, no-cache, must-revalidate");
+      if (cached.is304) {
+        return res.status(304).end();
+      }
+      if (cached.isHit) {
+        return res.json(cached.payload);
+      }
+    }
+
     const studyRoomKeys = STUDY_ROOMS_CATALOG.map((r) => r.key);
     const activeMeetings = await Meeting.find({
       status: "active",
@@ -232,7 +255,7 @@ router.get("/study-rooms", async (req, res) => {
     res.setHeader("ETag", etag);
     res.setHeader("Cache-Control", "public, no-cache, must-revalidate");
 
-    if (req.headers["if-none-match"] === etag) {
+    if (clientEtag && (clientEtag === etag || clientEtag.replace(/^W\//, "") === etag.replace(/^W\//, ""))) {
       return res.status(304).end();
     }
 
@@ -252,11 +275,15 @@ router.get("/study-rooms", async (req, res) => {
       };
     });
 
-    res.json({
+    const payload = {
       success: true,
       rooms,
       totalActiveMeetings: activeMeetings.length,
-    });
+    };
+
+    setCachedStudyRooms(payload, etag);
+
+    res.json(payload);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -452,6 +479,7 @@ router.post("/create", authenticateToken, async (req, res) => {
     });
 
     await newMeeting.save();
+    invalidateStudyRoomsCache();
     resolveLock({ meeting: newMeeting, meetingId: newMeeting.meetingId });
     setTimeout(() => {
       creationLocks.delete(lockKey);
@@ -623,6 +651,7 @@ router.post("/:meetingId/join", optionalAuthToken, async (req, res) => {
         joinedAt: new Date(),
       });
       await meeting.save();
+      invalidateStudyRoomsCache();
     }
 
     res.json({
@@ -826,6 +855,7 @@ router.post("/:meetingId/leave", optionalAuthToken, async (req, res) => {
         meeting.endedAt = new Date();
       }
       await meeting.save();
+      invalidateStudyRoomsCache();
     }
 
     res.json({ success: true });
@@ -860,6 +890,7 @@ router.post("/:meetingId/end", authenticateToken, async (req, res) => {
     meeting.status = "ended";
     meeting.endedAt = new Date();
     await meeting.save();
+    invalidateStudyRoomsCache();
 
     // Broadcast end event via socket if mounted
     const io = req.app.get("io");
@@ -1036,6 +1067,7 @@ router.post("/:meetingId/run-tests", authenticateToken, async (req, res) => {
     if (meeting) {
       meeting.testCases = testResults;
       await meeting.save();
+      invalidateStudyRoomsCache();
     }
 
     // Broadcast test run results to meeting

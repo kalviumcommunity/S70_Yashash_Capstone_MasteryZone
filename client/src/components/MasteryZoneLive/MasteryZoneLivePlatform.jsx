@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { io } from "socket.io-client";
+import { getSharedSocket, releaseSharedSocket } from "../../utils/socketClient";
 import { toast } from "react-toastify";
 import { LuCircleAlert } from "react-icons/lu";
 import MasteryZoneLiveLanding from "./MasteryZoneLiveLanding";
@@ -110,16 +110,14 @@ export default function MasteryZoneLivePlatform({ initialMeetingId = null }) {
     };
   }, []);
 
-  // 2. Initialize Socket.io connection
+  // 2. Initialize Socket.io connection via shared client
   useEffect(() => {
     const token = localStorage.getItem("token") || "";
-    const s = io(SOCKET_SERVER_URL, {
+    const s = getSharedSocket(SOCKET_SERVER_URL, {
       auth: { token },
-      transports: ["websocket", "polling"],
-      reconnectionAttempts: 5,
     });
 
-    s.on("connect", () => {
+    const handleConnect = () => {
       console.log("⚡ Mastery Zone Live Socket connected:", s.id);
       if (currentUser) {
         s.emit("register_user_session", {
@@ -127,12 +125,18 @@ export default function MasteryZoneLivePlatform({ initialMeetingId = null }) {
           userId: currentUser._id || currentUser.id,
         });
       }
-    });
+    };
+
+    s.on("connect", handleConnect);
+    if (s.connected) {
+      handleConnect();
+    }
 
     setSocket(s);
 
     return () => {
-      s.disconnect();
+      s.off("connect", handleConnect);
+      releaseSharedSocket(s);
     };
   }, [currentUser]);
 
