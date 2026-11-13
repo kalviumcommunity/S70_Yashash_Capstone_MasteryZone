@@ -142,60 +142,61 @@ async function recordDailyCodingActivity({
   const dateStr = getDateString(new Date(), timeZone);
   const isAccepted = status === "ACCEPTED" || status === "PASSED" || (passedTests === totalTests && totalTests > 0);
 
+  const newActivityItem = {
+    activityType,
+    targetId: String(targetId || ""),
+    title: String(title || targetId || "Coding Activity"),
+    status,
+    language,
+    score: Number(score || 0),
+    passedTests: Number(passedTests || 0),
+    totalTests: Number(totalTests || 0),
+    timestamp: new Date(),
+  };
+
   try {
-    let record = await DailyCodingActivity.findOne({ userId, date: dateStr });
-    if (!record) {
-      record = new DailyCodingActivity({
-        userId,
-        date: dateStr,
-        submissionsCount: 0,
-        problemsSolved: 0,
-        solvedChallengeIds: [],
-        validActivities: [],
-      });
-    }
+    const updateOps = {
+      $inc: { submissionsCount: 1 },
+      $push: {
+        validActivities: {
+          $each: [newActivityItem],
+          $position: 0,
+          $slice: 50, // MongoDB-native bounded array: caps at newest 50 entries
+        },
+      },
+    };
 
-    record.submissionsCount += 1;
-
-    // Check if this problem was already solved on this date to prevent duplicate solve count
     if (isAccepted && targetId) {
-      if (!record.solvedChallengeIds.includes(targetId)) {
-        record.solvedChallengeIds.push(targetId);
-        record.problemsSolved = record.solvedChallengeIds.length;
-      }
+      updateOps.$addToSet = { solvedChallengeIds: String(targetId) };
     }
 
-    record.validActivities.unshift({
-      activityType,
-      targetId,
-      title: title || targetId,
-      status,
-      language,
-      score,
-      passedTests,
-      totalTests,
-      timestamp: new Date(),
+    const record = await DailyCodingActivity.findOneAndUpdate(
+      { userId, date: dateStr },
+      updateOps,
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    // Sync problemsSolved count if newly solved challenges were added
+    if (record.solvedChallengeIds && record.problemsSolved !== record.solvedChallengeIds.length) {
+      record.problemsSolved = record.solvedChallengeIds.length;
+      await DailyCodingActivity.updateOne(
+        { _id: record._id },
+        { problemsSolved: record.problemsSolved }
+      ).catch(() => {});
+    }
+
+    // Direct index-covered distinct query for active dates
+    const activeDates = await DailyCodingActivity.distinct("date", {
+      userId,
+      submissionsCount: { $gt: 0 },
     });
-
-    // Keep up to 50 granular log items per day
-    if (record.validActivities.length > 50) {
-      record.validActivities = record.validActivities.slice(0, 50);
-    }
-
-    await record.save();
-
-    // Query all active dates for this user to compute accurate streak
-    const allActivities = await DailyCodingActivity.find({ userId, submissionsCount: { $gt: 0 } })
-      .select("date")
-      .lean();
-    const activeDates = allActivities.map((a) => a.date);
     const { currentStreak, longestStreak, streakActiveToday } = calculateStreaks(activeDates, timeZone);
 
     // Update User model with verified streak
-    await User.findByIdAndUpdate(userId, {
-      streak: currentStreak,
-      lastActiveDate: new Date(),
-    });
+    await User.updateOne(
+      { _id: userId },
+      { streak: currentStreak, lastActiveDate: new Date() }
+    ).catch(() => {});
 
     // Real-time broadcast
     if (app) {
@@ -212,8 +213,8 @@ async function recordDailyCodingActivity({
             problemsSolved: record.problemsSolved,
           });
 
-          // Admin real-time notification
-          io.emit("admin_activity_stream", {
+          // Telemetry stream to admin room only
+          io.to("super_admin_room").emit("admin_activity_stream", {
             userId: String(userId),
             date: dateStr,
             currentStreak,
@@ -266,6 +267,7 @@ async function getUserCodingActivity(userId, clientTimezone) {
     ChallengeSubmission.find({ userId })
       .select("challengeId challengeTitle language status score passedTests totalTests createdAt")
       .sort({ createdAt: -1 })
+      .limit(200)
       .lean(),
   ]);
 

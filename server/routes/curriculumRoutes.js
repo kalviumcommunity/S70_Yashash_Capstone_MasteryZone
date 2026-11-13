@@ -50,6 +50,7 @@ router.get("/reports", authenticateToken, async (req, res) => {
     })
       .select("_id sessionId subjectKey trackId moduleIndex moduleTitle assessmentTitle score totalQuestions totalMarks marksObtained questionsAttempted questionsUnanswered accuracy grade percentage passed passingScore timeSpentSeconds submittedAt createdAt violationsCount userAnswers")
       .sort({ createdAt: -1 })
+      .limit(100)
       .lean();
 
     const formattedMcq = mcqAttempts.map((a) => {
@@ -107,12 +108,14 @@ router.get("/reports", authenticateToken, async (req, res) => {
         })
           .select("sessionId questionId assessmentTitle candidateDetails submissionResult updatedAt createdAt draftLanguage violationsCount")
           .sort({ "submissionResult.submittedAt": -1, updatedAt: -1 })
+          .limit(100)
           .lean(),
         ChallengeSubmission.find({
           $or: [{ userId }, { userId: userObjId }],
         })
           .select("challengeId challengeTitle language status score passedTests totalTests runtimeMs createdAt")
           .sort({ createdAt: -1 })
+          .limit(100)
           .lean(),
       ]);
 
@@ -199,6 +202,7 @@ router.get("/reports", authenticateToken, async (req, res) => {
       })
         .select("sessionId projectId projectTitle difficulty projectCategory language candidateDetails submittedAt createdAt marksObtained percentage grade passed badgeAwarded attemptNumber durationSeconds testResults.passed testResults.name testResults.title")
         .sort({ submittedAt: -1, createdAt: -1 })
+        .limit(100)
         .lean();
 
       formattedProjects = projectSubs.map((ps) => {
@@ -251,6 +255,7 @@ router.get("/reports", authenticateToken, async (req, res) => {
       })
         .select("attemptId certificateId certId certTitle candidateName candidateEmail status finalVerdict totalMaxMarks totalMarksObtained score finalScorePercentage percentage codingScore codingSubmissions.passedTests timeSpentSeconds submittedAt createdAt violationsCount")
         .sort({ submittedAt: -1, createdAt: -1 })
+        .limit(100)
         .lean();
 
       formattedCerts = certAttempts.map((ca) => {
@@ -336,10 +341,18 @@ router.get("/reports", authenticateToken, async (req, res) => {
       }
     }
 
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 0;
+    const totalCount = allReports.length;
+    const paginatedReports = limit > 0 ? allReports.slice((page - 1) * limit, page * limit) : allReports;
+
     res.json({
       success: true,
-      count: allReports.length,
-      reports: allReports,
+      count: paginatedReports.length,
+      totalCount,
+      page: limit > 0 ? page : 1,
+      totalPages: limit > 0 ? Math.ceil(totalCount / limit) : 1,
+      reports: paginatedReports,
     });
   } catch (err) {
     console.error("Centralized reports error:", err);
@@ -694,6 +707,9 @@ router.get("/:subjectKey/:trackId", authenticateToken, async (req, res, next) =>
     const codingModMap = codingProg?.moduleProgress || {};
     const subAttempts = subProg?.assessmentAttempts || [];
 
+    const isAdminUser = req.user && (req.user.role === "admin" || req.user.role === "SUPER_ADMIN");
+    let maxUnlockedIndex = Math.max(0, unlockLevel);
+
     const annotatedModules = modules.map((m) => {
       const pKey = `${normTrack}_${m.moduleIndex}`;
       const state = typeof modProgressMap.get === "function" ? modProgressMap.get(pKey) : modProgressMap[pKey];
@@ -704,7 +720,6 @@ router.get("/:subjectKey/:trackId", authenticateToken, async (req, res, next) =>
         (a) => a.trackId === normTrack && a.moduleIndex === m.moduleIndex && (a.passed || a.percentage >= 80 || (a.score != null && a.score >= 8))
       );
 
-      const isUnlocked = true; // All modules unlocked
       const isStudied = !!(state?.isStudied || codingState?.isStudied || hasPassedAttempt);
       const assignmentPassed = !!(
         state?.assignmentPassed ||
@@ -737,8 +752,18 @@ router.get("/:subjectKey/:trackId", authenticateToken, async (req, res, next) =>
         (hasAssessment ? (assessmentPassed && isCutoffCleared) : true)
       );
 
+      // If module is completed, advance unlocked index for next module
+      if (isCompleted && m.moduleIndex + 1 > maxUnlockedIndex) {
+        maxUnlockedIndex = m.moduleIndex + 1;
+      }
+
+      // Enforce progression rule: module 0 is open; subsequent modules unlock as preceding requirements are cleared
+      const isUnlocked = isAdminUser || m.moduleIndex === 0 || m.moduleIndex <= maxUnlockedIndex;
+
       const status = isCompleted
         ? "completed"
+        : !isUnlocked
+        ? "locked"
         : (isStudied || assignmentPassed || assessmentPassed)
         ? "in-progress"
         : "available";

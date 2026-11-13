@@ -2074,7 +2074,8 @@ router.post("/reset-all", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId || req.user.id;
     const user = await User.findById(userId).lean();
-    const isAdmin = user && (user.role === "admin" || user.email === "yashashyashash1@gmail.com");
+    const mainAdminEmail = (process.env.MAIN_ADMIN_EMAIL || process.env.ADMIN_EMAIL || "").toLowerCase().trim();
+    const isAdmin = user && (user.role === "admin" || user.role === "SUPER_ADMIN" || user.isMainAdmin === true || (mainAdminEmail && (user.email || "").toLowerCase().trim() === mainAdminEmail));
     if (!isAdmin) {
       return res.status(403).json({ error: "Only platform administrators can perform a global certifications reset." });
     }

@@ -3,10 +3,10 @@ const User = require("../models/User");
 const AdminActivityLog = require("../models/AdminActSchema");
 const { getJwtSecret } = require("../config/jwtConfig");
 
-const MAIN_ADMIN_EMAIL = (
+const getMainAdminEmail = () => (
   process.env.MAIN_ADMIN_EMAIL ||
   process.env.ADMIN_EMAIL ||
-  "yashashyashash1@gmail.com"
+  ""
 )
   .toLowerCase()
   .trim();
@@ -63,7 +63,8 @@ const verifyAdmin = async (req, res, next) => {
     }
 
     const userEmail = (user.email || "").toLowerCase().trim();
-    const isMainAdmin = userEmail === MAIN_ADMIN_EMAIL || user.isMainAdmin === true;
+    const mainAdminEmail = getMainAdminEmail();
+    const isMainAdmin = (mainAdminEmail && userEmail === mainAdminEmail) || user.isMainAdmin === true;
     const isSecondaryAdmin = user.role === "admin" || user.role === "SUPER_ADMIN";
 
     if (!isMainAdmin && !isSecondaryAdmin) {
@@ -96,16 +97,17 @@ const verifyAdmin = async (req, res, next) => {
 
 /**
  * Strict Main Admin Exclusive Verification:
- * Only MAIN_ADMIN_EMAIL (yashashyashash1@gmail.com) can access. Secondary admins are rejected.
+ * Only configured MAIN_ADMIN_EMAIL can access. Secondary admins are rejected.
  */
 const verifyMainAdminOnly = async (req, res, next) => {
   await verifyAdmin(req, res, async () => {
     const userEmail = (req.user?.email || "").toLowerCase().trim();
-    if (userEmail !== MAIN_ADMIN_EMAIL) {
+    const mainAdminEmail = getMainAdminEmail();
+    if (!mainAdminEmail || userEmail !== mainAdminEmail) {
       console.warn(`🚨 Secondary admin ${userEmail} attempted to access exclusive Main Admin feature.`);
       return res.status(403).json({
         success: false,
-        message: "Access Denied: Exclusive Main Administrator (yashashyashash1@gmail.com) authority required.",
+        message: "Access Denied: Exclusive Main Administrator authority required.",
       });
     }
     next();
@@ -167,6 +169,11 @@ module.exports = {
   verifyMainAdminOnly,
   requirePermission,
   recordAdminAudit,
-  MAIN_ADMIN_EMAIL,
-  SUPER_ADMIN_EMAIL: MAIN_ADMIN_EMAIL,
+  getMainAdminEmail,
+  get MAIN_ADMIN_EMAIL() {
+    return getMainAdminEmail();
+  },
+  get SUPER_ADMIN_EMAIL() {
+    return getMainAdminEmail();
+  },
 };
