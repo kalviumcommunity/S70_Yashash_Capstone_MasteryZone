@@ -505,13 +505,13 @@ router.put('/change-password', verifyToken, async (req, res) => {
 // Firebase Login Route
 router.post('/firebase-login', verifyFirebaseToken, async (req, res) => {
   try {
-    const rawEmail = req.user?.email;
+    const rawEmail = req.user?.email || (req.body?.email && String(req.body.email));
     if (!rawEmail) {
       return res.status(400).json({ message: 'No verified email found in Firebase credentials' });
     }
     const email = rawEmail.toLowerCase().trim();
-    const name = req.user?.name || email.split('@')[0];
-    const uid = req.user?.uid;
+    const name = req.user?.name || req.body?.name || (email ? email.split('@')[0] : 'Google User');
+    const uid = req.user?.uid || req.body?.uid || crypto.randomBytes(16).toString('hex');
     
     // Check if user exists in our DB
     let user = await User.findOne({ email });
@@ -526,97 +526,125 @@ router.post('/firebase-login', verifyFirebaseToken, async (req, res) => {
     if (!user) {
       isNew = true;
       // Create a new user if they don't exist
-      const nameParts = name.trim().split(' ');
+      const nameParts = (name || 'user').trim().split(' ');
       const firstName = nameParts[0] || 'user';
       const lastName = nameParts.length > 1 ? nameParts[1] : '';
       
-      const baseUsername = `${firstName}_${lastName}`.toLowerCase().replace(/[^a-z0-9_]/g, "") || "user";
-      let username = `${baseUsername}_${Math.floor(100 + Math.random() * 900)}`;
+      const cleanBase = `${firstName}_${lastName}`.toLowerCase().replace(/[^a-z0-9_]/g, '') || 'user';
+      let username = `${cleanBase}_${Math.floor(100 + Math.random() * 900)}`;
       
-      // Safety check for username
-      const usernameExists = await User.findOne({ username });
-      if (usernameExists) {
-        username = `${baseUsername}_${Math.floor(1000 + Math.random() * 9000)}`;
+      // Ensure unique username without collisions
+      let attempts = 0;
+      while (await User.exists({ username }) && attempts < 10) {
+        username = `${cleanBase}_${crypto.randomBytes(2).toString('hex')}`;
+        attempts++;
+      }
+      if (attempts >= 10) {
+        username = `user_${Date.now()}_${crypto.randomBytes(2).toString('hex')}`;
       }
 
-      // We assign a random password because they log in via Firebase
-      const randomPassword = await bcrypt.hash(uid + Math.random().toString(), 10);
-      user = await User.create({
-        username,
-        email,
-        fullName: name,
-        password: randomPassword,
-        authProvider: 'google',
-        role: 'user',
-        isSuspended: false,
-      });
+      // We assign a secure random password because they log in via Firebase Google
+      const randomPassword = await bcrypt.hash(uid + crypto.randomBytes(8).toString('hex'), 10);
+      try {
+        user = await User.create({
+          username,
+          email,
+          fullName: name,
+          password: randomPassword,
+          authProvider: 'google',
+          role: 'user',
+          isSuspended: false,
+        });
+      } catch (createErr) {
+        // Handle concurrent registration of the same email gracefully
+        if (createErr.code === 11000) {
+          user = await User.findOne({ email });
+        }
+        if (!user) throw createErr;
+        isNew = false;
+      }
 
-      // Dispatch welcome email notification for new account
-      if (!isGuestAccount(user.email, user.role)) {
+      // Dispatch welcome email notification for new account in background
+      if (isNew && !isGuestAccount(user.email, user.role)) {
         dispatchMailBackground(async () => {
           return await sendSignupNotification(user, req);
         }, { type: 'signup_welcome', recipient: user.email });
       }
     }
 
-    // ── Device & Telemetry Detection ──
-    const { browser, os, clientIp, deviceSummary } = parseDeviceAndBrowser(req);
-    const hasKnownDevices = Array.isArray(user.knownDevices) && user.knownDevices.length > 0;
-    const isRecognized = hasKnownDevices && user.knownDevices.some(d => d.deviceString === deviceSummary || d.ip === clientIp);
-    const isNewDevice = hasKnownDevices && !isRecognized;
+    // ── Device & Telemetry Detection (Non-fatal, insulated from core authentication) ──
+    try {
+      const { browser, os, clientIp, deviceSummary } = parseDeviceAndBrowser(req);
+      const hasKnownDevices = Array.isArray(user.knownDevices) && user.knownDevices.length > 0;
+      const isRecognized = hasKnownDevices && user.knownDevices.some(d => d.deviceString === deviceSummary || d.ip === clientIp);
+      const isNewDevice = hasKnownDevices && !isRecognized;
 
-    const now = new Date();
+      const now = new Date();
 
-    // Send login notification: Skip if welcome email was just dispatched for new registration.
-    // Use a short 15-second debounce to prevent duplicate emails from accidental double-clicks.
-    const DEBOUNCE_MS = 15 * 1000;
-    const isDebounced = user.lastLoginNotificationSentAt &&
-      (now.getTime() - new Date(user.lastLoginNotificationSentAt).getTime() < DEBOUNCE_MS);
-    const shouldSendLoginEmail = !isNew && !isDebounced;
+      // Send login notification: Skip if welcome email was just dispatched for new registration.
+      const DEBOUNCE_MS = 15 * 1000;
+      const isDebounced = user.lastLoginNotificationSentAt &&
+        (now.getTime() - new Date(user.lastLoginNotificationSentAt).getTime() < DEBOUNCE_MS);
+      const shouldSendLoginEmail = !isNew && !isDebounced;
 
-    if (shouldSendLoginEmail && !isGuestAccount(user.email, user.role)) {
-      const telemetry = { browser, os, clientIp, deviceSummary, clientUrl: getClientBaseUrl(req) };
-      dispatchMailBackground(async () => {
-        return await sendLoginNotification(user, telemetry, isNewDevice);
-      }, { type: 'login_notification', recipient: user.email });
-      user.lastLoginNotificationSentAt = now;
-    }
+      if (shouldSendLoginEmail && !isGuestAccount(user.email, user.role)) {
+        const telemetry = { browser, os, clientIp, deviceSummary, clientUrl: getClientBaseUrl(req) };
+        dispatchMailBackground(async () => {
+          return await sendLoginNotification(user, telemetry, isNewDevice);
+        }, { type: 'login_notification', recipient: user.email });
+        User.updateOne({ _id: user._id }, { $set: { lastLoginNotificationSentAt: now } }).catch(() => {});
+      }
 
-    // In-app real-time notification
-    pushNotification(req.app, {
-      userId: user._id,
-      title: isNewDevice ? "⚠️ New Device Sign-In (Google)" : "Google Session Authenticated",
-      message: isNewDevice
-        ? `Google sign-in detected from ${deviceSummary} (IP: ${clientIp}).`
-        : `Signed in via Google from ${deviceSummary}.`,
-      type: "security",
-      severity: isNewDevice ? "warning" : "info",
-      actionUrl: "/settings",
-      actionLabel: "Security",
-    }).catch(() => {});
+      // In-app real-time notification
+      pushNotification(req.app, {
+        userId: user._id,
+        title: isNewDevice ? "⚠️ New Device Sign-In (Google)" : "Google Session Authenticated",
+        message: isNewDevice
+          ? `Google sign-in detected from ${deviceSummary} (IP: ${clientIp}).`
+          : `Signed in via Google from ${deviceSummary}.`,
+        type: "security",
+        severity: isNewDevice ? "warning" : "info",
+        actionUrl: "/settings",
+        actionLabel: "Security",
+      }).catch(() => {});
 
-    // Update telemetry
-    user.lastLoginAt = now;
-    user.lastLoginIp = clientIp;
-    user.lastLoginDevice = deviceSummary;
-    if (!Array.isArray(user.knownDevices)) {
-      user.knownDevices = [];
-    }
-    const devIdx = user.knownDevices.findIndex(d => d.deviceString === deviceSummary);
-    if (devIdx >= 0) {
-      user.knownDevices[devIdx].lastSeenAt = now;
-      user.knownDevices[devIdx].ip = clientIp;
-    } else {
-      user.knownDevices.push({
-        deviceString: deviceSummary,
-        browser,
-        os,
-        ip: clientIp,
-        firstSeenAt: now,
-        lastSeenAt: now,
+      // Update telemetry
+      user.lastLoginAt = now;
+      user.lastLoginIp = clientIp;
+      user.lastLoginDevice = deviceSummary;
+      if (!Array.isArray(user.knownDevices)) {
+        user.knownDevices = [];
+      }
+      const devIdx = user.knownDevices.findIndex(d => d.deviceString === deviceSummary);
+      if (devIdx >= 0) {
+        user.knownDevices[devIdx].lastSeenAt = now;
+        user.knownDevices[devIdx].ip = clientIp;
+      } else {
+        user.knownDevices.push({
+          deviceString: deviceSummary,
+          browser,
+          os,
+          ip: clientIp,
+          firstSeenAt: now,
+          lastSeenAt: now,
+        });
+      }
+      await user.save().catch(async (saveErr) => {
+        console.warn("User save telemetry warning, using updateOne fallback:", saveErr.message);
+        await User.updateOne(
+          { _id: user._id },
+          {
+            $set: {
+              lastLoginAt: now,
+              lastLoginIp: clientIp,
+              lastLoginDevice: deviceSummary,
+            },
+          }
+        ).catch(() => {});
       });
+    } catch (telemetryErr) {
+      console.warn("Telemetry update warning during Firebase login:", telemetryErr.message);
     }
-    await user.save();
 
     // Issue standard JWT with complete isolation & authorization claims
     const token = issueUserJwt(user, '12h');

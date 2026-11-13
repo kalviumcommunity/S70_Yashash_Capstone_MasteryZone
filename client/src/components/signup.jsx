@@ -219,7 +219,10 @@ const Signup = () => {
       }
 
       if (!response.ok) {
-        toast.error(data.message || `Google registration failed on server (Status ${response.status})`);
+        const errorMsg = data.message
+          ? (data.error && data.error !== data.message ? `${data.message} (${data.error})` : data.message)
+          : (data.error || `Google registration failed on server (Status ${response.status})`);
+        toast.error(errorMsg);
         return;
       }
 
