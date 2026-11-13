@@ -10,6 +10,7 @@ const {
   sendLoginNotification,
   sendPasswordResetEmail,
   sendPasswordResetSuccessEmail,
+  sendOtpEmail,
   parseDeviceAndBrowser,
   getClientBaseUrl,
   dispatchMailBackground,
@@ -451,6 +452,96 @@ router.post(['/reset-password', '/reset-password/:token'], async (req, res) => {
   } catch (err) {
     console.error('Reset password error:', err);
     res.status(500).json({ message: 'Server error resetting password', error: err.message });
+  }
+});
+
+// Send Verification OTP Email
+router.post('/send-verification-otp', async (req, res) => {
+  try {
+    const { email } = req.body;
+    const targetEmail = (email || '').toLowerCase().trim();
+    if (!targetEmail) {
+      return res.status(400).json({ success: false, message: 'Valid email is required.' });
+    }
+
+    const user = await User.findOne({ email: targetEmail });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'No registered account found with this email.' });
+    }
+
+    if (isGuestAccount(user.email, user.role)) {
+      return res.status(400).json({ success: false, message: 'Guest accounts cannot receive verification emails.' });
+    }
+
+    // Generate 6-digit cryptographic OTP
+    const otp = Math.floor(100000 + crypto.randomInt(900000)).toString();
+    const hashedOtp = crypto.createHash('sha256').update(otp).digest('hex');
+
+    user.otpCodeHash = hashedOtp;
+    user.otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    await user.save();
+
+    const mailResult = await sendOtpEmail(user.email, otp, req);
+    if (!mailResult.success && mailResult.status !== 'skipped_guest') {
+      return res.status(500).json({
+        success: false,
+        message: mailResult.message || 'Failed to dispatch verification OTP email.',
+        errorCode: mailResult.errorCode,
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Verification code sent to your registered email address.',
+    });
+  } catch (err) {
+    console.error('send-verification-otp error:', err);
+    res.status(500).json({ success: false, message: 'Server error generating verification code', error: err.message });
+  }
+});
+
+// Verify Email OTP
+router.post('/verify-email-otp', async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    const targetEmail = (email || '').toLowerCase().trim();
+    if (!targetEmail || !otp) {
+      return res.status(400).json({ success: false, message: 'Email and verification code are required.' });
+    }
+
+    const hashedOtp = crypto.createHash('sha256').update(String(otp).trim()).digest('hex');
+    const user = await User.findOne({
+      email: targetEmail,
+      otpCodeHash: hashedOtp,
+      otpExpires: { $gt: new Date() },
+    });
+
+    if (!user) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired verification code.' });
+    }
+
+    user.otpCodeHash = undefined;
+    user.otpExpires = undefined;
+    user.isEmailVerified = true;
+    await user.save();
+
+    pushNotification(req.app, {
+      userId: user._id,
+      title: 'Email Verified Successfully',
+      message: 'Your email address has been successfully verified.',
+      type: 'account',
+      severity: 'success',
+      actionUrl: '/settings',
+      actionLabel: 'Account',
+    }).catch(() => {});
+
+    res.status(200).json({
+      success: true,
+      message: 'Email address verified successfully.',
+    });
+  } catch (err) {
+    console.error('verify-email-otp error:', err);
+    res.status(500).json({ success: false, message: 'Server error verifying code', error: err.message });
   }
 });
 

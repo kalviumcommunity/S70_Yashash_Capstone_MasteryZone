@@ -2601,13 +2601,20 @@ router.post("/curriculum/assessment/submit", authenticateToken, async (req, res)
     try {
       const candidateUser = await User.findById(userId).select("fullName username email role").lean();
       if (candidateUser && candidateUser.email && !isGuestAccount(candidateUser.email, candidateUser.role)) {
-        // Cutoff requirement: 8 marks out of 10 (80%) AND learning module studied AND coding passed
+        // Cutoff requirement: 8 marks out of 10 (80%) AND learning module studied AND coding passed (if practical exercise exists)
         const isStudyDone = Boolean(current.isStudied);
         const isCodingDone = Boolean(current.exercisePassed || current.assignmentPassed || current.codingPassed);
+        const hasPractical = Boolean(
+          (module.practiceExercises && module.practiceExercises.length > 0) ||
+          module.hasCodingChallenge ||
+          module.assignment ||
+          module.exercise
+        );
+        const effectiveCodingDone = hasPractical ? isCodingDone : true;
         const isMcqCutoffMet = marksObtained >= 8 || percentage >= 80 || newBest >= 80;
         const alreadySent = Boolean(current.moduleCompletionEmailSent);
 
-        if (isStudyDone && isCodingDone && isMcqCutoffMet && !alreadySent) {
+        if (isStudyDone && effectiveCodingDone && isMcqCutoffMet && !alreadySent) {
           // Fetch actual coding assessment marks for this specific module
           let actualCodingScore = null;
           let actualCodingMaxScore = 100;
@@ -2655,7 +2662,7 @@ router.post("/curriculum/assessment/submit", authenticateToken, async (req, res)
               req,
             });
           }, { type: "module_completion_update", recipient: candidateUser.email });
-        } else if (!isMcqCutoffMet) {
+        } else {
           dispatchMailBackground(async () => {
             return await sendSubmissionEvaluationEmail({
               userEmail: candidateUser.email,
@@ -2665,7 +2672,7 @@ router.post("/curriculum/assessment/submit", authenticateToken, async (req, res)
               score: marksObtained,
               maxScore: totalMarks,
               percentage,
-              verdict: "FAILED",
+              verdict: isMcqCutoffMet ? "PASSED" : "FAILED",
               reportUrl: `/assessment-report/attempt_${attemptDoc._id}`,
               req,
             });

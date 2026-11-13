@@ -1620,11 +1620,19 @@ router.post("/assessment/submit", authenticateToken, async (req, res) => {
 
         const isCodingDone = Boolean(hasCodingRecord || curState.exercisePassed || curState.assignmentPassed);
 
-        // Strictly send completion email ONLY when all 3 are completed:
+        const hasPractical = Boolean(
+          (module.practiceExercises && module.practiceExercises.length > 0) ||
+          module.hasCodingChallenge ||
+          module.assignment ||
+          module.exercise
+        );
+        const effectiveCodingDone = hasPractical ? isCodingDone : true;
+
+        // Strictly send completion email ONLY when all requirements are completed:
         // 1. Learning module studied
-        // 2. Practical coding passed
+        // 2. Practical coding passed (if module has practical component)
         // 3. 10 MCQs attempted and cutoff met (>= 80%)
-        if (isStudyDone && isCodingDone && isMcqCutoffMet && !alreadySent) {
+        if (isStudyDone && effectiveCodingDone && isMcqCutoffMet && !alreadySent) {
 
           const mcqPct = Math.round((marksObtained / totalMarks) * 100);
           const combinedMarksStr = hasCodingRecord
@@ -1684,8 +1692,8 @@ router.post("/assessment/submit", authenticateToken, async (req, res) => {
               req,
             });
           }, { type: "module_completion_update", recipient: candidateUser.email });
-        } else if (!isMcqCutoffMet) {
-          // If score is below 8/10 cutoff, do not trigger qualifying module completion email
+        } else {
+          // If not all completion criteria are met yet, send evaluation score email
           dispatchMailBackground(async () => {
             return await sendSubmissionEvaluationEmail({
               userEmail: candidateUser.email,
@@ -1695,7 +1703,7 @@ router.post("/assessment/submit", authenticateToken, async (req, res) => {
               score: marksObtained,
               maxScore: totalMarks,
               percentage,
-              verdict: "FAILED",
+              verdict: isMcqCutoffMet ? "PASSED" : "FAILED",
               reportUrl: `/assessment-report/attempt_${attemptDoc._id}`,
               req,
             });

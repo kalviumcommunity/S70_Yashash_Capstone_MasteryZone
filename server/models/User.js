@@ -71,6 +71,7 @@ const userSchema = new mongoose.Schema({
     darkMode: { type: Boolean, default: false }
   },
   notificationsInitialized: { type: Boolean, default: false },
+  isEmailVerified: { type: Boolean, default: false },
   resetPasswordToken: String,
   resetPasswordExpires: Date,
   otpCodeHash: String,

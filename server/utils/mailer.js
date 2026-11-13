@@ -1147,7 +1147,7 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
   }
 
   // Prevent duplicate email dispatch within rate window (only mark sent after provider acceptance)
-  if (isDuplicateOutboundEmail(to, mailOptions.subject, mailOptions.html, { checkOnly: true })) {
+  if (isDuplicateOutboundEmail(to, mailOptions.subject, mailOptions.html, { ...options, checkOnly: true })) {
     return {
       success: true,
       status: 'accepted',
@@ -1242,7 +1242,7 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
             providerResponse: sanitizeLogMessage(res.providerResponse),
             attemptCount: 1,
           });
-          markOutboundEmailSent(to, mailOptions.subject, mailOptions.html, { emailType, recordId });
+          markOutboundEmailSent(to, mailOptions.subject, mailOptions.html, { ...options, emailType: options.emailType || '', recordId: options.recordId || '' });
           return res;
         }
       } else {
@@ -1476,7 +1476,7 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
         attemptCount: attempt,
       });
 
-      markOutboundEmailSent(to, mailOptions.subject, mailOptions.html);
+      markOutboundEmailSent(to, mailOptions.subject, mailOptions.html, { ...options, emailType: options.emailType || '', recordId: options.recordId || '' });
 
       return {
         success: true,
@@ -1562,7 +1562,7 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
           providerResponse: sanitizeLogMessage(altInfo.response),
           attemptCount: attempt + 1,
         });
-        markOutboundEmailSent(to, mailOptions.subject, mailOptions.html, { emailType, recordId });
+        markOutboundEmailSent(to, mailOptions.subject, mailOptions.html, { ...options, emailType: options.emailType || '', recordId: options.recordId || '' });
         return {
           success: true,
           status: 'accepted',
@@ -1595,7 +1595,7 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
           providerResponse: sanitizeLogMessage(httpRes.providerResponse),
           attemptCount: attempt + 1,
         });
-        markOutboundEmailSent(to, mailOptions.subject, mailOptions.html, { emailType, recordId });
+        markOutboundEmailSent(to, mailOptions.subject, mailOptions.html, { ...options, emailType: options.emailType || '', recordId: options.recordId || '' });
         return httpRes;
       }
     } catch (fbErr) {
@@ -3687,6 +3687,169 @@ async function sendMeetingInvitationEmail({
   }
 }
 
+/**
+ * Send Platform Announcement Email
+ */
+async function sendAnnouncementEmail({ toEmail, userName = "Student", title, message, announcementType = "general", actionUrl = "/home", req = null }) {
+  try {
+    if (!toEmail) return { success: false, status: 'rejected', errorCode: 'EENVELOPE', message: 'No recipient email provided' };
+    if (isGuestAccount(toEmail)) return { success: true, status: 'skipped_guest' };
+
+    const clientUrl = getClientBaseUrl(req);
+    const destinationUrl = actionUrl.startsWith('http') ? actionUrl : `${clientUrl}${actionUrl.startsWith('/') ? '' : '/'}${actionUrl}`;
+
+    const buttonHtml = renderBulletproofButton({
+      url: destinationUrl,
+      label: 'View Announcement',
+      gradient: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+      bgColor: '#4f46e5',
+      showDirectLink: true,
+    });
+
+    const contentHtml = `
+      <h2 style="font-size: 20px; font-weight: 800; color: #0f172a; margin: 0 0 10px;">
+        ${title || "Important Announcement from Mastery Zone"}
+      </h2>
+      <p style="font-size: 14px; color: #475569; line-height: 1.6; margin: 0 0 18px;">
+        Hello <strong>${userName}</strong>,
+      </p>
+      <div style="background: #f8fafc; border-left: 4px solid #4f46e5; padding: 16px 20px; border-radius: 8px; margin: 18px 0; font-size: 14px; color: #334155; line-height: 1.7;">
+        ${message}
+      </div>
+      ${buttonHtml}
+    `;
+
+    const html = wrapHtmlEmail({
+      title: title || 'Mastery Zone Announcement',
+      preheader: message ? String(message).slice(0, 100) : 'Mastery Zone Announcement',
+      badgeText: '📢 Community Announcement',
+      badgeColor: '#4f46e5',
+      badgeBg: '#eef2ff',
+      contentHtml,
+    });
+
+    return await sendMailWithRetry(
+      {
+        from: getSenderAddress('Mastery Zone Announcements'),
+        to: toEmail,
+        subject: `[Announcement] ${title || 'Notice from Mastery Zone Administration'}`,
+        html,
+      },
+      2,
+      {
+        emailType: 'admin_announcement',
+        recordId: `announcement_${toEmail}_${Date.now()}`,
+      }
+    );
+  } catch (err) {
+    const diag = diagnoseSmtpError(err);
+    console.error('sendAnnouncementEmail error:', err.message);
+    return { success: false, status: 'failed', errorCode: diag.code, message: diag.message };
+  }
+}
+
+/**
+ * Send Important Account Notification Email (Status change, Role modification, etc.)
+ */
+async function sendAccountNotificationEmail({ toEmail, userName = "Member", changeType = "status", statusText, reason = "", role, req = null }) {
+  try {
+    if (!toEmail) return { success: false, status: 'rejected', errorCode: 'EENVELOPE', message: 'No recipient email provided' };
+    if (isGuestAccount(toEmail)) return { success: true, status: 'skipped_guest' };
+
+    const clientUrl = getClientBaseUrl(req);
+    const loginUrl = `${clientUrl}/login`;
+    const changeTimeStr = formatEmailDateTime(new Date());
+
+    let subject, badgeText, badgeColor, badgeBg, headline, explanation;
+
+    if (changeType === 'status') {
+      const isSuspended = statusText === 'Suspended' || statusText === 'suspended';
+      subject = isSuspended
+        ? 'Notice regarding your Mastery Zone account status'
+        : 'Your Mastery Zone account has been reactivated';
+      badgeText = isSuspended ? '⚠️ Account Notice' : '✅ Account Reactivated';
+      badgeColor = isSuspended ? '#dc2626' : '#16a34a';
+      badgeBg = isSuspended ? '#fee2e2' : '#dcfce7';
+      headline = isSuspended ? 'Account Suspended' : 'Account Reactivated';
+      explanation = isSuspended
+        ? `Your Mastery Zone account has been placed on suspended status by administration.${reason ? ` Reason: ${reason}` : ''}`
+        : 'Your Mastery Zone account has been restored to active status. You can now log in and continue your learning.';
+    } else if (changeType === 'role') {
+      subject = `Your Mastery Zone role has been updated to ${role}`;
+      badgeText = '🛡️ Role Permission Update';
+      badgeColor = '#2563eb';
+      badgeBg = '#dbeafe';
+      headline = 'Account Role Updated';
+      explanation = `Your account role has been updated to "${role}". You now have access to the privileges associated with this role.`;
+    } else {
+      subject = 'Mastery Zone Account Update Notification';
+      badgeText = 'ℹ️ Account Notification';
+      badgeColor = '#4f46e5';
+      badgeBg = '#eef2ff';
+      headline = 'Account Notification';
+      explanation = reason || 'An update was applied to your Mastery Zone account.';
+    }
+
+    const buttonHtml = renderBulletproofButton({
+      url: loginUrl,
+      label: 'Sign In to Mastery Zone',
+      gradient: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+      bgColor: '#4f46e5',
+      showDirectLink: true,
+    });
+
+    const contentHtml = `
+      <h2 style="font-size: 20px; font-weight: 800; color: #0f172a; margin: 0 0 10px;">
+        ${headline}
+      </h2>
+      <p style="font-size: 14px; color: #475569; line-height: 1.6; margin: 0 0 18px;">
+        Hello <strong>${userName}</strong>,
+      </p>
+      <p style="font-size: 14px; color: #334155; line-height: 1.6; margin: 0 0 18px;">
+        ${explanation}
+      </p>
+      <table class="data-table" style="margin: 18px 0;">
+        <tr>
+          <td class="label">Date & Time</td>
+          <td class="val">${changeTimeStr}</td>
+        </tr>
+        ${role ? `<tr><td class="label">New Role</td><td class="val"><strong>${role}</strong></td></tr>` : ''}
+        ${statusText ? `<tr><td class="label">Status</td><td class="val"><strong>${statusText}</strong></td></tr>` : ''}
+        ${reason ? `<tr><td class="label">Reason / Notes</td><td class="val">${reason}</td></tr>` : ''}
+      </table>
+      ${buttonHtml}
+    `;
+
+    const html = wrapHtmlEmail({
+      title: subject,
+      preheader: explanation.slice(0, 100),
+      badgeText,
+      badgeColor,
+      badgeBg,
+      contentHtml,
+    });
+
+    return await sendMailWithRetry(
+      {
+        from: getSenderAddress('Mastery Zone Administration'),
+        to: toEmail,
+        subject,
+        html,
+      },
+      2,
+      {
+        emailType: changeType === 'status' ? 'account_status_changed' : 'user_role_updated',
+        recordId: `account_${toEmail}_${Date.now()}`,
+        bypassSettings: true,
+      }
+    );
+  } catch (err) {
+    const diag = diagnoseSmtpError(err);
+    console.error('sendAccountNotificationEmail error:', err.message);
+    return { success: false, status: 'failed', errorCode: diag.code, message: diag.message };
+  }
+}
+
 module.exports = {
   getTransporter,
   resetTransporter,
@@ -3713,6 +3876,8 @@ module.exports = {
   sendSupportTicketResponseEmail,
   sendCertificateAwardedEmail,
   sendModuleCompletionEmail,
+  sendAnnouncementEmail,
+  sendAccountNotificationEmail,
   sendTestEmail,
   sendMeetingInvitationEmail,
   dispatchMailBackground,

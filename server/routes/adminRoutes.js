@@ -20,6 +20,16 @@ const PlatformSettings = require("../models/PlatformSettings");
 const EmailLog = require("../models/EmailLog");
 const { verifySuperAdmin, recordAdminAudit } = require("../middleware/adminAuth");
 const { pushAdminNotification } = require("../utils/adminNotificationService");
+const { pushNotification } = require("../utils/notificationService");
+const {
+  sendAccountNotificationEmail,
+  sendAnnouncementEmail,
+  sendMainAdminOtpEmail,
+  sendNewAdminWelcomeEmail,
+  sendAdminPasswordChangedEmail,
+  dispatchMailBackground,
+  isGuestAccount,
+} = require("../utils/mailer");
 const { getRecordingsDir, resolveRecordingFilePath } = require("../config/recordingStorage");
 
 const router = express.Router();
@@ -984,6 +994,33 @@ router.put("/users/:id/status", async (req, res) => {
       }
     }
 
+    // In-app notification
+    pushNotification(req.app, {
+      userId: user._id,
+      title: isSuspended ? "Account Suspended" : "Account Reactivated",
+      message: isSuspended
+        ? `Your Mastery Zone account has been suspended by administration.${reason ? ` Reason: ${reason}` : ""}`
+        : "Your Mastery Zone account has been restored to active status.",
+      type: "security",
+      severity: isSuspended ? "danger" : "success",
+      actionUrl: "/settings",
+      actionLabel: "Account",
+    }).catch(() => {});
+
+    // Email notification
+    if (!isGuestAccount(user.email, user.role)) {
+      dispatchMailBackground(async () => {
+        return await sendAccountNotificationEmail({
+          toEmail: user.email,
+          userName: user.fullName || user.username,
+          changeType: "status",
+          statusText: isSuspended ? "Suspended" : "Active",
+          reason,
+          req,
+        });
+      }, { type: "account_status_changed", recipient: user.email });
+    }
+
     res.status(200).json({
       success: true,
       message: `User ${user.email} status updated to ${isSuspended ? "Suspended" : "Active"}`,
@@ -1046,6 +1083,30 @@ router.put("/users/:id/role", async (req, res) => {
       io.to(`user_${user._id}`).emit("role_updated", { role: user.role });
     }
 
+    // In-app notification
+    pushNotification(req.app, {
+      userId: user._id,
+      title: "Role Updated",
+      message: `Your Mastery Zone account role has been updated to "${user.role}".`,
+      type: "account",
+      severity: "info",
+      actionUrl: "/settings",
+      actionLabel: "Profile",
+    }).catch(() => {});
+
+    // Email notification
+    if (!isGuestAccount(user.email, user.role)) {
+      dispatchMailBackground(async () => {
+        return await sendAccountNotificationEmail({
+          toEmail: user.email,
+          userName: user.fullName || user.username,
+          changeType: "role",
+          role: user.role,
+          req,
+        });
+      }, { type: "user_role_updated", recipient: user.email });
+    }
+
     res.status(200).json({
       success: true,
       message: `User ${user.email} role updated to "${user.role}" successfully.`,
@@ -1059,6 +1120,72 @@ router.put("/users/:id/role", async (req, res) => {
   } catch (error) {
     console.error("Admin update user role error:", error);
     res.status(500).json({ success: false, message: "Failed to update user role", error: error.message });
+  }
+});
+
+// Broadcast Platform Announcement
+router.post("/announcements", async (req, res) => {
+  try {
+    const { title, message, sendEmail = true, type = "general", targetRole } = req.body;
+    if (!title || !message) {
+      return res.status(400).json({ success: false, message: "Title and message are required for announcement." });
+    }
+
+    const query = { isSuspended: false };
+    if (targetRole && targetRole !== "all") {
+      query.role = targetRole;
+    }
+
+    const users = await User.find(query).select("_id fullName username email role preferences").lean();
+    let emailDispatchedCount = 0;
+    let inAppCount = 0;
+
+    for (const u of users) {
+      if (isGuestAccount(u.email, u.role)) continue;
+      inAppCount++;
+      pushNotification(req.app, {
+        userId: u._id,
+        title: `Announcement: ${title}`,
+        message: String(message).slice(0, 200),
+        type: "announcement",
+        severity: "info",
+        actionUrl: "/home",
+        actionLabel: "View Details",
+      }).catch(() => {});
+
+      if (sendEmail && (u.preferences?.notifications !== false)) {
+        emailDispatchedCount++;
+        dispatchMailBackground(async () => {
+          return await sendAnnouncementEmail({
+            toEmail: u.email,
+            userName: u.fullName || u.username || "Student",
+            title,
+            message,
+            announcementType: type,
+            actionUrl: "/home",
+            req,
+          });
+        }, { type: "admin_announcement", recipient: u.email });
+      }
+    }
+
+    await recordAdminAudit({
+      adminId: req.user._id,
+      action: "PLATFORM_ANNOUNCEMENT_BROADCAST",
+      targetId: req.user._id,
+      note: `Announcement "${title}" broadcast to ${inAppCount} users (${emailDispatchedCount} emails queued).`,
+      ip: req.ip,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `Announcement broadcast successfully to ${inAppCount} users.`,
+      dispatchedCount: inAppCount,
+      emailQueuedCount: emailDispatchedCount,
+    });
+  } catch (error) {
+    console.error("Admin announcement broadcast error:", error);
+    res.status(500).json({ success: false, message: "Failed to broadcast announcement", error: error.message });
   }
 });
 
@@ -4278,12 +4405,6 @@ const jwt = require("jsonwebtoken");
 const AdminOtp = require("../models/AdminOtp");
 const { getJwtSecret } = require("../config/jwtConfig");
 const JWT_SECRET = getJwtSecret();
-const {
-  sendMainAdminOtpEmail,
-  sendNewAdminWelcomeEmail,
-  sendAdminPasswordChangedEmail,
-  dispatchMailBackground,
-} = require("../utils/mailer");
 
 // Dynamically resolved configured Main Admin email
 const MAIN_ADMIN_EMAIL = getMainAdminEmail();
