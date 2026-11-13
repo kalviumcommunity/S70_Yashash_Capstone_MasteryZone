@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { GlobalLoader } from "../Loaders.jsx";
 import { verifyActiveSession } from "../../utils/sessionAuth.js";
+import { deduplicatedFetch } from "../../utils/apiClient.js";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 const MAIN_ADMIN_EMAIL = "yashashyashash1@gmail.com";
@@ -50,12 +51,13 @@ const AdminRoute = ({ children }) => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-        const response = await fetch(`${API_BASE}/auth/me`, {
+        const response = await deduplicatedFetch(`${API_BASE}/auth/me`, {
           signal: controller.signal,
           credentials: "include",
           headers: {
             Authorization: `Bearer ${token}`,
           },
+          cacheTtlMs: 3000,
         });
         clearTimeout(timeoutId);
 
@@ -80,11 +82,12 @@ const AdminRoute = ({ children }) => {
             setAuthState("unauthorized");
           }
         } else if (!isCachedAdmin) {
+          // Fail-closed: reject invalid responses
           setAuthState("unauthorized");
         }
       } catch (err) {
         console.error("Admin route verification error:", err);
-        // Only kick to unauthorized if there was no verified cached admin
+        // Fail-closed error handling: only maintain session if authenticated admin credential was verified
         if (isMounted && !isCachedAdmin) setAuthState("unauthorized");
       }
     };

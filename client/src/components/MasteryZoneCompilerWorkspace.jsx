@@ -2089,19 +2089,29 @@ export default function MasteryZoneCompilerWorkspace({
           source.connect(analyser);
 
           const dataArray = new Uint8Array(analyser.frequencyBinCount);
-          const updateAudioLevel = () => {
+          let lastMeterUpdate = 0;
+          let lastVolume = -1;
+          const updateAudioLevel = (now) => {
             if (!analyser) return;
-            analyser.getByteFrequencyData(dataArray);
-            let sum = 0;
-            for (let i = 0; i < dataArray.length; i++) {
-              sum += dataArray[i];
+            // Throttle state update to ~15fps (every ~66ms) to eliminate React re-render churn during active coding
+            if (now - lastMeterUpdate >= 66) {
+              lastMeterUpdate = now;
+              analyser.getByteFrequencyData(dataArray);
+              let sum = 0;
+              for (let i = 0; i < dataArray.length; i++) {
+                sum += dataArray[i];
+              }
+              const avg = sum / dataArray.length;
+              const vol = Math.min(100, Math.round((avg / 128) * 100));
+              // Only call setState if volume delta is noticeable to prevent unnecessary DOM reflows
+              if (Math.abs(vol - lastVolume) >= 3 || (vol === 0 && lastVolume !== 0)) {
+                lastVolume = vol;
+                setProcMicVolume(vol);
+              }
             }
-            const avg = sum / dataArray.length;
-            const vol = Math.min(100, Math.round((avg / 128) * 100));
-            setProcMicVolume(vol);
             procAnimFrameRef.current = requestAnimationFrame(updateAudioLevel);
           };
-          updateAudioLevel();
+          procAnimFrameRef.current = requestAnimationFrame(updateAudioLevel);
         }
       } catch (err) {
         console.warn("Audio meter setup error:", err);

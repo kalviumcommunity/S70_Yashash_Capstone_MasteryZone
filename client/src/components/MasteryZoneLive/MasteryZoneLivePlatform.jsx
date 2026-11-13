@@ -6,6 +6,7 @@ import { LuCircleAlert } from "react-icons/lu";
 import MasteryZoneLiveLanding from "./MasteryZoneLiveLanding";
 import MasteryZoneLiveMeeting from "./MasteryZoneLiveMeeting";
 import MasteryZoneGlobalLoader from "../MasteryZoneGlobalLoader";
+import { deduplicatedFetch } from "../../utils/apiClient";
 import "./masteryZoneLive.css";
 
 const getBackendUrl = () => {
@@ -46,8 +47,9 @@ export default function MasteryZoneLivePlatform({ initialMeetingId = null }) {
     async function fetchUser() {
       try {
         if (token) {
-          const res = await fetch(`${API_BASE}/auth/me`, {
+          const res = await deduplicatedFetch(`${API_BASE}/auth/me`, {
             headers: { Authorization: `Bearer ${token}` },
+            cacheTtlMs: 3500,
           });
           if (res.ok) {
             const data = await res.json();

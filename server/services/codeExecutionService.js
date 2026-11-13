@@ -1448,7 +1448,7 @@ async function executeViaJudge0(lang, code, stdin = "", timeoutMs = 5000, option
   ) {
     const token = j0Result.token.trim();
     const pollDeadline = Date.now() + Math.max(timeoutMs + 4000, 8000);
-    const pollIntervalMs = 250;
+    let pollIntervalMs = 300;
 
     while (Date.now() < pollDeadline) {
       await new Promise((r) => setTimeout(r, pollIntervalMs));
@@ -1460,6 +1460,7 @@ async function executeViaJudge0(lang, code, stdin = "", timeoutMs = 5000, option
       if (j0Result && j0Result.status && typeof j0Result.status.id === "number" && j0Result.status.id >= 3) {
         break;
       }
+      pollIntervalMs = Math.min(1000, Math.round(pollIntervalMs * 1.4));
     }
 
     if (!j0Result || !j0Result.status || j0Result.status.id === 1 || j0Result.status.id === 2) {
@@ -2340,27 +2341,35 @@ async function evaluateTestCasesBatch(language, code, testCases, options = {}) {
     }
 
     const results = [];
-    for (const tc of testCases) {
-      const tcStartTime = Date.now();
-      const input = tc.input !== undefined ? tc.input : "";
-      const expectedOutput = tc.expectedOutput !== undefined ? tc.expectedOutput : (tc.expected || "");
-      const res = await runner(input);
-      const cleanActual = (res.output || "").trim().replace(/\r\n/g, "\n");
-      const cleanExpected = (expectedOutput || "").trim().replace(/\r\n/g, "\n");
-      const effectiveError = res.error || (res.exitCode !== 0 ? (cleanActual || "Runtime error") : "");
-      const passed =
-        res.exitCode === 0 &&
-        !res.error &&
-        !res.isUnavailable &&
-        validateTestCaseOutput(cleanActual, cleanExpected);
+    // Evaluate test cases in parallel chunks (up to 4 concurrent processes) to prevent CPU starvation while maximizing throughput
+    const CONCURRENCY = 4;
+    for (let i = 0; i < testCases.length; i += CONCURRENCY) {
+      const slice = testCases.slice(i, i + CONCURRENCY);
+      const batchRes = await Promise.all(
+        slice.map(async (tc) => {
+          const tcStartTime = Date.now();
+          const input = tc.input !== undefined ? tc.input : "";
+          const expectedOutput = tc.expectedOutput !== undefined ? tc.expectedOutput : (tc.expected || "");
+          const res = await runner(input);
+          const cleanActual = (res.output || "").trim().replace(/\r\n/g, "\n");
+          const cleanExpected = (expectedOutput || "").trim().replace(/\r\n/g, "\n");
+          const effectiveError = res.error || (res.exitCode !== 0 ? (cleanActual || "Runtime error") : "");
+          const passed =
+            res.exitCode === 0 &&
+            !res.error &&
+            !res.isUnavailable &&
+            validateTestCaseOutput(cleanActual, cleanExpected);
 
-      results.push({
-        passed,
-        actual: cleanActual,
-        expected: cleanExpected,
-        error: effectiveError,
-        duration: res.duration || (Date.now() - tcStartTime),
-      });
+          return {
+            passed,
+            actual: cleanActual,
+            expected: cleanExpected,
+            error: effectiveError,
+            duration: res.duration || (Date.now() - tcStartTime),
+          };
+        })
+      );
+      results.push(...batchRes);
     }
 
     try {

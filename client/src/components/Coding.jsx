@@ -48,6 +48,7 @@ import FeaturedLearningCarousel from "./FeaturedLearningCarousel";
 import FeaturedVideosSlider, { DEFAULT_FEATURED_VIDEOS } from "./FeaturedVideosSlider";
 import ChallengeWorkspaceModal from "./ChallengeWorkspaceModal";
 import { ProjectWorkspaceModal } from "./ProjectWorkspaceModal";
+import { deduplicatedFetch } from "../utils/apiClient";
 import CertificationExamWorkspace from "./CertificationExamWorkspace";
 import FullScreenConceptLearning from "./FullScreenConceptLearning";
 import { performGlobalLogout } from "../utils/sessionAuth.js";
@@ -617,8 +618,9 @@ export default function Coding() {
       const storedToken = localStorage.getItem("token");
       if (!storedToken) return;
       try {
-        const res = await fetch(`${API_BASE}/auth/me`, {
+        const res = await deduplicatedFetch(`${API_BASE}/auth/me`, {
           headers: { Authorization: `Bearer ${storedToken}` },
+          cacheTtlMs: 5000,
         });
         if (res.ok) {
           const data = await res.json();
@@ -742,7 +744,7 @@ export default function Coding() {
   const fetchDashboardData = useCallback(async () => {
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-    const pData = fetch(`${API_BASE}/api/coding/data`, { headers })
+    const pData = deduplicatedFetch(`${API_BASE}/api/coding/data`, { headers, cacheTtlMs: 3500 })
       .then(async (res) => {
         if (res.ok) {
           const data = await res.json();
@@ -785,7 +787,7 @@ export default function Coding() {
         console.warn("Could not load /api/coding/data, falling back to local catalog:", err);
       });
 
-    const pChallenges = fetch(`${API_BASE}/api/coding/challenges`)
+    const pChallenges = deduplicatedFetch(`${API_BASE}/api/coding/challenges`, { cacheTtlMs: 5000 })
       .then(async (chRes) => {
         if (chRes.ok) {
           const chData = await chRes.json();
@@ -797,7 +799,7 @@ export default function Coding() {
       .catch(() => {});
 
     const pCert = token
-      ? fetch(`${API_BASE}/api/certifications/my-history`, { headers })
+      ? deduplicatedFetch(`${API_BASE}/api/certifications/my-history`, { headers, cacheTtlMs: 4000 })
           .then(async (certRes) => {
             if (certRes.ok) {
               const certData = await certRes.json();
@@ -830,7 +832,7 @@ export default function Coding() {
           .catch(() => {})
       : Promise.resolve();
 
-    const pRooms = fetch(`${API_BASE}/api/meetings/study-rooms`)
+    const pRooms = deduplicatedFetch(`${API_BASE}/api/meetings/study-rooms`, { cacheTtlMs: 4000 })
       .then(async (meetRes) => {
         if (meetRes.ok) {
           const meetData = await meetRes.json();
@@ -2135,7 +2137,7 @@ export default function Coding() {
 
                 {/* Modules Roadmap List with 3-Step Interactive Progression */}
                 <div className="mz-c-timeline" style={{ marginTop: "20px" }}>
-                  {loadingCurriculum ? (
+                  {loadingCurriculum && (!displayModules || displayModules.length === 0) ? (
                     <div style={{ padding: "40px 20px", textAlign: "center", color: "#64748b" }}>
                       <p>Loading curriculum modules...</p>
                     </div>
