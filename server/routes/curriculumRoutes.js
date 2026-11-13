@@ -11,6 +11,7 @@ const Progress = require("../models/ProgressSchema");
 const User = require("../models/User");
 const { pushNotification } = require("../utils/notificationService");
 const { sendSubmissionEvaluationEmail, sendModuleCompletionEmail, dispatchMailBackground, isGuestAccount } = require("../utils/mailer");
+const { isValidEtag, setEtag, invalidateEtag } = require("../utils/etagCache");
 
 const fs = require("fs");
 const path = require("path");
@@ -684,15 +685,25 @@ router.get("/:subjectKey/:trackId", authenticateToken, async (req, res, next) =>
   try {
     const { subjectKey, trackId } = req.params;
     const userId = req.user.userId || req.user.id || req.user._id;
-    const normSubject = (subjectKey || "coding").toLowerCase();
     const normTrack = (trackId || "python").toLowerCase();
+    const cacheKey = `${userId}::${normSubject}::${normTrack}`;
+    const clientEtag = req.headers["if-none-match"];
 
+    // Fast sub-millisecond 304 validation without executing database queries
+    if (clientEtag && isValidEtag("curriculum", cacheKey, clientEtag)) {
+      res.setHeader("ETag", clientEtag);
+      res.setHeader("Cache-Control", "private, no-cache, must-revalidate");
+      return res.status(304).end();
+    }
+
+    const mongoose = require("mongoose");
+    const userObjId = mongoose.Types.ObjectId.isValid(String(userId)) ? new mongoose.Types.ObjectId(String(userId)) : null;
     const modules = getCurriculumFor(normSubject, normTrack);
 
     // Retrieve subject progress and coding progress concurrently with lean() for fast query response
     const [subProg, codingProg] = await Promise.all([
-      SubjectProgress.findOne({ userId, subjectKey: normSubject }).lean(),
-      normSubject === "coding" ? CodingProgress.findOne({ userId }).lean() : Promise.resolve(null),
+      SubjectProgress.findOne({ userId: userObjId || userId, subjectKey: normSubject }).lean(),
+      normSubject === "coding" ? CodingProgress.findOne({ userId: userObjId || userId }).lean() : Promise.resolve(null),
     ]);
 
     // Fast-path default fallback if progress record is newly initialized
@@ -807,7 +818,18 @@ router.get("/:subjectKey/:trackId", authenticateToken, async (req, res, next) =>
       };
     });
 
-    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    const subProgVer = subProg?.updatedAt ? new Date(subProg.updatedAt).getTime() : 0;
+    const codingProgVer = codingProg?.updatedAt ? new Date(codingProg.updatedAt).getTime() : 0;
+    const currEtag = `W/"curr-${userId}-${normSubject}-${normTrack}-${maxUnlockedIndex}-${subProgVer}-${codingProgVer}"`;
+
+    setEtag("curriculum", cacheKey, currEtag);
+    res.setHeader("ETag", currEtag);
+    res.setHeader("Cache-Control", "private, no-cache, must-revalidate");
+
+    if (clientEtag === currEtag) {
+      return res.status(304).end();
+    }
+
     res.json({
       subjectKey: normSubject,
       trackId: normTrack,

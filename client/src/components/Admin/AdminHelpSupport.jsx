@@ -33,7 +33,7 @@ import {
   LuImage,
 } from "react-icons/lu";
 import { toast } from "react-toastify";
-import { io } from "socket.io-client";
+import { getSharedSocket, releaseSharedSocket } from "../../utils/socketClient";
 import "./Admin.css";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
@@ -256,9 +256,8 @@ const AdminHelpSupport = () => {
     let socket;
     try {
       const token = localStorage.getItem("token");
-      socket = io(API_BASE || window.location.origin, {
+      socket = getSharedSocket(API_BASE || window.location.origin, {
         auth: { token },
-        transports: ["websocket", "polling"],
       });
       socketRef.current = socket;
 
@@ -322,7 +321,7 @@ const AdminHelpSupport = () => {
     }
 
     return () => {
-      if (socket) socket.disconnect();
+      if (socket) releaseSharedSocket(socket);
     };
   }, []);
 

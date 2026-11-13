@@ -23,6 +23,7 @@ const evaluateSingleTestCase = codingRoutes.evaluateSingleTestCase;
 const runSandboxedProcess = codingRoutes.runSandboxedProcess;
 const { PDFDocument } = require("pdf-lib");
 const { getProblemExecutionConfig } = require("../data/problemExecutionConfig");
+const { isValidEtag, setEtag, invalidateEtag } = require("../utils/etagCache");
 
 // Supported Coding Binaries
 const PYTHON_BIN = fs.existsSync("/usr/bin/python3") ? "/usr/bin/python3" : "python3";
@@ -266,6 +267,7 @@ router.get("/", authenticateToken, async (req, res) => {
 router.post("/attempt/start", authenticateToken, async (req, res) => {
   try {
     const userId = await resolveSafeUserId(req.user);
+    invalidateEtag("certHistory", String(userId));
     const { certId = "dsa_cert", forceNew, candidatePhoto } = req.body;
 
     // Fetch user profile for candidate identity
@@ -1051,6 +1053,7 @@ router.post("/attempt/:attemptId/proctoring-event", authenticateToken, async (re
 router.post("/attempt/:attemptId/finalize", authenticateToken, async (req, res) => {
   try {
     const userId = await resolveSafeUserId(req.user);
+    invalidateEtag("certHistory", String(userId));
 
     const attempt = await CertificationAttempt.findOne({
       attemptId: req.params.attemptId,
@@ -1728,6 +1731,16 @@ router.get("/attempt/:attemptId/report", authenticateToken, async (req, res) => 
 router.get("/my-history", authenticateToken, async (req, res) => {
   try {
     const userId = await resolveSafeUserId(req.user);
+    const userIdStr = String(userId);
+    const clientEtag = req.headers["if-none-match"];
+
+    // Fast sub-millisecond 304 validation without executing 4 database queries
+    if (clientEtag && isValidEtag("certHistory", userIdStr, clientEtag)) {
+      res.setHeader("ETag", clientEtag);
+      res.setHeader("Cache-Control", "private, no-cache, must-revalidate");
+      return res.status(304).end();
+    }
+
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = req.query.all === "true" ? 0 : Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
 
@@ -1760,10 +1773,11 @@ router.get("/my-history", authenticateToken, async (req, res) => {
     const latestCertId = certificates[0]?.certificateId || "none";
     const etag = `W/"cert-history-${userId}-${totalAttempts}-${totalCertificates}-${latestAttemptId}-${latestAttemptTime}-${latestCertId}"`;
 
+    setEtag("certHistory", userIdStr, etag);
     res.setHeader("ETag", etag);
     res.setHeader("Cache-Control", "private, no-cache, must-revalidate");
 
-    if (req.headers["if-none-match"] === etag) {
+    if (clientEtag === etag) {
       return res.status(304).end();
     }
 

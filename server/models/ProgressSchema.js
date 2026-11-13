@@ -52,6 +52,7 @@ const progressSchema = new mongoose.Schema({
 
 progressSchema.index({ userId: 1, track: 1 });
 progressSchema.index({ userId: 1, date: -1 });
+progressSchema.index({ userId: 1, track: 1, date: -1 });
 
 // Check if model already compiled to avoid OverwriteModelError
 module.exports = mongoose.models.Progress || mongoose.model("Progress", progressSchema);

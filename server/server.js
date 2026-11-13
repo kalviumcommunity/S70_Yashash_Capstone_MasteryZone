@@ -41,6 +41,7 @@ const Meeting = require("./models/Meeting");
 const SupportTicket = require("./models/SupportTicket");
 const jwt = require("jsonwebtoken");
 const { getJwtSecret } = require("./config/jwtConfig");
+const { getCachedDecodedToken } = require("./middleware/authMiddleware");
 const User = require("./models/User");
 const { pushNotification, setGlobalIo } = require("./utils/notificationService");
 const { setGlobalAdminIo } = require("./utils/adminNotificationService");
@@ -232,11 +233,16 @@ io.on("connection", (socket) => {
     if (!rawToken || typeof rawToken !== "string") return null;
     try {
       const cleanToken = rawToken.startsWith("Bearer ") ? rawToken.slice(7) : rawToken;
-      const decoded = jwt.verify(cleanToken, getJwtSecret());
+      // Fast path: If this socket is already authenticated with this exact token and in its room, return immediately
+      if (socket.data.authToken === cleanToken && socket.data.userId && socket.rooms.has(`user_${socket.data.userId}`)) {
+        return socket.data.userId;
+      }
+      const decoded = getCachedDecodedToken(cleanToken) || jwt.verify(cleanToken, getJwtSecret());
       const uid = String(decoded.userId || decoded.id || decoded._id || "").trim();
       if (uid) {
-        // Idempotency guard: If this socket is already authenticated for this exact user and in their room, return immediately
+        // Idempotency guard: If this socket is already authenticated for this exact user and in their room, update authToken and return immediately
         if (socket.data.userId === uid && socket.rooms.has(`user_${uid}`)) {
+          socket.data.authToken = cleanToken;
           return uid;
         }
 
@@ -277,6 +283,7 @@ io.on("connection", (socket) => {
             io.to("super_admin_room").emit("live_session_ended", { socketId: socket.id, userId: sess?.userId });
           }
         }
+        socket.data.authToken = cleanToken;
         socket.data.userId = uid;
         socket.data.userRole = decoded.role || "user";
         socket.data.role = decoded.role || "user";
@@ -336,6 +343,7 @@ io.on("connection", (socket) => {
       activeUserSessions.delete(socket.id);
       io.to("super_admin_room").emit("live_session_ended", { socketId: socket.id, userId: sess?.userId });
     }
+    delete socket.data.authToken;
     delete socket.data.userId;
     delete socket.data.userRole;
     delete socket.data.role;
@@ -504,7 +512,7 @@ io.on("connection", (socket) => {
     if (!isAdmin && candidateToken && typeof candidateToken === "string") {
       try {
         const clean = candidateToken.startsWith("Bearer ") ? candidateToken.slice(7) : candidateToken;
-        const decoded = jwt.verify(clean, getJwtSecret());
+        const decoded = getCachedDecodedToken(clean) || jwt.verify(clean, getJwtSecret());
         const u = await User.findById(decoded.userId || decoded.id || decoded._id).select("role isMainAdmin email").lean();
         if (u && (u.role === "admin" || u.role === "SUPER_ADMIN" || u.isMainAdmin)) {
           isAdmin = true;
@@ -681,7 +689,7 @@ io.on("connection", (socket) => {
     if (token && typeof token === "string") {
       try {
         const cleanToken = token.startsWith("Bearer ") ? token.slice(7) : token;
-        const decoded = jwt.verify(cleanToken, getJwtSecret());
+        const decoded = getCachedDecodedToken(cleanToken) || jwt.verify(cleanToken, getJwtSecret());
         if (decoded) {
           authUser = {
             userId: String(decoded.userId || decoded.id || decoded._id),
@@ -2026,7 +2034,7 @@ app.use('/certificates', async (req, res, next) => {
 
   let decoded;
   try {
-    decoded = jwt.verify(token, getJwtSecret());
+    decoded = getCachedDecodedToken(token) || jwt.verify(token, getJwtSecret());
   } catch {
     return res.status(401).json({ message: "Invalid or expired token" });
   }
@@ -2070,7 +2078,7 @@ app.use('/proctoring-evidence', async (req, res, next) => {
 
   let decoded;
   try {
-    decoded = jwt.verify(token, getJwtSecret());
+    decoded = getCachedDecodedToken(token) || jwt.verify(token, getJwtSecret());
   } catch (err) {
     return res.status(401).json({ message: "Invalid or expired token" });
   }

@@ -740,6 +740,7 @@ export default function Coding() {
   }, [activeTrackId]);
 
   const lastDashboardFetchRef = useRef(0);
+  const lastFocusSyncRef = useRef(0);
 
   /* ────────────────────────────────────────────────────────────
      1. Fetch Unified Dashboard Data
@@ -998,10 +999,22 @@ export default function Coding() {
       }
     } catch {}
 
-    const handleFocus = () => handleSync();
+    const handleFocusOrVisibility = () => {
+      const now = Date.now();
+      if (now - lastFocusSyncRef.current < 30000) {
+        return;
+      }
+      lastFocusSyncRef.current = now;
+      if (activeTrackId) {
+        fetchCurriculum(activeTrackId);
+      }
+      fetchDashboardData();
+    };
+
+    const handleFocus = () => handleFocusOrVisibility();
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
-        handleSync();
+        handleFocusOrVisibility();
       }
     };
 

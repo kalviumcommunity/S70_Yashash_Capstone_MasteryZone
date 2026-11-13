@@ -8,6 +8,7 @@ const {
   emitNotificationsSync,
   ensureInitialUserNotifications,
 } = require("../utils/notificationService");
+const { isValidEtag, setEtag, invalidateEtag } = require("../utils/etagCache");
 
 function resolveReqUserId(req) {
   return String(req.user?.userId || req.user?.id || req.user?._id || "").trim();
@@ -21,6 +22,13 @@ router.get("/", authenticateToken, async (req, res) => {
       return res.status(401).json({ error: "Invalid user session" });
     }
     const userObjId = new mongoose.Types.ObjectId(userId);
+
+    const clientEtag = req.headers["if-none-match"];
+    if (isValidEtag("notifications", userId, clientEtag)) {
+      res.setHeader("ETag", clientEtag);
+      res.setHeader("Cache-Control", "private, no-cache, must-revalidate");
+      return res.status(304).end();
+    }
 
     // Initial notifications ensure check (instant in-memory cache lookup for initialized accounts)
     await ensureInitialUserNotifications(userObjId);
@@ -48,10 +56,11 @@ router.get("/", authenticateToken, async (req, res) => {
     // Fast conditional validation using ETag
     const latestTimestamp = notifications[0]?.createdAt ? new Date(notifications[0].createdAt).getTime() : 0;
     const etag = `W/"notif-${userObjId.toString()}-${unreadCount}-${latestTimestamp}-${notifications.length}"`;
+    setEtag("notifications", userId, etag);
     res.setHeader("ETag", etag);
     res.setHeader("Cache-Control", "private, no-cache, must-revalidate");
 
-    if (req.headers["if-none-match"] === etag) {
+    if (clientEtag && (clientEtag === etag || clientEtag.replace(/^W\//, "") === etag.replace(/^W\//, ""))) {
       return res.status(304).end();
     }
 
@@ -148,6 +157,8 @@ const markAllReadHandler = async (req, res) => {
       unreadCount: 0,
     });
 
+    invalidateEtag("notifications", userId);
+
     res.json({ success: true, unreadCount: 0 });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -208,6 +219,8 @@ const markOneReadHandler = async (req, res) => {
       unreadCount,
     });
 
+    invalidateEtag("notifications", userId);
+
     res.json({ success: true, notification: updated, unreadCount });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -238,6 +251,8 @@ router.delete("/clear", authenticateToken, async (req, res) => {
       unreadCount,
     });
 
+    invalidateEtag("notifications", userId);
+
     res.json({ success: true, unreadCount });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -266,6 +281,8 @@ router.delete("/:id", authenticateToken, async (req, res) => {
       id,
       unreadCount,
     });
+
+    invalidateEtag("notifications", userId);
 
     res.json({ success: true, id, unreadCount });
   } catch (err) {

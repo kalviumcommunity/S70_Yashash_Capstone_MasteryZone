@@ -161,6 +161,9 @@ function getPersistentDevSecret() {
   }
 }
 
+let cachedValidatedJwtSecret = null;
+let lastValidatedSecretInput = null;
+
 /**
  * Returns the active JWT secret.
  * Enforces production and staging security by failing fast if JWT_SECRET is missing or weak.
@@ -172,6 +175,10 @@ function getJwtSecret() {
   const isTrustedLocal = TRUSTED_LOCAL_ENVS.has(env);
   const secret = process.env.JWT_SECRET;
 
+  if (cachedValidatedJwtSecret && lastValidatedSecretInput === secret) {
+    return cachedValidatedJwtSecret;
+  }
+
   const validation = validateJwtSecret(secret, env, "JWT_SECRET");
   if (!isTrustedLocal && !validation.valid) {
     console.error(`FATAL SECURITY ERROR: ${validation.error}`);
@@ -181,26 +188,30 @@ function getJwtSecret() {
     process.exit(1);
   }
 
+  let resolvedSecret = null;
   if (secret && isSecretStrong(secret)) {
-    return secret.trim();
-  }
-
-  if (isTrustedLocal && secret && typeof secret === "string" && secret.trim()) {
-    return secret.trim();
-  }
-
-  // Staging / Production / Preview / Unknown must never reach auto-generation
-  if (!isTrustedLocal) {
+    resolvedSecret = secret.trim();
+  } else if (isTrustedLocal && secret && typeof secret === "string" && secret.trim()) {
+    resolvedSecret = secret.trim();
+  } else if (!isTrustedLocal) {
+    // Staging / Production / Preview / Unknown must never reach auto-generation
     console.error("FATAL SECURITY ERROR: Insecure secret fallback blocked in public environment.");
     if (env === "test" || process.env.NODE_ENV === "test") {
       throw new Error("Insecure secret fallback blocked in public environment.");
     }
     process.exit(1);
+  } else {
+    // Local development / testing persistent 256-bit key
+    resolvedSecret = getPersistentDevSecret();
   }
 
-  // Local development / testing persistent 256-bit key
-  return getPersistentDevSecret();
+  cachedValidatedJwtSecret = resolvedSecret;
+  lastValidatedSecretInput = secret;
+  return resolvedSecret;
 }
+
+let cachedValidatedRefreshSecret = null;
+let lastValidatedRefreshInput = null;
 
 /**
  * Validates and returns the independent refresh token secret where configured.
@@ -210,6 +221,11 @@ function getJwtRefreshSecret() {
   const isTrustedLocal = TRUSTED_LOCAL_ENVS.has(env);
   const refreshSecret = process.env.JWT_REFRESH_SECRET;
 
+  if (cachedValidatedRefreshSecret && lastValidatedRefreshInput === refreshSecret) {
+    return cachedValidatedRefreshSecret;
+  }
+
+  let resolved = null;
   if (refreshSecret) {
     const validation = validateJwtSecret(refreshSecret, env, "JWT_REFRESH_SECRET");
     if (!isTrustedLocal && !validation.valid) {
@@ -219,14 +235,16 @@ function getJwtRefreshSecret() {
       }
       process.exit(1);
     }
-    return refreshSecret.trim();
+    resolved = refreshSecret.trim();
+  } else if (!isTrustedLocal) {
+    resolved = null;
+  } else {
+    resolved = getJwtSecret() + "_refresh";
   }
 
-  if (!isTrustedLocal) {
-    return null;
-  }
-
-  return getJwtSecret() + "_refresh";
+  cachedValidatedRefreshSecret = resolved;
+  lastValidatedRefreshInput = refreshSecret;
+  return resolved;
 }
 
 module.exports = {
