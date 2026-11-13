@@ -50,26 +50,27 @@ const AdminLiveActivity = () => {
     fetchLiveFeed();
 
     // Connect to Socket.IO for real-time live events
+    let handleConnect = null;
+    let handleSnapshot = null;
+    let handleUpdate = null;
+    let handleEnded = null;
+
     try {
       const socketUrl = API_BASE || window.location.origin;
       socket = getSharedSocket(socketUrl);
 
-      socket.on("connect", () => {
-        socket.emit("join_admin_monitoring");
-      });
+      handleConnect = () => {
+        if (socket) socket.emit("join_admin_monitoring");
+      };
 
-      if (socket.connected) {
-        socket.emit("join_admin_monitoring");
-      }
-
-      socket.on("live_sessions_snapshot", (snapshot) => {
+      handleSnapshot = (snapshot) => {
         if (isMounted && Array.isArray(snapshot) && snapshot.length > 0) {
           setSessions(snapshot);
           setOnlineCount(snapshot.length);
         }
-      });
+      };
 
-      socket.on("live_session_update", (sessionObj) => {
+      handleUpdate = (sessionObj) => {
         if (!isMounted) return;
         setSessions((prev) => {
           const idx = prev.findIndex((s) => s.socketId === sessionObj.socketId);
@@ -80,22 +81,33 @@ const AdminLiveActivity = () => {
           }
           return [sessionObj, ...prev];
         });
-      });
+      };
 
-      socket.on("live_session_ended", ({ socketId }) => {
+      handleEnded = ({ socketId }) => {
         if (!isMounted) return;
         setSessions((prev) => prev.filter((s) => s.socketId !== socketId));
-      });
+      };
+
+      socket.on("connect", handleConnect);
+      if (socket.connected) {
+        handleConnect();
+      }
+      socket.on("live_sessions_snapshot", handleSnapshot);
+      socket.on("live_session_update", handleUpdate);
+      socket.on("live_session_ended", handleEnded);
     } catch (e) {
       console.warn("Socket.io admin monitoring connection error:", e);
     }
 
-    const interval = setInterval(fetchLiveFeed, 10000);
-
     return () => {
       isMounted = false;
-      clearInterval(interval);
-      if (socket) releaseSharedSocket(socket);
+      if (socket) {
+        if (handleConnect) socket.off("connect", handleConnect);
+        if (handleSnapshot) socket.off("live_sessions_snapshot", handleSnapshot);
+        if (handleUpdate) socket.off("live_session_update", handleUpdate);
+        if (handleEnded) socket.off("live_session_ended", handleEnded);
+        releaseSharedSocket(socket);
+      }
     };
   }, []);
 

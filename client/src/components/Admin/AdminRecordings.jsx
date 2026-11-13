@@ -119,38 +119,60 @@ const AdminRecordings = () => {
 
     // Real-time synchronization via shared Socket.io client
     let socket;
+    let handleConnect = null;
+    let handleNewRec = null;
+    let handleRecSaved = null;
+    let handleRecDeleted = null;
+    let handleRecPurged = null;
+
     try {
       const token = localStorage.getItem("token");
       socket = getSharedSocket(API_BASE || window.location.origin, {
         auth: { token },
       });
 
-      socket.on("connect", () => {
-        socket.emit("join_admin_feed");
-      });
+      handleConnect = () => {
+        if (socket) socket.emit("join_admin_feed");
+      };
 
-      socket.on("NEW_RECORDING_SAVED", (newRec) => {
-        toast.info(`New recording received: ${newRec.title || "Meeting Recording"}`);
+      handleNewRec = (newRec) => {
+        toast.info(`New recording received: ${newRec?.title || "Meeting Recording"}`);
         fetchRecordings();
-      });
+      };
 
-      socket.on("meeting_recording_saved", () => {
+      handleRecSaved = () => {
         fetchRecordings();
-      });
+      };
 
-      socket.on("RECORDING_DELETED", () => {
+      handleRecDeleted = () => {
         fetchRecordings();
-      });
+      };
 
-      socket.on("RECORDINGS_PURGED", () => {
+      handleRecPurged = () => {
         fetchRecordings();
-      });
+      };
+
+      socket.on("connect", handleConnect);
+      if (socket.connected) {
+        handleConnect();
+      }
+      socket.on("NEW_RECORDING_SAVED", handleNewRec);
+      socket.on("meeting_recording_saved", handleRecSaved);
+      socket.on("RECORDING_DELETED", handleRecDeleted);
+      socket.on("RECORDINGS_PURGED", handleRecPurged);
     } catch (err) {
       console.warn("Socket connection warning in AdminRecordings:", err);
     }
 
     return () => {
-      if (socket) releaseSharedSocket(socket);
+      if (socket) {
+        if (handleConnect) socket.off("connect", handleConnect);
+        if (handleNewRec) socket.off("NEW_RECORDING_SAVED", handleNewRec);
+        if (handleRecSaved) socket.off("meeting_recording_saved", handleRecSaved);
+        if (handleRecDeleted) socket.off("RECORDING_DELETED", handleRecDeleted);
+        if (handleRecPurged) socket.off("RECORDINGS_PURGED", handleRecPurged);
+        releaseSharedSocket(socket);
+      }
     };
   }, []);
 

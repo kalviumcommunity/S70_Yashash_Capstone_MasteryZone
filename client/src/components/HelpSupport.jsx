@@ -346,6 +346,13 @@ const HelpSupport = () => {
     fetchMyTickets();
 
     let socket;
+    let handleConnect = null;
+    let handleDisconnect = null;
+    let handleTicketUpdated = null;
+    let handleTicketCreated = null;
+    let handleMessageAdded = null;
+    let handleTypingUpdate = null;
+
     try {
       const token = localStorage.getItem("token");
       socket = getSharedSocket(API_BASE || window.location.origin, {
@@ -353,19 +360,19 @@ const HelpSupport = () => {
       });
       socketRef.current = socket;
 
-      socket.on("connect", () => {
+      handleConnect = () => {
         setIsConnected(true);
         const uid = user?._id || user?.userId;
-        if (uid) {
+        if (uid && socket) {
           socket.emit("authenticate_user", { userId: uid });
         }
-      });
+      };
 
-      socket.on("disconnect", () => {
+      handleDisconnect = () => {
         setIsConnected(false);
-      });
+      };
 
-      socket.on("TICKET_UPDATED", (updatedTicket) => {
+      handleTicketUpdated = (updatedTicket) => {
         if (!updatedTicket) return;
         setMyTickets((prev) =>
           prev.map((t) => (t.ticketId === updatedTicket.ticketId ? updatedTicket : t))
@@ -377,14 +384,14 @@ const HelpSupport = () => {
           return current;
         });
         toast.info(`🔔 Support Ticket ${updatedTicket.ticketId} updated: Status is ${updatedTicket.status}`);
-      });
+      };
 
-      socket.on("TICKET_CREATED", (newTkt) => {
+      handleTicketCreated = (newTkt) => {
         if (!newTkt) return;
         setMyTickets((prev) => [newTkt, ...prev.filter((t) => t.ticketId !== newTkt.ticketId)]);
-      });
+      };
 
-      socket.on("TICKET_MESSAGE_ADDED", ({ ticketId, message }) => {
+      handleMessageAdded = ({ ticketId, message }) => {
         setActiveTicket((curr) => {
           if (curr && curr.ticketId === ticketId) {
             const exists = curr.messages?.some((m) => m._id && m._id === message._id);
@@ -400,9 +407,9 @@ const HelpSupport = () => {
         setTimeout(() => {
           messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
         }, 100);
-      });
+      };
 
-      socket.on("ticket_typing_update", ({ ticketId, userRole, isTyping }) => {
+      handleTypingUpdate = ({ ticketId, userRole, isTyping }) => {
         if (activeTicket?.ticketId === ticketId && userRole === "ADMIN") {
           setAdminTyping(isTyping);
           if (isTyping) {
@@ -410,13 +417,31 @@ const HelpSupport = () => {
             adminTypingTimeoutRef.current = setTimeout(() => setAdminTyping(false), 3000);
           }
         }
-      });
+      };
+
+      socket.on("connect", handleConnect);
+      if (socket.connected) {
+        handleConnect();
+      }
+      socket.on("disconnect", handleDisconnect);
+      socket.on("TICKET_UPDATED", handleTicketUpdated);
+      socket.on("TICKET_CREATED", handleTicketCreated);
+      socket.on("TICKET_MESSAGE_ADDED", handleMessageAdded);
+      socket.on("ticket_typing_update", handleTypingUpdate);
     } catch (err) {
       console.warn("Socket connection warning:", err);
     }
 
     return () => {
-      if (socket) releaseSharedSocket(socket);
+      if (socket) {
+        if (handleConnect) socket.off("connect", handleConnect);
+        if (handleDisconnect) socket.off("disconnect", handleDisconnect);
+        if (handleTicketUpdated) socket.off("TICKET_UPDATED", handleTicketUpdated);
+        if (handleTicketCreated) socket.off("TICKET_CREATED", handleTicketCreated);
+        if (handleMessageAdded) socket.off("TICKET_MESSAGE_ADDED", handleMessageAdded);
+        if (handleTypingUpdate) socket.off("ticket_typing_update", handleTypingUpdate);
+        releaseSharedSocket(socket);
+      }
     };
   }, []);
 
