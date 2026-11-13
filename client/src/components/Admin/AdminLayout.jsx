@@ -23,6 +23,7 @@ import {
   LuExternalLink,
   LuMenu,
   LuX,
+  LuGraduationCap,
   LuLifeBuoy,
 } from "react-icons/lu";
 
@@ -129,13 +130,19 @@ const AdminLayout = () => {
         {/* Top: Logo & Platform Identity */}
         <div className="mz-admin-sidebar-top">
           <div className="mz-admin-logo-area">
-            <Link to="/admin/overview" className="flex items-center gap-3 group" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
-              <div className="mz-admin-logo-icon">
-                <LuGraduationCap style={{ width: 22, height: 22 }} />
-              </div>
+            <Link
+              to="/admin/overview"
+              className="mz-admin-logo-link"
+              title="Mastery Zone Admin Portal"
+            >
+              <img
+                src={logoIcon}
+                alt="Mastery Zone Logo"
+                className="mz-admin-brand-logo"
+              />
               <div className="mz-admin-logo-text">
-                <span className="mz-admin-logo-title">MasteryZone</span>
-                <span className="mz-admin-logo-badge">ADMIN PANEL</span>
+                <span className="mz-admin-logo-title">Mastery Zone</span>
+                <span className="mz-admin-logo-badge">ADMIN PORTAL</span>
               </div>
             </Link>
           </div>
@@ -174,8 +181,19 @@ const AdminLayout = () => {
       <div className="mz-admin-main-wrap">
         {/* Top Header Bar */}
         <header className="mz-admin-header">
-          {/* Mobile Menu Toggle & Global Search */}
-          <div className="mz-admin-search-wrap" ref={searchContainerRef} style={{ position: "relative" }}>
+          {/* Left: Mobile Menu Toggle & Global Search */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0, maxWidth: 500 }}>
+            <button
+              type="button"
+              className="mz-admin-mobile-toggle"
+              onClick={() => setMobileMenuOpen((prev) => !prev)}
+              aria-label="Toggle Navigation Menu"
+              title={mobileMenuOpen ? "Close menu" : "Open menu"}
+            >
+              {mobileMenuOpen ? <LuX size={20} /> : <LuMenu size={20} />}
+            </button>
+
+            <div className="mz-admin-search-wrap" ref={searchContainerRef} style={{ position: "relative" }}>
             <LuSearch className="mz-admin-search-icon" />
             <input
               id="admin-global-search"
@@ -307,6 +325,7 @@ const AdminLayout = () => {
               </div>
             )}
           </div>
+        </div>
 
           {/* Right: Theme Toggle, Notifications & Admin Profile */}
           <div className="mz-admin-header-right">
@@ -316,10 +335,16 @@ const AdminLayout = () => {
             <AdminNotificationDropdown />
 
             {/* Profile Dropdown */}
-            <div style={{ position: 'relative' }}>
+            <div
+              className="mz-admin-profile-container"
+              ref={profileDropdownRef}
+            >
               <button
+                type="button"
                 onClick={() => setProfileDropdownOpen((prev) => !prev)}
-                className="mz-admin-profile-btn"
+                className={`mz-admin-profile-btn ${profileDropdownOpen ? "active" : ""}`}
+                aria-expanded={profileDropdownOpen}
+                title="Super Admin Profile Menu"
               >
                 <div className="mz-admin-avatar">
                   {adminUser?.fullName ? adminUser.fullName.charAt(0).toUpperCase() : "A"}
@@ -331,13 +356,12 @@ const AdminLayout = () => {
               {/* Profile Dropdown Menu */}
               {profileDropdownOpen && (
                 <div
-                  className="mz-c-user-dropdown"
-                  onMouseLeave={() => setProfileDropdownOpen(false)}
-                  style={{ top: "calc(100% + 8px)", right: 0 }}
+                  className="mz-c-user-dropdown mz-admin-user-dropdown"
+                  style={{ top: "calc(100% + 10px)", right: 0 }}
                 >
                   <div className="mz-c-dropdown-header-card">
                     <div className="mz-c-dropdown-avatar-wrap">
-                      <div className="mz-c-dropdown-avatar" style={{ background: '#6366f1' }}>
+                      <div className="mz-c-dropdown-avatar" style={{ background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)' }}>
                         {adminUser?.fullName ? adminUser.fullName.charAt(0).toUpperCase() : "A"}
                       </div>
                       <span className="mz-c-dropdown-status-dot" title="Active session" />
