@@ -217,9 +217,10 @@ const Login = () => {
       }
 
       if (!response.ok) {
-        toast.error(
-          data.message || `Firebase login failed (${response.status})`
-        );
+        const errorMsg = data.message
+          ? (data.error && data.error !== data.message ? `${data.message} (${data.error})` : data.message)
+          : (data.error || `Firebase login failed (${response.status})`);
+        toast.error(errorMsg);
         return;
       }
 
