@@ -123,6 +123,20 @@ function getSenderAddress(department = 'Mastery Zone') {
     cleanEmail = process.env.BREVO_SENDER_EMAIL || config.email || process.env.SMTP_EMAIL || '';
   }
 
+  // If cleanEmail is a Brevo relay username (e.g. 7b4c92001@smtp-brevo.com), it cannot be used as sender.
+  // Brevo rejects this with: 550 5.7.1 Sender address is not verified. Fall back to verified administrator sender.
+  if (/@(smtp-brevo\.com|in-addr\.brevo\.com|brevo\.com)$/i.test(cleanEmail)) {
+    cleanEmail = (
+      process.env.BREVO_SENDER_EMAIL ||
+      process.env.SMTP_FROM ||
+      process.env.MAIN_ADMIN_EMAIL ||
+      process.env.ADMIN_EMAIL ||
+      "yashashyashash1@gmail.com"
+    ).trim();
+    const subMatch = cleanEmail.match(/<([^>]+)>/);
+    if (subMatch) cleanEmail = subMatch[1].trim();
+  }
+
   if (!cleanEmail) {
     if (!isTrustedLocal) return null;
     cleanEmail = config.email || 'notifications@masteryzone.com';
@@ -170,6 +184,7 @@ const CRITICAL_NOTIFICATION_TYPES = new Set([
   'coding_challenge_submitted',
   'project_evaluated',
   'certification_evaluated',
+  'submission_evaluated',
 ]);
 
 function isDuplicateOutboundEmail(to, subject, html, options = {}) {
@@ -393,14 +408,23 @@ function getHttpEmailProvider() {
       isTestSender,
     };
   }
-  if (process.env.BREVO_API_KEY && process.env.BREVO_API_KEY.trim()) {
-    const verifiedEmail = (
+  // Brevo API detection:
+  // Brevo API keys start with 'xkeysib-'. Users frequently put this key in BREVO_API_KEY,
+  // BREVO_SMTP_KEY, or SMTP_PASSWORD when configuring Brevo.
+  const brevoApiKey = (
+    process.env.BREVO_API_KEY ||
+    (process.env.BREVO_SMTP_KEY && process.env.BREVO_SMTP_KEY.trim().startsWith('xkeysib-') ? process.env.BREVO_SMTP_KEY : '') ||
+    (process.env.SMTP_PASSWORD && process.env.SMTP_PASSWORD.trim().startsWith('xkeysib-') ? process.env.SMTP_PASSWORD : '')
+  ).trim();
+
+  if (brevoApiKey) {
+    let verifiedEmail = (
       process.env.BREVO_SENDER_EMAIL ||
       process.env.SMTP_FROM ||
-      process.env.SMTP_EMAIL ||
-      process.env.EMAIL_USER ||
       process.env.MAIN_ADMIN_EMAIL ||
       process.env.ADMIN_EMAIL ||
+      process.env.SMTP_EMAIL ||
+      process.env.EMAIL_USER ||
       "yashashyashash1@gmail.com"
     ).trim();
 
@@ -408,8 +432,16 @@ function getHttpEmailProvider() {
     const match = verifiedEmail.match(/<([^>]+)>/);
     if (match) cleanEmail = match[1].trim();
 
-    if (cleanEmail.includes('resend.dev')) {
-      cleanEmail = process.env.BREVO_SENDER_EMAIL || process.env.SMTP_EMAIL || "yashashyashash1@gmail.com";
+    if (cleanEmail.includes('resend.dev') || /@(smtp-brevo\.com|in-addr\.brevo\.com|brevo\.com)$/i.test(cleanEmail)) {
+      cleanEmail = (
+        process.env.BREVO_SENDER_EMAIL ||
+        process.env.SMTP_FROM ||
+        process.env.MAIN_ADMIN_EMAIL ||
+        process.env.ADMIN_EMAIL ||
+        "yashashyashash1@gmail.com"
+      ).trim();
+      const m = cleanEmail.match(/<([^>]+)>/);
+      if (m) cleanEmail = m[1].trim();
     }
 
     if (!cleanEmail) {
@@ -421,7 +453,7 @@ function getHttpEmailProvider() {
 
     return {
       type: 'brevo',
-      apiKey: process.env.BREVO_API_KEY.trim(),
+      apiKey: brevoApiKey,
       from: `Mastery Zone <${cleanEmail}>`,
     };
   }
@@ -517,14 +549,27 @@ async function sendViaHttpApi(mailOptions, provider) {
     let fromEmail = (
       process.env.BREVO_SENDER_EMAIL ||
       process.env.SMTP_FROM ||
-      process.env.SMTP_EMAIL ||
-      process.env.EMAIL_USER ||
       process.env.MAIN_ADMIN_EMAIL ||
       process.env.ADMIN_EMAIL ||
+      process.env.SMTP_EMAIL ||
+      process.env.EMAIL_USER ||
       "yashashyashash1@gmail.com"
     ).trim();
     let match = fromEmail.match(/<([^>]+)>/);
     if (match) fromEmail = match[1].trim();
+
+    if (/@(smtp-brevo\.com|in-addr\.brevo\.com|brevo\.com)$/i.test(fromEmail) || fromEmail.includes('resend.dev')) {
+      fromEmail = (
+        process.env.BREVO_SENDER_EMAIL ||
+        process.env.SMTP_FROM ||
+        process.env.MAIN_ADMIN_EMAIL ||
+        process.env.ADMIN_EMAIL ||
+        "yashashyashash1@gmail.com"
+      ).trim();
+      const m = fromEmail.match(/<([^>]+)>/);
+      if (m) fromEmail = m[1].trim();
+    }
+
     if (!fromEmail && isTrustedLocal) {
       fromEmail = "notifications@masteryzone.com";
     }
@@ -541,6 +586,7 @@ async function sendViaHttpApi(mailOptions, provider) {
           !candidate.endsWith('@masteryzone.com') &&
           !candidate.endsWith('@masteryzone.test') &&
           !candidate.includes('resend.dev') &&
+          !/@(smtp-brevo\.com|in-addr\.brevo\.com|brevo\.com)$/i.test(candidate) &&
           candidate.includes('@')
         ) {
           fromEmail = candidate;
@@ -1082,8 +1128,11 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
   const isTrustedLocal = TRUSTED_LOCAL_ENVS.has(env);
 
   const to = (mailOptions.to || '').trim().toLowerCase();
+  console.log(`[Email Trigger] Type: "${emailType}" | Recipient: "${maskEmail(to)}" | RecordId: "${recordId || 'none'}"`);
+
   if (!validateRecipientEmail(to)) {
     const errMsg = `Invalid recipient email address: "${mailOptions.to}"`;
+    console.warn(`[Email Rejected] Provider: "none" | Type: "${emailType}" | Recipient: "${maskEmail(to)}" | Code: "EENVELOPE" | Reason: "${errMsg}"`);
     await recordEmailLog({
       recipient: to || 'invalid@recipient',
       emailType,
@@ -1124,7 +1173,7 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
     );
     if (!isMockUnitTest) {
       const reason = `Email delivery suppressed: destination domain "@${recipientDomain}" has no active MX mail server or is a synthetic test domain`;
-      console.log(`🛡️ [Mailer] ${reason} for recipient: ${to}`);
+      console.log(`[Email Suppressed] Type: "${emailType}" | Recipient: "${maskEmail(to)}" | Reason: "${reason}"`);
       await recordEmailLog({
         recipient: to,
         emailType,
@@ -1148,6 +1197,7 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
 
   // Prevent duplicate email dispatch within rate window (only mark sent after provider acceptance)
   if (isDuplicateOutboundEmail(to, mailOptions.subject, mailOptions.html, { ...options, checkOnly: true })) {
+    console.log(`[Email Suppressed] Type: "${emailType}" | Recipient: "${maskEmail(to)}" | Reason: "Duplicate notification suppressed within rate window"`);
     return {
       success: true,
       status: 'accepted',
@@ -1160,7 +1210,7 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
   // Anti-Spam & Deliverability Guard: Never dispatch emails to synthetic test fixtures, non-deliverable addresses, or placeholder accounts
   if (!options.bypassSyntheticCheck && (isGuestAccount(to, options.role) || !isLegitimateDeliverableEmail(to, options.role))) {
     const reason = `Email suppressed: recipient "${to}" matches non-deliverable, guest, or synthetic address filter`;
-    console.log(`🛡️ [Mailer] ${reason}`);
+    console.log(`[Email Suppressed] Type: "${emailType}" | Recipient: "${maskEmail(to)}" | Reason: "${reason}"`);
     await recordEmailLog({
       recipient: to,
       emailType,
@@ -1189,6 +1239,8 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
         const PlatformSettings = require('../models/PlatformSettings');
         const settings = await PlatformSettings.findOne({ key: 'global_platform_settings' }).lean();
         if (settings && settings.emailNotificationsEnabled === false) {
+          const reason = 'Email suppressed: Transactional notifications disabled in Admin Settings';
+          console.log(`[Email Suppressed] Type: "${emailType}" | Recipient: "${maskEmail(to)}" | Reason: "${reason}"`);
           await recordEmailLog({
             recipient: to,
             emailType,
@@ -1196,7 +1248,7 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
             relatedUserId: userId,
             relatedRecordId: recordId,
             status: 'suppressed',
-            errorMessage: 'Email suppressed: Transactional notifications disabled in Admin Settings',
+            errorMessage: reason,
           });
           return {
             success: false,
@@ -1227,10 +1279,12 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
   if ((isCloudHost || !config.isConfigured) && canHttpDeliverToRecipient) {
     triedHttp = true;
     try {
+      console.log(`[Email Attempt] Attempt: 1 | Provider: "${httpProvider.type} (HTTPS)" | Type: "${emailType}" | Recipient: "${maskEmail(to)}"`);
       const res = await sendViaHttpApi(mailOptions, httpProvider);
       if (res && res.success && res.messageId) {
         const validId = typeof res.messageId === 'string' && res.messageId.trim();
         if (validId) {
+          console.log(`[Email Accepted] Provider: "${httpProvider.type} (HTTPS)" | Type: "${emailType}" | Recipient: "${maskEmail(to)}" | MessageId: "${validId}"`);
           await recordEmailLog({
             recipient: to,
             emailType,
@@ -1246,11 +1300,12 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
           return res;
         }
       } else {
-        console.warn(`⚠️ [Mailer] HTTP provider (${httpProvider.type}) returned unsuccessful response for "${to}": ${res?.error || res?.message || 'Unknown'}; cascading to SMTP...`);
+        const failReason = res?.error || res?.message || 'Unknown response';
+        console.warn(`[Email Failed] Provider: "${httpProvider.type} (HTTPS)" | Type: "${emailType}" | Recipient: "${maskEmail(to)}" | Reason: "${failReason}"; cascading to SMTP...`);
       }
     } catch (apiErr) {
       const safeErrMsg = sanitizeLogMessage(apiErr.message);
-      console.warn(`⚠️ [Mailer] HTTP provider (${httpProvider.type}) failed for "${to}": ${safeErrMsg}; cascading to SMTP...`);
+      console.warn(`[Email Failed] Provider: "${httpProvider.type} (HTTPS)" | Type: "${emailType}" | Recipient: "${maskEmail(to)}" | Reason: "${safeErrMsg}"; cascading to SMTP...`);
     }
   }
 
@@ -1259,6 +1314,7 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
     tp = await getTransporter();
   } catch (initErr) {
     const diag = diagnoseSmtpError(initErr);
+    console.warn(`[Email Rejected] Provider: "smtp" | Type: "${emailType}" | Recipient: "${maskEmail(to)}" | Code: "${diag.code}" | Reason: "${diag.message}"`);
     await recordEmailLog({
       recipient: to,
       emailType,
@@ -1282,6 +1338,7 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
   const finalFrom = mailOptions.from || getSenderAddress() || config.from;
   if (!finalFrom && !isTrustedLocal) {
     const noSenderErr = "Outbound email rejected: No verified sender address configured in production environment.";
+    console.warn(`[Email Rejected] Provider: "smtp" | Type: "${emailType}" | Recipient: "${maskEmail(to)}" | Code: "ECONFIG" | Reason: "${noSenderErr}"`);
     await recordEmailLog({
       recipient: to,
       emailType,
@@ -1301,12 +1358,32 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
     };
   }
 
+  // Extract verified envelope address
+  let envelopeFrom = finalFrom;
+  const matchEnv = String(finalFrom).match(/<([^>]+)>/);
+  if (matchEnv) envelopeFrom = matchEnv[1].trim();
+  if (/@(smtp-brevo\.com|in-addr\.brevo\.com|brevo\.com)$/i.test(envelopeFrom)) {
+    envelopeFrom = (
+      process.env.BREVO_SENDER_EMAIL ||
+      process.env.SMTP_FROM ||
+      process.env.MAIN_ADMIN_EMAIL ||
+      process.env.ADMIN_EMAIL ||
+      "yashashyashash1@gmail.com"
+    ).trim();
+    const subMatch = envelopeFrom.match(/<([^>]+)>/);
+    if (subMatch) envelopeFrom = subMatch[1].trim();
+  }
+
   const clientBaseUrl = getClientBaseUrl();
   const unsubscribeUrl = `${clientBaseUrl}/settings`;
 
   const finalOptions = {
     ...mailOptions,
     from: finalFrom,
+    envelope: mailOptions.envelope || {
+      from: envelopeFrom,
+      to: Array.isArray(to) ? to : [to],
+    },
     text: plainText,
     headers: {
       'Precedence': 'bulk',
@@ -1361,7 +1438,8 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
   if (isTargetUnroutable) {
     const isMocked = tp && (tp.options?.jsonTransport || !tp.transporter || tp._isMock || tp.isTestTransport);
     if (!isMocked) {
-      console.log(`🛡️ [Mailer Hard-Stop] Refusing real SMTP dispatch to unroutable or synthetic test domain "${to}" — suppressing to prevent bounce spam.`);
+      const reason = `Refusing real SMTP dispatch to unroutable or synthetic test domain "${to}" — suppressing to prevent bounce spam.`;
+      console.log(`[Email Suppressed] Type: "${emailType}" | Recipient: "${maskEmail(to)}" | Reason: "${reason}"`);
       return {
         success: true,
         status: 'suppressed',
@@ -1380,6 +1458,7 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
     let timer = null;
 
     try {
+      console.log(`[Email Attempt] Attempt: ${attempt} | Provider: "smtp" | Type: "${emailType}" | Recipient: "${maskEmail(to)}"`);
       const sendPromise = new Promise((resolve, reject) => {
         let settled = false;
         try {
@@ -1421,6 +1500,7 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
       // Check if recipient was rejected by provider
       if (Array.isArray(info.rejected) && info.rejected.length > 0 && (!info.accepted || info.accepted.length === 0)) {
         const rejectMsg = `Recipient ${info.rejected.join(', ')} was rejected by SMTP provider.`;
+        console.warn(`[Email Rejected] Provider: "smtp" | Type: "${emailType}" | Recipient: "${maskEmail(to)}" | Code: "EENVELOPE" | Reason: "${rejectMsg}"`);
         await recordEmailLog({
           recipient: to,
           emailType,
@@ -1445,6 +1525,7 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
       const validSmtpMsgId = typeof info?.messageId === 'string' && info.messageId.trim();
       if (!validSmtpMsgId) {
         const missingIdMsg = 'SMTP provider completed without returning a message ID';
+        console.warn(`[Email Failed] Provider: "smtp" | Type: "${emailType}" | Recipient: "${maskEmail(to)}" | Reason: "${missingIdMsg}"`);
         await recordEmailLog({
           recipient: to,
           emailType,
@@ -1464,6 +1545,7 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
         };
       }
 
+      console.log(`[Email Accepted] Provider: "smtp" | Type: "${emailType}" | Recipient: "${maskEmail(to)}" | MessageId: "${validSmtpMsgId}"`);
       await recordEmailLog({
         recipient: to,
         emailType,
@@ -1551,6 +1633,7 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
       const validAltMsgId = typeof altInfo?.messageId === 'string' && altInfo.messageId.trim();
       if (validAltMsgId) {
         transporterInstance = altTp;
+        console.log(`[Email Accepted] Provider: "smtp (port 587)" | Type: "${emailType}" | Recipient: "${maskEmail(to)}" | MessageId: "${validAltMsgId}"`);
         await recordEmailLog({
           recipient: to,
           emailType,
@@ -1582,8 +1665,10 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
   if (fallbackHttp && !triedHttp) {
     try {
       console.log(`ℹ️ [Mailer] Primary SMTP transport hit ${lastErr?.code || 'error'} (${lastErr?.message}); attempting fallback via ${fallbackHttp.type} on Port 443...`);
+      console.log(`[Email Attempt] Attempt: ${attempt + 1} | Provider: "${fallbackHttp.type} (HTTPS fallback)" | Type: "${emailType}" | Recipient: "${maskEmail(to)}"`);
       const httpRes = await sendViaHttpApi(mailOptions, fallbackHttp);
       if (httpRes && httpRes.success && httpRes.messageId) {
+        console.log(`[Email Accepted] Provider: "${fallbackHttp.type} (HTTPS fallback)" | Type: "${emailType}" | Recipient: "${maskEmail(to)}" | MessageId: "${httpRes.messageId}"`);
         await recordEmailLog({
           recipient: to,
           emailType,
@@ -1604,6 +1689,7 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
   }
 
   const diag = diagnoseSmtpError(lastErr);
+  console.warn(`[Email Rejected] Provider: "smtp" | Type: "${emailType}" | Recipient: "${maskEmail(to)}" | Code: "${diag.code}" | Reason: "${diag.message}"`);
   await recordEmailLog({
     recipient: to,
     emailType,
@@ -1628,24 +1714,27 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
  * Dispatches an email action in the background immediately without blocking the caller HTTP thread.
  */
 function dispatchMailBackground(mailPromiseFn, meta = {}) {
+  const maskedRec = meta.recipient ? maskEmail(meta.recipient) : 'unspecified';
+  const type = meta.type || 'generic';
+  console.log(`[Email Background Event] Type: "${type}" | Recipient: "${maskedRec}"`);
   setImmediate(async () => {
     try {
       const fn = typeof mailPromiseFn === 'function' ? mailPromiseFn : () => mailPromiseFn;
       const res = await fn();
       if (res && res.success === false) {
-        console.warn(`[Mailer Background Warning] ${meta.type || 'email'} to ${meta.recipient || 'recipient'} did not succeed: ${res.message} (${res.errorCode || res.status})`);
+        console.warn(`[Email Background Failure] Type: "${type}" | Recipient: "${maskedRec}" | Reason: "${res.message || 'unknown'}" (${res.errorCode || res.status || 'FAILED'})`);
       } else if (res && res.success === true) {
-        console.log(`✅ [Mailer Background] ${meta.type || 'email'} delivered successfully to ${meta.recipient || 'recipient'} (msgId: ${res.messageId || 'ok'})`);
+        console.log(`[Email Background Success] Type: "${type}" | Recipient: "${maskedRec}" | MsgId: "${res.messageId || 'ok'}"`);
       }
     } catch (err) {
-      console.error(`[Mailer Background Error] Unhandled exception in background email dispatch:`, err.message);
+      console.error(`[Email Background Exception] Type: "${type}" | Recipient: "${maskedRec}" | Reason: ${sanitizeLogMessage(err.message)}`);
       if (meta.recipient) {
         await recordEmailLog({
           recipient: meta.recipient,
-          emailType: meta.type || 'background_job',
+          emailType: type,
           status: 'failed',
           errorCode: 'BACKGROUND_EXCEPTION',
-          errorMessage: err.message,
+          errorMessage: sanitizeLogMessage(err.message),
         });
       }
     }

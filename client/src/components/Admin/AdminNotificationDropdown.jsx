@@ -104,10 +104,12 @@ const AdminNotificationDropdown = () => {
       const socketTarget = API_BASE || window.location.origin;
       socket = getSharedSocket(socketTarget);
 
-      socket.on("connect", () => {
+      const handleConnect = () => {
         socket.emit("join_admin_monitoring");
         fetchNotifications();
-      });
+      };
+
+      socket.on("connect", handleConnect);
 
       if (socket.connected) {
         socket.emit("join_admin_monitoring");
@@ -129,6 +131,7 @@ const AdminNotificationDropdown = () => {
     return () => {
       document.removeEventListener("mousedown", handleOutsideClick);
       if (socket) {
+        socket.off("connect", handleConnect);
         socket.off("admin_notification_received", handleAdminNotif);
         releaseSharedSocket(socket);
       }
