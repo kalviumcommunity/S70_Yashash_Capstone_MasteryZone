@@ -1,7 +1,9 @@
 const jwt = require('jsonwebtoken');
 const { getJwtSecret } = require('../config/jwtConfig');
+const { recordAuthDuration } = require('./timingDiagnostics');
 
 const authenticateToken = (req, res, next) => {
+  const authStart = process.hrtime.bigint();
   const authHeader = req.headers['authorization'];
   let token = authHeader && authHeader.split(' ')[1]; // Format: "Bearer <token>"
 
@@ -10,19 +12,23 @@ const authenticateToken = (req, res, next) => {
   }
 
   if (!token) {
+    recordAuthDuration(Number(process.hrtime.bigint() - authStart) / 1e6);
     return res.status(401).json({ message: 'Access denied. No token provided.' });
   }
 
   try {
     const decoded = jwt.verify(token, getJwtSecret());
     req.user = decoded;
+    recordAuthDuration(Number(process.hrtime.bigint() - authStart) / 1e6);
     next();
   } catch (err) {
+    recordAuthDuration(Number(process.hrtime.bigint() - authStart) / 1e6);
     return res.status(403).json({ message: 'Invalid or expired token' });
   }
 };
 
 const optionalAuthenticateToken = (req, res, next) => {
+  const authStart = process.hrtime.bigint();
   const authHeader = req.headers['authorization'];
   let token = authHeader && authHeader.split(' ')[1];
 
@@ -32,6 +38,7 @@ const optionalAuthenticateToken = (req, res, next) => {
 
   if (!token) {
     req.user = null;
+    recordAuthDuration(Number(process.hrtime.bigint() - authStart) / 1e6);
     return next();
   }
 
@@ -41,6 +48,7 @@ const optionalAuthenticateToken = (req, res, next) => {
   } catch (err) {
     req.user = null;
   }
+  recordAuthDuration(Number(process.hrtime.bigint() - authStart) / 1e6);
   next();
 };
 

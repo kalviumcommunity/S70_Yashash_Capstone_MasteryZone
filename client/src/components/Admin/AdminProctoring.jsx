@@ -15,7 +15,7 @@ import {
   LuRadio,
   LuX,
 } from "react-icons/lu";
-import io from "socket.io-client";
+import { getSharedSocket, releaseSharedSocket } from "../../utils/socketClient";
 import { deduplicatedFetch } from "../../utils/apiClient";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
@@ -63,15 +63,15 @@ const AdminProctoring = () => {
     // Setup real-time Socket.io listener for proctoring violations & sessions
     let socket;
     try {
-      const token = localStorage.getItem("token");
-      socket = io(API_BASE || window.location.origin, {
-        auth: { token },
-        transports: ["websocket", "polling"],
-      });
+      socket = getSharedSocket(API_BASE || window.location.origin);
 
       socket.on("connect", () => {
         socket.emit("join_admin_feed");
       });
+
+      if (socket.connected) {
+        socket.emit("join_admin_feed");
+      }
 
       socket.on("PROCTORING_VIOLATION", (payload) => {
         setLiveAlerts((prev) => [
@@ -100,7 +100,7 @@ const AdminProctoring = () => {
     }
 
     return () => {
-      if (socket) socket.disconnect();
+      if (socket) releaseSharedSocket(socket);
     };
   }, []);
 
