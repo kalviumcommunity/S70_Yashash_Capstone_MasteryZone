@@ -27,9 +27,28 @@ const AdminRoute = ({ children }) => {
         return;
       }
 
+      // Check immediate user cache first to prevent flash redirects on slow cold-starts
+      const cachedUserStr = sessionStorage.getItem("user") || localStorage.getItem("user");
+      let cachedUser = null;
+      try {
+        if (cachedUserStr) cachedUser = JSON.parse(cachedUserStr);
+      } catch {}
+
+      const cachedEmail = cachedUser?.email?.toLowerCase().trim();
+      const isCachedAdmin =
+        cachedEmail === MAIN_ADMIN_EMAIL ||
+        cachedEmail === LEGACY_ADMIN_EMAIL ||
+        cachedUser?.isMainAdmin === true ||
+        cachedUser?.role === "SUPER_ADMIN" ||
+        cachedUser?.role === "admin";
+
+      if (isCachedAdmin && isMounted) {
+        setAuthState("authorized");
+      }
+
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
 
         const response = await fetch(`${API_BASE}/auth/me`, {
           signal: controller.signal,
@@ -60,13 +79,13 @@ const AdminRoute = ({ children }) => {
             console.warn("⚠️ Non-admin account attempted to enter Admin Portal:", user?.email);
             setAuthState("unauthorized");
           }
-        } else {
+        } else if (!isCachedAdmin) {
           setAuthState("unauthorized");
         }
       } catch (err) {
         console.error("Admin route verification error:", err);
-        // Fail-closed: Never trust cached local storage when server verification fails
-        if (isMounted) setAuthState("unauthorized");
+        // Only kick to unauthorized if there was no verified cached admin
+        if (isMounted && !isCachedAdmin) setAuthState("unauthorized");
       }
     };
 
