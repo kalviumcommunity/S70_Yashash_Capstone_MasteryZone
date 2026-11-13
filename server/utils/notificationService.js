@@ -237,9 +237,22 @@ async function ensureInitialUserNotifications(userId) {
   }
 }
 
+function markNotificationsInitialized(userId) {
+  if (userId) {
+    initializedUsersCache.add(String(userId).trim());
+  }
+}
+
+function isNotificationsInitialized(userId) {
+  if (!userId) return false;
+  return initializedUsersCache.has(String(userId).trim());
+}
+
 module.exports = {
   pushNotification,
   emitNotificationsSync,
   ensureInitialUserNotifications,
+  markNotificationsInitialized,
+  isNotificationsInitialized,
   setGlobalIo,
 };
