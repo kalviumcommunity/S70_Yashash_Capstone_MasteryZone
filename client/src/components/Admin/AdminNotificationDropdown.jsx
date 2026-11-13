@@ -95,6 +95,7 @@ const AdminNotificationDropdown = () => {
 
     // Connect to Socket.IO for real-time admin notifications
     let socket = null;
+    let handleConnect = null;
     const handleAdminNotif = (notif) => {
       setNotifications((prev) => [notif, ...prev]);
       setUnreadCount((prev) => prev + 1);
@@ -104,8 +105,8 @@ const AdminNotificationDropdown = () => {
       const socketTarget = API_BASE || window.location.origin;
       socket = getSharedSocket(socketTarget);
 
-      const handleConnect = () => {
-        socket.emit("join_admin_monitoring");
+      handleConnect = () => {
+        if (socket) socket.emit("join_admin_monitoring");
         fetchNotifications();
       };
 
@@ -131,7 +132,7 @@ const AdminNotificationDropdown = () => {
     return () => {
       document.removeEventListener("mousedown", handleOutsideClick);
       if (socket) {
-        socket.off("connect", handleConnect);
+        if (handleConnect) socket.off("connect", handleConnect);
         socket.off("admin_notification_received", handleAdminNotif);
         releaseSharedSocket(socket);
       }
