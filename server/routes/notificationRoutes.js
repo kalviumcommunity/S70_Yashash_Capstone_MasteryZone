@@ -13,7 +13,7 @@ function resolveReqUserId(req) {
   return String(req.user?.userId || req.user?.id || req.user?._id || "").trim();
 }
 
-// GET /api/notifications
+// GET /api/notifications (Optimized single-pass query with ETag caching)
 router.get("/", authenticateToken, async (req, res) => {
   try {
     const userId = resolveReqUserId(req);
@@ -22,15 +22,38 @@ router.get("/", authenticateToken, async (req, res) => {
     }
     const userObjId = new mongoose.Types.ObjectId(userId);
 
+    // Initial notifications ensure check (instant in-memory cache lookup for initialized accounts)
     await ensureInitialUserNotifications(userObjId);
 
-    const [notifications, unreadCount] = await Promise.all([
-      Notification.find({ userId: userObjId })
-        .sort({ createdAt: -1 })
-        .limit(60)
-        .lean(),
-      Notification.countDocuments({ userId: userObjId, isRead: false }),
+    // Single-pass aggregation combines 60 recent notifications + unread count in 1 single DB operation
+    const [result] = await Notification.aggregate([
+      { $match: { userId: userObjId } },
+      {
+        $facet: {
+          notifications: [
+            { $sort: { createdAt: -1 } },
+            { $limit: 60 },
+          ],
+          unread: [
+            { $match: { isRead: false } },
+            { $count: "count" },
+          ],
+        },
+      },
     ]);
+
+    const notifications = result?.notifications || [];
+    const unreadCount = result?.unread?.[0]?.count || 0;
+
+    // Fast conditional validation using ETag
+    const latestTimestamp = notifications[0]?.createdAt ? new Date(notifications[0].createdAt).getTime() : 0;
+    const etag = `W/"notif-${userObjId.toString()}-${unreadCount}-${latestTimestamp}-${notifications.length}"`;
+    res.setHeader("ETag", etag);
+    res.setHeader("Cache-Control", "private, no-cache, must-revalidate");
+
+    if (req.headers["if-none-match"] === etag) {
+      return res.status(304).end();
+    }
 
     res.json({
       success: true,

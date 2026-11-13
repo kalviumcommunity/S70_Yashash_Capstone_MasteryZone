@@ -26,7 +26,7 @@ import {
   LuFolderGit2,
 } from "react-icons/lu";
 import { toast } from "react-toastify";
-import { io } from "socket.io-client";
+import { getSharedSocket, releaseSharedSocket } from "../../utils/socketClient";
 import { deduplicatedFetch } from "../../utils/apiClient";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
@@ -115,87 +115,99 @@ const AdminReports = () => {
 
     // Socket.io real-time listener for reports updates
     let socket = null;
+    const handleConnect = () => {
+      if (socket) socket.emit("join_admin_monitoring");
+    };
+
+    // Handle new reports generated
+    const handleIncomingReport = (newRecord) => {
+      if (!newRecord) return;
+      setReports((prev) => {
+        const exists = prev.some((r) => r.id === newRecord.id || (newRecord.rawId && r.rawId === newRecord.rawId));
+        if (exists) return prev;
+        return [newRecord, ...prev];
+      });
+      setStats((prev) => ({
+        ...prev,
+        total: prev.total + 1,
+        certificationsCount:
+          newRecord.type === "Certification Report" ? prev.certificationsCount + 1 : prev.certificationsCount,
+        assessmentsCount:
+          newRecord.type === "Assessment Report" ? prev.assessmentsCount + 1 : prev.assessmentsCount,
+        mcqReportsCount:
+          newRecord.type === "MCQ Assessment Report" ? prev.mcqReportsCount + 1 : prev.mcqReportsCount,
+        projectsCount:
+          newRecord.type === "Project Assessment Report" ? (prev.projectsCount || 0) + 1 : (prev.projectsCount || 0),
+        codingCount:
+          newRecord.type === "Coding Challenge Report" ? (prev.codingCount || 0) + 1 : (prev.codingCount || 0),
+      }));
+    };
+
+    const handleRefetch = () => {
+      fetchReports();
+    };
+
+    // Handle marks modified across system
+    const handleMarksUpdated = (updateData) => {
+      if (!updateData) return;
+      setReports((prev) =>
+        prev.map((r) => {
+          const match =
+            r.id === updateData.id ||
+            r.rawId === updateData.id ||
+            r.attemptId === updateData.id ||
+            (updateData.itemType === r.itemType && String(r.id) === String(updateData.id));
+          if (match) {
+            const newScoreFormatted =
+              r.itemType === "module"
+                ? `${updateData.newScore}/${r.maxScore || 10} (${Math.round((updateData.newScore / (r.maxScore || 10)) * 100)}%)`
+                : `${updateData.newScore}%`;
+            return {
+              ...r,
+              score: newScoreFormatted,
+              rawScore: updateData.newScore,
+              status: updateData.newStatus || r.status,
+              grade:
+                updateData.newStatus === "PASSED" || updateData.newStatus === "QUALIFIED"
+                  ? updateData.newScore >= 90
+                    ? "Distinction"
+                    : "First Class"
+                  : "Not Qualified",
+            };
+          }
+          return r;
+        })
+      );
+    };
+
     try {
       const socketTarget = API_BASE || window.location.origin;
-      socket = io(socketTarget, {
-        auth: { token: localStorage.getItem("token") },
-        transports: ["websocket", "polling"],
-        reconnection: true,
-        reconnectionAttempts: Infinity,
-        reconnectionDelay: 1000,
-      });
+      socket = getSharedSocket(socketTarget);
 
-      socket.on("connect", () => {
+      socket.on("connect", handleConnect);
+      if (socket.connected) {
         socket.emit("join_admin_monitoring");
-      });
-
-      // Handle new reports generated
-      const handleIncomingReport = (newRecord) => {
-        if (!newRecord) return;
-        setReports((prev) => {
-          const exists = prev.some((r) => r.id === newRecord.id || (newRecord.rawId && r.rawId === newRecord.rawId));
-          if (exists) return prev;
-          return [newRecord, ...prev];
-        });
-        setStats((prev) => ({
-          ...prev,
-          total: prev.total + 1,
-          certificationsCount:
-            newRecord.type === "Certification Report" ? prev.certificationsCount + 1 : prev.certificationsCount,
-          assessmentsCount:
-            newRecord.type === "Assessment Report" ? prev.assessmentsCount + 1 : prev.assessmentsCount,
-          mcqReportsCount:
-            newRecord.type === "MCQ Assessment Report" ? prev.mcqReportsCount + 1 : prev.mcqReportsCount,
-          projectsCount:
-            newRecord.type === "Project Assessment Report" ? (prev.projectsCount || 0) + 1 : (prev.projectsCount || 0),
-          codingCount:
-            newRecord.type === "Coding Challenge Report" ? (prev.codingCount || 0) + 1 : (prev.codingCount || 0),
-        }));
-      };
+      }
 
       socket.on("NEW_REPORT", handleIncomingReport);
-      socket.on("NEW_CERTIFICATE", () => fetchReports());
-      socket.on("NEW_MCQ_REPORT", () => fetchReports());
-      socket.on("NEW_SUBMISSION", () => fetchReports());
-
-      // Handle marks modified across system
-      socket.on("ASSESSMENT_MARKS_UPDATED", (updateData) => {
-        if (!updateData) return;
-        setReports((prev) =>
-          prev.map((r) => {
-            const match =
-              r.id === updateData.id ||
-              r.rawId === updateData.id ||
-              r.attemptId === updateData.id ||
-              (updateData.itemType === r.itemType && String(r.id) === String(updateData.id));
-            if (match) {
-              const newScoreFormatted =
-                r.itemType === "module"
-                  ? `${updateData.newScore}/${r.maxScore || 10} (${Math.round((updateData.newScore / (r.maxScore || 10)) * 100)}%)`
-                  : `${updateData.newScore}%`;
-              return {
-                ...r,
-                score: newScoreFormatted,
-                rawScore: updateData.newScore,
-                status: updateData.newStatus || r.status,
-                grade:
-                  updateData.newStatus === "PASSED" || updateData.newStatus === "QUALIFIED"
-                    ? updateData.newScore >= 90
-                      ? "Distinction"
-                      : "First Class"
-                    : "Not Qualified",
-              };
-            }
-            return r;
-          })
-        );
-      });
+      socket.on("NEW_CERTIFICATE", handleRefetch);
+      socket.on("NEW_MCQ_REPORT", handleRefetch);
+      socket.on("NEW_SUBMISSION", handleRefetch);
+      socket.on("ASSESSMENT_MARKS_UPDATED", handleMarksUpdated);
     } catch (e) {
       console.warn("Socket initialization error in AdminReports:", e);
     }
 
     return () => {
-      if (socket) socket.disconnect();
+      if (socket) {
+        socket.off("connect", handleConnect);
+        socket.off("NEW_REPORT", handleIncomingReport);
+        socket.off("NEW_CERTIFICATE", handleRefetch);
+        socket.off("NEW_MCQ_REPORT", handleRefetch);
+        socket.off("NEW_SUBMISSION", handleRefetch);
+        socket.off("ASSESSMENT_MARKS_UPDATED", handleMarksUpdated);
+        releaseSharedSocket(socket);
+      }
     };
   }, []);
 

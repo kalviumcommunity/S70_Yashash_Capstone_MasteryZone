@@ -3,6 +3,9 @@ const Notification = require("../models/NotificationSchema");
 const User = require("../models/User");
 
 let globalIo = null;
+const initializedUsersCache = new Set();
+const recentNotificationsCache = new Map();
+const NOTIF_DEDUP_WINDOW_MS = 5000;
 
 function setGlobalIo(ioInstance) {
   if (ioInstance) {
@@ -33,6 +36,7 @@ function normalizeUserId(rawUserId) {
 /**
  * Creates a persistent notification in MongoDB and broadcasts it in real time
  * to the user's personal Socket.IO room (`user_<userId>`).
+ * Protects against duplicate notifications triggered by reconnects or double-fires within 5s.
  */
 async function pushNotification(
   ioOrApp,
@@ -51,6 +55,14 @@ async function pushNotification(
     const userObjId = normalizeUserId(userId);
     if (!userObjId || !message) return null;
 
+    // Deduplication check: Avoid inserting identical notifications for the same user within rate window
+    const dedupKey = `${userObjId.toString()}::${title}::${message}`;
+    const now = Date.now();
+    const existing = recentNotificationsCache.get(dedupKey);
+    if (existing && now - existing.timestamp < NOTIF_DEDUP_WINDOW_MS) {
+      return existing.doc;
+    }
+
     const doc = await Notification.create({
       userId: userObjId,
       title,
@@ -63,6 +75,15 @@ async function pushNotification(
       isRead: false,
       createdAt: new Date(),
     });
+
+    if (recentNotificationsCache.size > 200) {
+      for (const [k, v] of recentNotificationsCache.entries()) {
+        if (now - v.timestamp > NOTIF_DEDUP_WINDOW_MS * 2) {
+          recentNotificationsCache.delete(k);
+        }
+      }
+    }
+    recentNotificationsCache.set(dedupKey, { timestamp: now, doc });
 
     const unreadCount = await Notification.countDocuments({
       userId: userObjId,
@@ -117,9 +138,15 @@ async function ensureInitialUserNotifications(userId) {
   try {
     const userObjId = normalizeUserId(userId);
     if (!userObjId) return;
+    const uidStr = userObjId.toString();
+    if (initializedUsersCache.has(uidStr)) return;
 
     const user = await User.findById(userObjId).select("fullName notificationsInitialized createdAt").lean();
-    if (!user || user.notificationsInitialized) return;
+    if (!user) return;
+    if (user.notificationsInitialized) {
+      initializedUsersCache.add(uidStr);
+      return;
+    }
 
     const existingCount = await Notification.countDocuments({ userId: userObjId });
     if (existingCount === 0) {
@@ -201,6 +228,7 @@ async function ensureInitialUserNotifications(userId) {
     }
 
     await User.updateOne({ _id: userObjId }, { $set: { notificationsInitialized: true } });
+    initializedUsersCache.add(uidStr);
   } catch (err) {
     console.warn("ensureInitialUserNotifications warning:", err.message);
   }

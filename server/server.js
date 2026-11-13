@@ -235,6 +235,11 @@ io.on("connection", (socket) => {
       const decoded = jwt.verify(cleanToken, getJwtSecret());
       const uid = String(decoded.userId || decoded.id || decoded._id || "").trim();
       if (uid) {
+        // Idempotency guard: If this socket is already authenticated for this exact user and in their room, return immediately
+        if (socket.data.userId === uid && socket.rooms.has(`user_${uid}`)) {
+          return uid;
+        }
+
         const oldUid = socket.data.userId;
         if (oldUid && oldUid !== uid) {
           // Leave old user's private notification and session room
@@ -352,7 +357,9 @@ io.on("connection", (socket) => {
       if (payload.token) {
         joinUserRoomFromToken(payload.token);
       } else if (payload.userId && socket.data.userId && String(payload.userId).trim() === socket.data.userId) {
-        socket.join(`user_${socket.data.userId}`);
+        if (!socket.rooms.has(`user_${socket.data.userId}`)) {
+          socket.join(`user_${socket.data.userId}`);
+        }
       }
       return;
     }

@@ -26,7 +26,7 @@ import {
   LuExternalLink,
 } from "react-icons/lu";
 import { toast } from "react-toastify";
-import { io } from "socket.io-client";
+import { getSharedSocket, releaseSharedSocket } from "../../utils/socketClient";
 import { deduplicatedFetch } from "../../utils/apiClient";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
@@ -145,70 +145,84 @@ const AdminAssessments = () => {
     }
   };
 
+  const rangeRef = useRef(range);
+  useEffect(() => {
+    rangeRef.current = range;
+  }, [range]);
+
   useEffect(() => {
     fetchAssessments(range);
+  }, [range]);
 
+  useEffect(() => {
     // Socket.io real-time listener for assessment submissions and marks updates
     let socket = null;
+    const handleConnect = () => {
+      if (socket) socket.emit("join_admin_monitoring");
+    };
+
+    // Handle new submissions live
+    const handleNewAssessmentRecord = () => {
+      fetchAssessments(rangeRef.current);
+    };
+
+    // Handle marks modified across system
+    const handleMarksUpdated = (updateData) => {
+      if (!updateData) return;
+      setAssessments((prev) =>
+        prev.map((item) => {
+          const match =
+            item.id === updateData.id ||
+            item.rawId === updateData.id ||
+            item.attemptId === updateData.id ||
+            (updateData.itemType === item.itemType && String(item.id) === String(updateData.id));
+          if (match) {
+            const newScoreFormatted =
+              item.itemType === "module"
+                ? `${updateData.newScore}/${item.maxScore || 10} (${Math.round((updateData.newScore / (item.maxScore || 10)) * 100)}%)`
+                : `${updateData.newScore}%`;
+            const isPassed = updateData.newStatus === "PASSED" || updateData.newStatus === "Passed" || updateData.newStatus === "QUALIFIED";
+            return {
+              ...item,
+              score: newScoreFormatted,
+              rawScore: updateData.newScore,
+              status: isPassed ? "Passed" : "Failed",
+              passed: isPassed,
+            };
+          }
+          return item;
+        })
+      );
+    };
+
     try {
       const socketTarget = API_BASE || window.location.origin;
-      socket = io(socketTarget, {
-        auth: { token: localStorage.getItem("token") },
-        transports: ["websocket", "polling"],
-        reconnection: true,
-        reconnectionAttempts: Infinity,
-        reconnectionDelay: 1000,
-      });
+      socket = getSharedSocket(socketTarget);
 
-      socket.on("connect", () => {
+      socket.on("connect", handleConnect);
+      if (socket.connected) {
         socket.emit("join_admin_monitoring");
-      });
-
-      // Handle new submissions live
-      const handleNewAssessmentRecord = () => {
-        fetchAssessments(range);
-      };
+      }
 
       socket.on("NEW_SUBMISSION", handleNewAssessmentRecord);
       socket.on("NEW_CERTIFICATE", handleNewAssessmentRecord);
       socket.on("NEW_MCQ_REPORT", handleNewAssessmentRecord);
-
-      // Handle marks modified across system
-      socket.on("ASSESSMENT_MARKS_UPDATED", (updateData) => {
-        if (!updateData) return;
-        setAssessments((prev) =>
-          prev.map((item) => {
-            const match =
-              item.id === updateData.id ||
-              item.rawId === updateData.id ||
-              item.attemptId === updateData.id ||
-              (updateData.itemType === item.itemType && String(item.id) === String(updateData.id));
-            if (match) {
-              const newScoreFormatted =
-                item.itemType === "module"
-                  ? `${updateData.newScore}/${item.maxScore || 10} (${Math.round((updateData.newScore / (item.maxScore || 10)) * 100)}%)`
-                  : `${updateData.newScore}%`;
-              const isPassed = updateData.newStatus === "PASSED" || updateData.newStatus === "Passed" || updateData.newStatus === "QUALIFIED";
-              return {
-                ...item,
-                score: newScoreFormatted,
-                rawScore: updateData.newScore,
-                status: isPassed ? "Passed" : "Failed",
-                passed: isPassed,
-              };
-            }
-            return item;
-          })
-        );
-      });
+      socket.on("ASSESSMENT_MARKS_UPDATED", handleMarksUpdated);
     } catch (e) {
       console.warn("Socket initialization error in AdminAssessments:", e);
     }
 
     return () => {
-      if (socket) socket.disconnect();
+      if (socket) {
+        socket.off("connect", handleConnect);
+        socket.off("NEW_SUBMISSION", handleNewAssessmentRecord);
+        socket.off("NEW_CERTIFICATE", handleNewAssessmentRecord);
+        socket.off("NEW_MCQ_REPORT", handleNewAssessmentRecord);
+        socket.off("ASSESSMENT_MARKS_UPDATED", handleMarksUpdated);
+        releaseSharedSocket(socket);
+      }
     };
-  }, [range]);
+  }, []);
 
   const stats = data?.stats || {
     total: assessments.length,

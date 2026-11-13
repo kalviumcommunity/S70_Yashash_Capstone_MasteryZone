@@ -62,45 +62,52 @@ const AdminProctoring = () => {
 
     // Setup real-time Socket.io listener for proctoring violations & sessions
     let socket;
+    const handleConnect = () => {
+      if (socket) socket.emit("join_admin_feed");
+    };
+
+    const handleViolation = (payload) => {
+      setLiveAlerts((prev) => [
+        {
+          id: Date.now() + Math.random(),
+          candidate: payload?.candidate || "Student",
+          type: payload?.type || "Security Incident",
+          sessionId: payload?.sessionId,
+          timestamp: new Date(),
+        },
+        ...prev.slice(0, 4),
+      ]);
+      // Auto refresh table state
+      fetchProctoring();
+    };
+
+    const handleSessionUpdate = () => {
+      fetchProctoring();
+    };
+
     try {
       socket = getSharedSocket(API_BASE || window.location.origin);
 
-      socket.on("connect", () => {
-        socket.emit("join_admin_feed");
-      });
-
+      socket.on("connect", handleConnect);
       if (socket.connected) {
         socket.emit("join_admin_feed");
       }
 
-      socket.on("PROCTORING_VIOLATION", (payload) => {
-        setLiveAlerts((prev) => [
-          {
-            id: Date.now() + Math.random(),
-            candidate: payload.candidate || "Student",
-            type: payload.type || "Security Incident",
-            sessionId: payload.sessionId,
-            timestamp: new Date(),
-          },
-          ...prev.slice(0, 4),
-        ]);
-        // Auto refresh table state
-        fetchProctoring();
-      });
-
-      socket.on("PROCTORING_SESSION_UPDATED", () => {
-        fetchProctoring();
-      });
-
-      socket.on("NEW_PROCTORED_SESSION", () => {
-        fetchProctoring();
-      });
+      socket.on("PROCTORING_VIOLATION", handleViolation);
+      socket.on("PROCTORING_SESSION_UPDATED", handleSessionUpdate);
+      socket.on("NEW_PROCTORED_SESSION", handleSessionUpdate);
     } catch (socketErr) {
       console.warn("Socket connection warning:", socketErr);
     }
 
     return () => {
-      if (socket) releaseSharedSocket(socket);
+      if (socket) {
+        socket.off("connect", handleConnect);
+        socket.off("PROCTORING_VIOLATION", handleViolation);
+        socket.off("PROCTORING_SESSION_UPDATED", handleSessionUpdate);
+        socket.off("NEW_PROCTORED_SESSION", handleSessionUpdate);
+        releaseSharedSocket(socket);
+      }
     };
   }, []);
 
