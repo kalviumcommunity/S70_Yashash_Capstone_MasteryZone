@@ -803,7 +803,7 @@ export default function Coding() {
       // If challenges were already populated by /api/coding/data, skip duplicate request
       if (challengesLoadedFromData) return;
       try {
-        const chRes = await deduplicatedFetch(`${API_BASE}/api/coding/challenges`, { cacheTtlMs: 5000 });
+        const chRes = await deduplicatedFetch(`${API_BASE}/api/coding/challenges`, { cacheTtlMs: 10000 });
         if (chRes.ok) {
           const chData = await chRes.json();
           if (Array.isArray(chData.challenges) && chData.challenges.length > 0) {
