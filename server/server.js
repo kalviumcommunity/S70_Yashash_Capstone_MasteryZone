@@ -2182,12 +2182,12 @@ function isSameOrProductionDatabase(testUri, prodUri) {
 
 function getMongoConnectionOptions(overrides = {}) {
   const maxPoolSize = Math.max(10, parseInt(process.env.MONGO_MAX_POOL_SIZE, 10) || 50);
-  const minPoolSize = Math.max(1, parseInt(process.env.MONGO_MIN_POOL_SIZE, 10) || 5);
+  const minPoolSize = Math.max(1, parseInt(process.env.MONGO_MIN_POOL_SIZE, 10) || 15);
   const waitQueueTimeoutMS = Math.max(5000, parseInt(process.env.MONGO_WAIT_QUEUE_TIMEOUT_MS, 10) || 30000);
   const serverSelectionTimeoutMS = Math.max(3000, parseInt(process.env.MONGO_SERVER_SELECTION_TIMEOUT_MS, 10) || 15000);
   const connectTimeoutMS = 30000;
   const socketTimeoutMS = 45000;
-  const maxIdleTimeMS = 30000;
+  const maxIdleTimeMS = 60000;
 
   return {
     maxPoolSize,

@@ -1745,7 +1745,6 @@ router.get("/my-history", authenticateToken, async (req, res) => {
     const limit = req.query.all === "true" ? 0 : Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
 
     const totalAttemptsPromise = CertificationAttempt.countDocuments({ userId });
-    const totalCertsPromise = IssuedCertificate.countDocuments({ userId, status: "VALID" });
 
     let attemptsQuery = CertificationAttempt.find({ userId })
       .sort({ createdAt: -1 })
@@ -1761,12 +1760,13 @@ router.get("/my-history", authenticateToken, async (req, res) => {
       .select("certificateId attemptId userId recipientName certificationId certificationTitle issueDate mcqScore mcqScorePercentage codingScore issuingOrganization verificationUrl status createdAt")
       .lean();
 
-    const [totalAttempts, totalCertificates, attempts, certificates] = await Promise.all([
+    const [totalAttempts, attempts, certificates] = await Promise.all([
       totalAttemptsPromise,
-      totalCertsPromise,
       attemptsQuery,
       certificatesQuery,
     ]);
+
+    const totalCertificates = certificates.length;
 
     const latestAttemptId = attempts[0]?.attemptId || "none";
     const latestAttemptTime = attempts[0]?.submittedAt ? new Date(attempts[0].submittedAt).getTime() : 0;

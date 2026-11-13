@@ -2886,11 +2886,21 @@ router.get("/data", authenticateToken, async (req, res) => {
       return mapOrObj[key] || 0;
     };
 
+    const thirtyDaysAgo = new Date(Date.now() - 35 * 24 * 60 * 60 * 1000);
+
     // Fetch progress, snippets, records, and project workspace states concurrently with lean projections
     const [userProgressDoc, snippets, progressRecords, userProjectStates] = await Promise.all([
       CodingProgress.findOne({ userId: userObjId || userId }).lean(),
-      CodingSnippet.find({ userId: userObjId || userId }).select("title language code updatedAt").sort({ updatedAt: -1 }).lean(),
-      Progress.find({ userId: userObjId || userId, track: "CODING" }).select("date xpEarned hoursSpent updatedAt").lean(),
+      CodingSnippet.find({ userId: userObjId || userId })
+        .select("title language updatedAt")
+        .sort({ updatedAt: -1 })
+        .limit(20)
+        .lean(),
+      Progress.find({ userId: userObjId || userId, track: "CODING", date: { $gte: thirtyDaysAgo } })
+        .select("date xpEarned hoursSpent updatedAt")
+        .sort({ date: -1 })
+        .limit(60)
+        .lean(),
       userObjId
         ? ProjectWorkspaceState.find({ userId: userObjId })
             .select("projectId status checkedTasks bestScore bestPercentage bestGrade passed badgeAwarded attemptsCount latestReportSessionId completedAt lastSavedAt updatedAt")
