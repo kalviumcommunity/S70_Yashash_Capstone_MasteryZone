@@ -1,3 +1,4 @@
+process.env.NODE_ENV = "test";
 const assert = require("assert");
 const http = require("http");
 const jwt = require("jsonwebtoken");

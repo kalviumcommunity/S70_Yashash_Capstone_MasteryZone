@@ -1,3 +1,4 @@
+process.env.NODE_ENV = "test";
 /**
  * End-to-End Verification Test for Mastery Zone Certification Tests,
  * Reports Real-Data Integrity, Compiler Light/Dark Theme, and Layout Architecture.
