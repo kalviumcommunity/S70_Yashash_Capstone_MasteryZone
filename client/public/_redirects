@@ -1,1 +1,7 @@
+/api/* https://mastery-zone.onrender.com/api/:splat 200!
+/auth/* https://mastery-zone.onrender.com/auth/:splat 200!
+/recordings/* https://mastery-zone.onrender.com/recordings/:splat 200!
+/certificates/* https://mastery-zone.onrender.com/certificates/:splat 200!
+/uploads/* https://mastery-zone.onrender.com/uploads/:splat 200!
+/proctoring-evidence/* https://mastery-zone.onrender.com/proctoring-evidence/:splat 200!
 /* /index.html 200

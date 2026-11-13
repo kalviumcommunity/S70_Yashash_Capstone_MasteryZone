@@ -61,6 +61,9 @@ const EXPLICIT_ALLOWED_ORIGINS = new Set(
     process.env.FRONTEND_URL,
     process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(",") : null,
     "https://mastery-zone.onrender.com",
+    "https://masteryzone.netlify.app",
+    "https://masteryzone1111.netlify.app",
+    "https://s70yashashcapstonemasteryzonekalv.vercel.app",
     process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
     process.env.NEXT_PUBLIC_VERCEL_URL ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}` : null,
   ]

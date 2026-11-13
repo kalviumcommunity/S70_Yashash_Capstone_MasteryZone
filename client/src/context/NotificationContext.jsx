@@ -207,7 +207,11 @@ export function NotificationProvider({ children }) {
 
     refreshNotifications();
 
-    const socketTarget = import.meta.env.VITE_API_URL || (typeof window !== "undefined" && window.location.hostname.includes("vercel.app") ? "https://mastery-zone.onrender.com" : window.location.origin);
+    const isCloudHosted = typeof window !== "undefined" && (
+      window.location.hostname.includes("vercel.app") ||
+      window.location.hostname.includes("netlify.app")
+    );
+    const socketTarget = import.meta.env.VITE_API_URL || (isCloudHosted ? "https://mastery-zone.onrender.com" : window.location.origin);
     const socket = io(socketTarget, {
       auth: { token: authToken },
       transports: ["websocket", "polling"],
