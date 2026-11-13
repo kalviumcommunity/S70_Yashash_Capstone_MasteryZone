@@ -7,6 +7,8 @@ const {
   pushNotification,
   emitNotificationsSync,
   ensureInitialUserNotifications,
+  markNotificationsInitialized,
+  isNotificationsInitialized,
 } = require("../utils/notificationService");
 const { isValidEtag, setEtag, invalidateEtag } = require("../utils/etagCache");
 
@@ -14,7 +16,7 @@ function resolveReqUserId(req) {
   return String(req.user?.userId || req.user?.id || req.user?._id || "").trim();
 }
 
-// GET /api/notifications (Optimized single-pass query with ETag caching)
+// GET /api/notifications (Optimized dual-index parallel query with ETag caching)
 router.get("/", authenticateToken, async (req, res) => {
   try {
     const userId = resolveReqUserId(req);
@@ -30,28 +32,28 @@ router.get("/", authenticateToken, async (req, res) => {
       return res.status(304).end();
     }
 
-    // Initial notifications ensure check (instant in-memory cache lookup for initialized accounts)
-    await ensureInitialUserNotifications(userObjId);
-
-    // Single-pass aggregation combines 60 recent notifications + unread count in 1 single DB operation
-    const [result] = await Notification.aggregate([
-      { $match: { userId: userObjId } },
-      {
-        $facet: {
-          notifications: [
-            { $sort: { createdAt: -1 } },
-            { $limit: 60 },
-          ],
-          unread: [
-            { $match: { isRead: false } },
-            { $count: "count" },
-          ],
-        },
-      },
+    // Fast indexed parallel queries: 60 recent notifications + unread count
+    let [notifications, unreadCount] = await Promise.all([
+      Notification.find({ userId: userObjId })
+        .sort({ createdAt: -1 })
+        .limit(60)
+        .lean(),
+      Notification.countDocuments({ userId: userObjId, isRead: false }),
     ]);
 
-    const notifications = result?.notifications || [];
-    const unreadCount = result?.unread?.[0]?.count || 0;
+    // Backfill seed check only for new accounts with 0 notifications
+    if (notifications.length === 0 && !isNotificationsInitialized(userId)) {
+      await ensureInitialUserNotifications(userObjId);
+      [notifications, unreadCount] = await Promise.all([
+        Notification.find({ userId: userObjId })
+          .sort({ createdAt: -1 })
+          .limit(60)
+          .lean(),
+        Notification.countDocuments({ userId: userObjId, isRead: false }),
+      ]);
+    } else {
+      markNotificationsInitialized(userId);
+    }
 
     // Fast conditional validation using ETag
     const latestTimestamp = notifications[0]?.createdAt ? new Date(notifications[0].createdAt).getTime() : 0;
