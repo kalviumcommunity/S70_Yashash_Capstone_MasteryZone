@@ -11,6 +11,7 @@ import LeetCodeActivityCalendar from "./LeetCodeActivityCalendar.jsx";
 import logoIcon from "../assets/logo_icon_transparent.png";
 import { getExploredTracks, isTrackExplored } from "../utils/trackExploration";
 import { performGlobalLogout } from "../utils/sessionAuth.js";
+import { deduplicatedFetch } from "../utils/apiClient.js";
 
 import {
   LuHouse,
@@ -201,10 +202,11 @@ const Profile = () => {
       return;
     }
     try {
-      const response = await fetch(`${API_BASE}/auth/me`, {
+      const response = await deduplicatedFetch(`${API_BASE}/auth/me`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
+        cacheTtlMs: 3500,
       });
 
       if (response.ok) {
@@ -249,8 +251,9 @@ const Profile = () => {
     try {
       const token = localStorage.getItem("token");
       if (!token) return;
-      const res = await fetch(`${API_BASE}/api/recordings?sort=newest`, {
+      const res = await deduplicatedFetch(`${API_BASE}/api/recordings?sort=newest`, {
         headers: { Authorization: `Bearer ${token}` },
+        cacheTtlMs: 4000,
       });
       if (res.ok) {
         const data = await res.json();

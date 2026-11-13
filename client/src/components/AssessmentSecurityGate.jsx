@@ -594,69 +594,79 @@ export default function AssessmentSecurityGate({
 
     const freqData = new Uint8Array(analyser.frequencyBinCount);
     const timeData = new Uint8Array(analyser.fftSize);
+    let lastGateAudioUpdate = 0;
+    let lastCleanPercent = -1;
 
-    const renderAudioMeter = () => {
+    const renderAudioMeter = (now) => {
       if (!analyserRef.current) return;
 
-      analyserRef.current.getByteTimeDomainData(timeData);
-      analyserRef.current.getByteFrequencyData(freqData);
+      // Throttle audio frame updates to ~25fps (every 40ms) to preserve CPU cycles on localhost
+      if (now - lastGateAudioUpdate >= 40) {
+        lastGateAudioUpdate = now;
 
-      // Compute genuine RMS acoustic energy from time-domain waveform (centered at 128)
-      let sumSquares = 0;
-      for (let i = 0; i < timeData.length; i++) {
-        const centered = (timeData[i] - 128) / 128;
-        sumSquares += centered * centered;
-      }
-      const rms = Math.sqrt(sumSquares / timeData.length);
+        analyserRef.current.getByteTimeDomainData(timeData);
+        analyserRef.current.getByteFrequencyData(freqData);
 
-      // Noise-floor threshold so silent rooms show 0% with zero simulated movement
-      const cleanPercent = rms < 0.01 ? 0 : Math.min(100, Math.round(rms * 280));
-      setMicVolume(cleanPercent);
+        // Compute genuine RMS acoustic energy from time-domain waveform (centered at 128)
+        let sumSquares = 0;
+        for (let i = 0; i < timeData.length; i++) {
+          const centered = (timeData[i] - 128) / 128;
+          sumSquares += centered * centered;
+        }
+        const rms = Math.sqrt(sumSquares / timeData.length);
 
-      const canvas = waveformCanvasRef.current;
-      if (canvas) {
-        const ctx = canvas.getContext("2d");
-        if (ctx) {
-          const width = canvas.width;
-          const height = canvas.height;
-          ctx.clearRect(0, 0, width, height);
+        // Noise-floor threshold so silent rooms show 0% with zero simulated movement
+        const cleanPercent = rms < 0.01 ? 0 : Math.min(100, Math.round(rms * 280));
+        if (Math.abs(cleanPercent - lastCleanPercent) >= 2 || (cleanPercent === 0 && lastCleanPercent !== 0)) {
+          lastCleanPercent = cleanPercent;
+          setMicVolume(cleanPercent);
+        }
 
-          // Center baseline guide
-          ctx.strokeStyle = "rgba(148, 163, 184, 0.2)";
-          ctx.lineWidth = 1;
-          ctx.beginPath();
-          ctx.moveTo(0, height - 4);
-          ctx.lineTo(width, height - 4);
-          ctx.stroke();
+        const canvas = waveformCanvasRef.current;
+        if (canvas) {
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            const width = canvas.width;
+            const height = canvas.height;
+            ctx.clearRect(0, 0, width, height);
 
-          const barCount = 24;
-          const gap = 3;
-          const barWidth = Math.max(4, Math.floor((width - gap * (barCount - 1)) / barCount));
-
-          for (let i = 0; i < barCount; i++) {
-            const binIndex = Math.min(freqData.length - 1, Math.floor((i / barCount) * (freqData.length * 0.78)));
-            const rawVal = cleanPercent === 0 ? 0 : freqData[binIndex] || 0;
-            const normalized = rawVal / 255;
-            const barHeight = normalized <= 0.02 ? 2 : Math.max(3, Math.round(normalized * (height - 8)));
-            const x = i * (barWidth + gap);
-            const y = height - 3 - barHeight;
-
-            if (normalized <= 0.02) {
-              ctx.fillStyle = "rgba(148, 163, 184, 0.35)";
-            } else {
-              const gradient = ctx.createLinearGradient(0, height, 0, 0);
-              gradient.addColorStop(0, "#2563eb");
-              gradient.addColorStop(1, "#10b981");
-              ctx.fillStyle = gradient;
-            }
-
+            // Center baseline guide
+            ctx.strokeStyle = "rgba(148, 163, 184, 0.2)";
+            ctx.lineWidth = 1;
             ctx.beginPath();
-            if (typeof ctx.roundRect === "function") {
-              ctx.roundRect(x, y, barWidth, barHeight, 2);
-            } else {
-              ctx.rect(x, y, barWidth, barHeight);
+            ctx.moveTo(0, height - 4);
+            ctx.lineTo(width, height - 4);
+            ctx.stroke();
+
+            const barCount = 24;
+            const gap = 3;
+            const barWidth = Math.max(4, Math.floor((width - gap * (barCount - 1)) / barCount));
+
+            for (let i = 0; i < barCount; i++) {
+              const binIndex = Math.min(freqData.length - 1, Math.floor((i / barCount) * (freqData.length * 0.78)));
+              const rawVal = cleanPercent === 0 ? 0 : freqData[binIndex] || 0;
+              const normalized = rawVal / 255;
+              const barHeight = normalized <= 0.02 ? 2 : Math.max(3, Math.round(normalized * (height - 8)));
+              const x = i * (barWidth + gap);
+              const y = height - 3 - barHeight;
+
+              if (normalized <= 0.02) {
+                ctx.fillStyle = "rgba(148, 163, 184, 0.35)";
+              } else {
+                const gradient = ctx.createLinearGradient(0, height, 0, 0);
+                gradient.addColorStop(0, "#2563eb");
+                gradient.addColorStop(1, "#10b981");
+                ctx.fillStyle = gradient;
+              }
+
+              ctx.beginPath();
+              if (typeof ctx.roundRect === "function") {
+                ctx.roundRect(x, y, barWidth, barHeight, 2);
+              } else {
+                ctx.rect(x, y, barWidth, barHeight);
+              }
+              ctx.fill();
             }
-            ctx.fill();
           }
         }
       }

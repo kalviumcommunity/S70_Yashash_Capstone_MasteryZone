@@ -10,6 +10,7 @@ import UserProfileDropdown from "./UserProfileDropdown.jsx";
 import RecordingVideo from "./RecordingVideo.jsx";
 import { getRecordingStreamUrl } from "../utils/recordingMedia.js";
 import { performGlobalLogout } from "../utils/sessionAuth.js";
+import { deduplicatedFetch } from "../utils/apiClient.js";
 import logoIcon from "../assets/logo_icon_transparent.png";
 import heroIllustration from "../assets/interests_hero_illustration.png";
 import rocketIcon from "../assets/interests_card_rocket.png";
@@ -581,11 +582,13 @@ const Home = () => {
       // Fetch live coding progress and recent submissions concurrently
       try {
         const [res, resSub] = await Promise.all([
-          fetch(`${API_BASE}/api/coding/data`, {
+          deduplicatedFetch(`${API_BASE}/api/coding/data`, {
             headers: { Authorization: `Bearer ${token}` },
+            cacheTtlMs: 4000,
           }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
-          fetch(`${API_BASE}/api/coding/submissions/my-recent`, {
+          deduplicatedFetch(`${API_BASE}/api/coding/submissions/my-recent`, {
             headers: { Authorization: `Bearer ${token}` },
+            cacheTtlMs: 4000,
           }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
         ]);
 
@@ -660,14 +663,17 @@ const Home = () => {
         // Fetch curriculum reports, proctored coding sessions, and certification history concurrently
         try {
           const [curriculumRes, proctoredRes, certsRes] = await Promise.allSettled([
-            fetch(`${API_BASE}/api/curriculum/reports`, {
+            deduplicatedFetch(`${API_BASE}/api/curriculum/reports`, {
               headers: { Authorization: `Bearer ${token}` },
+              cacheTtlMs: 4000,
             }).then((r) => (r.ok ? r.json() : null)),
-            fetch(`${API_BASE}/api/coding/proctored-session/user-reports`, {
+            deduplicatedFetch(`${API_BASE}/api/coding/proctored-session/user-reports`, {
               headers: { Authorization: `Bearer ${token}` },
+              cacheTtlMs: 4000,
             }).then((r) => (r.ok ? r.json() : null)),
-            fetch(`${API_BASE}/api/certifications/my-history`, {
+            deduplicatedFetch(`${API_BASE}/api/certifications/my-history`, {
               headers: { Authorization: `Bearer ${token}` },
+              cacheTtlMs: 4000,
             }).then((r) => (r.ok ? r.json() : null)),
           ]);
 
@@ -1256,10 +1262,11 @@ const Home = () => {
     const token = localStorage.getItem("token");
     if (!token) return;
     try {
-      const response = await fetch(`${API_BASE}/auth/me`, {
+      const response = await deduplicatedFetch(`${API_BASE}/auth/me`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
+        cacheTtlMs: 3000,
       });
       if (response.ok) {
         const data = await response.json();

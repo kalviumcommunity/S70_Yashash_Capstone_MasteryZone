@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { GlobalLoader } from "./Loaders.jsx";
+import { deduplicatedFetch } from "../utils/apiClient.js";
 import {
   verifyActiveSession,
   clearMasteryZoneStorage,
@@ -63,12 +64,13 @@ const ProtectedRoute = ({ children }) => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-        const response = await fetch(`${API_BASE}/auth/me`, {
+        const response = await deduplicatedFetch(`${API_BASE}/auth/me`, {
           signal: controller.signal,
           credentials: "include",
           headers: {
             Authorization: `Bearer ${token}`,
           },
+          cacheTtlMs: 3000,
         });
         clearTimeout(timeoutId);
 

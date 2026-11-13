@@ -1106,6 +1106,7 @@ router.get("/submissions/my-recent", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId || req.user.id || req.user._id;
     const submissions = await ChallengeSubmission.find({ userId })
+      .select("challengeId challengeTitle language status score passedTests totalTests runtimeMs createdAt")
       .sort({ createdAt: -1 })
       .limit(10)
       .lean();
@@ -1123,7 +1124,7 @@ router.get("/submissions/my-recent", authenticateToken, async (req, res) => {
 // -------------------------------------------------------------
 router.get("/videos", authenticateToken, async (req, res) => {
   try {
-    const userProg = await CodingProgress.findOne({ userId: req.user.userId });
+    const userProg = await CodingProgress.findOne({ userId: req.user.userId }).select("videoProgress").lean();
     const videoProgressMap = userProg?.videoProgress || new Map();
 
     const enrichedVideos = VERIFIED_VIDEOS.map((v) => {
@@ -2831,11 +2832,11 @@ router.get("/data", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId || req.user.id || req.user._id;
 
-    // Fetch progress, snippets, and records concurrently for maximum responsiveness
+    // Fetch progress, snippets, and records concurrently with lean projections
     const [userProgressDoc, snippets, progressRecords] = await Promise.all([
       CodingProgress.findOne({ userId }),
-      CodingSnippet.find({ userId }).sort({ updatedAt: -1 }).lean(),
-      Progress.find({ userId, track: "CODING" }).lean(),
+      CodingSnippet.find({ userId }).select("title language code updatedAt").sort({ updatedAt: -1 }).lean(),
+      Progress.find({ userId, track: "CODING" }).select("date xpEarned hoursSpent").lean(),
     ]);
 
     let userProgress = userProgressDoc;
@@ -3924,11 +3925,13 @@ router.get(["/proctored-session/user-reports", "/reports", "/my-reports"], authe
           },
         ],
       })
+        .select("sessionId assessmentTitle trackId candidateDetails questions problemData submissionResult draftLanguage violationsCount updatedAt createdAt serverStartTime")
         .sort({ "submissionResult.submittedAt": -1, updatedAt: -1 })
         .lean(),
       ChallengeSubmission.find({
         $or: [{ userId }, ...(userObjId ? [{ userId: userObjId }] : [])],
       })
+        .select("challengeId challengeTitle language status score passedTests totalTests runtimeMs createdAt")
         .sort({ createdAt: -1 })
         .lean(),
     ]);

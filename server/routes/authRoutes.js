@@ -676,9 +676,9 @@ router.post('/firebase-login', verifyFirebaseToken, async (req, res) => {
 router.get('/me', verifyToken, async (req, res) => {
   try {
     const targetId = req.user.userId || req.user.id || req.user._id;
-    let user = targetId ? await User.findById(targetId).select('-password') : null;
+    let user = targetId ? await User.findById(targetId).select('-password -knownDevices -resetPasswordToken -resetPasswordExpires -otpCodeHash -otpExpires') : null;
     if (!user && req.user.email) {
-      user = await User.findOne({ email: req.user.email.toLowerCase().trim() }).select('-password');
+      user = await User.findOne({ email: req.user.email.toLowerCase().trim() }).select('-password -knownDevices -resetPasswordToken -resetPasswordExpires -otpCodeHash -otpExpires');
     }
     if (!user) return res.status(404).json({ message: 'User not found' });
 
@@ -691,9 +691,9 @@ router.get('/me', verifyToken, async (req, res) => {
     const clientTimezone = req.query.tz || req.headers["x-timezone"] || "Asia/Kolkata";
     const [activityData, certs, codingProg, codingProgressRecords] = await Promise.all([
       getUserCodingActivity(user._id, clientTimezone),
-      Certification.find({ userId: user._id }).lean(),
-      CodingProgress.findOne({ userId: user._id }).lean(),
-      Progress.find({ userId: user._id, track: 'CODING' }).lean(),
+      Certification.find({ userId: user._id }).select('certId title status totalModules currentModule zone completedAt issueDate').lean(),
+      CodingProgress.findOne({ userId: user._id }).select('challengesSolved trackLessons').lean(),
+      Progress.find({ userId: user._id, track: 'CODING' }).select('xpEarned hoursSpent').lean(),
     ]);
 
     // Sync calculated genuine streak to user document asynchronously

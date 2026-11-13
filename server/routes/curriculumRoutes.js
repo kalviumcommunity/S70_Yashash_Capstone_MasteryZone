@@ -44,10 +44,11 @@ router.get("/reports", authenticateToken, async (req, res) => {
     const mongoose = require("mongoose");
     const userObjId = mongoose.Types.ObjectId.isValid(userId) ? new mongoose.Types.ObjectId(userId) : userId;
 
-    // 1. Fetch MCQ Proctored Exam Attempts
+    // 1. Fetch MCQ Proctored Exam Attempts (excluding heavy embedded questions/reviewBreakdown for fast list load)
     const mcqAttempts = await ModuleAssessmentAttempt.find({
       $or: [{ userId }, { userId: userObjId }],
     })
+      .select("_id sessionId subjectKey trackId moduleIndex moduleTitle assessmentTitle score totalQuestions totalMarks marksObtained questionsAttempted questionsUnanswered accuracy grade percentage passed passingScore timeSpentSeconds submittedAt createdAt violationsCount userAnswers")
       .sort({ createdAt: -1 })
       .lean();
 
@@ -104,11 +105,13 @@ router.get("/reports", authenticateToken, async (req, res) => {
           $or: [{ userId }, { userId: userObjId }],
           $and: [{ $or: [{ status: "submitted" }, { "submissionResult.submittedAt": { $exists: true } }] }],
         })
+          .select("sessionId questionId assessmentTitle candidateDetails submissionResult updatedAt createdAt draftLanguage violationsCount")
           .sort({ "submissionResult.submittedAt": -1, updatedAt: -1 })
           .lean(),
         ChallengeSubmission.find({
           $or: [{ userId }, { userId: userObjId }],
         })
+          .select("challengeId challengeTitle language status score passedTests totalTests runtimeMs createdAt")
           .sort({ createdAt: -1 })
           .lean(),
       ]);
@@ -671,47 +674,31 @@ router.get("/:subjectKey/:trackId", authenticateToken, async (req, res, next) =>
 
     const modules = getCurriculumFor(normSubject, normTrack);
 
-    // Retrieve or initialize subject progress
-    let subProg = await SubjectProgress.findOne({ userId, subjectKey: normSubject });
-    if (!subProg) {
-      subProg = await SubjectProgress.create({
-        userId,
-        subjectKey: normSubject,
-        activeTrack: normTrack,
-        trackUnlocks: { [normTrack]: 0 },
-        trackLessons: { [normTrack]: 0 },
-      });
-    }
+    // Retrieve subject progress and coding progress concurrently with lean() for fast query response
+    const [subProg, codingProg] = await Promise.all([
+      SubjectProgress.findOne({ userId, subjectKey: normSubject }).lean(),
+      normSubject === "coding" ? CodingProgress.findOne({ userId }).lean() : Promise.resolve(null),
+    ]);
 
-    // Also sync with CodingProgress if subject is coding
-    let codingProg = null;
-    if (normSubject === "coding") {
-      codingProg = await CodingProgress.findOne({ userId });
-      if (!codingProg) {
-        codingProg = await CodingProgress.create({
-          userId,
-          activeTrack: `${normTrack.charAt(0).toUpperCase() + normTrack.slice(1)} Track`,
-          trackUnlocks: { [normTrack]: 0 },
-          trackLessons: { [normTrack]: 0 },
-        });
-      }
-    }
-
+    // Fast-path default fallback if progress record is newly initialized
+    const subTrackUnlocks = subProg?.trackUnlocks || {};
+    const codingTrackUnlocks = codingProg?.trackUnlocks || {};
     const unlockLevel =
-      subProg.trackUnlocks?.get(normTrack) ??
-      (codingProg ? codingProg.trackUnlocks?.get(normTrack) : 0) ??
+      (typeof subTrackUnlocks.get === "function" ? subTrackUnlocks.get(normTrack) : subTrackUnlocks[normTrack]) ??
+      (typeof codingTrackUnlocks.get === "function" ? codingTrackUnlocks.get(normTrack) : codingTrackUnlocks[normTrack]) ??
       0;
 
-    const modProgressMap = subProg.moduleProgress || new Map();
-    const codingModMap = codingProg ? codingProg.moduleProgress || new Map() : new Map();
+    const modProgressMap = subProg?.moduleProgress || {};
+    const codingModMap = codingProg?.moduleProgress || {};
+    const subAttempts = subProg?.assessmentAttempts || [];
 
     const annotatedModules = modules.map((m) => {
       const pKey = `${normTrack}_${m.moduleIndex}`;
-      const state = modProgressMap.get ? modProgressMap.get(pKey) : modProgressMap[pKey];
-      const codingState = codingModMap.get ? codingModMap.get(pKey) : codingModMap[pKey];
+      const state = typeof modProgressMap.get === "function" ? modProgressMap.get(pKey) : modProgressMap[pKey];
+      const codingState = typeof codingModMap.get === "function" ? codingModMap.get(pKey) : codingModMap[pKey];
 
       // Check if user has an assessment attempt for this module with score >= 80% (cutoff cleared)
-      const hasPassedAttempt = (subProg.assessmentAttempts || []).some(
+      const hasPassedAttempt = subAttempts.some(
         (a) => a.trackId === normTrack && a.moduleIndex === m.moduleIndex && (a.passed || a.percentage >= 80 || (a.score != null && a.score >= 8))
       );
 
@@ -726,9 +713,9 @@ router.get("/:subjectKey/:trackId", authenticateToken, async (req, res, next) =>
       const bestScore = Math.max(
         state?.bestScore || 0,
         codingState?.bestScore || 0,
-        ...((subProg.assessmentAttempts || [])
+        ...subAttempts
           .filter((a) => a.trackId === normTrack && a.moduleIndex === m.moduleIndex)
-          .map((a) => a.percentage || (a.score ? a.score * 10 : 0)))
+          .map((a) => a.percentage || (a.score ? a.score * 10 : 0))
       );
       const attemptsCount = Math.max(state?.attemptsCount || 0, codingState?.attemptsCount || 0);
 
@@ -754,12 +741,8 @@ router.get("/:subjectKey/:trackId", authenticateToken, async (req, res, next) =>
         ? "in-progress"
         : "available";
 
-      // Safe questions without exposing answer keys
-      const safeQuestions = (m.assessment?.questions || []).map((q) => ({
-        id: q.id,
-        question: q.question,
-        options: q.options,
-      }));
+      // Lightweight questions metadata for list view
+      const questionsCount = m.assessment?.questions?.length || 10;
 
       return {
         id: m.id,
@@ -770,9 +753,9 @@ router.get("/:subjectKey/:trackId", authenticateToken, async (req, res, next) =>
         subtitle: m.subtitle,
         estimatedTime: m.estimatedTime,
         icon: m.icon,
-        overview: m.overview,
-        sections: m.sections,
-        references: m.references || [],
+        overview: m.overview || "",
+        sections: Array.isArray(m.sections) ? m.sections.map((s) => ({ title: s.title })) : [],
+        references: Array.isArray(m.references) ? m.references.map((r) => ({ title: r.title })) : [],
         keyTakeaways: m.keyTakeaways || [],
         knowledgeCheck: m.knowledgeCheck || [],
         interactiveSandboxCode: m.interactiveSandboxCode || "",
@@ -786,16 +769,13 @@ router.get("/:subjectKey/:trackId", authenticateToken, async (req, res, next) =>
         isComplete: isCompleted,
         bestScore,
         attemptsCount,
-        totalQuestions: m.assessment?.questions?.length || 10,
+        totalQuestions: questionsCount,
         passingScore: m.assessment?.passingScore || 80,
         timeLimitSeconds: m.assessment?.timeLimitSeconds || 3600,
-        safeQuestions,
-        questions: safeQuestions, // dual alias
         assessment: {
           timeLimitSeconds: m.assessment?.timeLimitSeconds || 3600,
           passingScore: m.assessment?.passingScore || 80,
-          totalQuestions: safeQuestions.length,
-          questions: safeQuestions,
+          totalQuestions: questionsCount,
         },
       };
     });

@@ -24,6 +24,7 @@ import {
   LuUsers,
   LuX,
 } from "react-icons/lu";
+import { deduplicatedFetch } from "../utils/apiClient";
 import "../components/notificationBell.css";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
@@ -166,10 +167,11 @@ export function NotificationProvider({ children }) {
 
     setIsLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/notifications`, {
+      const res = await deduplicatedFetch(`${API_BASE}/api/notifications`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
+        cacheTtlMs: 3000,
       });
       if (!res.ok) return;
       const data = await res.json();
