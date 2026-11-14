@@ -275,7 +275,8 @@ router.post('/login', async (req, res) => {
         lastSeenAt: now,
       });
     }
-    await user.save();
+    // Save user telemetry asynchronously without delaying the login response
+    user.save().catch(err => console.warn('[Auth Telemetry Save Warning]', err.message));
 
     const token = issueUserJwt(user, '12h');
     const csrfToken = attachAuthCookies(res, token);
@@ -398,15 +399,14 @@ router.post('/forgot-password', async (req, res) => {
     user.resetPasswordExpires = Date.now() + 3600000; // 1 hour expiration
     await user.save();
 
-    // Send Branded HTML Password Reset Email
-    const mailResult = await sendPasswordResetEmail(user, resetToken, req, clientOrigin);
-    if (!mailResult.success && mailResult.status !== 'skipped_guest') {
-      console.warn('[Auth Mailer] Reset email dispatch failed:', mailResult.message);
-      return res.status(500).json({
-        message: mailResult.message || 'Failed to dispatch password reset email. Please verify SMTP settings or try again later.',
-        errorCode: mailResult.errorCode
-      });
-    }
+    // Dispatch Branded HTML Password Reset Email in background for instant UI response
+    dispatchMailBackground(async () => {
+      const mailResult = await sendPasswordResetEmail(user, resetToken, req, clientOrigin);
+      if (!mailResult.success && mailResult.status !== 'skipped_guest') {
+        console.warn('[Auth Mailer] Reset email dispatch failed:', mailResult.message);
+      }
+      return mailResult;
+    }, { type: 'password_reset', recipient: user.email });
 
     // In-app security notification
     pushNotification(req.app, {
