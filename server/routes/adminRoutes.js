@@ -669,6 +669,7 @@ router.get("/users", async (req, res) => {
     const {
       search = "",
       status = "all", // "all" | "active" | "suspended"
+      role = "all", // "all" | "student" | "mentor" | "instructor" | "admin"
       sortBy = "createdAt",
       sortOrder = "desc",
       page = 1,
@@ -686,6 +687,17 @@ router.get("/users", async (req, res) => {
       query.isSuspended = { $ne: true };
     } else if (status === "suspended") {
       query.isSuspended = true;
+    }
+
+    if (role && role !== "all") {
+      if (role === "admin") {
+        delete query.role;
+        query.role = { $in: ["admin", "SUPER_ADMIN"] };
+      } else if (role === "student" || role === "user") {
+        query.role = { $in: ["student", "user"] };
+      } else {
+        query.role = role;
+      }
     }
 
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
