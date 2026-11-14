@@ -1,29 +1,14 @@
 const express = require('express');
 const router = express.Router();
-const jwt = require('jsonwebtoken');
 const Membership = require('../models/Membership');
+const authenticateToken = require('../middleware/authMiddleware');
 const { pushNotification } = require('../utils/notificationService');
-const { getJwtSecret } = require('../config/jwtConfig');
-
-// Middleware to verify JWT token
-const verifyToken = (req, res, next) => {
-  const token = req.header("Authorization")?.split(" ")[1];
-  if (!token) return res.status(401).json({ error: "Access denied. No token provided." });
-
-  try {
-    const verified = jwt.verify(token, getJwtSecret());
-    req.user = verified;
-    next();
-  } catch (err) {
-    res.status(400).json({ error: "Invalid token." });
-  }
-};
 
 // GET /api/members/:zone - Fetch membership pass and roster for a specific zone
-router.get('/:zone', verifyToken, async (req, res) => {
+router.get('/:zone', authenticateToken, async (req, res) => {
   try {
     const { zone } = req.params;
-    const uid = req.user.userId || req.user.id;
+    const uid = req.user.userId || req.user.id || req.user._id;
     const membership = await Membership.findOne({ userId: uid, zone: zone.toUpperCase() });
     
     if (!membership) {
@@ -38,10 +23,10 @@ router.get('/:zone', verifyToken, async (req, res) => {
 });
 
 // POST /api/members/:zone/purchase - Purchase or update a membership pass
-router.post('/:zone/purchase', verifyToken, async (req, res) => {
+router.post('/:zone/purchase', authenticateToken, async (req, res) => {
   try {
     const { zone } = req.params;
-    const uid = req.user.userId || req.user.id;
+    const uid = req.user.userId || req.user.id || req.user._id;
     const { tier, cycle, primaryName, email, accentColor } = req.body;
 
     const passId = "MZ-PASS-DEV-" + Math.floor(10000 + Math.random() * 90000);
@@ -93,10 +78,10 @@ router.post('/:zone/purchase', verifyToken, async (req, res) => {
 });
 
 // POST /api/members/:zone/roster - Add a teammate to the roster
-router.post('/:zone/roster', verifyToken, async (req, res) => {
+router.post('/:zone/roster', authenticateToken, async (req, res) => {
   try {
     const { zone } = req.params;
-    const uid = req.user.userId || req.user.id;
+    const uid = req.user.userId || req.user.id || req.user._id;
     const { name, age, relationship, goal } = req.body;
 
     const membership = await Membership.findOne({ userId: uid, zone: zone.toUpperCase() });
@@ -129,10 +114,10 @@ router.post('/:zone/roster', verifyToken, async (req, res) => {
 });
 
 // DELETE /api/members/:zone/roster/:memberId - Remove a teammate from the roster
-router.delete('/:zone/roster/:memberId', verifyToken, async (req, res) => {
+router.delete('/:zone/roster/:memberId', authenticateToken, async (req, res) => {
   try {
     const { zone, memberId } = req.params;
-    const uid = req.user.userId || req.user.id;
+    const uid = req.user.userId || req.user.id || req.user._id;
 
     const membership = await Membership.findOne({ userId: uid, zone: zone.toUpperCase() });
     
@@ -152,11 +137,11 @@ router.delete('/:zone/roster/:memberId', verifyToken, async (req, res) => {
 });
 
 // PUT /api/members/:zone/theme - Update the pass accent color
-router.put('/:zone/theme', verifyToken, async (req, res) => {
+router.put('/:zone/theme', authenticateToken, async (req, res) => {
   try {
     const { zone } = req.params;
     const { accentColor } = req.body;
-    const uid = req.user.userId || req.user.id;
+    const uid = req.user.userId || req.user.id || req.user._id;
 
     const membership = await Membership.findOne({ userId: uid, zone: zone.toUpperCase() });
     

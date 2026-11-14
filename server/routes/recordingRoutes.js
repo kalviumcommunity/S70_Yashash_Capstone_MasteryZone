@@ -8,6 +8,7 @@ const busboy = require("busboy");
 const Recording = require("../models/Recording");
 const authenticateToken = require("../middleware/authMiddleware");
 const { handleRecordingRequest } = require("../utils/recordingStream");
+const { escapeRegex, safeSearchRegex } = require("../utils/regexUtils");
 
 // Uploads directory path (Supports persistent cloud disk mount via RECORDINGS_STORAGE_PATH)
 const {
@@ -1133,16 +1134,18 @@ router.get("/", authenticateToken, async (req, res) => {
 
     // Search query within the user's personal recordings
     if (q && q.trim()) {
-      const reg = new RegExp(q.trim(), "i");
-      filter.$and = [
-        {
-          $or: [
-            { title: reg },
-            { hostName: reg },
-            { participantNames: reg },
-          ],
-        },
-      ];
+      const reg = safeSearchRegex(q);
+      if (reg) {
+        filter.$and = [
+          {
+            $or: [
+              { title: reg },
+              { hostName: reg },
+              { participantNames: reg },
+            ],
+          },
+        ];
+      }
     }
 
     // Date filter

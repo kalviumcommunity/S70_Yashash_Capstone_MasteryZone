@@ -18,6 +18,7 @@ const { sendCertificateAwardedEmail, sendSubmissionEvaluationEmail, dispatchMail
 const { DSA_MCQ_BANK } = require("../data/dsaQuestionsBank");
 const CHALLENGES_CATALOG = require("../data/challengesCatalog");
 const { CURRICULUM } = require("../data/codingCurriculum");
+const { escapeRegex, safeSearchRegex } = require("../utils/regexUtils");
 const { generateCertificatePDF, CERTIFICATES_DIR } = require("../utils/certificateGenerator");
 const codingRoutes = require("./codingRoutes");
 const evaluateSingleTestCase = codingRoutes.evaluateSingleTestCase;
@@ -320,7 +321,7 @@ router.post("/attempt/start", authenticateToken, async (req, res) => {
       userId,
       $or: [
         { certificationId: certId },
-        { certificationId: new RegExp(`^${certId}$`, "i") },
+        { certificationId: new RegExp(`^${escapeRegex(certId)}$`, "i") },
       ],
       status: "VALID",
     });
@@ -647,7 +648,7 @@ router.get("/check/:certId", authenticateToken, async (req, res) => {
       userId,
       $or: [
         { certificationId: certId },
-        { certificationId: new RegExp(`^${certId}$`, "i") },
+        { certificationId: new RegExp(`^${escapeRegex(certId)}$`, "i") },
       ],
       status: "VALID",
     });
@@ -1884,13 +1885,28 @@ router.get("/attempt/:attemptId/report", authenticateToken, async (req, res) => 
 
     // Strict account isolation: verify candidate ownership or admin privileges
     const callerUserId = req.user ? String(req.user.userId || req.user.id || req.user._id || "") : null;
-    const isPrivileged = req.user?.role === "admin" || req.user?.role === "SUPER_ADMIN" || req.user?.isMainAdmin;
+    let isPrivileged = false;
+    if (callerUserId && mongoose.Types.ObjectId.isValid(callerUserId)) {
+      try {
+        const User = require("../models/User");
+        const { getMainAdminEmail } = require("../middleware/adminAuth");
+        const dbCaller = await User.findById(callerUserId).select("role isMainAdmin email isSuspended").lean();
+        if (dbCaller && !dbCaller.isSuspended) {
+          const userEmail = (dbCaller.email || "").toLowerCase().trim();
+          const mainAdminEmail = getMainAdminEmail();
+          const isMainAdmin = (mainAdminEmail && userEmail === mainAdminEmail) || dbCaller.isMainAdmin === true;
+          const isDbAdmin = dbCaller.role === "admin" || dbCaller.role === "SUPER_ADMIN";
+          isPrivileged = Boolean(isMainAdmin || isDbAdmin);
+        }
+      } catch {}
+    }
+
     const ownerId = attempt.userId ? String(attempt.userId) : null;
-    const safeUserId = await resolveSafeUserId(req.user);
-    const isOwner = Boolean(
-      (ownerId && (callerUserId === ownerId || String(safeUserId) === ownerId)) ||
-      (attempt.candidateEmail && req.user?.email && attempt.candidateEmail.toLowerCase().trim() === req.user.email.toLowerCase().trim())
-    );
+    const ownerEmail = (attempt.candidateEmail || "").toLowerCase().trim();
+    const callerEmail = (req.user?.email || "").toLowerCase().trim();
+    const isOwner = ownerId
+      ? Boolean(callerUserId && callerUserId === ownerId)
+      : Boolean(ownerEmail && callerEmail && callerEmail === ownerEmail);
 
     if (!isPrivileged && !isOwner) {
       return res.status(403).json({ error: "Access denied. You do not have permission to view this certification report." });
@@ -2042,7 +2058,7 @@ router.get("/verify/:certificateId", async (req, res) => {
       });
     }
 
-    const regexCertId = new RegExp(`^${rawCertId}$`, "i");
+    const regexCertId = new RegExp(`^${escapeRegex(rawCertId)}$`, "i");
 
     // 1. Search in IssuedCertificate by certificateId, case-insensitive, or attemptId
     let cert = await IssuedCertificate.findOne({
@@ -2152,7 +2168,7 @@ router.get(["/certificate/:certificateId/download", "/download/:certificateId"],
     const currentUserId = String(decoded.userId || decoded.id || decoded._id || "");
     const isAdmin = Boolean(decoded.role === "admin" || decoded.role === "SUPER_ADMIN" || decoded.isMainAdmin);
 
-    const regexCertId = new RegExp(`^${rawCertId}$`, "i");
+    const regexCertId = new RegExp(`^${escapeRegex(rawCertId)}$`, "i");
 
     let cert = await IssuedCertificate.findOne({
       $or: [

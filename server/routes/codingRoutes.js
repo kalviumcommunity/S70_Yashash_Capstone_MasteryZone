@@ -5368,13 +5368,30 @@ router.get("/proctored-session/:sessionId/report", optionalAuthenticateToken, as
     const userId = req.user ? (req.user.userId || req.user.id || req.user._id) : null;
     const { sessionId } = req.params;
 
+    let isPrivileged = false;
+    if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+      try {
+        const { getMainAdminEmail } = require("../middleware/adminAuth");
+        const dbCaller = await User.findById(userId).select("role isMainAdmin email isSuspended").lean();
+        if (dbCaller && !dbCaller.isSuspended) {
+          const userEmail = (dbCaller.email || "").toLowerCase().trim();
+          const mainAdminEmail = getMainAdminEmail();
+          const isMainAdmin = (mainAdminEmail && userEmail === mainAdminEmail) || dbCaller.isMainAdmin === true;
+          const isDbAdmin = dbCaller.role === "admin" || dbCaller.role === "SUPER_ADMIN";
+          isPrivileged = Boolean(isMainAdmin || isDbAdmin);
+        }
+      } catch {}
+    }
+
     let session = await ProctoredCodingSession.findOne({ sessionId });
-    const isPrivileged = req.user?.role === "admin" || req.user?.role === "SUPER_ADMIN";
 
     if (session) {
       const sessUid = String(session.userId || "");
       if (sessUid && !sessUid.startsWith("guest_") && sessUid !== "guest") {
-        if (!userId || (!isPrivileged && String(userId) !== sessUid)) {
+        if (!userId) {
+          return res.status(401).json({ error: "Authentication required to view this assessment report." });
+        }
+        if (!isPrivileged && String(userId) !== sessUid) {
           return res.status(403).json({ error: "Access denied. You do not have permission to view this assessment report." });
         }
       }
@@ -5404,7 +5421,10 @@ router.get("/proctored-session/:sessionId/report", optionalAuthenticateToken, as
       if (attempt) {
         const attUid = String(attempt.userId || "");
         if (attUid && !attUid.startsWith("guest_") && attUid !== "guest") {
-          if (!userId || (!isPrivileged && String(userId) !== attUid)) {
+          if (!userId) {
+            return res.status(401).json({ error: "Authentication required to view this assessment report." });
+          }
+          if (!isPrivileged && String(userId) !== attUid) {
             return res.status(403).json({ error: "Access denied. You do not have permission to view this assessment report." });
           }
         }
@@ -5572,6 +5592,15 @@ router.get("/proctored-session/:sessionId/report", optionalAuthenticateToken, as
         projSub = await ProjectSubmission.findById(cleanId).lean();
       }
       if (projSub) {
+        const subUid = String(projSub.userId || "");
+        if (subUid && !subUid.startsWith("guest_") && subUid !== "guest") {
+          if (!userId) {
+            return res.status(401).json({ error: "Authentication required to view this project report." });
+          }
+          if (!isPrivileged && String(userId) !== subUid) {
+            return res.status(403).json({ error: "Access denied. You do not have permission to view this project report." });
+          }
+        }
         const projSpec = getProjectById(projSub.projectId);
         const report = formatSubmissionAsReport(projSub, projSpec);
         return res.json({ success: true, report });
@@ -5583,6 +5612,19 @@ router.get("/proctored-session/:sessionId/report", optionalAuthenticateToken, as
         $or: [{ attemptId: rawId }, { attemptId: cleanId }, { certificateId: rawId }, { certificateId: cleanId }],
       });
       if (certAtt) {
+        if (!userId) {
+          return res.status(401).json({ error: "Authentication required to view this certification report." });
+        }
+        const callerUserId = userId ? String(userId) : "";
+        const ownerId = certAtt.userId ? String(certAtt.userId) : "";
+        const ownerEmail = (certAtt.candidateEmail || "").toLowerCase().trim();
+        const callerEmail = (req.user?.email || "").toLowerCase().trim();
+        const isOwner = ownerId
+          ? Boolean(callerUserId && callerUserId === ownerId)
+          : Boolean(ownerEmail && callerEmail && callerEmail === ownerEmail);
+        if (!isPrivileged && !isOwner) {
+          return res.status(403).json({ error: "Access denied. You do not have permission to view this certification report." });
+        }
         const certRoutes = require("./certificationRoutes");
         const report = await certRoutes.buildCertificationReportPayload(certAtt, req.user);
         return res.json({ success: true, report });
@@ -5607,7 +5649,10 @@ router.get("/proctored-session/:sessionId/report", optionalAuthenticateToken, as
         const subUser = challengeSub.userId || {};
         const subUid = String(subUser._id || challengeSub.userId || "");
         if (subUid && !subUid.startsWith("guest_") && subUid !== "guest") {
-          if (!userId || (!isPrivileged && String(userId) !== subUid)) {
+          if (!userId) {
+            return res.status(401).json({ error: "Authentication required to view this assessment report." });
+          }
+          if (!isPrivileged && String(userId) !== subUid) {
             return res.status(403).json({ error: "Access denied. You do not have permission to view this assessment report." });
           }
         }

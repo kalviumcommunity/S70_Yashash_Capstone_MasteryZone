@@ -16,6 +16,7 @@ const {
   dispatchMailBackground,
   isGuestAccount,
 } = require("../utils/mailer");
+const { escapeRegex, safeSearchRegex } = require("../utils/regexUtils");
 
 const router = express.Router();
 
@@ -534,14 +535,16 @@ router.get("/admin/tickets", verifyAdmin, async (req, res) => {
     }
 
     if (q && q.trim()) {
-      const regex = new RegExp(q.trim(), "i");
-      filter.$or = [
-        { ticketId: regex },
-        { userName: regex },
-        { userEmail: regex },
-        { subject: regex },
-        { description: regex },
-      ];
+      const regex = safeSearchRegex(q);
+      if (regex) {
+        filter.$or = [
+          { ticketId: regex },
+          { userName: regex },
+          { userEmail: regex },
+          { subject: regex },
+          { description: regex },
+        ];
+      }
     }
 
     const [tickets, statusAgg] = await Promise.all([

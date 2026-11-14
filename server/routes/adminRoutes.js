@@ -38,6 +38,7 @@ const {
   deleteFileFromGridFS,
   safeDeleteRecordingFile,
 } = require("../config/recordingStorage");
+const { escapeRegex, safeSearchRegex } = require("../utils/regexUtils");
 
 const router = express.Router();
 
@@ -622,20 +623,20 @@ router.get("/users", async (req, res) => {
     let query = { ...REAL_USER_FILTER };
 
     if (search.trim()) {
-      const trimmed = search.trim();
+      const trimmed = search.trim().slice(0, 100);
       const isExactId = mongoose.Types.ObjectId.isValid(trimmed) && trimmed.length === 24;
-      const regex = new RegExp(trimmed, "i");
-      const orConditions = [{ fullName: regex }, { username: regex }, { email: regex }];
+      const regex = safeSearchRegex(trimmed);
+      const orConditions = regex ? [{ fullName: regex }, { username: regex }, { email: regex }] : [];
       
       if (isExactId) {
         // If an admin searches by exact ObjectId, allow matching that specific user directly
         query = {
           $or: [
             { _id: new mongoose.Types.ObjectId(trimmed) },
-            { $and: [{ ...REAL_USER_FILTER }, { $or: orConditions }] },
+            ...(orConditions.length > 0 ? [{ $and: [{ ...REAL_USER_FILTER }, { $or: orConditions }] }] : []),
           ],
         };
-      } else {
+      } else if (orConditions.length > 0) {
         query.$or = orConditions;
       }
     }
@@ -1045,10 +1046,20 @@ router.put("/users/:id/status", async (req, res) => {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    if (user.role === "SUPER_ADMIN" || user.email === "yashashyash1@gmail.com") {
+    const mainAdminEmail = getMainAdminEmail();
+    const userEmail = (user.email || "").toLowerCase().trim();
+    if ((mainAdminEmail && userEmail === mainAdminEmail) || user.role === "SUPER_ADMIN" || user.isMainAdmin === true) {
       return res.status(403).json({
         success: false,
         message: "Cannot modify status of exclusive Super Admin account.",
+      });
+    }
+
+    const isTargetAdmin = user.role === "admin" || user.isSecondaryAdmin === true;
+    if (isTargetAdmin && !req.isMainAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: "Access Denied: Only the Main Administrator can suspend or restore secondary administrator accounts.",
       });
     }
 
@@ -1143,10 +1154,20 @@ router.put("/users/:id/role", async (req, res) => {
     }
 
     const mainAdminEmail = getMainAdminEmail();
-    if ((mainAdminEmail && user.email.toLowerCase().trim() === mainAdminEmail) || user.role === "SUPER_ADMIN" || user.isMainAdmin === true) {
+    const userEmail = (user.email || "").toLowerCase().trim();
+    if ((mainAdminEmail && userEmail === mainAdminEmail) || user.role === "SUPER_ADMIN" || user.isMainAdmin === true) {
       return res.status(403).json({
         success: false,
         message: "Cannot modify role of the exclusive Main Admin account.",
+      });
+    }
+
+    const isTargetAdmin = user.role === "admin" || user.isSecondaryAdmin === true;
+    const isNewRoleAdmin = String(role).toLowerCase() === "admin" || String(role).toLowerCase() === "super_admin";
+    if ((isTargetAdmin || isNewRoleAdmin) && !req.isMainAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: "Access Denied: Only the Main Administrator can modify administrator roles.",
       });
     }
 
@@ -1288,10 +1309,19 @@ router.delete("/users/:id", async (req, res) => {
     }
 
     const mainAdminEmail = getMainAdminEmail();
-    if ((mainAdminEmail && user.email.toLowerCase().trim() === mainAdminEmail) || user.role === "SUPER_ADMIN" || user.isMainAdmin === true) {
+    const userEmail = (user.email || "").toLowerCase().trim();
+    if ((mainAdminEmail && userEmail === mainAdminEmail) || user.role === "SUPER_ADMIN" || user.isMainAdmin === true) {
       return res.status(403).json({
         success: false,
         message: "Cannot delete the exclusive Main Admin account.",
+      });
+    }
+
+    const isTargetAdmin = user.role === "admin" || user.isSecondaryAdmin === true;
+    if (isTargetAdmin && !req.isMainAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: "Access Denied: Only the Main Administrator can delete secondary administrator accounts.",
       });
     }
 
@@ -3106,15 +3136,21 @@ router.get("/live-activity", async (req, res) => {
     }
 
     if (q && q.trim()) {
-      const regex = new RegExp(q.trim(), "i");
-      activityQuery.$or = [
-        { userName: regex },
-        { userEmail: regex },
-        { title: regex },
-        { detail: regex },
-      ];
+      const regex = safeSearchRegex(q);
+      activityQuery.$or = [];
+      if (regex) {
+        activityQuery.$or.push(
+          { userName: regex },
+          { userEmail: regex },
+          { title: regex },
+          { detail: regex }
+        );
+      }
       if (mongoose.Types.ObjectId.isValid(q.trim())) {
         activityQuery.$or.push({ userId: new mongoose.Types.ObjectId(q.trim()) });
+      }
+      if (activityQuery.$or.length === 0) {
+        delete activityQuery.$or;
       }
     }
 
@@ -3394,21 +3430,28 @@ router.get("/coding-analytics", async (req, res) => {
     }
 
     if (search && search.trim()) {
-      const q = search.trim();
-      const regex = new RegExp(q, "i");
+      const q = search.trim().slice(0, 100);
+      const regex = safeSearchRegex(q);
       const matchedUserIds = genuineUsers
-        .filter(u => regex.test(u.fullName) || regex.test(u.email) || regex.test(u.username) || (mongoose.Types.ObjectId.isValid(q) && String(u._id) === q))
+        .filter(u => (regex && (regex.test(u.fullName) || regex.test(u.email) || regex.test(u.username))) || (mongoose.Types.ObjectId.isValid(q) && String(u._id) === q))
         .map(u => u._id);
 
-      const orConditions = [
-        { challengeTitle: regex },
-        { challengeId: regex },
-        { userId: { $in: matchedUserIds } },
-      ];
+      const orConditions = [];
+      if (regex) {
+        orConditions.push(
+          { challengeTitle: regex },
+          { challengeId: regex }
+        );
+      }
+      if (matchedUserIds.length > 0) {
+        orConditions.push({ userId: { $in: matchedUserIds } });
+      }
       if (mongoose.Types.ObjectId.isValid(q)) {
         orConditions.push({ _id: new mongoose.Types.ObjectId(q) });
       }
-      listFilter.$or = orConditions;
+      if (orConditions.length > 0) {
+        listFilter.$or = orConditions;
+      }
     }
 
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
@@ -3908,19 +3951,24 @@ router.get("/proctoring", async (req, res) => {
     }
 
     if (q && q.trim()) {
-      const trimmedQ = q.trim();
-      const regex = new RegExp(trimmedQ, "i");
-      const orConditions = [
-        { "candidateDetails.fullName": regex },
-        { "candidateDetails.email": regex },
-        { assessmentTitle: regex },
-        { sessionId: regex },
-        { questionId: regex },
-      ];
+      const trimmedQ = q.trim().slice(0, 100);
+      const regex = safeSearchRegex(trimmedQ);
+      const orConditions = [];
+      if (regex) {
+        orConditions.push(
+          { "candidateDetails.fullName": regex },
+          { "candidateDetails.email": regex },
+          { assessmentTitle: regex },
+          { sessionId: regex },
+          { questionId: regex }
+        );
+      }
       if (mongoose.Types.ObjectId.isValid(trimmedQ)) {
         orConditions.push({ userId: new mongoose.Types.ObjectId(trimmedQ) });
       }
-      query.$or = orConditions;
+      if (orConditions.length > 0) {
+        query.$or = orConditions;
+      }
     }
 
     if (dateRange && dateRange !== "all") {
@@ -4923,15 +4971,17 @@ router.get("/recordings", async (req, res) => {
 
     // Filter by search
     if (q && q.trim()) {
-      const regex = new RegExp(q.trim(), "i");
-      filteredRecordings = filteredRecordings.filter(
-        (r) =>
-          regex.test(r.title) ||
-          regex.test(r.hostName) ||
-          regex.test(r.hostEmail) ||
-          regex.test(r.recordingId) ||
-          regex.test(r.meetingId)
-      );
+      const regex = safeSearchRegex(q);
+      if (regex) {
+        filteredRecordings = filteredRecordings.filter(
+          (r) =>
+            regex.test(r.title) ||
+            regex.test(r.hostName) ||
+            regex.test(r.hostEmail) ||
+            regex.test(r.recordingId) ||
+            regex.test(r.meetingId)
+        );
+      }
     }
 
     // Filter by type
@@ -5269,7 +5319,7 @@ router.post("/recordings/purge-corrupted", async (req, res) => {
               fs.unlinkSync(fp);
               purgedFiles++;
               const delRes = await Recording.deleteMany({
-                $or: [{ filePath: new RegExp(f, "i") }, { fileUrl: new RegExp(f, "i") }],
+                $or: [{ filePath: new RegExp(escapeRegex(f), "i") }, { fileUrl: new RegExp(escapeRegex(f), "i") }],
               });
               purgedDb += delRes.deletedCount || 0;
             }

@@ -120,7 +120,8 @@ router.post(['/signup', '/register'], async (req, res) => {
   }
 
   try {
-    if (email.toLowerCase().trim() === 'yashashyash1@gmail.com') {
+    const mainAdminEmail = getMainAdminEmail();
+    if (mainAdminEmail && email.toLowerCase().trim() === mainAdminEmail) {
       return res.status(403).json({ message: 'This email is reserved for platform administration and cannot be registered publicly.' });
     }
 
@@ -421,7 +422,7 @@ router.post('/forgot-password', async (req, res) => {
 
     user.resetPasswordToken = hashedToken;
     user.resetPasswordExpires = Date.now() + 3600000; // 1 hour expiration
-    await user.save();
+    await user.save({ validateModifiedOnly: true });
 
     // Dispatch Branded HTML Password Reset Email in background for instant UI response
     dispatchMailBackground(async () => {
@@ -619,14 +620,23 @@ router.put('/change-password', verifyToken, async (req, res) => {
   }
 
   try {
-    const user = await User.findById(req.user.userId);
+    const callerId = req.user.userId || req.user.id || req.user._id;
+    const user = await User.findById(callerId);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    if (currentPassword) {
-      const match = await bcrypt.compare(currentPassword, user.password);
-      if (!match) {
-        return res.status(400).json({ message: 'Current password does not match' });
-      }
+    // Strict validation: Require current password for passworded accounts; direct passwordless accounts to email reset
+    if (!user.password) {
+      return res.status(400).json({
+        message: "This account does not have an established password. Please use the Forgot Password flow to securely verify your email address and set a password.",
+      });
+    }
+
+    if (!currentPassword) {
+      return res.status(400).json({ message: 'Current password is required' });
+    }
+    const match = await bcrypt.compare(currentPassword, user.password);
+    if (!match) {
+      return res.status(400).json({ message: 'Current password does not match' });
     }
 
     user.password = await bcrypt.hash(newPassword, 10);
@@ -1129,9 +1139,17 @@ router.post('/explore', verifyToken, async (req, res) => {
 // Delete Account
 router.delete('/me', verifyToken, async (req, res) => {
   try {
-    const user = await User.findByIdAndDelete(req.user.userId);
+    const callerId = req.user.userId || req.user.id || req.user._id;
+    const user = await User.findById(callerId);
     if (!user) return res.status(404).json({ message: 'User not found' });
-    
+
+    const mainAdminEmail = getMainAdminEmail();
+    const userEmail = (user.email || req.user?.email || '').toLowerCase().trim();
+    if (req.user?.isMainAdmin || user.isMainAdmin === true || user.role === 'SUPER_ADMIN' || (mainAdminEmail && userEmail === mainAdminEmail)) {
+      return res.status(403).json({ message: 'Cannot delete the exclusive Main Admin account.' });
+    }
+
+    await User.findByIdAndDelete(callerId);
     res.status(200).json({ message: 'Account deleted successfully' });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
