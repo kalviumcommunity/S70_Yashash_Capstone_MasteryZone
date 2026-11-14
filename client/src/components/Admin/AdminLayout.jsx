@@ -67,14 +67,16 @@ const AdminLayout = () => {
     adminUser?.role === "SUPER_ADMIN";
 
   // Filter navigation items for secondary admins based on granted permissions
-  const visibleNavItems = NAV_ITEMS.filter((item) => {
-    if (isMainAdmin) return true;
-    if (item.id === "overview") return true;
-    // Settings tab is exclusive to Main Admin
-    if (item.id === "settings") return false;
-    const permissions = adminUser?.adminPermissions || [];
-    return permissions.includes("*") || permissions.includes(item.id);
-  });
+  const visibleNavItems = useMemo(() => {
+    return NAV_ITEMS.filter((item) => {
+      if (isMainAdmin) return true;
+      if (item.id === "overview") return true;
+      // Settings tab is exclusive to Main Admin
+      if (item.id === "settings") return false;
+      const permissions = adminUser?.adminPermissions || [];
+      return permissions.includes("*") || permissions.includes(item.id);
+    });
+  }, [isMainAdmin, adminUser?.adminPermissions]);
 
   const matchingNavItems = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();

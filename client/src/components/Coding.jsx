@@ -46,17 +46,21 @@ import ThemeToggle from "./ThemeToggle";
 import NotificationBell from "./NotificationBell";
 import FeaturedLearningCarousel from "./FeaturedLearningCarousel";
 import FeaturedVideosSlider, { DEFAULT_FEATURED_VIDEOS } from "./FeaturedVideosSlider";
-import ChallengeWorkspaceModal from "./ChallengeWorkspaceModal";
-import { ProjectWorkspaceModal } from "./ProjectWorkspaceModal";
 import { deduplicatedFetch, invalidateCachePattern } from "../utils/apiClient";
-import CertificationExamWorkspace from "./CertificationExamWorkspace";
-import FullScreenConceptLearning from "./FullScreenConceptLearning";
 import { performGlobalLogout } from "../utils/sessionAuth.js";
-import PracticalAssignmentModal from "./PracticalAssignmentModal";
-import ProctoredAssessmentWorkspace from "./ProctoredAssessmentWorkspace";
 import { PROJECTS_CATALOG } from "../data/projectsCatalog";
 import logoIcon from "../assets/logo_icon_transparent.png";
+import MasteryZoneGlobalLoader from "./MasteryZoneGlobalLoader";
 import "./coding.css";
+
+const ChallengeWorkspaceModal = React.lazy(() => import("./ChallengeWorkspaceModal"));
+const ProjectWorkspaceModal = React.lazy(() =>
+  import("./ProjectWorkspaceModal").then((m) => ({ default: m.ProjectWorkspaceModal || m.default }))
+);
+const CertificationExamWorkspace = React.lazy(() => import("./CertificationExamWorkspace"));
+const FullScreenConceptLearning = React.lazy(() => import("./FullScreenConceptLearning"));
+const PracticalAssignmentModal = React.lazy(() => import("./PracticalAssignmentModal"));
+const ProctoredAssessmentWorkspace = React.lazy(() => import("./ProctoredAssessmentWorkspace"));
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -4543,44 +4547,50 @@ export default function Coding() {
 
       {/* Algorithmic Challenge Solver Modal */}
       {selectedChallengeModal && (
-        <ChallengeWorkspaceModal
-          challenge={selectedChallengeModal}
-          questionsList={challenges}
-          currentQuestionIndex={challenges.findIndex((c) => c.id === selectedChallengeModal.id)}
-          onSelectQuestion={(q) => setSelectedChallengeModal(q)}
-          onClose={() => setSelectedChallengeModal(null)}
-          onChallengeSolved={() => {
-            fetchDashboardData();
-          }}
-        />
+        <React.Suspense fallback={<MasteryZoneGlobalLoader message="Opening Challenge Workspace..." />}>
+          <ChallengeWorkspaceModal
+            challenge={selectedChallengeModal}
+            questionsList={challenges}
+            currentQuestionIndex={challenges.findIndex((c) => c.id === selectedChallengeModal.id)}
+            onSelectQuestion={(q) => setSelectedChallengeModal(q)}
+            onClose={() => setSelectedChallengeModal(null)}
+            onChallengeSolved={() => {
+              fetchDashboardData();
+            }}
+          />
+        </React.Suspense>
       )}
 
       {/* Project Workspace Modal (Fallback Fixed Overlay) */}
       {selectedProjectModal && (
         <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "var(--mz-bg-primary, #000000)", overflowY: "auto" }}>
-          <ProjectWorkspaceModal
-            project={selectedProjectModal}
-            onClose={() => setSelectedProjectModal(null)}
-            onProjectStateUpdated={() => {
-              fetchDashboardData();
-            }}
-          />
+          <React.Suspense fallback={<MasteryZoneGlobalLoader message="Opening Project Workspace..." />}>
+            <ProjectWorkspaceModal
+              project={selectedProjectModal}
+              onClose={() => setSelectedProjectModal(null)}
+              onProjectStateUpdated={() => {
+                fetchDashboardData();
+              }}
+            />
+          </React.Suspense>
         </div>
       )}
 
       {/* Certification Exam Workspace */}
       {selectedExamWorkspace && (
         <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "var(--mz-bg-primary)" }}>
-          <CertificationExamWorkspace
-            certId={selectedExamWorkspace.id}
-            certTitle={selectedExamWorkspace.name}
-            language={selectedExamWorkspace.language}
-            onClose={() => setSelectedExamWorkspace(null)}
-            onExamCompleted={() => {
-              setSelectedExamWorkspace(null);
-              fetchDashboardData();
-            }}
-          />
+          <React.Suspense fallback={<MasteryZoneGlobalLoader message="Preparing Certification Exam..." />}>
+            <CertificationExamWorkspace
+              certId={selectedExamWorkspace.id}
+              certTitle={selectedExamWorkspace.name}
+              language={selectedExamWorkspace.language}
+              onClose={() => setSelectedExamWorkspace(null)}
+              onExamCompleted={() => {
+                setSelectedExamWorkspace(null);
+                fetchDashboardData();
+              }}
+            />
+          </React.Suspense>
         </div>
       )}
 
@@ -5190,49 +5200,55 @@ export default function Coding() {
 
       {/* MODAL 1: Full-Screen Concept Learning & Theory (Step 1) */}
       {activeStudyModule && (
-        <FullScreenConceptLearning
-          module={activeStudyModule}
-          subjectKey="coding"
-          trackId={activeTrackId}
-          onClose={() => setActiveStudyModule(null)}
-          onComplete={(completedMod) => handleFinishStudy(completedMod)}
-        />
+        <React.Suspense fallback={<MasteryZoneGlobalLoader message="Loading Learning Module..." />}>
+          <FullScreenConceptLearning
+            module={activeStudyModule}
+            subjectKey="coding"
+            trackId={activeTrackId}
+            onClose={() => setActiveStudyModule(null)}
+            onComplete={(completedMod) => handleFinishStudy(completedMod)}
+          />
+        </React.Suspense>
       )}
 
       {/* MODAL 2: Practical Coding Test with Monaco IDE (Step 2) */}
       {activeAssignmentModule && (
-        <PracticalAssignmentModal
-          module={activeAssignmentModule}
-          subjectKey="coding"
-          trackId={activeTrackId}
-          onClose={() => setActiveAssignmentModule(null)}
-          onAssignmentPassed={() => {
-            trackCurriculumCache.delete(activeTrackId);
-            invalidateCachePattern("/api/curriculum");
-            fetchCurriculum(activeTrackId, true);
-            fetchDashboardData();
-          }}
-          onLaunchAssessment={(mod) => {
-            setActiveAssignmentModule(null);
-            setActiveAssessmentModule(mod);
-          }}
-        />
+        <React.Suspense fallback={<MasteryZoneGlobalLoader message="Launching Practical Coding IDE..." />}>
+          <PracticalAssignmentModal
+            module={activeAssignmentModule}
+            subjectKey="coding"
+            trackId={activeTrackId}
+            onClose={() => setActiveAssignmentModule(null)}
+            onAssignmentPassed={() => {
+              trackCurriculumCache.delete(activeTrackId);
+              invalidateCachePattern("/api/curriculum");
+              fetchCurriculum(activeTrackId, true);
+              fetchDashboardData();
+            }}
+            onLaunchAssessment={(mod) => {
+              setActiveAssignmentModule(null);
+              setActiveAssessmentModule(mod);
+            }}
+          />
+        </React.Suspense>
       )}
 
       {/* MODAL 3: 5-Step Proctored 10-MCQ Exam with Security Gate (Step 3) */}
       {activeAssessmentModule && (
-        <ProctoredAssessmentWorkspace
-          module={activeAssessmentModule}
-          subjectKey="coding"
-          trackId={activeTrackId}
-          onClose={() => setActiveAssessmentModule(null)}
-          onAssessmentCompleted={() => {
-            trackCurriculumCache.delete(activeTrackId);
-            invalidateCachePattern("/api/curriculum");
-            fetchCurriculum(activeTrackId, true);
-            fetchDashboardData();
-          }}
-        />
+        <React.Suspense fallback={<MasteryZoneGlobalLoader message="Initializing Proctored Assessment..." />}>
+          <ProctoredAssessmentWorkspace
+            module={activeAssessmentModule}
+            subjectKey="coding"
+            trackId={activeTrackId}
+            onClose={() => setActiveAssessmentModule(null)}
+            onAssessmentCompleted={() => {
+              trackCurriculumCache.delete(activeTrackId);
+              invalidateCachePattern("/api/curriculum");
+              fetchCurriculum(activeTrackId, true);
+              fetchDashboardData();
+            }}
+          />
+        </React.Suspense>
       )}
 
       {/* MODAL 4: Reset Learning Progress Modal */}

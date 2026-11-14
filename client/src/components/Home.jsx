@@ -5,12 +5,13 @@ import "./home.css";
 import NotificationBell from "./NotificationBell.jsx";
 import ThemeToggle from "./ThemeToggle.jsx";
 import FeaturedLearningCarousel from "./FeaturedLearningCarousel.jsx";
-import CertificationExamWorkspace from "./CertificationExamWorkspace.jsx";
 import UserProfileDropdown from "./UserProfileDropdown.jsx";
-import RecordingVideo from "./RecordingVideo.jsx";
 import { getRecordingStreamUrl } from "../utils/recordingMedia.js";
 import { performGlobalLogout } from "../utils/sessionAuth.js";
 import { deduplicatedFetch } from "../utils/apiClient.js";
+
+const CertificationExamWorkspace = React.lazy(() => import("./CertificationExamWorkspace.jsx"));
+const RecordingVideo = React.lazy(() => import("./RecordingVideo.jsx"));
 import logoIcon from "../assets/logo_icon_transparent.png";
 import heroIllustration from "../assets/interests_hero_illustration.png";
 import rocketIcon from "../assets/interests_card_rocket.png";
@@ -4646,30 +4647,43 @@ const Home = () => {
                 marginBottom: 12,
               }}
             >
-              <RecordingVideo
-                ref={videoPlayerRef}
-                recording={activePlayingRecording}
-                controls
-                preload="metadata"
-                playsInline
-                errorStyle={{ borderRadius: 12 }}
-                onLoadedMetadata={(e) => {
-                  if (e.target.duration && isFinite(e.target.duration) && e.target.duration > 0) {
-                    const d = Math.round(e.target.duration);
-                    if (Math.abs((activePlayingRecording.durationSeconds || 0) - d) > 1) {
-                      setActivePlayingRecording((prev) => (prev ? { ...prev, durationSeconds: d } : prev));
+              <React.Suspense fallback={<div style={{ color: "#94a3b8", fontSize: "0.85rem", padding: "40px" }}>Loading recording player...</div>}>
+                <RecordingVideo
+                  ref={videoPlayerRef}
+                  recording={activePlayingRecording}
+                  controls
+                  preload="metadata"
+                  playsInline
+                  errorStyle={{ borderRadius: 12 }}
+                  onLoadedMetadata={(e) => {
+                    if (e.target.duration && isFinite(e.target.duration) && e.target.duration > 0) {
+                      const d = Math.round(e.target.duration);
+                      if (Math.abs((activePlayingRecording.durationSeconds || 0) - d) > 1) {
+                        setActivePlayingRecording((prev) => (prev ? { ...prev, durationSeconds: d } : prev));
+                      }
                     }
-                  }
-                  e.target.play?.().catch(() => {});
-                }}
-                onError={(err) => {
-                  console.warn("Meeting recording stream notice:", err);
-                }}
-                onTimeUpdate={() => {
-                  if (videoPlayerRef.current) {
-                    const now = Date.now();
-                    if (!videoSeekThrottleRef.current || now - videoSeekThrottleRef.current > 1500) {
-                      videoSeekThrottleRef.current = now;
+                    e.target.play?.().catch(() => {});
+                  }}
+                  onError={(err) => {
+                    console.warn("Meeting recording stream notice:", err);
+                  }}
+                  onTimeUpdate={() => {
+                    if (videoPlayerRef.current) {
+                      const now = Date.now();
+                      if (!videoSeekThrottleRef.current || now - videoSeekThrottleRef.current > 1500) {
+                        videoSeekThrottleRef.current = now;
+                        const uId = user?._id || user?.id || user?.userId || "guest";
+                        try {
+                          localStorage.setItem(
+                            `mz_${uId}_rec_seek_${activePlayingRecording.recordingId}`,
+                            Math.floor(videoPlayerRef.current.currentTime)
+                          );
+                        } catch {}
+                      }
+                    }
+                  }}
+                  onPause={() => {
+                    if (videoPlayerRef.current) {
                       const uId = user?._id || user?.id || user?.userId || "guest";
                       try {
                         localStorage.setItem(
@@ -4678,22 +4692,11 @@ const Home = () => {
                         );
                       } catch {}
                     }
-                  }
-                }}
-                onPause={() => {
-                  if (videoPlayerRef.current) {
-                    const uId = user?._id || user?.id || user?.userId || "guest";
-                    try {
-                      localStorage.setItem(
-                        `mz_${uId}_rec_seek_${activePlayingRecording.recordingId}`,
-                        Math.floor(videoPlayerRef.current.currentTime)
-                      );
-                    } catch {}
-                  }
-                }}
-                style={{ width: "100%", maxHeight: 420, outline: "none" }}
-                data-testid="home-video-player-element"
-              />
+                  }}
+                  style={{ width: "100%", maxHeight: 420, outline: "none" }}
+                  data-testid="home-video-player-element"
+                />
+              </React.Suspense>
             </div>
 
             {/* Video Controls Toolbar: Speed, Duration, Sharing, Bookmarks */}
@@ -5006,15 +5009,17 @@ const Home = () => {
 
       {/* Proctored Certification Exam Workspace Modal */}
       {activeCertExamModal && (
-        <CertificationExamWorkspace
-          certId={activeCertExamModal.id || "dsa_cert"}
-          certTitle={activeCertExamModal.name || "Data Structures & Algorithms (DSA)"}
-          onClose={() => setActiveCertExamModal(null)}
-          onCompleted={() => {
-            setActiveCertExamModal(null);
-            fetchCertHistory();
-          }}
-        />
+        <React.Suspense fallback={<div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.8)", color: "#fff" }}>Loading Certification Exam...</div>}>
+          <CertificationExamWorkspace
+            certId={activeCertExamModal.id || "dsa_cert"}
+            certTitle={activeCertExamModal.name || "Data Structures & Algorithms (DSA)"}
+            onClose={() => setActiveCertExamModal(null)}
+            onCompleted={() => {
+              setActiveCertExamModal(null);
+              fetchCertHistory();
+            }}
+          />
+        </React.Suspense>
       )}
     </div>
   );
