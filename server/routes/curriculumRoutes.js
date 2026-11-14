@@ -738,13 +738,20 @@ router.get("/:subjectKey/:trackId", authenticateToken, async (req, res, next) =>
         codingState?.exercisePassed
       );
       const assessmentPassed = !!(state?.assessmentPassed || codingState?.assessmentPassed || hasPassedAttempt);
-      const bestScore = Math.max(
-        state?.bestScore || 0,
-        codingState?.bestScore || 0,
+      const practicalScore = Math.max(
+        Number(codingState?.exerciseScore) || 0,
+        Number(state?.exerciseScore) || 0,
+        Number(state?.assignmentScore) || 0,
+        assignmentPassed ? 100 : 0
+      );
+      const examScore = Math.max(
+        Number(state?.bestScore) || 0,
+        Number(codingState?.bestScore) || 0,
         ...subAttempts
           .filter((a) => a.trackId === normTrack && a.moduleIndex === m.moduleIndex)
           .map((a) => a.percentage || (a.score ? a.score * 10 : 0))
       );
+      const bestScore = Math.max(practicalScore, examScore);
       const attemptsCount = Math.max(state?.attemptsCount || 0, codingState?.attemptsCount || 0);
 
       const hasPractical = Boolean(m.practicalAssignment || m.codingExercise);
@@ -806,6 +813,10 @@ router.get("/:subjectKey/:trackId", authenticateToken, async (req, res, next) =>
         status,
         isComplete: isCompleted,
         bestScore,
+        exerciseScore: practicalScore,
+        assignmentScore: practicalScore,
+        score: bestScore,
+        marksObtained: bestScore,
         attemptsCount,
         totalQuestions: questionsCount,
         passingScore: m.assessment?.passingScore || 80,
@@ -1103,12 +1114,19 @@ router.post("/assignment/submit", authenticateToken, async (req, res) => {
       const isMcqDoneAndCutoffMet = Boolean(cur.assessmentPassed && (cur.bestScore == null || cur.bestScore >= 80));
       const willBeCompleted = Boolean(isStudyDone && isMcqDoneAndCutoffMet);
 
+      const practicalScore = typeof score === "number" ? score : 100;
       subProg.moduleProgress.set(pKey, {
         ...cur,
         assignmentPassed: true,
         exercisePassed: true,
         assignmentPassedAt: new Date(),
         assignmentFeedback: feedback,
+        assignmentScore: practicalScore,
+        exerciseScore: practicalScore,
+        score: practicalScore,
+        bestScore: Math.max(cur.bestScore || 0, practicalScore),
+        passedTests: passedCount,
+        totalTests,
         isCompleted: willBeCompleted,
         status: willBeCompleted ? "completed" : "in-progress",
       });
@@ -1126,6 +1144,10 @@ router.post("/assignment/submit", authenticateToken, async (req, res) => {
             exercisePassed: true,
             exercisePassedAt: new Date(),
             exerciseCode: code || "",
+            exerciseScore: practicalScore,
+            bestScore: Math.max(cCur.bestScore || 0, practicalScore),
+            passedTests: passedCount,
+            totalTests,
             isCompleted: willBeCompleted,
             status: willBeCompleted ? "completed" : "in-progress",
           });

@@ -164,43 +164,35 @@ export default function PracticalAssignmentModal({
   }, [isCoding, tId, mIdx, activeExercise, initialCode]);
 
   const notifyAssignmentCompletion = useCallback((resultData) => {
+    const scoreVal = resultData?.score !== undefined ? resultData.score : 100;
+    const passedVal = resultData?.passedCount !== undefined ? resultData.passedCount : (resultData?.passedTests || 10);
+    const totalVal = resultData?.totalTests || 10;
+    const payload = {
+      type: "MZ_ASSIGNMENT_PASSED",
+      subjectKey,
+      trackId: tId,
+      moduleIndex: mIdx,
+      score: scoreVal,
+      passedTests: passedVal,
+      totalTests: totalVal,
+      timestamp: Date.now(),
+      time: Date.now(),
+    };
+
     try {
-      localStorage.setItem(
-        "mz_module_progress_updated",
-        JSON.stringify({
-          type: "MZ_ASSIGNMENT_PASSED",
-          subjectKey,
-          trackId: tId,
-          moduleIndex: mIdx,
-          time: Date.now(),
-        })
-      );
+      localStorage.setItem("mz_module_progress_updated", JSON.stringify(payload));
     } catch {}
 
     if (typeof window !== "undefined" && window.opener) {
       try {
-        window.opener.postMessage(
-          {
-            type: "MZ_ASSIGNMENT_PASSED",
-            subjectKey,
-            trackId: tId,
-            moduleIndex: mIdx,
-          },
-          "*"
-        );
+        window.opener.postMessage(payload, "*");
       } catch {}
     }
 
     try {
       if (typeof BroadcastChannel !== "undefined") {
         const bc = new BroadcastChannel("mz_module_sync");
-        bc.postMessage({
-          type: "MZ_ASSIGNMENT_PASSED",
-          subjectKey,
-          trackId: tId,
-          moduleIndex: mIdx,
-          timestamp: Date.now(),
-        });
+        bc.postMessage(payload);
         bc.close();
       }
     } catch {}
@@ -208,7 +200,7 @@ export default function PracticalAssignmentModal({
     try {
       window.dispatchEvent(
         new CustomEvent("mz_assignment_passed", {
-          detail: { subjectKey, trackId: tId, moduleIndex: mIdx, result: resultData },
+          detail: { ...payload, result: resultData },
         })
       );
     } catch {}
@@ -342,6 +334,7 @@ export default function PracticalAssignmentModal({
               code: runCode,
               language: lang,
               customInput: customInput?.trim() ? customInput : undefined,
+              runAll: true,
             }),
           });
           const text = await res.text();

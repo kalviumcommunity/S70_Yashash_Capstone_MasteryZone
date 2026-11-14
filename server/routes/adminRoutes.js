@@ -1658,10 +1658,18 @@ router.get("/attempt-report/:type/:id", async (req, res) => {
           const user = sessionDoc.userId || {};
           const subResult = sessionDoc.submissionResult || {};
           const primaryQ = (sessionDoc.questions && sessionDoc.questions[0]) || {};
-          const score = subResult.score !== undefined ? subResult.score : (primaryQ.score !== undefined ? primaryQ.score : 0);
           const totalT = subResult.totalTests || primaryQ.totalTests || 10;
           const passedT = subResult.passedTests !== undefined ? subResult.passedTests : (primaryQ.passedTests !== undefined ? primaryQ.passedTests : 0);
-          const isPassed = subResult.passed !== undefined ? subResult.passed : score >= 80;
+          const isPassed = subResult.passed !== undefined ? subResult.passed : (sessionDoc.status === "submitted" && (subResult.score >= 80 || sessionDoc.score >= 80 || (totalT > 0 && passedT === totalT)));
+          const score = (subResult.score != null && subResult.score > 0)
+            ? subResult.score
+            : (sessionDoc.score != null && sessionDoc.score > 0
+                ? sessionDoc.score
+                : (primaryQ.score != null && primaryQ.score > 0
+                    ? primaryQ.score
+                    : (totalT > 0 && passedT > 0
+                        ? Math.round((passedT / totalT) * 100)
+                        : (isPassed ? 100 : 0))));
 
           report = {
             itemType: "coding",
@@ -1703,7 +1711,12 @@ router.get("/attempt-report/:type/:id", async (req, res) => {
       const user = doc.userId || {};
       const totalT = doc.totalTests || 10;
       const passedT = doc.passedTests != null ? doc.passedTests : 0;
-      const pct = doc.score != null ? doc.score : Math.round((passedT / (totalT || 1)) * 100);
+      const isAccepted = doc.status === "ACCEPTED" || (totalT > 0 && passedT === totalT);
+      const pct = (doc.score != null && doc.score > 0)
+        ? doc.score
+        : (totalT > 0 && passedT > 0
+            ? Math.round((passedT / totalT) * 100)
+            : (isAccepted ? 100 : 0));
 
       let isViewed = Boolean(doc.notificationViewed);
       let viewedAt = doc.notificationViewedAt || null;
@@ -3677,8 +3690,12 @@ router.get("/assessments", async (req, res) => {
         const uObj = resolveUser(s.userId);
         const totalT = s.totalTests || 10;
         const passedT = s.passedTests != null ? s.passedTests : 0;
-        const pct = s.score != null ? s.score : Math.round((passedT / totalT) * 100);
-        const isAccepted = s.status === "ACCEPTED" || passedT === totalT;
+        const isAccepted = s.status === "ACCEPTED" || (passedT === totalT && totalT > 0);
+        const pct = (s.score != null && s.score > 0)
+          ? s.score
+          : (totalT > 0 && passedT > 0
+              ? Math.round((passedT / totalT) * 100)
+              : (isAccepted ? 100 : 0));
         return {
           id: s._id,
           rawId: s._id,
@@ -3691,8 +3708,8 @@ router.get("/assessments", async (req, res) => {
           type: "Coding Assessment",
           category: "Coding Assessment",
           score: `${passedT}/${totalT} (${pct}%)`,
-          rawScore: passedT,
-          maxScore: totalT,
+          rawScore: pct,
+          maxScore: 100,
           status: isAccepted ? "Passed" : "Failed",
           passed: isAccepted,
           date: s.createdAt,
@@ -3733,8 +3750,18 @@ router.get("/assessments", async (req, res) => {
         const uObj = resolveUser(p.userId, p.candidateDetails?.email);
         const user = p.candidateDetails?.fullName || uObj?.fullName || uObj?.username || "Candidate";
         const email = p.candidateDetails?.email || uObj?.email || "";
-        const score = p.submissionResult?.score != null ? p.submissionResult.score : (p.score != null ? p.score : 0);
-        const isPassed = p.status === "submitted" && (score >= 70 || p.submissionResult?.passed);
+        const subRes = p.submissionResult || {};
+        const q0 = (p.questions && p.questions[0]) || {};
+        const passedT = subRes.passedTests != null ? subRes.passedTests : (q0.passedTests != null ? q0.passedTests : 0);
+        const totalT = subRes.totalTests || q0.totalTests || 10;
+        const isPassed = p.status === "submitted" && (subRes.passed || p.evaluationVerdict === "PASSED" || (totalT > 0 && passedT === totalT) || (subRes.score >= 80) || (p.score >= 80));
+        const score = (subRes.score != null && subRes.score > 0)
+          ? subRes.score
+          : (p.score != null && p.score > 0
+              ? p.score
+              : (totalT > 0 && passedT > 0
+                  ? Math.round((passedT / totalT) * 100)
+                  : (isPassed ? 100 : 0)));
         return {
           id: p._id,
           rawId: p._id,
@@ -4556,10 +4583,16 @@ router.get("/reports", async (req, res) => {
         const uObj = resolveUser(cs.userId, cs.candidateDetails?.email);
         const subResult = cs.submissionResult || {};
         const primaryQ = (cs.questions && cs.questions[0]) || {};
-        const score = subResult.score !== undefined ? subResult.score : (primaryQ.score !== undefined ? primaryQ.score : 0);
         const totalTests = subResult.totalTests || primaryQ.totalTests || 10;
         const passedTests = subResult.passedTests !== undefined ? subResult.passedTests : (primaryQ.passedTests !== undefined ? primaryQ.passedTests : 0);
-        const isPassed = subResult.passed !== undefined ? subResult.passed : score >= 80;
+        const isPassed = subResult.passed !== undefined ? subResult.passed : (cs.status === "submitted" && (subResult.score >= 80 || cs.score >= 80 || (totalTests > 0 && passedTests === totalTests)));
+        const score = (subResult.score != null && subResult.score > 0)
+          ? subResult.score
+          : (cs.score != null && cs.score > 0
+              ? cs.score
+              : (totalTests > 0 && passedTests > 0
+                  ? Math.round((passedTests / totalTests) * 100)
+                  : (isPassed ? 100 : 0)));
         const recipient = cs.candidateDetails?.fullName || uObj?.fullName || uObj?.username || "Candidate";
         const email = cs.candidateDetails?.email || uObj?.email || "";
         const title = `${cs.assessmentTitle || primaryQ.title || "Algorithmic Challenge"} — Coding Assessment Report`;
@@ -4589,8 +4622,12 @@ router.get("/reports", async (req, res) => {
         const user = resolveUser(cs.userId) || {};
         const totalT = cs.totalTests || 10;
         const passedT = cs.passedTests != null ? cs.passedTests : 0;
-        const pct = cs.score != null ? cs.score : Math.round((passedT / totalT) * 100);
-        const isAccepted = cs.status === "ACCEPTED";
+        const isAccepted = cs.status === "ACCEPTED" || (totalT > 0 && passedT === totalT);
+        const pct = (cs.score != null && cs.score > 0)
+          ? cs.score
+          : (totalT > 0 && passedT > 0
+              ? Math.round((passedT / totalT) * 100)
+              : (isAccepted ? 100 : 0));
         return {
           id: cs._id,
           rawId: cs._id,

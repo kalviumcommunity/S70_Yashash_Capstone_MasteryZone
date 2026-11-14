@@ -310,7 +310,12 @@ const AdminAssessments = () => {
         const json = await res.json();
         if (json.success && json.report) {
           setActiveReport(json.report);
-          setEditScoreValue(json.report.score != null ? json.report.score : json.report.percentage || 0);
+          const repScore = (json.report.score != null && json.report.score > 0)
+            ? json.report.score
+            : (json.report.marksObtained != null && json.report.marksObtained > 0
+                ? json.report.marksObtained
+                : (json.report.percentage || (json.report.passed ? (json.report.maxScore || 100) : 0)));
+          setEditScoreValue(repScore);
           setEditStatusValue(json.report.status || "PASSED");
           setEditAdminNote(json.report.adminNote || "");
           return;

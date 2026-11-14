@@ -587,7 +587,13 @@ const AdminCodingAnalytics = () => {
                     </td>
 
                     <td style={{ fontWeight: 800, color: "var(--mz-text-primary)" }}>
-                      {s.score != null ? `${s.score}/100` : s.status === "ACCEPTED" ? "100/100" : "80/100"}
+                      {s.score != null && s.score > 0
+                        ? `${s.score}/100`
+                        : s.status === "ACCEPTED" || (s.passedTests != null && s.passedTests === (s.totalTests || 10) && (s.totalTests || 10) > 0)
+                        ? "100/100"
+                        : s.passedTests != null && s.passedTests > 0
+                        ? `${Math.round((s.passedTests / (s.totalTests || 10)) * 100)}/100`
+                        : `${s.score || 0}/100`}
                     </td>
 
                     <td style={{ color: "var(--mz-text-primary)", fontWeight: 700 }}>
