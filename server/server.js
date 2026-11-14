@@ -46,6 +46,7 @@ const User = require("./models/User");
 const { pushNotification, setGlobalIo } = require("./utils/notificationService");
 const { setGlobalAdminIo } = require("./utils/adminNotificationService");
 const { setGlobalActivityIo, logActivityAndBroadcast } = require("./utils/activityLogger");
+const sessionManager = require("./utils/sessionManager");
 const http = require('http');
 const { Server } = require('socket.io');
 dotenv.config(); // Load environment variables from .env file
@@ -144,6 +145,10 @@ const io = new Server(server, {
   pingInterval: 25000,
   allowEIO3: true,
   maxHttpBufferSize: 2e6,
+  connectionStateRecovery: {
+    maxDisconnectionDuration: 2 * 60 * 1000,
+    skipMiddlewares: true,
+  },
 });
 
 // Wire Socket.IO globally for instantaneous notification dispatch
@@ -151,9 +156,10 @@ setGlobalIo(io);
 setGlobalAdminIo(io);
 setGlobalActivityIo(io);
 
-// Make io accessible throughout Express app routes
+// Make io and sessionManager accessible throughout Express app routes
 app.set("io", io);
 app.set("logActivityAndBroadcast", logActivityAndBroadcast);
+app.set("sessionManager", sessionManager);
 
 // Store online users: { socketId: username }
 const onlineUsers = new Map();
@@ -166,7 +172,6 @@ app.set("codingRooms", codingRooms);
 server.codingRooms = codingRooms;
 
 // Active User Sessions Map for Real-Time Super Admin Monitoring:
-// socketId => { socketId, userId, username, fullName, email, currentPage, activity, startedAt, lastHeartbeat, device }
 const activeUserSessions = new Map();
 app.set("activeUserSessions", activeUserSessions);
 
@@ -180,16 +185,12 @@ function broadcastOnlineUsers() {
   }, 1000);
 }
 
-// Periodic cleanup for stale active user sessions (heartbeat older than 5 minutes)
+// Periodic cleanup for stale active user sessions (runs every 20 seconds)
 const sessionCleanupInterval = setInterval(() => {
-  const staleThreshold = Date.now() - 5 * 60 * 1000;
-  for (const [sId, sess] of activeUserSessions.entries()) {
-    if (sess.lastHeartbeat && sess.lastHeartbeat < staleThreshold) {
-      activeUserSessions.delete(sId);
-      io.to("super_admin_room").emit("live_session_ended", { socketId: sId, userId: sess.userId });
-    }
-  }
-}, 5 * 60 * 1000);
+  sessionManager.cleanupStaleSessions(io).catch((err) => {
+    console.warn("[SessionCleanup] Warning:", err.message);
+  });
+}, 20 * 1000);
 if (sessionCleanupInterval.unref) sessionCleanupInterval.unref();
 
 io.on("connection", (socket) => {
@@ -290,11 +291,13 @@ io.on("connection", (socket) => {
             socket.data.codingRoomId = null;
           }
           // Clean up old user session in super admin monitor
-          if (activeUserSessions.has(socket.id)) {
-            const sess = activeUserSessions.get(socket.id);
-            activeUserSessions.delete(socket.id);
-            io.to("super_admin_room").emit("live_session_ended", { socketId: socket.id, userId: sess?.userId });
-          }
+          sessionManager.handleDisconnect(socket.id).then((res) => {
+            if (res?.sessionEnded) {
+              io.to("super_admin_room").emit("live_session_ended", { userId: res.userId, socketId: socket.id });
+            } else if (res?.session) {
+              io.to("super_admin_room").emit("live_session_update", res.session);
+            }
+          }).catch(() => {});
         }
         socket.data.authToken = cleanToken;
         socket.data.userId = uid;
@@ -351,11 +354,13 @@ io.on("connection", (socket) => {
       }
       delete socket.data.codingRoomId;
     }
-    if (activeUserSessions.has(socket.id)) {
-      const sess = activeUserSessions.get(socket.id);
-      activeUserSessions.delete(socket.id);
-      io.to("super_admin_room").emit("live_session_ended", { socketId: socket.id, userId: sess?.userId });
-    }
+    sessionManager.handleDisconnect(socket.id).then((res) => {
+      if (res?.sessionEnded) {
+        io.to("super_admin_room").emit("live_session_ended", { userId: res.userId, socketId: socket.id });
+      } else if (res?.session) {
+        io.to("super_admin_room").emit("live_session_update", res.session);
+      }
+    }).catch(() => {});
     delete socket.data.authToken;
     delete socket.data.userId;
     delete socket.data.userRole;
@@ -475,46 +480,36 @@ io.on("connection", (socket) => {
   // Real-time user activity heartbeat for Super Admin live activity monitoring
   socket.on("user_activity_heartbeat", async (data) => {
     if (!data) return;
-    // Derive identity strictly from authenticated socket session; never trust client-supplied data.userId
-    const uid = socket.data.userId;
+    // Derive identity strictly from authenticated socket session; verify token if supplied
+    let uid = socket.data.userId;
+    if (!uid && data.token) {
+      uid = joinUserRoomFromToken(data.token);
+    }
     if (!uid || uid === "guest") return; // Exclude non-authenticated guest sessions
 
     let userInfo = null;
     if (uid && mongoose.Types.ObjectId.isValid(uid)) {
       try {
-        userInfo = await User.findById(uid).select("username fullName email isGuest role lastLoginDevice");
+        userInfo = await User.findById(uid).select("username fullName email isGuest isAutomatedTestUser role profilePicture avatar lastLoginDevice").lean();
       } catch {}
     }
 
-    // Strictly ensure only genuine registered student accounts are added to real-time telemetry
-    if (
-      !userInfo ||
-      userInfo.isGuest ||
-      userInfo.role === "SUPER_ADMIN" ||
-      String(userInfo.email || "").includes("@masteryzone.com") ||
-      String(userInfo.username || "").startsWith("guest_")
-    ) {
+    if (!userInfo || !sessionManager.isGenuineRegisteredUser(userInfo)) {
       return;
     }
 
-    const sessionObj = {
+    const sessionObj = await sessionManager.recordHeartbeat({
       socketId: socket.id,
-      userId: String(userInfo._id),
-      username: userInfo.username,
-      fullName: userInfo.fullName || userInfo.username,
-      email: userInfo.email,
-      currentPage: data.page || "/home",
-      activity: data.activity || "Learning Path",
-      startedAt: activeUserSessions.get(socket.id)?.startedAt || Date.now(),
-      lastHeartbeat: Date.now(),
-      device: data.device || userInfo.lastLoginDevice || "Desktop / Chrome",
-      mediaState: data.mediaState || activeUserSessions.get(socket.id)?.mediaState || null,
-    };
+      user: userInfo,
+      page: data.page || "",
+      activity: data.activity || "",
+      device: data.device || "",
+      mediaState: data.mediaState || null,
+    });
 
-    activeUserSessions.set(socket.id, sessionObj);
-
-    // Notify Super Admin live monitoring channel in real time
-    io.to("super_admin_room").emit("live_session_update", sessionObj);
+    if (sessionObj) {
+      io.to("super_admin_room").emit("live_session_update", sessionObj);
+    }
   });
 
   // Super Admin joins real-time live monitoring & proctoring feed room (Restricted to verified administrators)
@@ -543,14 +538,8 @@ io.on("connection", (socket) => {
     }
 
     socket.join("super_admin_room");
-    // Filter snapshot to ensure only valid registered student accounts are transmitted
-    const validSessions = Array.from(activeUserSessions.values()).filter(
-      (s) =>
-        s.userId &&
-        s.userId !== "guest" &&
-        !String(s.email || "").includes("@masteryzone.com") &&
-        !String(s.username || "").startsWith("guest_")
-    );
+    // Return genuine active registered user sessions snapshot
+    const validSessions = await sessionManager.getActiveSessions();
     socket.emit("live_sessions_snapshot", validSessions);
     socket.emit("admin_feed_connected", { success: true, timestamp: new Date() });
   };
@@ -1919,13 +1908,6 @@ io.on("connection", (socket) => {
   // Voluntary leave
   socket.on("leave_meeting", () => {
     handleUserLeavingMeeting(socket);
-
-    // Clean up active session for Super Admin live activity
-    if (activeUserSessions.has(socket.id)) {
-      const sess = activeUserSessions.get(socket.id);
-      activeUserSessions.delete(socket.id);
-      io.to("super_admin_room").emit("live_session_ended", { socketId: socket.id, userId: sess?.userId });
-    }
   });
 
   // When a user disconnects
@@ -1939,11 +1921,13 @@ io.on("connection", (socket) => {
     handleUserLeavingMeeting(socket);
 
     // Clean up active session for Super Admin live activity
-    if (activeUserSessions.has(socket.id)) {
-      const sess = activeUserSessions.get(socket.id);
-      activeUserSessions.delete(socket.id);
-      io.to("super_admin_room").emit("live_session_ended", { socketId: socket.id, userId: sess?.userId });
-    }
+    sessionManager.handleDisconnect(socket.id).then((res) => {
+      if (res?.sessionEnded) {
+        io.to("super_admin_room").emit("live_session_ended", { userId: res.userId, socketId: socket.id });
+      } else if (res?.session) {
+        io.to("super_admin_room").emit("live_session_update", res.session);
+      }
+    }).catch(() => {});
 
     // Clean up coding rooms
     for (const [roomId, room] of codingRooms.entries()) {
@@ -2273,6 +2257,7 @@ async function connectDB() {
       await mongoose.connect(testUri, testOpts);
       console.log("✅ MongoDB Connected to Isolated Test Database");
       await bootstrapSuperAdmin();
+    await sessionManager.initSessionManager().catch((sErr) => console.warn("[SessionManager] Init note:", sErr.message));
     } catch (err) {
       console.error("🔌 Test MongoDB connection failed:", err.message);
       throw err;
@@ -2296,6 +2281,7 @@ async function connectDB() {
     await mongoose.connect(mongoUri, poolOpts);
     console.log(`✅ MongoDB Connected Successfully [Pool: min=${poolOpts.minPoolSize}, max=${poolOpts.maxPoolSize}, waitQueueTimeout=${poolOpts.waitQueueTimeoutMS}ms]`);
     await bootstrapSuperAdmin();
+    await sessionManager.initSessionManager().catch((sErr) => console.warn("[SessionManager] Init note:", sErr.message));
     // Asynchronously trigger background cloud recording self-healing and GridFS sync
     try {
       const { syncRecordingsToGridFS } = require("./utils/recordingSync");
@@ -2319,6 +2305,7 @@ async function connectDB() {
         await mongoose.connect("mongodb://127.0.0.1:27017/masteryzone", localOpts);
         console.log("✅ MongoDB Connected Successfully (Local Fallback)");
         await bootstrapSuperAdmin();
+    await sessionManager.initSessionManager().catch((sErr) => console.warn("[SessionManager] Init note:", sErr.message));
       } catch (localErr) {
         console.error("🔌 Local MongoDB connection also failed:", localErr.message);
         throw localErr;

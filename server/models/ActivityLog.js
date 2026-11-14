@@ -14,7 +14,7 @@ const activityLogSchema = new mongoose.Schema(
     },
     userName: {
       type: String,
-      default: "Candidate",
+      default: "",
     },
     userAvatar: {
       type: String,
@@ -76,7 +76,7 @@ const activityLogSchema = new mongoose.Schema(
     },
     device: {
       type: String,
-      default: "Desktop / Chrome",
+      default: "",
     },
   },
   {
