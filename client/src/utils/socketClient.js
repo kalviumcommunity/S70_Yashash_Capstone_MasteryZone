@@ -7,9 +7,25 @@ import { io } from "socket.io-client";
 
 const socketRegistry = new Map();
 
+function resolveSocketUrl(url) {
+  if (url && typeof url === "string" && !url.includes("vercel.app") && !url.includes("netlify.app") && url !== "/" && !url.startsWith("/")) {
+    return url;
+  }
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  if (typeof window !== "undefined") {
+    if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+      return "http://localhost:5012";
+    }
+  }
+  return "https://mastery-zone-api.onrender.com";
+}
+
 export function getSharedSocket(targetUrl, options = {}) {
+  const resolvedTarget = resolveSocketUrl(targetUrl);
   const token = options.auth?.token || localStorage.getItem("token") || "";
-  const key = `${targetUrl || "default"}::${token}`;
+  const key = `${resolvedTarget}::${token}`;
 
   let entry = socketRegistry.get(key);
   if (entry) {
@@ -21,7 +37,7 @@ export function getSharedSocket(targetUrl, options = {}) {
     return entry.socket;
   }
 
-  const socket = io(targetUrl, {
+  const socket = io(resolvedTarget, {
     transports: ["websocket", "polling"],
     reconnection: true,
     reconnectionAttempts: Infinity,

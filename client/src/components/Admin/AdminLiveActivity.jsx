@@ -426,19 +426,20 @@ const AdminLiveActivity = () => {
                 <th>Session Started</th>
                 <th>Duration</th>
                 <th>Device &amp; Telemetry</th>
+                <th>Media Streams</th>
                 <th>Status</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="7" style={{ textAlign: "center", padding: "40px 0", color: "var(--mz-text-subtle)" }}>
+                  <td colSpan="8" style={{ textAlign: "center", padding: "40px 0", color: "var(--mz-text-subtle)" }}>
                     Connecting to live telemetry stream...
                   </td>
                 </tr>
               ) : sessions.length === 0 ? (
                 <tr>
-                  <td colSpan="7" style={{ textAlign: "center", padding: "40px 0", color: "var(--mz-text-subtle)" }}>
+                  <td colSpan="8" style={{ textAlign: "center", padding: "40px 0", color: "var(--mz-text-subtle)" }}>
                     No active user sessions currently connected.
                   </td>
                 </tr>
@@ -496,6 +497,56 @@ const AdminLiveActivity = () => {
 
                     <td style={{ color: "var(--mz-text-muted)", fontSize: 12 }}>
                       {s.device || "Desktop / Chrome"}
+                    </td>
+
+                    <td>
+                      {s.mediaState ? (
+                        <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
+                          <span
+                            title={s.mediaState.isMuted ? "Microphone Muted" : "Microphone Active"}
+                            style={{
+                              fontSize: 10.5,
+                              padding: "2px 6px",
+                              borderRadius: 4,
+                              background: s.mediaState.isMuted ? "var(--mz-red-bg, #fee2e2)" : "var(--mz-green-bg, #dcfce7)",
+                              color: s.mediaState.isMuted ? "#dc2626" : "#16a34a",
+                              fontWeight: 700,
+                            }}
+                          >
+                            {s.mediaState.isMuted ? "🎤 Off" : "🎤 On"}
+                          </span>
+                          <span
+                            title={s.mediaState.isVideoOff ? "Camera Off" : "Camera Active"}
+                            style={{
+                              fontSize: 10.5,
+                              padding: "2px 6px",
+                              borderRadius: 4,
+                              background: s.mediaState.isVideoOff ? "var(--mz-red-bg, #fee2e2)" : "var(--mz-green-bg, #dcfce7)",
+                              color: s.mediaState.isVideoOff ? "#dc2626" : "#16a34a",
+                              fontWeight: 700,
+                            }}
+                          >
+                            {s.mediaState.isVideoOff ? "📷 Off" : "📷 On"}
+                          </span>
+                          {s.mediaState.isScreenSharing && (
+                            <span
+                              title="Sharing Screen"
+                              style={{
+                                fontSize: 10.5,
+                                padding: "2px 6px",
+                                borderRadius: 4,
+                                background: "var(--mz-purple-bg, #ede9fe)",
+                                color: "#7c3aed",
+                                fontWeight: 700,
+                              }}
+                            >
+                              🖥️ Sharing
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span style={{ color: "var(--mz-text-subtle)", fontSize: 11.5 }}>Standard Web</span>
+                      )}
                     </td>
 
                     <td>

@@ -227,6 +227,24 @@ export function NotificationProvider({ children }) {
 
     socketRef.current = socket;
 
+    const sendActivityHeartbeat = () => {
+      if (!socket || !socket.connected) return;
+      const path = typeof window !== "undefined" ? window.location.pathname : "/home";
+      let act = "Learning Dashboard";
+      if (path.startsWith("/coding")) act = "Coding Challenges & IDE";
+      else if (path.startsWith("/live") || path.startsWith("/meeting")) act = "Live Video Meeting";
+      else if (path.startsWith("/assessments") || path.startsWith("/exam")) act = "Proctored Assessment";
+      else if (path.startsWith("/reports")) act = "Viewing Assessment Reports";
+      else if (path.startsWith("/courses") || path.startsWith("/learn")) act = "Concept Learning";
+      else if (path.startsWith("/support") || path.startsWith("/help")) act = "Support Desk";
+
+      socket.emit("user_activity_heartbeat", {
+        page: path,
+        activity: act,
+        device: typeof navigator !== "undefined" ? `${navigator.platform || "Desktop"} / Chrome` : "Desktop",
+      });
+    };
+
     const handleConnect = () => {
       setIsSocketConnected(true);
       const userId = extractUserIdFromAuth();
@@ -234,8 +252,12 @@ export function NotificationProvider({ children }) {
         token: authToken,
         userId,
       });
+      sendActivityHeartbeat();
       refreshNotifications();
     };
+
+    const heartbeatInterval = setInterval(sendActivityHeartbeat, 25000);
+    window.addEventListener("popstate", sendActivityHeartbeat);
 
     const handleDisconnect = () => {
       setIsSocketConnected(false);
@@ -327,6 +349,8 @@ export function NotificationProvider({ children }) {
     });
 
     return () => {
+      clearInterval(heartbeatInterval);
+      window.removeEventListener("popstate", sendActivityHeartbeat);
       socket.off("connect", handleConnect);
       socket.off("disconnect", handleDisconnect);
       socket.off("new_notification", handleNewNotification);
