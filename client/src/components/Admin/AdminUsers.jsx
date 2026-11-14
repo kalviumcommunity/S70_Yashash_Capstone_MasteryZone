@@ -30,6 +30,7 @@ const AdminUsers = () => {
   const [showDropdown, setShowDropdown] = useState(false);
   const searchContainerRef = useRef(null);
   const [status, setStatus] = useState("all");
+  const [roleFilter, setRoleFilter] = useState("all");
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({ total: 0, pages: 1, limit: 15 });
   const [selectedUserDetail, setSelectedUserDetail] = useState(null);
@@ -61,12 +62,16 @@ const AdminUsers = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem("token");
-      const query = new URLSearchParams({
+      const queryObj = {
         search,
         status,
         page,
         limit: 15,
-      });
+      };
+      if (roleFilter !== "all") {
+        queryObj.role = roleFilter;
+      }
+      const query = new URLSearchParams(queryObj);
 
       const res = await deduplicatedFetch(`${API_BASE}/api/admin/users?${query.toString()}`, {
         headers: {
@@ -97,7 +102,7 @@ const AdminUsers = () => {
       fetchUsers();
     }, 250);
     return () => clearTimeout(timer);
-  }, [page, status, search]);
+  }, [page, status, search, roleFilter]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -395,23 +400,42 @@ const AdminUsers = () => {
           )}
         </form>
 
-        <div className="mz-admin-filter-tabs">
-          {[
-            { id: "all", label: "All Users" },
-            { id: "active", label: "Active" },
-            { id: "suspended", label: "Suspended" },
-          ].map((f) => (
-            <button
-              key={f.id}
-              onClick={() => {
-                setStatus(f.id);
-                setPage(1);
-              }}
-              className={`mz-admin-tab-btn ${status === f.id ? "active" : ""}`}
-            >
-              {f.label}
-            </button>
-          ))}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <select
+            value={roleFilter}
+            onChange={(e) => {
+              setRoleFilter(e.target.value);
+              setPage(1);
+            }}
+            className="mz-admin-role-select"
+            style={{ height: 38, padding: '0 12px' }}
+            title="Filter by user role"
+          >
+            <option value="all">All Roles</option>
+            <option value="student">Students / Learners</option>
+            <option value="mentor">Mentors</option>
+            <option value="instructor">Instructors</option>
+            <option value="admin">Administrators</option>
+          </select>
+
+          <div className="mz-admin-filter-tabs">
+            {[
+              { id: "all", label: "All Status" },
+              { id: "active", label: "Active" },
+              { id: "suspended", label: "Suspended" },
+            ].map((f) => (
+              <button
+                key={f.id}
+                onClick={() => {
+                  setStatus(f.id);
+                  setPage(1);
+                }}
+                className={`mz-admin-tab-btn ${status === f.id ? "active" : ""}`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
