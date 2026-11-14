@@ -75,6 +75,7 @@ async function runTests() {
     password: "HashedPassword123!",
     role: "student",
     isEmailVerified: true,
+    isAutomatedTestUser: true,
   });
   candidateToken = jwt.sign(
     { userId: String(candidateUser._id), email: candidateUser.email, role: "student" },

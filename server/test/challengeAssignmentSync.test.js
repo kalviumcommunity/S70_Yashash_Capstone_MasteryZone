@@ -40,6 +40,7 @@ async function setup() {
     password: "Password123!",
     role: "student",
     isEmailVerified: true,
+    isAutomatedTestUser: true,
   });
 
   candidate2 = await User.create({
@@ -49,6 +50,7 @@ async function setup() {
     password: "Password123!",
     role: "student",
     isEmailVerified: true,
+    isAutomatedTestUser: true,
   });
 
   adminUser = await User.create({
@@ -58,6 +60,7 @@ async function setup() {
     password: "AdminPassword123!",
     role: "admin",
     isEmailVerified: true,
+    isAutomatedTestUser: true,
   });
 
   token1 = jwt.sign(
