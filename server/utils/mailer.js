@@ -291,19 +291,24 @@ const NON_DELIVERABLE_PATTERNS = [
   /^candidate_test/i,
   /^candidate_\d{3,}/i,
   /^candidate-[0-9a-f]{6,}/i,
-  /^alice_cert/i,
-  /^alice_\d+/i,
-  /^bob_\d+/i,
+  /^candidate/i,
+  /^alice/i,
+  /^bob/i,
+  /^charlie/i,
   /^admin_\d+/i,
   /^cert_att_/i,
   /^cert_student/i,
   /^student_pwd/i,
   /testdomain/i,
+  /^test[_-]/i,
+  /^tester/i,
+  /^testing/i,
   /^rec_(host|attacker|admin)/i,
   /^user_[ab]_(critical|tester)/i,
   /^integration\.user/i,
   /^dummy/i,
   /^fake/i,
+  /placeholder/i,
   /^hacker@/i,
   /^outsider@/i,
 ];
@@ -312,8 +317,8 @@ function isSyntheticTestDomain(domain = "") {
   if (!domain || typeof domain !== "string") return true;
   const d = domain.trim().toLowerCase();
   if (NON_DELIVERABLE_DOMAINS.has(d)) return true;
-  if (d.endsWith(".test") || d.endsWith(".invalid") || d.endsWith(".local")) return true;
-  if (d.includes("testdomain") || d.includes("mailinator")) return true;
+  if (d.endsWith(".test") || d.endsWith(".invalid") || d.endsWith(".local") || d.endsWith(".example") || d.endsWith(".internal")) return true;
+  if (d.includes("testdomain") || d.includes("mailinator") || d.includes("tempmail") || d.includes("10minute") || d.includes("throwaway")) return true;
   return false;
 }
 
@@ -1208,7 +1213,7 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
   }
 
   // Anti-Spam & Deliverability Guard: Never dispatch emails to synthetic test fixtures, non-deliverable addresses, or placeholder accounts
-  if (!options.bypassSyntheticCheck && (isGuestAccount(to, options.role) || !isLegitimateDeliverableEmail(to, options.role))) {
+  if (isGuestAccount(to, options.role) || !isLegitimateDeliverableEmail(to, options.role)) {
     const reason = `Email suppressed: recipient "${to}" matches non-deliverable, guest, or synthetic address filter`;
     console.log(`[Email Suppressed] Type: "${emailType}" | Recipient: "${maskEmail(to)}" | Reason: "${reason}"`);
     await recordEmailLog({
@@ -1714,8 +1719,16 @@ async function sendMailWithRetry(mailOptions, maxRetries = 1, options = {}) {
  * Dispatches an email action in the background immediately without blocking the caller HTTP thread.
  */
 function dispatchMailBackground(mailPromiseFn, meta = {}) {
-  const maskedRec = meta.recipient ? maskEmail(meta.recipient) : 'unspecified';
+  const recipient = (meta.recipient || '').trim().toLowerCase();
+  const maskedRec = recipient ? maskEmail(recipient) : 'unspecified';
   const type = meta.type || 'generic';
+
+  // Upfront strict blocking of synthetic, test, or guest recipients before launching background worker
+  if (recipient && (isGuestAccount(recipient, meta.role) || !isLegitimateDeliverableEmail(recipient, meta.role))) {
+    console.log(`[Email Background Suppressed] Type: "${type}" | Recipient: "${maskedRec}" | Reason: "Recipient matches synthetic/non-deliverable address filter"`);
+    return;
+  }
+
   console.log(`[Email Background Event] Type: "${type}" | Recipient: "${maskedRec}"`);
   setImmediate(async () => {
     try {
