@@ -1603,6 +1603,43 @@
   padding: 4px 0;
 }
 
+/* Clean numeric input without increment/decrement spinner arrows */
+.mz-clean-numeric-input::-webkit-outer-spin-button,
+.mz-clean-numeric-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.mz-clean-numeric-input {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* Score Preset Pill Buttons */
+.mz-score-preset-pill {
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid var(--mz-border);
+  background: var(--mz-surface-subtle);
+  color: var(--mz-text-muted);
+  transition: all 0.15s ease;
+  user-select: none;
+}
+.mz-score-preset-pill:hover {
+  background: var(--mz-purple-bg);
+  color: #4f46e5;
+  border-color: #6366f1;
+  transform: translateY(-1px);
+}
+.mz-score-preset-pill.active {
+  background: var(--mz-purple-bg);
+  color: #4f46e5;
+  border-color: #6366f1;
+  box-shadow: 0 1px 4px rgba(99, 102, 241, 0.25);
+}
+
 /* Dark-mode specific polish for Admin portal */
 [data-theme="dark"] .mz-admin-portal select option,
 .mz-theme-dark .mz-admin-portal select option {
