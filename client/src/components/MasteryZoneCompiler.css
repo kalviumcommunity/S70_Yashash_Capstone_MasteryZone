@@ -25,6 +25,9 @@
   height: 100% !important;
   min-height: 0 !important;
   flex: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
 }
 
 .mz-compiler-overlay.mz-compiler-embedded .mz-compiler-topbar {
@@ -35,19 +38,14 @@
   display: none !important;
 }
 
-.mz-compiler-overlay.mz-compiler-embedded .mz-compiler-question-card {
-  margin: 0 0 12px 0 !important;
-  border-radius: 10px !important;
-}
-
 .mz-compiler-overlay.mz-compiler-embedded .mz-compiler-scroll-body {
-  padding: 12px 16px !important;
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
+  padding: 8px 12px !important;
+  overflow: hidden !important;
   display: flex !important;
   flex-direction: column !important;
   flex: 1 !important;
   height: 100% !important;
+  min-height: 0 !important;
 }
 
 .mz-compiler-overlay.mz-compiler-embedded .mz-compiler-container {
@@ -56,8 +54,10 @@
   padding: 0 !important;
   width: 100% !important;
   height: 100% !important;
+  min-height: 0 !important;
   flex: 1 !important;
   display: flex !important;
+  overflow: hidden !important;
 }
 
 .mz-compiler-overlay.mz-compiler-embedded .mz-compiler-container.has-proctoring {
@@ -68,18 +68,50 @@
 .mz-compiler-overlay.mz-compiler-embedded .mz-compiler-main-content {
   width: 100% !important;
   height: 100% !important;
-  display: flex !important;
-  flex-direction: column !important;
+  min-height: 0 !important;
+  display: grid !important;
+  grid-template-columns: minmax(360px, 40%) 1fr !important;
+  gap: 14px !important;
   flex: 1 !important;
+  overflow: hidden !important;
+}
+
+.mz-compiler-overlay.mz-compiler-embedded .mz-compiler-question-card {
+  margin: 0 !important;
+  border-radius: 12px !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  overflow-y: auto !important;
+  border: 1px solid var(--mz-border) !important;
+  background: var(--mz-surface) !important;
+  padding: 16px 18px !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06) !important;
 }
 
 .mz-compiler-overlay.mz-compiler-embedded .mz-vscode-card {
-  border-radius: 0 !important;
-  border: none !important;
+  border-radius: 12px !important;
+  border: 1px solid var(--mz-border) !important;
   flex: 1 !important;
   height: 100% !important;
+  min-height: 0 !important;
   display: flex !important;
   flex-direction: column !important;
+  overflow: hidden !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06) !important;
+}
+
+@media (max-width: 1024px) {
+  .mz-compiler-overlay.mz-compiler-embedded .mz-compiler-main-content {
+    grid-template-columns: 1fr !important;
+    overflow-y: auto !important;
+  }
+  .mz-compiler-overlay.mz-compiler-embedded .mz-compiler-scroll-body {
+    overflow-y: auto !important;
+  }
+  .mz-compiler-overlay.mz-compiler-embedded .mz-compiler-question-card {
+    height: auto !important;
+    max-height: 360px !important;
+  }
 }
 
 /* --------------------------------------------------------------------------

@@ -1534,9 +1534,12 @@
 
 .mz-embedded-compiler-frame {
   flex: 1;
+  height: 100%;
+  min-height: 0;
   position: relative;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 /* =========================================================================
