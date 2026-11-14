@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const ActivityLog = require("../models/ActivityLog");
 
 let globalIo = null;
@@ -27,8 +28,9 @@ const logActivityAndBroadcast = async ({
   io = null,
 }) => {
   try {
+    const safeUserId = (userId && mongoose.Types.ObjectId.isValid(userId)) ? userId : null;
     const doc = await ActivityLog.create({
-      userId: userId || null,
+      userId: safeUserId,
       userEmail: userEmail || "",
       userName: userName || (userEmail ? userEmail.split("@")[0] : "Student"),
       userAvatar: userAvatar || "",

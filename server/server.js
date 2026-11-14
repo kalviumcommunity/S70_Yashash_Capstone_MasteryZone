@@ -1292,6 +1292,20 @@ io.on("connection", (socket) => {
           meeting.status = "active";
           meeting.endedAt = null;
           await meeting.save();
+
+      // Log genuine meeting activity for Admin Live Telemetry
+      logActivityAndBroadcast({
+        userId: targetUid,
+        userEmail: targetEmail,
+        userName: targetName,
+        type: "MEETING_JOINED",
+        title: "Joined Meeting Session",
+        detail: `${targetName} joined meeting "${meeting.title || canonicalId}"`,
+        category: "meeting",
+        severity: "info",
+        device: "Desktop / WebRTC",
+        io,
+      }).catch(() => {});
         } else {
           socket.emit("meeting_error", { message: "This meeting session has ended." });
           return;
@@ -1382,6 +1396,20 @@ io.on("connection", (socket) => {
         meeting.participants.push(pData);
       }
       await meeting.save();
+
+      // Log genuine meeting activity for Admin Live Telemetry
+      logActivityAndBroadcast({
+        userId: targetUid,
+        userEmail: targetEmail,
+        userName: targetName,
+        type: "MEETING_JOINED",
+        title: "Joined Meeting Session",
+        detail: `${targetName} joined meeting "${meeting.title || canonicalId}"`,
+        category: "meeting",
+        severity: "info",
+        device: "Desktop / WebRTC",
+        io,
+      }).catch(() => {});
 
       const liveSockets = io.sockets.adapter.rooms.get(roomName) || new Set();
       liveSockets.add(socket.id);
