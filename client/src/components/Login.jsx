@@ -81,57 +81,7 @@ const Login = () => {
 
     const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedIdentifier);
 
-    // ── 1. FIREBASE EMAIL & PASSWORD LOGIN ──
-    if (isEmail) {
-      try {
-        const userCredential = await signInWithEmailAndPassword(auth, trimmedIdentifier, password);
-        const fbUser = userCredential.user;
-        const idToken = await fbUser.getIdToken();
-
-        const response = await fetch(`${AUTH_BASE}/firebase-login`, {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${idToken}`,
-          },
-          body: JSON.stringify({
-            email: fbUser.email,
-            name: fbUser.displayName || fbUser.email.split("@")[0],
-            uid: fbUser.uid,
-            token: idToken,
-          }),
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-          clearMasteryZoneStorage();
-          sessionStorage.setItem("mz_session_active", "true");
-          sessionStorage.setItem("token", data.token);
-
-          localStorage.setItem("token", data.token);
-          if (data.user) {
-            sessionStorage.setItem("user", JSON.stringify(data.user));
-            sessionStorage.setItem("mz_user", JSON.stringify(data.user));
-            localStorage.setItem("user", JSON.stringify(data.user));
-            localStorage.setItem("mz_user", JSON.stringify(data.user));
-            localStorage.setItem("userName", data.user.fullName || data.user.username || data.user.email);
-            localStorage.setItem("userEmail", data.user.email);
-          }
-          updateLastActivityTime();
-          toast.success("Login successful via Firebase!");
-          navigate(redirectTarget, { replace: true });
-          setIsSubmitting(false);
-          return;
-        }
-      } catch (fbErr) {
-        console.warn("Firebase email login attempt:", fbErr.code, fbErr.message);
-        // If wrong credentials on Firebase, check backend before giving error
-      }
-    }
-
-    // ── 2. BACKEND DATABASE AUTHENTICATION (Fallback & Username Support) ──
+    // ── 1. PRIMARY BACKEND DATABASE AUTHENTICATION (Instant Response) ──
     try {
       const response = await fetch(`${AUTH_BASE}/login`, {
         method: "POST",
@@ -145,36 +95,86 @@ const Login = () => {
 
       const data = await response.json();
 
-      if (!response.ok) {
-        toast.error(data.message || "Invalid email/username or password");
+      if (response.ok) {
+        // Purge any prior session residual data completely to ensure strict individual isolation
+        clearMasteryZoneStorage();
+        sessionStorage.setItem("mz_session_active", "true");
+        sessionStorage.setItem("token", data.token);
+
+        localStorage.setItem("token", data.token);
+        if (data.user) {
+          sessionStorage.setItem("user", JSON.stringify(data.user));
+          sessionStorage.setItem("mz_user", JSON.stringify(data.user));
+          localStorage.setItem("user", JSON.stringify(data.user));
+          localStorage.setItem("mz_user", JSON.stringify(data.user));
+          localStorage.setItem("userName", data.user.fullName || data.user.username || data.user.email);
+          localStorage.setItem("userEmail", data.user.email);
+        }
+        updateLastActivityTime();
+        toast.success("Login successful!");
+        if (
+          data.user?.role === "SUPER_ADMIN" ||
+          data.user?.email?.toLowerCase().trim() === "yashashyashash1@gmail.com" ||
+          data.user?.email?.toLowerCase().trim() === "yashashyash1@gmail.com"
+        ) {
+          navigate("/admin/overview", { replace: true });
+        } else {
+          navigate(redirectTarget, { replace: true });
+        }
+        setIsSubmitting(false);
         return;
       }
 
-      // Purge any prior session residual data completely to ensure strict individual isolation
-      clearMasteryZoneStorage();
-      sessionStorage.setItem("mz_session_active", "true");
-      sessionStorage.setItem("token", data.token);
+      // If backend credentials failed and it's an email format, check Firebase Email fallback
+      if (isEmail) {
+        try {
+          const userCredential = await signInWithEmailAndPassword(auth, trimmedIdentifier, password);
+          const fbUser = userCredential.user;
+          const idToken = await fbUser.getIdToken();
 
-      localStorage.setItem("token", data.token);
-      if (data.user) {
-        sessionStorage.setItem("user", JSON.stringify(data.user));
-        sessionStorage.setItem("mz_user", JSON.stringify(data.user));
-        localStorage.setItem("user", JSON.stringify(data.user));
-        localStorage.setItem("mz_user", JSON.stringify(data.user));
-        localStorage.setItem("userName", data.user.fullName || data.user.username || data.user.email);
-        localStorage.setItem("userEmail", data.user.email);
+          const fbResponse = await fetch(`${AUTH_BASE}/firebase-login`, {
+            method: "POST",
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${idToken}`,
+            },
+            body: JSON.stringify({
+              email: fbUser.email,
+              name: fbUser.displayName || fbUser.email.split("@")[0],
+              uid: fbUser.uid,
+              token: idToken,
+            }),
+          });
+
+          const fbData = await fbResponse.json();
+
+          if (fbResponse.ok) {
+            clearMasteryZoneStorage();
+            sessionStorage.setItem("mz_session_active", "true");
+            sessionStorage.setItem("token", fbData.token);
+
+            localStorage.setItem("token", fbData.token);
+            if (fbData.user) {
+              sessionStorage.setItem("user", JSON.stringify(fbData.user));
+              sessionStorage.setItem("mz_user", JSON.stringify(fbData.user));
+              localStorage.setItem("user", JSON.stringify(fbData.user));
+              localStorage.setItem("mz_user", JSON.stringify(fbData.user));
+              localStorage.setItem("userName", fbData.user.fullName || fbData.user.username || fbData.user.email);
+              localStorage.setItem("userEmail", fbData.user.email);
+            }
+            updateLastActivityTime();
+            toast.success("Login successful!");
+            navigate(redirectTarget, { replace: true });
+            setIsSubmitting(false);
+            return;
+          }
+        } catch (fbErr) {
+          console.warn("Firebase email fallback attempted:", fbErr.code);
+        }
       }
-      updateLastActivityTime();
-      toast.success("Login successful!");
-      if (
-        data.user?.role === "SUPER_ADMIN" ||
-        data.user?.email?.toLowerCase().trim() === "yashashyashash1@gmail.com" ||
-        data.user?.email?.toLowerCase().trim() === "yashashyash1@gmail.com"
-      ) {
-        navigate("/admin/overview", { replace: true });
-      } else {
-        navigate(redirectTarget, { replace: true });
-      }
+
+      toast.error(data.message || "Invalid email/username or password");
     } catch (error) {
       console.error("Login submit error:", error);
       toast.error("Failed to connect to server");
