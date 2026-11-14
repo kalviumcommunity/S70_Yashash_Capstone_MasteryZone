@@ -177,6 +177,15 @@ const AdminLayout = () => {
         </div>
       </aside>
 
+      {/* Mobile Drawer Overlay Backdrop */}
+      {mobileMenuOpen && (
+        <div
+          className="mz-admin-mobile-backdrop"
+          onClick={() => setMobileMenuOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       {/* ────────────────── MAIN CONTENT WRAPPER ────────────────── */}
       <div className="mz-admin-main-wrap">
         {/* Top Header Bar */}
