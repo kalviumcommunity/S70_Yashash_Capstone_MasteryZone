@@ -18,10 +18,11 @@ import {
   LuAward,
 } from "react-icons/lu";
 import { toast } from "react-toastify";
-import AdminUserDetailModal from "./AdminUserDetailModal.jsx";
 import AdminPagination from "./AdminPagination.jsx";
 import { deduplicatedFetch } from "../../utils/apiClient";
 import { getSharedSocket, releaseSharedSocket } from "../../utils/socketClient";
+
+const AdminUserDetailModal = React.lazy(() => import("./AdminUserDetailModal.jsx"));
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -640,14 +641,16 @@ const AdminUsers = () => {
 
       {/* Individual User Profile Modal */}
       {selectedUserDetail && (
-        <AdminUserDetailModal
-          userDetail={selectedUserDetail}
-          onClose={() => setSelectedUserDetail(null)}
-          onToggleStatus={handleToggleStatus}
-          onRoleChange={handleRoleChange}
-          onResetPassword={handleResetPassword}
-          onDeleteUser={handleDeleteUser}
-        />
+        <React.Suspense fallback={<div className="mz-admin-modal-overlay" style={{ display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>Loading User Profile...</div>}>
+          <AdminUserDetailModal
+            userDetail={selectedUserDetail}
+            onClose={() => setSelectedUserDetail(null)}
+            onToggleStatus={handleToggleStatus}
+            onRoleChange={handleRoleChange}
+            onResetPassword={handleResetPassword}
+            onDeleteUser={handleDeleteUser}
+          />
+        </React.Suspense>
       )}
     </div>
   );

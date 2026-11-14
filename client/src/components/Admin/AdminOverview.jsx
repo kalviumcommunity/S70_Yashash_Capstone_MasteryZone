@@ -344,56 +344,64 @@ const AdminOverview = () => {
     trackDistribution[0] || { name: "Python Programming", count: 0, percentage: 0 }
   );
 
-  // Dynamic SVG Trend Chart Calculations
-  const trendValues = trendPoints.map((p) => Number(p.activeUsers || 0));
-  const rawMax = Math.max(1, ...trendValues);
-  const maxActive = rawMax > 500 ? 1500 : rawMax > 50 ? 100 : Math.max(10, rawMax);
+  // Dynamic SVG Trend Chart Calculations memoized to avoid re-running on every hover frame
+  const chartHeight = 160;
+  const chartWidth = 560;
 
-  // Telemetry aggregates based strictly on real dataset
-  const peakUsers = trendValues.length > 0 ? Math.max(...trendValues) : 0;
-  const avgUsers = trendValues.length > 0 ? Math.round(trendValues.reduce((a, b) => a + b, 0) / trendValues.length) : 0;
-  const latestUsers = trendValues.length > 0 ? trendValues[trendValues.length - 1] : 0;
-  const totalVolume = trendValues.reduce((a, b) => a + b, 0);
+  const { trendValues, maxActive, peakUsers, avgUsers, latestUsers, totalVolume, svgCoords, pathD, areaD } = useMemo(() => {
+    const vals = trendPoints.map((p) => Number(p.activeUsers || 0));
+    const rMax = Math.max(1, ...vals);
+    const mActive = rMax > 500 ? 1500 : rMax > 50 ? 100 : Math.max(10, rMax);
+
+    const peak = vals.length > 0 ? Math.max(...vals) : 0;
+    const avg = vals.length > 0 ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : 0;
+    const latest = vals.length > 0 ? vals[vals.length - 1] : 0;
+    const vol = vals.reduce((a, b) => a + b, 0);
+
+    const pointsCount = trendPoints.length || 1;
+    const coords = trendPoints.map((pt, i) => {
+      const x = pointsCount === 1 ? chartWidth / 2 : 24 + (i / (pointsCount - 1)) * (chartWidth - 48);
+      const y = chartHeight - 24 - (Number(pt.activeUsers || 0) / mActive) * (chartHeight - 52);
+      return { x, y, date: pt.date, activeUsers: Number(pt.activeUsers || 0) };
+    });
+
+    let pD = "";
+    if (coords.length === 1) {
+      pD = `M 0 ${coords[0].y} L ${chartWidth} ${coords[0].y}`;
+    } else if (coords.length > 1) {
+      pD = `M ${coords[0].x} ${coords[0].y}`;
+      for (let i = 1; i < coords.length; i++) {
+        const prev = coords[i - 1];
+        const cur = coords[i];
+        const cpX1 = prev.x + (cur.x - prev.x) / 2;
+        const cpY1 = prev.y;
+        const cpX2 = prev.x + (cur.x - prev.x) / 2;
+        const cpY2 = cur.y;
+        pD += ` C ${cpX1} ${cpY1}, ${cpX2} ${cpY2}, ${cur.x} ${cur.y}`;
+      }
+    }
+
+    const aD = coords.length > 1
+      ? `${pD} L ${coords[coords.length - 1].x} ${chartHeight} L ${coords[0].x} ${chartHeight} Z`
+      : "";
+
+    return {
+      trendValues: vals,
+      maxActive: mActive,
+      peakUsers: peak,
+      avgUsers: avg,
+      latestUsers: latest,
+      totalVolume: vol,
+      svgCoords: coords,
+      pathD: pD,
+      areaD: aD,
+    };
+  }, [trendPoints]);
 
   const formatYLabel = (val) => {
     if (val >= 1000) return `${(val / 1000).toFixed(val % 1000 === 0 ? 0 : 1)}k`;
     return Math.round(val);
   };
-
-  const chartHeight = 160;
-  const chartWidth = 560;
-
-  const pointsCount = trendPoints.length || 1;
-  const svgCoords = trendPoints.map((pt, i) => {
-    const x = pointsCount === 1 ? chartWidth / 2 : 24 + (i / (pointsCount - 1)) * (chartWidth - 48);
-    const y = chartHeight - 24 - (Number(pt.activeUsers || 0) / maxActive) * (chartHeight - 52);
-    return { x, y, date: pt.date, activeUsers: Number(pt.activeUsers || 0) };
-  });
-
-  // Default active highlight at 4th milestone or middle point if not hovering
-  const activeHighlightedPoint = hoveredPoint || (svgCoords.length >= 4 ? svgCoords[Math.floor(svgCoords.length * 0.75)] : svgCoords[0]);
-
-  // Build smooth cubic bezier curve
-  let pathD = "";
-  if (svgCoords.length === 1) {
-    pathD = `M 0 ${svgCoords[0].y} L ${chartWidth} ${svgCoords[0].y}`;
-  } else if (svgCoords.length > 1) {
-    pathD = `M ${svgCoords[0].x} ${svgCoords[0].y}`;
-    for (let i = 1; i < svgCoords.length; i++) {
-      const prev = svgCoords[i - 1];
-      const cur = svgCoords[i];
-      const cpX1 = prev.x + (cur.x - prev.x) / 2;
-      const cpY1 = prev.y;
-      const cpX2 = prev.x + (cur.x - prev.x) / 2;
-      const cpY2 = cur.y;
-      pathD += ` C ${cpX1} ${cpY1}, ${cpX2} ${cpY2}, ${cur.x} ${cur.y}`;
-    }
-  }
-
-  const areaD =
-    svgCoords.length > 1
-      ? `${pathD} L ${svgCoords[svgCoords.length - 1].x} ${chartHeight} L ${svgCoords[0].x} ${chartHeight} Z`
-      : "";
 
   // Smooth mouse move across entire chart area
   const handleChartMouseMove = (e) => {
