@@ -408,6 +408,7 @@ router.get("/my-tickets", authenticateToken, async (req, res) => {
     }
 
     const tickets = await SupportTicket.find({ userId: new mongoose.Types.ObjectId(userId) })
+      .select("-attachments.data -messages.attachments.data")
       .sort({ createdAt: -1 })
       .lean();
 
@@ -543,25 +544,32 @@ router.get("/admin/tickets", verifyAdmin, async (req, res) => {
       ];
     }
 
-    const [tickets, totalCount, submittedCount, reviewCount, progressCount, resolvedCount] =
-      await Promise.all([
-        SupportTicket.find(filter).sort({ updatedAt: -1, createdAt: -1 }).lean(),
-        SupportTicket.countDocuments(),
-        SupportTicket.countDocuments({ status: "Submitted" }),
-        SupportTicket.countDocuments({ status: "Under Review" }),
-        SupportTicket.countDocuments({ status: "In Progress" }),
-        SupportTicket.countDocuments({ status: "Resolved" }),
-      ]);
+    const [tickets, statusAgg] = await Promise.all([
+      SupportTicket.find(filter)
+        .select("-attachments.data -messages.attachments.data")
+        .sort({ updatedAt: -1, createdAt: -1 })
+        .lean(),
+      SupportTicket.aggregate([
+        { $group: { _id: "$status", count: { $sum: 1 } } },
+      ]),
+    ]);
+
+    const statusCounts = {};
+    let totalCount = 0;
+    statusAgg.forEach((s) => {
+      statusCounts[s._id] = s.count;
+      totalCount += s.count;
+    });
 
     res.status(200).json({
       success: true,
       tickets,
       stats: {
         total: totalCount,
-        submitted: submittedCount,
-        underReview: reviewCount,
-        inProgress: progressCount,
-        resolved: resolvedCount,
+        submitted: statusCounts["Submitted"] || 0,
+        underReview: statusCounts["Under Review"] || 0,
+        inProgress: statusCounts["In Progress"] || 0,
+        resolved: statusCounts["Resolved"] || 0,
       },
     });
   } catch (err) {

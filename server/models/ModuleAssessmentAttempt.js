@@ -187,6 +187,8 @@ const moduleAssessmentAttemptSchema = new mongoose.Schema(
 moduleAssessmentAttemptSchema.index({ userId: 1, createdAt: -1 });
 moduleAssessmentAttemptSchema.index({ trackId: 1, moduleIndex: 1, createdAt: -1 });
 moduleAssessmentAttemptSchema.index({ createdAt: -1 });
+moduleAssessmentAttemptSchema.index({ candidateEmail: 1, createdAt: -1 });
+moduleAssessmentAttemptSchema.index({ userEmail: 1, createdAt: -1 });
 
 module.exports =
   mongoose.models.ModuleAssessmentAttempt ||

@@ -52,6 +52,18 @@ const getMainAdminEmail = () => (
 // Apply Super Admin verification to all routes in this router
 router.use(verifySuperAdmin);
 
+// Auto-invalidate admin response cache on any successful mutation
+router.use((req, res, next) => {
+  if (req.method !== "GET") {
+    res.on("finish", () => {
+      if (res.statusCode < 400) {
+        clearAdminCache();
+      }
+    });
+  }
+  next();
+});
+
 // High-Speed In-Memory Cache for Instant Admin Navigation
 const adminApiCache = new Map();
 const getAdminCache = (key, ttlMs = 5000) => {
@@ -836,7 +848,9 @@ router.get("/users/:id", async (req, res) => {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    // Fetch actual user activity across the entire platform
+    const { getUserCodingActivity } = require("../utils/activityTracker");
+
+    // Fetch actual user activity across the entire platform in a single parallel batch
     const [
       submissions,
       certAttempts,
@@ -849,46 +863,70 @@ router.get("/users/:id", async (req, res) => {
       meetings,
       recordings,
       proctoredSessions,
+      activityStats,
     ] = await Promise.all([
-      ChallengeSubmission.find({ userId: id }).sort({ createdAt: -1 }).limit(30).lean(),
+      ChallengeSubmission.find({ userId: id })
+        .select("-code -testResults -evaluationFeedback")
+        .sort({ createdAt: -1 })
+        .limit(30)
+        .lean(),
       CertificationAttempt.find({
         $or: [{ userId: id }, { candidateEmail: user.email }],
       })
+        .select("-answers -questions -codeSubmissions")
         .sort({ createdAt: -1 })
+        .limit(50)
         .lean(),
-      ModuleAssessmentAttempt.find({ userId: id }).sort({ createdAt: -1 }).lean(),
+      ModuleAssessmentAttempt.find({ userId: id })
+        .select("-answers -questions")
+        .sort({ createdAt: -1 })
+        .limit(50)
+        .lean(),
       IssuedCertificate.find({
         $or: [{ userId: id }, { candidateEmail: user.email }],
       })
+        .select("-metadata.rawPayload")
         .sort({ issuedAt: -1 })
+        .limit(50)
         .lean(),
       SubjectProgress.find({ userId: id }).lean(),
       CodingProgress.findOne({ userId: id }).lean(),
       ProjectSubmission.find({
         $or: [{ userId: id }, { "candidateDetails.email": user.email }],
       })
+        .select("-files -codeSnapshots -testResults -evaluationFeedback")
         .sort({ createdAt: -1 })
+        .limit(50)
         .lean(),
       SupportTicket.find({
         $or: [{ userId: id }, { userEmail: user.email }],
       })
+        .select("-attachments.data -messages.attachments.data")
         .sort({ createdAt: -1 })
+        .limit(50)
         .lean(),
       Meeting.find({
         $or: [{ hostUserId: String(id) }, { hostEmail: user.email }, { "participants.userId": String(id) }],
       })
+        .select("-chatHistory -whiteboardData -sharedTasks")
         .sort({ createdAt: -1 })
+        .limit(30)
         .lean(),
       Recording.find({
         $or: [{ hostUserId: String(id) }, { hostEmail: user.email }],
       })
+        .select("-activityTimeline -notes")
         .sort({ createdAt: -1 })
+        .limit(30)
         .lean(),
       ProctoredCodingSession.find({
         $or: [{ userId: id }, { "candidateDetails.email": user.email }],
       })
+        .select("-screenshots -violationLogs -codeSnapshots -questions -submissionResult.code -submissionResult.testResults")
         .sort({ updatedAt: -1 })
+        .limit(30)
         .lean(),
+      getUserCodingActivity(id, req.query.tz),
     ]);
 
     // Build genuine chronological activity timeline
@@ -1022,10 +1060,6 @@ router.get("/users/:id", async (req, res) => {
 
     // Sort timeline chronologically descending
     timeline.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-
-    // Fetch verified daily coding activity & heatmap for student
-    const { getUserCodingActivity } = require("../utils/activityTracker");
-    const activityStats = await getUserCodingActivity(id, req.query.tz);
 
     res.status(200).json({
       success: true,
@@ -2881,12 +2915,12 @@ router.get("/live-activity", async (req, res) => {
 
     const { startDate, endDate } = parseDateRange(range, qStart, qEnd);
 
-    // 1. Live Connected Active Users (Deduplicated, genuine registered accounts)
+    // 1 & 2. Fetch live active sessions and genuine user IDs in parallel
     const sessionManager = req.app.get("sessionManager") || require("../utils/sessionManager");
-    const activeList = await sessionManager.getActiveSessions();
-
-    // 2. Build Query for Genuine Historical & Live-Persisted Activities
-    const realUsers = await User.find(REAL_USER_FILTER).select("_id").lean();
+    const [activeList, realUsers] = await Promise.all([
+      sessionManager.getActiveSessions(),
+      User.find(REAL_USER_FILTER).select("_id").lean(),
+    ]);
     const realUserIds = realUsers.map((u) => u._id);
 
     const activityQuery = {
@@ -2974,27 +3008,28 @@ router.get("/learning-analytics", async (req, res) => {
       userQuery._id = userId;
     }
 
-    // 1. Efficiently aggregate user metrics without transferring entire user collection to Node
-    const [userAgg] = await User.aggregate([
-      { $match: userQuery },
-      {
-        $group: {
-          _id: null,
-          totalEnrolled: { $sum: 1 },
-          totalLearningHours: { $sum: { $ifNull: ["$learningHours", 0] } },
-          totalStreaks: { $sum: { $ifNull: ["$streak", 0] } },
+    // 1 & 2 & 3. Run User aggregate, SubjectProgress, and CodingProgress count in parallel
+    const [[userAgg], subjectProgressDocs, codingProgressCount] = await Promise.all([
+      User.aggregate([
+        { $match: userQuery },
+        {
+          $group: {
+            _id: null,
+            totalEnrolled: { $sum: 1 },
+            totalLearningHours: { $sum: { $ifNull: ["$learningHours", 0] } },
+            totalStreaks: { $sum: { $ifNull: ["$streak", 0] } },
+          },
         },
-      },
+      ]),
+      SubjectProgress.find({
+        ...(userId ? { userId } : {}),
+        updatedAt: { $gte: startDate, $lte: endDate },
+      }).lean(),
+      CodingProgress.countDocuments(userId ? { userId } : {}),
     ]);
     const totalEnrolled = userAgg?.totalEnrolled || 0;
     const totalLearningHours = userAgg?.totalLearningHours || 0;
     const totalStreaks = userAgg?.totalStreaks || 0;
-
-    // 3. Query SubjectProgress for the 4 tracks
-    const subjectProgressDocs = await SubjectProgress.find({
-      ...(userId ? { userId } : {}),
-      updatedAt: { $gte: startDate, $lte: endDate },
-    }).lean();
 
     // Track statistics calculations
     const trackStatsMap = {
@@ -3022,10 +3057,6 @@ router.get("/learning-analytics", async (req, res) => {
       }
     });
 
-    // Ensure users with CodingProgress are accounted for
-    const codingProgressCount = await CodingProgress.countDocuments(
-      userId ? { userId } : {}
-    );
     trackStatsMap.coding.enrolled = Math.max(trackStatsMap.coding.enrolled, codingProgressCount);
 
     const tracks = [
@@ -3307,230 +3338,262 @@ router.get("/assessments", async (req, res) => {
     } = req.query;
     const { startDate, endDate } = parseDateRange(range, qStart, qEnd);
 
-    let genuineUserIds = [];
-    let genuineUserEmails = [];
+    const cacheKey = `assessments_base_${range}_${qStart || ""}_${qEnd || ""}_${userId || "all"}_${all}`;
+    let cachedBase = getAdminCache(cacheKey, 15000);
+    let allAssessments;
+    let stats;
+    let certAttempts = [];
+    let moduleAttempts = [];
 
-    if (userId && mongoose.Types.ObjectId.isValid(userId)) {
-      const targetUser = await User.findById(userId).select("_id email").lean();
-      if (targetUser) {
-        genuineUserIds = [targetUser._id];
-        if (targetUser.email) genuineUserEmails = [targetUser.email.toLowerCase()];
-      }
+    if (cachedBase) {
+      allAssessments = cachedBase.allAssessments;
+      stats = cachedBase.stats;
+      certAttempts = cachedBase.certAttempts || [];
+      moduleAttempts = cachedBase.moduleAttempts || [];
     } else {
-      const genuineUsers = await User.find(REAL_USER_FILTER).select("_id email").lean();
-      genuineUserIds = genuineUsers.map((u) => u._id);
-      genuineUserEmails = genuineUsers.map((u) => (u.email || "").toLowerCase()).filter(Boolean);
+      let genuineUserIds = [];
+      let genuineUserEmails = [];
+      const userMap = new Map();
+
+      if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+        const targetUser = await User.findById(userId).select("_id email fullName username").lean();
+        if (targetUser) {
+          genuineUserIds = [targetUser._id];
+          userMap.set(String(targetUser._id), targetUser);
+          if (targetUser.email) {
+            genuineUserEmails = [targetUser.email.toLowerCase()];
+            userMap.set(targetUser.email.toLowerCase(), targetUser);
+          }
+        }
+      } else {
+        const genuineUsers = await User.find(REAL_USER_FILTER).select("_id email fullName username").limit(2000).lean();
+        genuineUserIds = genuineUsers.map((u) => {
+          userMap.set(String(u._id), u);
+          if (u.email) userMap.set(u.email.toLowerCase(), u);
+          return u._id;
+        });
+        genuineUserEmails = genuineUsers.map((u) => (u.email || "").toLowerCase()).filter(Boolean);
+      }
+
+      const resolveUser = (uId, email) => {
+        if (uId && userMap.has(String(uId))) return userMap.get(String(uId));
+        if (email && userMap.has(email.toLowerCase())) return userMap.get(email.toLowerCase());
+        return null;
+      };
+
+      const baseDateFilter =
+        String(range).toLowerCase() === "all"
+          ? {}
+          : { createdAt: { $gte: startDate, $lte: endDate } };
+
+      const perModelLimit = all === "true" || all === "1" ? 500 : 200;
+
+      let challengeSubs, projectSubs, proctoredSessions;
+      [certAttempts, moduleAttempts, challengeSubs, projectSubs, proctoredSessions] = await Promise.all([
+        CertificationAttempt.find({
+          ...baseDateFilter,
+          $or: [{ userId: { $in: genuineUserIds } }, { candidateEmail: { $in: genuineUserEmails } }],
+        })
+          .select("_id attemptId userId candidateName candidateEmail certTitle percentage score status finalVerdict submittedAt createdAt durationMinutes certificateId")
+          .sort({ createdAt: -1 })
+          .limit(perModelLimit)
+          .lean(),
+        ModuleAssessmentAttempt.find({
+          ...baseDateFilter,
+          $or: [
+            { userId: { $in: genuineUserIds } },
+            { candidateEmail: { $in: genuineUserEmails } },
+            { userEmail: { $in: genuineUserEmails } },
+          ],
+        })
+          .select("_id sessionId userId candidateEmail userEmail assessmentTitle moduleTitle totalQuestions score percentage passed submittedAt createdAt timeSpentSeconds")
+          .sort({ createdAt: -1 })
+          .limit(perModelLimit)
+          .lean(),
+        ChallengeSubmission.find({
+          ...baseDateFilter,
+          userId: { $in: genuineUserIds },
+        })
+          .select("_id userId challengeTitle challengeId totalTests passedTests score status createdAt runtimeMs")
+          .sort({ createdAt: -1 })
+          .limit(perModelLimit)
+          .lean(),
+        ProjectSubmission.find({
+          ...baseDateFilter,
+          $or: [{ userId: { $in: genuineUserIds } }, { "candidateDetails.email": { $in: genuineUserEmails } }],
+        })
+          .select("_id sessionId userId candidateDetails projectTitle totalMarks marksObtained percentage passed status passingMarks submittedAt createdAt")
+          .sort({ createdAt: -1 })
+          .limit(perModelLimit)
+          .lean(),
+        ProctoredCodingSession.find({
+          ...baseDateFilter,
+          $or: [{ userId: { $in: genuineUserIds } }, { "candidateDetails.email": { $in: genuineUserEmails } }],
+        })
+          .select("_id sessionId userId assessmentTitle questionId status durationSeconds score violationsCount deviceInfo violationFlags recordingUrl submissionResult submittedAt createdAt candidateDetails")
+          .sort({ createdAt: -1 })
+          .limit(perModelLimit)
+          .lean(),
+      ]);
+
+      const formattedCerts = certAttempts.map((c) => {
+        const uObj = resolveUser(c.userId, c.candidateEmail);
+        const pct = c.percentage != null ? c.percentage : (c.score != null ? c.score : 0);
+        const isPassed = c.status === "PASSED" || c.finalVerdict === "PASSED" || pct >= 70;
+        return {
+          id: c._id,
+          rawId: c._id,
+          itemType: "certification",
+          attemptId: c.attemptId,
+          userId: c.userId ? String(c.userId) : (uObj?._id ? String(uObj._id) : ""),
+          user: c.candidateName || uObj?.fullName || uObj?.username || "Candidate",
+          email: c.candidateEmail || uObj?.email || "",
+          title: c.certTitle || "Data Structures & Algorithms (DSA)",
+          type: "Certification",
+          category: "Certification",
+          score: `${pct}%`,
+          rawScore: pct,
+          maxScore: 100,
+          status: isPassed ? "Passed" : c.status === "IN_PROGRESS" ? "In Progress" : "Failed",
+          passed: isPassed,
+          date: c.submittedAt || c.createdAt,
+          timeSpent: c.durationMinutes ? `${c.durationMinutes}m` : "N/A",
+          verificationCode: c.certificateId || String(c.attemptId || c._id).slice(-8).toUpperCase(),
+        };
+      });
+
+      const formattedMcqs = moduleAttempts.map((m) => {
+        const uObj = resolveUser(m.userId, m.candidateEmail || m.userEmail);
+        const totalQ = m.totalQuestions || 10;
+        const scoreVal = m.score != null ? m.score : 0;
+        const pct = m.percentage != null ? m.percentage : Math.round((scoreVal / totalQ) * 100);
+        return {
+          id: m._id,
+          rawId: m._id,
+          itemType: "module",
+          attemptId: m.sessionId || m._id,
+          userId: m.userId ? String(m.userId) : (uObj?._id ? String(uObj._id) : ""),
+          user: uObj?.fullName || uObj?.username || "Candidate",
+          email: uObj?.email || m.candidateEmail || m.userEmail || "",
+          title: m.assessmentTitle || m.moduleTitle || "Module MCQ Test",
+          type: "MCQ Assessment",
+          category: "MCQ Assessment",
+          score: `${scoreVal}/${totalQ} (${pct}%)`,
+          rawScore: scoreVal,
+          maxScore: totalQ,
+          status: m.passed ? "Passed" : "Failed",
+          passed: Boolean(m.passed),
+          date: m.submittedAt || m.createdAt,
+          timeSpent: m.timeSpentSeconds ? `${Math.round(m.timeSpentSeconds / 60)}m` : "N/A",
+          verificationCode: String(m.sessionId || m._id).slice(-8).toUpperCase(),
+        };
+      });
+
+      const formattedCoding = challengeSubs.map((s) => {
+        const uObj = resolveUser(s.userId);
+        const totalT = s.totalTests || 10;
+        const passedT = s.passedTests != null ? s.passedTests : 0;
+        const pct = s.score != null ? s.score : Math.round((passedT / totalT) * 100);
+        const isAccepted = s.status === "ACCEPTED" || passedT === totalT;
+        return {
+          id: s._id,
+          rawId: s._id,
+          itemType: "coding",
+          attemptId: s._id,
+          userId: s.userId ? String(s.userId) : "",
+          user: uObj?.fullName || uObj?.username || "Candidate",
+          email: uObj?.email || "",
+          title: s.challengeTitle || s.challengeId || "Coding Challenge Assessment",
+          type: "Coding Assessment",
+          category: "Coding Assessment",
+          score: `${passedT}/${totalT} (${pct}%)`,
+          rawScore: passedT,
+          maxScore: totalT,
+          status: isAccepted ? "Passed" : "Failed",
+          passed: isAccepted,
+          date: s.createdAt,
+          timeSpent: s.runtimeMs ? `${s.runtimeMs}ms` : "N/A",
+          verificationCode: String(s._id).slice(-8).toUpperCase(),
+        };
+      });
+
+      const formattedProjects = projectSubs.map((p) => {
+        const uObj = resolveUser(p.userId, p.candidateDetails?.email);
+        const maxScore = p.totalMarks || 100;
+        const scoreVal = p.marksObtained != null ? p.marksObtained : 0;
+        const pct = p.percentage != null ? p.percentage : Math.round((scoreVal / maxScore) * 100);
+        const isPassed = Boolean(p.passed || p.status === "PASSED" || scoreVal >= (p.passingMarks || 80));
+        return {
+          id: p._id,
+          rawId: p._id,
+          itemType: "project",
+          attemptId: p.sessionId || p._id,
+          userId: p.userId ? String(p.userId) : (uObj?._id ? String(uObj._id) : ""),
+          user: p.candidateDetails?.fullName || uObj?.fullName || uObj?.username || "Candidate",
+          email: p.candidateDetails?.email || uObj?.email || "",
+          title: p.projectTitle || "Practical Project Assignment",
+          type: "Project Assignment",
+          category: "Project Assignment",
+          score: `${scoreVal}/${maxScore} (${pct}%)`,
+          rawScore: scoreVal,
+          maxScore,
+          status: isPassed ? "Passed" : "Needs Improvement",
+          passed: isPassed,
+          date: p.submittedAt || p.createdAt,
+          timeSpent: "Project",
+          verificationCode: String(p.sessionId || p._id).slice(-8).toUpperCase(),
+        };
+      });
+
+      const formattedProctored = proctoredSessions.map((p) => {
+        const uObj = resolveUser(p.userId, p.candidateDetails?.email);
+        const user = p.candidateDetails?.fullName || uObj?.fullName || uObj?.username || "Candidate";
+        const email = p.candidateDetails?.email || uObj?.email || "";
+        const score = p.submissionResult?.score != null ? p.submissionResult.score : (p.score != null ? p.score : 0);
+        const isPassed = p.status === "submitted" && (score >= 70 || p.submissionResult?.passed);
+        return {
+          id: p._id,
+          rawId: p._id,
+          itemType: "proctoring",
+          attemptId: p.sessionId,
+          userId: p.userId ? String(p.userId) : (uObj?._id ? String(uObj._id) : ""),
+          user,
+          email,
+          title: p.assessmentTitle || "Proctored Coding Exam",
+          type: "Proctored Exam",
+          category: "Proctored Exam",
+          score: `${score}/100 (${score}%)`,
+          rawScore: score,
+          maxScore: 100,
+          status: isPassed ? "Passed" : p.status === "terminated" ? "Terminated" : p.status === "active" ? "In Progress" : "Failed",
+          passed: isPassed,
+          date: p.submissionResult?.submittedAt || p.updatedAt || p.createdAt,
+          timeSpent: p.durationSeconds ? `${Math.round(p.durationSeconds / 60)}m` : "N/A",
+          verificationCode: String(p.sessionId).slice(-8).toUpperCase(),
+        };
+      });
+
+      allAssessments = [...formattedCerts, ...formattedProctored, ...formattedMcqs, ...formattedCoding, ...formattedProjects].sort(
+        (a, b) => new Date(b.date) - new Date(a.date)
+      );
+
+      const totalCount = allAssessments.length;
+      const passedCount = allAssessments.filter((a) => a.passed).length;
+      const passPercentage = totalCount > 0 ? Math.round((passedCount / totalCount) * 100) : 0;
+      stats = {
+        total: totalCount,
+        passed: passedCount,
+        failed: totalCount - passedCount,
+        passPercentage,
+        certificationsCount: formattedCerts.length,
+        mcqCount: formattedMcqs.length,
+        codingCount: formattedCoding.length,
+        projectCount: formattedProjects.length,
+        proctoredCount: formattedProctored.length,
+      };
+
+      setAdminCache(cacheKey, { allAssessments, stats, certAttempts, moduleAttempts });
     }
-
-    const baseDateFilter =
-      String(range).toLowerCase() === "all"
-        ? {}
-        : { createdAt: { $gte: startDate, $lte: endDate } };
-
-    const [certAttempts, moduleAttempts, challengeSubs, projectSubs, proctoredSessions] = await Promise.all([
-      CertificationAttempt.find({
-        ...baseDateFilter,
-        $or: [{ userId: { $in: genuineUserIds } }, { candidateEmail: { $in: genuineUserEmails } }],
-      })
-        .select("_id attemptId userId candidateName candidateEmail certTitle percentage score status finalVerdict submittedAt createdAt durationMinutes certificateId")
-        .populate("userId", "fullName username email")
-        .sort({ createdAt: -1 })
-        .limit(500)
-        .lean(),
-      ModuleAssessmentAttempt.find({
-        ...baseDateFilter,
-        $or: [
-          { userId: { $in: genuineUserIds } },
-          { candidateEmail: { $in: genuineUserEmails } },
-          { userEmail: { $in: genuineUserEmails } },
-        ],
-      })
-        .select("_id sessionId userId assessmentTitle moduleTitle totalQuestions score percentage passed submittedAt createdAt timeSpentSeconds")
-        .populate("userId", "fullName username email")
-        .sort({ createdAt: -1 })
-        .limit(500)
-        .lean(),
-      ChallengeSubmission.find({
-        ...baseDateFilter,
-        userId: { $in: genuineUserIds },
-      })
-        .select("_id userId challengeTitle challengeId totalTests passedTests score status createdAt runtimeMs")
-        .populate("userId", "fullName username email")
-        .sort({ createdAt: -1 })
-        .limit(500)
-        .lean(),
-      ProjectSubmission.find({
-        ...baseDateFilter,
-        $or: [{ userId: { $in: genuineUserIds } }, { "candidateDetails.email": { $in: genuineUserEmails } }],
-      })
-        .select("_id sessionId userId candidateDetails projectTitle totalMarks marksObtained percentage passed status passingMarks submittedAt createdAt")
-        .populate("userId", "fullName username email")
-        .sort({ createdAt: -1 })
-        .limit(500)
-        .lean(),
-      ProctoredCodingSession.find({
-        ...baseDateFilter,
-        $or: [{ userId: { $in: genuineUserIds } }, { "candidateDetails.email": { $in: genuineUserEmails } }],
-      })
-        .select("_id sessionId userId assessmentTitle questionId status durationSeconds score violationsCount deviceInfo violationFlags recordingUrl submissionResult submittedAt createdAt candidateDetails")
-        .populate("userId", "fullName username email")
-        .sort({ createdAt: -1 })
-        .limit(500)
-        .lean(),
-    ]);
-
-    const formattedCerts = certAttempts.map((c) => {
-      const pct = c.percentage != null ? c.percentage : (c.score != null ? c.score : 0);
-      const isPassed = c.status === "PASSED" || c.finalVerdict === "PASSED" || pct >= 70;
-      return {
-        id: c._id,
-        rawId: c._id,
-        itemType: "certification",
-        attemptId: c.attemptId,
-        userId: c.userId?._id ? String(c.userId._id) : (c.userId ? String(c.userId) : ""),
-        user: c.candidateName || c.userId?.fullName || c.userId?.username || "Candidate",
-        email: c.candidateEmail || c.userId?.email || "",
-        title: c.certTitle || "Data Structures & Algorithms (DSA)",
-        type: "Certification",
-        category: "Certification",
-        score: `${pct}%`,
-        rawScore: pct,
-        maxScore: 100,
-        status: isPassed ? "Passed" : c.status === "IN_PROGRESS" ? "In Progress" : "Failed",
-        passed: isPassed,
-        date: c.submittedAt || c.createdAt,
-        timeSpent: c.durationMinutes ? `${c.durationMinutes}m` : "N/A",
-        verificationCode: c.certificateId || String(c.attemptId || c._id).slice(-8).toUpperCase(),
-      };
-    });
-
-    const formattedMcqs = moduleAttempts.map((m) => {
-      const totalQ = m.totalQuestions || 10;
-      const scoreVal = m.score != null ? m.score : 0;
-      const pct = m.percentage != null ? m.percentage : Math.round((scoreVal / totalQ) * 100);
-      return {
-        id: m._id,
-        rawId: m._id,
-        itemType: "module",
-        attemptId: m.sessionId || m._id,
-        userId: m.userId?._id ? String(m.userId._id) : (m.userId ? String(m.userId) : ""),
-        user: m.userId?.fullName || m.userId?.username || "Candidate",
-        email: m.userId?.email || "",
-        title: m.assessmentTitle || m.moduleTitle || "Module MCQ Test",
-        type: "MCQ Assessment",
-        category: "MCQ Assessment",
-        score: `${scoreVal}/${totalQ} (${pct}%)`,
-        rawScore: scoreVal,
-        maxScore: totalQ,
-        status: m.passed ? "Passed" : "Failed",
-        passed: Boolean(m.passed),
-        date: m.submittedAt || m.createdAt,
-        timeSpent: m.timeSpentSeconds ? `${Math.round(m.timeSpentSeconds / 60)}m` : "N/A",
-        verificationCode: String(m.sessionId || m._id).slice(-8).toUpperCase(),
-      };
-    });
-
-    const formattedCoding = challengeSubs.map((s) => {
-      const totalT = s.totalTests || 10;
-      const passedT = s.passedTests != null ? s.passedTests : 0;
-      const pct = s.score != null ? s.score : Math.round((passedT / totalT) * 100);
-      const isAccepted = s.status === "ACCEPTED" || passedT === totalT;
-      return {
-        id: s._id,
-        rawId: s._id,
-        itemType: "coding",
-        attemptId: s._id,
-        userId: s.userId?._id ? String(s.userId._id) : (s.userId ? String(s.userId) : ""),
-        user: s.userId?.fullName || s.userId?.username || "Candidate",
-        email: s.userId?.email || "",
-        title: s.challengeTitle || s.challengeId || "Coding Challenge Assessment",
-        type: "Coding Assessment",
-        category: "Coding Assessment",
-        score: `${passedT}/${totalT} (${pct}%)`,
-        rawScore: passedT,
-        maxScore: totalT,
-        status: isAccepted ? "Passed" : "Failed",
-        passed: isAccepted,
-        date: s.createdAt,
-        timeSpent: s.runtimeMs ? `${s.runtimeMs}ms` : "N/A",
-        verificationCode: String(s._id).slice(-8).toUpperCase(),
-      };
-    });
-
-    const formattedProjects = projectSubs.map((p) => {
-      const maxScore = p.totalMarks || 100;
-      const scoreVal = p.marksObtained != null ? p.marksObtained : 0;
-      const pct = p.percentage != null ? p.percentage : Math.round((scoreVal / maxScore) * 100);
-      const isPassed = Boolean(p.passed || p.status === "PASSED" || scoreVal >= (p.passingMarks || 80));
-      return {
-        id: p._id,
-        rawId: p._id,
-        itemType: "project",
-        attemptId: p.sessionId || p._id,
-        userId: p.userId?._id ? String(p.userId._id) : (p.userId ? String(p.userId) : ""),
-        user: p.candidateDetails?.fullName || p.userId?.fullName || p.userId?.username || "Candidate",
-        email: p.candidateDetails?.email || p.userId?.email || "",
-        title: p.projectTitle || "Practical Project Assignment",
-        type: "Project Assignment",
-        category: "Project Assignment",
-        score: `${scoreVal}/${maxScore} (${pct}%)`,
-        rawScore: scoreVal,
-        maxScore,
-        status: isPassed ? "Passed" : "Needs Improvement",
-        passed: isPassed,
-        date: p.submittedAt || p.createdAt,
-        timeSpent: "Project",
-        verificationCode: String(p.sessionId || p._id).slice(-8).toUpperCase(),
-      };
-    });
-
-    const formattedProctored = proctoredSessions.map((p) => {
-      const userObj = p.userId && typeof p.userId === "object" ? p.userId : null;
-      const user = p.candidateDetails?.fullName || userObj?.fullName || userObj?.username || "Candidate";
-      const email = p.candidateDetails?.email || userObj?.email || "";
-      const score = p.submissionResult?.score != null ? p.submissionResult.score : (p.score != null ? p.score : 0);
-      const isPassed = p.status === "submitted" && (score >= 70 || p.submissionResult?.passed);
-      return {
-        id: p._id,
-        rawId: p._id,
-        itemType: "proctoring",
-        attemptId: p.sessionId,
-        userId: userObj?._id ? String(userObj._id) : (p.userId ? String(p.userId) : ""),
-        user,
-        email,
-        title: p.assessmentTitle || "Proctored Coding Exam",
-        type: "Proctored Exam",
-        category: "Proctored Exam",
-        score: `${score}/100 (${score}%)`,
-        rawScore: score,
-        maxScore: 100,
-        status: isPassed ? "Passed" : p.status === "terminated" ? "Terminated" : p.status === "active" ? "In Progress" : "Failed",
-        passed: isPassed,
-        date: p.submissionResult?.submittedAt || p.updatedAt || p.createdAt,
-        timeSpent: p.durationSeconds ? `${Math.round(p.durationSeconds / 60)}m` : "N/A",
-        verificationCode: String(p.sessionId).slice(-8).toUpperCase(),
-      };
-    });
-
-    const allAssessments = [...formattedCerts, ...formattedProctored, ...formattedMcqs, ...formattedCoding, ...formattedProjects].sort(
-      (a, b) => new Date(b.date) - new Date(a.date)
-    );
-
-    // Global Statistics across the requested range (for KPI cards & category badges)
-    const totalCount = allAssessments.length;
-    const passedCount = allAssessments.filter((a) => a.passed).length;
-    const passPercentage = totalCount > 0 ? Math.round((passedCount / totalCount) * 100) : 0;
-    const stats = {
-      total: totalCount,
-      passed: passedCount,
-      failed: totalCount - passedCount,
-      passPercentage,
-      certificationsCount: formattedCerts.length,
-      mcqCount: formattedMcqs.length,
-      codingCount: formattedCoding.length,
-      projectCount: formattedProjects.length,
-      proctoredCount: formattedProctored.length,
-    };
 
     // Filter unified records
     let filteredAssessments = allAssessments;
@@ -3663,26 +3726,23 @@ router.get("/proctoring", async (req, res) => {
     const limitNum = all === "true" || all === "1" ? 1000 : Math.max(1, parseInt(limit, 10) || 10);
     const skip = (pageNum - 1) * limitNum;
 
-    const totalFiltered = await ProctoredCodingSession.countDocuments(query);
+    const [totalFiltered, sessions, activeSessionsCount, totalMonitored] = await Promise.all([
+      ProctoredCodingSession.countDocuments(query),
+      ProctoredCodingSession.find(query)
+        .select("_id sessionId userId assessmentTitle questionId status durationSeconds score maxScore submissionResult violationsCount deviceInfo violationFlags recordingUrl recordingStatus submittedAt createdAt serverStartTime candidateDetails")
+        .populate("userId", "fullName username email")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .lean(),
+      ProctoredCodingSession.countDocuments({ status: "active" }),
+      ProctoredCodingSession.estimatedDocumentCount(),
+    ]);
+
     const totalPages = Math.ceil(totalFiltered / limitNum) || 1;
 
-    const sessions = await ProctoredCodingSession.find(query)
-      .select("_id sessionId userId assessmentTitle questionId status durationSeconds score maxScore submissionResult violationsCount deviceInfo violationFlags recordingUrl recordingStatus submittedAt createdAt serverStartTime candidateDetails")
-      .populate("userId", "fullName username email")
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limitNum)
-      .lean();
-
-    const allSessionUserIds = sessions.map((s) => s.userId?._id || s.userId).filter(Boolean);
-    const sessionUsers = await User.find({ _id: { $in: allSessionUserIds } }).select("_id email fullName username").lean();
-    let usersMap = {};
-    sessionUsers.forEach((u) => {
-      usersMap[String(u._id)] = u;
-    });
-
     const enrichedSessions = sessions.map((s) => {
-      const userObj = s.userId && typeof s.userId === "object" ? s.userId : usersMap[String(s.userId)];
+      const userObj = s.userId && typeof s.userId === "object" ? s.userId : null;
       const candidate = {
         fullName: s.candidateDetails?.fullName || userObj?.fullName || userObj?.username || "Candidate",
         email: s.candidateDetails?.email || userObj?.email || "",
@@ -3707,8 +3767,6 @@ router.get("/proctoring", async (req, res) => {
       };
     });
 
-    const activeSessionsCount = await ProctoredCodingSession.countDocuments({ status: "active" });
-    const totalMonitored = await ProctoredCodingSession.countDocuments();
     let totalViolations = 0;
     let cameraActiveCount = 0;
     let micActiveCount = 0;
@@ -4108,250 +4166,284 @@ router.get("/reports", async (req, res) => {
       ? parseDateRange(range, qStart, qEnd)
       : { startDate: new Date(0), endDate: new Date(Date.now() + 86400000) };
 
-    const genuineUsers = await User.find(REAL_USER_FILTER).select("_id email fullName username").limit(2000).lean();
-    const genuineUserIds = genuineUsers.map((u) => u._id);
-    const genuineUserEmails = genuineUsers.map((u) => (u.email || "").toLowerCase()).filter(Boolean);
+    const cacheKey = `reports_base_${range}_${qStart || ""}_${qEnd || ""}_${all}`;
+    let cachedBase = getAdminCache(cacheKey, 15000);
+    let allReports, certReports, assessReports, mcqReports, projectReports, codingReports, challengeReports;
 
-    const dateFilter = { createdAt: { $gte: startDate, $lte: endDate } };
-
-    const [certs, attempts, moduleAttempts, projectSubs, codingSessions, challengeSubs] = await Promise.all([
-      IssuedCertificate.find({
-        $and: [
-          dateFilter,
-          { $or: [{ userId: { $in: genuineUserIds } }, { candidateEmail: { $in: genuineUserEmails } }] },
-        ],
-      })
-        .select("_id attemptId certificateId verificationCode certificationTitle certTitle recipientName candidateEmail userId mcqScorePercentage percentage issueDate issuedAt createdAt status")
-        .populate("userId", "fullName username email")
-        .sort({ issueDate: -1, issuedAt: -1, createdAt: -1 })
-        .lean(),
-      CertificationAttempt.find({
-        $and: [
-          dateFilter,
-          { $or: [{ userId: { $in: genuineUserIds } }, { candidateEmail: { $in: genuineUserEmails } }] },
-        ],
-      })
-        .select("_id attemptId userId candidateName candidateEmail certTitle percentage score passed status finalVerdict certificateId submittedAt createdAt")
-        .populate("userId", "fullName username email")
-        .sort({ createdAt: -1 })
-        .lean(),
-      ModuleAssessmentAttempt.find({
-        $and: [
-          dateFilter,
-          {
-            $or: [
-              { userId: { $in: genuineUserIds } },
-              { candidateEmail: { $in: genuineUserEmails } },
-              { userEmail: { $in: genuineUserEmails } },
-            ],
-          },
-        ],
-      })
-        .select("_id sessionId userId assessmentTitle moduleTitle totalQuestions score percentage passed submittedAt createdAt timeSpentSeconds accuracy")
-        .populate("userId", "fullName username email")
-        .sort({ createdAt: -1 })
-        .lean(),
-      ProjectSubmission.find({
-        $and: [
-          dateFilter,
-          { $or: [{ userId: { $in: genuineUserIds } }, { "candidateDetails.email": { $in: genuineUserEmails } }] },
-        ],
-      })
-        .select("_id sessionId projectId projectTitle projectCategory difficulty userId candidateDetails marksObtained totalMarks percentage grade passed status badgeAwarded passedTests totalTests submittedAt createdAt")
-        .populate("userId", "fullName username email")
-        .sort({ submittedAt: -1, createdAt: -1 })
-        .lean(),
-      ProctoredCodingSession.find({
-        $and: [
-          dateFilter,
-          { $or: [{ status: "submitted" }, { "submissionResult.submittedAt": { $exists: true } }] },
-          { $or: [{ userId: { $in: genuineUserIds } }, { "candidateDetails.email": { $in: genuineUserEmails } }] },
-        ],
-      })
-        .select("_id sessionId questionId assessmentTitle trackId userId candidateDetails status submissionResult questions updatedAt createdAt violationsCount")
-        .populate("userId", "fullName username email")
-        .sort({ updatedAt: -1 })
-        .lean(),
-      ChallengeSubmission.find({
-        $and: [
-          dateFilter,
-          { userId: { $in: genuineUserIds } },
-        ],
-      })
-        .select("_id userId challengeTitle challengeId totalTests passedTests score status createdAt runtimeMs adminNote language")
-        .populate("userId", "fullName username email")
-        .sort({ createdAt: -1 })
-        .lean(),
-    ]);
-
-    const attemptMap = new Map();
-    attempts.forEach((a) => {
-      if (a.attemptId) attemptMap.set(String(a.attemptId), a);
-    });
-
-    const certReports = certs.map((c) => {
-      const matchedAttempt = c.attemptId ? attemptMap.get(String(c.attemptId)) : null;
-      const pct = c.mcqScorePercentage != null ? c.mcqScorePercentage : (c.percentage || 100);
-      const title = `${c.certificationTitle || c.certTitle || matchedAttempt?.certTitle || "Data Structures & Algorithms (DSA)"} — Official Certificate`;
-      const recipient = c.recipientName || matchedAttempt?.candidateName || c.userId?.fullName || c.userId?.username || "Verified Student";
-      const email = c.userId?.email || matchedAttempt?.candidateEmail || c.candidateEmail || "";
-      return {
-        id: c._id,
-        rawId: c._id,
-        itemType: "certificate",
-        attemptId: c.attemptId,
-        title,
-        type: "Certification Report",
-        recipient,
-        email,
-        score: `${pct}%`,
-        rawScore: pct,
-        grade: pct >= 90 ? "Distinction" : "First Class",
-        verificationCode: c.certificateId || c.verificationCode || "MZ-CERT",
-        date: c.issueDate || c.issuedAt || c.createdAt,
-        status: c.status || "VALID",
-        reportUrl: `/assessment-report/${c.attemptId || c.certificateId}`,
+    if (cachedBase) {
+      ({ allReports, certReports, assessReports, mcqReports, projectReports, codingReports, challengeReports } = cachedBase);
+    } else {
+      const genuineUsers = await User.find(REAL_USER_FILTER).select("_id email fullName username").limit(2000).lean();
+      const userMap = new Map();
+      const genuineUserIds = genuineUsers.map((u) => {
+        userMap.set(String(u._id), u);
+        if (u.email) userMap.set(u.email.toLowerCase(), u);
+        return u._id;
+      });
+      const genuineUserEmails = genuineUsers.map((u) => (u.email || "").toLowerCase()).filter(Boolean);
+      const resolveUser = (uId, email) => {
+        if (uId && userMap.has(String(uId))) return userMap.get(String(uId));
+        if (email && userMap.has(email.toLowerCase())) return userMap.get(email.toLowerCase());
+        return null;
       };
-    });
 
-    const assessReports = attempts.map((a) => {
-      const pct = a.percentage != null ? a.percentage : (a.score != null ? a.score : 0);
-      const isQualified = a.status === "PASSED" || a.finalVerdict === "PASSED" || pct >= 70;
-      return {
-        id: a._id,
-        rawId: a._id,
-        itemType: "certification",
-        attemptId: a.attemptId,
-        title: `${a.certTitle || "Data Structures & Algorithms (DSA)"} — Assessment Scorecard`,
-        type: "Assessment Report",
-        recipient: a.candidateName || a.userId?.fullName || a.userId?.username || "Candidate",
-        email: a.candidateEmail || a.userId?.email || "",
-        score: `${pct}%`,
-        rawScore: pct,
-        grade: isQualified ? "Qualified" : "Not Qualified",
-        verificationCode: a.certificateId || String(a.attemptId || a._id).slice(-8).toUpperCase(),
-        date: a.submittedAt || a.createdAt,
-        status: a.status || a.finalVerdict || "PENDING",
-        reportUrl: `/assessment-report/${a.attemptId}`,
-      };
-    });
+      const dateFilter = { createdAt: { $gte: startDate, $lte: endDate } };
+      const perModelLimit = all === "true" || all === "1" ? 1000 : 250;
 
-    const mcqReports = moduleAttempts.map((m) => {
-      const scoreVal = m.score != null ? m.score : 0;
-      const totalQ = m.totalQuestions || 10;
-      const pct = m.percentage != null ? m.percentage : Math.round((scoreVal / totalQ) * 100);
-      return {
-        id: m._id,
-        rawId: m._id,
-        itemType: "module",
-        sessionId: m.sessionId,
-        title: `${m.assessmentTitle || m.moduleTitle || "Curriculum Module"} — 10-Mark MCQ Assessment`,
-        type: "MCQ Assessment Report",
-        recipient: m.userId?.fullName || m.userId?.username || "Student",
-        email: m.userId?.email || "",
-        score: `${scoreVal}/${totalQ} (${pct}%)`,
-        rawScore: scoreVal,
-        maxScore: totalQ,
-        grade: m.passed ? "Passed" : "Failed",
-        verificationCode: String(m.sessionId || m._id).slice(-8).toUpperCase(),
-        date: m.submittedAt || m.createdAt,
-        status: m.passed ? "Passed" : "Failed",
-        timeSpent: m.timeSpentSeconds ? `${Math.round(m.timeSpentSeconds / 60)} mins` : "N/A",
-        accuracy: `${m.accuracy != null ? m.accuracy : pct}%`,
-        reportUrl: `/assessment-report/${m.sessionId || `attempt_${m._id}`}`,
-      };
-    });
+      const [certs, attempts, moduleAttempts, projectSubs, codingSessions, challengeSubs] = await Promise.all([
+        IssuedCertificate.find({
+          $and: [
+            dateFilter,
+            { $or: [{ userId: { $in: genuineUserIds } }, { candidateEmail: { $in: genuineUserEmails } }] },
+          ],
+        })
+          .select("_id attemptId certificateId verificationCode certificationTitle certTitle recipientName candidateEmail userId mcqScorePercentage percentage issueDate issuedAt createdAt status")
+          .sort({ issueDate: -1, issuedAt: -1, createdAt: -1 })
+          .limit(perModelLimit)
+          .lean(),
+        CertificationAttempt.find({
+          $and: [
+            dateFilter,
+            { $or: [{ userId: { $in: genuineUserIds } }, { candidateEmail: { $in: genuineUserEmails } }] },
+          ],
+        })
+          .select("_id attemptId userId candidateName candidateEmail certTitle percentage score passed status finalVerdict certificateId submittedAt createdAt")
+          .sort({ createdAt: -1 })
+          .limit(perModelLimit)
+          .lean(),
+        ModuleAssessmentAttempt.find({
+          $and: [
+            dateFilter,
+            {
+              $or: [
+                { userId: { $in: genuineUserIds } },
+                { candidateEmail: { $in: genuineUserEmails } },
+                { userEmail: { $in: genuineUserEmails } },
+              ],
+            },
+          ],
+        })
+          .select("_id sessionId userId candidateEmail userEmail assessmentTitle moduleTitle totalQuestions score percentage passed submittedAt createdAt timeSpentSeconds accuracy")
+          .sort({ createdAt: -1 })
+          .limit(perModelLimit)
+          .lean(),
+        ProjectSubmission.find({
+          $and: [
+            dateFilter,
+            { $or: [{ userId: { $in: genuineUserIds } }, { "candidateDetails.email": { $in: genuineUserEmails } }] },
+          ],
+        })
+          .select("_id sessionId projectId projectTitle projectCategory difficulty userId candidateDetails marksObtained totalMarks percentage grade passed status badgeAwarded passedTests totalTests submittedAt createdAt")
+          .sort({ submittedAt: -1, createdAt: -1 })
+          .limit(perModelLimit)
+          .lean(),
+        ProctoredCodingSession.find({
+          $and: [
+            dateFilter,
+            { $or: [{ status: "submitted" }, { "submissionResult.submittedAt": { $exists: true } }] },
+            { $or: [{ userId: { $in: genuineUserIds } }, { "candidateDetails.email": { $in: genuineUserEmails } }] },
+          ],
+        })
+          .select("_id sessionId questionId assessmentTitle trackId userId candidateDetails status submissionResult questions updatedAt createdAt violationsCount")
+          .sort({ updatedAt: -1 })
+          .limit(perModelLimit)
+          .lean(),
+        ChallengeSubmission.find({
+          $and: [
+            dateFilter,
+            { userId: { $in: genuineUserIds } },
+          ],
+        })
+          .select("_id userId challengeTitle challengeId totalTests passedTests score status createdAt runtimeMs adminNote language")
+          .sort({ createdAt: -1 })
+          .limit(perModelLimit)
+          .lean(),
+      ]);
 
-    const projectReports = (projectSubs || []).map((ps) => {
-      const marks = ps.marksObtained != null ? ps.marksObtained : 0;
-      const total = ps.totalMarks || 100;
-      const pct = ps.percentage != null ? ps.percentage : Math.round((marks / total) * 100);
-      const isPassed = Boolean(ps.passed || marks >= (ps.passingMarks || 80));
-      const recipient = ps.candidateDetails?.fullName || ps.userId?.fullName || ps.userId?.username || "Candidate";
-      const email = ps.candidateDetails?.email || ps.userId?.email || "";
-      return {
-        id: ps._id,
-        rawId: ps._id,
-        itemType: "project",
-        sessionId: ps.sessionId,
-        title: `${ps.projectTitle || "Practical Project"} — Project Assessment Report`,
-        type: "Project Assessment Report",
-        recipient,
-        email,
-        score: `${marks}/${total} (${pct}%)`,
-        rawScore: pct,
-        maxScore: total,
-        grade: ps.grade || (isPassed ? "Passed" : "Needs Improvement"),
-        verificationCode: String(ps.sessionId || ps._id).slice(-8).toUpperCase(),
-        date: ps.submittedAt || ps.createdAt,
-        status: isPassed ? "PASSED" : "NEEDS_IMPROVEMENT",
-        reportUrl: `/assessment-report/${ps.sessionId}`,
-      };
-    });
+      const attemptMap = new Map();
+      attempts.forEach((a) => {
+        if (a.attemptId) attemptMap.set(String(a.attemptId), a);
+      });
 
-    const codingReports = (codingSessions || []).map((cs) => {
-      const subResult = cs.submissionResult || {};
-      const primaryQ = (cs.questions && cs.questions[0]) || {};
-      const score = subResult.score !== undefined ? subResult.score : (primaryQ.score !== undefined ? primaryQ.score : 0);
-      const totalTests = subResult.totalTests || primaryQ.totalTests || 10;
-      const passedTests = subResult.passedTests !== undefined ? subResult.passedTests : (primaryQ.passedTests !== undefined ? primaryQ.passedTests : 0);
-      const isPassed = subResult.passed !== undefined ? subResult.passed : score >= 80;
-      const recipient = cs.candidateDetails?.fullName || cs.userId?.fullName || cs.userId?.username || "Candidate";
-      const email = cs.candidateDetails?.email || cs.userId?.email || "";
-      const title = `${cs.assessmentTitle || primaryQ.title || "Algorithmic Challenge"} — Coding Assessment Report`;
-      return {
-        id: cs._id,
-        rawId: cs._id,
-        itemType: "coding",
-        sessionId: cs.sessionId,
-        title,
-        type: "Coding Challenge Report",
-        recipient,
-        email,
-        score: `${score}%`,
-        rawScore: score,
-        maxScore: 100,
-        grade: subResult.grade || (isPassed ? "Accepted" : "Failed"),
-        verificationCode: String(cs.sessionId || cs._id).slice(-8).toUpperCase(),
-        date: subResult.submittedAt || cs.updatedAt || cs.createdAt,
-        status: isPassed ? "ACCEPTED" : "FAILED",
-        passedTests,
-        totalTests,
-        reportUrl: `/assessment-report/${cs.sessionId}`,
-      };
-    });
+      certReports = certs.map((c) => {
+        const uObj = resolveUser(c.userId, c.candidateEmail);
+        const matchedAttempt = c.attemptId ? attemptMap.get(String(c.attemptId)) : null;
+        const pct = c.mcqScorePercentage != null ? c.mcqScorePercentage : (c.percentage || 100);
+        const title = `${c.certificationTitle || c.certTitle || matchedAttempt?.certTitle || "Data Structures & Algorithms (DSA)"} — Official Certificate`;
+        const recipient = c.recipientName || matchedAttempt?.candidateName || uObj?.fullName || uObj?.username || "Verified Student";
+        const email = uObj?.email || matchedAttempt?.candidateEmail || c.candidateEmail || "";
+        return {
+          id: c._id,
+          rawId: c._id,
+          itemType: "certificate",
+          attemptId: c.attemptId,
+          title,
+          type: "Certification Report",
+          recipient,
+          email,
+          score: `${pct}%`,
+          rawScore: pct,
+          grade: pct >= 90 ? "Distinction" : "First Class",
+          verificationCode: c.certificateId || c.verificationCode || "MZ-CERT",
+          date: c.issueDate || c.issuedAt || c.createdAt,
+          status: c.status || "VALID",
+          reportUrl: `/assessment-report/${c.attemptId || c.certificateId}`,
+        };
+      });
 
-    const challengeReports = (challengeSubs || []).map((cs) => {
-      const user = cs.userId || {};
-      const totalT = cs.totalTests || 10;
-      const passedT = cs.passedTests != null ? cs.passedTests : 0;
-      const pct = cs.score != null ? cs.score : Math.round((passedT / totalT) * 100);
-      const isAccepted = cs.status === "ACCEPTED";
-      return {
-        id: cs._id,
-        rawId: cs._id,
-        itemType: "coding",
-        sessionId: String(cs._id),
-        title: `${cs.challengeTitle || cs.challengeId || "Coding Challenge"} — Challenge Submission Report`,
-        type: "Coding Challenge Report",
-        recipient: user.fullName || user.username || "Candidate",
-        email: user.email || "",
-        score: `${pct}%`,
-        rawScore: pct,
-        maxScore: 100,
-        grade: isAccepted ? "Accepted" : "Wrong Answer",
-        verificationCode: String(cs._id).slice(-8).toUpperCase(),
-        date: cs.createdAt,
-        status: cs.status,
-        passedTests: passedT,
-        totalTests: totalT,
-        reportUrl: `/assessment-report/${cs._id}`,
-      };
-    });
+      assessReports = attempts.map((a) => {
+        const uObj = resolveUser(a.userId, a.candidateEmail);
+        const pct = a.percentage != null ? a.percentage : (a.score != null ? a.score : 0);
+        const isQualified = a.status === "PASSED" || a.finalVerdict === "PASSED" || pct >= 70;
+        return {
+          id: a._id,
+          rawId: a._id,
+          itemType: "certification",
+          attemptId: a.attemptId,
+          title: `${a.certTitle || "Data Structures & Algorithms (DSA)"} — Assessment Scorecard`,
+          type: "Assessment Report",
+          recipient: a.candidateName || uObj?.fullName || uObj?.username || "Candidate",
+          email: a.candidateEmail || uObj?.email || "",
+          score: `${pct}%`,
+          rawScore: pct,
+          grade: isQualified ? "Qualified" : "Not Qualified",
+          verificationCode: a.certificateId || String(a.attemptId || a._id).slice(-8).toUpperCase(),
+          date: a.submittedAt || a.createdAt,
+          status: a.status || a.finalVerdict || "PENDING",
+          reportUrl: `/assessment-report/${a.attemptId}`,
+        };
+      });
 
-    const allReports = [...certReports, ...assessReports, ...mcqReports, ...projectReports, ...codingReports, ...challengeReports].sort(
-      (a, b) => new Date(b.date) - new Date(a.date)
-    );
+      mcqReports = moduleAttempts.map((m) => {
+        const uObj = resolveUser(m.userId, m.candidateEmail || m.userEmail);
+        const scoreVal = m.score != null ? m.score : 0;
+        const totalQ = m.totalQuestions || 10;
+        const pct = m.percentage != null ? m.percentage : Math.round((scoreVal / totalQ) * 100);
+        return {
+          id: m._id,
+          rawId: m._id,
+          itemType: "module",
+          sessionId: m.sessionId,
+          title: `${m.assessmentTitle || m.moduleTitle || "Curriculum Module"} — 10-Mark MCQ Assessment`,
+          type: "MCQ Assessment Report",
+          recipient: uObj?.fullName || uObj?.username || "Student",
+          email: uObj?.email || m.candidateEmail || m.userEmail || "",
+          score: `${scoreVal}/${totalQ} (${pct}%)`,
+          rawScore: scoreVal,
+          maxScore: totalQ,
+          grade: m.passed ? "Passed" : "Failed",
+          verificationCode: String(m.sessionId || m._id).slice(-8).toUpperCase(),
+          date: m.submittedAt || m.createdAt,
+          status: m.passed ? "Passed" : "Failed",
+          timeSpent: m.timeSpentSeconds ? `${Math.round(m.timeSpentSeconds / 60)} mins` : "N/A",
+          accuracy: `${m.accuracy != null ? m.accuracy : pct}%`,
+          reportUrl: `/assessment-report/${m.sessionId || `attempt_${m._id}`}`,
+        };
+      });
+
+      projectReports = (projectSubs || []).map((ps) => {
+        const uObj = resolveUser(ps.userId, ps.candidateDetails?.email);
+        const marks = ps.marksObtained != null ? ps.marksObtained : 0;
+        const total = ps.totalMarks || 100;
+        const pct = ps.percentage != null ? ps.percentage : Math.round((marks / total) * 100);
+        const isPassed = Boolean(ps.passed || marks >= (ps.passingMarks || 80));
+        const recipient = ps.candidateDetails?.fullName || uObj?.fullName || uObj?.username || "Candidate";
+        const email = ps.candidateDetails?.email || uObj?.email || "";
+        return {
+          id: ps._id,
+          rawId: ps._id,
+          itemType: "project",
+          sessionId: ps.sessionId,
+          title: `${ps.projectTitle || "Practical Project"} — Project Assessment Report`,
+          type: "Project Assessment Report",
+          recipient,
+          email,
+          score: `${marks}/${total} (${pct}%)`,
+          rawScore: pct,
+          maxScore: total,
+          grade: ps.grade || (isPassed ? "Passed" : "Needs Improvement"),
+          verificationCode: String(ps.sessionId || ps._id).slice(-8).toUpperCase(),
+          date: ps.submittedAt || ps.createdAt,
+          status: isPassed ? "PASSED" : "NEEDS_IMPROVEMENT",
+          reportUrl: `/assessment-report/${ps.sessionId}`,
+        };
+      });
+
+      codingReports = (codingSessions || []).map((cs) => {
+        const uObj = resolveUser(cs.userId, cs.candidateDetails?.email);
+        const subResult = cs.submissionResult || {};
+        const primaryQ = (cs.questions && cs.questions[0]) || {};
+        const score = subResult.score !== undefined ? subResult.score : (primaryQ.score !== undefined ? primaryQ.score : 0);
+        const totalTests = subResult.totalTests || primaryQ.totalTests || 10;
+        const passedTests = subResult.passedTests !== undefined ? subResult.passedTests : (primaryQ.passedTests !== undefined ? primaryQ.passedTests : 0);
+        const isPassed = subResult.passed !== undefined ? subResult.passed : score >= 80;
+        const recipient = cs.candidateDetails?.fullName || uObj?.fullName || uObj?.username || "Candidate";
+        const email = cs.candidateDetails?.email || uObj?.email || "";
+        const title = `${cs.assessmentTitle || primaryQ.title || "Algorithmic Challenge"} — Coding Assessment Report`;
+        return {
+          id: cs._id,
+          rawId: cs._id,
+          itemType: "coding",
+          sessionId: cs.sessionId,
+          title,
+          type: "Coding Challenge Report",
+          recipient,
+          email,
+          score: `${score}%`,
+          rawScore: score,
+          maxScore: 100,
+          grade: subResult.grade || (isPassed ? "Accepted" : "Failed"),
+          verificationCode: String(cs.sessionId || cs._id).slice(-8).toUpperCase(),
+          date: subResult.submittedAt || cs.updatedAt || cs.createdAt,
+          status: isPassed ? "ACCEPTED" : "FAILED",
+          passedTests,
+          totalTests,
+          reportUrl: `/assessment-report/${cs.sessionId}`,
+        };
+      });
+
+      challengeReports = (challengeSubs || []).map((cs) => {
+        const user = resolveUser(cs.userId) || {};
+        const totalT = cs.totalTests || 10;
+        const passedT = cs.passedTests != null ? cs.passedTests : 0;
+        const pct = cs.score != null ? cs.score : Math.round((passedT / totalT) * 100);
+        const isAccepted = cs.status === "ACCEPTED";
+        return {
+          id: cs._id,
+          rawId: cs._id,
+          itemType: "coding",
+          sessionId: String(cs._id),
+          title: `${cs.challengeTitle || cs.challengeId || "Coding Challenge"} — Challenge Submission Report`,
+          type: "Coding Challenge Report",
+          recipient: user.fullName || user.username || "Candidate",
+          email: user.email || "",
+          score: `${pct}%`,
+          rawScore: pct,
+          maxScore: 100,
+          grade: isAccepted ? "Accepted" : "Wrong Answer",
+          verificationCode: String(cs._id).slice(-8).toUpperCase(),
+          date: cs.createdAt,
+          status: cs.status,
+          passedTests: passedT,
+          totalTests: totalT,
+          reportUrl: `/assessment-report/${cs._id}`,
+        };
+      });
+
+      allReports = [...certReports, ...assessReports, ...mcqReports, ...projectReports, ...codingReports, ...challengeReports].sort(
+        (a, b) => new Date(b.date) - new Date(a.date)
+      );
+
+      setAdminCache(cacheKey, {
+        allReports,
+        certReports,
+        assessReports,
+        mcqReports,
+        projectReports,
+        codingReports,
+        challengeReports,
+      });
+    }
 
     let filteredReports = allReports;
     if (type && type !== "all") {
@@ -4990,40 +5082,70 @@ router.post("/recordings/purge-corrupted", async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 router.get("/storage", async (req, res) => {
   try {
+    const cachedStorage = getAdminCache("admin_storage", 15000);
+    if (cachedStorage) {
+      return res.status(200).json(cachedStorage);
+    }
+
     const recordingsDir = getRecordingsDir();
     const certsDir = path.join(__dirname, "../uploads/certificates");
 
-    const recBytes = getDirSizeBytes(recordingsDir);
-    const certBytes = getDirSizeBytes(certsDir);
+    const countFilesAsync = async (dir) => {
+      try {
+        const entries = await fs.promises.readdir(dir);
+        return entries.filter((f) => !f.startsWith(".")).length;
+      } catch {
+        return 0;
+      }
+    };
 
-    const recCount = fs.existsSync(recordingsDir)
-      ? fs.readdirSync(recordingsDir).filter((f) => !f.startsWith(".")).length
-      : 0;
+    const { recordingsBytes: recBytes, certsBytes: certBytes } = getCachedDirSize(recordingsDir, certsDir);
 
-    const certCount = fs.existsSync(certsDir)
-      ? fs.readdirSync(certsDir).filter((f) => !f.startsWith(".")).length
-      : 0;
+    const [
+      recCount,
+      certCount,
+      usersCount,
+      challengeCount,
+      certAttemptCount,
+      moduleAttemptCount,
+      issuedCertCount,
+      subjectProgressCount,
+      codingProgressCount,
+      recordingCount,
+    ] = await Promise.all([
+      countFilesAsync(recordingsDir),
+      countFilesAsync(certsDir),
+      User.countDocuments(REAL_USER_FILTER),
+      ChallengeSubmission.estimatedDocumentCount(),
+      CertificationAttempt.estimatedDocumentCount(),
+      ModuleAssessmentAttempt.estimatedDocumentCount(),
+      IssuedCertificate.estimatedDocumentCount(),
+      SubjectProgress.estimatedDocumentCount(),
+      CodingProgress.estimatedDocumentCount(),
+      Recording.estimatedDocumentCount(),
+    ]);
 
-    // Actual MongoDB collection counts
     const collections = [
-      { name: "Users (Registered)", count: await User.countDocuments(REAL_USER_FILTER) },
-      { name: "ChallengeSubmissions", count: await ChallengeSubmission.countDocuments() },
-      { name: "CertificationAttempts", count: await CertificationAttempt.countDocuments() },
-      { name: "ModuleAssessmentAttempts", count: await ModuleAssessmentAttempt.countDocuments() },
-      { name: "IssuedCertificates", count: await IssuedCertificate.countDocuments() },
-      { name: "SubjectProgress", count: await SubjectProgress.countDocuments() },
-      { name: "CodingProgress", count: await CodingProgress.countDocuments() },
-      { name: "Recordings", count: await Recording.countDocuments() },
+      { name: "Users (Registered)", count: usersCount },
+      { name: "ChallengeSubmissions", count: challengeCount },
+      { name: "CertificationAttempts", count: certAttemptCount },
+      { name: "ModuleAssessmentAttempts", count: moduleAttemptCount },
+      { name: "IssuedCertificates", count: issuedCertCount },
+      { name: "SubjectProgress", count: subjectProgressCount },
+      { name: "CodingProgress", count: codingProgressCount },
+      { name: "Recordings", count: recordingCount },
     ];
 
-    res.status(200).json({
+    const payload = {
       success: true,
       data: {
         recordings: { fileCount: recCount, mb: (recBytes / (1024 * 1024)).toFixed(1) },
         certificates: { fileCount: certCount, mb: (certBytes / (1024 * 1024)).toFixed(1) },
         database: { collections },
       },
-    });
+    };
+    setAdminCache("admin_storage", payload);
+    res.status(200).json(payload);
   } catch (error) {
     console.error("Storage fetch error:", error);
     res.status(500).json({ success: false, message: "Failed to fetch storage info" });
@@ -5035,7 +5157,20 @@ router.get("/storage", async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 router.get("/settings", async (req, res) => {
   try {
-    let persistedSettings = await PlatformSettings.findOne({ key: "global_platform_settings" }).lean();
+    const cachedSettings = getAdminCache("admin_settings", 15000);
+    if (cachedSettings) {
+      return res.status(200).json(cachedSettings);
+    }
+
+    let [persistedSettings, auditLogs] = await Promise.all([
+      PlatformSettings.findOne({ key: "global_platform_settings" }).lean(),
+      AdminActivityLog.find()
+        .populate("adminId", "email fullName")
+        .sort({ timestamp: -1 })
+        .limit(30)
+        .lean(),
+    ]);
+
     if (!persistedSettings) {
       persistedSettings = await PlatformSettings.create({
         key: "global_platform_settings",
@@ -5053,17 +5188,13 @@ router.get("/settings", async (req, res) => {
       maxConcurrentSessionsPerUser: persistedSettings.maxConcurrentSessionsPerUser || 3,
     };
 
-    const auditLogs = await AdminActivityLog.find()
-      .populate("adminId", "email fullName")
-      .sort({ timestamp: -1 })
-      .limit(30)
-      .lean();
-
-    res.status(200).json({
+    const payload = {
       success: true,
       settings: platformSettings,
       auditLogs,
-    });
+    };
+    setAdminCache("admin_settings", payload);
+    res.status(200).json(payload);
   } catch (error) {
     console.error("Failed to fetch settings:", error);
     res.status(500).json({ success: false, message: "Failed to fetch settings" });

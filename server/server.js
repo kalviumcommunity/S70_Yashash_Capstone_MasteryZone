@@ -320,9 +320,18 @@ io.on("connection", (socket) => {
     return null;
   };
 
-  // Auto-join user room if JWT token was passed in Socket.IO handshake auth
-  if (socket.handshake?.auth?.token) {
-    joinUserRoomFromToken(socket.handshake.auth.token);
+  // Auto-join user room (and super_admin_room if admin) from handshake auth token or cookie
+  let handshakeToken = socket.handshake?.auth?.token;
+  if (!handshakeToken && socket.handshake?.headers?.cookie) {
+    const cookieStr = socket.handshake.headers.cookie;
+    const match = cookieStr.match(/(?:^|;\s*)(?:mz_token|token)=([^;]+)/);
+    if (match && match[1]) handshakeToken = decodeURIComponent(match[1]);
+  }
+  if (handshakeToken) {
+    const uid = joinUserRoomFromToken(handshakeToken);
+    if (uid && (socket.data.isMainAdmin || socket.data.role === "admin" || socket.data.role === "SUPER_ADMIN")) {
+      socket.join("super_admin_room");
+    }
   }
 
   // Explicit socket logout & room purge on sign out

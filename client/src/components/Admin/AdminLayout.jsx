@@ -4,6 +4,8 @@ import "./Admin.css";
 import AdminNotificationDropdown from "./AdminNotificationDropdown.jsx";
 import ThemeToggle from "../ThemeToggle.jsx";
 import { performGlobalLogout } from "../../utils/sessionAuth.js";
+import { getSharedSocket, releaseSharedSocket } from "../../utils/socketClient.js";
+import { invalidateCachePattern } from "../../utils/apiClient.js";
 import logoIcon from "../../assets/logo_icon_transparent.png";
 import {
   LuLayoutGrid,
@@ -79,6 +81,44 @@ const AdminLayout = () => {
     if (!q) return [];
     return visibleNavItems.filter((item) => item.label.toLowerCase().includes(q) || item.id.toLowerCase().includes(q));
   }, [searchQuery, visibleNavItems]);
+
+  // Real-time Admin Socket Synchronization & Cache Invalidation
+  useEffect(() => {
+    const socket = getSharedSocket();
+    const token = localStorage.getItem("token") || "";
+    const joinAdminRoom = () => {
+      if (token) socket.emit("join_admin_monitoring", { token });
+    };
+    const invalidateAdminCaches = () => {
+      invalidateCachePattern("/api/admin");
+      invalidateCachePattern("/api/support/admin");
+    };
+    const events = [
+      "NEW_REPORT",
+      "NEW_SUBMISSION",
+      "NEW_CERTIFICATE",
+      "ASSESSMENT_MARKS_UPDATED",
+      "CODING_SUBMISSION_EVALUATED",
+      "NEW_RECORDING_SAVED",
+      "RECORDING_UPDATED",
+      "RECORDING_DELETED",
+      "RECORDINGS_PURGED",
+      "NEW_SUPPORT_TICKET",
+      "TICKET_UPDATED",
+      "ADMINS_UPDATED",
+      "live_session_update",
+      "live_session_ended",
+      "admin_notification",
+    ];
+    joinAdminRoom();
+    socket.on("connect", joinAdminRoom);
+    events.forEach((ev) => socket.on(ev, invalidateAdminCaches));
+    return () => {
+      socket.off("connect", joinAdminRoom);
+      events.forEach((ev) => socket.off(ev, invalidateAdminCaches));
+      releaseSharedSocket();
+    };
+  }, []);
 
   // Handle Ctrl+K / Cmd+K global shortcut and outside click
   useEffect(() => {

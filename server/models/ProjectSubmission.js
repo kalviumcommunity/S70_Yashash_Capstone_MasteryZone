@@ -219,5 +219,9 @@ const ProjectSubmissionSchema = new mongoose.Schema(
 );
 
 ProjectSubmissionSchema.index({ userId: 1, projectId: 1, createdAt: -1 });
+ProjectSubmissionSchema.index({ userId: 1, createdAt: -1 });
+ProjectSubmissionSchema.index({ createdAt: -1 });
+ProjectSubmissionSchema.index({ submittedAt: -1 });
+ProjectSubmissionSchema.index({ "candidateDetails.email": 1, createdAt: -1 });
 
 module.exports = mongoose.model("ProjectSubmission", ProjectSubmissionSchema);

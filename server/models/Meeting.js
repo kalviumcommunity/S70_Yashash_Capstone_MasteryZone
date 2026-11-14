@@ -175,6 +175,8 @@ const meetingSchema = new mongoose.Schema(
 
 meetingSchema.index({ status: 1, groupKey: 1 });
 meetingSchema.index({ hostUserId: 1, createdAt: -1 });
+meetingSchema.index({ hostEmail: 1, createdAt: -1 });
+meetingSchema.index({ "participants.userId": 1, createdAt: -1 });
 meetingSchema.index({ invitationCode: 1 });
 meetingSchema.index({ status: 1, createdAt: -1 });
 

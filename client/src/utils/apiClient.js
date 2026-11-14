@@ -75,11 +75,11 @@ const MUTATION_PREFIXES = [
  * @param {RequestInit & { cacheTtlMs?: number, forceFresh?: boolean, requestSeq?: number }} options
  * @returns {Promise<Response>}
  */
-export async function deduplicatedFetch(url, options = {}) {
+export async function deduplicatedFetch(url, options = {}, cacheConfig = {}) {
   const method = (options.method || "GET").toUpperCase();
   const isGet = method === "GET";
-  const forceFresh = options.forceFresh === true;
-  const cacheTtlMs = options.cacheTtlMs ?? DEFAULT_CACHE_TTL_MS;
+  const forceFresh = options.forceFresh === true || cacheConfig?.forceFresh === true;
+  const cacheTtlMs = options.cacheTtlMs ?? cacheConfig?.ttlMs ?? cacheConfig?.cacheTtlMs ?? DEFAULT_CACHE_TTL_MS;
   const callerSignal = options.signal;
 
   // Handle immediate caller abort

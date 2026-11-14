@@ -8,4 +8,7 @@ const adminActivityLogSchema = new mongoose.Schema({
   timestamp: { type: Date, default: Date.now }
 });
 
+adminActivityLogSchema.index({ timestamp: -1 });
+adminActivityLogSchema.index({ adminId: 1, timestamp: -1 });
+
 module.exports = mongoose.model("AdminActivityLog", adminActivityLogSchema);

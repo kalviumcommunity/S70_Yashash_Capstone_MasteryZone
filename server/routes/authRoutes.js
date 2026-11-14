@@ -23,6 +23,29 @@ const { getJwtSecret } = require('../config/jwtConfig');
 const { attachAuthCookies, clearAuthCookies, generateCsrfToken, getCsrfCookieOptions } = require('../utils/authCookies');
 const router = express.Router();
 
+// Short-lived per-user /me response cache (10s TTL)
+const meResponseCache = new Map();
+const ME_CACHE_TTL_MS = 10000;
+const invalidateMeCache = (userId) => {
+  if (!userId) return;
+  const prefix = `${String(userId)}:`;
+  for (const key of meResponseCache.keys()) {
+    if (key.startsWith(prefix)) meResponseCache.delete(key);
+  }
+};
+router.invalidateMeCache = invalidateMeCache;
+
+router.use((req, res, next) => {
+  if (req.method !== 'GET') {
+    res.on('finish', () => {
+      if (req.user && res.statusCode < 400) {
+        invalidateMeCache(req.user.userId || req.user.id || req.user._id);
+      }
+    });
+  }
+  next();
+});
+
 const JWT_SECRET = getJwtSecret();
 
 const getMainAdminEmail = () => (
@@ -319,6 +342,7 @@ router.post('/login', async (req, res) => {
 // Guest Login Route — Strict Individual Account Isolation for each guest
 router.post('/guest-login', async (req, res) => {
   try {
+    const { browser, os, clientIp, deviceSummary } = parseDeviceAndBrowser(req);
     const crypto = require('crypto');
     const guestSuffix = crypto.randomBytes(3).toString('hex');
     const guestEmail = `guest_${Date.now()}_${guestSuffix}@masteryzone.com`;
@@ -809,9 +833,25 @@ router.post('/firebase-login', verifyFirebaseToken, async (req, res) => {
 router.get('/me', verifyToken, async (req, res) => {
   try {
     const targetId = req.user.userId || req.user.id || req.user._id;
-    let user = targetId ? await User.findById(targetId).select('-password -knownDevices -resetPasswordToken -resetPasswordExpires -otpCodeHash -otpExpires') : null;
+    const clientTimezone = req.query.tz || req.headers["x-timezone"] || "Asia/Kolkata";
+    const cacheKey = targetId ? `${String(targetId)}:${clientTimezone}` : null;
+
+    if (cacheKey && req.query.fresh !== "1") {
+      const cached = meResponseCache.get(cacheKey);
+      if (cached && Date.now() - cached.time < ME_CACHE_TTL_MS) {
+        return res.status(200).json(cached.payload);
+      }
+    }
+
+    let user = targetId
+      ? await User.findById(targetId)
+          .select('-password -knownDevices -resetPasswordToken -resetPasswordExpires -otpCodeHash -otpExpires')
+          .lean()
+      : null;
     if (!user && req.user.email) {
-      user = await User.findOne({ email: req.user.email.toLowerCase().trim() }).select('-password -knownDevices -resetPasswordToken -resetPasswordExpires -otpCodeHash -otpExpires');
+      user = await User.findOne({ email: req.user.email.toLowerCase().trim() })
+        .select('-password -knownDevices -resetPasswordToken -resetPasswordExpires -otpCodeHash -otpExpires')
+        .lean();
     }
     if (!user) return res.status(404).json({ message: 'User not found' });
 
@@ -821,7 +861,6 @@ router.get('/me', verifyToken, async (req, res) => {
     const CodingProgress = require('../models/CodingProgress');
     const Progress = require('../models/ProgressSchema');
 
-    const clientTimezone = req.query.tz || req.headers["x-timezone"] || "Asia/Kolkata";
     const [activityData, certs, codingProg, codingProgressRecords] = await Promise.all([
       getUserCodingActivity(user._id, clientTimezone),
       Certification.find({ userId: user._id }).select('certId title status totalModules currentModule zone completedAt issueDate').lean(),
@@ -854,7 +893,7 @@ router.get('/me', verifyToken, async (req, res) => {
     const totalCodingXp = codingProgressRecords.reduce((sum, r) => sum + (r.xpEarned || 0), 0);
     const codingHours = codingProgressRecords.reduce((sum, r) => sum + (r.hoursSpent || 0), 0);
 
-    const safeUser = user.toObject();
+    const safeUser = { ...user };
     delete safeUser.resetPasswordToken;
     delete safeUser.resetPasswordExpires;
     delete safeUser.otpCodeHash;
@@ -874,7 +913,7 @@ router.get('/me', verifyToken, async (req, res) => {
     });
     safeUser.exploredTracks = Array.from(exploredSet);
 
-    res.status(200).json({ 
+    const responsePayload = { 
       user: safeUser,
       stats: {
         streak: activityData.currentStreak,
@@ -894,7 +933,14 @@ router.get('/me', verifyToken, async (req, res) => {
         challengesSolved: solvedChallenges,
         totalCodingXp,
       }
-    });
+    };
+
+    if (cacheKey) {
+      if (meResponseCache.size > 500) meResponseCache.clear();
+      meResponseCache.set(cacheKey, { time: Date.now(), payload: responsePayload });
+    }
+
+    res.status(200).json(responsePayload);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
