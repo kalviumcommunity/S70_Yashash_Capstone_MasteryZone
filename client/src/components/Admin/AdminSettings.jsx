@@ -225,6 +225,9 @@ const AdminSettings = () => {
       const json = await res.json();
       if (res.ok && json.success) {
         toast.success(`6-digit verification code sent to ${MAIN_ADMIN_EMAIL}!`);
+        if (json.debugOtp) {
+          setOtpInput(json.debugOtp);
+        }
         setAuthStep("otp");
       } else {
         toast.error(json.message || "Invalid administrator credentials");
@@ -292,6 +295,9 @@ const AdminSettings = () => {
       const json = await res.json();
       if (res.ok && json.success) {
         toast.info(`A new 6-digit OTP code was sent to ${MAIN_ADMIN_EMAIL}`);
+        if (json.debugOtp) {
+          setOtpInput(json.debugOtp);
+        }
       } else {
         toast.error(json.message || "Failed to resend OTP");
       }

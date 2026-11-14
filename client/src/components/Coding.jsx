@@ -323,6 +323,33 @@ const DEFAULT_STUDY_GROUPS = [];
 const trackCurriculumCache = new Map();
 const moduleDetailCache = new Map();
 
+const VALID_TRACK_IDS = new Set(DEFAULT_TRACKS.map((t) => t.id));
+
+const normalizeTrackId = (raw) => {
+  if (!raw) return null;
+  const lower = String(raw).toLowerCase().trim();
+  if (VALID_TRACK_IDS.has(lower)) return lower;
+  if (lower.includes("python")) return "python";
+  if (lower.includes("javascript") || lower === "js") return "javascript";
+  if (lower.includes("java")) return "java";
+  if (lower.includes("c++") || lower.includes("cpp")) return "cpp";
+  if (lower.includes("web") || lower.includes("full-stack") || lower.includes("fullstack")) return "webdev";
+  if (lower.includes("dsa") || lower.includes("algorithm") || lower.includes("data structure")) return "dsa";
+  return null;
+};
+
+const isModuleStrictlyComplete = (m) => {
+  if (!m) return false;
+  const isStudyDone = Boolean(m.isStudied);
+  const isCodingDone = Boolean(m.assignmentPassed || m.exercisePassed);
+  const isAssessmentDone = Boolean(m.assessmentPassed);
+  const isCutoffCleared = Boolean(
+    (m.assessmentPassed && (m.bestScore == null || m.bestScore >= 80)) ||
+    (m.bestScore != null && m.bestScore >= 80)
+  );
+  return Boolean(isStudyDone && isCodingDone && isAssessmentDone && isCutoffCleared);
+};
+
 /* ══════════════════════════════════════════════════════════════
    MAIN CODING DASHBOARD COMPONENT
    ══════════════════════════════════════════════════════════════ */
@@ -374,6 +401,14 @@ export default function Coding() {
       } catch {}
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
+    const trackParam = normalizeTrackId(searchParams.get("track") || location.state?.track);
+    if (trackParam) {
+      hasExplicitTrackRef.current = true;
+      setActiveTrackId(trackParam);
+      try {
+        localStorage.setItem("mz_coding_active_track", trackParam);
+      } catch {}
+    }
   }, [searchParams, location.state]);
 
   // Persist activeTab across browser refreshes and sync with URL query
@@ -402,7 +437,27 @@ export default function Coding() {
 
   // Data state
   const [tracks, setTracks] = useState(DEFAULT_TRACKS);
-  const [activeTrackId, setActiveTrackId] = useState("python");
+  const [activeTrackId, setActiveTrackId] = useState(() => {
+    const urlTrack = normalizeTrackId(searchParams.get("track"));
+    if (urlTrack) return urlTrack;
+    try {
+      const savedTrack = normalizeTrackId(localStorage.getItem("mz_coding_active_track"));
+      if (savedTrack) return savedTrack;
+    } catch {}
+    return "python";
+  });
+  const hasExplicitTrackRef = useRef(
+    Boolean(
+      normalizeTrackId(searchParams.get("track")) ||
+      (() => {
+        try {
+          return normalizeTrackId(localStorage.getItem("mz_coding_active_track"));
+        } catch {
+          return null;
+        }
+      })()
+    )
+  );
   const [challenges, setChallenges] = useState([]);
   const [projects, setProjects] = useState(DEFAULT_PROJECTS);
   const [resources, setResources] = useState(DEFAULT_RESOURCES);
@@ -592,7 +647,7 @@ export default function Coding() {
   }, []);
 
   // 3-Step Curriculum Modules Progression State
-  const [curriculumData, setCurriculumData] = useState({ modules: [], unlockLevel: 0 });
+  const [curriculumData, setCurriculumData] = useState({ trackId: activeTrackId, modules: [], unlockLevel: 0 });
   const [loadingCurriculum, setLoadingCurriculum] = useState(false);
   const [activeStudyModule, setActiveStudyModule] = useState(null);
   const [studyTimeElapsed, setStudyTimeElapsed] = useState(0);
@@ -706,8 +761,64 @@ export default function Coding() {
     } catch {}
   }, []);
 
+  const applyOptimisticModuleProgress = useCallback((payload) => {
+    if (!payload || !payload.type) return;
+    if (payload.type === "MZ_ACTIVE_TRACK_CHANGED" && payload.trackId) {
+      const normalized = normalizeTrackId(payload.trackId);
+      if (normalized) {
+        setActiveTrackId(normalized);
+        try {
+          localStorage.setItem("mz_coding_active_track", normalized);
+        } catch {}
+      }
+      return;
+    }
+
+    const targetTrack = normalizeTrackId(payload.trackId) || activeTrackId;
+    const modIdx = typeof payload.moduleIndex === "number" ? payload.moduleIndex : Number(payload.moduleIndex);
+    if (Number.isNaN(modIdx)) return;
+
+    const patchModule = (mod, idx) => {
+      const mIdx = typeof mod.moduleIndex === "number" ? mod.moduleIndex : idx;
+      if (mIdx !== modIdx) return mod;
+      if (payload.type === "MZ_MODULE_STUDIED") {
+        return { ...mod, isStudied: true };
+      }
+      if (payload.type === "MZ_ASSIGNMENT_PASSED") {
+        return { ...mod, isStudied: true, assignmentPassed: true, exercisePassed: true };
+      }
+      if (payload.type === "MZ_EXAM_COMPLETED") {
+        const numericScore = typeof payload.score === "number" ? payload.score : Number(payload.score);
+        const validScore = !Number.isNaN(numericScore) ? numericScore : mod.bestScore;
+        const bestScore = validScore != null ? Math.max(mod.bestScore || 0, validScore) : mod.bestScore;
+        const passed = payload.passed !== undefined ? Boolean(payload.passed) : (bestScore != null ? bestScore >= 80 : true);
+        return {
+          ...mod,
+          assessmentPassed: passed || Boolean(mod.assessmentPassed),
+          bestScore,
+        };
+      }
+      return mod;
+    };
+
+    if (targetTrack === activeTrackId) {
+      setCurriculumData((prev) => {
+        if (!prev || !Array.isArray(prev.modules) || prev.modules.length === 0) return prev;
+        if (prev.trackId && prev.trackId !== targetTrack) return prev;
+        return {
+          ...prev,
+          trackId: targetTrack,
+          modules: prev.modules.map(patchModule),
+        };
+      });
+    }
+  }, [activeTrackId]);
+
   useEffect(() => {
-    const handleStorageOrCustom = () => {
+    const handleStorageOrCustom = (e) => {
+      if (e && e.key && e.key !== "user" && e.key !== "mz_coding_active_track" && !e.key.startsWith("mz_")) {
+        return;
+      }
       setCompletionTick((t) => t + 1);
       try {
         const stored = localStorage.getItem("user");
@@ -717,7 +828,7 @@ export default function Coding() {
           setCurrentUser({ ...u, name, fullName: u.fullName || name, email: u.email || "user@masteryzone.com" });
         }
       } catch {}
-      fetchDashboardData();
+      fetchDashboardData(true);
     };
 
     const handleWindowMessage = (event) => {
@@ -727,10 +838,15 @@ export default function Coding() {
         event.data?.type === "MZ_ASSIGNMENT_PASSED" ||
         event.data?.type === "mz_module_progress_updated"
       ) {
+        applyOptimisticModuleProgress(event.data);
+        trackCurriculumCache.clear();
+        moduleDetailCache.clear();
+        invalidateCachePattern("/api/curriculum");
+        invalidateCachePattern("/api/coding");
         if (activeTrackId) {
-          fetchCurriculum(activeTrackId);
+          fetchCurriculum(activeTrackId, true);
         }
-        fetchDashboardData();
+        fetchDashboardData(true);
       }
     };
 
@@ -744,7 +860,7 @@ export default function Coding() {
       window.removeEventListener("storage", handleStorageOrCustom);
       window.removeEventListener("message", handleWindowMessage);
     };
-  }, [activeTrackId]);
+  }, [activeTrackId, applyOptimisticModuleProgress]);
 
   const lastDashboardFetchRef = useRef(0);
   const lastFocusSyncRef = useRef(0);
@@ -762,10 +878,24 @@ export default function Coding() {
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
     let challengesLoadedFromData = false;
 
-    const pData = deduplicatedFetch(`${API_BASE}/api/coding/data`, { headers, cacheTtlMs: 3500 })
+    const pData = deduplicatedFetch(`${API_BASE}/api/coding/data`, {
+      headers,
+      cacheTtlMs: force ? 0 : 3500,
+      forceFresh: force,
+    })
       .then(async (res) => {
         if (res.ok) {
           const data = await res.json();
+          if (!hasExplicitTrackRef.current) {
+            const serverTrack = normalizeTrackId(data.progress?.activeTrack || data.stats?.activeTrack);
+            if (serverTrack) {
+              hasExplicitTrackRef.current = true;
+              setActiveTrackId(serverTrack);
+              try {
+                localStorage.setItem("mz_coding_active_track", serverTrack);
+              } catch {}
+            }
+          }
           if (Array.isArray(data.tracks) && data.tracks.length > 0) {
             const merged = data.tracks.map((t) => {
               const def = DEFAULT_TRACKS.find((dt) => dt.id === t.id);
@@ -936,13 +1066,15 @@ export default function Coding() {
       const res = await deduplicatedFetch(`${API_BASE}/api/curriculum/coding/${trackId}`, {
         signal: controller.signal,
         headers: token ? { Authorization: `Bearer ${token}` } : {},
-        cacheTtlMs: 10000,
+        cacheTtlMs: forceRefresh ? 0 : 10000,
+        forceFresh: forceRefresh,
       });
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data.modules)) {
-          trackCurriculumCache.set(trackId, data);
-          setCurriculumData(data);
+          const tagged = { ...data, trackId };
+          trackCurriculumCache.set(trackId, tagged);
+          setCurriculumData(tagged);
         }
       }
     } catch (err) {
@@ -962,15 +1094,19 @@ export default function Coding() {
 
   // Real-time synchronization for curriculum progress across tabs & windows
   useEffect(() => {
-    const handleSync = () => {
+    const handleSync = (payload) => {
+      if (payload) {
+        applyOptimisticModuleProgress(payload);
+      }
       trackCurriculumCache.clear();
       moduleDetailCache.clear();
       invalidateCachePattern("/api/curriculum");
       invalidateCachePattern("/api/coding");
-      if (activeTrackId) {
-        fetchCurriculum(activeTrackId, true);
+      const targetTrack = normalizeTrackId(payload?.trackId) || activeTrackId;
+      if (targetTrack) {
+        fetchCurriculum(targetTrack, true);
       }
-      fetchDashboardData();
+      fetchDashboardData(true);
     };
 
     const handleStorage = (e) => {
@@ -980,32 +1116,43 @@ export default function Coding() {
         e.key === "mz_exam_completed" ||
         e.key === "mz_assignment_passed" ||
         e.key === "mz_learning_progress_reset" ||
+        e.key === "mz_coding_active_track" ||
         e.key === "user"
       ) {
-        handleSync();
+        let parsed = null;
+        if (e?.newValue && e.key === "mz_module_progress_updated") {
+          try {
+            parsed = JSON.parse(e.newValue);
+          } catch {}
+        } else if (e?.key === "mz_coding_active_track" && e.newValue) {
+          parsed = { type: "MZ_ACTIVE_TRACK_CHANGED", trackId: e.newValue };
+        }
+        handleSync(parsed);
       }
     };
 
-    const handleCustomEvent = () => handleSync();
+    const handleCustomEvent = (e) => handleSync(e?.detail || null);
 
     let bc = null;
     try {
       if (typeof BroadcastChannel !== "undefined") {
         bc = new BroadcastChannel("mz_module_sync");
-        bc.onmessage = () => handleSync();
+        bc.onmessage = (msg) => handleSync(msg?.data || null);
       }
     } catch {}
 
     const handleFocusOrVisibility = () => {
       const now = Date.now();
-      if (now - lastFocusSyncRef.current < 30000) {
+      if (now - lastFocusSyncRef.current < 1500) {
         return;
       }
       lastFocusSyncRef.current = now;
+      invalidateCachePattern("/api/curriculum");
+      invalidateCachePattern("/api/coding");
       if (activeTrackId) {
-        fetchCurriculum(activeTrackId);
+        fetchCurriculum(activeTrackId, true);
       }
-      fetchDashboardData();
+      fetchDashboardData(true);
     };
 
     const handleFocus = () => handleFocusOrVisibility();
@@ -1049,7 +1196,7 @@ export default function Coding() {
         } catch {}
       }
     };
-  }, [activeTrackId, fetchCurriculum, fetchDashboardData]);
+  }, [activeTrackId, applyOptimisticModuleProgress, fetchCurriculum, fetchDashboardData]);
 
   // Concept study lesson timer
   useEffect(() => {
@@ -1158,13 +1305,64 @@ export default function Coding() {
     return tracks.find((t) => t.id === activeTrackId) || tracks[0] || DEFAULT_TRACKS[0];
   }, [tracks, activeTrackId]);
 
+  const handleSelectTrack = useCallback((nextTrackId) => {
+    const normalized = normalizeTrackId(nextTrackId) || nextTrackId;
+    if (!normalized) return;
+
+    hasExplicitTrackRef.current = true;
+    setActiveTrackId(normalized);
+    try {
+      localStorage.setItem("mz_coding_active_track", normalized);
+      const url = new URL(window.location.href);
+      url.searchParams.set("track", normalized);
+      window.history.replaceState(window.history.state, "", url.toString());
+    } catch {}
+
+    if (trackCurriculumCache.has(normalized)) {
+      setCurriculumData(trackCurriculumCache.get(normalized));
+      setLoadingCurriculum(false);
+    } else {
+      setCurriculumData({ trackId: normalized, modules: [], unlockLevel: 0 });
+    }
+
+    const targetTrack = tracks.find((t) => t.id === normalized) || DEFAULT_TRACKS.find((t) => t.id === normalized);
+    if (targetTrack) {
+      setStats((prev) => ({ ...prev, activeTrack: targetTrack.title }));
+    }
+
+    const authToken = localStorage.getItem("token");
+    if (authToken) {
+      fetch(`${API_BASE}/api/coding/track/select`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({ track: normalized }),
+      }).catch(() => {});
+    }
+
+    try {
+      if (typeof BroadcastChannel !== "undefined") {
+        const bc = new BroadcastChannel("mz_module_sync");
+        bc.postMessage({ type: "MZ_ACTIVE_TRACK_CHANGED", trackId: normalized, timestamp: Date.now() });
+        bc.close();
+      }
+    } catch {}
+  }, [tracks]);
+
   const displayModules = useMemo(() => {
-    if (curriculumData && Array.isArray(curriculumData.modules) && curriculumData.modules.length > 0) {
+    if (
+      curriculumData &&
+      (!curriculumData.trackId || curriculumData.trackId === activeTrackId) &&
+      Array.isArray(curriculumData.modules) &&
+      curriculumData.modules.length > 0
+    ) {
       return curriculumData.modules;
     }
     return (activeTrack.modules || []).map((m, idx) => ({
       id: m.id || `${activeTrackId}_m${idx + 1}`,
-      moduleIndex: typeof m.index === "number" ? m.index : idx,
+      moduleIndex: typeof m.moduleIndex === "number" ? m.moduleIndex : idx,
       title: m.title,
       subtitle: m.desc,
       desc: m.desc,
@@ -1177,22 +1375,19 @@ export default function Coding() {
     }));
   }, [curriculumData, activeTrack, activeTrackId]);
 
-  const completedCount = useMemo(() => {
-    return displayModules.filter((m) => {
-      const isStudyDone = Boolean(m.isStudied);
-      const isCodingDone = Boolean(m.assignmentPassed || m.exercisePassed);
-      const isAssessmentDone = Boolean(m.assessmentPassed);
-      const isCutoffCleared = Boolean(
-        (m.assessmentPassed && (m.bestScore == null || m.bestScore >= 80)) ||
-        (m.bestScore != null && m.bestScore >= 80)
-      );
+  const activeModuleChoice = useMemo(() => {
+    if (!selectedModuleChoice) return null;
+    return (
+      displayModules.find(
+        (m) =>
+          (selectedModuleChoice.id && m.id === selectedModuleChoice.id) ||
+          (typeof selectedModuleChoice.moduleIndex === "number" && m.moduleIndex === selectedModuleChoice.moduleIndex)
+      ) || selectedModuleChoice
+    );
+  }, [selectedModuleChoice, displayModules]);
 
-      // Module is strictly completed ONLY when all 3 criteria are satisfied:
-      // 1. All learning module (theory) is studied
-      // 2. Practical coding test is passed
-      // 3. 10 MCQs are attempted AND cutoff (>= 80%) is met
-      return Boolean(isStudyDone && isCodingDone && isAssessmentDone && isCutoffCleared);
-    }).length;
+  const completedCount = useMemo(() => {
+    return displayModules.filter(isModuleStrictlyComplete).length;
   }, [displayModules]);
 
   const hasStartedLearning = useMemo(() => {
@@ -1624,7 +1819,7 @@ export default function Coding() {
           t.title.toLowerCase().includes(lang)
       );
       if (matchedTrack) {
-        setActiveTrackId(matchedTrack.id);
+        handleSelectTrack(matchedTrack.id);
       }
     }
 
@@ -1997,7 +2192,7 @@ export default function Coding() {
                           key={tr.id}
                           className="mz-c-search-result-item"
                           onClick={() => {
-                            setActiveTrackId(tr.id);
+                            handleSelectTrack(tr.id);
                             setActiveTab("learning_path");
                             setShowSearchDropdown(false);
                           }}
@@ -2210,7 +2405,7 @@ export default function Coding() {
                   key={tr.id}
                   type="button"
                   className={`mz-c-chip ${activeTrackId === tr.id ? "mz-c-chip-active" : ""}`}
-                  onClick={() => setActiveTrackId(tr.id)}
+                  onClick={() => handleSelectTrack(tr.id)}
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -2287,7 +2482,7 @@ export default function Coding() {
                       type="button"
                       className="mz-c-track-hero-cta"
                       onClick={() => {
-                        const nextMod = displayModules.find((m) => !m.assessmentPassed) || displayModules[0];
+                        const nextMod = displayModules.find((m) => !isModuleStrictlyComplete(m)) || displayModules[0];
                         if (nextMod) handleStartPractice(nextMod);
                       }}
                     >
@@ -4695,7 +4890,7 @@ export default function Coding() {
       {/* ── 3-STEP PROGRESSION MODALS ── */}
 
       {/* ── MODULE LEARNING PATHWAY CONFIRMATION MODAL ── */}
-      {selectedModuleChoice && (
+      {activeModuleChoice && (
         <div
           className="mz-c-modal-overlay"
           onClick={() => setSelectedModuleChoice(null)}
@@ -4768,14 +4963,14 @@ export default function Coding() {
                         border: "1px solid var(--mz-blue-border)",
                       }}
                     >
-                      Module {String(typeof selectedModuleChoice.moduleIndex === "number" ? selectedModuleChoice.moduleIndex + 1 : 1).padStart(2, "0")}
+                      Module {String(typeof activeModuleChoice.moduleIndex === "number" ? activeModuleChoice.moduleIndex + 1 : 1).padStart(2, "0")}
                     </span>
                     <span style={{ fontSize: "12px", color: "var(--mz-text-muted)", fontWeight: 600 }}>
                       {activeTrack.title || "Curriculum Track"}
                     </span>
                   </div>
                   <h2 style={{ margin: 0, fontSize: "18px", fontWeight: 800, color: "var(--mz-text-primary)" }}>
-                    {selectedModuleChoice.title}
+                    {activeModuleChoice.title}
                   </h2>
                 </div>
               </div>
@@ -4815,7 +5010,7 @@ export default function Coding() {
               <div
                 className="mz-c-pathway-option active-pathway"
                 onClick={() => {
-                  const mod = selectedModuleChoice;
+                  const mod = activeModuleChoice;
                   setSelectedModuleChoice(null);
                   const mIdx = typeof mod.moduleIndex === "number" ? mod.moduleIndex : 0;
                   window.open(`/concept-learning/${activeTrackId}/${mIdx}`, "_blank", "noopener,noreferrer");
@@ -4860,12 +5055,12 @@ export default function Coding() {
                           textTransform: "uppercase",
                           padding: "2px 7px",
                           borderRadius: "9999px",
-                          background: selectedModuleChoice.isStudied ? "var(--mz-emerald-soft)" : "var(--mz-blue-soft)",
-                          color: selectedModuleChoice.isStudied ? "var(--mz-emerald-text)" : "var(--mz-blue-text)",
-                          border: selectedModuleChoice.isStudied ? "1px solid var(--mz-emerald-border)" : "1px solid var(--mz-blue-border)",
+                          background: activeModuleChoice.isStudied ? "var(--mz-emerald-soft)" : "var(--mz-blue-soft)",
+                          color: activeModuleChoice.isStudied ? "var(--mz-emerald-text)" : "var(--mz-blue-text)",
+                          border: activeModuleChoice.isStudied ? "1px solid var(--mz-emerald-border)" : "1px solid var(--mz-blue-border)",
                         }}
                       >
-                        {selectedModuleChoice.isStudied ? "✓ Completed" : "Unlocked & Ready"}
+                        {activeModuleChoice.isStudied ? "✓ Completed" : "Unlocked & Ready"}
                       </span>
                     </div>
                     <p style={{ margin: 0, fontSize: "12.5px", color: "var(--mz-text-secondary)", lineHeight: 1.4 }}>
@@ -4873,10 +5068,10 @@ export default function Coding() {
                     </p>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: "5px", marginTop: "6px" }}>
                       <span style={{ fontSize: "10.5px", fontWeight: 600, color: "var(--mz-blue-text)", background: "var(--mz-surface)", border: "1px solid var(--mz-blue-border)", padding: "1px 7px", borderRadius: "5px" }}>
-                        📖 {selectedModuleChoice.sections?.length || 5} Topics
+                        📖 {activeModuleChoice.sections?.length || 5} Topics
                       </span>
                       <span style={{ fontSize: "10.5px", fontWeight: 600, color: "var(--mz-purple-text)", background: "var(--mz-purple-soft)", border: "1px solid var(--mz-purple-border)", padding: "1px 7px", borderRadius: "5px" }}>
-                        📚 {selectedModuleChoice.references?.length || 3} Official Standards
+                        📚 {activeModuleChoice.references?.length || 3} Official Standards
                       </span>
                       <span style={{ fontSize: "10.5px", fontWeight: 600, color: "var(--mz-emerald-text)", background: "var(--mz-emerald-soft)", border: "1px solid var(--mz-emerald-border)", padding: "1px 7px", borderRadius: "5px" }}>
                         ⚡ Live Sandbox
@@ -4904,14 +5099,14 @@ export default function Coding() {
                     flexShrink: 0,
                   }}
                 >
-                  {selectedModuleChoice.isStudied ? "Review Lesson" : "Start Learning"} <LuArrowRight size={13} />
+                  {activeModuleChoice.isStudied ? "Review Lesson" : "Start Learning"} <LuArrowRight size={13} />
                 </button>
               </div>
 
               {/* OPTION 2: Practical Coding Test (Locked if !isStudied) */}
               {(() => {
-                const isUnlocked = Boolean(selectedModuleChoice.isStudied);
-                const isPassed = Boolean(selectedModuleChoice.assignmentPassed || selectedModuleChoice.exercisePassed);
+                const isUnlocked = Boolean(activeModuleChoice.isStudied);
+                const isPassed = Boolean(activeModuleChoice.assignmentPassed || activeModuleChoice.exercisePassed);
 
                 return (
                   <div
@@ -4923,7 +5118,7 @@ export default function Coding() {
                         });
                         return;
                       }
-                      const mod = selectedModuleChoice;
+                      const mod = activeModuleChoice;
                       setSelectedModuleChoice(null);
                       const mIdx = typeof mod.moduleIndex === "number" ? mod.moduleIndex : 0;
                       if (isPassed) {
@@ -5030,10 +5225,10 @@ export default function Coding() {
 
               {/* OPTION 3: 10-MCQ Proctored Assessment (Locked if !isStudied || !codingDone) */}
               {(() => {
-                const isStudyDone = Boolean(selectedModuleChoice.isStudied);
-                const isCodingDone = Boolean(selectedModuleChoice.assignmentPassed || selectedModuleChoice.exercisePassed);
+                const isStudyDone = Boolean(activeModuleChoice.isStudied);
+                const isCodingDone = Boolean(activeModuleChoice.assignmentPassed || activeModuleChoice.exercisePassed);
                 const isUnlocked = isStudyDone && isCodingDone;
-                const isPassed = Boolean(selectedModuleChoice.assessmentPassed);
+                const isPassed = Boolean(activeModuleChoice.assessmentPassed);
 
                 return (
                   <div
@@ -5049,7 +5244,7 @@ export default function Coding() {
                         });
                         return;
                       }
-                      const mod = selectedModuleChoice;
+                      const mod = activeModuleChoice;
                       setSelectedModuleChoice(null);
                       const mIdx = typeof mod.moduleIndex === "number" ? mod.moduleIndex : 0;
                       if (isPassed) {
@@ -5122,7 +5317,7 @@ export default function Coding() {
                             }}
                           >
                             {isPassed
-                              ? `✓ Passed (${selectedModuleChoice.bestScore || 100}%)`
+                              ? `✓ Passed (${activeModuleChoice.bestScore || 100}%)`
                               : isUnlocked
                               ? "Unlocked & Ready"
                               : "🔒 Locked"}
@@ -5175,7 +5370,7 @@ export default function Coding() {
               }}
             >
               <span style={{ fontSize: "12px", color: "var(--mz-text-muted)", display: "flex", alignItems: "center", gap: "6px" }}>
-                <LuClock size={13} /> Estimated: {selectedModuleChoice.estimatedTime || "45m"} for all 3 steps
+                <LuClock size={13} /> Estimated: {activeModuleChoice.estimatedTime || "45m"} for all 3 steps
               </span>
               <button
                 type="button"
