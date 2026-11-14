@@ -613,6 +613,12 @@ router.get("/users", async (req, res) => {
       limit = 10,
     } = req.query;
 
+    const cacheKey = `admin_users_${search}_${status}_${role}_${sortBy}_${sortOrder}_${page}_${limit}`;
+    const cached = getAdminCache(cacheKey, 10000);
+    if (cached) {
+      return res.status(200).json(cached);
+    }
+
     let query = { ...REAL_USER_FILTER };
 
     if (search.trim()) {
@@ -687,52 +693,24 @@ router.get("/users", async (req, res) => {
     }
 
     const userIds = users.map((u) => u._id);
-    const userEmails = users.map((u) => (u.email || "").toLowerCase()).filter(Boolean);
 
-    // High-speed parallel aggregation across all assessment models for accurate user metrics
+    // High-speed parallel aggregation across all assessment models using indexed userId
     const [subCounts, certCounts, moduleCounts, procCounts] = await Promise.all([
       ChallengeSubmission.aggregate([
         { $match: { userId: { $in: userIds } } },
         { $group: { _id: "$userId", count: { $sum: 1 } } },
       ]),
       CertificationAttempt.aggregate([
-        {
-          $match: {
-            $or: [{ userId: { $in: userIds } }, { candidateEmail: { $in: userEmails } }],
-          },
-        },
-        {
-          $group: {
-            _id: { $ifNull: ["$userId", "$candidateEmail"] },
-            count: { $sum: 1 },
-          },
-        },
+        { $match: { userId: { $in: userIds } } },
+        { $group: { _id: "$userId", count: { $sum: 1 } } },
       ]),
       ModuleAssessmentAttempt.aggregate([
-        {
-          $match: {
-            $or: [{ userId: { $in: userIds } }, { candidateEmail: { $in: userEmails } }, { userEmail: { $in: userEmails } }],
-          },
-        },
-        {
-          $group: {
-            _id: { $ifNull: ["$userId", "$candidateEmail"] },
-            count: { $sum: 1 },
-          },
-        },
+        { $match: { userId: { $in: userIds } } },
+        { $group: { _id: "$userId", count: { $sum: 1 } } },
       ]),
       ProctoredCodingSession.aggregate([
-        {
-          $match: {
-            $or: [{ userId: { $in: userIds } }, { "candidateDetails.email": { $in: userEmails } }],
-          },
-        },
-        {
-          $group: {
-            _id: { $ifNull: ["$userId", "$candidateDetails.email"] },
-            count: { $sum: 1 },
-          },
-        },
+        { $match: { userId: { $in: userIds } } },
+        { $group: { _id: "$userId", count: { $sum: 1 } } },
       ]),
     ]);
 
@@ -740,21 +718,20 @@ router.get("/users", async (req, res) => {
     subCounts.forEach((s) => subMap.set(String(s._id), s.count));
 
     const certMap = new Map();
-    certCounts.forEach((c) => certMap.set(String(c._id).toLowerCase(), c.count));
+    certCounts.forEach((c) => certMap.set(String(c._id), c.count));
 
     const moduleMap = new Map();
-    moduleCounts.forEach((m) => moduleMap.set(String(m._id).toLowerCase(), m.count));
+    moduleCounts.forEach((m) => moduleMap.set(String(m._id), m.count));
 
     const procMap = new Map();
-    procCounts.forEach((p) => procMap.set(String(p._id).toLowerCase(), p.count));
+    procCounts.forEach((p) => procMap.set(String(p._id), p.count));
 
     const enhancedUsers = users.map((u) => {
-      const uIdStr = String(u._id).toLowerCase();
-      const emailStr = String(u.email || "").toLowerCase();
-      const submissionsCount = subMap.get(String(u._id)) || 0;
-      const certCount = certMap.get(uIdStr) || certMap.get(emailStr) || 0;
-      const modCount = moduleMap.get(uIdStr) || moduleMap.get(emailStr) || 0;
-      const pCount = procMap.get(uIdStr) || procMap.get(emailStr) || 0;
+      const uIdStr = String(u._id);
+      const submissionsCount = subMap.get(uIdStr) || 0;
+      const certCount = certMap.get(uIdStr) || 0;
+      const modCount = moduleMap.get(uIdStr) || 0;
+      const pCount = procMap.get(uIdStr) || 0;
       const assessmentsCount = certCount + modCount + pCount;
 
       return {
@@ -768,7 +745,7 @@ router.get("/users", async (req, res) => {
       };
     });
 
-    res.status(200).json({
+    const payload = {
       success: true,
       data: {
         users: enhancedUsers,
@@ -779,7 +756,9 @@ router.get("/users", async (req, res) => {
           totalPages: Math.ceil(totalUsers / limitNum) || 1,
         },
       },
-    });
+    };
+    setAdminCache(cacheKey, payload);
+    res.status(200).json(payload);
   } catch (error) {
     console.error("Admin Users API Error:", error);
     res.status(500).json({ success: false, message: "Failed to fetch registered users" });
@@ -792,6 +771,12 @@ router.get("/users/:id", async (req, res) => {
     const { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ success: false, message: "Invalid user ID" });
+    }
+
+    const cacheKey = `admin_user_detail_${id}_${req.query.tz || ""}`;
+    const cached = getAdminCache(cacheKey, 10000);
+    if (cached) {
+      return res.status(200).json(cached);
     }
 
     const user = await User.findById(id)
@@ -1015,7 +1000,7 @@ router.get("/users/:id", async (req, res) => {
     // Sort timeline chronologically descending
     timeline.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
-    res.status(200).json({
+    const payload = {
       success: true,
       data: {
         user: {
@@ -1040,7 +1025,9 @@ router.get("/users/:id", async (req, res) => {
         proctoredSessions,
         timeline: timeline.slice(0, 50),
       },
-    });
+    };
+    setAdminCache(cacheKey, payload);
+    res.status(200).json(payload);
   } catch (error) {
     console.error("Admin User Detail Error:", error);
     res.status(500).json({ success: false, message: "Failed to fetch user details" });
@@ -2759,60 +2746,73 @@ router.put("/modify-marks", async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 router.get("/notifications", async (req, res) => {
   try {
+    const cacheKey = "admin_notifications_feed";
+    const cached = getAdminCache(cacheKey, 5000);
+    if (cached) {
+      return res.status(200).json(cached);
+    }
+
+    let [notifications, unreadCount] = await Promise.all([
+      AdminNotification.find().sort({ createdAt: -1 }).limit(50).lean(),
+      AdminNotification.countDocuments({ isRead: false }),
+    ]);
+
     // If no notifications exist yet, seed initial notifications from recent database events
-    const count = await AdminNotification.countDocuments();
-    if (count === 0) {
-      const recentUsers = await User.find(REAL_USER_FILTER)
-        .sort({ createdAt: -1 })
-        .limit(3)
-        .lean();
+    if (notifications.length === 0) {
+      const count = await AdminNotification.countDocuments();
+      if (count === 0) {
+        const recentUsers = await User.find(REAL_USER_FILTER)
+          .sort({ createdAt: -1 })
+          .limit(3)
+          .lean();
 
-      for (const u of recentUsers) {
-        await AdminNotification.create({
-          title: "New Student Registration",
-          message: `${u.fullName || u.username} (${u.email}) joined MasteryZone.`,
-          type: "registration",
-          severity: "info",
-          targetId: String(u._id),
-          targetUser: { fullName: u.fullName, email: u.email, username: u.username },
-          actionUrl: "/admin/users",
-          isRead: false,
-          createdAt: u.createdAt,
-        });
-      }
+        for (const u of recentUsers) {
+          await AdminNotification.create({
+            title: "New Student Registration",
+            message: `${u.fullName || u.username} (${u.email}) joined MasteryZone.`,
+            type: "registration",
+            severity: "info",
+            targetId: String(u._id),
+            targetUser: { fullName: u.fullName, email: u.email, username: u.username },
+            actionUrl: "/admin/users",
+            isRead: false,
+            createdAt: u.createdAt,
+          });
+        }
 
-      const recentSubs = await ChallengeSubmission.find()
-        .populate("userId", "fullName username email")
-        .sort({ createdAt: -1 })
-        .limit(2)
-        .lean();
+        const recentSubs = await ChallengeSubmission.find()
+          .populate("userId", "fullName username email")
+          .sort({ createdAt: -1 })
+          .limit(2)
+          .lean();
 
-      for (const s of recentSubs) {
-        await AdminNotification.create({
-          title: "Code Challenge Execution",
-          message: `${s.userId?.fullName || "Candidate"} submitted solution for ${s.challengeTitle || s.challengeId} (${s.status}).`,
-          type: "coding",
-          severity: s.status === "ACCEPTED" ? "success" : "warning",
-          targetId: String(s._id),
-          actionUrl: "/admin/coding-analytics",
-          isRead: false,
-          createdAt: s.createdAt,
-        });
+        for (const s of recentSubs) {
+          await AdminNotification.create({
+            title: "Code Challenge Execution",
+            message: `${s.userId?.fullName || "Candidate"} submitted solution for ${s.challengeTitle || s.challengeId} (${s.status}).`,
+            type: "coding",
+            severity: s.status === "ACCEPTED" ? "success" : "warning",
+            targetId: String(s._id),
+            actionUrl: "/admin/coding-analytics",
+            isRead: false,
+            createdAt: s.createdAt,
+          });
+        }
+
+        [notifications, unreadCount] = await Promise.all([
+          AdminNotification.find().sort({ createdAt: -1 }).limit(50).lean(),
+          AdminNotification.countDocuments({ isRead: false }),
+        ]);
       }
     }
 
-    const notifications = await AdminNotification.find()
-      .sort({ createdAt: -1 })
-      .limit(50)
-      .lean();
-
-    const unreadCount = await AdminNotification.countDocuments({ isRead: false });
-
-    res.status(200).json({
+    const payload = {
       success: true,
       notifications,
       unreadCount,
-    });
+    };
+    setAdminCache(cacheKey, payload);
+    res.status(200).json(payload);
   } catch (error) {
     console.error("Fetch Admin Notifications error:", error);
     res.status(500).json({ success: false, message: "Failed to fetch notifications" });
@@ -2826,6 +2826,7 @@ router.put("/notifications/:id/read", async (req, res) => {
       isRead: true,
       readAt: new Date(),
     });
+    setAdminCache("admin_notifications_feed", null);
     const unreadCount = await AdminNotification.countDocuments({ isRead: false });
     res.status(200).json({ success: true, unreadCount });
   } catch (error) {
@@ -2966,6 +2967,13 @@ router.get("/live-activity", async (req, res) => {
 router.get("/learning-analytics", async (req, res) => {
   try {
     const { userId, range = "30d", startDate: qStart, endDate: qEnd } = req.query;
+
+    const cacheKey = `learning_analytics_${userId || ""}_${range}_${qStart || ""}_${qEnd || ""}`;
+    const cached = getAdminCache(cacheKey, 10000);
+    if (cached) {
+      return res.status(200).json(cached);
+    }
+
     const { startDate, endDate } = parseDateRange(range, qStart, qEnd);
 
     const genuineData = await getCachedGenuineUsers();
@@ -3075,7 +3083,7 @@ router.get("/learning-analytics", async (req, res) => {
           )
         : 0;
 
-    res.status(200).json({
+    const payload = {
       success: true,
       data: {
         totalEnrolled,
@@ -3084,7 +3092,9 @@ router.get("/learning-analytics", async (req, res) => {
         averageStreak: totalEnrolled > 0 ? (totalStreaks / totalEnrolled).toFixed(1) : 0,
         tracks,
       },
-    });
+    };
+    setAdminCache(cacheKey, payload);
+    res.status(200).json(payload);
   } catch (error) {
     console.error("Learning Analytics API Error:", error);
     res.status(500).json({ success: false, message: "Failed to fetch learning analytics" });
@@ -3107,6 +3117,13 @@ router.get("/coding-analytics", async (req, res) => {
       language = "all",
       all = "false",
     } = req.query;
+
+    const cacheKey = `coding_analytics_${range}_${qStart || ""}_${qEnd || ""}_${page}_${limit}_${search}_${status}_${language}_${all}`;
+    const cached = getAdminCache(cacheKey, 10000);
+    if (cached) {
+      return res.status(200).json(cached);
+    }
+
     const { startDate, endDate } = parseDateRange(range, qStart, qEnd);
 
     const genuineData = await getCachedGenuineUsers();
@@ -3191,11 +3208,15 @@ router.get("/coding-analytics", async (req, res) => {
     const Notification = require("../models/NotificationSchema");
     const recentSubmissions = await ChallengeSubmission.find(listFilter)
       .select("_id userId challengeId challengeTitle language code status score executionTime passedTests totalTests adminNote createdAt notificationSent notificationViewed notificationViewedAt notificationInAppId")
-      .populate("userId", "fullName username email")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limitNum)
       .lean();
+
+    recentSubmissions.forEach((sub) => {
+      const u = genuineData.resolveUser(sub.userId);
+      sub.userId = u ? { _id: u._id, fullName: u.fullName, username: u.username, email: u.email } : sub.userId;
+    });
 
     const pendingNotifIds = recentSubmissions
       .filter((s) => s.notificationInAppId && !s.notificationViewed)
@@ -3216,7 +3237,7 @@ router.get("/coding-analytics", async (req, res) => {
       }
     }
 
-    res.status(200).json({
+    const payload = {
       success: true,
       metrics: {
         totalSubmissions,
@@ -3233,7 +3254,9 @@ router.get("/coding-analytics", async (req, res) => {
         totalPages,
       },
       recentSubmissions,
-    });
+    };
+    setAdminCache(cacheKey, payload);
+    res.status(200).json(payload);
   } catch (error) {
     console.error("Coding Analytics Error:", error);
     res.status(500).json({ success: false, message: "Failed to fetch coding analytics" });
@@ -3356,7 +3379,7 @@ router.get("/assessments", async (req, res) => {
       [certAttempts, moduleAttempts, challengeSubs, projectSubs, proctoredSessions] = await Promise.all([
         CertificationAttempt.find({
           ...baseDateFilter,
-          $or: [{ userId: { $in: genuineUserIds } }, { candidateEmail: { $in: genuineUserEmails } }],
+          userId: { $in: genuineUserIds },
         })
           .select("_id attemptId userId candidateName candidateEmail certTitle percentage score status finalVerdict submittedAt createdAt durationMinutes certificateId")
           .sort({ createdAt: -1 })
@@ -3364,11 +3387,7 @@ router.get("/assessments", async (req, res) => {
           .lean(),
         ModuleAssessmentAttempt.find({
           ...baseDateFilter,
-          $or: [
-            { userId: { $in: genuineUserIds } },
-            { candidateEmail: { $in: genuineUserEmails } },
-            { userEmail: { $in: genuineUserEmails } },
-          ],
+          userId: { $in: genuineUserIds },
         })
           .select("_id sessionId userId candidateEmail userEmail assessmentTitle moduleTitle totalQuestions score percentage passed submittedAt createdAt timeSpentSeconds")
           .sort({ createdAt: -1 })
@@ -3384,7 +3403,7 @@ router.get("/assessments", async (req, res) => {
           .lean(),
         ProjectSubmission.find({
           ...baseDateFilter,
-          $or: [{ userId: { $in: genuineUserIds } }, { "candidateDetails.email": { $in: genuineUserEmails } }],
+          userId: { $in: genuineUserIds },
         })
           .select("_id sessionId userId candidateDetails projectTitle totalMarks marksObtained percentage passed status passingMarks submittedAt createdAt")
           .sort({ createdAt: -1 })
@@ -3392,7 +3411,7 @@ router.get("/assessments", async (req, res) => {
           .lean(),
         ProctoredCodingSession.find({
           ...baseDateFilter,
-          $or: [{ userId: { $in: genuineUserIds } }, { "candidateDetails.email": { $in: genuineUserEmails } }],
+          userId: { $in: genuineUserIds },
         })
           .select("_id sessionId userId assessmentTitle questionId status durationSeconds score violationsCount deviceInfo violationFlags recordingUrl submissionResult submittedAt createdAt candidateDetails")
           .sort({ createdAt: -1 })
@@ -3647,6 +3666,13 @@ router.get("/proctoring", async (req, res) => {
       limit = 10,
       all = "false",
     } = req.query;
+
+    const cacheKey = `proctoring_${q || ""}_${status || ""}_${dateRange || ""}_${page}_${limit}_${all}`;
+    const cached = getAdminCache(cacheKey, 10000);
+    if (cached) {
+      return res.status(200).json(cached);
+    }
+
     let query = {};
 
     if (status && status !== "all") {
@@ -3690,11 +3716,11 @@ router.get("/proctoring", async (req, res) => {
     const limitNum = all === "true" || all === "1" ? 1000 : Math.max(1, parseInt(limit, 10) || 10);
     const skip = (pageNum - 1) * limitNum;
 
-    const [totalFiltered, sessions, activeSessionsCount, totalMonitored] = await Promise.all([
+    const [genuineData, totalFiltered, sessions, activeSessionsCount, totalMonitored] = await Promise.all([
+      getCachedGenuineUsers(),
       ProctoredCodingSession.countDocuments(query),
       ProctoredCodingSession.find(query)
         .select("_id sessionId userId assessmentTitle questionId status durationSeconds score maxScore submissionResult violationsCount deviceInfo violationFlags recordingUrl recordingStatus submittedAt createdAt serverStartTime candidateDetails")
-        .populate("userId", "fullName username email")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limitNum)
@@ -3706,7 +3732,7 @@ router.get("/proctoring", async (req, res) => {
     const totalPages = Math.ceil(totalFiltered / limitNum) || 1;
 
     const enrichedSessions = sessions.map((s) => {
-      const userObj = s.userId && typeof s.userId === "object" ? s.userId : null;
+      const userObj = genuineData.resolveUser(s.userId);
       const candidate = {
         fullName: s.candidateDetails?.fullName || userObj?.fullName || userObj?.username || "Candidate",
         email: s.candidateDetails?.email || userObj?.email || "",
@@ -3743,7 +3769,7 @@ router.get("/proctoring", async (req, res) => {
       if (s.deviceInfo?.screenShare === true) screenActiveCount++;
     });
 
-    res.status(200).json({
+    const payload = {
       success: true,
       stats: {
         activeSessions: activeSessionsCount,
@@ -3763,7 +3789,9 @@ router.get("/proctoring", async (req, res) => {
         totalPages,
       },
       sessions: enrichedSessions,
-    });
+    };
+    setAdminCache(cacheKey, payload);
+    res.status(200).json(payload);
   } catch (error) {
     console.error("Proctoring fetch error:", error);
     res.status(500).json({ success: false, message: "Failed to fetch proctoring sessions" });
@@ -4126,6 +4154,12 @@ router.get("/reports", async (req, res) => {
       all = "false",
     } = req.query;
 
+    const fullKey = `reports_full_${page}_${limit}_${search}_${type}_${range}_${qStart || ""}_${qEnd || ""}_${all}`;
+    const fullCached = getAdminCache(fullKey, 10000);
+    if (fullCached) {
+      return res.status(200).json(fullCached);
+    }
+
     const { startDate, endDate } = range && range !== "all"
       ? parseDateRange(range, qStart, qEnd)
       : { startDate: new Date(0), endDate: new Date(Date.now() + 86400000) };
@@ -4148,7 +4182,7 @@ router.get("/reports", async (req, res) => {
         IssuedCertificate.find({
           $and: [
             dateFilter,
-            { $or: [{ userId: { $in: genuineUserIds } }, { candidateEmail: { $in: genuineUserEmails } }] },
+            { userId: { $in: genuineUserIds } },
           ],
         })
           .select("_id attemptId certificateId verificationCode certificationTitle certTitle recipientName candidateEmail userId mcqScorePercentage percentage issueDate issuedAt createdAt status")
@@ -4158,7 +4192,7 @@ router.get("/reports", async (req, res) => {
         CertificationAttempt.find({
           $and: [
             dateFilter,
-            { $or: [{ userId: { $in: genuineUserIds } }, { candidateEmail: { $in: genuineUserEmails } }] },
+            { userId: { $in: genuineUserIds } },
           ],
         })
           .select("_id attemptId userId candidateName candidateEmail certTitle percentage score passed status finalVerdict certificateId submittedAt createdAt")
@@ -4168,13 +4202,7 @@ router.get("/reports", async (req, res) => {
         ModuleAssessmentAttempt.find({
           $and: [
             dateFilter,
-            {
-              $or: [
-                { userId: { $in: genuineUserIds } },
-                { candidateEmail: { $in: genuineUserEmails } },
-                { userEmail: { $in: genuineUserEmails } },
-              ],
-            },
+            { userId: { $in: genuineUserIds } },
           ],
         })
           .select("_id sessionId userId candidateEmail userEmail assessmentTitle moduleTitle totalQuestions score percentage passed submittedAt createdAt timeSpentSeconds accuracy")
@@ -4184,7 +4212,7 @@ router.get("/reports", async (req, res) => {
         ProjectSubmission.find({
           $and: [
             dateFilter,
-            { $or: [{ userId: { $in: genuineUserIds } }, { "candidateDetails.email": { $in: genuineUserEmails } }] },
+            { userId: { $in: genuineUserIds } },
           ],
         })
           .select("_id sessionId projectId projectTitle projectCategory difficulty userId candidateDetails marksObtained totalMarks percentage grade passed status badgeAwarded passedTests totalTests submittedAt createdAt")
@@ -4195,7 +4223,7 @@ router.get("/reports", async (req, res) => {
           $and: [
             dateFilter,
             { $or: [{ status: "submitted" }, { "submissionResult.submittedAt": { $exists: true } }] },
-            { $or: [{ userId: { $in: genuineUserIds } }, { "candidateDetails.email": { $in: genuineUserEmails } }] },
+            { userId: { $in: genuineUserIds } },
           ],
         })
           .select("_id sessionId questionId assessmentTitle trackId userId candidateDetails status submissionResult questions.title questions.score questions.totalTests questions.passedTests updatedAt createdAt violationsCount")
@@ -4430,7 +4458,7 @@ router.get("/reports", async (req, res) => {
     const skip = (pageNum - 1) * limitNum;
     const pagedReports = filteredReports.slice(skip, skip + limitNum);
 
-    res.status(200).json({
+    const payload = {
       success: true,
       stats: {
         total: allReports.length,
@@ -4447,7 +4475,9 @@ router.get("/reports", async (req, res) => {
         totalPages,
       },
       reports: pagedReports,
-    });
+    };
+    setAdminCache(fullKey, payload);
+    res.status(200).json(payload);
   } catch (error) {
     console.error("Reports API error:", error);
     res.status(500).json({ success: false, message: "Failed to fetch reports", error: error.message });
@@ -4466,6 +4496,13 @@ router.get("/recordings", async (req, res) => {
       limit = 10,
       all = "false",
     } = req.query;
+
+    const cacheKey = `recordings_${q || ""}_${type || ""}_${page}_${limit}_${all}`;
+    const cached = getAdminCache(cacheKey, 10000);
+    if (cached) {
+      return res.status(200).json(cached);
+    }
+
     const recordingsDir = getRecordingsDir();
     let totalBytes = 0;
 
@@ -4675,7 +4712,7 @@ router.get("/recordings", async (req, res) => {
     const skip = (pageNum - 1) * limitNum;
     const pagedRecordings = filteredRecordings.slice(skip, skip + limitNum);
 
-    res.status(200).json({
+    const payload = {
       success: true,
       stats: {
         totalRecordings: allRecordings.length,
@@ -4692,7 +4729,9 @@ router.get("/recordings", async (req, res) => {
         totalPages,
       },
       recordings: pagedRecordings,
-    });
+    };
+    setAdminCache(cacheKey, payload);
+    res.status(200).json(payload);
   } catch (error) {
     console.error("Recordings fetch error:", error);
     res.status(500).json({ success: false, message: "Failed to fetch recordings", error: error.message });
