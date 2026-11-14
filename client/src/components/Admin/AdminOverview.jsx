@@ -403,6 +403,9 @@ const AdminOverview = () => {
     return Math.round(val);
   };
 
+  // Default active highlight at 4th milestone or middle point if not hovering
+  const activeHighlightedPoint = hoveredPoint || (svgCoords?.length >= 4 ? svgCoords[Math.floor(svgCoords.length * 0.75)] : (svgCoords?.[0] || null));
+
   // Smooth mouse move across entire chart area
   const handleChartMouseMove = (e) => {
     if (!chartSvgRef.current || svgCoords.length === 0) return;
