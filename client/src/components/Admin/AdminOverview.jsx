@@ -25,7 +25,7 @@ import { deduplicatedFetch, isDocumentVisible } from "../../utils/apiClient";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
-// Dynamic Smooth SVG sparklines matching genuine trend points
+// Smooth cubic bezier path generator for sparklines
 const generateSparklinePath = (points = []) => {
   if (!points || points.length === 0) {
     return "M 0 24 L 160 24";
@@ -55,20 +55,30 @@ const generateSparklinePath = (points = []) => {
   return d;
 };
 
-const Sparkline = ({ stroke = "#3b82f6", data, d }) => {
+// Rich Sparkline with subtle gradient area fill underneath the curve
+const Sparkline = ({ id = "spark", stroke = "#3b82f6", data, d }) => {
   const pathData = data && data.length > 0 ? generateSparklinePath(data) : (d || "M 0 24 L 160 24");
+  const areaData = `${pathData} L 160 36 L 0 36 Z`;
+  const gradId = `spark-grad-${id}`;
   return (
     <svg
       viewBox="0 0 160 36"
       style={{
         width: "100%",
-        height: 30,
+        height: 32,
         display: "block",
         overflow: "visible",
-        marginTop: 6,
+        marginTop: 8,
       }}
       preserveAspectRatio="none"
     >
+      <defs>
+        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={stroke} stopOpacity="0.22" />
+          <stop offset="100%" stopColor={stroke} stopOpacity="0.0" />
+        </linearGradient>
+      </defs>
+      <path d={areaData} fill={`url(#${gradId})`} />
       <path
         d={pathData}
         fill="none"
@@ -81,61 +91,87 @@ const Sparkline = ({ stroke = "#3b82f6", data, d }) => {
   );
 };
 
+// User Avatar Helpers for human-centric table lists
+const getUserMonogram = (name) => {
+  if (!name) return "U";
+  const parts = name.trim().split(" ");
+  if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+};
+
+const getAvatarColor = (name = "") => {
+  const colors = [
+    { bg: "rgba(99, 102, 241, 0.14)", text: "#6366f1" },
+    { bg: "rgba(16, 185, 129, 0.14)", text: "#10b981" },
+    { bg: "rgba(245, 158, 11, 0.14)", text: "#d97706" },
+    { bg: "rgba(168, 85, 247, 0.14)", text: "#a855f7" },
+    { bg: "rgba(239, 68, 68, 0.14)", text: "#ef4444" },
+    { bg: "rgba(6, 182, 212, 0.14)", text: "#0891b2" },
+  ];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  const index = Math.abs(hash) % colors.length;
+  return colors[index];
+};
+
 // Skeleton Loader Component for Seamless First Load
 const AdminOverviewSkeleton = () => (
   <div style={{ display: "flex", flexDirection: "column", gap: 24, maxWidth: 1280, margin: "0 auto", paddingBottom: 48, width: "100%" }}>
     {/* Header Skeleton */}
     <div className="mz-admin-page-header">
       <div className="mz-admin-page-title-box">
-        <div className="mz-skeleton-text" style={{ width: 40, height: 40, borderRadius: 12 }} />
+        <div className="mz-skeleton-text" style={{ width: 44, height: 44, borderRadius: 13 }} />
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <div className="mz-skeleton-text" style={{ width: 180, height: 26 }} />
-          <div className="mz-skeleton-text" style={{ width: 280, height: 14 }} />
+          <div className="mz-skeleton-text" style={{ width: 190, height: 26 }} />
+          <div className="mz-skeleton-text" style={{ width: 300, height: 14 }} />
         </div>
       </div>
-      <div className="mz-skeleton-text" style={{ width: 140, height: 38, borderRadius: 12 }} />
+      <div className="mz-skeleton-text" style={{ width: 150, height: 38, borderRadius: 12 }} />
     </div>
 
     {/* 6 Metric Cards Skeleton */}
     <div className="mz-admin-metrics-row">
       {[1, 2, 3, 4, 5, 6].map((i) => (
         <div key={i} className="mz-admin-metric-card" style={{ minHeight: 156 }}>
-          <div className="mz-skeleton-text" style={{ width: 36, height: 36, borderRadius: 10, marginBottom: 12 }} />
-          <div className="mz-skeleton-text" style={{ width: 80, height: 14, marginBottom: 6 }} />
-          <div className="mz-skeleton-text" style={{ width: 100, height: 28, marginBottom: 8 }} />
-          <div className="mz-skeleton-text" style={{ width: 120, height: 12, marginBottom: 10 }} />
-          <div className="mz-skeleton-text" style={{ width: "100%", height: 28, borderRadius: 4 }} />
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
+            <div className="mz-skeleton-text" style={{ width: 36, height: 36, borderRadius: 10 }} />
+            <div className="mz-skeleton-text" style={{ width: 48, height: 16, borderRadius: 6 }} />
+          </div>
+          <div className="mz-skeleton-text" style={{ width: 80, height: 12, marginBottom: 6 }} />
+          <div className="mz-skeleton-text" style={{ width: 110, height: 28, marginBottom: 8 }} />
+          <div className="mz-skeleton-text" style={{ width: 130, height: 12, marginBottom: 10 }} />
+          <div className="mz-skeleton-text" style={{ width: "100%", height: 30, borderRadius: 4 }} />
         </div>
       ))}
     </div>
 
     {/* Middle Row Skeleton */}
     <div className="mz-admin-middle-row">
-      <div className="mz-admin-card" style={{ height: 310 }}>
+      <div className="mz-admin-card" style={{ minHeight: 330 }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20 }}>
-          <div className="mz-skeleton-text" style={{ width: 160, height: 20 }} />
-          <div className="mz-skeleton-text" style={{ width: 100, height: 24, borderRadius: 8 }} />
+          <div className="mz-skeleton-text" style={{ width: 180, height: 20 }} />
+          <div className="mz-skeleton-text" style={{ width: 120, height: 28, borderRadius: 8 }} />
         </div>
-        <div className="mz-skeleton-text" style={{ width: "100%", height: 220, borderRadius: 12 }} />
+        <div className="mz-skeleton-text" style={{ width: "100%", height: 210, borderRadius: 12 }} />
       </div>
 
-      <div className="mz-admin-card" style={{ height: 310 }}>
-        <div className="mz-skeleton-text" style={{ width: 180, height: 20, marginBottom: 24 }} />
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 140 }}>
+      <div className="mz-admin-card" style={{ minHeight: 330 }}>
+        <div className="mz-skeleton-text" style={{ width: 160, height: 20, marginBottom: 20 }} />
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 130 }}>
           <div className="mz-skeleton-text" style={{ width: 120, height: 120, borderRadius: "50%" }} />
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 16 }}>
-          <div className="mz-skeleton-text" style={{ width: "100%", height: 14 }} />
-          <div className="mz-skeleton-text" style={{ width: "90%", height: 14 }} />
+          <div className="mz-skeleton-text" style={{ width: "100%", height: 16 }} />
+          <div className="mz-skeleton-text" style={{ width: "90%", height: 16 }} />
         </div>
       </div>
 
-      <div className="mz-admin-card" style={{ height: 310 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 24 }}>
+      <div className="mz-admin-card" style={{ minHeight: 330 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20 }}>
           <div className="mz-skeleton-text" style={{ width: 140, height: 20 }} />
           <div className="mz-skeleton-text" style={{ width: 80, height: 22, borderRadius: 12 }} />
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div className="mz-skeleton-text" style={{ width: "100%", height: 42, borderRadius: 8 }} />
           <div className="mz-skeleton-text" style={{ width: "100%", height: 42, borderRadius: 8 }} />
           <div className="mz-skeleton-text" style={{ width: "100%", height: 42, borderRadius: 8 }} />
@@ -145,12 +181,12 @@ const AdminOverviewSkeleton = () => (
 
     {/* Bottom Row Skeleton */}
     <div className="mz-admin-bottom-row">
-      <div className="mz-admin-card" style={{ height: 280, padding: 20 }}>
+      <div className="mz-admin-card" style={{ minHeight: 280, padding: 20 }}>
         <div className="mz-skeleton-text" style={{ width: 200, height: 20, marginBottom: 16 }} />
         <div className="mz-skeleton-text" style={{ width: "100%", height: 190, borderRadius: 10 }} />
       </div>
-      <div className="mz-admin-card" style={{ height: 280, padding: 20 }}>
-        <div className="mz-skeleton-text" style={{ width: 140, height: 20, marginBottom: 16 }} />
+      <div className="mz-admin-card" style={{ minHeight: 280, padding: 20 }}>
+        <div className="mz-skeleton-text" style={{ width: 160, height: 20, marginBottom: 16 }} />
         <div className="mz-skeleton-text" style={{ width: "100%", height: 190, borderRadius: 10 }} />
       </div>
     </div>
@@ -158,7 +194,7 @@ const AdminOverviewSkeleton = () => (
 );
 
 const AdminOverview = () => {
-  const [filterRange, setFilterRange] = useState("30d"); // "today" | "yesterday" | "30d" | "3m" | "custom"
+  const [filterRange, setFilterRange] = useState("30d"); // "today" | "yesterday" | "7d" | "30d" | "3m" | "custom"
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -169,6 +205,7 @@ const AdminOverview = () => {
   const [overviewData, setOverviewData] = useState(null);
   const [hoveredPoint, setHoveredPoint] = useState(null);
   const [hoverPixel, setHoverPixel] = useState(null);
+  const [hoveredTrack, setHoveredTrack] = useState(null);
   const [activeTab, setActiveTab] = useState("30d");
   const [errorState, setErrorState] = useState(null);
   const datePickerRef = useRef(null);
@@ -216,7 +253,6 @@ const AdminOverview = () => {
   useEffect(() => {
     fetchOverview(filterRange, customStart, customEnd);
     const interval = setInterval(() => {
-      // Pause automatic polling when tab/page is hidden
       if (isDocumentVisible()) {
         fetchOverview(filterRange, customStart, customEnd, true);
       }
@@ -280,7 +316,7 @@ const AdminOverview = () => {
     activeProctoredSessions: 0,
   };
 
-  // Top track calculation for center of donut
+  // Track distribution metrics for center of donut
   const totalTrackUsers = trackDistribution.reduce((acc, t) => acc + (t.count || 0), 0);
   const topTrack = trackDistribution.reduce(
     (max, t) => (t.percentage > (max?.percentage || 0) ? t : max),
@@ -288,10 +324,15 @@ const AdminOverview = () => {
   );
 
   // Dynamic SVG Trend Chart Calculations
-  // Scale Y max nicely (e.g. 1.5k or calculated max)
-  const rawMax = Math.max(1, ...trendPoints.map((p) => Number(p.activeUsers || 0)));
-  const maxActive = rawMax > 500 ? 1500 : rawMax > 50 ? 100 : Math.max(10, rawMax);
   const trendValues = trendPoints.map((p) => Number(p.activeUsers || 0));
+  const rawMax = Math.max(1, ...trendValues);
+  const maxActive = rawMax > 500 ? 1500 : rawMax > 50 ? 100 : Math.max(10, rawMax);
+
+  // Telemetry aggregates based strictly on real dataset
+  const peakUsers = trendValues.length > 0 ? Math.max(...trendValues) : 0;
+  const avgUsers = trendValues.length > 0 ? Math.round(trendValues.reduce((a, b) => a + b, 0) / trendValues.length) : 0;
+  const latestUsers = trendValues.length > 0 ? trendValues[trendValues.length - 1] : 0;
+  const totalVolume = trendValues.reduce((a, b) => a + b, 0);
 
   const formatYLabel = (val) => {
     if (val >= 1000) return `${(val / 1000).toFixed(val % 1000 === 0 ? 0 : 1)}k`;
@@ -411,7 +452,7 @@ const AdminOverview = () => {
       {/* ────────────────── 1. HEADER SECTION & DATE FILTER ────────────────── */}
       <div className="mz-admin-page-header">
         <div className="mz-admin-page-title-box">
-          <div className="mz-admin-page-icon" style={{ background: "var(--mz-purple-bg)", color: "#6366f1" }}>
+          <div className="mz-admin-page-icon">
             <LuChartBar style={{ width: 22, height: 22 }} />
           </div>
           <div>
@@ -453,7 +494,9 @@ const AdminOverview = () => {
                 {[
                   { key: "today", label: "Today" },
                   { key: "yesterday", label: "Yesterday" },
+                  { key: "7d", label: "Last 7 Days" },
                   { key: "30d", label: "Last 30 Days" },
+                  { key: "3m", label: "Last 3 Months" },
                   { key: "custom", label: "Custom Date Range" },
                 ].map((item) => (
                   <button
@@ -489,7 +532,7 @@ const AdminOverview = () => {
                       value={customStart}
                       onChange={(e) => setCustomStart(e.target.value)}
                       required
-                      style={{ width: "100%", padding: "6px 8px", borderRadius: 8, border: "1px solid var(--mz-border)", fontSize: 12, marginTop: 2, outline: "none" }}
+                      style={{ width: "100%", padding: "6px 8px", borderRadius: 8, border: "1px solid var(--mz-border)", fontSize: 12, marginTop: 2, outline: "none", background: "var(--mz-surface)", color: "var(--mz-text-primary)" }}
                     />
                   </div>
                   <div>
@@ -499,7 +542,7 @@ const AdminOverview = () => {
                       value={customEnd}
                       onChange={(e) => setCustomEnd(e.target.value)}
                       required
-                      style={{ width: "100%", padding: "6px 8px", borderRadius: 8, border: "1px solid var(--mz-border)", fontSize: 12, marginTop: 2, outline: "none" }}
+                      style={{ width: "100%", padding: "6px 8px", borderRadius: 8, border: "1px solid var(--mz-border)", fontSize: 12, marginTop: 2, outline: "none", background: "var(--mz-surface)", color: "var(--mz-text-primary)" }}
                     />
                   </div>
                   <button
@@ -519,10 +562,15 @@ const AdminOverview = () => {
       {/* ────────────────── 2. SIX METRIC CARDS (UNIFORM DIMENSIONS & REAL DB NUMBERS) ────────────────── */}
       <div className="mz-admin-metrics-row">
         {/* Card 1: Total Users */}
-        <div className="mz-admin-metric-card" style={{ minHeight: 156 }}>
+        <div className="mz-admin-metric-card" style={{ minHeight: 160 }}>
           <div>
-            <div className="mz-admin-metric-icon" style={{ background: "var(--mz-blue-bg)", color: "#3b82f6" }}>
-              <LuUsers style={{ width: 20, height: 20 }} />
+            <div className="mz-admin-metric-card-top">
+              <div className="mz-admin-metric-icon" style={{ background: "var(--mz-blue-bg)", color: "#3b82f6" }}>
+                <LuUsers style={{ width: 20, height: 20 }} />
+              </div>
+              <span className="mz-admin-metric-badge" style={{ background: "var(--mz-blue-bg)", color: "#2563eb" }}>
+                All Time
+              </span>
             </div>
             <p className="mz-admin-metric-label">Total Users</p>
             <h3 className="mz-admin-metric-value">
@@ -533,14 +581,19 @@ const AdminOverview = () => {
               <span>{stats.totalUsers?.trend || "Registered & Verified"}</span>
             </p>
           </div>
-          <Sparkline stroke="#3b82f6" data={trendValues} />
+          <Sparkline id="totalUsers" stroke="#3b82f6" data={trendValues} />
         </div>
 
         {/* Card 2: Active Today */}
-        <div className="mz-admin-metric-card" style={{ minHeight: 156 }}>
+        <div className="mz-admin-metric-card" style={{ minHeight: 160 }}>
           <div>
-            <div className="mz-admin-metric-icon" style={{ background: "var(--mz-green-bg)", color: "#10b981" }}>
-              <LuUserCheck style={{ width: 20, height: 20 }} />
+            <div className="mz-admin-metric-card-top">
+              <div className="mz-admin-metric-icon" style={{ background: "var(--mz-green-bg)", color: "#10b981" }}>
+                <LuUserCheck style={{ width: 20, height: 20 }} />
+              </div>
+              <span className="mz-admin-metric-badge" style={{ background: "var(--mz-green-bg)", color: "#059669" }}>
+                Live 24h
+              </span>
             </div>
             <p className="mz-admin-metric-label">Active Today</p>
             <h3 className="mz-admin-metric-value">
@@ -551,14 +604,19 @@ const AdminOverview = () => {
               <span>{stats.activeToday?.trend || "Active in range"}</span>
             </p>
           </div>
-          <Sparkline stroke="#10b981" data={trendValues} />
+          <Sparkline id="activeToday" stroke="#10b981" data={trendValues} />
         </div>
 
         {/* Card 3: Active Sessions */}
-        <div className="mz-admin-metric-card" style={{ minHeight: 156 }}>
+        <div className="mz-admin-metric-card" style={{ minHeight: 160 }}>
           <div>
-            <div className="mz-admin-metric-icon" style={{ background: "var(--mz-purple-bg)", color: "#8b5cf6" }}>
-              <LuZap style={{ width: 20, height: 20 }} />
+            <div className="mz-admin-metric-card-top">
+              <div className="mz-admin-metric-icon" style={{ background: "var(--mz-purple-bg)", color: "#8b5cf6" }}>
+                <LuZap style={{ width: 20, height: 20 }} />
+              </div>
+              <span className="mz-admin-metric-badge" style={{ background: "var(--mz-purple-bg)", color: "#7c3aed" }}>
+                Real-time
+              </span>
             </div>
             <p className="mz-admin-metric-label">Active Sessions</p>
             <h3 className="mz-admin-metric-value" style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -572,14 +630,19 @@ const AdminOverview = () => {
               <span>{stats.activeSessions?.trend || "Live socket sessions"}</span>
             </p>
           </div>
-          <Sparkline stroke="#8b5cf6" data={trendValues} />
+          <Sparkline id="activeSessions" stroke="#8b5cf6" data={trendValues} />
         </div>
 
         {/* Card 4: Assessments */}
-        <div className="mz-admin-metric-card" style={{ minHeight: 156 }}>
+        <div className="mz-admin-metric-card" style={{ minHeight: 160 }}>
           <div>
-            <div className="mz-admin-metric-icon" style={{ background: "var(--mz-amber-bg)", color: "#f59e0b" }}>
-              <LuFileText style={{ width: 20, height: 20 }} />
+            <div className="mz-admin-metric-card-top">
+              <div className="mz-admin-metric-icon" style={{ background: "var(--mz-amber-bg)", color: "#f59e0b" }}>
+                <LuFileText style={{ width: 20, height: 20 }} />
+              </div>
+              <span className="mz-admin-metric-badge" style={{ background: "var(--mz-amber-bg)", color: "#d97706" }}>
+                Exams
+              </span>
             </div>
             <p className="mz-admin-metric-label">Assessments</p>
             <h3 className="mz-admin-metric-value">
@@ -590,14 +653,19 @@ const AdminOverview = () => {
               <span>{stats.assessments?.trend || "Completed exams"}</span>
             </p>
           </div>
-          <Sparkline stroke="#f59e0b" data={trendValues} />
+          <Sparkline id="assessments" stroke="#f59e0b" data={trendValues} />
         </div>
 
         {/* Card 5: Coding Submissions */}
-        <div className="mz-admin-metric-card" style={{ minHeight: 156 }}>
+        <div className="mz-admin-metric-card" style={{ minHeight: 160 }}>
           <div>
-            <div className="mz-admin-metric-icon" style={{ background: "var(--mz-indigo-bg, #e0e7ff)", color: "#6366f1" }}>
-              <LuCode style={{ width: 20, height: 20 }} />
+            <div className="mz-admin-metric-card-top">
+              <div className="mz-admin-metric-icon" style={{ background: "var(--mz-indigo-bg, #e0e7ff)", color: "#6366f1" }}>
+                <LuCode style={{ width: 20, height: 20 }} />
+              </div>
+              <span className="mz-admin-metric-badge" style={{ background: "var(--mz-indigo-bg, #e0e7ff)", color: "#4f46e5" }}>
+                Compiler
+              </span>
             </div>
             <p className="mz-admin-metric-label">Coding Submissions</p>
             <h3 className="mz-admin-metric-value">
@@ -608,14 +676,19 @@ const AdminOverview = () => {
               <span>{stats.codingSubmissions?.trend || "Compiler evaluations"}</span>
             </p>
           </div>
-          <Sparkline stroke="#6366f1" data={trendValues} />
+          <Sparkline id="codingSubmissions" stroke="#6366f1" data={trendValues} />
         </div>
 
         {/* Card 6: Storage Used */}
-        <div className="mz-admin-metric-card" style={{ minHeight: 156 }}>
+        <div className="mz-admin-metric-card" style={{ minHeight: 160 }}>
           <div>
-            <div className="mz-admin-metric-icon" style={{ background: "var(--mz-purple-bg)", color: "#a855f7" }}>
-              <LuDatabase style={{ width: 20, height: 20 }} />
+            <div className="mz-admin-metric-card-top">
+              <div className="mz-admin-metric-icon" style={{ background: "var(--mz-purple-bg)", color: "#a855f7" }}>
+                <LuDatabase style={{ width: 20, height: 20 }} />
+              </div>
+              <span className="mz-admin-metric-badge" style={{ background: "var(--mz-purple-bg)", color: "#9333ea" }}>
+                MongoDB
+              </span>
             </div>
             <p className="mz-admin-metric-label">Storage Used</p>
             <h3 className="mz-admin-metric-value">
@@ -646,10 +719,15 @@ const AdminOverview = () => {
         {/* A. User Activity Trend — Interactive Smooth Bezier Area Chart */}
         <div className="mz-admin-card" style={{ position: "relative" }}>
           <div className="mz-admin-card-header">
-            <h3 className="mz-admin-card-title">
-              <LuTrendingUp style={{ width: 18, height: 18, color: "#6366f1" }} />
-              <span>User Activity Trend</span>
-            </h3>
+            <div>
+              <h3 className="mz-admin-card-title">
+                <LuTrendingUp style={{ width: 18, height: 18, color: "#6366f1" }} />
+                <span>User Activity Trend</span>
+              </h3>
+              <p className="mz-admin-card-subtitle">
+                Telemetry tracking authenticated active users across platform sessions
+              </p>
+            </div>
 
             {/* Range Switcher Tabs */}
             <div
@@ -657,7 +735,7 @@ const AdminOverview = () => {
               style={{
                 background: "var(--mz-surface-muted)",
                 padding: "3px",
-                borderRadius: 8,
+                borderRadius: 9,
                 display: "flex",
                 gap: 2,
               }}
@@ -684,10 +762,10 @@ const AdminOverview = () => {
                     border: "none",
                     background: activeTab === t.key ? "var(--mz-surface)" : "transparent",
                     color: activeTab === t.key ? "#4f46e5" : "var(--mz-text-muted)",
-                    fontWeight: activeTab === t.key ? 700 : 500,
-                    padding: "4px 10px",
-                    borderRadius: 6,
-                    fontSize: 11.5,
+                    fontWeight: activeTab === t.key ? 700 : 600,
+                    padding: "5px 12px",
+                    borderRadius: 7,
+                    fontSize: 12,
                     cursor: "pointer",
                     boxShadow: activeTab === t.key ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
                     transition: "all 0.18s ease",
@@ -701,23 +779,23 @@ const AdminOverview = () => {
 
           {/* Interactive SVG Area Chart with Mouse Tracking */}
           <div
-            style={{ position: "relative", height: 215, marginTop: 10, userSelect: "none" }}
+            className="mz-chart-container"
             onMouseMove={handleChartMouseMove}
             onMouseLeave={handleChartMouseLeave}
           >
             {/* Y-axis grid lines with dynamic clean values */}
             <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", justifyContent: "space-between", fontSize: 11, color: "var(--mz-text-subtle)", pointerEvents: "none", paddingBottom: 28 }}>
-              <div style={{ borderBottom: "1px dashed var(--mz-surface-muted)", display: "flex", justifyContent: "flex-start", paddingBottom: 2 }}>
-                <span style={{ fontWeight: 500, width: 34 }}>{formatYLabel(maxActive)}</span>
+              <div style={{ borderBottom: "1px dashed var(--mz-border-subtle)", display: "flex", justifyContent: "flex-start", paddingBottom: 2 }}>
+                <span style={{ fontWeight: 600, width: 34 }}>{formatYLabel(maxActive)}</span>
               </div>
-              <div style={{ borderBottom: "1px dashed var(--mz-surface-muted)", display: "flex", justifyContent: "flex-start", paddingBottom: 2 }}>
-                <span style={{ fontWeight: 500, width: 34 }}>{formatYLabel(maxActive * 0.66)}</span>
+              <div style={{ borderBottom: "1px dashed var(--mz-border-subtle)", display: "flex", justifyContent: "flex-start", paddingBottom: 2 }}>
+                <span style={{ fontWeight: 600, width: 34 }}>{formatYLabel(maxActive * 0.66)}</span>
               </div>
-              <div style={{ borderBottom: "1px dashed var(--mz-surface-muted)", display: "flex", justifyContent: "flex-start", paddingBottom: 2 }}>
-                <span style={{ fontWeight: 500, width: 34 }}>{formatYLabel(maxActive * 0.33)}</span>
+              <div style={{ borderBottom: "1px dashed var(--mz-border-subtle)", display: "flex", justifyContent: "flex-start", paddingBottom: 2 }}>
+                <span style={{ fontWeight: 600, width: 34 }}>{formatYLabel(maxActive * 0.33)}</span>
               </div>
-              <div style={{ borderBottom: "1px solid var(--mz-surface-muted)", display: "flex", justifyContent: "flex-start", paddingBottom: 2 }}>
-                <span style={{ fontWeight: 500, width: 34 }}>0</span>
+              <div style={{ borderBottom: "1px solid var(--mz-border-subtle)", display: "flex", justifyContent: "flex-start", paddingBottom: 2 }}>
+                <span style={{ fontWeight: 600, width: 34 }}>0</span>
               </div>
             </div>
 
@@ -730,8 +808,8 @@ const AdminOverview = () => {
             >
               <defs>
                 <linearGradient id="trendGradientFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#6366f1" stopOpacity="0.22" />
-                  <stop offset="70%" stopColor="#818cf8" stopOpacity="0.06" />
+                  <stop offset="0%" stopColor="#6366f1" stopOpacity="0.25" />
+                  <stop offset="70%" stopColor="#818cf8" stopOpacity="0.08" />
                   <stop offset="100%" stopColor="#6366f1" stopOpacity="0.0" />
                 </linearGradient>
 
@@ -769,7 +847,7 @@ const AdminOverview = () => {
                   y1={0}
                   x2={activeHighlightedPoint.x}
                   y2={chartHeight}
-                  stroke="var(--mz-indigo-border, #a5b4fc)"
+                  stroke="#818cf8"
                   strokeWidth="1.5"
                   strokeDasharray="4 4"
                   opacity="0.8"
@@ -821,15 +899,20 @@ const AdminOverview = () => {
                   top: hoverPixel ? `${hoverPixel.y}px` : `${activeHighlightedPoint.y}px`,
                 }}
               >
-                <div style={{ fontSize: 10.5, fontWeight: 600, color: "var(--mz-text-muted)", marginBottom: 2 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "var(--mz-text-muted)", marginBottom: 3 }}>
                   {activeHighlightedPoint.date || "Active Period"}
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                  <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#6366f1", display: "inline-block" }} />
-                  <span style={{ fontSize: 12.5, fontWeight: 800, color: "var(--mz-text-primary)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#6366f1", display: "inline-block" }} />
+                  <span style={{ fontSize: 13, fontWeight: 800, color: "var(--mz-text-primary)" }}>
                     {activeHighlightedPoint?.activeUsers != null ? `${activeHighlightedPoint.activeUsers.toLocaleString()} Active User${activeHighlightedPoint.activeUsers === 1 ? "" : "s"}` : "0 Active Users"}
                   </span>
                 </div>
+                {peakUsers > 0 && (
+                  <div style={{ fontSize: 10.5, color: "var(--mz-text-subtle)", marginTop: 2 }}>
+                    {Math.round(((activeHighlightedPoint.activeUsers || 0) / peakUsers) * 100)}% of peak
+                  </div>
+                )}
               </div>
             )}
 
@@ -839,7 +922,7 @@ const AdminOverview = () => {
                 display: "flex",
                 justifyContent: "space-between",
                 fontSize: 11,
-                fontWeight: 500,
+                fontWeight: 600,
                 color: "var(--mz-text-subtle)",
                 marginTop: 8,
                 padding: "0 12px 0 38px",
@@ -850,20 +933,45 @@ const AdminOverview = () => {
               ))}
             </div>
           </div>
+
+          {/* Dynamic Summary Telemetry Strip (Real Database Analytics) */}
+          <div className="mz-chart-summary-strip">
+            <div className="mz-chart-summary-col">
+              <span className="mz-chart-summary-lbl">Peak Active</span>
+              <span className="mz-chart-summary-val" style={{ color: "#6366f1" }}>{peakUsers.toLocaleString()}</span>
+            </div>
+            <div className="mz-chart-summary-col">
+              <span className="mz-chart-summary-lbl">Daily Average</span>
+              <span className="mz-chart-summary-val">{avgUsers.toLocaleString()}</span>
+            </div>
+            <div className="mz-chart-summary-col">
+              <span className="mz-chart-summary-lbl">Latest Activity</span>
+              <span className="mz-chart-summary-val" style={{ color: "#10b981" }}>{latestUsers.toLocaleString()}</span>
+            </div>
+            <div className="mz-chart-summary-col">
+              <span className="mz-chart-summary-lbl">Range Volume</span>
+              <span className="mz-chart-summary-val">{totalVolume.toLocaleString()}</span>
+            </div>
+          </div>
         </div>
 
         {/* B. Learning Track Distribution Donut Chart with User Counts & Proportions */}
         <div className="mz-admin-card" style={{ display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
           <div className="mz-admin-card-header">
-            <h3 className="mz-admin-card-title">
-              <LuSlidersHorizontal style={{ width: 18, height: 18, color: "#6366f1" }} />
-              <span>Track Distribution</span>
-            </h3>
+            <div>
+              <h3 className="mz-admin-card-title">
+                <LuSlidersHorizontal style={{ width: 18, height: 18, color: "#6366f1" }} />
+                <span>Track Distribution</span>
+              </h3>
+              <p className="mz-admin-card-subtitle">
+                Student enrollment breakdown
+              </p>
+            </div>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, padding: "12px 2px" }}>
-            {/* SVG Donut */}
-            <div style={{ position: "relative", width: 124, height: 124, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, padding: "8px 2px" }}>
+            {/* SVG Donut with Segment Hover Effects */}
+            <div style={{ position: "relative", width: 130, height: 130, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
               <svg style={{ width: "100%", height: "100%", transform: "rotate(-90deg)" }} viewBox="0 0 100 100">
                 <circle cx="50" cy="50" r="38" fill="transparent" stroke="var(--mz-surface-muted)" strokeWidth="12" />
                 {(() => {
@@ -876,6 +984,7 @@ const AdminOverview = () => {
                     const dashArray = `${strokeLen} ${circumference - strokeLen}`;
                     const offset = -accumulated;
                     accumulated += strokeLen;
+                    const isHovered = hoveredTrack?.name === t.name;
                     return (
                       <circle
                         key={idx}
@@ -884,46 +993,74 @@ const AdminOverview = () => {
                         r="38"
                         fill="transparent"
                         stroke={t.color}
-                        strokeWidth="12"
+                        strokeWidth={isHovered ? "14" : "11"}
                         strokeDasharray={dashArray}
                         strokeDashoffset={offset}
-                        style={{ transition: "stroke-dashoffset 0.4s ease, stroke-dasharray 0.4s ease" }}
+                        style={{
+                          transition: "stroke-width 0.2s ease, opacity 0.2s ease",
+                          cursor: "pointer",
+                          opacity: hoveredTrack && !isHovered ? 0.45 : 1,
+                        }}
+                        onMouseEnter={() => setHoveredTrack(t)}
+                        onMouseLeave={() => setHoveredTrack(null)}
                       />
                     );
                   });
                 })()}
               </svg>
 
-              <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: 6 }}>
-                <span style={{ fontSize: 20, fontWeight: 800, color: "var(--mz-text-primary)", lineHeight: 1 }}>
-                  {totalTrackUsers > 0 ? `${topTrack?.percentage || 0}%` : "0%"}
+              {/* Center Donut Dynamic Metric Readout */}
+              <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: 8, pointerEvents: "none" }}>
+                <span style={{ fontSize: 21, fontWeight: 800, color: "var(--mz-text-primary)", lineHeight: 1 }}>
+                  {hoveredTrack
+                    ? `${hoveredTrack.percentage}%`
+                    : totalTrackUsers > 0
+                    ? `${topTrack?.percentage || 0}%`
+                    : "0%"}
                 </span>
-                <span style={{ fontSize: 10.5, color: "var(--mz-text-muted)", fontWeight: 600, marginTop: 3, maxWidth: 84, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {totalTrackUsers > 0 ? (topTrack?.name?.split(" ")[0] || "Active") : "No Activity"}
+                <span style={{ fontSize: 10.5, color: "var(--mz-text-muted)", fontWeight: 700, marginTop: 4, maxWidth: 84, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {hoveredTrack
+                    ? hoveredTrack.name.split(" ")[0]
+                    : totalTrackUsers > 0
+                    ? (topTrack?.name?.split(" ")[0] || "Active")
+                    : "No Activity"}
+                </span>
+                <span style={{ fontSize: 9.5, color: "var(--mz-text-subtle)", fontWeight: 600 }}>
+                  {hoveredTrack
+                    ? `${hoveredTrack.count || 0} Users`
+                    : `${totalTrackUsers} Total`}
                 </span>
               </div>
             </div>
 
             {/* Legend List with Track Name, User Count & Percentage */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12, flex: 1, minWidth: 0 }}>
-              {trackDistribution.map((t) => (
-                <div key={t.name} className="mz-donut-legend-item">
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: t.color, flexShrink: 0 }} />
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ color: "var(--mz-text-secondary)", fontWeight: 600, fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {t.name}
-                      </div>
-                      <div style={{ color: "var(--mz-text-muted)", fontSize: 10.5 }}>
-                        {t.count != null ? `${t.count} student${t.count === 1 ? "" : "s"}` : "0 enrolled"}
+            <div style={{ display: "flex", flexDirection: "column", gap: 5, fontSize: 12, flex: 1, minWidth: 0 }}>
+              {trackDistribution.map((t) => {
+                const isHovered = hoveredTrack?.name === t.name;
+                return (
+                  <div
+                    key={t.name}
+                    className={`mz-donut-legend-item ${isHovered ? "active" : ""}`}
+                    onMouseEnter={() => setHoveredTrack(t)}
+                    onMouseLeave={() => setHoveredTrack(null)}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: t.color, flexShrink: 0 }} />
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ color: "var(--mz-text-secondary)", fontWeight: 600, fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {t.name}
+                        </div>
+                        <div style={{ color: "var(--mz-text-muted)", fontSize: 10.5 }}>
+                          {t.count != null ? `${t.count} student${t.count === 1 ? "" : "s"}` : "0 enrolled"}
+                        </div>
                       </div>
                     </div>
+                    <span style={{ fontWeight: 800, color: "var(--mz-text-primary)", fontSize: 12, flexShrink: 0, marginLeft: 6 }}>
+                      {t.percentage}%
+                    </span>
                   </div>
-                  <span style={{ fontWeight: 800, color: "var(--mz-text-primary)", fontSize: 12, flexShrink: 0, marginLeft: 6 }}>
-                    {t.percentage}%
-                  </span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
@@ -931,10 +1068,15 @@ const AdminOverview = () => {
         {/* C. Proctoring Status — Dynamic Real-Time Verification */}
         <div className="mz-admin-card" style={{ display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
           <div className="mz-admin-card-header">
-            <h3 className="mz-admin-card-title">
-              <LuShield style={{ width: 18, height: 18, color: "#3b82f6" }} />
-              <span>Proctoring Status</span>
-            </h3>
+            <div>
+              <h3 className="mz-admin-card-title">
+                <LuShield style={{ width: 18, height: 18, color: "#3b82f6" }} />
+                <span>Proctoring Status</span>
+              </h3>
+              <p className="mz-admin-card-subtitle">
+                Live examination telemetry
+              </p>
+            </div>
             <span
               className={
                 hasAnyActiveStream
@@ -947,7 +1089,7 @@ const AdminOverview = () => {
             </span>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "10px 2px 4px" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "6px 2px" }}>
             {/* Camera */}
             <div className="mz-admin-proctor-row">
               <div className="mz-admin-proctor-item-left">
@@ -955,7 +1097,7 @@ const AdminOverview = () => {
                   <LuCamera style={{ width: 16, height: 16 }} />
                 </div>
                 <div>
-                  <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--mz-text-primary)" }}>Camera</div>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--mz-text-primary)" }}>Camera</div>
                   <div style={{ fontSize: 10.5, color: "var(--mz-text-muted)" }}>Live stream monitoring</div>
                 </div>
               </div>
@@ -971,7 +1113,7 @@ const AdminOverview = () => {
                   <LuMic style={{ width: 16, height: 16 }} />
                 </div>
                 <div>
-                  <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--mz-text-primary)" }}>Microphone</div>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--mz-text-primary)" }}>Microphone</div>
                   <div style={{ fontSize: 10.5, color: "var(--mz-text-muted)" }}>Audio capture feed</div>
                 </div>
               </div>
@@ -987,7 +1129,7 @@ const AdminOverview = () => {
                   <LuMonitor style={{ width: 16, height: 16 }} />
                 </div>
                 <div>
-                  <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--mz-text-primary)" }}>Screen Sharing</div>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--mz-text-primary)" }}>Screen Sharing</div>
                   <div style={{ fontSize: 10.5, color: "var(--mz-text-muted)" }}>Display capture stream</div>
                 </div>
               </div>
@@ -997,9 +1139,9 @@ const AdminOverview = () => {
             </div>
           </div>
 
-          <div style={{ borderTop: "1px solid var(--mz-border-subtle)", paddingTop: 10, marginTop: 4, display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 11.5, color: "var(--mz-text-muted)" }}>
+          <div style={{ borderTop: "1px solid var(--mz-border-subtle)", paddingTop: 10, marginTop: 4, display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 12, color: "var(--mz-text-muted)" }}>
             <span>Active Exams:</span>
-            <span style={{ fontWeight: 700, color: "var(--mz-text-primary)" }}>
+            <span style={{ fontWeight: 800, color: "var(--mz-text-primary)" }}>
               {proctoring.activeProctoredSessions != null ? proctoring.activeProctoredSessions : 0} Session{proctoring.activeProctoredSessions === 1 ? "" : "s"}
             </span>
           </div>
@@ -1009,15 +1151,15 @@ const AdminOverview = () => {
       {/* ────────────────── 4. BOTTOM ROW: TABLES ────────────────── */}
       <div className="mz-admin-bottom-row">
         {/* Table 1: Recent Assessment Results */}
-        <div className="mz-admin-card" style={{ padding: 0 }}>
-          <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--mz-surface-muted)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div className="mz-admin-card" style={{ padding: 0, overflow: "hidden" }}>
+          <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--mz-border-subtle)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <LuTrophy style={{ width: 18, height: 18, color: "#f59e0b" }} />
-              <h3 style={{ fontSize: 14, fontWeight: 700, color: "var(--mz-text-primary)", margin: 0 }}>
+              <h3 style={{ fontSize: 14, fontWeight: 800, color: "var(--mz-text-primary)", margin: 0 }}>
                 Recent Assessment Results
               </h3>
             </div>
-            <Link to="/admin/assessments" style={{ color: "#6366f1", fontSize: 12.5, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}>
+            <Link to="/admin/assessments" className="mz-admin-view-all-link">
               <span>View All</span>
               <span>→</span>
             </Link>
@@ -1038,42 +1180,54 @@ const AdminOverview = () => {
               <tbody>
                 {recentAssessments.length === 0 ? (
                   <tr>
-                    <td colSpan="6" style={{ textAlign: "center", padding: "30px 0", color: "var(--mz-text-subtle)" }}>
+                    <td colSpan="6" style={{ textAlign: "center", padding: "36px 0", color: "var(--mz-text-subtle)" }}>
                       No assessment records found in this date range.
                     </td>
                   </tr>
                 ) : (
                   recentAssessments.map((row, idx) => (
                     <tr key={row.id || idx}>
-                      <td style={{ fontWeight: 600, color: "var(--mz-text-primary)" }}>{row.user}</td>
+                      <td>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <div
+                            style={{
+                              width: 28,
+                              height: 28,
+                              borderRadius: "50%",
+                              background: getAvatarColor(row.user).bg,
+                              color: getAvatarColor(row.user).text,
+                              fontSize: 11,
+                              fontWeight: 700,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              flexShrink: 0,
+                            }}
+                          >
+                            {getUserMonogram(row.user)}
+                          </div>
+                          <span style={{ fontWeight: 600, color: "var(--mz-text-primary)", whiteSpace: "nowrap" }}>
+                            {row.user}
+                          </span>
+                        </div>
+                      </td>
                       <td style={{ color: "var(--mz-text-secondary)", fontWeight: 500 }}>{row.assessment}</td>
                       <td style={{ color: "var(--mz-text-muted)" }}>{row.type}</td>
-                      <td style={{ fontWeight: 700, color: "var(--mz-text-primary)" }}>{row.score}</td>
+                      <td style={{ fontWeight: 800, color: "var(--mz-text-primary)" }}>{row.score}</td>
                       <td>
                         <span
-                          style={{
-                            padding: "3px 10px",
-                            borderRadius: 6,
-                            fontSize: 11.5,
-                            fontWeight: 600,
-                            background:
-                              row.status === "Passed"
-                                ? "var(--mz-green-bg)"
-                                : row.status === "Partial"
-                                ? "var(--mz-amber-bg)"
-                                : "var(--mz-red-bg)",
-                            color:
-                              row.status === "Passed"
-                                ? "#059669"
-                                : row.status === "Partial"
-                                ? "#d97706"
-                                : "#dc2626",
-                          }}
+                          className={
+                            row.status === "Passed"
+                              ? "mz-admin-pill-pass"
+                              : row.status === "Partial"
+                              ? "mz-admin-pill-partial"
+                              : "mz-admin-pill-fail"
+                          }
                         >
                           {row.status}
                         </span>
                       </td>
-                      <td style={{ color: "var(--mz-text-muted)", fontSize: 12 }}>
+                      <td style={{ color: "var(--mz-text-muted)", fontSize: 12, whiteSpace: "nowrap" }}>
                         {formatDateTime(row.date)}
                       </td>
                     </tr>
@@ -1085,15 +1239,15 @@ const AdminOverview = () => {
         </div>
 
         {/* Table 2: Live Sessions */}
-        <div className="mz-admin-card" style={{ padding: 0 }}>
-          <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--mz-surface-muted)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div className="mz-admin-card" style={{ padding: 0, overflow: "hidden" }}>
+          <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--mz-border-subtle)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <LuRadio style={{ width: 18, height: 18, color: "#3b82f6" }} />
-              <h3 style={{ fontSize: 14, fontWeight: 700, color: "var(--mz-text-primary)", margin: 0 }}>
+              <h3 style={{ fontSize: 14, fontWeight: 800, color: "var(--mz-text-primary)", margin: 0 }}>
                 Live Sessions
               </h3>
             </div>
-            <Link to="/admin/live-activity" style={{ color: "#6366f1", fontSize: 12.5, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}>
+            <Link to="/admin/live-activity" className="mz-admin-view-all-link">
               <span>View All</span>
               <span>→</span>
             </Link>
@@ -1113,23 +1267,46 @@ const AdminOverview = () => {
               <tbody>
                 {liveSessions.length === 0 ? (
                   <tr>
-                    <td colSpan="5" style={{ textAlign: "center", padding: "30px 0", color: "var(--mz-text-subtle)" }}>
+                    <td colSpan="5" style={{ textAlign: "center", padding: "36px 0", color: "var(--mz-text-subtle)" }}>
                       No active sessions currently connected.
                     </td>
                   </tr>
                 ) : (
                   liveSessions.map((sess, idx) => (
                     <tr key={sess.socketId || idx}>
-                      <td style={{ fontWeight: 600, color: "var(--mz-text-primary)" }}>{sess.user}</td>
+                      <td>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <div
+                            style={{
+                              width: 28,
+                              height: 28,
+                              borderRadius: "50%",
+                              background: getAvatarColor(sess.user).bg,
+                              color: getAvatarColor(sess.user).text,
+                              fontSize: 11,
+                              fontWeight: 700,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              flexShrink: 0,
+                            }}
+                          >
+                            {getUserMonogram(sess.user)}
+                          </div>
+                          <span style={{ fontWeight: 600, color: "var(--mz-text-primary)", whiteSpace: "nowrap" }}>
+                            {sess.user}
+                          </span>
+                        </div>
+                      </td>
                       <td style={{ color: "var(--mz-text-secondary)", fontWeight: 500 }}>{sess.activity}</td>
                       <td style={{ color: "var(--mz-text-muted)" }}>{sess.started}</td>
-                      <td style={{ fontWeight: 600, color: "var(--mz-text-primary)" }}>{sess.duration}</td>
+                      <td style={{ fontWeight: 700, color: "var(--mz-text-primary)" }}>{sess.duration}</td>
                       <td>
                         <span
                           style={{
                             fontSize: 12,
-                            fontWeight: 600,
-                            display: "flex",
+                            fontWeight: 700,
+                            display: "inline-flex",
                             alignItems: "center",
                             gap: 6,
                             color:

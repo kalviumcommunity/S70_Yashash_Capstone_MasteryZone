@@ -200,9 +200,11 @@ const AdminNotificationDropdown = () => {
   return (
     <div style={{ position: "relative" }} ref={dropdownRef}>
       <button
+        type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="mz-admin-bell-btn"
+        className={`mz-admin-bell-btn ${isOpen ? "active" : ""}`}
         title="Admin Notifications"
+        aria-label="Admin Notifications"
       >
         <LuBell style={{ width: 18, height: 18 }} />
         {unreadCount > 0 && (
@@ -213,42 +215,20 @@ const AdminNotificationDropdown = () => {
       </button>
 
       {isOpen && (
-        <div
-          style={{
-            position: "absolute",
-            right: 0,
-            top: "100%",
-            marginTop: 10,
-            width: 380,
-            maxWidth: "90vw",
-            background: "var(--mz-surface)",
-            borderRadius: 16,
-            boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)",
-            border: "1px solid var(--mz-border)",
-            overflow: "hidden",
-            zIndex: 9999,
-            display: "flex",
-            flexDirection: "column",
-          }}
-        >
+        <div className="mz-admin-notif-dropdown">
           {/* Header */}
-          <div
-            style={{
-              padding: "14px 18px",
-              background: "var(--mz-surface-subtle)",
-              borderBottom: "1px solid var(--mz-border)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
+          <div className="mz-admin-notif-header">
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <h4 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: "var(--mz-text-primary)" }}>
-                Admin Notifications
+              <h4 className="mz-admin-notif-title">
+                Notifications
               </h4>
-              {unreadCount > 0 && (
-                <span className="mz-admin-badge-purple" style={{ fontSize: 10, padding: "2px 6px" }}>
+              {unreadCount > 0 ? (
+                <span className="mz-admin-notif-badge-new">
                   {unreadCount} New
+                </span>
+              ) : (
+                <span className="mz-admin-notif-badge-caughtup">
+                  All caught up
                 </span>
               )}
             </div>
@@ -256,47 +236,40 @@ const AdminNotificationDropdown = () => {
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               {unreadCount > 0 && (
                 <button
+                  type="button"
                   onClick={handleMarkAllRead}
-                  style={{
-                    background: "transparent",
-                    border: "none",
-                    color: "#6366f1",
-                    fontSize: 11,
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    padding: 0,
-                  }}
-                  title="Mark all as read"
+                  className="mz-admin-notif-btn"
+                  title="Mark all notifications as read"
                 >
-                  Mark read
+                  <LuCheck size={12} />
+                  <span>Mark read</span>
                 </button>
               )}
               {notifications.length > 0 && (
                 <button
+                  type="button"
                   onClick={handleClearAll}
-                  style={{
-                    background: "transparent",
-                    border: "none",
-                    color: "var(--mz-text-subtle)",
-                    fontSize: 11,
-                    cursor: "pointer",
-                    padding: 0,
-                  }}
+                  className="mz-admin-notif-btn mz-notif-btn-clear"
                   title="Clear all notifications"
                 >
-                  Clear all
+                  <LuTrash2 size={12} />
+                  <span>Clear</span>
                 </button>
               )}
             </div>
           </div>
 
           {/* List */}
-          <div style={{ maxHeight: 380, overflowY: "auto" }}>
+          <div className="mz-admin-notif-list">
             {notifications.length === 0 ? (
-              <div style={{ padding: "40px 20px", textAlign: "center", color: "var(--mz-text-subtle)", fontSize: 13 }}>
-                <LuBell style={{ width: 28, height: 28, margin: "0 auto 8px", opacity: 0.4 }} />
-                <p style={{ margin: 0, fontWeight: 600 }}>No Notifications</p>
-                <p style={{ margin: "4px 0 0", fontSize: 11.5 }}>
+              <div className="mz-admin-notif-empty">
+                <div className="mz-admin-notif-empty-icon">
+                  <LuBell size={24} />
+                </div>
+                <p style={{ margin: "0 0 4px", fontWeight: 700, fontSize: 13, color: "var(--mz-text-primary)" }}>
+                  No Notifications
+                </p>
+                <p style={{ margin: 0, fontSize: 11.5, color: "var(--mz-text-muted)", lineHeight: 1.4 }}>
                   Real-time events (registrations, exams, submissions, security alerts) will appear here.
                 </p>
               </div>
@@ -305,49 +278,27 @@ const AdminNotificationDropdown = () => {
                 <div
                   key={n._id}
                   onClick={() => handleClickItem(n)}
-                  style={{
-                    padding: "12px 16px",
-                    borderBottom: "1px solid var(--mz-surface-muted)",
-                    background: n.isRead ? "var(--mz-surface)" : "var(--mz-surface-subtle)",
-                    display: "flex",
-                    alignItems: "flex-start",
-                    gap: 12,
-                    cursor: "pointer",
-                    transition: "background 0.15s ease",
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--mz-surface-subtle)")}
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.background = n.isRead ? "var(--mz-surface)" : "var(--mz-surface-subtle)")
-                  }
+                  className={`mz-admin-notif-item ${n.isRead ? "read" : "unread"}`}
                 >
                   {getNotificationIcon(n.type, n.severity)}
 
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
-                      <span style={{ fontWeight: n.isRead ? 600 : 700, fontSize: 12.5, color: "var(--mz-text-primary)" }}>
+                      <span className="mz-admin-notif-item-title">
                         {n.title}
                       </span>
-                      <span style={{ fontSize: 10.5, color: "var(--mz-text-subtle)", whiteSpace: "nowrap" }}>
+                      <span className="mz-admin-notif-item-time">
                         {formatTimeAgo(n.createdAt)}
                       </span>
                     </div>
 
-                    <p style={{ margin: "3px 0 0", fontSize: 11.5, color: "var(--mz-text-muted)", lineHeight: 1.35, wordBreak: "break-word" }}>
+                    <p className="mz-admin-notif-item-desc">
                       {n.message}
                     </p>
                   </div>
 
                   {!n.isRead && (
-                    <span
-                      style={{
-                        width: 7,
-                        height: 7,
-                        borderRadius: "50%",
-                        background: "#6366f1",
-                        marginTop: 4,
-                        flexShrink: 0,
-                      }}
-                    />
+                    <span className="mz-admin-notif-unread-dot" title="Unread notification" />
                   )}
                 </div>
               ))
