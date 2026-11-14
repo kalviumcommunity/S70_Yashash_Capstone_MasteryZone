@@ -2,6 +2,7 @@ const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const AdminActivityLog = require("../models/AdminActSchema");
 const { getJwtSecret } = require("../config/jwtConfig");
+const { getCachedDecodedToken } = require("./authMiddleware");
 
 const getMainAdminEmail = () => (
   process.env.MAIN_ADMIN_EMAIL ||
@@ -12,6 +13,20 @@ const getMainAdminEmail = () => (
   .trim();
 
 const JWT_SECRET = getJwtSecret();
+
+// Short-lived admin user cache (15s TTL, bounded to 200 entries) to avoid hitting MongoDB Atlas
+// on every parallel admin API request. Invalidated immediately on any user/admin mutation.
+const adminUserCache = new Map();
+const ADMIN_USER_CACHE_TTL_MS = 15000;
+const ADMIN_USER_CACHE_MAX = 200;
+
+function invalidateAdminAuthCache(userId) {
+  if (!userId) {
+    adminUserCache.clear();
+    return;
+  }
+  adminUserCache.delete(String(userId));
+}
 
 /**
  * Verifies any authorized administrator (Main Admin or Secondary Admin with assigned permissions)
@@ -38,7 +53,7 @@ const verifyAdmin = async (req, res, next) => {
 
     let decoded;
     try {
-      decoded = jwt.verify(token, JWT_SECRET);
+      decoded = getCachedDecodedToken(token, JWT_SECRET);
     } catch (jwtErr) {
       return res.status(401).json({
         success: false,
@@ -54,7 +69,25 @@ const verifyAdmin = async (req, res, next) => {
       });
     }
 
-    const user = await User.findById(userId).select("-password");
+    const cacheKey = String(userId);
+    const now = Date.now();
+    let user = null;
+    const cachedEntry = adminUserCache.get(cacheKey);
+    if (cachedEntry && now < cachedEntry.expiresAt) {
+      user = cachedEntry.user;
+    } else {
+      user = await User.findById(userId)
+        .select("-password -knownDevices -resetPasswordToken -resetPasswordExpires -otpCodeHash -otpExpires")
+        .lean();
+      if (user) {
+        if (adminUserCache.size >= ADMIN_USER_CACHE_MAX) {
+          const oldestKey = adminUserCache.keys().next().value;
+          if (oldestKey) adminUserCache.delete(oldestKey);
+        }
+        adminUserCache.set(cacheKey, { user, expiresAt: now + ADMIN_USER_CACHE_TTL_MS });
+      }
+    }
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -172,6 +205,7 @@ module.exports = {
   verifyMainAdminOnly,
   requirePermission,
   recordAdminAudit,
+  invalidateAdminAuthCache,
   getMainAdminEmail,
   get MAIN_ADMIN_EMAIL() {
     return getMainAdminEmail();

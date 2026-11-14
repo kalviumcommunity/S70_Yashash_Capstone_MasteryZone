@@ -156,6 +156,9 @@ const supportTicketSchema = new mongoose.Schema(
 
 supportTicketSchema.index({ status: 1, createdAt: -1 });
 supportTicketSchema.index({ userId: 1, createdAt: -1 });
+supportTicketSchema.index({ userEmail: 1, createdAt: -1 });
+supportTicketSchema.index({ updatedAt: -1 });
+supportTicketSchema.index({ createdAt: -1 });
 
 module.exports =
   mongoose.models.SupportTicket ||
