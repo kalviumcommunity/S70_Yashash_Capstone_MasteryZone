@@ -63,7 +63,7 @@ const activityLogSchema = new mongoose.Schema(
     },
     severity: {
       type: String,
-      enum: ["info", "success", "warning", "danger"],
+      enum: ["info", "success", "warning", "danger", "low", "medium", "high"],
       default: "info",
     },
     metadata: {
