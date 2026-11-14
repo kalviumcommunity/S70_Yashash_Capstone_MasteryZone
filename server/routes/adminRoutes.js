@@ -78,6 +78,7 @@ const setAdminCache = (key, data) => {
 };
 const clearAdminCache = () => {
   adminApiCache.clear();
+  invalidateGenuineUsersCache();
 };
 
 let dirSizeCache = { time: 0, recordingsBytes: 0, certsBytes: 0 };
@@ -111,6 +112,54 @@ const REAL_USER_FILTER = {
     { username: { $regex: /^host_/i } },
   ],
 };
+
+// High-Speed Genuine Users Cache (30s TTL, auto-invalidated on user write or admin mutation)
+let cachedGenuineUsers = null;
+let cachedGenuineUsersTime = 0;
+const GENUINE_USERS_CACHE_TTL_MS = 30000;
+
+async function getCachedGenuineUsers(forceRefresh = false) {
+  const now = Date.now();
+  if (!forceRefresh && cachedGenuineUsers && (now - cachedGenuineUsersTime < GENUINE_USERS_CACHE_TTL_MS)) {
+    return cachedGenuineUsers;
+  }
+  const users = await User.find(REAL_USER_FILTER)
+    .select("_id email fullName username role createdAt isSuspended lastActiveDate")
+    .lean();
+
+  const userMap = new Map();
+  const userIds = [];
+  const userEmails = [];
+
+  for (const u of users) {
+    userMap.set(String(u._id), u);
+    userIds.push(u._id);
+    if (u.email) {
+      const em = u.email.toLowerCase().trim();
+      userMap.set(em, u);
+      userEmails.push(em);
+    }
+  }
+
+  cachedGenuineUsers = {
+    users,
+    userMap,
+    userIds,
+    userEmails,
+    resolveUser: (uId, email) => {
+      if (uId && userMap.has(String(uId))) return userMap.get(String(uId));
+      if (email && userMap.has(String(email).toLowerCase().trim())) return userMap.get(String(email).toLowerCase().trim());
+      return null;
+    },
+  };
+  cachedGenuineUsersTime = now;
+  return cachedGenuineUsers;
+}
+
+function invalidateGenuineUsersCache() {
+  cachedGenuineUsers = null;
+  cachedGenuineUsersTime = 0;
+}
 
 // In-memory active platform settings
 let platformSettings = {
@@ -197,14 +246,13 @@ router.get("/overview", async (req, res) => {
     const { startDate, endDate } = parseDateRange(range, qStart, qEnd);
     const now = new Date();
 
-    // 1. Genuine Registered Users (directly counted via indexed queries, zero in-memory user array)
-    const [totalRegisteredUsers, activeUsersInRange] = await Promise.all([
-      User.countDocuments(REAL_USER_FILTER),
-      User.countDocuments({
-        ...REAL_USER_FILTER,
-        lastActiveDate: { $gte: startDate, $lte: endDate },
-      }),
-    ]);
+    // 1. Genuine Registered Users (directly counted via indexed queries or cache)
+    const genuineData = await getCachedGenuineUsers();
+    const totalRegisteredUsers = genuineData.users.length;
+    const activeUsersInRange = genuineData.users.filter((u) => {
+      const d = u.lastActiveDate || u.updatedAt || u.createdAt;
+      return d && d >= startDate && d <= endDate;
+    }).length;
 
     // 2. Live Active Sessions (genuine registered students)
     const sessionManager = req.app.get("sessionManager") || require("../utils/sessionManager");
@@ -242,113 +290,32 @@ router.get("/overview", async (req, res) => {
       });
     });
 
-    // 3. Database-Side MongoDB Aggregations Joining Genuine Users
-    const genuineUserLookup = {
-      $lookup: {
-        from: "users",
-        let: { uid: "$userId" },
-        pipeline: [
-          {
-            $match: {
-              $expr: {
-                $or: [
-                  { $eq: ["$_id", "$$uid"] },
-                  { $eq: [{ $toString: "$_id" }, { $toString: "$$uid" }] },
-                ],
-              },
-              role: { $nin: ["SUPER_ADMIN", "admin"] },
-              isGuest: { $ne: true },
-              isAutomatedTestUser: { $ne: true },
-              $nor: [
-                { email: { $regex: /@masteryzone\.com$/i } },
-                { email: { $regex: /@example\.com$/i } },
-                { email: { $regex: /@test\.com$/i } },
-                { email: { $regex: /^guest_/i } },
-                { email: { $regex: /^candidate_/i } },
-                { email: { $regex: /^cert_candidate_/i } },
-                { email: { $regex: /^testuser_/i } },
-                { email: { $regex: /^host_/i } },
-                { username: { $regex: /^guest_/i } },
-                { username: { $regex: /^candidate_/i } },
-                { username: { $regex: /^testuser_/i } },
-                { username: { $regex: /^host_/i } },
-              ],
-            },
-          },
-        ],
-        as: "userDoc",
-      },
-    };
-
-    const certUserLookup = {
-      $lookup: {
-        from: "users",
-        let: { uid: "$userId", email: "$candidateEmail" },
-        pipeline: [
-          {
-            $match: {
-              $expr: {
-                $or: [
-                  { $eq: ["$_id", "$$uid"] },
-                  { $eq: [{ $toString: "$_id" }, { $toString: "$$uid" }] },
-                  { $and: [{ $ne: ["$$email", null] }, { $eq: [{ $toLower: "$email" }, { $toLower: "$$email" }] }] },
-                ],
-              },
-              role: { $nin: ["SUPER_ADMIN", "admin"] },
-              isGuest: { $ne: true },
-              isAutomatedTestUser: { $ne: true },
-              $nor: [
-                { email: { $regex: /@masteryzone\.com$/i } },
-                { email: { $regex: /@example\.com$/i } },
-                { email: { $regex: /@test\.com$/i } },
-                { email: { $regex: /^guest_/i } },
-                { email: { $regex: /^candidate_/i } },
-                { email: { $regex: /^cert_candidate_/i } },
-                { email: { $regex: /^testuser_/i } },
-                { email: { $regex: /^host_/i } },
-                { username: { $regex: /^guest_/i } },
-                { username: { $regex: /^candidate_/i } },
-                { username: { $regex: /^testuser_/i } },
-                { username: { $regex: /^host_/i } },
-              ],
-            },
-          },
-        ],
-        as: "userDoc",
-      },
-    };
+    // 3. High-Speed Index-Backed Aggregations & Counts (Zero N+1 $lookup joins)
+    const { userIds: genuineUserIds, userEmails: genuineUserEmails, resolveUser } = genuineData;
 
     const [
-      certAllTimeRes,
-      moduleAllTimeRes,
-      totalCodingSubmissionsRes,
+      certAllTime,
+      moduleAllTime,
+      totalCodingSubmissionsAllTime,
       dailySubmissions,
       dailyCerts,
       dailyActivities,
       codingTracks,
       recentCertAttempts,
       recentSubmissions,
-      proctoredRes,
+      proctoredCount,
     ] = await Promise.all([
-      CertificationAttempt.aggregate([
-        certUserLookup,
-        { $unwind: "$userDoc" },
-        { $count: "total" },
-      ]),
-      ModuleAssessmentAttempt.aggregate([
-        genuineUserLookup,
-        { $unwind: "$userDoc" },
-        { $count: "total" },
-      ]),
+      CertificationAttempt.countDocuments({
+        $or: [{ userId: { $in: genuineUserIds } }, { candidateEmail: { $in: genuineUserEmails } }],
+      }),
+      ModuleAssessmentAttempt.countDocuments({
+        userId: { $in: genuineUserIds },
+      }),
+      ChallengeSubmission.countDocuments({
+        userId: { $in: genuineUserIds },
+      }),
       ChallengeSubmission.aggregate([
-        genuineUserLookup,
-        { $unwind: "$userDoc" },
-        { $count: "total" },
-      ]),
-      ChallengeSubmission.aggregate([
-        { $match: { createdAt: { $gte: startDate, $lte: endDate } } },
-        genuineUserLookup,
-        { $unwind: "$userDoc" },
+        { $match: { userId: { $in: genuineUserIds }, createdAt: { $gte: startDate, $lte: endDate } } },
         {
           $group: {
             _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
@@ -357,9 +324,12 @@ router.get("/overview", async (req, res) => {
         },
       ]),
       CertificationAttempt.aggregate([
-        { $match: { createdAt: { $gte: startDate, $lte: endDate } } },
-        certUserLookup,
-        { $unwind: "$userDoc" },
+        {
+          $match: {
+            $or: [{ userId: { $in: genuineUserIds } }, { candidateEmail: { $in: genuineUserEmails } }],
+            createdAt: { $gte: startDate, $lte: endDate },
+          },
+        },
         {
           $group: {
             _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
@@ -368,9 +338,7 @@ router.get("/overview", async (req, res) => {
         },
       ]),
       ActivityLog.aggregate([
-        { $match: { createdAt: { $gte: startDate, $lte: endDate } } },
-        genuineUserLookup,
-        { $unwind: "$userDoc" },
+        { $match: { userId: { $in: genuineUserIds }, createdAt: { $gte: startDate, $lte: endDate } } },
         {
           $group: {
             _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
@@ -379,68 +347,30 @@ router.get("/overview", async (req, res) => {
         },
       ]),
       ChallengeSubmission.aggregate([
-        genuineUserLookup,
-        { $unwind: "$userDoc" },
+        { $match: { userId: { $in: genuineUserIds } } },
         { $group: { _id: "$language", count: { $sum: 1 } } },
         { $sort: { count: -1 } },
       ]),
-      CertificationAttempt.aggregate([
-        certUserLookup,
-        { $unwind: "$userDoc" },
-        { $sort: { createdAt: -1 } },
-        { $limit: 6 },
-        {
-          $project: {
-            _id: 1,
-            candidateName: 1,
-            candidateEmail: 1,
-            certTitle: 1,
-            score: 1,
-            percentage: 1,
-            passed: 1,
-            finalVerdict: 1,
-            status: 1,
-            createdAt: 1,
-            submittedAt: 1,
-            userFullName: "$userDoc.fullName",
-            userUsername: "$userDoc.username",
-            userEmail: "$userDoc.email",
-          },
-        },
-      ]),
-      ChallengeSubmission.aggregate([
-        genuineUserLookup,
-        { $unwind: "$userDoc" },
-        { $sort: { createdAt: -1 } },
-        { $limit: 6 },
-        {
-          $project: {
-            _id: 1,
-            challengeTitle: 1,
-            status: 1,
-            score: 1,
-            language: 1,
-            adminNote: 1,
-            createdAt: 1,
-            userId: 1,
-            username: "$userDoc.username",
-            fullName: "$userDoc.fullName",
-            email: "$userDoc.email",
-          },
-        },
-      ]),
-      ProctoredCodingSession.aggregate([
-        { $match: { status: "IN_PROGRESS" } },
-        genuineUserLookup,
-        { $unwind: "$userDoc" },
-        { $count: "total" },
-      ]),
+      CertificationAttempt.find({
+        $or: [{ userId: { $in: genuineUserIds } }, { candidateEmail: { $in: genuineUserEmails } }],
+      })
+        .select("_id candidateName candidateEmail certTitle score percentage passed finalVerdict status createdAt submittedAt userId")
+        .sort({ createdAt: -1 })
+        .limit(6)
+        .lean(),
+      ChallengeSubmission.find({
+        userId: { $in: genuineUserIds },
+      })
+        .select("_id challengeTitle status score language adminNote createdAt userId")
+        .sort({ createdAt: -1 })
+        .limit(6)
+        .lean(),
+      ProctoredCodingSession.countDocuments({
+        status: { $in: ["active", "IN_PROGRESS"] },
+        userId: { $in: genuineUserIds },
+      }),
     ]);
 
-    const certAllTime = certAllTimeRes[0]?.total || 0;
-    const moduleAllTime = moduleAllTimeRes[0]?.total || 0;
-    const totalCodingSubmissionsAllTime = totalCodingSubmissionsRes[0]?.total || 0;
-    const proctoredCount = proctoredRes[0]?.total || 0;
     const totalAssessmentsAllTime = certAllTime + moduleAllTime;
 
     // 4. Cached Storage Calculation
@@ -515,8 +445,7 @@ router.get("/overview", async (req, res) => {
     if (trackDistribution.length === 0) {
       // Query enrolled subjects from SubjectProgress if no submissions exist yet
       const enrolledProgress = await SubjectProgress.aggregate([
-        genuineUserLookup,
-        { $unwind: "$userDoc" },
+        { $match: { userId: { $in: genuineUserIds } } },
         { $group: { _id: "$subjectKey", count: { $sum: 1 } } },
       ]);
       const totalEnrolledTracks = enrolledProgress.reduce((sum, p) => sum + p.count, 0);
@@ -572,7 +501,8 @@ router.get("/overview", async (req, res) => {
 
     // 8. Recent Assessment Results (strictly genuine registered students with projected profile)
     const formattedCerts = recentCertAttempts.map((a) => {
-      const userName = a.userFullName || a.candidateName || a.userUsername || "Registered Student";
+      const uObj = resolveUser(a.userId, a.candidateEmail);
+      const userName = uObj?.fullName || a.candidateName || uObj?.username || "Registered Student";
       const scoreNum =
         a.percentage != null
           ? a.percentage
@@ -586,7 +516,7 @@ router.get("/overview", async (req, res) => {
       return {
         id: a._id,
         user: userName,
-        email: a.userEmail || a.candidateEmail || "",
+        email: uObj?.email || a.candidateEmail || "",
         assessment: a.certTitle || "Data Structures & Algorithms (DSA)",
         type: "Certification",
         score: `${scoreNum}/100`,
@@ -596,7 +526,8 @@ router.get("/overview", async (req, res) => {
     });
 
     const formattedSubs = recentSubmissions.map((s) => {
-      const userName = s.fullName || s.username || "Registered Student";
+      const uObj = resolveUser(s.userId);
+      const userName = uObj?.fullName || uObj?.username || "Registered Student";
       const isAccepted = s.status === "ACCEPTED" || s.adminNote?.status === "PASSED";
       const score = s.adminNote?.score != null ? s.adminNote.score : isAccepted ? 100 : s.status === "PARTIAL" ? 75 : 60;
       const isPassed = isAccepted || score >= 70;
@@ -604,7 +535,7 @@ router.get("/overview", async (req, res) => {
       return {
         id: s._id,
         user: userName,
-        email: s.email || "",
+        email: uObj?.email || "",
         assessment: s.challengeTitle || "Algorithm Challenge",
         type: "Coding",
         score: `${score}/100`,
@@ -724,13 +655,36 @@ router.get("/users", async (req, res) => {
     const limitNum = Math.max(1, parseInt(limit, 10) || 10);
     const skip = (pageNum - 1) * limitNum;
 
-    const totalUsers = await User.countDocuments(query);
-    const users = await User.find(query)
-      .select("-password -resetPasswordToken -otpCodeHash")
-      .sort({ [sortBy]: sortOrder === "asc" ? 1 : -1 })
-      .skip(skip)
-      .limit(limitNum)
-      .lean();
+    let totalUsers = 0;
+    let users = [];
+
+    const isDefaultQuery = !search.trim() && (!status || status === "all") && (!role || role === "all");
+    if (isDefaultQuery) {
+      const genuineData = await getCachedGenuineUsers();
+      totalUsers = genuineData.users.length;
+      const sorted = [...genuineData.users].sort((a, b) => {
+        const valA = a[sortBy] || a.createdAt || 0;
+        const valB = b[sortBy] || b.createdAt || 0;
+        if (sortOrder === "asc") return valA > valB ? 1 : -1;
+        return valA < valB ? 1 : -1;
+      });
+      const pageSlice = sorted.slice(skip, skip + limitNum);
+      const pageIds = pageSlice.map((u) => u._id);
+      users = await User.find({ _id: { $in: pageIds } })
+        .select("-password -resetPasswordToken -otpCodeHash")
+        .sort({ [sortBy]: sortOrder === "asc" ? 1 : -1 })
+        .lean();
+    } else {
+      [totalUsers, users] = await Promise.all([
+        User.countDocuments(query),
+        User.find(query)
+          .select("-password -resetPasswordToken -otpCodeHash")
+          .sort({ [sortBy]: sortOrder === "asc" ? 1 : -1 })
+          .skip(skip)
+          .limit(limitNum)
+          .lean(),
+      ]);
+    }
 
     const userIds = users.map((u) => u._id);
     const userEmails = users.map((u) => (u.email || "").toLowerCase()).filter(Boolean);
@@ -2917,11 +2871,11 @@ router.get("/live-activity", async (req, res) => {
 
     // 1 & 2. Fetch live active sessions and genuine user IDs in parallel
     const sessionManager = req.app.get("sessionManager") || require("../utils/sessionManager");
-    const [activeList, realUsers] = await Promise.all([
+    const [activeList, genuineData] = await Promise.all([
       sessionManager.getActiveSessions(),
-      User.find(REAL_USER_FILTER).select("_id").lean(),
+      getCachedGenuineUsers(),
     ]);
-    const realUserIds = realUsers.map((u) => u._id);
+    const realUserIds = genuineData.userIds;
 
     const activityQuery = {
       userId: { $in: realUserIds },
@@ -2953,7 +2907,7 @@ router.get("/live-activity", async (req, res) => {
     const limitNum = Math.max(1, Math.min(100, parseInt(limit, 10) || 10));
     const skip = (pageNum - 1) * limitNum;
 
-    const [activities, totalActivities, todayCount, codingCount, procCount, assessCount, authCount] =
+    const [activities, totalActivities, todayCount, categoryAgg] =
       await Promise.all([
         ActivityLog.find(activityQuery)
           .sort({ createdAt: -1 })
@@ -2965,11 +2919,22 @@ router.get("/live-activity", async (req, res) => {
           userId: { $in: realUserIds },
           createdAt: { $gte: new Date(new Date().setHours(0, 0, 0, 0)) },
         }),
-        ActivityLog.countDocuments({ userId: { $in: realUserIds }, category: "coding" }),
-        ActivityLog.countDocuments({ userId: { $in: realUserIds }, category: "proctoring" }),
-        ActivityLog.countDocuments({ userId: { $in: realUserIds }, category: "assessment" }),
-        ActivityLog.countDocuments({ userId: { $in: realUserIds }, category: "auth" }),
+        ActivityLog.aggregate([
+          { $match: { userId: { $in: realUserIds }, category: { $in: ["coding", "proctoring", "assessment", "auth"] } } },
+          { $group: { _id: "$category", count: { $sum: 1 } } },
+        ]),
       ]);
+
+    let codingCount = 0;
+    let procCount = 0;
+    let assessCount = 0;
+    let authCount = 0;
+    (categoryAgg || []).forEach((c) => {
+      if (c._id === "coding") codingCount = c.count;
+      else if (c._id === "proctoring") procCount = c.count;
+      else if (c._id === "assessment") assessCount = c.count;
+      else if (c._id === "auth") authCount = c.count;
+    });
 
     res.status(200).json({
       success: true,
@@ -3003,33 +2968,32 @@ router.get("/learning-analytics", async (req, res) => {
     const { userId, range = "30d", startDate: qStart, endDate: qEnd } = req.query;
     const { startDate, endDate } = parseDateRange(range, qStart, qEnd);
 
-    const userQuery = { ...REAL_USER_FILTER };
+    const genuineData = await getCachedGenuineUsers();
+
+    let totalEnrolled = 0;
+    let totalLearningHours = 0;
+    let totalStreaks = 0;
+
     if (userId && mongoose.Types.ObjectId.isValid(userId)) {
-      userQuery._id = userId;
+      const u = genuineData.userMap.get(String(userId)) || (await User.findById(userId).lean());
+      if (u) {
+        totalEnrolled = 1;
+        totalLearningHours = u.learningHours || 0;
+        totalStreaks = u.streak || 0;
+      }
+    } else {
+      totalEnrolled = genuineData.users.length;
+      totalLearningHours = genuineData.users.reduce((s, u) => s + (u.learningHours || 0), 0);
+      totalStreaks = genuineData.users.reduce((s, u) => s + (u.streak || 0), 0);
     }
 
-    // 1 & 2 & 3. Run User aggregate, SubjectProgress, and CodingProgress count in parallel
-    const [[userAgg], subjectProgressDocs, codingProgressCount] = await Promise.all([
-      User.aggregate([
-        { $match: userQuery },
-        {
-          $group: {
-            _id: null,
-            totalEnrolled: { $sum: 1 },
-            totalLearningHours: { $sum: { $ifNull: ["$learningHours", 0] } },
-            totalStreaks: { $sum: { $ifNull: ["$streak", 0] } },
-          },
-        },
-      ]),
+    const [subjectProgressDocs, codingProgressCount] = await Promise.all([
       SubjectProgress.find({
-        ...(userId ? { userId } : {}),
+        ...(userId ? { userId } : { userId: { $in: genuineData.userIds } }),
         updatedAt: { $gte: startDate, $lte: endDate },
       }).lean(),
-      CodingProgress.countDocuments(userId ? { userId } : {}),
+      CodingProgress.countDocuments(userId ? { userId } : { userId: { $in: genuineData.userIds } }),
     ]);
-    const totalEnrolled = userAgg?.totalEnrolled || 0;
-    const totalLearningHours = userAgg?.totalLearningHours || 0;
-    const totalStreaks = userAgg?.totalStreaks || 0;
 
     // Track statistics calculations
     const trackStatsMap = {
@@ -3145,8 +3109,9 @@ router.get("/coding-analytics", async (req, res) => {
     } = req.query;
     const { startDate, endDate } = parseDateRange(range, qStart, qEnd);
 
-    const genuineUsers = await User.find(REAL_USER_FILTER).select("_id email fullName username").lean();
-    const genuineUserIds = genuineUsers.map((u) => u._id);
+    const genuineData = await getCachedGenuineUsers();
+    const genuineUsers = genuineData.users;
+    const genuineUserIds = genuineData.userIds;
 
     const baseFilter = {
       userId: { $in: genuineUserIds },
@@ -3351,12 +3316,15 @@ router.get("/assessments", async (req, res) => {
       certAttempts = cachedBase.certAttempts || [];
       moduleAttempts = cachedBase.moduleAttempts || [];
     } else {
+      const pageNum = Math.max(1, parseInt(page, 10) || 1);
+      const limitNum = Math.max(1, parseInt(limit, 10) || 10);
       let genuineUserIds = [];
       let genuineUserEmails = [];
-      const userMap = new Map();
+      let resolveUser;
 
       if (userId && mongoose.Types.ObjectId.isValid(userId)) {
         const targetUser = await User.findById(userId).select("_id email fullName username").lean();
+        const userMap = new Map();
         if (targetUser) {
           genuineUserIds = [targetUser._id];
           userMap.set(String(targetUser._id), targetUser);
@@ -3365,28 +3333,24 @@ router.get("/assessments", async (req, res) => {
             userMap.set(targetUser.email.toLowerCase(), targetUser);
           }
         }
+        resolveUser = (uId, email) => {
+          if (uId && userMap.has(String(uId))) return userMap.get(String(uId));
+          if (email && userMap.has(email.toLowerCase())) return userMap.get(email.toLowerCase());
+          return null;
+        };
       } else {
-        const genuineUsers = await User.find(REAL_USER_FILTER).select("_id email fullName username").limit(2000).lean();
-        genuineUserIds = genuineUsers.map((u) => {
-          userMap.set(String(u._id), u);
-          if (u.email) userMap.set(u.email.toLowerCase(), u);
-          return u._id;
-        });
-        genuineUserEmails = genuineUsers.map((u) => (u.email || "").toLowerCase()).filter(Boolean);
+        const genuineData = await getCachedGenuineUsers();
+        genuineUserIds = genuineData.userIds;
+        genuineUserEmails = genuineData.userEmails;
+        resolveUser = genuineData.resolveUser;
       }
-
-      const resolveUser = (uId, email) => {
-        if (uId && userMap.has(String(uId))) return userMap.get(String(uId));
-        if (email && userMap.has(email.toLowerCase())) return userMap.get(email.toLowerCase());
-        return null;
-      };
 
       const baseDateFilter =
         String(range).toLowerCase() === "all"
           ? {}
           : { createdAt: { $gte: startDate, $lte: endDate } };
 
-      const perModelLimit = all === "true" || all === "1" ? 500 : 200;
+      const perModelLimit = all === "true" || all === "1" ? 500 : Math.min(200, Math.max(50, pageNum * limitNum * 3));
 
       let challengeSubs, projectSubs, proctoredSessions;
       [certAttempts, moduleAttempts, challengeSubs, projectSubs, proctoredSessions] = await Promise.all([
@@ -4173,22 +4137,12 @@ router.get("/reports", async (req, res) => {
     if (cachedBase) {
       ({ allReports, certReports, assessReports, mcqReports, projectReports, codingReports, challengeReports } = cachedBase);
     } else {
-      const genuineUsers = await User.find(REAL_USER_FILTER).select("_id email fullName username").limit(2000).lean();
-      const userMap = new Map();
-      const genuineUserIds = genuineUsers.map((u) => {
-        userMap.set(String(u._id), u);
-        if (u.email) userMap.set(u.email.toLowerCase(), u);
-        return u._id;
-      });
-      const genuineUserEmails = genuineUsers.map((u) => (u.email || "").toLowerCase()).filter(Boolean);
-      const resolveUser = (uId, email) => {
-        if (uId && userMap.has(String(uId))) return userMap.get(String(uId));
-        if (email && userMap.has(email.toLowerCase())) return userMap.get(email.toLowerCase());
-        return null;
-      };
+      const pageNum = Math.max(1, parseInt(page, 10) || 1);
+      const limitNum = Math.max(1, parseInt(limit, 10) || 10);
+      const { userIds: genuineUserIds, userEmails: genuineUserEmails, resolveUser } = await getCachedGenuineUsers();
 
       const dateFilter = { createdAt: { $gte: startDate, $lte: endDate } };
-      const perModelLimit = all === "true" || all === "1" ? 1000 : 250;
+      const perModelLimit = all === "true" || all === "1" ? 1000 : Math.min(250, Math.max(50, pageNum * limitNum * 3));
 
       const [certs, attempts, moduleAttempts, projectSubs, codingSessions, challengeSubs] = await Promise.all([
         IssuedCertificate.find({
@@ -4244,7 +4198,7 @@ router.get("/reports", async (req, res) => {
             { $or: [{ userId: { $in: genuineUserIds } }, { "candidateDetails.email": { $in: genuineUserEmails } }] },
           ],
         })
-          .select("_id sessionId questionId assessmentTitle trackId userId candidateDetails status submissionResult questions updatedAt createdAt violationsCount")
+          .select("_id sessionId questionId assessmentTitle trackId userId candidateDetails status submissionResult questions.title questions.score questions.totalTests questions.passedTests updatedAt createdAt violationsCount")
           .sort({ updatedAt: -1 })
           .limit(perModelLimit)
           .lean(),
@@ -4515,34 +4469,40 @@ router.get("/recordings", async (req, res) => {
     const recordingsDir = getRecordingsDir();
     let totalBytes = 0;
 
-    // 1. Fetch genuine database recording records
-    const genuineUsers = await User.find(REAL_USER_FILTER).select("_id email fullName username").limit(2000).lean();
-    const genuineUserIds = genuineUsers.map((u) => u._id);
-    const genuineUserEmails = genuineUsers.map((u) => (u.email || "").toLowerCase()).filter(Boolean);
+    // 1. Fetch genuine database recording records via high-speed cache
+    const genuineData = await getCachedGenuineUsers();
+    const genuineUserIds = genuineData.userIds;
+    const genuineUserEmails = genuineData.userEmails;
+    const usersMap = {};
+    genuineData.users.forEach((u) => {
+      usersMap[String(u._id)] = u;
+    });
 
-    const dbRecords = await Recording.find({
-      $or: [
-        { hostUserId: { $in: genuineUserIds } },
-        { hostEmail: { $in: genuineUserEmails } },
-      ],
-    })
-      .sort({ createdAt: -1 })
-      .lean();
-
-    // 2. Fetch proctoring sessions with authentic video recordings
-    const proctoredSessions = await ProctoredCodingSession.find({
-      $and: [
-        { recordingUrl: { $exists: true, $ne: "" } },
-        {
-          $or: [
-            { userId: { $in: genuineUserIds } },
-            { "candidateDetails.email": { $in: genuineUserEmails } },
-          ],
-        },
-      ],
-    })
-      .sort({ createdAt: -1 })
-      .lean();
+    const [dbRecords, proctoredSessions] = await Promise.all([
+      Recording.find({
+        $or: [
+          { hostUserId: { $in: genuineUserIds } },
+          { hostEmail: { $in: genuineUserEmails } },
+        ],
+      })
+        .select("_id recordingId meetingId hostUserId hostEmail title durationSeconds fileSize filePath fileUrl gridfsId mimeType recordingType activityTimeline participants count status createdAt updatedAt")
+        .sort({ createdAt: -1 })
+        .lean(),
+      ProctoredCodingSession.find({
+        $and: [
+          { recordingUrl: { $exists: true, $ne: "" } },
+          {
+            $or: [
+              { userId: { $in: genuineUserIds } },
+              { "candidateDetails.email": { $in: genuineUserEmails } },
+            ],
+          },
+        ],
+      })
+        .select("_id sessionId userId candidateDetails assessmentTitle recordingUrl durationSeconds status violationsCount violationFlags deviceInfo startedAt completedAt createdAt updatedAt")
+        .sort({ createdAt: -1 })
+        .lean(),
+    ]);
 
     // 3. Inspect physical files on disk with error resilience
     let diskFiles = {};
@@ -4565,22 +4525,6 @@ router.get("/recordings", async (req, res) => {
           }
         }
       } catch {}
-    }
-
-    // Lookup users for host email/name resolution
-    const userIds = [
-      ...dbRecords.map((r) => r.hostUserId),
-      ...proctoredSessions.map((p) => p.userId),
-    ].filter((uid) => uid && mongoose.Types.ObjectId.isValid(uid));
-
-    let usersMap = {};
-    if (userIds.length > 0) {
-      const users = await User.find({ _id: { $in: userIds } })
-        .select("fullName username email avatar")
-        .lean();
-      users.forEach((u) => {
-        usersMap[String(u._id)] = u;
-      });
     }
 
     let unifiedRecordings = [];
@@ -5101,10 +5045,11 @@ router.get("/storage", async (req, res) => {
 
     const { recordingsBytes: recBytes, certsBytes: certBytes } = getCachedDirSize(recordingsDir, certsDir);
 
+    const genuineData = await getCachedGenuineUsers();
+
     const [
       recCount,
       certCount,
-      usersCount,
       challengeCount,
       certAttemptCount,
       moduleAttemptCount,
@@ -5115,7 +5060,6 @@ router.get("/storage", async (req, res) => {
     ] = await Promise.all([
       countFilesAsync(recordingsDir),
       countFilesAsync(certsDir),
-      User.countDocuments(REAL_USER_FILTER),
       ChallengeSubmission.estimatedDocumentCount(),
       CertificationAttempt.estimatedDocumentCount(),
       ModuleAssessmentAttempt.estimatedDocumentCount(),
@@ -5124,6 +5068,7 @@ router.get("/storage", async (req, res) => {
       CodingProgress.estimatedDocumentCount(),
       Recording.estimatedDocumentCount(),
     ]);
+    const usersCount = genuineData.users.length;
 
     const collections = [
       { name: "Users (Registered)", count: usersCount },

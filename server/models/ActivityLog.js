@@ -88,6 +88,10 @@ activityLogSchema.index({ createdAt: -1 });
 activityLogSchema.index({ category: 1, createdAt: -1 });
 activityLogSchema.index({ type: 1, createdAt: -1 });
 activityLogSchema.index({ userId: 1, createdAt: -1 });
+activityLogSchema.index({ "metadata.sessionId": 1 });
+activityLogSchema.index({ "metadata.submissionId": 1 });
+activityLogSchema.index({ "metadata.attemptId": 1 });
+activityLogSchema.index({ "metadata.ticketId": 1 });
 
 module.exports =
   mongoose.models.ActivityLog || mongoose.model("ActivityLog", activityLogSchema);

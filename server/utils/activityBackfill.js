@@ -53,11 +53,20 @@ async function cleanInvalidActivities() {
   }
 }
 
+let lastBackfillTime = 0;
+const BACKFILL_MIN_INTERVAL_MS = 5 * 60 * 1000;
+
 /**
  * Incremental, idempotent backfill of historical platform activities from genuine MongoDB records.
  * Strictly avoids duplicates and uses genuine source timestamps without fabricated defaults.
  */
-async function backfillHistoricalActivities() {
+async function backfillHistoricalActivities(force = false) {
+  const now = Date.now();
+  if (!force && (now - lastBackfillTime < BACKFILL_MIN_INTERVAL_MS)) {
+    return 0;
+  }
+  lastBackfillTime = now;
+
   try {
     // 1. First, ensure invalid/guest records are cleaned
     await cleanInvalidActivities();
@@ -70,25 +79,29 @@ async function backfillHistoricalActivities() {
     let insertedCount = 0;
     const activitiesToInsert = [];
 
-    // Existing keys set for fast in-memory idempotency check
-    const existingRegistrationUserIds = new Set(
-      (await ActivityLog.find({ type: "USER_REGISTER" }).distinct("userId")).map(String)
-    );
-    const existingSubmissionIds = new Set(
-      (await ActivityLog.find({ "metadata.submissionId": { $exists: true } }).distinct("metadata.submissionId")).map(String)
-    );
-    const existingProctoredSessionIds = new Set(
-      (await ActivityLog.find({ "metadata.sessionId": { $exists: true }, category: "proctoring" }).distinct("metadata.sessionId")).map(String)
-    );
-    const existingAssessmentSessionIds = new Set(
-      (await ActivityLog.find({ "metadata.sessionId": { $exists: true }, category: "assessment" }).distinct("metadata.sessionId")).map(String)
-    );
-    const existingAttemptIds = new Set(
-      (await ActivityLog.find({ "metadata.attemptId": { $exists: true } }).distinct("metadata.attemptId")).map(String)
-    );
-    const existingTicketIds = new Set(
-      (await ActivityLog.find({ "metadata.ticketId": { $exists: true } }).distinct("metadata.ticketId")).map(String)
-    );
+    // Parallel fetch of existing keys for fast in-memory idempotency check
+    const [
+      regUserIdsArr,
+      subIdsArr,
+      procSessionIdsArr,
+      assessSessionIdsArr,
+      attemptIdsArr,
+      ticketIdsArr,
+    ] = await Promise.all([
+      ActivityLog.find({ type: "USER_REGISTER" }).distinct("userId"),
+      ActivityLog.find({ "metadata.submissionId": { $exists: true } }).distinct("metadata.submissionId"),
+      ActivityLog.find({ "metadata.sessionId": { $exists: true }, category: "proctoring" }).distinct("metadata.sessionId"),
+      ActivityLog.find({ "metadata.sessionId": { $exists: true }, category: "assessment" }).distinct("metadata.sessionId"),
+      ActivityLog.find({ "metadata.attemptId": { $exists: true } }).distinct("metadata.attemptId"),
+      ActivityLog.find({ "metadata.ticketId": { $exists: true } }).distinct("metadata.ticketId"),
+    ]);
+
+    const existingRegistrationUserIds = new Set(regUserIdsArr.map(String));
+    const existingSubmissionIds = new Set(subIdsArr.map(String));
+    const existingProctoredSessionIds = new Set(procSessionIdsArr.map(String));
+    const existingAssessmentSessionIds = new Set(assessSessionIdsArr.map(String));
+    const existingAttemptIds = new Set(attemptIdsArr.map(String));
+    const existingTicketIds = new Set(ticketIdsArr.map(String));
 
     // 2. Incremental Backfill: User Registrations
     realUsers.forEach((u) => {
