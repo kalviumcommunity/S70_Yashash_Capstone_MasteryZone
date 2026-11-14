@@ -945,6 +945,7 @@ router.post("/challenges/:id/submit", optionalAuthenticateToken, async (req, res
         status: isAccepted ? "ACCEPTED" : "WRONG_ANSWER",
         passedTests: passedCount,
         totalTests: allTests.length,
+        score,
         runtimeMs: totalRuntime,
         output: isAccepted
           ? `Challenge completed! 100% test cases passed (${passedCount}/${allTests.length}).`
@@ -2143,6 +2144,10 @@ router.post("/curriculum/exercise/submit", authenticateToken, async (req, res) =
         }
 
         activeSession.status = "submitted";
+        activeSession.score = score;
+        activeSession.percentage = score;
+        activeSession.evaluationVerdict = isAccepted ? "PASSED" : "FAILED";
+        activeSession.submittedAt = new Date();
         activeSession.submissionResult = {
           code,
           language: lang,
@@ -2172,6 +2177,10 @@ router.post("/curriculum/exercise/submit", authenticateToken, async (req, res) =
           assessmentTitle: module.codingExercise?.taskTitle || module.title,
           trackId,
           status: "submitted",
+          score,
+          percentage: score,
+          evaluationVerdict: isAccepted ? "PASSED" : "FAILED",
+          submittedAt: new Date(),
           candidateDetails: {
             fullName: userObj?.fullName || userObj?.username || "Candidate",
             email: userObj?.email || "",
@@ -5612,7 +5621,11 @@ router.get("/proctored-session/:sessionId/report", optionalAuthenticateToken, as
           ? challengeSub.testResults.length
           : (testCasesList.length > 0 ? testCasesList.length : (challengeSub.totalTests || 0));
         const passedTests = challengeSub.passedTests !== undefined ? challengeSub.passedTests : 0;
-        const score = challengeSub.score !== undefined ? challengeSub.score : Math.round((passedTests / Math.max(1, totalTests)) * 100);
+        const score = (challengeSub.score != null && challengeSub.score > 0)
+          ? challengeSub.score
+          : (totalTests > 0 && passedTests > 0
+              ? Math.round((passedTests / totalTests) * 100)
+              : (challengeSub.status === "ACCEPTED" ? 100 : 0));
         const isPassed = challengeSub.status === "ACCEPTED";
         const grade = calculateGrade(score);
 
@@ -5926,10 +5939,27 @@ router.get("/proctored-session/:sessionId/report", optionalAuthenticateToken, as
     const questionsAttempted = questions.filter((q) => q.attempted && !q.isCodeEmpty).length;
     const questionsUnanswered = Math.max(0, totalQuestions - questionsAttempted);
     const totalMarks = subResult.totalMarks ?? questions.reduce((sum, q) => sum + (q.totalMarks || 100), 0);
-    const marksObtained = subResult.marksObtained ?? questions.reduce((sum, q) => sum + (q.marksObtained || 0), 0);
-    const totalTestCases = questions.reduce((sum, q) => sum + (q.totalTests || 10), 0);
-    const totalPassedTests = questions.reduce((sum, q) => sum + (q.passedTests || 0), 0);
-    const overallPercentage = totalMarks > 0 ? Math.round((marksObtained / totalMarks) * 100) : (totalTestCases > 0 ? Math.round((totalPassedTests / totalTestCases) * 100) : (subResult.score || 0));
+    const qPassedTests = questions.reduce((sum, q) => sum + (q.passedTests || 0), 0);
+    const qTotalTests = questions.reduce((sum, q) => sum + (q.totalTests || 10), 0);
+    const marksFromQuestions = questions.reduce((sum, q) => sum + (q.marksObtained || 0), 0);
+    const marksObtained = (subResult.marksObtained != null && subResult.marksObtained > 0)
+      ? subResult.marksObtained
+      : (marksFromQuestions > 0
+          ? marksFromQuestions
+          : (subResult.score != null && subResult.score > 0
+              ? subResult.score
+              : (session.score != null && session.score > 0
+                  ? session.score
+                  : (qTotalTests > 0 && qPassedTests > 0
+                      ? Math.round((qPassedTests / qTotalTests) * totalMarks)
+                      : (subResult.passed ? totalMarks : 0)))));
+    const totalTestCases = qTotalTests;
+    const totalPassedTests = qPassedTests;
+    const overallPercentage = (subResult.score != null && subResult.score > 0)
+      ? subResult.score
+      : (session.percentage != null && session.percentage > 0
+          ? session.percentage
+          : (totalMarks > 0 ? Math.round((marksObtained / totalMarks) * 100) : (totalTestCases > 0 ? Math.round((totalPassedTests / totalTestCases) * 100) : 0)));
     const accuracy = totalTestCases > 0 ? Math.round((totalPassedTests / totalTestCases) * 100) : overallPercentage;
     const grade = subResult.grade || calculateGrade(overallPercentage);
     const passed = subResult.passed !== undefined ? subResult.passed : overallPercentage >= 80;

@@ -227,12 +227,23 @@ function formatLocalReport(matched, uObj, rawId) {
   const questionsAttempted = matched.questionsAttempted !== undefined ? matched.questionsAttempted : totalQuestions;
   const questionsUnanswered = matched.questionsUnanswered !== undefined ? matched.questionsUnanswered : Math.max(0, totalQuestions - questionsAttempted);
   const totalMarks = matched.totalMarks || (isMcq ? totalQuestions : 100);
-  const marksObtained = matched.marksObtained !== undefined ? matched.marksObtained : (matched.score || 0);
-  const overallPercentage = matched.percentage !== undefined ? matched.percentage : (totalMarks > 0 ? Math.round((marksObtained / totalMarks) * 100) : 0);
-  const accuracy = matched.accuracy !== undefined ? matched.accuracy : overallPercentage;
+  const passedCount = matched.passedTests !== undefined ? matched.passedTests : (matched.totalPassedTests !== undefined ? matched.totalPassedTests : 0);
+  const totalCases = matched.totalTests || (isMcq ? totalQuestions : 10);
+  const isAccepted = matched.status === "ACCEPTED" || matched.passed || (totalCases > 0 && passedCount === totalCases);
+  const marksObtained = (matched.marksObtained != null && matched.marksObtained > 0)
+    ? matched.marksObtained
+    : (matched.score != null && matched.score > 0
+        ? matched.score
+        : (totalCases > 0 && passedCount > 0
+            ? Math.round((passedCount / totalCases) * totalMarks)
+            : (isAccepted ? totalMarks : 0)));
+  const overallPercentage = (matched.percentage != null && matched.percentage > 0)
+    ? matched.percentage
+    : (totalMarks > 0 ? Math.round((marksObtained / totalMarks) * 100) : 0);
+  const accuracy = matched.accuracy !== undefined ? matched.accuracy : (totalCases > 0 && passedCount > 0 ? Math.round((passedCount / totalCases) * 100) : overallPercentage);
   const durationSeconds = matched.durationSeconds || matched.timeSpentSeconds || 60;
   const grade = matched.grade || (overallPercentage >= 90 ? "A+" : overallPercentage >= 80 ? "A" : overallPercentage >= 70 ? "B" : overallPercentage >= 60 ? "C" : "F");
-  const passed = matched.passed !== undefined ? Boolean(matched.passed) : overallPercentage >= 80;
+  const passed = matched.passed !== undefined ? Boolean(matched.passed) : (isAccepted || overallPercentage >= 80);
 
   const candidateFullName = matched.candidateDetails?.fullName || uObj?.fullName || uObj?.username || uObj?.name || "Verified Candidate";
   const candidateEmail = matched.candidateDetails?.email || uObj?.email || "candidate@masteryzone.com";

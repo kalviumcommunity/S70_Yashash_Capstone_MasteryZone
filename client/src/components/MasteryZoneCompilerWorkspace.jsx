@@ -467,7 +467,11 @@ export default function MasteryZoneCompilerWorkspace({
           if (!isRetakeRequested && (data.exercisePassed || (data.bestScore !== undefined && data.bestScore >= 80))) {
             const attempts = Array.isArray(data.attempts) ? data.attempts : [];
             const lastAttempt = attempts.slice(-1)[0] || {};
-            const scoreVal = data.bestScore !== undefined ? data.bestScore : (lastAttempt.score || 100);
+            const scoreVal = (data.bestScore != null && data.bestScore > 0)
+              ? data.bestScore
+              : (lastAttempt.score != null && lastAttempt.score > 0
+                  ? lastAttempt.score
+                  : 100);
             const totalTests = lastAttempt.totalTests || 10;
             const passedTests = lastAttempt.passedTests !== undefined ? lastAttempt.passedTests : Math.round((scoreVal / 100) * totalTests);
             const sid = data.sessionId || data.latestSessionId || lastAttempt.sessionId || localStorage.getItem(`mz_report_sid_${questionId}`) || localStorage.getItem("mz_last_assessment_report_sid");
@@ -497,7 +501,11 @@ export default function MasteryZoneCompilerWorkspace({
     if (initialHistory.exercisePassed || (initialHistory.bestScore !== undefined && initialHistory.bestScore >= 80)) {
       const attempts = Array.isArray(initialHistory.attempts) ? initialHistory.attempts : [];
       const lastAttempt = attempts.slice(-1)[0] || {};
-      const scoreVal = initialHistory.bestScore !== undefined ? initialHistory.bestScore : (lastAttempt.score || 100);
+      const scoreVal = (initialHistory.bestScore != null && initialHistory.bestScore > 0)
+        ? initialHistory.bestScore
+        : (lastAttempt.score != null && lastAttempt.score > 0
+            ? lastAttempt.score
+            : 100);
       const totalTests = lastAttempt.totalTests || 10;
       const passedTests = lastAttempt.passedTests !== undefined ? lastAttempt.passedTests : Math.round((scoreVal / 100) * totalTests);
       const sid = initialHistory.sessionId || initialHistory.latestSessionId || lastAttempt.sessionId || localStorage.getItem(`mz_report_sid_${questionId}`) || localStorage.getItem("mz_last_assessment_report_sid");
@@ -2982,7 +2990,11 @@ export default function MasteryZoneCompilerWorkspace({
       setIsTimerRunning(false);
 
       const isAccepted = result?.passed || result?.status === "PASSED" || result?.status === "ACCEPTED" || finalPassed >= Math.round(totalTestsCount * 0.8);
-      const calculatedScore = result?.score !== undefined ? result.score : Math.round((finalPassed / (totalTestsCount || 1)) * 100);
+      const calculatedScore = (result?.score != null && result.score > 0)
+        ? result.score
+        : (totalTestsCount > 0 && finalPassed > 0
+            ? Math.round((finalPassed / totalTestsCount) * 100)
+            : (isAccepted ? 100 : 0));
       const calculatedGrade = finalPassed === totalTestsCount ? "A+" : finalPassed >= Math.round(totalTestsCount * 0.8) ? "B" : "F";
       const calculatedAccuracy = Math.round((finalPassed / (totalTestsCount || 1)) * 100);
 

@@ -149,6 +149,7 @@ export default function ChallengeWorkspaceModal({
             language: lang,
             code,
             customInput: customInput?.trim() ? customInput : undefined,
+            runAll: true,
           }),
         });
         const text = await res.text();
@@ -168,6 +169,7 @@ export default function ChallengeWorkspaceModal({
           body: JSON.stringify({
             language: lang,
             code,
+            runAll: true,
           }),
         });
         const text = await res.text();
@@ -189,6 +191,7 @@ export default function ChallengeWorkspaceModal({
           body: JSON.stringify({
             language: lang,
             code,
+            runAll: true,
           }),
         });
         const text = await res.text();

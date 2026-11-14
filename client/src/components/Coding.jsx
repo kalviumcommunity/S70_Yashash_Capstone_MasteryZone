@@ -492,6 +492,11 @@ export default function Coding() {
   const challengesGridRef = useRef(null);
   const CHALLENGES_PER_PAGE = 10;
 
+  // Pagination state inside Projects tab
+  const [projectPage, setProjectPage] = useState(1);
+  const projectsGridRef = useRef(null);
+  const PROJECTS_PER_PAGE = 6;
+
   // Modals & Active Workspaces
   const [selectedChallengeModal, setSelectedChallengeModal] = useState(null);
   const [selectedProjectModal, setSelectedProjectModal] = useState(null);
@@ -785,7 +790,18 @@ export default function Coding() {
         return { ...mod, isStudied: true };
       }
       if (payload.type === "MZ_ASSIGNMENT_PASSED") {
-        return { ...mod, isStudied: true, assignmentPassed: true, exercisePassed: true };
+        const scoreVal = typeof payload.score === "number" ? payload.score : (Number(payload.score) || 100);
+        return {
+          ...mod,
+          isStudied: true,
+          assignmentPassed: true,
+          exercisePassed: true,
+          exerciseScore: scoreVal,
+          assignmentScore: scoreVal,
+          score: scoreVal,
+          marksObtained: scoreVal,
+          bestScore: Math.max(mod.bestScore || 0, scoreVal),
+        };
       }
       if (payload.type === "MZ_EXAM_COMPLETED") {
         const numericScore = typeof payload.score === "number" ? payload.score : Number(payload.score);
@@ -1555,6 +1571,37 @@ export default function Coding() {
     }
     return list;
   }, [projects, projectDomainFilter, projectSearchQuery]);
+
+  // Reset to page 1 whenever project domain filter or search query changes
+  useEffect(() => {
+    setProjectPage(1);
+  }, [projectDomainFilter, projectSearchQuery]);
+
+  const totalProjectsCount = filteredProjects.length;
+  const totalProjectPages = Math.max(1, Math.ceil(totalProjectsCount / PROJECTS_PER_PAGE));
+
+  useEffect(() => {
+    if (projectPage > totalProjectPages) {
+      setProjectPage(1);
+    }
+  }, [projectPage, totalProjectPages]);
+
+  const startProjectIndex = (projectPage - 1) * PROJECTS_PER_PAGE;
+  const endProjectIndex = Math.min(startProjectIndex + PROJECTS_PER_PAGE, totalProjectsCount);
+
+  const paginatedProjects = useMemo(() => {
+    return filteredProjects.slice(startProjectIndex, startProjectIndex + PROJECTS_PER_PAGE);
+  }, [filteredProjects, startProjectIndex]);
+
+  const handleProjectPageChange = (newPage) => {
+    if (newPage < 1 || newPage > totalProjectPages || newPage === projectPage) return;
+    setProjectPage(newPage);
+    if (projectsGridRef.current) {
+      const yOffset = -90;
+      const y = projectsGridRef.current.getBoundingClientRect().top + window.pageYOffset + yOffset;
+      window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
+    }
+  };
 
   const challengeCategoriesList = useMemo(() => {
     const cats = new Set(challenges.map((c) => c.category).filter(Boolean));
@@ -2610,7 +2657,7 @@ export default function Coding() {
                                   title="Step 2: Practical Coding Test with Monaco IDE"
                                 >
                                   <LuCode size={13} />
-                                  <span>{isCodingDone ? "✓ Step 2: Coding Test Passed" : "Step 2: Coding Test"}</span>
+                                  <span>{isCodingDone ? `✓ Step 2: Coding Test Passed (${mod.exerciseScore || mod.assignmentScore || mod.bestScore || 100}%)` : "Step 2: Coding Test"}</span>
                                 </button>
 
                                 <button
@@ -3629,8 +3676,8 @@ export default function Coding() {
             </div>
 
             {/* 12 Projects Grid (Blue line above slides removed) */}
-            <div className="mz-c-projects-grid">
-              {filteredProjects.map((proj) => {
+            <div className="mz-c-projects-grid" ref={projectsGridRef}>
+              {paginatedProjects.map((proj) => {
                 const passingThreshold = proj.passingMarks || 80;
                 const bestScore = proj.userState?.bestScore ?? proj.userState?.lastScore ?? 0;
                 const isLocallyPassed =
@@ -3788,6 +3835,70 @@ export default function Coding() {
                 );
               })}
             </div>
+
+            {/* Projects Pagination Controls */}
+            {filteredProjects.length > 0 && (
+              <div className="mz-c-challenges-pagination-container">
+                <div className="mz-c-challenges-pagination-info">
+                  <span>
+                    Showing <strong className="mz-c-page-count-highlight">{startProjectIndex + 1}–{endProjectIndex}</strong> of{" "}
+                    <strong className="mz-c-page-count-highlight">{totalProjectsCount}</strong> projects
+                  </span>
+                  <span className="mz-c-page-total-badge">
+                    Page {projectPage} of {totalProjectPages} ({totalProjectPages} {totalProjectPages === 1 ? "page" : "pages"} total)
+                  </span>
+                </div>
+
+                <div className="mz-c-pagination-controls">
+                  <button
+                    type="button"
+                    className="mz-c-pagination-btn mz-c-pagination-prev"
+                    onClick={() => handleProjectPageChange(projectPage - 1)}
+                    disabled={projectPage <= 1}
+                    aria-label="Previous Page"
+                  >
+                    <LuChevronLeft size={16} />
+                    <span>Previous</span>
+                  </button>
+
+                  <div className="mz-c-pagination-numbers">
+                    {getPageNumbers(projectPage, totalProjectPages).map((pageNum, pIdx) => {
+                      if (pageNum === "...") {
+                        return (
+                          <span key={`proj-ellipsis-${pIdx}`} className="mz-c-pagination-ellipsis" aria-hidden="true">
+                            ...
+                          </span>
+                        );
+                      }
+                      const isActive = projectPage === pageNum;
+                      return (
+                        <button
+                          key={`proj-page-${pageNum}`}
+                          type="button"
+                          className={`mz-c-pagination-num-btn ${isActive ? "active" : ""}`}
+                          onClick={() => handleProjectPageChange(pageNum)}
+                          aria-label={`Page ${pageNum}`}
+                          aria-current={isActive ? "page" : undefined}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <button
+                    type="button"
+                    className="mz-c-pagination-btn mz-c-pagination-next"
+                    onClick={() => handleProjectPageChange(projectPage + 1)}
+                    disabled={projectPage >= totalProjectPages}
+                    aria-label="Next Page"
+                  >
+                    <span>Next</span>
+                    <LuChevronRight size={16} />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -5188,7 +5299,7 @@ export default function Coding() {
                               border: isPassed ? "1px solid var(--mz-emerald-border)" : isUnlocked ? "1px solid var(--mz-blue-border)" : "1px solid var(--mz-border)",
                             }}
                           >
-                            {isPassed ? "✓ Passed (100%)" : isUnlocked ? "Unlocked & Ready" : "🔒 Locked"}
+                            {isPassed ? `✓ Passed (${activeModuleChoice.exerciseScore || activeModuleChoice.assignmentScore || activeModuleChoice.bestScore || 100}%)` : isUnlocked ? "Unlocked & Ready" : "🔒 Locked"}
                           </span>
                         </div>
                         <p style={{ margin: 0, fontSize: "12.5px", color: "var(--mz-text-muted)", lineHeight: 1.4 }}>
