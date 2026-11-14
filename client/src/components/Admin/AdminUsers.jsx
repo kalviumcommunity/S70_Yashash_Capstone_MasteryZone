@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import "./Admin.css";
 import {
   LuUsers,
+  LuUser,
   LuSearch,
   LuFilter,
   LuChevronLeft,
@@ -14,6 +15,7 @@ import {
   LuFlame,
   LuKey,
   LuTrash2,
+  LuAward,
 } from "react-icons/lu";
 import { toast } from "react-toastify";
 import AdminUserDetailModal from "./AdminUserDetailModal.jsx";
@@ -248,8 +250,29 @@ const AdminUsers = () => {
     }
   };
 
+  const getRoleBadgeStyle = (role) => {
+    switch (role) {
+      case "SUPER_ADMIN":
+        return { label: "Super Admin", className: "mz-admin-badge-purple" };
+      case "admin":
+        return { label: "Admin", className: "mz-admin-badge-blue" };
+      case "mentor":
+        return { label: "Mentor", className: "mz-admin-badge-green" };
+      case "instructor":
+        return { label: "Instructor", className: "mz-admin-badge-purple" };
+      case "student":
+      case "user":
+      default:
+        return { label: "Student", className: "mz-admin-badge-gray" };
+    }
+  };
+
+  const activeCount = users.filter((u) => !u.isSuspended).length;
+  const suspendedCount = users.filter((u) => u.isSuspended).length;
+  const adminCount = users.filter((u) => u.role === "admin" || u.role === "SUPER_ADMIN").length;
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* Header */}
       <div className="mz-admin-page-header">
         <div className="mz-admin-page-title-box">
@@ -264,6 +287,49 @@ const AdminUsers = () => {
 
         <div className="mz-admin-time-pill" style={{ cursor: 'default' }}>
           <span>Total Accounts: <strong>{pagination.total}</strong></span>
+        </div>
+      </div>
+
+      {/* KPI Overview Metric Cards */}
+      <div className="mz-admin-kpi-summary-grid">
+        <div className="mz-admin-stat-card">
+          <div className="mz-admin-stat-icon" style={{ background: "var(--mz-blue-bg)", color: "#2563eb" }}>
+            <LuUsers style={{ width: 20, height: 20 }} />
+          </div>
+          <div className="mz-admin-stat-info">
+            <span className="mz-admin-stat-label">Total Accounts</span>
+            <span className="mz-admin-stat-value">{pagination.total || users.length}</span>
+          </div>
+        </div>
+
+        <div className="mz-admin-stat-card">
+          <div className="mz-admin-stat-icon" style={{ background: "var(--mz-green-bg)", color: "#059669" }}>
+            <LuShieldCheck style={{ width: 20, height: 20 }} />
+          </div>
+          <div className="mz-admin-stat-info">
+            <span className="mz-admin-stat-label">Active Users</span>
+            <span className="mz-admin-stat-value">{status === "active" ? pagination.total : activeCount}</span>
+          </div>
+        </div>
+
+        <div className="mz-admin-stat-card">
+          <div className="mz-admin-stat-icon" style={{ background: "var(--mz-red-bg)", color: "#dc2626" }}>
+            <LuShieldAlert style={{ width: 20, height: 20 }} />
+          </div>
+          <div className="mz-admin-stat-info">
+            <span className="mz-admin-stat-label">Suspended</span>
+            <span className="mz-admin-stat-value">{status === "suspended" ? pagination.total : suspendedCount}</span>
+          </div>
+        </div>
+
+        <div className="mz-admin-stat-card">
+          <div className="mz-admin-stat-icon" style={{ background: "var(--mz-purple-bg)", color: "#7c3aed" }}>
+            <LuAward style={{ width: 20, height: 20 }} />
+          </div>
+          <div className="mz-admin-stat-info">
+            <span className="mz-admin-stat-label">Staff / Admins</span>
+            <span className="mz-admin-stat-value">{adminCount}</span>
+          </div>
         </div>
       </div>
 
@@ -400,12 +466,17 @@ const AdminUsers = () => {
 
                     {/* Role Badge */}
                     <td>
-                      <span
-                        className={u.role === "SUPER_ADMIN" ? "mz-admin-badge-gray" : "mz-admin-badge-blue"}
-                        style={{ textTransform: "capitalize", fontSize: 11, fontWeight: 600 }}
-                      >
-                        {u.role === "SUPER_ADMIN" ? "Super Admin" : u.role || "Student"}
-                      </span>
+                      {(() => {
+                        const rb = getRoleBadgeStyle(u.role);
+                        return (
+                          <span
+                            className={rb.className}
+                            style={{ textTransform: "capitalize", fontSize: 11, fontWeight: 700 }}
+                          >
+                            {rb.label}
+                          </span>
+                        );
+                      })()}
                     </td>
 
                     {/* Status Badge */}

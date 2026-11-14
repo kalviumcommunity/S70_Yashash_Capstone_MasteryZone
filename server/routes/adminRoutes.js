@@ -171,7 +171,7 @@ router.get("/overview", async (req, res) => {
   try {
     const { range = "30d", startDate: qStart, endDate: qEnd } = req.query;
     const cacheKey = `overview_${range}_${qStart || ""}_${qEnd || ""}`;
-    const cachedData = getAdminCache(cacheKey, 5000);
+    const cachedData = getAdminCache(cacheKey, 15000);
     if (cachedData) {
       return res.status(200).json(cachedData);
     }
@@ -191,6 +191,10 @@ router.get("/overview", async (req, res) => {
     // 2. Live Active Sessions (genuine registered students)
     const activeSessionsMap = req.app.get("activeUserSessions");
     let realLiveSessions = [];
+    let activeCameraCount = 0;
+    let activeMicCount = 0;
+    let activeScreenCount = 0;
+
     if (activeSessionsMap && activeSessionsMap.size > 0) {
       activeSessionsMap.forEach((sess) => {
         if (
@@ -201,6 +205,14 @@ router.get("/overview", async (req, res) => {
           !String(sess.email || "").includes("yashashyash1@gmail.com") &&
           !String(sess.username || "").startsWith("guest_")
         ) {
+          // Track verified real-time media streams
+          const media = sess.mediaState;
+          if (media) {
+            if (media.isVideoOff === false) activeCameraCount++;
+            if (media.isMuted === false) activeMicCount++;
+            if (media.isScreenSharing === true) activeScreenCount++;
+          }
+
           realLiveSessions.push({
             socketId: sess.socketId,
             user: sess.fullName || sess.username || "Registered Student",
@@ -306,6 +318,7 @@ router.get("/overview", async (req, res) => {
       totalCodingSubmissionsRes,
       dailySubmissions,
       dailyCerts,
+      dailyActivities,
       codingTracks,
       recentCertAttempts,
       recentSubmissions,
@@ -345,6 +358,17 @@ router.get("/overview", async (req, res) => {
           $group: {
             _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
             users: { $addToSet: { $ifNull: ["$userId", "$candidateEmail"] } },
+          },
+        },
+      ]),
+      ActivityLog.aggregate([
+        { $match: { createdAt: { $gte: startDate, $lte: endDate } } },
+        genuineUserLookup,
+        { $unwind: "$userDoc" },
+        {
+          $group: {
+            _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+            users: { $addToSet: "$userId" },
           },
         },
       ]),
@@ -443,6 +467,11 @@ router.get("/overview", async (req, res) => {
       item.users.forEach((u) => set.add(String(u)));
       activeUsersByDate.set(item._id, set);
     });
+    dailyActivities.forEach((item) => {
+      const set = activeUsersByDate.get(item._id) || new Set();
+      item.users.forEach((u) => set.add(String(u)));
+      activeUsersByDate.set(item._id, set);
+    });
 
     const trendPoints = intervals.map(({ cStart, cEnd, label }) => {
       let count = 0;
@@ -471,6 +500,7 @@ router.get("/overview", async (req, res) => {
       const info = trackColorMap[langKey] || { name: t._id || "DSA Practice", color: "#3b82f6" };
       return {
         name: info.name,
+        count: t.count || 0,
         percentage: Math.round((t.count / totalLangCount) * 100),
         color: info.color,
       };
@@ -490,6 +520,7 @@ router.get("/overview", async (req, res) => {
           const info = trackColorMap[key] || { name: key.toUpperCase(), color: "#3b82f6" };
           return {
             name: info.name,
+            count: ep.count || 0,
             percentage: Math.round((ep.count / totalEnrolledTracks) * 100),
             color: info.color,
           };
@@ -497,21 +528,39 @@ router.get("/overview", async (req, res) => {
       } else {
         // Genuine baseline state: all tracks at 0%
         trackDistribution = [
-          { name: "Data Structures & Algorithms", percentage: 0, color: "#8b5cf6" },
-          { name: "Python Programming", percentage: 0, color: "#3b82f6" },
-          { name: "Web Development", percentage: 0, color: "#10b981" },
-          { name: "C++ & Systems", percentage: 0, color: "#6366f1" },
-          { name: "Java Development", percentage: 0, color: "#f59e0b" },
+          { name: "Data Structures & Algorithms", count: 0, percentage: 0, color: "#8b5cf6" },
+          { name: "Python Programming", count: 0, percentage: 0, color: "#3b82f6" },
+          { name: "Web Development", count: 0, percentage: 0, color: "#10b981" },
+          { name: "C++ & Systems", count: 0, percentage: 0, color: "#6366f1" },
+          { name: "Java Development", count: 0, percentage: 0, color: "#f59e0b" },
         ];
       }
     }
 
-    // 7. Proctoring Status
+    // 7. Proctoring Status (Accurate real-time state derived from verified active sessions)
+    const totalActiveStreams = activeCameraCount + activeMicCount + activeScreenCount;
     const proctoringStatus = {
-      overall: "All Systems Online",
-      camera: { status: "Active", online: true },
-      microphone: { status: "Active", online: true },
-      screenSharing: { status: "Active", online: true },
+      overall: totalActiveStreams > 0
+        ? `${totalActiveStreams} Active Stream${totalActiveStreams > 1 ? "s" : ""}`
+        : "Standby (Ready)",
+      camera: {
+        status: activeCameraCount > 0 ? "Active" : "Standby",
+        count: activeCameraCount,
+        label: activeCameraCount > 0 ? `${activeCameraCount} Active Stream${activeCameraCount > 1 ? "s" : ""}` : "Idle (Standby)",
+        online: true,
+      },
+      microphone: {
+        status: activeMicCount > 0 ? "Active" : "Standby",
+        count: activeMicCount,
+        label: activeMicCount > 0 ? `${activeMicCount} Active Stream${activeMicCount > 1 ? "s" : ""}` : "Idle (Standby)",
+        online: true,
+      },
+      screenSharing: {
+        status: activeScreenCount > 0 ? "Active" : "Standby",
+        count: activeScreenCount,
+        label: activeScreenCount > 0 ? `${activeScreenCount} Active Stream${activeScreenCount > 1 ? "s" : ""}` : "Idle (Standby)",
+        online: true,
+      },
       activeProctoredSessions: proctoredCount,
     };
 
