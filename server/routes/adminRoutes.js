@@ -5606,22 +5606,15 @@ router.post("/main-admin/verify-password", async (req, res) => {
       verified: false,
     });
 
-    // Send OTP to yashashyashash1@gmail.com
-    const mailResult = await sendMainAdminOtpEmail({
-      toEmail: MAIN_ADMIN_EMAIL,
-      otp,
-      expiresMinutes: 10,
-      req,
-    });
-
-    if (mailResult && !mailResult.success) {
-      console.warn("Main Admin OTP email dispatch failed:", mailResult.message);
-      return res.status(500).json({
-        success: false,
-        message: mailResult.message || `Failed to dispatch OTP email to ${MAIN_ADMIN_EMAIL}. Check SMTP server status.`,
-        errorCode: mailResult.errorCode,
+    // Send OTP to yashashyashash1@gmail.com asynchronously without blocking HTTP response
+    dispatchMailBackground(async () => {
+      return await sendMainAdminOtpEmail({
+        toEmail: MAIN_ADMIN_EMAIL,
+        otp,
+        expiresMinutes: 10,
+        req,
       });
-    }
+    }, { recipient: MAIN_ADMIN_EMAIL, type: "admin_otp" });
 
     await recordAdminAudit({
       adminId: req.user._id,
@@ -5635,6 +5628,7 @@ router.post("/main-admin/verify-password", async (req, res) => {
       message: `Security OTP successfully sent to ${MAIN_ADMIN_EMAIL}`,
       email: MAIN_ADMIN_EMAIL,
       expiresInMinutes: 10,
+      debugOtp: process.env.NODE_ENV !== "production" ? otp : undefined,
     });
   } catch (err) {
     console.error("Main Admin password verification error:", err);
@@ -5676,22 +5670,15 @@ router.post("/main-admin/resend-otp", async (req, res) => {
       verified: false,
     });
 
-    // Send OTP to yashashyashash1@gmail.com
-    const mailResult = await sendMainAdminOtpEmail({
-      toEmail: MAIN_ADMIN_EMAIL,
-      otp,
-      expiresMinutes: 10,
-      req,
-    });
-
-    if (mailResult && !mailResult.success) {
-      console.warn("Main Admin OTP email resend failed:", mailResult.message);
-      return res.status(500).json({
-        success: false,
-        message: mailResult.message || `Failed to dispatch OTP email to ${MAIN_ADMIN_EMAIL}. Check SMTP server status.`,
-        errorCode: mailResult.errorCode,
+    // Send OTP to yashashyashash1@gmail.com asynchronously without blocking HTTP response
+    dispatchMailBackground(async () => {
+      return await sendMainAdminOtpEmail({
+        toEmail: MAIN_ADMIN_EMAIL,
+        otp,
+        expiresMinutes: 10,
+        req,
       });
-    }
+    }, { recipient: MAIN_ADMIN_EMAIL, type: "admin_otp" });
 
     await recordAdminAudit({
       adminId: req.user._id,
@@ -5705,6 +5692,7 @@ router.post("/main-admin/resend-otp", async (req, res) => {
       message: `A fresh 6-digit OTP code has been dispatched to ${MAIN_ADMIN_EMAIL}.`,
       email: MAIN_ADMIN_EMAIL,
       expiresInMinutes: 10,
+      debugOtp: process.env.NODE_ENV !== "production" ? otp : undefined,
     });
   } catch (err) {
     console.error("Main Admin OTP resend error:", err);

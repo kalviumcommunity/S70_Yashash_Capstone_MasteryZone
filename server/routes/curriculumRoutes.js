@@ -11,7 +11,7 @@ const Progress = require("../models/ProgressSchema");
 const User = require("../models/User");
 const { pushNotification } = require("../utils/notificationService");
 const { sendSubmissionEvaluationEmail, sendModuleCompletionEmail, dispatchMailBackground, isGuestAccount } = require("../utils/mailer");
-const { isValidEtag, setEtag, invalidateEtag } = require("../utils/etagCache");
+const { isValidEtag, setEtag, invalidateEtag, invalidateUserAll } = require("../utils/etagCache");
 
 const fs = require("fs");
 const path = require("path");
@@ -994,6 +994,7 @@ router.post("/study", authenticateToken, async (req, res) => {
       actionLabel: "Continue Module",
     });
 
+    invalidateUserAll(userId);
     res.json({ success: true, isStudied: true, studyTimeSeconds });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1176,6 +1177,7 @@ router.post("/assignment/submit", authenticateToken, async (req, res) => {
       });
     }
 
+    invalidateUserAll(userId);
     res.json({
       status: isAccepted ? "PASSED" : "FAILED",
       passed: isAccepted,
@@ -1736,6 +1738,7 @@ router.post("/assessment/submit", authenticateToken, async (req, res) => {
       console.warn("Module assessment email dispatch warning:", mailDispatchErr.message);
     }
 
+    invalidateUserAll(userId);
     res.json({
       success: true,
       attemptId: attemptDoc._id.toString(),
@@ -1863,6 +1866,7 @@ router.post("/:subjectKey/reset", authenticateToken, async (req, res) => {
     const progressTrackName = sKey === "coding" ? "CODING" : sKey === "language" ? "LANGUAGE" : sKey === "driving" ? "DRIVING" : sKey === "fitness" ? "FITNESS" : "GENERAL";
     await Progress.deleteMany({ userId, track: progressTrackName });
 
+    invalidateUserAll(userId);
     res.json({
       success: true,
       message: `${subjectKey.toUpperCase()} learning process, tests, and module states reset successfully.`,

@@ -34,4 +34,7 @@ const adminOtpSchema = new mongoose.Schema(
   }
 );
 
+adminOtpSchema.index({ email: 1, verified: 1, createdAt: -1 });
+adminOtpSchema.index({ email: 1, expiresAt: 1, verified: 1 });
+
 module.exports = mongoose.model("AdminOtp", adminOtpSchema);

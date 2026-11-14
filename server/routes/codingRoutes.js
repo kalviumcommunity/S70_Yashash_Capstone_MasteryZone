@@ -26,7 +26,7 @@ const { logActivityAndBroadcast } = require("../utils/activityLogger");
 const { sendSubmissionEvaluationEmail, sendModuleCompletionEmail, dispatchMailBackground, isGuestAccount } = require("../utils/mailer");
 const SubjectProgress = require("../models/SubjectProgress");
 const crypto = require("crypto");
-const { isValidEtag, setEtag, invalidateEtag } = require("../utils/etagCache");
+const { isValidEtag, setEtag, invalidateEtag, invalidateUserAll } = require("../utils/etagCache");
 const { CURRICULUM } = require("../data/codingCurriculum");
 const {
   recordDailyCodingActivity,
@@ -1805,6 +1805,7 @@ router.post("/curriculum/study", authenticateToken, async (req, res) => {
       });
     }
 
+    invalidateUserAll(userId);
     res.json({ success: true, isStudied: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -2253,6 +2254,7 @@ router.post("/curriculum/exercise/submit", authenticateToken, async (req, res) =
       console.warn("Curriculum coding assessment email dispatch warning:", mailDispatchErr.message);
     }
 
+    invalidateUserAll(userId);
     res.json({
       status: isAccepted ? "PASSED" : "FAILED",
       passed: isAccepted,
@@ -2741,6 +2743,7 @@ router.post("/curriculum/assessment/submit", authenticateToken, async (req, res)
       console.warn("Coding module assessment email dispatch warning:", mailDispatchErr.message);
     }
 
+    invalidateUserAll(userId);
     res.json({
       success: true,
       passed,
@@ -2864,6 +2867,7 @@ router.post("/curriculum/reset", authenticateToken, async (req, res) => {
     // Clear coding activity logs in ProgressSchema
     await Progress.deleteMany({ userId, track: "CODING" });
 
+    invalidateUserAll(userId);
     res.json({
       success: true,
       message: "Entire coding learning process, tests, and module states have been reset to initial state.",
@@ -2898,6 +2902,7 @@ router.post("/track/select", authenticateToken, async (req, res) => {
       await progress.save();
     }
 
+    invalidateUserAll(userId);
     res.json({ success: true, activeTrack: progress.activeTrack });
   } catch (err) {
     console.error("Failed to update active track:", err);
