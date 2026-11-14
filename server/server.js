@@ -508,6 +508,7 @@ io.on("connection", (socket) => {
       startedAt: activeUserSessions.get(socket.id)?.startedAt || Date.now(),
       lastHeartbeat: Date.now(),
       device: data.device || userInfo.lastLoginDevice || "Desktop / Chrome",
+      mediaState: data.mediaState || activeUserSessions.get(socket.id)?.mediaState || null,
     };
 
     activeUserSessions.set(socket.id, sessionObj);
@@ -1507,6 +1508,15 @@ io.on("connection", (socket) => {
       socketId: socket.id,
       mediaState,
     });
+
+    if (activeUserSessions.has(socket.id)) {
+      const sess = activeUserSessions.get(socket.id);
+      sess.mediaState = {
+        ...(sess.mediaState || {}),
+        ...mediaState,
+      };
+      io.to("super_admin_room").emit("live_session_update", sess);
+    }
 
     try {
       const updateFields = {};
