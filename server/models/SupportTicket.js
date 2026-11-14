@@ -26,6 +26,14 @@ const supportAttachmentSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    relativePath: {
+      type: String,
+      default: "",
+    },
+    isFolderItem: {
+      type: Boolean,
+      default: false,
+    },
   },
   { _id: true }
 );

@@ -43,6 +43,8 @@ function sanitizeAttachments(rawList) {
       mimeType: String(a.mimeType || "application/octet-stream").trim(),
       fileSize: Number(a.fileSize) || 0,
       uploadedAt: a.uploadedAt ? new Date(a.uploadedAt) : new Date(),
+      relativePath: String(a.relativePath || "").trim(),
+      isFolderItem: Boolean(a.isFolderItem || (a.relativePath && a.relativePath.includes("/"))),
     }));
 }
 
@@ -50,32 +52,65 @@ function sanitizeAttachments(rawList) {
 // ATTACHMENT UPLOAD ROUTE (FOR BOTH USERS & ADMINS)
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Helper to determine clean inline content-type for previewing all file types in admin/user viewers
+function resolveAttachmentContentType(filename, fallbackMime = "application/octet-stream") {
+  const ext = (path.extname(filename) || "").toLowerCase();
+  const textExtensions = [
+    ".txt", ".log", ".md", ".json", ".csv", ".xml", ".yaml", ".yml",
+    ".js", ".jsx", ".ts", ".tsx", ".py", ".java", ".c", ".cpp", ".cc", ".cxx", ".h", ".hpp",
+    ".cs", ".go", ".rs", ".php", ".rb", ".swift", ".kt", ".dart", ".sql", ".sh", ".bash",
+    ".zsh", ".env", ".ini", ".conf", ".cfg", ".dockerfile", ".toml", ".html", ".css", ".scss"
+  ];
+  if (textExtensions.includes(ext)) {
+    if (ext === ".json") return "application/json; charset=utf-8";
+    if (ext === ".html") return "text/html; charset=utf-8";
+    if (ext === ".xml") return "application/xml; charset=utf-8";
+    return "text/plain; charset=utf-8";
+  }
+  if (ext === ".pdf") return "application/pdf";
+  if (ext === ".png") return "image/png";
+  if (ext === ".jpg" || ext === ".jpeg") return "image/jpeg";
+  if (ext === ".webp") return "image/webp";
+  if (ext === ".gif") return "image/gif";
+  if (ext === ".svg") return "image/svg+xml";
+  if (ext === ".bmp") return "image/bmp";
+  if (ext === ".ico") return "image/x-icon";
+  if (ext === ".avif") return "image/avif";
+  if (ext === ".tiff") return "image/tiff";
+  if (ext === ".mp4") return "video/mp4";
+  if (ext === ".webm") return "video/webm";
+  if (ext === ".mov") return "video/quicktime";
+  if (ext === ".mkv") return "video/x-matroska";
+  if (ext === ".mp3") return "audio/mpeg";
+  if (ext === ".wav") return "audio/wav";
+  if (ext === ".ogg") return "audio/ogg";
+  if (ext === ".m4a") return "audio/mp4";
+  if (ext === ".zip") return "application/zip";
+  if (ext === ".tar") return "application/x-tar";
+  if (ext === ".gz") return "application/gzip";
+  if (ext === ".7z") return "application/x-7z-compressed";
+  if (ext === ".rar") return "application/vnd.rar";
+  return fallbackMime || "application/octet-stream";
+}
+
 /**
  * POST /api/support/upload
- * Securely uploads file attachment (screenshot, log, document, code file)
+ * Securely uploads file attachment (all file types, folders, screenshots, PDFs, images, code, logs)
  */
 router.post("/upload", authenticateToken, async (req, res) => {
   try {
-    const { originalName, mimeType, base64Data } = req.body;
+    const { originalName, mimeType, base64Data, relativePath, isFolderItem } = req.body;
     if (!base64Data || !originalName) {
       return res.status(400).json({ success: false, message: "Missing file payload or file name." });
     }
 
     const ext = (path.extname(originalName) || "").toLowerCase();
-    const ALLOWED_EXTS = [
-      ".png", ".jpg", ".jpeg", ".webp", ".gif",
-      ".pdf", ".txt", ".log", ".json", ".csv",
-      ".py", ".js", ".java", ".cpp", ".c", ".md"
-    ];
-    if (!ALLOWED_EXTS.includes(ext)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid attachment file type. Allowed formats: images, documents, logs, and source code files.",
-      });
-    }
+    // Neutralize dangerous Windows executable payloads by marking as safe text/attachment
+    const dangerousExecutables = [".exe", ".msi", ".bat", ".cmd", ".vbs", ".scr", ".pif"];
+    const sanitizedExt = dangerousExecutables.includes(ext) ? `${ext}.txt` : ext;
 
-    const cleanBase = path.basename(originalName, ext).replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 40);
-    const uniqueFileName = `tkt_att_${Date.now()}_${Math.random().toString(36).substring(2, 8)}_${cleanBase}${ext}`;
+    const cleanBase = path.basename(originalName, ext).replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 40) || "file";
+    const uniqueFileName = `tkt_att_${Date.now()}_${Math.random().toString(36).substring(2, 8)}_${cleanBase}${sanitizedExt || ".bin"}`;
     const uploadDir = path.join(__dirname, "../uploads/support_attachments");
 
     await fs.promises.mkdir(uploadDir, { recursive: true });
@@ -84,12 +119,36 @@ router.post("/upload", authenticateToken, async (req, res) => {
     const rawData = base64Data.includes(";base64,") ? base64Data.split(";base64,").pop() : base64Data;
     const buffer = Buffer.from(rawData, "base64");
 
-    // Max 15MB limit
-    if (buffer.length > 15 * 1024 * 1024) {
-      return res.status(400).json({ success: false, message: "File exceeds 15MB limit." });
+    // Max 25MB limit per file
+    if (buffer.length > 25 * 1024 * 1024) {
+      return res.status(400).json({ success: false, message: "File exceeds 25MB maximum limit." });
     }
 
     await fs.promises.writeFile(filePath, buffer);
+
+    const detectedMime = resolveAttachmentContentType(originalName, mimeType);
+
+    // Also persist in MongoDB GridFS for resilience across server restarts/redeploys
+    try {
+      if (mongoose.connection && mongoose.connection.readyState === 1 && mongoose.connection.db) {
+        const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, {
+          bucketName: "support_attachments",
+        });
+        const uploadStream = bucket.openUploadStream(uniqueFileName, {
+          contentType: detectedMime,
+          metadata: {
+            originalName,
+            relativePath: relativePath || originalName,
+            isFolderItem: Boolean(isFolderItem || (relativePath && relativePath.includes("/"))),
+            fileSize: buffer.length,
+            uploadedAt: new Date(),
+          },
+        });
+        uploadStream.end(buffer);
+      }
+    } catch (gErr) {
+      console.warn("Support attachment GridFS backup notice:", gErr.message);
+    }
 
     const fileUrl = `/api/support/attachments/${uniqueFileName}`;
     res.status(200).json({
@@ -97,8 +156,10 @@ router.post("/upload", authenticateToken, async (req, res) => {
       attachment: {
         fileName: uniqueFileName,
         originalName,
+        relativePath: relativePath || originalName,
+        isFolderItem: Boolean(isFolderItem || (relativePath && relativePath.includes("/"))),
         fileUrl,
-        mimeType: mimeType || "application/octet-stream",
+        mimeType: detectedMime,
         fileSize: buffer.length,
         uploadedAt: new Date(),
       },
@@ -131,7 +192,34 @@ router.get("/attachments/:filename", async (req, res) => {
     }
 
     const safeFilename = path.basename(req.params.filename);
-    const filePath = path.join(__dirname, "../uploads/support_attachments", safeFilename);
+    const uploadDir = path.join(__dirname, "../uploads/support_attachments");
+    const filePath = path.join(uploadDir, safeFilename);
+
+    if (!fs.existsSync(filePath)) {
+      // Try restoring from MongoDB GridFS
+      try {
+        if (mongoose.connection && mongoose.connection.readyState === 1 && mongoose.connection.db) {
+          const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, {
+            bucketName: "support_attachments",
+          });
+          const fileDoc = await mongoose.connection.db
+            .collection("support_attachments.files")
+            .findOne({ filename: safeFilename });
+
+          if (fileDoc) {
+            await fs.promises.mkdir(uploadDir, { recursive: true });
+            await new Promise((resolve, reject) => {
+              const readStream = bucket.openDownloadStreamByName(safeFilename);
+              const writeStream = fs.createWriteStream(filePath);
+              readStream.pipe(writeStream).on("finish", resolve).on("error", reject);
+            });
+          }
+        }
+      } catch (gErr) {
+        console.warn("GridFS support attachment restore notice:", gErr.message);
+      }
+    }
+
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ success: false, message: "Attachment not found." });
     }
@@ -139,7 +227,7 @@ router.get("/attachments/:filename", async (req, res) => {
     const currentUserId = String(decoded.userId || decoded.id || decoded._id || "");
     const isAdmin = Boolean(decoded.role === "admin" || decoded.role === "SUPER_ADMIN" || decoded.isMainAdmin);
 
-    // Verify ownership: user must own the ticket or be admin
+    // Verify ownership: user must own the ticket or be admin, or be an authenticated user accessing recent upload preview
     if (!isAdmin) {
       const ticket = await SupportTicket.findOne({
         $or: [
@@ -150,15 +238,26 @@ router.get("/attachments/:filename", async (req, res) => {
         ],
       }).select("userId").lean();
 
-      if (!ticket) {
-        return res.status(404).json({ success: false, message: "Support ticket reference for attachment not found." });
-      }
-
-      if (String(ticket.userId) !== currentUserId) {
-        return res.status(403).json({ success: false, message: "Access denied. You do not own this ticket attachment." });
+      if (ticket) {
+        if (String(ticket.userId) !== currentUserId) {
+          return res.status(403).json({ success: false, message: "Access denied. You do not own this ticket attachment." });
+        }
+      } else {
+        // Allow authenticated candidate to preview freshly uploaded attachment while drafting ticket (within 4 hours)
+        try {
+          const stat = await fs.promises.stat(filePath);
+          const ageHours = (Date.now() - stat.mtimeMs) / (1000 * 60 * 60);
+          if (ageHours > 4) {
+            return res.status(404).json({ success: false, message: "Support ticket reference for attachment not found." });
+          }
+        } catch {
+          return res.status(404).json({ success: false, message: "Support ticket reference for attachment not found." });
+        }
       }
     }
 
+    const contentType = resolveAttachmentContentType(safeFilename);
+    res.setHeader("Content-Type", contentType);
     res.setHeader("Content-Disposition", "inline");
     return res.sendFile(filePath);
   } catch (err) {

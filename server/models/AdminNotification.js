@@ -22,6 +22,8 @@ const adminNotificationSchema = new mongoose.Schema(
         "proctoring",
         "account",
         "system",
+        "support",
+        "ticket",
       ],
       default: "system",
       index: true,

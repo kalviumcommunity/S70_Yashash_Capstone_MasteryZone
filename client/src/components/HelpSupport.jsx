@@ -37,6 +37,9 @@ import {
   LuX,
   LuCopy,
   LuZoomIn,
+  LuFileCode,
+  LuFolder,
+  LuMusic,
 } from "react-icons/lu";
 import { toast } from "react-toastify";
 import { getSharedSocket, releaseSharedSocket } from "../utils/socketClient";
@@ -72,10 +75,51 @@ const isImageAttachment = (att) => {
 
 const isPdfAttachment = (att) => {
   if (!att) return false;
+  if (typeof att === "string") return /\.pdf(\?.*)?$/i.test(att.toLowerCase().trim());
   const mt = (att.mimeType || att.type || "").toLowerCase().trim();
   const fn = (att.fileName || att.originalName || att.name || "").toLowerCase().trim();
   const url = (att.fileUrl || att.previewUrl || "").toLowerCase().trim();
-  return mt === "application/pdf" || fn.endsWith(".pdf") || url.includes(".pdf");
+  return mt === "application/pdf" || /\.pdf(\?.*)?$/i.test(fn) || /\.pdf(\?.*)?$/i.test(url);
+};
+
+const isCodeOrTextAttachment = (att) => {
+  if (!att) return false;
+  const fn = (att.fileName || att.originalName || att.name || (typeof att === "string" ? att : "")).toLowerCase().trim();
+  const mt = (att.mimeType || att.type || "").toLowerCase().trim();
+  const codeExtRegex = /\.(txt|log|md|json|csv|xml|yaml|yml|js|jsx|ts|tsx|py|java|c|cpp|cc|cxx|h|hpp|cs|go|rs|php|rb|swift|kt|dart|sql|sh|bash|zsh|env|ini|conf|cfg|dockerfile|toml|html|css|scss|less|vue|svelte|graphql|prisma|lua|r|m)(\?.*)?$/i;
+  return (
+    mt.startsWith("text/") ||
+    mt === "application/json" ||
+    mt === "application/xml" ||
+    mt === "application/javascript" ||
+    codeExtRegex.test(fn)
+  );
+};
+
+const isVideoAttachment = (att) => {
+  if (!att) return false;
+  const fn = (att.fileName || att.originalName || att.name || (typeof att === "string" ? att : "")).toLowerCase().trim();
+  const mt = (att.mimeType || att.type || "").toLowerCase().trim();
+  return mt.startsWith("video/") || /\.(mp4|webm|mov|mkv|avi|wmv|flv|m4v)(\?.*)?$/i.test(fn);
+};
+
+const isAudioAttachment = (att) => {
+  if (!att) return false;
+  const fn = (att.fileName || att.originalName || att.name || (typeof att === "string" ? att : "")).toLowerCase().trim();
+  const mt = (att.mimeType || att.type || "").toLowerCase().trim();
+  return mt.startsWith("audio/") || /\.(mp3|wav|ogg|m4a|aac|flac|wma)(\?.*)?$/i.test(fn);
+};
+
+const isArchiveAttachment = (att) => {
+  if (!att) return false;
+  const fn = (att.fileName || att.originalName || att.name || (typeof att === "string" ? att : "")).toLowerCase().trim();
+  const mt = (att.mimeType || att.type || "").toLowerCase().trim();
+  return (
+    mt.includes("zip") ||
+    mt.includes("tar") ||
+    mt.includes("compressed") ||
+    /\.(zip|tar|gz|tgz|7z|rar|bz2|xz)(\?.*)?$/i.test(fn)
+  );
 };
 
 const getAttachmentUrl = (fileUrl, fileName) => {
@@ -196,6 +240,7 @@ const HelpSupport = () => {
   const [newAttachments, setNewAttachments] = useState([]);
   const [uploadingNew, setUploadingNew] = useState(false);
   const fileInputRef = useRef(null);
+  const folderInputRef = useRef(null);
 
   // User Tickets State
   const [myTickets, setMyTickets] = useState([]);
@@ -222,6 +267,7 @@ const HelpSupport = () => {
   const [uploadingReply, setUploadingReply] = useState(false);
   const [sendingReply, setSendingReply] = useState(false);
   const replyFileInputRef = useRef(null);
+  const replyFolderInputRef = useRef(null);
 
   // Real-time & Typing States
   const [isConnected, setIsConnected] = useState(false);
@@ -231,9 +277,92 @@ const HelpSupport = () => {
   const adminTypingTimeoutRef = useRef(null);
   const messagesEndRef = useRef(null);
 
-  // Image Lightbox Viewer
+  // Lightbox Viewer
   const [lightboxAttachment, setLightboxAttachment] = useState(null);
+  const [lightboxViewMode, setLightboxViewMode] = useState("image"); // "image" | "document" | "code" | "video" | "audio" | "file"
+  const [lightboxCodeContent, setLightboxCodeContent] = useState("");
+  const [loadingCodeContent, setLoadingCodeContent] = useState(false);
+  const [lightboxWordWrap, setLightboxWordWrap] = useState(true);
+  const [copiedCode, setCopiedCode] = useState(false);
   const isSubmittingRef = useRef(false);
+
+  const handleOpenUserLightbox = async (att, defaultMode = null) => {
+    const isImg = isImageAttachment(att);
+    const isPdf = isPdfAttachment(att);
+    const isCode = isCodeOrTextAttachment(att);
+    const isVid = isVideoAttachment(att);
+    const isAud = isAudioAttachment(att);
+
+    const attUrl = getAttachmentUrl(att.previewUrl || att.fileUrl, att.fileName || att.originalName);
+    const imgUrl = att.imageUrl || (isPdf ? attUrl.replace(/\.pdf(\?.*)?$/i, ".png$1") : attUrl);
+
+    let initialMode = defaultMode;
+    if (!initialMode) {
+      if (isImg) initialMode = "image";
+      else if (isPdf) initialMode = "document";
+      else if (isCode) initialMode = "code";
+      else if (isVid) initialMode = "video";
+      else if (isAud) initialMode = "audio";
+      else initialMode = "file";
+    }
+
+    setLightboxViewMode(initialMode);
+    setLightboxAttachment({
+      ...att,
+      fileUrl: attUrl,
+      imageUrl: imgUrl,
+      isImage: isImg,
+      isPdf,
+      isCode,
+      isVideo: isVid,
+      isAudio: isAud,
+    });
+
+    if (isCode || initialMode === "code") {
+      setLoadingCodeContent(true);
+      try {
+        const token = localStorage.getItem("token");
+        const res = await fetch(attUrl, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (res.ok) {
+          const text = await res.text();
+          setLightboxCodeContent(text);
+        } else {
+          setLightboxCodeContent(`// Could not load file directly (HTTP ${res.status}).\n// You can click 'Download' or 'Open in Tab' to view.`);
+        }
+      } catch (err) {
+        setLightboxCodeContent(`// Error fetching file preview: ${err.message}`);
+      } finally {
+        setLoadingCodeContent(false);
+      }
+    } else {
+      setLightboxCodeContent("");
+    }
+  };
+
+  const handlePasteEvent = async (e, target = "new") => {
+    const clipboardData = e.clipboardData || window.clipboardData;
+    if (!clipboardData || !clipboardData.items) return;
+    const items = Array.from(clipboardData.items);
+    const imageItems = items.filter((item) => item.type && item.type.startsWith("image/"));
+    if (imageItems.length > 0) {
+      const files = [];
+      for (const item of imageItems) {
+        const blob = item.getAsFile();
+        if (blob) {
+          const ext = blob.type === "image/jpeg" ? "jpg" : "png";
+          const file = new File([blob], `screenshot_${Date.now()}.${ext}`, { type: blob.type });
+          files.push(file);
+        }
+      }
+      if (files.length > 0) {
+        e.preventDefault();
+        toast.info("Pasting screenshot...", { autoClose: 1500 });
+        await handleFilesChosen(files, target);
+      }
+    }
+  };
 
   const user = (() => {
     try {
@@ -246,6 +375,8 @@ const HelpSupport = () => {
   // Upload helper using base64 payload to ensure 100% native stability
   const uploadAttachmentFile = async (file) => {
     const previewBlobUrl = file.type && file.type.startsWith("image/") ? URL.createObjectURL(file) : null;
+    const relPath = file.webkitRelativePath || file.name;
+    const isFolder = Boolean(file.webkitRelativePath && file.webkitRelativePath.includes("/"));
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = async () => {
@@ -260,6 +391,8 @@ const HelpSupport = () => {
             },
             body: JSON.stringify({
               originalName: file.name,
+              relativePath: relPath,
+              isFolderItem: isFolder,
               mimeType: file.type || "application/octet-stream",
               base64Data,
             }),
@@ -290,8 +423,8 @@ const HelpSupport = () => {
 
     try {
       for (const file of fileList) {
-        if (file.size > 15 * 1024 * 1024) {
-          toast.error(`File "${file.name}" exceeds 15MB limit.`, { toastId: `err-size-${file.name}` });
+        if (file.size > 25 * 1024 * 1024) {
+          toast.error(`File "${file.name}" exceeds 25MB limit.`, { toastId: `err-size-${file.name}` });
           continue;
         }
         const uploaded = await uploadAttachmentFile(file);
@@ -500,6 +633,8 @@ const HelpSupport = () => {
             fileUrl: a.fileUrl,
             mimeType: a.mimeType,
             fileSize: a.fileSize,
+            relativePath: a.relativePath || a.originalName,
+            isFolderItem: Boolean(a.isFolderItem || (a.relativePath && a.relativePath.includes("/"))),
           })),
         }),
       });
@@ -630,12 +765,19 @@ const HelpSupport = () => {
       <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 10 }}>
         {attachments.map((att, idx) => {
           const isImg = isImageAttachment(att);
+          const isPdf = isPdfAttachment(att);
+          const isCode = isCodeOrTextAttachment(att);
+          const isVid = isVideoAttachment(att);
+          const isAud = isAudioAttachment(att);
+          const isArch = isArchiveAttachment(att);
+          const hasFolder = Boolean(att.isFolderItem || (att.relativePath && att.relativePath.includes("/")));
           const attUrl = getAttachmentUrl(att.previewUrl || att.fileUrl, att.fileName || att.originalName);
+
           if (isImg) {
             return (
               <div
                 key={att._id || idx}
-                onClick={() => setLightboxAttachment({ ...att, fileUrl: attUrl })}
+                onClick={() => handleOpenUserLightbox(att, "image")}
                 style={{
                   position: "relative",
                   cursor: "pointer",
@@ -684,13 +826,31 @@ const HelpSupport = () => {
               </div>
             );
           }
+
+          let icon = <LuFileText size={18} color={isWhiteTheme ? "#ffffff" : "#4f46e5"} />;
+          let typeLabel = "Document";
+
+          if (isCode) {
+            icon = <LuFileCode size={18} color={isWhiteTheme ? "#ffffff" : "#059669"} />;
+            typeLabel = "Code / Log";
+          } else if (isPdf) {
+            icon = <LuFileText size={18} color={isWhiteTheme ? "#ffffff" : "#dc2626"} />;
+            typeLabel = "PDF";
+          } else if (isVid) {
+            icon = <LuVideo size={18} color={isWhiteTheme ? "#ffffff" : "#7c3aed"} />;
+            typeLabel = "Video";
+          } else if (isAud) {
+            icon = <LuMusic size={18} color={isWhiteTheme ? "#ffffff" : "#db2777"} />;
+            typeLabel = "Audio";
+          } else if (isArch || hasFolder) {
+            icon = <LuFolder size={18} color={isWhiteTheme ? "#ffffff" : "#d97706"} />;
+            typeLabel = hasFolder ? "Folder Item" : "Archive";
+          }
+
           return (
-            <a
+            <div
               key={att._id || idx}
-              href={attUrl}
-              target="_blank"
-              rel="noreferrer"
-              download={att.originalName}
+              onClick={() => handleOpenUserLightbox(att)}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -702,19 +862,34 @@ const HelpSupport = () => {
                 border: isWhiteTheme ? "1px solid rgba(255,255,255,0.25)" : "1px solid var(--mz-border-strong)",
                 fontSize: 12,
                 fontWeight: 600,
-                textDecoration: "none",
-                maxWidth: 260,
+                cursor: "pointer",
+                maxWidth: 280,
                 boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
                 transition: "all 0.15s ease",
               }}
+              title="Click to preview attachment"
             >
-              <LuFileText size={18} color={isWhiteTheme ? "#ffffff" : "var(--mz-indigo-text)"} />
-              <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                <div style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{att.originalName}</div>
-                <span style={{ fontSize: 10.5, opacity: 0.75 }}>{formatFileSize(att.fileSize)}</span>
+              {icon}
+              <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
+                <div style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {hasFolder ? `📁 ${att.relativePath}` : att.originalName}
+                </div>
+                <div style={{ fontSize: 10.5, opacity: 0.75, display: "flex", gap: 6 }}>
+                  <span>{formatFileSize(att.fileSize)}</span>
+                  <span>•</span>
+                  <span style={{ color: isWhiteTheme ? "#93c5fd" : "#4f46e5" }}>{typeLabel} Preview</span>
+                </div>
               </div>
-              <LuDownload size={14} style={{ marginLeft: "auto", flexShrink: 0 }} />
-            </a>
+              <a
+                href={attUrl}
+                download={att.originalName}
+                onClick={(e) => e.stopPropagation()}
+                style={{ color: "inherit", opacity: 0.7, padding: 3, display: "flex", alignItems: "center" }}
+                title="Download file"
+              >
+                <LuDownload size={14} />
+              </a>
+            </div>
           );
         })}
       </div>
@@ -1208,7 +1383,7 @@ const HelpSupport = () => {
                             boxShadow: "0 2px 4px rgba(0,0,0,0.06)",
                             cursor: "pointer",
                           }}
-                          onClick={() => setLightboxAttachment({ ...att, fileUrl: displayUrl })}
+                          onClick={() => handleOpenUserLightbox(att, "image")}
                           title="Click to view full image"
                         >
                           <img
@@ -1252,9 +1427,14 @@ const HelpSupport = () => {
                         </div>
                       );
                     }
+
+                    const isCode = isCodeOrTextAttachment(att);
+                    const isFold = Boolean(att.isFolderItem || (att.relativePath && att.relativePath.includes("/")));
+
                     return (
                       <div
                         key={att.fileName || idx}
+                        onClick={() => handleOpenUserLightbox(att)}
                         style={{
                           display: "flex",
                           alignItems: "center",
@@ -1266,16 +1446,27 @@ const HelpSupport = () => {
                           fontSize: 12,
                           color: "var(--mz-blue-text)",
                           fontWeight: 600,
+                          cursor: "pointer",
                         }}
+                        title="Click to preview file"
                       >
-                        <LuFileText size={13} />
-                        <span style={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {att.originalName}
+                        {isFold ? (
+                          <LuFolder size={13} color="#d97706" />
+                        ) : isCode ? (
+                          <LuFileCode size={13} color="#059669" />
+                        ) : (
+                          <LuFileText size={13} />
+                        )}
+                        <span style={{ maxWidth: 170, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {isFold ? `📁 ${att.relativePath}` : att.originalName}
                         </span>
                         <span style={{ fontSize: 10.5, opacity: 0.75 }}>({formatFileSize(att.fileSize)})</span>
                         <button
                           type="button"
-                          onClick={() => setReplyAttachments((prev) => prev.filter((_, i) => i !== idx))}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setReplyAttachments((prev) => prev.filter((_, i) => i !== idx));
+                          }}
                           style={{
                             background: "none",
                             border: "none",
@@ -1300,7 +1491,21 @@ const HelpSupport = () => {
                     type="file"
                     ref={replyFileInputRef}
                     multiple
-                    accept="image/*,.pdf,.txt,.log,.json,.js,.py,.cpp,.java,.html,.css"
+                    accept="*"
+                    style={{ display: "none" }}
+                    onChange={(e) => {
+                      if (e.target.files?.length) {
+                        handleFilesChosen(e.target.files, "reply");
+                        e.target.value = "";
+                      }
+                    }}
+                  />
+                  <input
+                    type="file"
+                    ref={replyFolderInputRef}
+                    multiple
+                    webkitdirectory=""
+                    directory=""
                     style={{ display: "none" }}
                     onChange={(e) => {
                       if (e.target.files?.length) {
@@ -1310,37 +1515,63 @@ const HelpSupport = () => {
                     }}
                   />
 
-                  <button
-                    type="button"
-                    onClick={() => replyFileInputRef.current?.click()}
-                    title="Attach screenshot or error log"
-                    style={{
-                      padding: "10px 14px",
-                      borderRadius: 8,
-                      border: "1px solid var(--mz-border-strong)",
-                      background: uploadingReply ? "var(--mz-indigo-bg)" : "var(--mz-surface-subtle)",
-                      color: "var(--mz-text-secondary)",
-                      fontSize: 13,
-                      fontWeight: 600,
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                      height: 44,
-                    }}
-                  >
-                    {uploadingReply ? (
-                      <LuRefreshCw className="animate-spin" size={16} />
-                    ) : (
-                      <LuPaperclip size={16} />
-                    )}
-                    <span>{uploadingReply ? "Uploading..." : "Attach"}</span>
-                  </button>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <button
+                      type="button"
+                      onClick={() => replyFileInputRef.current?.click()}
+                      title="Attach file (all types accepted: image, code, pdf, zip, log, audio, video)"
+                      style={{
+                        padding: "8px 12px",
+                        borderRadius: 8,
+                        border: "1px solid var(--mz-border-strong)",
+                        background: uploadingReply ? "var(--mz-indigo-bg)" : "var(--mz-surface-subtle)",
+                        color: "var(--mz-text-secondary)",
+                        fontSize: 12,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        height: 34,
+                      }}
+                    >
+                      {uploadingReply ? (
+                        <LuRefreshCw className="animate-spin" size={14} />
+                      ) : (
+                        <LuPaperclip size={14} />
+                      )}
+                      <span>Files</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => replyFolderInputRef.current?.click()}
+                      title="Attach entire folder"
+                      style={{
+                        padding: "8px 12px",
+                        borderRadius: 8,
+                        border: "1px solid var(--mz-border-strong)",
+                        background: "var(--mz-surface-subtle)",
+                        color: "var(--mz-text-secondary)",
+                        fontSize: 12,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        height: 34,
+                      }}
+                    >
+                      <LuFolder size={14} color="#d97706" />
+                      <span>Folder</span>
+                    </button>
+                  </div>
 
                   <textarea
                     value={replyText}
                     onChange={handleReplyChange}
-                    placeholder="Type your reply or additional details here..."
+                    onPaste={(e) => handlePasteEvent(e, "reply")}
+                    placeholder="Type your reply here... (press Ctrl+V to paste screenshot)"
                     rows={2}
                     style={{
                       flex: 1,
@@ -2054,15 +2285,61 @@ const HelpSupport = () => {
                       boxSizing: "border-box",
                       lineHeight: 1.5,
                     }}
+                    onPaste={(e) => handlePasteEvent(e, "new")}
                     required
                   />
                 </div>
 
-                {/* ── DRAG & DROP / CLICK FILE ATTACHMENT UPLOADER ── */}
+                {/* ── DRAG & DROP / CLICK FILE & FOLDER ATTACHMENT UPLOADER ── */}
                 <div style={{ marginBottom: 24 }}>
-                  <label style={{ display: "block", fontSize: 12.5, fontWeight: 700, color: "var(--mz-text-secondary)", marginBottom: 6 }}>
-                    File Attachments & Evidence (Screenshots, Error Logs, Code Snippets)
-                  </label>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6, flexWrap: "wrap", gap: 8 }}>
+                    <label style={{ fontSize: 12.5, fontWeight: 700, color: "var(--mz-text-secondary)" }}>
+                      Attachments & Evidence (All file types, folders, screenshots, logs, PDFs accepted)
+                    </label>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 5,
+                          padding: "4px 10px",
+                          borderRadius: 6,
+                          border: "1px solid var(--mz-border-strong)",
+                          background: "var(--mz-surface)",
+                          color: "var(--mz-text-secondary)",
+                          fontSize: 11.5,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                        }}
+                      >
+                        <LuPaperclip size={13} />
+                        Choose Files
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => folderInputRef.current?.click()}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 5,
+                          padding: "4px 10px",
+                          borderRadius: 6,
+                          border: "1px solid var(--mz-border-strong)",
+                          background: "var(--mz-surface)",
+                          color: "var(--mz-text-secondary)",
+                          fontSize: 11.5,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                        }}
+                      >
+                        <LuFolder size={13} color="#d97706" />
+                        Choose Folder
+                      </button>
+                    </div>
+                  </div>
+
                   <div
                     onClick={() => fileInputRef.current?.click()}
                     onDragOver={(e) => {
@@ -2097,7 +2374,21 @@ const HelpSupport = () => {
                       type="file"
                       ref={fileInputRef}
                       multiple
-                      accept="image/*,.pdf,.txt,.log,.json,.js,.py,.cpp,.java,.html,.css"
+                      accept="*"
+                      style={{ display: "none" }}
+                      onChange={(e) => {
+                        if (e.target.files?.length) {
+                          handleFilesChosen(e.target.files, "new");
+                          e.target.value = "";
+                        }
+                      }}
+                    />
+                    <input
+                      type="file"
+                      ref={folderInputRef}
+                      multiple
+                      webkitdirectory=""
+                      directory=""
                       style={{ display: "none" }}
                       onChange={(e) => {
                         if (e.target.files?.length) {
@@ -2126,10 +2417,10 @@ const HelpSupport = () => {
                         )}
                       </div>
                       <div style={{ fontSize: 14, fontWeight: 700, color: "var(--mz-text-primary)" }}>
-                        {uploadingNew ? "Uploading attachments..." : "Click or drag & drop files here to attach"}
+                        {uploadingNew ? "Uploading attachments..." : "Click or drag & drop files / folders here to attach"}
                       </div>
-                      <div style={{ fontSize: 12, color: "var(--mz-text-muted)" }}>
-                        Support for screenshots (PNG, JPG, WEBP), Error Logs (TXT, LOG), and Documents (PDF) up to 15MB each
+                      <div style={{ fontSize: 12, color: "var(--mz-text-muted)", maxWidth: 520, lineHeight: 1.5 }}>
+                        Accepts any file type: code, logs, whole folders, screenshots (Ctrl+V / Cmd+V paste supported), PDFs, and videos up to 25MB each
                       </div>
                     </div>
                   </div>
@@ -2139,7 +2430,14 @@ const HelpSupport = () => {
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 14 }}>
                       {newAttachments.map((att, idx) => {
                         const isImg = isImageAttachment(att);
+                        const isPdf = isPdfAttachment(att);
+                        const isCode = isCodeOrTextAttachment(att);
+                        const isVid = isVideoAttachment(att);
+                        const isAud = isAudioAttachment(att);
+                        const isArch = isArchiveAttachment(att);
+                        const hasFolder = Boolean(att.isFolderItem || (att.relativePath && att.relativePath.includes("/")));
                         const displayUrl = getAttachmentUrl(att.previewUrl || att.fileUrl, att.fileName || att.originalName);
+
                         if (isImg) {
                           return (
                             <div
@@ -2155,7 +2453,7 @@ const HelpSupport = () => {
                                 boxShadow: "0 2px 6px rgba(0,0,0,0.06)",
                                 cursor: "pointer",
                               }}
-                              onClick={() => setLightboxAttachment({ ...att, fileUrl: displayUrl })}
+                              onClick={() => handleOpenUserLightbox(att, "image")}
                               title="Click to zoom image preview"
                             >
                               <img
@@ -2172,7 +2470,7 @@ const HelpSupport = () => {
                               />
                               <div
                                 style={{
-                                  position: "absolute",
+                                 position: "absolute",
                                   inset: 0,
                                   background: "rgba(0,0,0,0.35)",
                                   opacity: 0,
@@ -2217,9 +2515,18 @@ const HelpSupport = () => {
                             </div>
                           );
                         }
+
+                        let chipIcon = <LuFileText size={16} color="var(--mz-blue-text)" />;
+                        if (isCode) chipIcon = <LuFileCode size={16} color="#059669" />;
+                        else if (isPdf) chipIcon = <LuFileText size={16} color="#dc2626" />;
+                        else if (isVid) chipIcon = <LuVideo size={16} color="#7c3aed" />;
+                        else if (isAud) chipIcon = <LuMusic size={16} color="#db2777" />;
+                        else if (isArch || hasFolder) chipIcon = <LuFolder size={16} color="#d97706" />;
+
                         return (
                           <div
                             key={att.fileName || idx}
+                            onClick={() => handleOpenUserLightbox(att)}
                             style={{
                               display: "flex",
                               alignItems: "center",
@@ -2231,16 +2538,21 @@ const HelpSupport = () => {
                               fontSize: 12.5,
                               fontWeight: 600,
                               color: "var(--mz-blue-text)",
+                              cursor: "pointer",
                             }}
+                            title="Click to preview file"
                           >
-                            <LuFileText size={16} />
-                            <span style={{ maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                              {att.originalName}
+                            {chipIcon}
+                            <span style={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {hasFolder ? `📁 ${att.relativePath}` : att.originalName}
                             </span>
                             <span style={{ fontSize: 11, opacity: 0.75 }}>({formatFileSize(att.fileSize)})</span>
                             <button
                               type="button"
-                              onClick={() => setNewAttachments((prev) => prev.filter((_, i) => i !== idx))}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setNewAttachments((prev) => prev.filter((_, i) => i !== idx));
+                              }}
                               style={{
                                 background: "none",
                                 border: "none",
@@ -2300,31 +2612,37 @@ const HelpSupport = () => {
         )}
       </main>
 
-      {/* ────────────────── LIGHTBOX IMAGE VIEWER MODAL ────────────────── */}
+      {/* ────────────────── LIGHTBOX FILE & MEDIA VIEWER MODAL ────────────────── */}
       {lightboxAttachment && (
         <div
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(15, 23, 42, 0.88)",
+            background: "rgba(15, 23, 42, 0.92)",
             backdropFilter: "blur(8px)",
-            zIndex: 9999,
+            zIndex: 110000,
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            padding: 24,
+            padding: "16px 20px",
           }}
           onClick={() => setLightboxAttachment(null)}
         >
           <div
             style={{
               position: "relative",
-              maxWidth: "92vw",
-              maxHeight: "88vh",
+              maxWidth: "96vw",
+              maxHeight: "92vh",
+              width: lightboxViewMode === "code" ? "90vw" : "auto",
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
+              background: "#0f172a",
+              border: "1px solid rgba(255, 255, 255, 0.15)",
+              borderRadius: 16,
+              padding: "16px 20px",
+              boxShadow: "0 25px 60px -15px rgba(0, 0, 0, 0.85)",
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -2337,87 +2655,344 @@ const HelpSupport = () => {
                 justifyContent: "space-between",
                 marginBottom: 12,
                 color: "#ffffff",
-                gap: 16,
+                gap: 12,
+                flexWrap: "wrap",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontWeight: 700, fontSize: 15 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                {isImageAttachment(lightboxAttachment) ? (
+                  <LuImage size={18} color="#60a5fa" />
+                ) : isPdfAttachment(lightboxAttachment) ? (
+                  <LuFileText size={18} color="#ef4444" />
+                ) : isCodeOrTextAttachment(lightboxAttachment) ? (
+                  <LuFileCode size={18} color="#34d399" />
+                ) : isVideoAttachment(lightboxAttachment) ? (
+                  <LuVideo size={18} color="#a78bfa" />
+                ) : isAudioAttachment(lightboxAttachment) ? (
+                  <LuMusic size={18} color="#f472b6" />
+                ) : (
+                  <LuFolder size={18} color="#fbbf24" />
+                )}
+
+                {lightboxAttachment.relativePath && (
+                  <span
+                    style={{
+                      background: "rgba(16, 185, 129, 0.2)",
+                      border: "1px solid rgba(52, 211, 153, 0.4)",
+                      color: "#6ee7b7",
+                      padding: "2px 8px",
+                      borderRadius: 4,
+                      fontSize: 11,
+                      fontWeight: 700,
+                    }}
+                  >
+                    📁 {lightboxAttachment.relativePath}
+                  </span>
+                )}
+
+                <span style={{ fontWeight: 700, fontSize: 15, maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {lightboxAttachment.originalName || lightboxAttachment.fileName}
                 </span>
+
                 <span
                   style={{
-                    fontSize: 12,
-                    opacity: 0.8,
-                    background: "rgba(255,255,255,0.2)",
+                    fontSize: 11.5,
+                    opacity: 0.85,
+                    background: "rgba(255,255,255,0.18)",
                     padding: "2px 8px",
                     borderRadius: 4,
                   }}
                 >
                   {formatFileSize(lightboxAttachment.fileSize)}
                 </span>
+
+                {/* PDF switch */}
+                {isPdfAttachment(lightboxAttachment) && (
+                  <div style={{ display: "inline-flex", background: "rgba(255, 255, 255, 0.1)", borderRadius: 6, padding: 2, marginLeft: 6 }}>
+                    <button
+                      type="button"
+                      onClick={() => setLightboxViewMode("image")}
+                      style={{
+                        background: lightboxViewMode === "image" ? "#4f46e5" : "transparent",
+                        color: "#ffffff",
+                        border: "none",
+                        borderRadius: 4,
+                        padding: "3px 8px",
+                        fontSize: 11,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Image
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLightboxViewMode("document")}
+                      style={{
+                        background: lightboxViewMode === "document" ? "#4f46e5" : "transparent",
+                        color: "#ffffff",
+                        border: "none",
+                        borderRadius: 4,
+                        padding: "3px 8px",
+                        fontSize: 11,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      PDF
+                    </button>
+                  </div>
+                )}
+
+                {/* Code switch */}
+                {lightboxViewMode === "code" && (
+                  <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginLeft: 6 }}>
+                    <button
+                      type="button"
+                      onClick={() => setLightboxWordWrap(!lightboxWordWrap)}
+                      style={{
+                        background: lightboxWordWrap ? "rgba(99, 102, 241, 0.4)" : "rgba(255, 255, 255, 0.1)",
+                        color: "#ffffff",
+                        border: "1px solid rgba(255,255,255,0.2)",
+                        borderRadius: 6,
+                        padding: "2px 8px",
+                        fontSize: 11,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Wrap: {lightboxWordWrap ? "ON" : "OFF"}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (lightboxCodeContent) {
+                          navigator.clipboard.writeText(lightboxCodeContent);
+                          setCopiedCode(true);
+                          setTimeout(() => setCopiedCode(false), 2000);
+                          toast.success("Code copied!");
+                        }
+                      }}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                        background: copiedCode ? "rgba(16, 185, 129, 0.4)" : "rgba(255, 255, 255, 0.1)",
+                        color: "#ffffff",
+                        border: "1px solid rgba(255,255,255,0.2)",
+                        borderRadius: 6,
+                        padding: "2px 8px",
+                        fontSize: 11,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {copiedCode ? <LuCheck size={12} color="#34d399" /> : <LuCopy size={12} />}
+                      <span>{copiedCode ? "Copied" : "Copy"}</span>
+                    </button>
+                  </div>
+                )}
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <a
-                  href={getAttachmentUrl(lightboxAttachment.fileUrl)}
+                  href={getAttachmentUrl(lightboxAttachment.fileUrl, lightboxAttachment.fileName || lightboxAttachment.originalName)}
                   download={lightboxAttachment.originalName || "attachment"}
-                  target="_blank"
-                  rel="noreferrer"
                   style={{
-                    display: "flex",
+                    display: "inline-flex",
                     alignItems: "center",
-                    gap: 6,
+                    gap: 5,
                     background: "#4f46e5",
                     color: "#ffffff",
-                    padding: "7px 14px",
-                    borderRadius: 8,
-                    fontSize: 12.5,
-                    fontWeight: 700,
+                    padding: "6px 12px",
+                    borderRadius: 7,
+                    fontSize: 12,
+                    fontWeight: 600,
                     textDecoration: "none",
                   }}
                 >
-                  <LuDownload size={14} />
-                  Download
+                  <LuDownload size={13} />
+                  <span>Download</span>
                 </a>
+
+                <a
+                  href={getAttachmentUrl(lightboxAttachment.fileUrl, lightboxAttachment.fileName || lightboxAttachment.originalName)}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 5,
+                    background: "rgba(255,255,255,0.12)",
+                    color: "#ffffff",
+                    padding: "6px 12px",
+                    borderRadius: 7,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    textDecoration: "none",
+                  }}
+                >
+                  <LuExternalLink size={13} />
+                  <span>Open</span>
+                </a>
+
                 <button
                   onClick={() => setLightboxAttachment(null)}
                   style={{
-                    background: "rgba(255, 255, 255, 0.2)",
+                    background: "rgba(255, 255, 255, 0.15)",
                     border: "none",
                     color: "#ffffff",
-                    borderRadius: 8,
-                    width: 34,
-                    height: 34,
+                    borderRadius: 7,
+                    width: 30,
+                    height: 30,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     cursor: "pointer",
                   }}
                 >
-                  <LuX size={20} />
+                  <LuX size={17} />
                 </button>
               </div>
             </div>
 
-            {/* Main Preview Image */}
-            <img
-              src={getAttachmentUrl(lightboxAttachment.fileUrl, lightboxAttachment.fileName || lightboxAttachment.originalName)}
-              alt={lightboxAttachment.originalName || "Attachment"}
+            {/* Viewer Body */}
+            <div
               style={{
-                maxWidth: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: "100%",
+                maxWidth: "92vw",
                 maxHeight: "80vh",
-                objectFit: "contain",
+                overflow: "auto",
                 borderRadius: 12,
-                boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
-                border: "1px solid rgba(255, 255, 255, 0.15)",
+                background: lightboxViewMode === "image" ? "#ffffff" : "#090d16",
+                padding: lightboxViewMode === "image" ? 8 : 0,
+                boxShadow: "0 20px 40px rgba(0, 0, 0, 0.5)",
               }}
-              onError={(e) => {
-                const fname = lightboxAttachment.fileName || (lightboxAttachment.fileUrl ? lightboxAttachment.fileUrl.split("/").pop() : "");
-                const token = localStorage.getItem("token") || "";
-                if (fname && !e.currentTarget.src.includes(`/api/support/attachments/${fname}`)) {
-                  e.currentTarget.src = `${API_BASE}/api/support/attachments/${fname}${token ? `?token=${encodeURIComponent(token)}` : ""}`;
-                }
-              }}
-            />
+            >
+              {lightboxViewMode === "image" || (isImageAttachment(lightboxAttachment) && lightboxViewMode !== "document") ? (
+                <img
+                  src={
+                    lightboxAttachment.imageUrl ||
+                    (isPdfAttachment(lightboxAttachment)
+                      ? getAttachmentUrl(lightboxAttachment.fileUrl, lightboxAttachment.fileName || lightboxAttachment.originalName).replace(/\.pdf(\?.*)?$/i, ".png$1")
+                      : getAttachmentUrl(lightboxAttachment.fileUrl, lightboxAttachment.fileName || lightboxAttachment.originalName))
+                  }
+                  alt={lightboxAttachment.originalName || "Attachment"}
+                  style={{
+                    maxWidth: "100%",
+                    maxHeight: "78vh",
+                    objectFit: "contain",
+                    borderRadius: 8,
+                    display: "block",
+                  }}
+                  onError={(e) => {
+                    const rawUrl = getAttachmentUrl(lightboxAttachment.fileUrl, lightboxAttachment.fileName || lightboxAttachment.originalName);
+                    if (!e.currentTarget.src.includes(rawUrl)) {
+                      e.currentTarget.src = rawUrl;
+                    }
+                  }}
+                />
+              ) : isPdfAttachment(lightboxAttachment) && lightboxViewMode === "document" ? (
+                <iframe
+                  src={getAttachmentUrl(lightboxAttachment.fileUrl, lightboxAttachment.fileName || lightboxAttachment.originalName)}
+                  title={lightboxAttachment.originalName || "PDF Document"}
+                  style={{
+                    width: "84vw",
+                    height: "76vh",
+                    border: "none",
+                    borderRadius: 12,
+                    background: "#ffffff",
+                  }}
+                />
+              ) : lightboxViewMode === "code" || isCodeOrTextAttachment(lightboxAttachment) ? (
+                <div
+                  style={{
+                    width: "100%",
+                    height: "74vh",
+                    overflow: "auto",
+                    background: "#090d16",
+                    color: "#f1f5f9",
+                    padding: "16px 20px",
+                    fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+                    fontSize: 13,
+                    lineHeight: 1.6,
+                    borderRadius: 12,
+                  }}
+                >
+                  {loadingCodeContent ? (
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", gap: 10, color: "#94a3b8" }}>
+                      <LuRefreshCw className="animate-spin" size={20} />
+                      <span>Loading source code content...</span>
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", gap: 16 }}>
+                      <div
+                        style={{
+                          userSelect: "none",
+                          color: "#475569",
+                          textAlign: "right",
+                          paddingRight: 14,
+                          borderRight: "1px solid rgba(255,255,255,0.1)",
+                        }}
+                      >
+                        {lightboxCodeContent
+                          .split("\n")
+                          .map((_, i) => (
+                            <div key={i}>{i + 1}</div>
+                          ))}
+                      </div>
+                      <pre
+                        style={{
+                          margin: 0,
+                          padding: 0,
+                          flex: 1,
+                          fontFamily: "inherit",
+                          whiteSpace: lightboxWordWrap ? "pre-wrap" : "pre",
+                          wordBreak: lightboxWordWrap ? "break-word" : "normal",
+                          color: "#e2e8f0",
+                        }}
+                      >
+                        {lightboxCodeContent || "// Empty file"}
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              ) : isVideoAttachment(lightboxAttachment) ? (
+                <div style={{ padding: 12, display: "flex", justifyContent: "center", background: "#000", borderRadius: 12 }}>
+                  <video
+                    src={getAttachmentUrl(lightboxAttachment.fileUrl, lightboxAttachment.fileName || lightboxAttachment.originalName)}
+                    controls
+                    style={{ maxWidth: "86vw", maxHeight: "76vh", borderRadius: 8 }}
+                  />
+                </div>
+              ) : isAudioAttachment(lightboxAttachment) ? (
+                <div style={{ padding: "40px 60px", display: "flex", flexDirection: "column", alignItems: "center", gap: 16, background: "#1e293b", borderRadius: 12 }}>
+                  <LuMusic size={48} color="#f472b6" />
+                  <div style={{ fontSize: 16, fontWeight: 700, color: "#ffffff" }}>
+                    {lightboxAttachment.originalName}
+                  </div>
+                  <audio
+                    src={getAttachmentUrl(lightboxAttachment.fileUrl, lightboxAttachment.fileName || lightboxAttachment.originalName)}
+                    controls
+                    style={{ width: 420, maxWidth: "80vw" }}
+                  />
+                </div>
+              ) : (
+                <div style={{ padding: "40px 60px", display: "flex", flexDirection: "column", alignItems: "center", gap: 14, background: "#1e293b", borderRadius: 12 }}>
+                  <LuFolder size={50} color="#fbbf24" />
+                  <div style={{ fontSize: 16, fontWeight: 700, color: "#ffffff" }}>
+                    {lightboxAttachment.relativePath || lightboxAttachment.originalName}
+                  </div>
+                  <div style={{ fontSize: 12.5, color: "#94a3b8" }}>
+                    {formatFileSize(lightboxAttachment.fileSize)} • {lightboxAttachment.mimeType}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
