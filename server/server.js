@@ -62,6 +62,8 @@ const EXPLICIT_ALLOWED_ORIGINS = new Set(
     process.env.FRONTEND_URL,
     process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(",") : null,
     "https://mastery-zone.onrender.com",
+    "https://mastery-zone-api.onrender.com",
+    "https://mastery-zone.vercel.app",
     "https://masteryzone.netlify.app",
     "https://masteryzone1111.netlify.app",
     "https://s70yashashcapstonemasteryzonekalv.vercel.app",
@@ -87,6 +89,13 @@ function isOriginAllowed(origin, env) {
     return true;
   }
 
+  // Allow project-specific Vercel preview and production deployments
+  if (
+    /^https:\/\/(mastery-zone|s70-yashash-capstone-mastery-zone|s70yashashcapstonemasteryzone)[a-zA-Z0-9-]*\.vercel\.app$/.test(normalized)
+  ) {
+    return true;
+  }
+
   // Local development origins permitted ONLY in explicitly trusted local environments (development, test)
   // Unknown, preview, staging, production, and missing NODE_ENV environments MUST reject localhost origins
   const normEnv = (targetEnv || "").trim().toLowerCase();
@@ -103,6 +112,7 @@ function corsOriginValidator(origin, callback) {
   if (isOriginAllowed(origin)) {
     return callback(null, true);
   }
+  console.warn(`⚠️ [CORS Blocked] Request origin "${origin}" is not in the allowed list.`);
   return callback(new Error("CORS policy violation: Origin not allowed"), false);
 }
 
