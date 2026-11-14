@@ -27,6 +27,7 @@ import {
 } from "react-icons/lu";
 import { toast } from "react-toastify";
 import RecordingVideo from "../RecordingVideo.jsx";
+import { getSharedSocket, releaseSharedSocket } from "../../utils/socketClient";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -74,7 +75,34 @@ const AdminProctoringAuditDetail = () => {
   };
 
   useEffect(() => {
-    if (sessionId) fetchSessionDetails();
+    if (!sessionId) return;
+    fetchSessionDetails();
+
+    const socket = getSharedSocket();
+    if (!socket) return;
+
+    const handleConnect = () => {
+      socket.emit("join_proctoring_audit", { sessionId });
+      fetchSessionDetails();
+    };
+    const handleSessionUpdate = (payload) => {
+      if (!payload || payload.sessionId === sessionId) {
+        fetchSessionDetails();
+      }
+    };
+
+    if (socket.connected) {
+      socket.emit("join_proctoring_audit", { sessionId });
+    }
+    socket.on("connect", handleConnect);
+    socket.on("proctoring_session_updated", handleSessionUpdate);
+
+    return () => {
+      socket.emit("leave_proctoring_audit", { sessionId });
+      socket.off("connect", handleConnect);
+      socket.off("proctoring_session_updated", handleSessionUpdate);
+      releaseSharedSocket();
+    };
   }, [sessionId]);
 
   const session = data?.session || {};
@@ -82,8 +110,10 @@ const AdminProctoringAuditDetail = () => {
   const hardware = data?.hardware || {};
   const recording = data?.recording || {};
   const violationsLog = session?.violationsLog || [];
+  const lifecycleEvents = session?.lifecycleEvents || [];
   const questionsBreakdown = data?.questionsBreakdown || [];
   const marksHistory = data?.marksHistory || [];
+  const authToken = typeof localStorage !== "undefined" ? localStorage.getItem("token") : null;
 
   const maxScore = session?.maxScore || 100;
   const currentPct = Math.round((Number(editableScore || 0) / maxScore) * 100);
@@ -393,7 +423,14 @@ const AdminProctoringAuditDetail = () => {
               <strong>Started:</strong> {new Date(session.createdAt || Date.now()).toLocaleString()}
             </span>
             <span>
-              <strong>Duration:</strong> {session.recordingDurationSeconds ? `${Math.round(session.recordingDurationSeconds / 60)} mins` : "In Progress"}
+              <strong>Duration:</strong>{" "}
+              {session.durationSeconds > 0
+                ? `${Math.floor(session.durationSeconds / 60)}m ${session.durationSeconds % 60}s`
+                : recording.durationSeconds > 0
+                ? `${Math.floor(recording.durationSeconds / 60)}m ${recording.durationSeconds % 60}s`
+                : session.status === "active"
+                ? "In Progress"
+                : "Not Recorded"}
             </span>
           </div>
         </div>
@@ -439,7 +476,7 @@ const AdminProctoringAuditDetail = () => {
       {/* TAB 1: TELEMETRY & HARDWARE OVERVIEW */}
       {activeTab === "overview" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          {/* Hardware Telemetry Grid */}
+          {/* Genuine Hardware & Environment Telemetry Grid */}
           <div className="mz-admin-grid-3">
             <div className="mz-admin-card" style={{ padding: 20 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
@@ -449,15 +486,19 @@ const AdminProctoringAuditDetail = () => {
                   </div>
                   <div>
                     <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "var(--mz-text-primary)" }}>Webcam Telemetry</h4>
-                    <span style={{ fontSize: 11, color: "var(--mz-text-subtle)" }}>Face detection active</span>
+                    <span style={{ fontSize: 11, color: "var(--mz-text-subtle)" }}>
+                      {hardware.cameraLabel || "Device not captured"}
+                    </span>
                   </div>
                 </div>
-                <span className="mz-admin-badge-active">Verified</span>
+                <span className={hardware.cameraStreamStatus === "Active" ? "mz-admin-badge-active" : "mz-admin-badge-muted"}>
+                  {hardware.cameraStreamStatus || "Not Recorded"}
+                </span>
               </div>
-              <div style={{ fontSize: 12.5, color: "var(--mz-text-secondary)", lineHeight: 1.6 }}>
-                <div>• Stream Quality: 720p HD @ 30fps</div>
-                <div>• Facial Landmarks: Continuous Tracking</div>
-                <div>• Disconnections: 0 detected</div>
+              <div style={{ fontSize: 12.5, color: "var(--mz-text-secondary)", lineHeight: 1.7 }}>
+                <div>• Permission: <strong>{hardware.cameraPermission || "Not Captured"}</strong></div>
+                <div>• Stream Status: <strong>{hardware.cameraStreamStatus || "Not Captured"}</strong></div>
+                <div>• Disconnections: <strong>{hardware.cameraDisconnections !== undefined && hardware.cameraDisconnections !== null ? hardware.cameraDisconnections : "Not Captured"}</strong></div>
               </div>
             </div>
 
@@ -469,15 +510,19 @@ const AdminProctoringAuditDetail = () => {
                   </div>
                   <div>
                     <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "var(--mz-text-primary)" }}>Audio Telemetry</h4>
-                    <span style={{ fontSize: 11, color: "var(--mz-text-subtle)" }}>Voice frequency analysis</span>
+                    <span style={{ fontSize: 11, color: "var(--mz-text-subtle)" }}>
+                      {hardware.microphoneLabel || "Device not captured"}
+                    </span>
                   </div>
                 </div>
-                <span className="mz-admin-badge-active">Active</span>
+                <span className={hardware.microphoneStreamStatus === "Active" ? "mz-admin-badge-active" : "mz-admin-badge-muted"}>
+                  {hardware.microphoneStreamStatus || "Not Recorded"}
+                </span>
               </div>
-              <div style={{ fontSize: 12.5, color: "var(--mz-text-secondary)", lineHeight: 1.6 }}>
-                <div>• Microphone Permission: Granted</div>
-                <div>• Background Speech Detection: Clean</div>
-                <div>• Ambient Decibels: Normal range (&lt; 40 dB)</div>
+              <div style={{ fontSize: 12.5, color: "var(--mz-text-secondary)", lineHeight: 1.7 }}>
+                <div>• Permission: <strong>{hardware.microphonePermission || "Not Captured"}</strong></div>
+                <div>• Stream Status: <strong>{hardware.microphoneStreamStatus || "Not Captured"}</strong></div>
+                <div>• Disconnections: <strong>{hardware.microphoneDisconnections !== undefined && hardware.microphoneDisconnections !== null ? hardware.microphoneDisconnections : "Not Captured"}</strong></div>
               </div>
             </div>
 
@@ -488,17 +533,33 @@ const AdminProctoringAuditDetail = () => {
                     <LuMonitor style={{ width: 18, height: 18 }} />
                   </div>
                   <div>
-                    <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "var(--mz-text-primary)" }}>Display Lock</h4>
-                    <span style={{ fontSize: 11, color: "var(--mz-text-subtle)" }}>Fullscreen enforcement</span>
+                    <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "var(--mz-text-primary)" }}>Display & Screen Lock</h4>
+                    <span style={{ fontSize: 11, color: "var(--mz-text-subtle)" }}>
+                      {hardware.displaySurface || "Surface not captured"}
+                    </span>
                   </div>
                 </div>
-                <span className="mz-admin-badge-active">Locked</span>
+                <span className={hardware.fullscreen === "Active" ? "mz-admin-badge-active" : "mz-admin-badge-muted"}>
+                  {hardware.fullscreen || "Not Recorded"}
+                </span>
               </div>
-              <div style={{ fontSize: 12.5, color: "var(--mz-text-secondary)", lineHeight: 1.6 }}>
-                <div>• Display Surface: Primary Monitor</div>
-                <div>• Multi-Monitor Detection: None connected</div>
-                <div>• Window Focus Status: Monitored</div>
+              <div style={{ fontSize: 12.5, color: "var(--mz-text-secondary)", lineHeight: 1.7 }}>
+                <div>• Screen Share: <strong>{hardware.screenSharePermission || "Not Captured"} ({hardware.screenShareStreamStatus || "Not Recorded"})</strong></div>
+                <div>• Window Focus: <strong>{hardware.windowFocused || "Not Captured"}</strong></div>
+                <div>• Fullscreen Exits: <strong>{hardware.fullscreenExits !== undefined && hardware.fullscreenExits !== null ? hardware.fullscreenExits : "Not Captured"}</strong></div>
               </div>
+            </div>
+          </div>
+
+          {/* Captured Environment Metadata */}
+          <div className="mz-admin-card" style={{ padding: 16 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 20, fontSize: 12.5, color: "var(--mz-text-secondary)" }}>
+              <span><strong>Platform:</strong> {hardware.platform || "Not Captured"}</span>
+              <span><strong>Screen Resolution:</strong> {hardware.screenResolution || "Not Captured"}</span>
+              <span><strong>Connection:</strong> {hardware.connectionType || "Not Captured"}</span>
+              <span><strong>Battery:</strong> {hardware.batteryPercentage !== null && hardware.batteryPercentage !== undefined ? `${hardware.batteryPercentage}%${hardware.batteryCharging ? " (Charging)" : ""}` : "Not Captured"}</span>
+              <span><strong>Recording State:</strong> {recording.status || "not_recorded"}</span>
+              <span><strong>Last Telemetry Sync:</strong> {hardware.telemetryUpdatedAt ? new Date(hardware.telemetryUpdatedAt).toLocaleString() : "Not Captured"}</span>
             </div>
           </div>
 
@@ -517,16 +578,24 @@ const AdminProctoringAuditDetail = () => {
             </div>
 
             {violationsLog.length === 0 ? (
-              <div style={{ padding: 24, textAlign: "center", background: "var(--mz-green-bg)", borderRadius: 8, border: "1px solid var(--mz-green-border)", color: "#166534" }}>
-                <LuCircleCheck style={{ width: 24, height: 24, margin: "0 auto 8px" }} />
-                <p style={{ margin: 0, fontWeight: 700 }}>Zero Security Violations Flagged</p>
-                <span style={{ fontSize: 12 }}>Candidate maintained strict compliance with camera, microphone, and fullscreen requirements.</span>
-              </div>
+              hardware.telemetryUpdatedAt || hardware.monitoringActive ? (
+                <div style={{ padding: 24, textAlign: "center", background: "var(--mz-green-bg)", borderRadius: 8, border: "1px solid var(--mz-green-border)", color: "#166534" }}>
+                  <LuCircleCheck style={{ width: 24, height: 24, margin: "0 auto 8px" }} />
+                  <p style={{ margin: 0, fontWeight: 700 }}>Zero Security Violations Recorded</p>
+                  <span style={{ fontSize: 12 }}>Monitoring telemetry was captured during this session with no flagged infractions.</span>
+                </div>
+              ) : (
+                <div style={{ padding: 24, textAlign: "center", background: "var(--mz-surface-subtle)", borderRadius: 8, border: "1px dashed var(--mz-border-strong)", color: "var(--mz-text-muted)" }}>
+                  <LuShieldAlert style={{ width: 24, height: 24, margin: "0 auto 8px" }} />
+                  <p style={{ margin: 0, fontWeight: 700, color: "var(--mz-text-primary)" }}>Monitoring Telemetry Not Captured</p>
+                  <span style={{ fontSize: 12 }}>Zero violations are logged, and live hardware telemetry was not recorded for this session.</span>
+                </div>
+              )
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {violationsLog.slice(0, 3).map((v, i) => (
                   <div
-                    key={i}
+                    key={v.eventId || i}
                     style={{
                       display: "flex",
                       alignItems: "center",
@@ -542,11 +611,11 @@ const AdminProctoringAuditDetail = () => {
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                       <LuTriangleAlert style={{ width: 16, height: 16, color: "#dc2626" }} />
                       <div>
-                        <strong>{v.type}:</strong> {v.detail || "Violation detected"}
+                        <strong>{v.type}:</strong> {v.detail || "No additional details recorded"}
                       </div>
                     </div>
                     <span style={{ fontSize: 11, color: "#b91c1c" }}>
-                      {new Date(v.timestamp).toLocaleTimeString()}
+                      {v.timestamp ? new Date(v.timestamp).toLocaleTimeString() : "Timestamp not recorded"}
                     </span>
                   </div>
                 ))}
@@ -596,11 +665,11 @@ const AdminProctoringAuditDetail = () => {
             </div>
           </div>
 
-          {videoSrc ? (
+          {videoSrc && recording.status === "available" ? (
             <div style={{ background: "#0f172a", borderRadius: 12, overflow: "hidden", position: "relative" }}>
               <RecordingVideo
                 id="proctoring-video-player"
-                recording={{ url: recording.url, recordingId: sessionId }}
+                recording={{ url: recording.url, recordingId: recording.recordingId || sessionId }}
                 controls
                 playsInline
                 style={{ width: "100%", maxHeight: 520, display: "block" }}
@@ -612,20 +681,28 @@ const AdminProctoringAuditDetail = () => {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
+                  flexWrap: "wrap",
+                  gap: 10,
                   fontSize: 12,
                   color: "var(--mz-text-subtle)",
                 }}
               >
                 <span>
-                  Source: <code style={{ color: "#38bdf8" }}>{recording.url}</code>
+                  MIME: <code style={{ color: "#38bdf8" }}>{recording.mimeType || "video/webm"}</code> • Size:{" "}
+                  <strong style={{ color: "#e2e8f0" }}>
+                    {recording.fileSize ? `${(recording.fileSize / (1024 * 1024)).toFixed(2)} MB` : "Unknown"}
+                  </strong> • Duration:{" "}
+                  <strong style={{ color: "#e2e8f0" }}>
+                    {recording.durationSeconds ? `${recording.durationSeconds}s` : "Not Recorded"}
+                  </strong>
                 </span>
-                <span>Recording Status: <strong style={{ color: "#34d399" }}>Completed & Stored</strong></span>
+                <span>Recording Status: <strong style={{ color: "#34d399" }}>Available (Verified)</strong></span>
               </div>
             </div>
           ) : (
             <div
               style={{
-                padding: "60px 20px",
+                padding: "56px 20px",
                 textAlign: "center",
                 background: "var(--mz-surface-subtle)",
                 borderRadius: 12,
@@ -634,10 +711,24 @@ const AdminProctoringAuditDetail = () => {
               }}
             >
               <LuPlay style={{ width: 40, height: 40, color: "var(--mz-text-subtle)", margin: "0 auto 12px" }} />
-              <h4 style={{ margin: 0, fontSize: 15, color: "var(--mz-text-primary)" }}>Continuous Recording Active</h4>
-              <p style={{ margin: "4px 0 0", fontSize: 13 }}>
-                Recording file is being processed or was recovered from persistent cloud storage.
+              <h4 style={{ margin: 0, fontSize: 15, color: "var(--mz-text-primary)", textTransform: "capitalize" }}>
+                Recording Status: {String(recording.status || "not_recorded").replace(/_/g, " ")}
+              </h4>
+              <p style={{ margin: "6px 0 0", fontSize: 13 }}>
+                {recording.status === "recording"
+                  ? "Live session recording is currently in progress and will upload upon completion."
+                  : recording.status === "uploading" || recording.status === "processing"
+                  ? "Recorded stream is currently uploading/processing into persistent storage."
+                  : recording.status === "failed"
+                  ? recording.error || "Recording upload or verification failed for this session."
+                  : "No proctoring video recording was captured or stored for this session."}
               </p>
+              {(recording.startedAt || recording.completedAt) && (
+                <p style={{ margin: "8px 0 0", fontSize: 11.5, color: "var(--mz-text-subtle)" }}>
+                  {recording.startedAt ? `Started: ${new Date(recording.startedAt).toLocaleString()}` : ""}{" "}
+                  {recording.completedAt ? `• Completed: ${new Date(recording.completedAt).toLocaleString()}` : ""}
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -679,15 +770,19 @@ const AdminProctoringAuditDetail = () => {
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               {violationsLog.map((v, idx) => {
                 const isCritical = String(v.severity).toLowerCase() === "critical";
-                const evidenceUrl = v.screenshotUrl
+                const rawUrl = v.screenshotUrl
                   ? v.screenshotUrl.startsWith("http")
                     ? v.screenshotUrl
                     : `${API_BASE}${v.screenshotUrl}`
                   : null;
+                const evidenceUrl =
+                  rawUrl && authToken && !rawUrl.includes("token=")
+                    ? `${rawUrl}${rawUrl.includes("?") ? "&" : "?"}token=${encodeURIComponent(authToken)}`
+                    : rawUrl;
 
                 return (
                   <div
-                    key={idx}
+                    key={v.eventId || idx}
                     style={{
                       display: "flex",
                       flexDirection: "column",
@@ -718,15 +813,19 @@ const AdminProctoringAuditDetail = () => {
                       <div style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 12, color: "var(--mz-text-muted)" }}>
                         <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
                           <LuClock style={{ width: 13, height: 13 }} />
-                          {new Date(v.timestamp).toLocaleTimeString()}
+                          {v.timestamp ? new Date(v.timestamp).toLocaleString() : "Timestamp not recorded"}
                         </span>
-                        <span>•</span>
-                        <span>Duration: {v.durationSeconds || 3}s</span>
+                        {v.durationSeconds ? (
+                          <>
+                            <span>•</span>
+                            <span>Duration: {v.durationSeconds}s</span>
+                          </>
+                        ) : null}
                       </div>
                     </div>
 
                     <p style={{ margin: 0, fontSize: 13, color: "var(--mz-text-secondary)", lineHeight: 1.5 }}>
-                      {v.detail || "Candidate navigated away from proctored environment or lost window focus."}
+                      {v.detail || "No event description recorded."}
                     </p>
 
                     {/* Screenshot Evidence Container */}
@@ -763,7 +862,7 @@ const AdminProctoringAuditDetail = () => {
                             fontStyle: "italic",
                           }}
                         >
-                          Screen capture unavailable at timestamp (browser restricted)
+                          {v.screenshotReason || "No screenshot captured for this event"}
                         </div>
                       )}
                     </div>
@@ -772,91 +871,160 @@ const AdminProctoringAuditDetail = () => {
               })}
             </div>
           )}
+
+          {lifecycleEvents.length > 0 && (
+            <div style={{ marginTop: 24, paddingTop: 18, borderTop: "1px solid var(--mz-border)" }}>
+              <h4 style={{ margin: "0 0 10px", fontSize: 13.5, fontWeight: 700, color: "var(--mz-text-secondary)" }}>
+                Session Lifecycle Log ({lifecycleEvents.length})
+              </h4>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {lifecycleEvents.map((ev, i) => (
+                  <div
+                    key={ev.eventId || i}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "8px 12px",
+                      borderRadius: 8,
+                      background: "var(--mz-surface-subtle)",
+                      fontSize: 12,
+                      color: "var(--mz-text-secondary)",
+                    }}
+                  >
+                    <span>
+                      <strong>{ev.type}:</strong> {ev.detail || "Session event"}
+                    </span>
+                    <span style={{ color: "var(--mz-text-subtle)" }}>
+                      {ev.timestamp ? new Date(ev.timestamp).toLocaleTimeString() : ""}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
       {/* TAB 4: SUBMITTED CODE & ANSWERS */}
       {activeTab === "submission" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          {questionsBreakdown.map((q, idx) => (
-            <div key={q.questionId || idx} className="mz-admin-card" style={{ padding: 24 }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-                <div>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: "#4f46e5", textTransform: "uppercase" }}>
-                    Question {idx + 1}
-                  </span>
-                  <h3 style={{ margin: "2px 0 0", fontSize: 16, fontWeight: 800, color: "var(--mz-text-primary)" }}>
-                    {q.title || "Algorithmic Challenge"}
-                  </h3>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span
-                    style={{
-                      padding: "4px 10px",
-                      borderRadius: 6,
-                      fontSize: 12,
-                      fontWeight: 700,
-                      background: q.status === "PASSED" ? "var(--mz-green-bg)" : "var(--mz-red-bg)",
-                      color: q.status === "PASSED" ? "#059669" : "#dc2626",
-                    }}
-                  >
-                    {q.status || "EVALUATED"}
-                  </span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: "var(--mz-text-primary)" }}>
-                    {q.marksObtained ?? q.score ?? 0} / {q.totalMarks ?? 10} pts
-                  </span>
-                </div>
-              </div>
-
-              {q.description && (
-                <p style={{ fontSize: 13, color: "var(--mz-text-secondary)", marginBottom: 16, lineHeight: 1.6 }}>
-                  {q.description}
-                </p>
-              )}
-
-              {/* Code Display */}
-              {q.submittedCode && (
-                <div>
-                  <div
-                    style={{
-                      padding: "8px 14px",
-                      background: "#1e293b",
-                      borderTopLeftRadius: 8,
-                      borderTopRightRadius: 8,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      color: "var(--mz-text-subtle)",
-                      fontSize: 12,
-                    }}
-                  >
-                    <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <LuCode style={{ width: 14, height: 14, color: "#38bdf8" }} />
-                      Language: <strong style={{ color: "var(--mz-surface-subtle)" }}>{q.language || "python"}</strong>
-                    </span>
-                    <span>Test Cases: {q.passedTests ?? 10}/{q.totalTests ?? 10} Passed</span>
-                  </div>
-                  <pre
-                    style={{
-                      margin: 0,
-                      padding: 16,
-                      background: "#0f172a",
-                      color: "var(--mz-border)",
-                      fontFamily: "monospace",
-                      fontSize: 13,
-                      lineHeight: 1.5,
-                      borderBottomLeftRadius: 8,
-                      borderBottomRightRadius: 8,
-                      overflowX: "auto",
-                      maxHeight: 320,
-                    }}
-                  >
-                    <code>{q.submittedCode}</code>
-                  </pre>
-                </div>
-              )}
+          {questionsBreakdown.length === 0 ? (
+            <div className="mz-admin-card" style={{ padding: 48, textAlign: "center", color: "var(--mz-text-muted)" }}>
+              <LuCode style={{ width: 32, height: 32, margin: "0 auto 10px", color: "var(--mz-text-subtle)" }} />
+              <h4 style={{ margin: 0, fontSize: 15, color: "var(--mz-text-primary)" }}>No submission recorded for this session</h4>
+              <p style={{ margin: "6px 0 0", fontSize: 13 }}>
+                The candidate has not submitted final code or answers yet, or no question breakdown was persisted.
+              </p>
             </div>
-          ))}
+          ) : (
+            questionsBreakdown.map((q, idx) => (
+              <div key={q.questionId || idx} className="mz-admin-card" style={{ padding: 24 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+                  <div>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: "#4f46e5", textTransform: "uppercase" }}>
+                      Question {idx + 1}
+                    </span>
+                    <h3 style={{ margin: "2px 0 0", fontSize: 16, fontWeight: 800, color: "var(--mz-text-primary)" }}>
+                      {q.title || "Untitled Assessment Question"}
+                    </h3>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span
+                      style={{
+                        padding: "4px 10px",
+                        borderRadius: 6,
+                        fontSize: 12,
+                        fontWeight: 700,
+                        background: q.status === "PASSED" ? "var(--mz-green-bg)" : q.status === "FAILED" ? "var(--mz-red-bg)" : "var(--mz-surface-subtle)",
+                        color: q.status === "PASSED" ? "#059669" : q.status === "FAILED" ? "#dc2626" : "var(--mz-text-secondary)",
+                      }}
+                    >
+                      {q.status || "NOT EVALUATED"}
+                    </span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: "var(--mz-text-primary)" }}>
+                      {q.marksObtained !== undefined && q.marksObtained !== null ? `${q.marksObtained} / ${q.totalMarks ?? maxScore} pts` : "Marks not recorded"}
+                    </span>
+                  </div>
+                </div>
+
+                {q.description && (
+                  <p style={{ fontSize: 13, color: "var(--mz-text-secondary)", marginBottom: 16, lineHeight: 1.6 }}>
+                    {q.description}
+                  </p>
+                )}
+
+                {q.submittedCode ? (
+                  <div>
+                    <div
+                      style={{
+                        padding: "8px 14px",
+                        background: "#1e293b",
+                        borderTopLeftRadius: 8,
+                        borderTopRightRadius: 8,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        color: "var(--mz-text-subtle)",
+                        fontSize: 12,
+                      }}
+                    >
+                      <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <LuCode style={{ width: 14, height: 14, color: "#38bdf8" }} />
+                        Language: <strong style={{ color: "var(--mz-surface-subtle)" }}>{q.language || "Not Recorded"}</strong>
+                      </span>
+                      <span>
+                        {q.totalTests !== null && q.totalTests !== undefined
+                          ? `Test Cases: ${q.passedTests ?? 0}/${q.totalTests} Passed`
+                          : "Test case results not recorded"}
+                      </span>
+                    </div>
+                    <pre
+                      style={{
+                        margin: 0,
+                        padding: 16,
+                        background: "#0f172a",
+                        color: "var(--mz-border)",
+                        fontFamily: "monospace",
+                        fontSize: 13,
+                        lineHeight: 1.5,
+                        borderBottomLeftRadius: 8,
+                        borderBottomRightRadius: 8,
+                        overflowX: "auto",
+                        maxHeight: 320,
+                      }}
+                    >
+                      <code>{q.submittedCode}</code>
+                    </pre>
+                  </div>
+                ) : (
+                  <div style={{ padding: 14, borderRadius: 8, background: "var(--mz-surface-subtle)", fontSize: 12.5, color: "var(--mz-text-muted)" }}>
+                    No code submitted for this question.
+                  </div>
+                )}
+
+                {Array.isArray(q.testResults) && q.testResults.length > 0 && (
+                  <div style={{ marginTop: 14, display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    {q.testResults.map((tr, tIdx) => (
+                      <span
+                        key={tIdx}
+                        style={{
+                          padding: "4px 10px",
+                          borderRadius: 6,
+                          fontSize: 11.5,
+                          fontWeight: 600,
+                          background: tr.passed ? "var(--mz-green-bg)" : "var(--mz-red-bg)",
+                          color: tr.passed ? "#059669" : "#dc2626",
+                        }}
+                      >
+                        Case {tIdx + 1}: {tr.passed ? "Passed" : "Failed"}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))
+          )}
         </div>
       )}
 

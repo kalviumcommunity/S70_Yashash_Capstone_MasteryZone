@@ -1,7 +1,7 @@
 /**
  * Mastery Zone — GridFS Cloud Recording Synchronizer & Self-Healer
  *
- * Ensures all past and present recordings are permanently backed up in MongoDB Atlas GridFS.
+ * Ensures all genuine recordings are permanently backed up in MongoDB Atlas GridFS.
  * Recovers any recording documents whose physical files were lost across cloud container restarts,
  * so every user and administrator can always stream, seek, and download their recordings.
  */
@@ -13,8 +13,9 @@ const {
   getRecordingsGridFSBucket,
   saveFileToGridFS,
   getFileFromGridFS,
-  synthesizeMissingRecordingFile,
+  pipeGridFSToFile,
 } = require("../config/recordingStorage");
+const { cleanInvalidRecordings } = require("./recordingCleanup");
 
 let syncInProgress = false;
 
@@ -24,20 +25,25 @@ async function syncRecordingsToGridFS() {
   syncInProgress = true;
 
   try {
+    // 0. Clean any orphan or dummy recordings
+    await cleanInvalidRecordings();
+
     const bucket = getRecordingsGridFSBucket();
     if (!bucket) return;
 
     const targetDir = getRecordingsDir();
     const Recording = require("../models/Recording");
 
-    // 1. Sync any existing files on local disk into GridFS
+    // 1. Sync any existing genuine files on local disk into GridFS
     if (fs.existsSync(targetDir)) {
-      const diskFiles = fs.readdirSync(targetDir).filter((f) => !f.startsWith(".") && (f.endsWith(".webm") || f.endsWith(".mp4")));
+      const diskFiles = fs
+        .readdirSync(targetDir)
+        .filter((f) => !f.startsWith(".") && (f.endsWith(".webm") || f.endsWith(".mp4")));
       for (const df of diskFiles) {
         try {
           const filePath = path.join(targetDir, df);
           const stat = fs.statSync(filePath);
-          if (stat.size > 500) {
+          if (stat.size > 1024) {
             await saveFileToGridFS(df, filePath, { source: "disk_sync", size: stat.size });
           }
         } catch (e) {
@@ -46,7 +52,7 @@ async function syncRecordingsToGridFS() {
       }
     }
 
-    // 2. Self-heal any database records whose binaries are missing or need visible upgrade
+    // 2. Restore physical files from GridFS if container restarted
     const allRecords = await Recording.find().lean();
     for (const rec of allRecords) {
       try {
@@ -55,19 +61,16 @@ async function syncRecordingsToGridFS() {
         const onDisk = fs.existsSync(targetFilePath);
         const inGrid = await getFileFromGridFS(fn);
 
-        // If not in GridFS or if it was an old blank synthesized file (missing metadata title)
-        const isOldBlankSynthesized = inGrid && inGrid.metadata && inGrid.metadata.synthesized && !inGrid.metadata.title;
-
-        if (!onDisk || !inGrid || isOldBlankSynthesized) {
-          // If upgrading an old blank file, safely clean the stale local disk file first
-          if (isOldBlankSynthesized && onDisk) {
-            try { fs.unlinkSync(targetFilePath); } catch {}
-          }
-          const dur = rec.durationSeconds || 15;
-          await synthesizeMissingRecordingFile(fn, dur, rec);
+        if (!onDisk && inGrid) {
+          // Re-hydrate local disk file from GridFS for fast local streaming
+          await pipeGridFSToFile(inGrid._id, targetFilePath);
+          console.log(`[RecordingSync] Re-hydrated recording from GridFS: ${fn}`);
+        } else if (!onDisk && !inGrid) {
+          // Genuinely missing file; mark as error / unavailable, never synthesize fake media
+          await Recording.updateOne({ _id: rec._id }, { $set: { status: "error" } });
         }
       } catch (err) {
-        console.warn("[RecordingSync] Self-heal check note:", rec.recordingId, err.message);
+        console.warn("[RecordingSync] Sync check note:", rec.recordingId, err.message);
       }
     }
   } catch (err) {

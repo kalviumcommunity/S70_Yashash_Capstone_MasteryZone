@@ -120,6 +120,7 @@ const AdminProctoring = () => {
 
       socket.on("PROCTORING_VIOLATION", handleViolation);
       socket.on("PROCTORING_SESSION_UPDATED", handleSessionUpdate);
+      socket.on("proctoring_session_updated", handleSessionUpdate);
       socket.on("NEW_PROCTORED_SESSION", handleSessionUpdate);
     } catch (socketErr) {
       console.warn("Socket connection warning:", socketErr);
@@ -130,6 +131,7 @@ const AdminProctoring = () => {
         socket.off("connect", handleConnect);
         socket.off("PROCTORING_VIOLATION", handleViolation);
         socket.off("PROCTORING_SESSION_UPDATED", handleSessionUpdate);
+        socket.off("proctoring_session_updated", handleSessionUpdate);
         socket.off("NEW_PROCTORED_SESSION", handleSessionUpdate);
         releaseSharedSocket(socket);
       }
@@ -140,9 +142,9 @@ const AdminProctoring = () => {
     activeSessions: 0,
     totalMonitored: 0,
     totalViolations: 0,
-    cameraOnline: true,
-    microphoneOnline: true,
-    screenSharingOnline: true,
+    cameraOnline: false,
+    microphoneOnline: false,
+    screenSharingOnline: false,
   };
 
   const sessions = useMemo(() => {
@@ -298,9 +300,9 @@ const AdminProctoring = () => {
               <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--mz-text-subtle)" }}>Facial & stream telemetry</p>
             </div>
           </div>
-          <span className="mz-admin-badge-active">
-            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981", display: "inline-block" }} />
-            Active
+          <span className={stats.cameraOnline ? "mz-admin-badge-active" : "mz-admin-badge-muted"}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: stats.cameraOnline ? "#10b981" : "#94a3b8", display: "inline-block" }} />
+            {stats.cameraOnline ? "Active" : "Standby"}
           </span>
         </div>
 
@@ -311,12 +313,12 @@ const AdminProctoring = () => {
             </div>
             <div>
               <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "var(--mz-text-primary)" }}>Audio Telemetry</h4>
-              <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--mz-text-subtle)" }}>Ambient voice frequency</p>
+              <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--mz-text-subtle)" }}>Microphone capture status</p>
             </div>
           </div>
-          <span className="mz-admin-badge-active">
-            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981", display: "inline-block" }} />
-            Active
+          <span className={stats.microphoneOnline ? "mz-admin-badge-active" : "mz-admin-badge-muted"}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: stats.microphoneOnline ? "#10b981" : "#94a3b8", display: "inline-block" }} />
+            {stats.microphoneOnline ? "Active" : "Standby"}
           </span>
         </div>
 
@@ -327,12 +329,12 @@ const AdminProctoring = () => {
             </div>
             <div>
               <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "var(--mz-text-primary)" }}>Screen Lock Telemetry</h4>
-              <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--mz-text-subtle)" }}>Display & fullscreen lock</p>
+              <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--mz-text-subtle)" }}>Display &amp; fullscreen lock</p>
             </div>
           </div>
-          <span className="mz-admin-badge-active">
-            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981", display: "inline-block" }} />
-            Active
+          <span className={stats.screenSharingOnline ? "mz-admin-badge-active" : "mz-admin-badge-muted"}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: stats.screenSharingOnline ? "#10b981" : "#94a3b8", display: "inline-block" }} />
+            {stats.screenSharingOnline ? "Active" : "Standby"}
           </span>
         </div>
       </div>

@@ -547,6 +547,44 @@ io.on("connection", (socket) => {
   socket.on("join_admin_monitoring", handleAdminJoin);
   socket.on("join_admin_feed", handleAdminJoin);
 
+  // Admin-only individual proctoring audit room subscription
+  socket.on("join_proctoring_audit", async (payload) => {
+    const sessionId = typeof payload === "object" ? payload?.sessionId : payload;
+    if (!sessionId) return;
+
+    let isAdmin = Boolean(
+      socket.data?.userRole === "admin" ||
+      socket.data?.userRole === "SUPER_ADMIN"
+    );
+    const candidateToken = (typeof payload === "object" ? payload?.token : null) || socket.handshake?.auth?.token;
+    if (!isAdmin && candidateToken && typeof candidateToken === "string") {
+      try {
+        const clean = candidateToken.startsWith("Bearer ") ? candidateToken.slice(7) : candidateToken;
+        const decoded = getCachedDecodedToken(clean) || jwt.verify(clean, getJwtSecret());
+        const u = await User.findById(decoded.userId || decoded.id || decoded._id).select("role isMainAdmin").lean();
+        if (u && (u.role === "admin" || u.role === "SUPER_ADMIN" || u.isMainAdmin)) {
+          isAdmin = true;
+          socket.data.userId = String(u._id);
+          socket.data.userRole = u.role;
+        }
+      } catch {}
+    }
+
+    if (!isAdmin) {
+      socket.emit("admin_auth_error", { message: "Access denied. Administrator privileges required." });
+      return;
+    }
+    socket.join(`proctoring_audit_${sessionId}`);
+    socket.emit("proctoring_audit_joined", { sessionId, joinedAt: new Date().toISOString() });
+  });
+
+  socket.on("leave_proctoring_audit", (payload) => {
+    const sessionId = typeof payload === "object" ? payload?.sessionId : payload;
+    if (sessionId) {
+      socket.leave(`proctoring_audit_${sessionId}`);
+    }
+  });
+
   // Rate limiting helper for chat and direct messaging
   const checkChatRateLimit = (sock) => {
     const now = Date.now();
@@ -2126,29 +2164,60 @@ app.use('/proctoring-evidence', async (req, res, next) => {
   const isAdmin = Boolean(decoded.role === "admin" || decoded.role === "SUPER_ADMIN" || decoded.isMainAdmin);
 
   const safeFilename = path.basename(req.path);
-  const filePath = path.join(__dirname, 'uploads/evidence', safeFilename);
+  const evidenceDir = path.join(__dirname, 'uploads/evidence');
+  const filePath = path.join(evidenceDir, safeFilename);
 
   if (!isAdmin) {
     const CertificationAttempt = require("./models/CertificationAttempt");
-    const matchedAttempt = await CertificationAttempt.findOne({
-      $or: [
-        { "proctoring.snapshots": { $regex: safeFilename } },
-        { "proctoring.candidatePhoto": { $regex: safeFilename } },
-        { attemptId: { $regex: safeFilename.split("_")[0] || "" } },
-      ],
-      userId: currentUserId,
-    }).lean();
+    const ProctoredCodingSession = require("./models/ProctoredCodingSession");
+    const [matchedAttempt, matchedProctoring] = await Promise.all([
+      CertificationAttempt.findOne({
+        $or: [
+          { "proctoring.snapshots": { $regex: safeFilename } },
+          { "proctoring.candidatePhoto": { $regex: safeFilename } },
+          { "proctoring.evidenceScreenshots.filename": safeFilename },
+          { "proctoring.evidenceScreenshots.url": { $regex: safeFilename } },
+          { attemptId: { $regex: safeFilename.split("_")[0] || "" } },
+        ],
+        userId: currentUserId,
+      }).lean(),
+      ProctoredCodingSession.findOne({
+        $or: [
+          { "evidenceScreenshots.filename": safeFilename },
+          { "evidenceScreenshots.url": { $regex: safeFilename } },
+          { "violationsLog.screenshotUrl": { $regex: safeFilename } },
+        ],
+        userId: currentUserId,
+      }).lean(),
+    ]);
 
-    if (!matchedAttempt) {
+    if (!matchedAttempt && !matchedProctoring) {
       return res.status(403).json({ message: "Forbidden: You do not own this proctoring evidence" });
     }
   }
 
-  if (!fs.existsSync(filePath)) {
-    return res.status(404).json({ message: "Evidence snapshot not found" });
+  if (fs.existsSync(filePath)) {
+    return res.sendFile(filePath);
   }
 
-  return res.sendFile(filePath);
+  // Fallback to persistent MongoDB Atlas GridFS if local ephemeral file was cleared on restart/redeploy
+  try {
+    const { downloadEvidenceGridFSToBuffer } = require("./utils/proctoringSync");
+    const buf = await downloadEvidenceGridFSToBuffer(safeFilename);
+    if (buf && buf.length > 0) {
+      try {
+        if (!fs.existsSync(evidenceDir)) fs.mkdirSync(evidenceDir, { recursive: true });
+        fs.writeFileSync(filePath, buf);
+      } catch {}
+      const ext = path.extname(safeFilename).toLowerCase();
+      res.setHeader("Content-Type", ext === ".png" ? "image/png" : ext === ".webp" ? "image/webp" : "image/jpeg");
+      return res.send(buf);
+    }
+  } catch (gridErr) {
+    console.warn("Evidence GridFS fallback error:", gridErr.message);
+  }
+
+  return res.status(404).json({ message: "Evidence snapshot not found" });
 });
 
 // Forward legacy /uploads/support_attachments to authorized /api/support/attachments endpoint
