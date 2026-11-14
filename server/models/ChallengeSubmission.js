@@ -27,7 +27,7 @@ const challengeSubmissionSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["ACCEPTED", "WRONG_ANSWER", "TIME_LIMIT_EXCEEDED", "COMPILATION_ERROR", "RUNTIME_ERROR"],
+      enum: ["ACCEPTED", "WRONG_ANSWER", "TIME_LIMIT_EXCEEDED", "COMPILATION_ERROR", "RUNTIME_ERROR", "PARTIAL"],
       required: true,
     },
     passedTests: {

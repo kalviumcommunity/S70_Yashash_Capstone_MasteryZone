@@ -1952,7 +1952,7 @@ router.put("/modify-marks", async (req, res) => {
       attempt.mcqScore = Math.min(20, Math.round((parsedPct / 100) * 20));
       attempt.status = statusVerdict;
       attempt.finalVerdict = statusVerdict;
-      attempt.adminNote = adminNote || `Marks modified by Super Admin to ${parsedPct}% on ${new Date().toLocaleDateString()}`;
+      attempt.adminNote = (adminNote || "").trim();
       attempt.adminModifiedAt = new Date();
       attempt.adminModifiedBy = req.user?.email || "Super Admin";
 
@@ -2075,7 +2075,7 @@ router.put("/modify-marks", async (req, res) => {
       attempt.accuracy = parsedPct;
       attempt.passed = passed;
       attempt.grade = parsedPct >= 90 ? "A+" : parsedPct >= 80 ? "A" : parsedPct >= 70 ? "B" : "F";
-      attempt.adminNote = adminNote || `Score updated by Super Admin to ${parsedScore}/${totalQ} (${parsedPct}%) on ${new Date().toLocaleDateString()}`;
+      attempt.adminNote = (adminNote || "").trim();
       attempt.adminModifiedAt = new Date();
       attempt.adminModifiedBy = req.user?.email || "Super Admin";
 
@@ -2173,7 +2173,7 @@ router.put("/modify-marks", async (req, res) => {
       if (!sub) return res.status(404).json({ success: false, message: "Challenge submission not found" });
 
       targetUserId = sub.userId;
-      studentUser = await User.findById(targetUserId).select("fullName username email").lean();
+      studentUser = await User.findById(targetUserId).select("fullName username email role").lean();
 
       const totalT = sub.totalTests || 10;
       // Validate score (0 to 100)
@@ -2186,6 +2186,9 @@ router.put("/modify-marks", async (req, res) => {
       const prevScore = sub.score != null ? sub.score : 0;
       const prevStatus = sub.status || "WRONG_ANSWER";
       const finalStatus = newStatus || (parsedScore >= 70 || parsedPassed === totalT ? "ACCEPTED" : "WRONG_ANSWER");
+      const cleanRemarks = (adminNote || "").trim();
+      const modAt = new Date();
+      const modBy = req.user?.email || "Super Admin";
 
       // Audit trail entry
       if (!sub.marksHistory) sub.marksHistory = [];
@@ -2194,25 +2197,72 @@ router.put("/modify-marks", async (req, res) => {
         newScore: parsedScore,
         oldStatus: prevStatus,
         newStatus: finalStatus,
-        adminNote,
-        modifiedBy: req.user?.email || "Super Admin",
-        modifiedAt: new Date(),
+        adminNote: cleanRemarks,
+        modifiedBy: modBy,
+        modifiedAt: modAt,
       });
 
       sub.score = parsedScore;
       sub.passedTests = parsedPassed;
       sub.status = finalStatus;
-      sub.adminNote = adminNote || `Evaluation modified by Super Admin to ${parsedScore}/100 on ${new Date().toLocaleDateString()}`;
-      sub.adminModifiedAt = new Date();
-      sub.adminModifiedBy = req.user?.email || "Super Admin";
+      sub.adminNote = cleanRemarks; // Clean user-entered remarks only, never auto-fabricated
+      sub.adminModifiedAt = modAt;
+      sub.adminModifiedBy = modBy;
 
-      // Multi-Channel Notifications
+      // 1. SAVE PERMANENTLY TO DATABASE FIRST (Fail fast if DB write fails)
+      await sub.save();
+
+      // 2. Synchronize CodingProgress challengesSolved
+      if (studentUser) {
+        try {
+          const CodingProgress = require("../models/CodingProgress");
+          let codingProg = await CodingProgress.findOne({ userId: studentUser._id });
+          if (!codingProg) {
+            codingProg = new CodingProgress({ userId: studentUser._id, challengesSolved: [] });
+          }
+          if (!codingProg.challengesSolved) codingProg.challengesSolved = [];
+          const existingIdx = codingProg.challengesSolved.findIndex(c => c.challengeId === sub.challengeId);
+          if (sub.status === "ACCEPTED") {
+            if (existingIdx >= 0) {
+              codingProg.challengesSolved[existingIdx].score = parsedScore;
+              codingProg.challengesSolved[existingIdx].solvedAt = new Date();
+              codingProg.challengesSolved[existingIdx].code = sub.code || "";
+            } else {
+              codingProg.challengesSolved.push({
+                challengeId: sub.challengeId,
+                language: sub.language || "python",
+                score: parsedScore,
+                code: sub.code || "",
+                solvedAt: new Date(),
+              });
+            }
+          } else if (existingIdx >= 0) {
+            const otherAccepted = await ChallengeSubmission.findOne({
+              userId: studentUser._id,
+              challengeId: sub.challengeId,
+              status: "ACCEPTED",
+              _id: { $ne: sub._id },
+            });
+            if (!otherAccepted) {
+              codingProg.challengesSolved.splice(existingIdx, 1);
+            }
+          }
+          await codingProg.save();
+        } catch (progErr) {
+          console.warn("Could not sync CodingProgress on admin evaluation:", progErr.message);
+        }
+      }
+
+      // 3. Clear In-Memory Admin & Analytics Caches
+      clearAdminCache();
+
+      // 4. Send Multi-Channel Notifications (In-App + Email) AFTER DB SAVE SUCCEEDED
       if (studentUser) {
         try {
           notifCreated = await pushNotification(req.app, {
             userId: studentUser._id,
             title: `Coding Submission Evaluated: ${sub.challengeTitle || "Challenge"}`,
-            message: `Super Admin evaluated your submission: ${parsedScore}/100 (${sub.status}). ${adminNote ? `Feedback: "${adminNote}"` : ""}`,
+            message: `Super Admin evaluated your submission: ${parsedScore}/100 (${sub.status}).${cleanRemarks ? ` Feedback: "${cleanRemarks}"` : ""}`,
             type: "assessment",
             severity: sub.status === "ACCEPTED" || parsedScore >= 70 ? "success" : "warning",
             actionUrl: `/assessment-report/${sub._id}`,
@@ -2221,7 +2271,7 @@ router.put("/modify-marks", async (req, res) => {
               submissionId: sub._id,
               score: parsedScore,
               status: sub.status,
-              feedback: adminNote,
+              feedback: cleanRemarks,
             },
           });
           if (notifCreated) {
@@ -2229,6 +2279,17 @@ router.put("/modify-marks", async (req, res) => {
             sub.notificationInAppId = notifCreated._id;
             sub.notificationViewed = false;
             sub.notificationViewedAt = null;
+            await ChallengeSubmission.updateOne(
+              { _id: sub._id },
+              {
+                $set: {
+                  notificationSent: true,
+                  notificationInAppId: notifCreated._id,
+                  notificationViewed: false,
+                  notificationViewedAt: null,
+                },
+              }
+            );
           }
         } catch (notifErr) {
           console.warn("Coding in-app notification error:", notifErr.message);
@@ -2238,84 +2299,58 @@ router.put("/modify-marks", async (req, res) => {
       const recipientEmail = studentUser?.email || sub.userEmail;
       const recipientName = studentUser?.fullName || studentUser?.username || sub.userName || "Student";
       if (recipientEmail && !isGuestAccount(recipientEmail)) {
-        const emailRes = await sendSubmissionEvaluationEmail({
-          userEmail: recipientEmail,
-          userName: recipientName,
-          challengeTitle: sub.challengeTitle || sub.challengeId || "Coding Challenge",
-          assessmentType: "coding",
-          language: sub.language || "python",
-          score: parsedScore,
-          maxScore: 100,
-          verdict: sub.status,
-          adminComment: adminNote,
-          reviewedAt: sub.adminModifiedAt,
-          reportUrl: `/assessment-report/${sub._id}`,
-          req,
-        }).catch((emailErr) => {
-          console.warn("Coding email notification error:", emailErr?.message);
-          return { success: false };
-        });
-        sub.notificationEmailSent = !!(emailRes && emailRes.success);
-      }
-
-      // Synchronize CodingProgress challengesSolved
-      if (studentUser) {
         try {
-          const CodingProgress = require("../models/CodingProgress");
-          const codingProg = await CodingProgress.findOne({ userId: studentUser._id });
-          if (codingProg) {
-            if (!codingProg.challengesSolved) codingProg.challengesSolved = [];
-            const existingIdx = codingProg.challengesSolved.findIndex(c => c.challengeId === sub.challengeId);
-            if (sub.status === "ACCEPTED") {
-              if (existingIdx >= 0) {
-                codingProg.challengesSolved[existingIdx].score = parsedScore;
-                codingProg.challengesSolved[existingIdx].solvedAt = new Date();
-              } else {
-                codingProg.challengesSolved.push({
-                  challengeId: sub.challengeId,
-                  language: sub.language || "python",
-                  score: parsedScore,
-                  code: sub.code || "",
-                  solvedAt: new Date(),
-                });
-              }
-            } else if (existingIdx >= 0) {
-              const otherAccepted = await ChallengeSubmission.findOne({
-                userId: studentUser._id,
-                challengeId: sub.challengeId,
-                status: "ACCEPTED",
-                _id: { $ne: sub._id },
-              });
-              if (!otherAccepted) {
-                codingProg.challengesSolved.splice(existingIdx, 1);
-              }
-            }
-            await codingProg.save();
+          const emailRes = await sendSubmissionEvaluationEmail({
+            userEmail: recipientEmail,
+            userName: recipientName,
+            challengeTitle: sub.challengeTitle || sub.challengeId || "Coding Challenge",
+            assessmentType: "coding",
+            language: sub.language || "python",
+            score: parsedScore,
+            maxScore: 100,
+            verdict: sub.status,
+            adminComment: cleanRemarks,
+            reviewedAt: sub.adminModifiedAt,
+            reportUrl: `/assessment-report/${sub._id}`,
+            req,
+          });
+          if (emailRes && emailRes.success) {
+            sub.notificationEmailSent = true;
+            await ChallengeSubmission.updateOne(
+              { _id: sub._id },
+              { $set: { notificationEmailSent: true } }
+            );
           }
-        } catch (progErr) {
-          console.warn("Could not sync CodingProgress on admin evaluation:", progErr.message);
+        } catch (emailErr) {
+          console.warn("Coding email notification error:", emailErr?.message);
         }
       }
 
-      await sub.save();
-
-      // Emit real-time socket events for marks update & reports sync
+      // 5. Emit real-time Socket.IO events for live dashboard and candidate sync
       try {
         const io = req.app.get("io");
         if (io) {
-          io.emit("ASSESSMENT_MARKS_UPDATED", {
+          const updatePayload = {
             id: sub._id,
             rawId: sub._id,
             itemType: "coding",
+            challengeId: sub.challengeId,
+            userId: String(sub.userId),
+            studentId: String(sub.userId),
             score: `${parsedScore}/100`,
             rawScore: parsedScore,
             status: sub.status,
             passedTests: sub.passedTests,
             totalTests: totalT,
-            adminNote: sub.adminNote,
+            adminNote: cleanRemarks,
             adminModifiedAt: sub.adminModifiedAt,
             adminModifiedBy: sub.adminModifiedBy,
-          });
+          };
+
+          io.emit("ASSESSMENT_MARKS_UPDATED", updatePayload);
+          io.emit("CODING_SUBMISSION_EVALUATED", updatePayload);
+          io.to(`user_${sub.userId}`).emit("USER_SUBMISSION_UPDATED", updatePayload);
+
           io.emit("NEW_REPORT", {
             id: sub._id,
             rawId: sub._id,
@@ -2337,7 +2372,9 @@ router.put("/modify-marks", async (req, res) => {
             reportUrl: `/assessment-report/${sub._id}`,
           });
         }
-      } catch {}
+      } catch (sockErr) {
+        console.warn("Socket broadcast error:", sockErr.message);
+      }
 
       updatedResult = {
         id: sub._id,
@@ -2347,7 +2384,7 @@ router.put("/modify-marks", async (req, res) => {
         status: sub.status,
         passedTests: sub.passedTests,
         totalTests: totalT,
-        adminNote: sub.adminNote,
+        adminNote: cleanRemarks,
         notificationSent: sub.notificationSent,
         notificationEmailSent: sub.notificationEmailSent,
         notificationViewed: sub.notificationViewed,
@@ -3166,13 +3203,16 @@ router.get("/coding-submissions/:id", async (req, res) => {
       }
     }
 
+    const payload = {
+      ...sub,
+      notificationViewed: isViewed,
+      notificationViewedAt: viewedAt,
+    };
+
     res.status(200).json({
       success: true,
-      data: {
-        ...sub,
-        notificationViewed: isViewed,
-        notificationViewedAt: viewedAt,
-      },
+      submission: payload,
+      data: payload,
     });
   } catch (err) {
     console.error("Fetch coding submission error:", err);

@@ -16,9 +16,11 @@ import {
   LuClock,
   LuFileCode,
   LuSparkles,
+  LuCircleAlert,
 } from "react-icons/lu";
 import "./Admin.css";
 import { deduplicatedFetch } from "../../utils/apiClient";
+import { getSharedSocket, releaseSharedSocket } from "../../utils/socketClient";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -36,6 +38,7 @@ const AdminCodingAnalytics = () => {
   const [editComment, setEditComment] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
   const [updateSuccessMsg, setUpdateSuccessMsg] = useState("");
+  const [updateErrorMsg, setUpdateErrorMsg] = useState("");
   const [copiedCode, setCopiedCode] = useState(false);
 
   const fetchCodingAnalytics = async (selectedRange = range) => {
@@ -44,7 +47,7 @@ const AdminCodingAnalytics = () => {
       const token = localStorage.getItem("token");
       const res = await deduplicatedFetch(`${API_BASE}/api/admin/coding-analytics?range=${selectedRange}`, {
         headers: { Authorization: `Bearer ${token}` },
-        cacheTtlMs: 3000,
+        cacheTtlMs: 2500,
       });
       if (res.ok) {
         const json = await res.json();
@@ -59,6 +62,91 @@ const AdminCodingAnalytics = () => {
 
   useEffect(() => {
     fetchCodingAnalytics(range);
+
+    // Socket.IO real-time listener for live submission updates
+    let socket = null;
+    let handleConnect = null;
+    const handleSubmissionEvent = (payload) => {
+      if (!payload) return;
+      const subId = payload.id || payload._id || payload.rawId;
+
+      setData((prev) => {
+        if (!prev) return prev;
+        const currentSubs = prev.recentSubmissions || [];
+        const exists = currentSubs.some((s) => String(s._id) === String(subId));
+        if (!exists) return prev;
+
+        const updatedSubs = currentSubs.map((s) => {
+          if (String(s._id) === String(subId)) {
+            return {
+              ...s,
+              score: payload.rawScore != null ? payload.rawScore : s.score,
+              status: payload.status || s.status,
+              passedTests: payload.passedTests != null ? payload.passedTests : s.passedTests,
+              adminNote: payload.adminNote !== undefined ? payload.adminNote : s.adminNote,
+              adminModifiedAt: payload.adminModifiedAt || new Date(),
+              adminModifiedBy: payload.adminModifiedBy || s.adminModifiedBy,
+            };
+          }
+          return s;
+        });
+
+        return {
+          ...prev,
+          recentSubmissions: updatedSubs,
+        };
+      });
+
+      // Synchronize currently opened Inspector modal
+      setInspectedCode((current) => {
+        if (!current) return null;
+        if (String(current._id) === String(subId)) {
+          return {
+            ...current,
+            score: payload.rawScore != null ? payload.rawScore : current.score,
+            status: payload.status || current.status,
+            passedTests: payload.passedTests != null ? payload.passedTests : current.passedTests,
+            adminNote: payload.adminNote !== undefined ? payload.adminNote : current.adminNote,
+            adminModifiedAt: payload.adminModifiedAt || new Date(),
+            adminModifiedBy: payload.adminModifiedBy || current.adminModifiedBy,
+          };
+        }
+        return current;
+      });
+    };
+
+    try {
+      const socketTarget = API_BASE || window.location.origin;
+      socket = getSharedSocket(socketTarget);
+      handleConnect = () => {
+        const token = localStorage.getItem("token");
+        if (socket && token) {
+          socket.emit("join_admin_monitoring", { token });
+        }
+      };
+
+      socket.on("connect", handleConnect);
+      if (socket.connected) {
+        const token = localStorage.getItem("token");
+        if (token) socket.emit("join_admin_monitoring", { token });
+      }
+
+      socket.on("ASSESSMENT_MARKS_UPDATED", handleSubmissionEvent);
+      socket.on("CODING_SUBMISSION_EVALUATED", handleSubmissionEvent);
+      socket.on("NEW_SUBMISSION", () => fetchCodingAnalytics(range));
+    } catch (e) {
+      console.warn("Coding Analytics socket error:", e);
+    }
+
+    return () => {
+      if (socket) {
+        if (handleConnect) socket.off("connect", handleConnect);
+        socket.off("ASSESSMENT_MARKS_UPDATED", handleSubmissionEvent);
+        socket.off("CODING_SUBMISSION_EVALUATED", handleSubmissionEvent);
+        socket.off("NEW_SUBMISSION");
+        releaseSharedSocket(socket);
+      }
+    };
   }, [range]);
 
   const metrics = data?.metrics || {
@@ -94,11 +182,21 @@ const AdminCodingAnalytics = () => {
     setEditScore(initialScore);
     setEditStatus(sub.status || "ACCEPTED");
     setEditPassedTests(sub.passedTests != null ? sub.passedTests : sub.totalTests || 10);
-    setEditComment(sub.adminNote || "");
+
+    // Keep Admin Evaluation Remarks & Feedback completely empty whenever a submission is opened
+    // Never auto-insert fabricated remarks or boilerplate text
+    const existingRemarks = (sub.adminNote || "").trim();
+    const isAutoFabricated =
+      existingRemarks.startsWith("Evaluation modified by Super Admin") ||
+      existingRemarks.startsWith("Marks modified by Super Admin") ||
+      existingRemarks.startsWith("Score updated by Super Admin");
+    setEditComment(isAutoFabricated ? "" : existingRemarks);
+
     setUpdateSuccessMsg("");
+    setUpdateErrorMsg("");
     setCopiedCode(false);
 
-    // If code body is not already attached, fetch full submission details
+    // If source code is not already attached, fetch full submission details
     if (!sub.code && sub._id) {
       try {
         const token = localStorage.getItem("token");
@@ -107,8 +205,9 @@ const AdminCodingAnalytics = () => {
         });
         if (res.ok) {
           const json = await res.json();
-          if (json.success && json.submission?.code) {
-            setInspectedCode((prev) => (prev?._id === sub._id ? { ...prev, code: json.submission.code } : prev));
+          const fetchedCode = json.submission?.code || json.data?.code;
+          if (json.success && fetchedCode) {
+            setInspectedCode((prev) => (prev?._id === sub._id ? { ...prev, code: fetchedCode } : prev));
           }
         }
       } catch (err) {
@@ -134,15 +233,19 @@ const AdminCodingAnalytics = () => {
     try {
       setIsUpdating(true);
       setUpdateSuccessMsg("");
+      setUpdateErrorMsg("");
       const token = localStorage.getItem("token");
+
+      const scoreNum = Number(editScore === "" ? 0 : editScore);
+      const passedNum = Number(editPassedTests === "" ? 0 : editPassedTests);
 
       const payload = {
         itemType: "coding",
         itemId: inspectedCode._id,
-        newScore: Number(editScore),
-        passedTests: Number(editPassedTests),
+        newScore: Math.max(0, Math.min(100, scoreNum)),
+        passedTests: Math.max(0, Math.min(inspectedCode.totalTests || 10, passedNum)),
         newStatus: editStatus,
-        adminNote: editComment.trim(),
+        adminNote: editComment.trim(), // Clean remarks without auto-generated noise
       };
 
       const res = await fetch(`${API_BASE}/api/admin/modify-marks`, {
@@ -156,15 +259,15 @@ const AdminCodingAnalytics = () => {
 
       const resJson = await res.json();
       if (res.ok && resJson.success) {
-        setUpdateSuccessMsg("Marks updated successfully! Email & In-App notifications dispatched to student.");
+        setUpdateSuccessMsg("Marks updated successfully! Changes saved permanently and multi-channel notifications dispatched.");
 
         // Update local inspected state
         setInspectedCode((prev) => ({
           ...prev,
-          score: Number(editScore),
-          status: editStatus,
-          passedTests: Number(editPassedTests),
-          adminNote: editComment.trim(),
+          score: payload.newScore,
+          status: payload.newStatus,
+          passedTests: payload.passedTests,
+          adminNote: payload.adminNote,
           notificationSent: true,
           notificationEmailSent: resJson.data?.notificationEmailSent ?? true,
           notificationViewed: false,
@@ -173,11 +276,12 @@ const AdminCodingAnalytics = () => {
         // Refresh analytics data list in background
         fetchCodingAnalytics(range);
       } else {
-        alert(resJson.message || "Failed to update marks");
+        const errorText = resJson.message || "Failed to update marks. Please verify submission ID and database connectivity.";
+        setUpdateErrorMsg(errorText);
       }
     } catch (err) {
       console.error("Update marks error:", err);
-      alert("Error updating marks and sending notifications.");
+      setUpdateErrorMsg("Network error: Could not reach the server to save modified marks.");
     } finally {
       setIsUpdating(false);
     }
@@ -195,7 +299,7 @@ const AdminCodingAnalytics = () => {
 
   return (
     <div className="mz-admin-view-container" style={{ position: "relative" }}>
-      {/* 1. Header (uses standard mz-admin-page-header to prevent sticky overlap with profile dropdown) */}
+      {/* 1. Header */}
       <div className="mz-admin-page-header">
         <div className="mz-admin-page-title-box">
           <div className="mz-admin-page-icon" style={{ background: "var(--mz-purple-bg)", color: "#6366f1" }}>
@@ -204,7 +308,7 @@ const AdminCodingAnalytics = () => {
           <div>
             <h1 className="mz-admin-page-title">Coding Analytics & Submissions Hub</h1>
             <p className="mz-admin-page-subtitle">
-              Compiler telemetry, code challenge submissions, language distribution, and real-time code inspector.
+              Verified compiler telemetry, genuine challenge submissions, real-time code audit, and grade modifications.
             </p>
           </div>
         </div>
@@ -230,6 +334,7 @@ const AdminCodingAnalytics = () => {
             <option value="7d">Last 7 Days</option>
             <option value="30d">Last 30 Days</option>
             <option value="3m">Last 3 Months</option>
+            <option value="all">All Time</option>
           </select>
 
           <div
@@ -302,15 +407,15 @@ const AdminCodingAnalytics = () => {
         </div>
       </div>
 
-      {/* 3. Interactive Programming Language Distribution (Clickable Filters) */}
+      {/* 3. Interactive Programming Language Distribution */}
       <div className="mz-admin-card" style={{ padding: "18px 22px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
           <div>
             <h4 style={{ margin: 0, fontSize: 13, fontWeight: 800, color: "var(--mz-text-secondary)", textTransform: "uppercase", letterSpacing: "0.03em" }}>
-              Programming Language Distribution (Actual Executions)
+              Programming Language Distribution (Actual Database Records)
             </h4>
             <p style={{ margin: "3px 0 0", fontSize: 12, color: "var(--mz-text-muted)" }}>
-              Click any language pill to filter submissions log instantly
+              Filter submissions log by clicking any language pill
             </p>
           </div>
           {selectedLanguage !== "ALL" && (
@@ -331,7 +436,7 @@ const AdminCodingAnalytics = () => {
           )}
         </div>
 
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
           {/* ALL Languages Pill */}
           <button
             type="button"
@@ -374,7 +479,7 @@ const AdminCodingAnalytics = () => {
             </h3>
             <span style={{ fontSize: 12, color: "var(--mz-text-subtle)" }}>
               {selectedLanguage === "ALL"
-                ? "Direct records from student code executions"
+                ? "Direct records from registered student code executions"
                 : `Showing ${filteredSubmissions.length} ${selectedLanguage.toUpperCase()} submissions`}
             </span>
           </div>
@@ -507,37 +612,33 @@ const AdminCodingAnalytics = () => {
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 10, background: "var(--mz-purple-bg)", color: "#6366f1", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <div style={{ width: 38, height: 38, borderRadius: 10, background: "var(--mz-purple-bg)", color: "#6366f1", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                   <LuFileCode style={{ width: 20, height: 20 }} />
                 </div>
                 <div>
                   <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "var(--mz-text-primary)" }}>
                     Code Inspector: {inspectedCode.challengeTitle || inspectedCode.challengeId}
                   </h3>
-                  <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--mz-text-muted)" }}>
-                    Candidate: <strong>{inspectedCode.userId?.fullName || inspectedCode.userId?.username || "Student"}</strong> ({inspectedCode.userId?.email || "No email"}) • Submitted: {new Date(inspectedCode.createdAt).toLocaleString()}
+                  <p style={{ margin: "3px 0 0", fontSize: 12, color: "var(--mz-text-muted)", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                    <span>Candidate: <strong>{inspectedCode.userId?.fullName || inspectedCode.userId?.username || "Student"}</strong></span>
+                    <span>({inspectedCode.userId?.email || "No email"})</span>
+                    <span>•</span>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+                      <LuClock size={12} />
+                      {new Date(inspectedCode.createdAt).toLocaleString()}
+                    </span>
                   </p>
                 </div>
               </div>
 
               <button
+                type="button"
                 onClick={() => setInspectedCode(null)}
-                style={{
-                  background: "var(--mz-surface-muted)",
-                  border: "none",
-                  width: 32,
-                  height: 32,
-                  borderRadius: "50%",
-                  fontSize: 16,
-                  color: "var(--mz-text-muted)",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  transition: "background 0.15s ease",
-                }}
+                className="mz-admin-modal-close-btn"
+                style={{ position: "static", width: 34, height: 34 }}
+                title="Close Inspector (ESC)"
               >
-                ✕
+                <LuX size={18} />
               </button>
             </div>
 
@@ -567,17 +668,17 @@ const AdminCodingAnalytics = () => {
                         background: "#21262d",
                         border: "1px solid #30363d",
                         color: copiedCode ? "#3fb950" : "#c9d1d9",
-                        padding: "3px 10px",
+                        padding: "4px 10px",
                         borderRadius: 6,
                         fontSize: 11,
                         cursor: "pointer",
                         display: "flex",
                         alignItems: "center",
-                        gap: 4,
+                        gap: 5,
                       }}
                     >
                       {copiedCode ? <LuCheck style={{ width: 12, height: 12 }} /> : <LuCopy style={{ width: 12, height: 12 }} />}
-                      <span>{copiedCode ? "Copied" : "Copy Code"}</span>
+                      <span>{copiedCode ? "Copied!" : "Copy Code"}</span>
                     </button>
                   </div>
                 </div>
@@ -601,7 +702,7 @@ const AdminCodingAnalytics = () => {
               {/* Right Column: Admin Marks Modification & Notification System */}
               <div className="mz-admin-eval-panel">
                 <div>
-                  <h4 style={{ margin: "0 0 6px", fontSize: 14, fontWeight: 800, color: "var(--mz-text-primary)", display: "flex", alignItems: "center", gap: 6 }}>
+                  <h4 style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 800, color: "var(--mz-text-primary)", display: "flex", alignItems: "center", gap: 6 }}>
                     <LuSlidersHorizontal style={{ width: 16, height: 16, color: "#6366f1" }} />
                     <span>Evaluation & Marks Modification</span>
                   </h4>
@@ -610,9 +711,19 @@ const AdminCodingAnalytics = () => {
                   </p>
                 </div>
 
+                {/* Success Banner */}
                 {updateSuccessMsg && (
-                  <div style={{ background: "var(--mz-green-bg)", border: "1px solid #6ee7b7", borderRadius: 10, padding: "10px 14px", color: "#065f46", fontSize: 12.5, fontWeight: 600 }}>
-                    ✅ {updateSuccessMsg}
+                  <div style={{ background: "var(--mz-green-bg)", border: "1px solid #6ee7b7", borderRadius: 10, padding: "10px 14px", color: "#065f46", fontSize: 12.5, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
+                    <LuCheck size={16} />
+                    <span>{updateSuccessMsg}</span>
+                  </div>
+                )}
+
+                {/* Error Banner */}
+                {updateErrorMsg && (
+                  <div style={{ background: "var(--mz-red-bg)", border: "1px solid #fca5a5", borderRadius: 10, padding: "10px 14px", color: "#b91c1c", fontSize: 12.5, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
+                    <LuCircleAlert size={16} />
+                    <span>{updateErrorMsg}</span>
                   </div>
                 )}
 
@@ -624,21 +735,39 @@ const AdminCodingAnalytics = () => {
                         Awarded Score (0 - 100)
                       </label>
                       <span style={{ fontSize: 14, fontWeight: 800, color: "#4f46e5" }}>
-                        {editScore} / 100
+                        {editScore === "" ? 0 : editScore} / 100
                       </span>
                     </div>
 
+                    {/* Numeric Input WITHOUT increment/decrement spinner arrows */}
                     <input
                       type="number"
+                      className="mz-clean-numeric-input"
                       min="0"
                       max="100"
-                      value={editScore}
-                      onChange={(e) => setEditScore(Math.max(0, Math.min(100, Number(e.target.value))))}
+                      value={editScore === "" ? "" : editScore}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === "") {
+                          setEditScore("");
+                          return;
+                        }
+                        const num = Number(val);
+                        if (!isNaN(num)) {
+                          setEditScore(Math.max(0, Math.min(100, num)));
+                        }
+                      }}
+                      onBlur={() => {
+                        if (editScore === "" || isNaN(Number(editScore))) {
+                          setEditScore(0);
+                        }
+                      }}
                       style={{
                         width: "100%",
-                        padding: "8px 12px",
+                        padding: "9px 12px",
                         borderRadius: 8,
                         border: "1.5px solid var(--mz-border-strong)",
+                        background: "var(--mz-surface)",
                         fontSize: 14,
                         fontWeight: 700,
                         color: "var(--mz-text-primary)",
@@ -647,8 +776,8 @@ const AdminCodingAnalytics = () => {
                       required
                     />
 
-                    {/* Presets */}
-                    <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                    {/* Preset Pills */}
+                    <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
                       {[100, 90, 80, 70, 50, 0].map((preset) => (
                         <button
                           key={preset}
@@ -659,16 +788,7 @@ const AdminCodingAnalytics = () => {
                             else if (preset >= 50) setEditStatus("PARTIAL");
                             else setEditStatus("WRONG_ANSWER");
                           }}
-                          style={{
-                            padding: "3px 8px",
-                            borderRadius: 6,
-                            fontSize: 11,
-                            fontWeight: 600,
-                            border: editScore === preset ? "1px solid #6366f1" : "1px solid var(--mz-border)",
-                            background: editScore === preset ? "var(--mz-purple-bg)" : "var(--mz-surface-subtle)",
-                            color: editScore === preset ? "#4f46e5" : "var(--mz-text-muted)",
-                            cursor: "pointer",
-                          }}
+                          className={`mz-score-preset-pill ${editScore === preset ? "active" : ""}`}
                         >
                           {preset}
                         </button>
@@ -676,7 +796,7 @@ const AdminCodingAnalytics = () => {
                     </div>
                   </div>
 
-                  {/* Verdict / Status Selector */}
+                  {/* Verdict / Status Selector & Tests Passed */}
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                     <div>
                       <label style={{ fontSize: 12, fontWeight: 700, color: "var(--mz-text-secondary)", display: "block", marginBottom: 4 }}>
@@ -693,7 +813,7 @@ const AdminCodingAnalytics = () => {
                           fontSize: 12.5,
                           fontWeight: 600,
                           background: "var(--mz-surface)",
-                          color: "var(--mz-text-secondary)",
+                          color: "var(--mz-text-primary)",
                           outline: "none",
                         }}
                       >
@@ -701,6 +821,7 @@ const AdminCodingAnalytics = () => {
                         <option value="PARTIAL">PARTIAL (Partial Credit)</option>
                         <option value="WRONG_ANSWER">WRONG ANSWER (Fail)</option>
                         <option value="RUNTIME_ERROR">RUNTIME ERROR</option>
+                        <option value="COMPILATION_ERROR">COMPILATION ERROR</option>
                       </select>
                     </div>
 
@@ -710,15 +831,32 @@ const AdminCodingAnalytics = () => {
                       </label>
                       <input
                         type="number"
+                        className="mz-clean-numeric-input"
                         min="0"
                         max={inspectedCode.totalTests || 10}
-                        value={editPassedTests}
-                        onChange={(e) => setEditPassedTests(Number(e.target.value))}
+                        value={editPassedTests === "" ? "" : editPassedTests}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === "") {
+                            setEditPassedTests("");
+                            return;
+                          }
+                          const num = Number(val);
+                          if (!isNaN(num)) {
+                            setEditPassedTests(Math.max(0, Math.min(inspectedCode.totalTests || 10, num)));
+                          }
+                        }}
+                        onBlur={() => {
+                          if (editPassedTests === "" || isNaN(Number(editPassedTests))) {
+                            setEditPassedTests(0);
+                          }
+                        }}
                         style={{
                           width: "100%",
                           padding: "8px 10px",
                           borderRadius: 8,
                           border: "1.5px solid var(--mz-border-strong)",
+                          background: "var(--mz-surface)",
                           fontSize: 12.5,
                           fontWeight: 600,
                           color: "var(--mz-text-primary)",
@@ -728,7 +866,7 @@ const AdminCodingAnalytics = () => {
                     </div>
                   </div>
 
-                  {/* Admin Comment & Feedback */}
+                  {/* Admin Comment & Feedback (Empty by default, no fabricated remarks) */}
                   <div>
                     <label style={{ fontSize: 12, fontWeight: 700, color: "var(--mz-text-secondary)", display: "block", marginBottom: 4 }}>
                       Admin Evaluation Remarks & Feedback:
@@ -737,12 +875,13 @@ const AdminCodingAnalytics = () => {
                       rows={3}
                       value={editComment}
                       onChange={(e) => setEditComment(e.target.value)}
-                      placeholder="Write constructive evaluation remarks or advice for the student. This will be sent directly in their email and in-app alert..."
+                      placeholder="Write personalized remarks, tips, or feedback for the student (optional)..."
                       style={{
                         width: "100%",
                         padding: "10px 12px",
                         borderRadius: 8,
                         border: "1.5px solid var(--mz-border-strong)",
+                        background: "var(--mz-surface)",
                         fontSize: 12.5,
                         lineHeight: 1.5,
                         color: "var(--mz-text-primary)",
