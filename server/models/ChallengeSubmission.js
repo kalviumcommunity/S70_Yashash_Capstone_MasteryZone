@@ -110,6 +110,7 @@ const challengeSubmissionSchema = new mongoose.Schema(
 challengeSubmissionSchema.index({ userId: 1, createdAt: -1 });
 challengeSubmissionSchema.index({ userId: 1, challengeId: 1 });
 challengeSubmissionSchema.index({ status: 1, createdAt: -1 });
+challengeSubmissionSchema.index({ language: 1, createdAt: -1 });
 challengeSubmissionSchema.index({ createdAt: -1 });
 challengeSubmissionSchema.index({ challengeId: 1, status: 1 });
 
