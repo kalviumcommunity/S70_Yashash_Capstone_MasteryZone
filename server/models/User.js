@@ -96,6 +96,8 @@ userSchema.index({ role: 1, createdAt: -1 });
 userSchema.index({ createdAt: -1 });
 userSchema.index({ isSuspended: 1 });
 userSchema.index({ lastActiveDate: -1 });
+userSchema.index({ isGuest: 1, isAutomatedTestUser: 1, role: 1 });
+userSchema.index({ isGuest: 1, lastActiveDate: -1 });
 
 const User = mongoose.models.User || mongoose.model('User', userSchema);
 

@@ -304,6 +304,8 @@ proctoredCodingSessionSchema.index({ userId: 1, "submissionResult.submittedAt": 
 proctoredCodingSessionSchema.index({ userId: 1, updatedAt: -1 });
 proctoredCodingSessionSchema.index({ userId: 1, status: 1 });
 proctoredCodingSessionSchema.index({ status: 1, createdAt: -1 });
+proctoredCodingSessionSchema.index({ status: 1, userId: 1, createdAt: -1 });
+proctoredCodingSessionSchema.index({ recordingUrl: 1, createdAt: -1 });
 proctoredCodingSessionSchema.index({ createdAt: -1 });
 proctoredCodingSessionSchema.index({ updatedAt: -1 });
 proctoredCodingSessionSchema.index({ "candidateDetails.email": 1, createdAt: -1 });
