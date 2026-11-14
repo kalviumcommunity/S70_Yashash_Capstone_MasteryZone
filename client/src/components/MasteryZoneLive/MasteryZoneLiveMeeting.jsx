@@ -56,7 +56,7 @@ const getApiBase = () => {
       return "http://localhost:5012";
     }
     if (window.location.hostname.includes("vercel.app")) {
-      return "https://mastery-zone.onrender.com";
+      return "https://mastery-zone-api.onrender.com";
     }
     return window.location.origin;
   }
