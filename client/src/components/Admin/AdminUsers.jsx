@@ -19,6 +19,7 @@ import {
 } from "react-icons/lu";
 import { toast } from "react-toastify";
 import AdminUserDetailModal from "./AdminUserDetailModal.jsx";
+import AdminPagination from "./AdminPagination.jsx";
 import { deduplicatedFetch } from "../../utils/apiClient";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
@@ -32,7 +33,7 @@ const AdminUsers = () => {
   const [status, setStatus] = useState("all");
   const [roleFilter, setRoleFilter] = useState("all");
   const [page, setPage] = useState(1);
-  const [pagination, setPagination] = useState({ total: 0, pages: 1, limit: 15 });
+  const [pagination, setPagination] = useState({ total: 0, pages: 1, limit: 10 });
   const [selectedUserDetail, setSelectedUserDetail] = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
@@ -66,7 +67,7 @@ const AdminUsers = () => {
         search,
         status,
         page,
-        limit: 15,
+        limit: 10,
       };
       if (roleFilter !== "all") {
         queryObj.role = roleFilter;
@@ -84,7 +85,7 @@ const AdminUsers = () => {
         const json = await res.json();
         if (json.success) {
           const userList = json.data?.users || json.users || [];
-          const pag = json.data?.pagination || json.pagination || { total: userList.length, pages: 1, limit: 15, page: 1 };
+          const pag = json.data?.pagination || json.pagination || { total: userList.length, totalPages: Math.ceil(userList.length / 10) || 1, limit: 10, page: 1 };
           setUsers(userList);
           setPagination(pag);
         }
@@ -97,7 +98,19 @@ const AdminUsers = () => {
     }
   };
 
+  const prevFiltersRef = useRef({ search, status, roleFilter });
   useEffect(() => {
+    if (
+      prevFiltersRef.current.search !== search ||
+      prevFiltersRef.current.status !== status ||
+      prevFiltersRef.current.roleFilter !== roleFilter
+    ) {
+      prevFiltersRef.current = { search, status, roleFilter };
+      if (page !== 1) {
+        setPage(1);
+        return;
+      }
+    }
     const timer = setTimeout(() => {
       fetchUsers();
     }, 250);
@@ -588,29 +601,15 @@ const AdminUsers = () => {
           </table>
         </div>
 
-        {/* Pagination Footer */}
-        <div className="mz-admin-pagination">
-          <span>
-            Showing page {pagination?.page || 1} of {pagination?.pages || 1} ({pagination?.total || 0} total accounts)
-          </span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page <= 1}
-              className="mz-admin-page-nav-btn"
-            >
-              <LuChevronLeft style={{ width: 14, height: 14 }} />
-            </button>
-            <span style={{ fontWeight: 800, color: 'var(--mz-text-primary)', padding: '0 4px' }}>{page}</span>
-            <button
-              onClick={() => setPage((p) => Math.min(pagination?.pages || 1, p + 1))}
-              disabled={page >= (pagination?.pages || 1)}
-              className="mz-admin-page-nav-btn"
-            >
-              <LuChevronRight style={{ width: 14, height: 14 }} />
-            </button>
-          </div>
-        </div>
+        {/* Standardized 10-per-page Pagination Footer */}
+        <AdminPagination
+          page={page}
+          totalPages={pagination?.totalPages || pagination?.pages || 1}
+          totalRecords={pagination?.total || 0}
+          limit={10}
+          onPageChange={(p) => setPage(p)}
+          itemName="registered accounts"
+        />
       </div>
 
       {/* Individual User Profile Modal */}

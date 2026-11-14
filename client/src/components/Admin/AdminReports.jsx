@@ -26,6 +26,7 @@ import {
   LuFolderGit2,
 } from "react-icons/lu";
 import { toast } from "react-toastify";
+import AdminPagination from "./AdminPagination.jsx";
 import { getSharedSocket, releaseSharedSocket } from "../../utils/socketClient";
 import { deduplicatedFetch } from "../../utils/apiClient";
 
@@ -41,6 +42,8 @@ const AdminReports = () => {
   });
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 });
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const searchContainerRef = useRef(null);
 
@@ -70,34 +73,30 @@ const AdminReports = () => {
   const [savingMarks, setSavingMarks] = useState(false);
 
   // Fetch Reports
-  const fetchReports = async (showToast = false) => {
+  const fetchReports = async (selectedPage = page, selectedSearch = search, selectedType = filterType, showToast = false) => {
     try {
       if (showToast) setLoading(true);
       const token = localStorage.getItem("token");
-      const res = await deduplicatedFetch(`${API_BASE}/api/admin/reports`, {
+      const params = new URLSearchParams({
+        page: selectedPage,
+        limit: 10,
+      });
+      if (selectedSearch.trim()) params.append("search", selectedSearch.trim());
+      if (selectedType !== "all") params.append("type", selectedType);
+
+      const res = await deduplicatedFetch(`${API_BASE}/api/admin/reports?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
-        cacheTtlMs: 3500,
+        cacheTtlMs: 3000,
       });
       if (res.ok) {
         const json = await res.json();
         if (json.success) {
           setReports(json.reports || []);
+          if (json.pagination) {
+            setPagination(json.pagination);
+          }
           if (json.stats) {
             setStats(json.stats);
-          } else {
-            const certs = (json.reports || []).filter((r) => r.type === "Certification Report").length;
-            const assess = (json.reports || []).filter((r) => r.type === "Assessment Report").length;
-            const mcq = (json.reports || []).filter((r) => r.type === "MCQ Assessment Report").length;
-            const projects = (json.reports || []).filter((r) => r.type === "Project Assessment Report").length;
-            const coding = (json.reports || []).filter((r) => r.type === "Coding Challenge Report").length;
-            setStats({
-              total: json.reports?.length || 0,
-              certificationsCount: certs,
-              assessmentsCount: assess,
-              mcqReportsCount: mcq,
-              projectsCount: projects,
-              codingCount: coding,
-            });
           }
           if (showToast) toast.success("Reports synchronized with database");
         }
@@ -109,6 +108,21 @@ const AdminReports = () => {
       setLoading(false);
     }
   };
+
+  const prevFiltersRef = useRef({ search, filterType });
+  useEffect(() => {
+    if (prevFiltersRef.current.search !== search || prevFiltersRef.current.filterType !== filterType) {
+      prevFiltersRef.current = { search, filterType };
+      if (page !== 1) {
+        setPage(1);
+        return;
+      }
+    }
+    const timer = setTimeout(() => {
+      fetchReports(page, search, filterType);
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [page, search, filterType]);
 
   useEffect(() => {
     fetchReports();
@@ -212,62 +226,73 @@ const AdminReports = () => {
   }, []);
 
   // Filter Logic
-  const filteredReports = reports.filter((r) => {
-    const q = search.trim().toLowerCase();
-    const matchSearch =
-      !q ||
-      r.title?.toLowerCase().includes(q) ||
-      r.recipient?.toLowerCase().includes(q) ||
-      r.email?.toLowerCase().includes(q) ||
-      r.verificationCode?.toLowerCase().includes(q) ||
-      r.score?.toLowerCase().includes(q) ||
-      r.grade?.toLowerCase().includes(q);
+  const filteredReports = reports;
 
-    const matchType = filterType === "all" || r.type === filterType;
-    return matchSearch && matchType;
-  });
+  // Export to CSV across complete matching database records
+  const exportToCSV = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const params = new URLSearchParams({
+        all: "true",
+      });
+      if (search.trim()) params.append("search", search.trim());
+      if (filterType !== "all") params.append("type", filterType);
 
-  // Export to CSV
-  const exportToCSV = () => {
-    if (filteredReports.length === 0) {
-      toast.info("No reports available to export");
-      return;
+      let exportItems = filteredReports;
+      const res = await deduplicatedFetch(`${API_BASE}/api/admin/reports?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cacheTtlMs: 2000,
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.reports && Array.isArray(json.reports)) {
+          exportItems = json.reports;
+        }
+      }
+
+      if (!exportItems || exportItems.length === 0) {
+        toast.info("No reports available to export");
+        return;
+      }
+      const headers = [
+        "Report Title",
+        "Category",
+        "Recipient Student",
+        "Email Address",
+        "Score / Marks",
+        "Grade / Status",
+        "Verification Code",
+        "Date Issued / Submitted",
+      ];
+
+      const rows = exportItems.map((r) => [
+        `"${(r.title || "").replace(/"/g, '""')}"`,
+        `"${(r.type || "").replace(/"/g, '""')}"`,
+        `"${(r.recipient || "").replace(/"/g, '""')}"`,
+        `"${(r.email || "").replace(/"/g, '""')}"`,
+        `"${(r.score || "").replace(/"/g, '""')}"`,
+        `"${(r.grade || r.status || "").replace(/"/g, '""')}"`,
+        `"${(r.verificationCode || "").replace(/"/g, '""')}"`,
+        `"${r.date ? new Date(r.date).toLocaleString() : "N/A"}"`,
+      ]);
+
+      const csvContent =
+        "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute(
+        "download",
+        `masteryzone_reports_${filterType.toLowerCase().replace(/\s+/g, "_")}_${new Date().toISOString().split("T")[0]}.csv`
+      );
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success(`Exported ${exportItems.length} reports to CSV!`);
+    } catch (err) {
+      console.error("CSV Export error:", err);
+      toast.error("Failed to generate CSV export");
     }
-    const headers = [
-      "Report Title",
-      "Category",
-      "Recipient Student",
-      "Email Address",
-      "Score / Marks",
-      "Grade / Status",
-      "Verification Code",
-      "Date Issued / Submitted",
-    ];
-
-    const rows = filteredReports.map((r) => [
-      `"${(r.title || "").replace(/"/g, '""')}"`,
-      `"${(r.type || "").replace(/"/g, '""')}"`,
-      `"${(r.recipient || "").replace(/"/g, '""')}"`,
-      `"${(r.email || "").replace(/"/g, '""')}"`,
-      `"${(r.score || "").replace(/"/g, '""')}"`,
-      `"${(r.grade || r.status || "").replace(/"/g, '""')}"`,
-      `"${(r.verificationCode || "").replace(/"/g, '""')}"`,
-      `"${r.date ? new Date(r.date).toLocaleString() : "N/A"}"`,
-    ]);
-
-    const csvContent =
-      "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute(
-      "download",
-      `masteryzone_reports_${filterType.toLowerCase().replace(/\s+/g, "_")}_${new Date().toISOString().split("T")[0]}.csv`
-    );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success(`Exported ${filteredReports.length} reports to CSV!`);
   };
 
   // Copy Verification Code
@@ -1130,6 +1155,16 @@ const AdminReports = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Standardized 10-per-page Pagination Footer */}
+        <AdminPagination
+          page={page}
+          totalPages={pagination?.totalPages || 1}
+          totalRecords={pagination?.total ?? (stats.total || filteredReports.length || 0)}
+          limit={10}
+          onPageChange={(newPage) => setPage(newPage)}
+          itemName="assessment reports"
+        />
       </div>
 
       {/* ─────────────────────────────────────────────────────────────────────────────

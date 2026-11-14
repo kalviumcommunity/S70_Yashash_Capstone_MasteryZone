@@ -18,6 +18,7 @@ import {
   LuChevronRight,
 } from "react-icons/lu";
 import { getSharedSocket, releaseSharedSocket } from "../../utils/socketClient";
+import AdminPagination from "./AdminPagination.jsx";
 import { deduplicatedFetch } from "../../utils/apiClient";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
@@ -98,7 +99,7 @@ const AdminLiveActivity = () => {
   const [lastRefreshed, setLastRefreshed] = useState(null);
   const isMountedRef = useRef(false);
   const socketRef = useRef(null);
-  const LIMIT = 20;
+  const LIMIT = 10;
 
   const fetchLiveFeed = useCallback(async (page = 1, category = "all", q = "") => {
     try {
@@ -745,56 +746,15 @@ const AdminLiveActivity = () => {
           </table>
         </div>
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div
-            style={{
-              padding: "12px 20px",
-              borderTop: "1px solid var(--mz-surface-muted)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
-            <span style={{ fontSize: 12, color: "var(--mz-text-subtle)" }}>
-              Page {activityPage} of {totalPages} ({activityTotal} events)
-            </span>
-            <div style={{ display: "flex", gap: 6 }}>
-              <button
-                disabled={activityPage <= 1}
-                onClick={() => setActivityPage((p) => Math.max(1, p - 1))}
-                style={{
-                  padding: "5px 10px",
-                  borderRadius: 7,
-                  border: "1px solid var(--mz-border)",
-                  background: "var(--mz-surface-subtle)",
-                  cursor: activityPage <= 1 ? "not-allowed" : "pointer",
-                  opacity: activityPage <= 1 ? 0.5 : 1,
-                  display: "flex",
-                  alignItems: "center",
-                }}
-              >
-                <LuChevronLeft style={{ width: 14, height: 14 }} />
-              </button>
-              <button
-                disabled={activityPage >= totalPages}
-                onClick={() => setActivityPage((p) => Math.min(totalPages, p + 1))}
-                style={{
-                  padding: "5px 10px",
-                  borderRadius: 7,
-                  border: "1px solid var(--mz-border)",
-                  background: "var(--mz-surface-subtle)",
-                  cursor: activityPage >= totalPages ? "not-allowed" : "pointer",
-                  opacity: activityPage >= totalPages ? 0.5 : 1,
-                  display: "flex",
-                  alignItems: "center",
-                }}
-              >
-                <LuChevronRight style={{ width: 14, height: 14 }} />
-              </button>
-            </div>
-          </div>
-        )}
+        {/* Standardized 10-per-page Pagination Footer */}
+        <AdminPagination
+          page={activityPage}
+          totalPages={totalPages}
+          totalRecords={activityTotal}
+          limit={10}
+          onPageChange={(newPage) => setActivityPage(newPage)}
+          itemName="activity events"
+        />
       </div>
     </div>
   );

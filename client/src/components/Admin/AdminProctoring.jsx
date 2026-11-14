@@ -16,6 +16,7 @@ import {
   LuX,
 } from "react-icons/lu";
 import { getSharedSocket, releaseSharedSocket } from "../../utils/socketClient";
+import AdminPagination from "./AdminPagination.jsx";
 import { deduplicatedFetch } from "../../utils/apiClient";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
@@ -26,6 +27,9 @@ const AdminProctoring = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const searchContainerRef = useRef(null);
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [page, setPage] = useState(1);
+  const [liveAlerts, setLiveAlerts] = useState([]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -36,15 +40,21 @@ const AdminProctoring = () => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [liveAlerts, setLiveAlerts] = useState([]);
 
-  const fetchProctoring = async () => {
+  const fetchProctoring = async (selectedPage = page, selectedSearch = searchTerm, selectedStatus = statusFilter) => {
     try {
+      setLoading(true);
       const token = localStorage.getItem("token");
-      const res = await deduplicatedFetch(`${API_BASE}/api/admin/proctoring`, {
+      const params = new URLSearchParams({
+        page: selectedPage,
+        limit: 10,
+      });
+      if (selectedSearch.trim()) params.append("q", selectedSearch.trim());
+      if (selectedStatus !== "all") params.append("status", selectedStatus);
+
+      const res = await deduplicatedFetch(`${API_BASE}/api/admin/proctoring?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
-        cacheTtlMs: 3000,
+        cacheTtlMs: 2500,
       });
       if (res.ok) {
         const json = await res.json();
@@ -57,9 +67,22 @@ const AdminProctoring = () => {
     }
   };
 
+  const prevFiltersRef = useRef({ searchTerm, statusFilter });
   useEffect(() => {
-    fetchProctoring();
+    if (prevFiltersRef.current.searchTerm !== searchTerm || prevFiltersRef.current.statusFilter !== statusFilter) {
+      prevFiltersRef.current = { searchTerm, statusFilter };
+      if (page !== 1) {
+        setPage(1);
+        return;
+      }
+    }
+    const timer = setTimeout(() => {
+      fetchProctoring(page, searchTerm, statusFilter);
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [page, searchTerm, statusFilter]);
 
+  useEffect(() => {
     // Setup real-time Socket.io listener for proctoring violations & sessions
     let socket;
     const handleConnect = () => {
@@ -588,6 +611,16 @@ const AdminProctoring = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Standardized 10-per-page Pagination Footer */}
+        <AdminPagination
+          page={page}
+          totalPages={data?.pagination?.totalPages || 1}
+          totalRecords={data?.pagination?.total ?? (data?.stats?.totalMonitored || 0)}
+          limit={10}
+          onPageChange={(newPage) => setPage(newPage)}
+          itemName="examination sessions"
+        />
       </div>
     </div>
   );

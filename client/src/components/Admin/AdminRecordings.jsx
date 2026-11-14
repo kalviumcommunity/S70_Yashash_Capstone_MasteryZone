@@ -24,6 +24,7 @@ import {
 } from "react-icons/lu";
 import { getSharedSocket, releaseSharedSocket } from "../../utils/socketClient";
 import { toast } from "react-toastify";
+import AdminPagination from "./AdminPagination.jsx";
 import RecordingVideo from "../RecordingVideo.jsx";
 import { getRecordingStreamUrl } from "../../utils/recordingMedia.js";
 import { deduplicatedFetch } from "../../utils/apiClient.js";
@@ -47,6 +48,7 @@ const AdminRecordings = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
   const [typeFilter, setTypeFilter] = useState("all");
+  const [page, setPage] = useState(1);
   const [sortBy, setSortBy] = useState("newest");
   const [activeRecording, setActiveRecording] = useState(null);
   const [modalTab, setModalTab] = useState("timeline"); // "timeline" | "details"
@@ -96,12 +98,20 @@ const AdminRecordings = () => {
     }
   };
 
-  const fetchRecordings = async () => {
+  const fetchRecordings = async (selectedPage = page, selectedSearch = searchTerm, selectedType = typeFilter) => {
     try {
+      setLoading(true);
       const token = localStorage.getItem("token");
-      const res = await deduplicatedFetch(`${API_BASE}/api/admin/recordings`, {
+      const params = new URLSearchParams({
+        page: selectedPage,
+        limit: 10,
+      });
+      if (selectedSearch.trim()) params.append("q", selectedSearch.trim());
+      if (selectedType !== "all") params.append("type", selectedType);
+
+      const res = await deduplicatedFetch(`${API_BASE}/api/admin/recordings?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
-        cacheTtlMs: 3000,
+        cacheTtlMs: 2500,
       });
       if (res.ok) {
         const json = await res.json();
@@ -114,9 +124,22 @@ const AdminRecordings = () => {
     }
   };
 
+  const prevFiltersRef = useRef({ searchTerm, typeFilter });
   useEffect(() => {
-    fetchRecordings();
+    if (prevFiltersRef.current.searchTerm !== searchTerm || prevFiltersRef.current.typeFilter !== typeFilter) {
+      prevFiltersRef.current = { searchTerm, typeFilter };
+      if (page !== 1) {
+        setPage(1);
+        return;
+      }
+    }
+    const timer = setTimeout(() => {
+      fetchRecordings(page, searchTerm, typeFilter);
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [page, searchTerm, typeFilter]);
 
+  useEffect(() => {
     // Real-time synchronization via shared Socket.io client
     let socket;
     let handleConnect = null;
@@ -752,6 +775,18 @@ const AdminRecordings = () => {
             );
           })
         )}
+      </div>
+
+      {/* Standardized 10-per-page Pagination Footer */}
+      <div style={{ marginTop: 20, borderRadius: 12, overflow: "hidden", border: "1px solid var(--mz-border)" }}>
+        <AdminPagination
+          page={page}
+          totalPages={data?.pagination?.totalPages || 1}
+          totalRecords={data?.pagination?.total ?? (data?.stats?.totalRecordings || 0)}
+          limit={10}
+          onPageChange={(newPage) => setPage(newPage)}
+          itemName="recorded sessions"
+        />
       </div>
 
       {/* Video Playback & Activity Timeline Modal */}

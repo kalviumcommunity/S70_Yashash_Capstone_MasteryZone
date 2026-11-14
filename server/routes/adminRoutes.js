@@ -673,14 +673,28 @@ router.get("/users", async (req, res) => {
       sortBy = "createdAt",
       sortOrder = "desc",
       page = 1,
-      limit = 25,
+      limit = 10,
     } = req.query;
 
-    const query = { ...REAL_USER_FILTER };
+    let query = { ...REAL_USER_FILTER };
 
     if (search.trim()) {
-      const regex = new RegExp(search.trim(), "i");
-      query.$or = [{ fullName: regex }, { username: regex }, { email: regex }];
+      const trimmed = search.trim();
+      const isExactId = mongoose.Types.ObjectId.isValid(trimmed) && trimmed.length === 24;
+      const regex = new RegExp(trimmed, "i");
+      const orConditions = [{ fullName: regex }, { username: regex }, { email: regex }];
+      
+      if (isExactId) {
+        // If an admin searches by exact ObjectId, allow matching that specific user directly
+        query = {
+          $or: [
+            { _id: new mongoose.Types.ObjectId(trimmed) },
+            { $and: [{ ...REAL_USER_FILTER }, { $or: orConditions }] },
+          ],
+        };
+      } else {
+        query.$or = orConditions;
+      }
     }
 
     if (status === "active") {
@@ -701,7 +715,7 @@ router.get("/users", async (req, res) => {
     }
 
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
-    const limitNum = Math.max(1, parseInt(limit, 10) || 25);
+    const limitNum = Math.max(1, parseInt(limit, 10) || 10);
     const skip = (pageNum - 1) * limitNum;
 
     const totalUsers = await User.countDocuments(query);
@@ -2845,7 +2859,7 @@ router.get("/live-activity", async (req, res) => {
       endDate: qEnd,
       q = "",
       page = 1,
-      limit = 50,
+      limit = 10,
     } = req.query;
 
     const { startDate, endDate } = parseDateRange(range, qStart, qEnd);
@@ -2903,10 +2917,13 @@ router.get("/live-activity", async (req, res) => {
         { title: regex },
         { detail: regex },
       ];
+      if (mongoose.Types.ObjectId.isValid(q.trim())) {
+        activityQuery.$or.push({ userId: new mongoose.Types.ObjectId(q.trim()) });
+      }
     }
 
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
-    const limitNum = Math.max(1, Math.min(100, parseInt(limit, 10) || 50));
+    const limitNum = Math.max(1, Math.min(100, parseInt(limit, 10) || 10));
     const skip = (pageNum - 1) * limitNum;
 
     const [activities, totalActivities, todayCount, codingCount, procCount, assessCount] =
@@ -3087,19 +3104,31 @@ router.get("/learning-analytics", async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 router.get("/coding-analytics", async (req, res) => {
   try {
-    const { range = "30d", startDate: qStart, endDate: qEnd } = req.query;
+    const {
+      range = "30d",
+      startDate: qStart,
+      endDate: qEnd,
+      page = 1,
+      limit = 10,
+      search = "",
+      status = "all",
+      language = "all",
+      all = "false",
+    } = req.query;
     const { startDate, endDate } = parseDateRange(range, qStart, qEnd);
 
-    const genuineUsers = await User.find(REAL_USER_FILTER).select("_id").lean();
+    const genuineUsers = await User.find(REAL_USER_FILTER).select("_id email fullName username").lean();
     const genuineUserIds = genuineUsers.map((u) => u._id);
 
-    const filter = {
+    const baseFilter = {
       userId: { $in: genuineUserIds },
-      createdAt: { $gte: startDate, $lte: endDate },
     };
+    if (String(range).toLowerCase() !== "all") {
+      baseFilter.createdAt = { $gte: startDate, $lte: endDate };
+    }
 
     const [aggResult] = await ChallengeSubmission.aggregate([
-      { $match: filter },
+      { $match: baseFilter },
       {
         $facet: {
           statusCounts: [
@@ -3122,7 +3151,7 @@ router.get("/coding-analytics", async (req, res) => {
     let errorCount = 0;
     (aggResult?.statusCounts || []).forEach((sc) => {
       if (sc._id === "ACCEPTED") acceptedCount += sc.count;
-      else if (sc._id === "WRONG_ANSWER") wrongAnswerCount += sc.count;
+      else if (sc._id === "WRONG_ANSWER" || sc._id === "PARTIAL") wrongAnswerCount += sc.count;
       else if (["RUNTIME_ERROR", "COMPILATION_ERROR", "TIME_LIMIT_EXCEEDED"].includes(sc._id)) errorCount += sc.count;
     });
 
@@ -3130,13 +3159,49 @@ router.get("/coding-analytics", async (req, res) => {
       totalSubmissions > 0 ? Math.round((acceptedCount / totalSubmissions) * 100) : 0;
     const languages = aggResult?.languages || [];
 
+    // Filter query for submissions list
+    const listFilter = { ...baseFilter };
+
+    if (status && status !== "all") {
+      listFilter.status = status;
+    }
+    if (language && language !== "all") {
+      listFilter.language = language;
+    }
+
+    if (search && search.trim()) {
+      const q = search.trim();
+      const regex = new RegExp(q, "i");
+      const matchedUserIds = genuineUsers
+        .filter(u => regex.test(u.fullName) || regex.test(u.email) || regex.test(u.username) || (mongoose.Types.ObjectId.isValid(q) && String(u._id) === q))
+        .map(u => u._id);
+
+      const orConditions = [
+        { challengeTitle: regex },
+        { challengeId: regex },
+        { userId: { $in: matchedUserIds } },
+      ];
+      if (mongoose.Types.ObjectId.isValid(q)) {
+        orConditions.push({ _id: new mongoose.Types.ObjectId(q) });
+      }
+      listFilter.$or = orConditions;
+    }
+
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = all === "true" || all === "1" ? 1000 : Math.max(1, parseInt(limit, 10) || 10);
+    const skip = (pageNum - 1) * limitNum;
+
+    const totalFiltered = await ChallengeSubmission.countDocuments(listFilter);
+    const totalPages = Math.ceil(totalFiltered / limitNum) || 1;
+
     // High-speed recent submissions with candidate details (projected fields for instant performance)
     const Notification = require("../models/NotificationSchema");
-    const recentSubmissions = await ChallengeSubmission.find(filter)
+    const recentSubmissions = await ChallengeSubmission.find(listFilter)
       .select("_id userId challengeId challengeTitle language code status score executionTime passedTests totalTests adminNote createdAt notificationSent notificationViewed notificationViewedAt notificationInAppId")
       .populate("userId", "fullName username email")
       .sort({ createdAt: -1 })
-      .limit(60)
+      .skip(skip)
+      .limit(limitNum)
       .lean();
 
     const pendingNotifIds = recentSubmissions
@@ -3167,6 +3232,12 @@ router.get("/coding-analytics", async (req, res) => {
         errors: errorCount,
         accuracyRate,
         languages: languages.length > 0 ? languages : [{ _id: "python", count: 0 }],
+      },
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total: totalFiltered,
+        totalPages,
       },
       recentSubmissions,
     });
@@ -3225,12 +3296,34 @@ router.get("/coding-submissions/:id", async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 router.get("/assessments", async (req, res) => {
   try {
-    const { range = "30d", startDate: qStart, endDate: qEnd } = req.query;
+    const {
+      range = "30d",
+      startDate: qStart,
+      endDate: qEnd,
+      page = 1,
+      limit = 10,
+      search = "",
+      category = "all",
+      status = "all",
+      userId = "",
+      all = "false",
+    } = req.query;
     const { startDate, endDate } = parseDateRange(range, qStart, qEnd);
 
-    const genuineUsers = await User.find(REAL_USER_FILTER).select("_id email").lean();
-    const genuineUserIds = genuineUsers.map((u) => u._id);
-    const genuineUserEmails = genuineUsers.map((u) => (u.email || "").toLowerCase()).filter(Boolean);
+    let genuineUserIds = [];
+    let genuineUserEmails = [];
+
+    if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+      const targetUser = await User.findById(userId).select("_id email").lean();
+      if (targetUser) {
+        genuineUserIds = [targetUser._id];
+        if (targetUser.email) genuineUserEmails = [targetUser.email.toLowerCase()];
+      }
+    } else {
+      const genuineUsers = await User.find(REAL_USER_FILTER).select("_id email").lean();
+      genuineUserIds = genuineUsers.map((u) => u._id);
+      genuineUserEmails = genuineUsers.map((u) => (u.email || "").toLowerCase()).filter(Boolean);
+    }
 
     const baseDateFilter =
       String(range).toLowerCase() === "all"
@@ -3245,7 +3338,7 @@ router.get("/assessments", async (req, res) => {
         .select("_id attemptId userId candidateName candidateEmail certTitle percentage score status finalVerdict submittedAt createdAt durationMinutes certificateId")
         .populate("userId", "fullName username email")
         .sort({ createdAt: -1 })
-        .limit(150)
+        .limit(500)
         .lean(),
       ModuleAssessmentAttempt.find({
         ...baseDateFilter,
@@ -3258,7 +3351,7 @@ router.get("/assessments", async (req, res) => {
         .select("_id sessionId userId assessmentTitle moduleTitle totalQuestions score percentage passed submittedAt createdAt timeSpentSeconds")
         .populate("userId", "fullName username email")
         .sort({ createdAt: -1 })
-        .limit(150)
+        .limit(500)
         .lean(),
       ChallengeSubmission.find({
         ...baseDateFilter,
@@ -3267,7 +3360,7 @@ router.get("/assessments", async (req, res) => {
         .select("_id userId challengeTitle challengeId totalTests passedTests score status createdAt runtimeMs")
         .populate("userId", "fullName username email")
         .sort({ createdAt: -1 })
-        .limit(150)
+        .limit(500)
         .lean(),
       ProjectSubmission.find({
         ...baseDateFilter,
@@ -3276,7 +3369,7 @@ router.get("/assessments", async (req, res) => {
         .select("_id sessionId userId candidateDetails projectTitle totalMarks marksObtained percentage passed status passingMarks submittedAt createdAt")
         .populate("userId", "fullName username email")
         .sort({ createdAt: -1 })
-        .limit(100)
+        .limit(500)
         .lean(),
       ProctoredCodingSession.find({
         ...baseDateFilter,
@@ -3285,7 +3378,7 @@ router.get("/assessments", async (req, res) => {
         .select("_id sessionId userId assessmentTitle questionId status durationSeconds score violationsCount deviceInfo violationFlags recordingUrl submissionResult submittedAt createdAt candidateDetails")
         .populate("userId", "fullName username email")
         .sort({ createdAt: -1 })
-        .limit(150)
+        .limit(500)
         .lean(),
     ]);
 
@@ -3297,6 +3390,7 @@ router.get("/assessments", async (req, res) => {
         rawId: c._id,
         itemType: "certification",
         attemptId: c.attemptId,
+        userId: c.userId?._id ? String(c.userId._id) : (c.userId ? String(c.userId) : ""),
         user: c.candidateName || c.userId?.fullName || c.userId?.username || "Candidate",
         email: c.candidateEmail || c.userId?.email || "",
         title: c.certTitle || "Data Structures & Algorithms (DSA)",
@@ -3322,6 +3416,7 @@ router.get("/assessments", async (req, res) => {
         rawId: m._id,
         itemType: "module",
         attemptId: m.sessionId || m._id,
+        userId: m.userId?._id ? String(m.userId._id) : (m.userId ? String(m.userId) : ""),
         user: m.userId?.fullName || m.userId?.username || "Candidate",
         email: m.userId?.email || "",
         title: m.assessmentTitle || m.moduleTitle || "Module MCQ Test",
@@ -3348,6 +3443,7 @@ router.get("/assessments", async (req, res) => {
         rawId: s._id,
         itemType: "coding",
         attemptId: s._id,
+        userId: s.userId?._id ? String(s.userId._id) : (s.userId ? String(s.userId) : ""),
         user: s.userId?.fullName || s.userId?.username || "Candidate",
         email: s.userId?.email || "",
         title: s.challengeTitle || s.challengeId || "Coding Challenge Assessment",
@@ -3374,6 +3470,7 @@ router.get("/assessments", async (req, res) => {
         rawId: p._id,
         itemType: "project",
         attemptId: p.sessionId || p._id,
+        userId: p.userId?._id ? String(p.userId._id) : (p.userId ? String(p.userId) : ""),
         user: p.candidateDetails?.fullName || p.userId?.fullName || p.userId?.username || "Candidate",
         email: p.candidateDetails?.email || p.userId?.email || "",
         title: p.projectTitle || "Practical Project Assignment",
@@ -3401,6 +3498,7 @@ router.get("/assessments", async (req, res) => {
         rawId: p._id,
         itemType: "proctoring",
         attemptId: p.sessionId,
+        userId: userObj?._id ? String(userObj._id) : (p.userId ? String(p.userId) : ""),
         user,
         email,
         title: p.assessmentTitle || "Proctored Coding Exam",
@@ -3421,23 +3519,88 @@ router.get("/assessments", async (req, res) => {
       (a, b) => new Date(b.date) - new Date(a.date)
     );
 
-    const total = allAssessments.length;
-    const passed = allAssessments.filter((a) => a.passed).length;
-    const passPercentage = total > 0 ? Math.round((passed / total) * 100) : 0;
+    // Global Statistics across the requested range (for KPI cards & category badges)
+    const totalCount = allAssessments.length;
+    const passedCount = allAssessments.filter((a) => a.passed).length;
+    const passPercentage = totalCount > 0 ? Math.round((passedCount / totalCount) * 100) : 0;
+    const stats = {
+      total: totalCount,
+      passed: passedCount,
+      failed: totalCount - passedCount,
+      passPercentage,
+      certificationsCount: formattedCerts.length,
+      mcqCount: formattedMcqs.length,
+      codingCount: formattedCoding.length,
+      projectCount: formattedProjects.length,
+      proctoredCount: formattedProctored.length,
+    };
+
+    // Filter unified records
+    let filteredAssessments = allAssessments;
+
+    // 1. Category Filter
+    if (category && category !== "all") {
+      filteredAssessments = filteredAssessments.filter((item) => {
+        if (category === "Certification") return item.type === "Certification";
+        if (category === "MCQ Assessment") return item.type === "MCQ Assessment";
+        if (category === "Coding Assessment" || category === "Coding Challenge") return item.type === "Coding Assessment";
+        if (category === "Project Assignment" || category === "Project") return item.type === "Project Assignment";
+        if (category === "Proctored Exam" || category === "Proctoring") return item.type === "Proctored Exam";
+        return item.category === category || item.type === category;
+      });
+    }
+
+    // 2. Status Filter
+    if (status && status !== "all") {
+      const targetStatus = status.toLowerCase();
+      filteredAssessments = filteredAssessments.filter((item) => {
+        const itemStatus = (item.status || "").toLowerCase();
+        if (targetStatus === "passed") return item.passed || itemStatus === "passed";
+        if (targetStatus === "failed") return !item.passed && itemStatus !== "in progress";
+        if (targetStatus === "in progress") return itemStatus === "in progress";
+        if (targetStatus === "needs improvement") return itemStatus === "needs improvement";
+        return itemStatus === targetStatus;
+      });
+    }
+
+    // 3. Search Filter (User ID, Name, Email, Title, Code)
+    if (search && search.trim()) {
+      const q = search.trim().toLowerCase();
+      filteredAssessments = filteredAssessments.filter((item) => {
+        return (
+          (item.user && item.user.toLowerCase().includes(q)) ||
+          (item.email && item.email.toLowerCase().includes(q)) ||
+          (item.title && item.title.toLowerCase().includes(q)) ||
+          (item.verificationCode && item.verificationCode.toLowerCase().includes(q)) ||
+          (item.score && item.score.toLowerCase().includes(q)) ||
+          (item.userId && item.userId.toLowerCase().includes(q)) ||
+          (item.id && String(item.id).toLowerCase().includes(q)) ||
+          (item.attemptId && String(item.attemptId).toLowerCase().includes(q))
+        );
+      });
+    }
+
+    // 4. Server-side Pagination (10 records per page)
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum =
+      all === "true" || all === "1"
+        ? filteredAssessments.length || 1
+        : Math.max(1, parseInt(limit, 10) || 10);
+    const totalFiltered = filteredAssessments.length;
+    const totalPages = Math.ceil(totalFiltered / limitNum) || 1;
+    const skip = (pageNum - 1) * limitNum;
+    const pagedAssessments = filteredAssessments.slice(skip, skip + limitNum);
 
     res.status(200).json({
       success: true,
-      stats: {
-        total,
-        passed,
-        failed: total - passed,
-        passPercentage,
-        certificationsCount: formattedCerts.length,
-        mcqCount: formattedMcqs.length,
-        codingCount: formattedCoding.length,
-        projectCount: formattedProjects.length,
+      stats,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total: totalFiltered,
+        totalPages,
       },
-      assessments: allAssessments,
+      assessments: pagedAssessments,
       certificationAttempts: certAttempts,
       moduleAttempts,
     });
@@ -3452,7 +3615,14 @@ router.get("/assessments", async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 router.get("/proctoring", async (req, res) => {
   try {
-    const { q, status, dateRange } = req.query;
+    const {
+      q,
+      status,
+      dateRange,
+      page = 1,
+      limit = 10,
+      all = "false",
+    } = req.query;
     let query = {};
 
     if (status && status !== "all") {
@@ -3460,14 +3630,19 @@ router.get("/proctoring", async (req, res) => {
     }
 
     if (q && q.trim()) {
-      const regex = new RegExp(q.trim(), "i");
-      query.$or = [
+      const trimmedQ = q.trim();
+      const regex = new RegExp(trimmedQ, "i");
+      const orConditions = [
         { "candidateDetails.fullName": regex },
         { "candidateDetails.email": regex },
         { assessmentTitle: regex },
         { sessionId: regex },
         { questionId: regex },
       ];
+      if (mongoose.Types.ObjectId.isValid(trimmedQ)) {
+        orConditions.push({ userId: new mongoose.Types.ObjectId(trimmedQ) });
+      }
+      query.$or = orConditions;
     }
 
     if (dateRange && dateRange !== "all") {
@@ -3487,11 +3662,19 @@ router.get("/proctoring", async (req, res) => {
       }
     }
 
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = all === "true" || all === "1" ? 1000 : Math.max(1, parseInt(limit, 10) || 10);
+    const skip = (pageNum - 1) * limitNum;
+
+    const totalFiltered = await ProctoredCodingSession.countDocuments(query);
+    const totalPages = Math.ceil(totalFiltered / limitNum) || 1;
+
     const sessions = await ProctoredCodingSession.find(query)
       .select("_id sessionId userId assessmentTitle questionId status durationSeconds score violationsCount deviceInfo violationFlags recordingUrl submittedAt createdAt candidateDetails")
       .populate("userId", "fullName username email")
       .sort({ createdAt: -1 })
-      .limit(100)
+      .skip(skip)
+      .limit(limitNum)
       .lean();
 
     const allSessionUserIds = sessions.map((s) => s.userId?._id || s.userId).filter(Boolean);
@@ -3564,6 +3747,12 @@ router.get("/proctoring", async (req, res) => {
         cameraActiveCount,
         micActiveCount,
         screenActiveCount,
+      },
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total: totalFiltered,
+        totalPages,
       },
       sessions: enrichedSessions,
     });
@@ -3774,6 +3963,14 @@ router.patch("/proctoring/session/:sessionId/mark-viewed", async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 router.get("/reports", async (req, res) => {
   try {
+    const {
+      page = 1,
+      limit = 10,
+      search = "",
+      type = "all",
+      all = "false",
+    } = req.query;
+
     const genuineUsers = await User.find(REAL_USER_FILTER).select("_id email fullName username").limit(1500).lean();
     const genuineUserIds = genuineUsers.map((u) => u._id);
     const genuineUserEmails = genuineUsers.map((u) => (u.email || "").toLowerCase()).filter(Boolean);
@@ -4004,9 +4201,39 @@ router.get("/reports", async (req, res) => {
       (a, b) => new Date(b.date) - new Date(a.date)
     );
 
+    let filteredReports = allReports;
+    if (type && type !== "all") {
+      filteredReports = filteredReports.filter((r) => {
+        if (type === "certification") return r.itemType === "certificate" || r.itemType === "certification";
+        if (type === "module") return r.itemType === "module";
+        if (type === "project") return r.itemType === "project";
+        if (type === "coding") return r.itemType === "coding";
+        return r.type?.toLowerCase().includes(type.toLowerCase()) || r.itemType === type;
+      });
+    }
+
+    if (search && search.trim()) {
+      const q = search.trim().toLowerCase();
+      filteredReports = filteredReports.filter((r) => {
+        return (
+          (r.recipient && r.recipient.toLowerCase().includes(q)) ||
+          (r.email && r.email.toLowerCase().includes(q)) ||
+          (r.title && r.title.toLowerCase().includes(q)) ||
+          (r.verificationCode && r.verificationCode.toLowerCase().includes(q)) ||
+          (r.id && String(r.id).toLowerCase().includes(q))
+        );
+      });
+    }
+
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = all === "true" || all === "1" ? filteredReports.length || 1 : Math.max(1, parseInt(limit, 10) || 10);
+    const totalFiltered = filteredReports.length;
+    const totalPages = Math.ceil(totalFiltered / limitNum) || 1;
+    const skip = (pageNum - 1) * limitNum;
+    const pagedReports = filteredReports.slice(skip, skip + limitNum);
+
     res.status(200).json({
       success: true,
-      reports: allReports,
       stats: {
         total: allReports.length,
         certificationsCount: certReports.length,
@@ -4015,6 +4242,13 @@ router.get("/reports", async (req, res) => {
         projectsCount: projectReports.length,
         codingCount: codingReports.length + challengeReports.length,
       },
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total: totalFiltered,
+        totalPages,
+      },
+      reports: pagedReports,
     });
   } catch (error) {
     console.error("Reports API error:", error);
@@ -4027,7 +4261,13 @@ router.get("/reports", async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 router.get("/recordings", async (req, res) => {
   try {
-    const { q, type } = req.query;
+    const {
+      q,
+      type,
+      page = 1,
+      limit = 10,
+      all = "false",
+    } = req.query;
     const recordingsDir = getRecordingsDir();
     let totalBytes = 0;
 
@@ -4280,6 +4520,12 @@ router.get("/recordings", async (req, res) => {
       else if (r.recordingType === "Proctoring") proctoringCount++;
     });
 
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = all === "true" || all === "1" ? totalRecordings || 1 : Math.max(1, parseInt(limit, 10) || 10);
+    const totalPages = Math.ceil(totalRecordings / limitNum) || 1;
+    const skip = (pageNum - 1) * limitNum;
+    const pagedRecordings = unifiedRecordings.slice(skip, skip + limitNum);
+
     res.status(200).json({
       success: true,
       stats: {
@@ -4290,7 +4536,13 @@ router.get("/recordings", async (req, res) => {
         screenSharesCount,
         proctoringCount,
       },
-      recordings: unifiedRecordings,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total: totalRecordings,
+        totalPages,
+      },
+      recordings: pagedRecordings,
     });
   } catch (error) {
     console.error("Recordings fetch error:", error);
