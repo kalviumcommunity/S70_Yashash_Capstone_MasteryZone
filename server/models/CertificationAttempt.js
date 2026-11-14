@@ -141,11 +141,14 @@ const certificationAttemptSchema = new mongoose.Schema(
         {
           type: { type: String }, // e.g. "TAB_SWITCH", "FULLSCREEN_EXIT", "FOCUS_LOST"
           timestamp: { type: Date, default: Date.now },
+          sessionId: { type: String, default: "" },
           details: { type: String, default: "" },
           screenshotUrl: { type: String, default: "" },
           severity: { type: String, default: "warning" },
         },
       ],
+      activeSessionToken: { type: String, default: "" },
+      activeSessionUpdatedAt: { type: Date, default: null },
       recordingId: { type: String, default: "" },
       recordingUrl: { type: String, default: "" },
       recordingDurationSeconds: { type: Number, default: 0 },

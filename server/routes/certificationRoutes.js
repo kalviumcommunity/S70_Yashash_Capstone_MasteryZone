@@ -270,6 +270,15 @@ router.get("/", authenticateToken, async (req, res) => {
   }
 });
 
+function validateExamSessionToken(attempt, req) {
+  const incomingToken = String(
+    req.headers["x-exam-session-token"] || req.body?.sessionToken || ""
+  ).trim();
+  const storedToken = String(attempt?.proctoring?.activeSessionToken || "").trim();
+  if (!incomingToken || !storedToken) return true;
+  return incomingToken === storedToken;
+}
+
 // -------------------------------------------------------------
 // 2. POST /api/certifications/attempt/start
 // Initiates or resumes a real proctored certification attempt
@@ -278,7 +287,10 @@ router.post("/attempt/start", authenticateToken, async (req, res) => {
   try {
     const userId = await resolveSafeUserId(req.user);
     invalidateEtag("certHistory", String(userId));
-    const { certId = "dsa_cert", forceNew, candidatePhoto } = req.body;
+    const { certId = "dsa_cert", forceNew, candidatePhoto, clientSessionToken, takeOver } = req.body;
+    const resolvedSessionToken = String(
+      clientSessionToken || `sess_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+    ).trim();
 
     // Fetch user profile for candidate identity
     let user = null;
@@ -357,6 +369,31 @@ router.post("/attempt/start", authenticateToken, async (req, res) => {
         const durationMinutes = activeAttempt.durationMinutes || 90;
 
         if (elapsedMinutes < durationMinutes) {
+          const existingToken = activeAttempt.proctoring?.activeSessionToken;
+          const lastBeat = activeAttempt.proctoring?.activeSessionUpdatedAt
+            ? new Date(activeAttempt.proctoring.activeSessionUpdatedAt).getTime()
+            : 0;
+          const isRecentOtherSession =
+            existingToken &&
+            clientSessionToken &&
+            existingToken !== clientSessionToken &&
+            Date.now() - lastBeat < 45000 &&
+            takeOver !== true;
+
+          if (isRecentOtherSession) {
+            return res.status(409).json({
+              success: false,
+              code: "DUPLICATE_SESSION",
+              error: "This certification examination is already active in another tab or browser session.",
+            });
+          }
+
+          activeAttempt.proctoring = activeAttempt.proctoring || {};
+          activeAttempt.proctoring.activeSessionToken = resolvedSessionToken;
+          activeAttempt.proctoring.activeSessionUpdatedAt = new Date();
+          activeAttempt.markModified("proctoring");
+          await activeAttempt.save();
+
           // Return existing attempt state (resumed during active test)
           const sanitizedMcqs = (activeAttempt.selectedMcqs || []).map((q) => ({
             id: q.id,
@@ -371,12 +408,16 @@ router.post("/attempt/start", authenticateToken, async (req, res) => {
               ...(q.publicTests || []),
               ...(q.hiddenTests || []),
             ];
-            const testCases = (allTests.length > 0 ? allTests : (q.testCases || [])).map((t, idx) => ({
-              index: idx + 1,
-              input: t.input,
-              expectedOutput: t.expectedOutput,
-              isHidden: false,
-            }));
+            const testCases = (allTests.length > 0 ? allTests : (q.testCases || [])).map((t, idx) => {
+              const hidden = Boolean(t.isHidden);
+              const expVal = t.expectedOutput !== undefined ? t.expectedOutput : (t.expected !== undefined ? t.expected : "");
+              return {
+                index: idx + 1,
+                input: hidden ? "[Hidden Test Case]" : t.input,
+                expectedOutput: hidden ? "[Hidden Expected Output]" : expVal,
+                isHidden: hidden,
+              };
+            });
 
             return {
               questionId: q.questionId,
@@ -401,6 +442,7 @@ router.post("/attempt/start", authenticateToken, async (req, res) => {
             success: true,
             resumed: true,
             attemptId: activeAttempt.attemptId,
+            sessionToken: resolvedSessionToken,
             certId: activeAttempt.certId,
             certTitle: activeAttempt.certTitle || resolvedCertTitle,
             attemptNumber: activeAttempt.attemptNumber,
@@ -446,13 +488,14 @@ router.post("/attempt/start", authenticateToken, async (req, res) => {
 
     const formattedCodingQuestions = selectedTwoChallenges.map((c) => {
       const allTestCases = Array.isArray(c.testCases) ? c.testCases : [];
-      const publicTests = allTestCases.map((tc, idx) => ({
+      const mappedTests = allTestCases.map((tc, idx) => ({
         index: idx + 1,
         input: tc.input,
-        expectedOutput: tc.expectedOutput,
-        isHidden: false,
+        expectedOutput: tc.expectedOutput !== undefined ? tc.expectedOutput : (tc.expected !== undefined ? tc.expected : ""),
+        isHidden: Boolean(tc.isHidden),
       }));
-      const hiddenTests = [];
+      const publicTests = mappedTests.filter((t) => !t.isHidden);
+      const hiddenTests = mappedTests.filter((t) => t.isHidden);
       const execConfig = getProblemExecutionConfig(c);
 
       // Default starter code if missing
@@ -515,6 +558,8 @@ router.post("/attempt/start", authenticateToken, async (req, res) => {
         fullscreenExits: 0,
         candidatePhoto: candidatePhoto || null,
         events: [],
+        activeSessionToken: resolvedSessionToken,
+        activeSessionUpdatedAt: new Date(),
       },
     });
 
@@ -534,12 +579,16 @@ router.post("/attempt/start", authenticateToken, async (req, res) => {
         ...(q.publicTests || []),
         ...(q.hiddenTests || []),
       ];
-      const testCases = (allTests.length > 0 ? allTests : (q.testCases || [])).map((t, idx) => ({
-        index: idx + 1,
-        input: t.input,
-        expectedOutput: t.expectedOutput,
-        isHidden: false,
-      }));
+      const testCases = (allTests.length > 0 ? allTests : (q.testCases || [])).map((t, idx) => {
+        const hidden = Boolean(t.isHidden);
+        const expVal = t.expectedOutput !== undefined ? t.expectedOutput : (t.expected !== undefined ? t.expected : "");
+        return {
+          index: idx + 1,
+          input: hidden ? "[Hidden Test Case]" : t.input,
+          expectedOutput: hidden ? "[Hidden Expected Output]" : expVal,
+          isHidden: hidden,
+        };
+      });
 
       return {
         questionId: q.questionId,
@@ -564,6 +613,7 @@ router.post("/attempt/start", authenticateToken, async (req, res) => {
       success: true,
       resumed: false,
       attemptId: newAttempt.attemptId,
+      sessionToken: resolvedSessionToken,
       certId: newAttempt.certId,
       certTitle: newAttempt.certTitle,
       attemptNumber: newAttempt.attemptNumber,
@@ -698,12 +748,16 @@ router.get("/attempt/:attemptId", authenticateToken, async (req, res) => {
         ...(q.publicTests || []),
         ...(q.hiddenTests || []),
       ];
-      const testCases = (allTests.length > 0 ? allTests : (q.testCases || [])).map((t, idx) => ({
-        index: idx + 1,
-        input: t.input,
-        expectedOutput: t.expectedOutput,
-        isHidden: false,
-      }));
+      const testCases = (allTests.length > 0 ? allTests : (q.testCases || [])).map((t, idx) => {
+        const hidden = Boolean(t.isHidden);
+        const expVal = t.expectedOutput !== undefined ? t.expectedOutput : (t.expected !== undefined ? t.expected : "");
+        return {
+          index: idx + 1,
+          input: hidden ? "[Hidden Test Case]" : t.input,
+          expectedOutput: hidden ? "[Hidden Expected Output]" : expVal,
+          isHidden: hidden,
+        };
+      });
 
       return {
         questionId: q.questionId,
@@ -768,6 +822,13 @@ router.post("/attempt/:attemptId/save-mcq", authenticateToken, async (req, res) 
       return res.status(404).json({ error: "Active attempt not found or already finalized" });
     }
 
+    if (!validateExamSessionToken(attempt, req)) {
+      return res.status(409).json({
+        code: "DUPLICATE_SESSION",
+        error: "This examination attempt is active in another tab or browser session.",
+      });
+    }
+
     if (!attempt.mcqAnswers) {
       attempt.mcqAnswers = new Map();
     }
@@ -803,6 +864,13 @@ router.post("/attempt/:attemptId/run-code", authenticateToken, async (req, res) 
       return res.status(404).json({ error: "Attempt not found" });
     }
 
+    if (!validateExamSessionToken(attempt, req)) {
+      return res.status(409).json({
+        code: "DUPLICATE_SESSION",
+        error: "This examination attempt is active in another tab or browser session.",
+      });
+    }
+
     const question = attempt.selectedCodingQuestions[questionIndex];
     if (!question) {
       return res.status(400).json({ error: "Invalid question index" });
@@ -834,23 +902,25 @@ router.post("/attempt/:attemptId/run-code", authenticateToken, async (req, res) 
 
     for (let i = 0; i < testCasesToRun.length; i++) {
       const tc = testCasesToRun[i];
-      const outcome = await evaluateSingleTestCase(language, code, tc.input, tc.expectedOutput, {
+      const expVal = tc.expectedOutput !== undefined ? tc.expectedOutput : (tc.expected !== undefined ? tc.expected : "");
+      const outcome = await evaluateSingleTestCase(language, code, tc.input, expVal, {
         functionName: qFunctionName,
         problemId: question.questionId,
       });
+      const isHidden = Boolean(tc.isHidden);
       testResults.push({
         testIndex: i + 1,
         index: i + 1,
-        input: tc.input,
-        expected: tc.expectedOutput,
-        expectedOutput: tc.expectedOutput,
-        actual: outcome.actual,
-        actualOutput: outcome.actual,
+        input: isHidden ? `[Hidden Test Case #${i + 1}]` : tc.input,
+        expected: isHidden ? `[Hidden Expected Output #${i + 1}]` : expVal,
+        expectedOutput: isHidden ? `[Hidden Expected Output #${i + 1}]` : expVal,
+        actual: isHidden && !outcome.passed ? "[Hidden Result]" : outcome.actual,
+        actualOutput: isHidden && !outcome.passed ? "[Hidden Result]" : outcome.actual,
         passed: outcome.passed,
         duration: outcome.duration,
         durationMs: outcome.duration,
         error: outcome.error,
-        isHidden: false,
+        isHidden,
       });
     }
 
@@ -889,6 +959,13 @@ router.post("/attempt/:attemptId/submit-code", authenticateToken, async (req, re
       return res.status(404).json({ error: "Active attempt not found" });
     }
 
+    if (!validateExamSessionToken(attempt, req)) {
+      return res.status(409).json({
+        code: "DUPLICATE_SESSION",
+        error: "This examination attempt is active in another tab or browser session.",
+      });
+    }
+
     const question = attempt.selectedCodingQuestions[questionIndex];
     if (!question) {
       return res.status(400).json({ error: "Invalid question index" });
@@ -908,26 +985,28 @@ router.post("/attempt/:attemptId/submit-code", authenticateToken, async (req, re
 
     for (let i = 0; i < testCasesToRun.length; i++) {
       const tc = testCasesToRun[i];
-      const outcome = await evaluateSingleTestCase(language, code, tc.input, tc.expectedOutput, {
+      const expVal = tc.expectedOutput !== undefined ? tc.expectedOutput : (tc.expected !== undefined ? tc.expected : "");
+      const outcome = await evaluateSingleTestCase(language, code, tc.input, expVal, {
         functionName: qFunctionName,
         problemId: question.questionId,
       });
 
       if (outcome.passed) passedCount++;
+      const isHidden = Boolean(tc.isHidden);
 
       testResults.push({
         testIndex: i + 1,
         index: i + 1,
-        isHidden: false,
+        isHidden,
         passed: outcome.passed,
         duration: outcome.duration,
         durationMs: outcome.duration,
         error: outcome.passed ? null : outcome.error,
-        input: tc.input,
-        expected: tc.expectedOutput,
-        expectedOutput: tc.expectedOutput,
-        actual: outcome.actual,
-        actualOutput: outcome.actual,
+        input: isHidden ? `[Hidden Test Case #${i + 1}]` : tc.input,
+        expected: isHidden ? `[Hidden Expected Output #${i + 1}]` : expVal,
+        expectedOutput: isHidden ? `[Hidden Expected Output #${i + 1}]` : expVal,
+        actual: isHidden && !outcome.passed ? "[Hidden Result]" : outcome.actual,
+        actualOutput: isHidden && !outcome.passed ? "[Hidden Result]" : outcome.actual,
       });
     }
 
@@ -978,13 +1057,48 @@ router.post("/attempt/:attemptId/submit-code", authenticateToken, async (req, re
 });
 
 // -------------------------------------------------------------
+// 6b. POST /api/certifications/attempt/:attemptId/heartbeat
+// Validates and refreshes single-session lock for an active attempt
+// -------------------------------------------------------------
+router.post("/attempt/:attemptId/heartbeat", authenticateToken, async (req, res) => {
+  try {
+    const userId = await resolveSafeUserId(req.user);
+    const attempt = await CertificationAttempt.findOne({
+      attemptId: req.params.attemptId,
+      userId,
+      status: "IN_PROGRESS",
+    });
+
+    if (!attempt) {
+      return res.status(404).json({ error: "Active attempt not found" });
+    }
+
+    if (!validateExamSessionToken(attempt, req)) {
+      return res.status(409).json({
+        code: "DUPLICATE_SESSION",
+        error: "This examination attempt is active in another tab or browser session.",
+      });
+    }
+
+    attempt.proctoring = attempt.proctoring || {};
+    attempt.proctoring.activeSessionUpdatedAt = new Date();
+    attempt.markModified("proctoring");
+    await attempt.save();
+
+    res.json({ success: true, active: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// -------------------------------------------------------------
 // 7. POST /api/certifications/attempt/:attemptId/proctoring-event
 // Records telemetry violations
 // -------------------------------------------------------------
 router.post("/attempt/:attemptId/proctoring-event", authenticateToken, async (req, res) => {
   try {
     const userId = await resolveSafeUserId(req.user);
-    const { type, details } = req.body;
+    const { type, details, timestamp, sessionId } = req.body;
 
     const attempt = await CertificationAttempt.findOne({
       attemptId: req.params.attemptId,
@@ -996,7 +1110,15 @@ router.post("/attempt/:attemptId/proctoring-event", authenticateToken, async (re
       return res.status(404).json({ error: "Active attempt not found" });
     }
 
-    const now = new Date();
+    if (!validateExamSessionToken(attempt, req)) {
+      return res.status(409).json({
+        code: "DUPLICATE_SESSION",
+        error: "This examination attempt is active in another tab or browser session.",
+      });
+    }
+
+    const parsedEventTime = timestamp ? new Date(timestamp) : new Date();
+    const now = Number.isNaN(parsedEventTime.getTime()) ? new Date() : parsedEventTime;
     const events = attempt.proctoring.events || [];
     const lastEvent = events.length > 0 ? events[events.length - 1] : null;
 
@@ -1017,7 +1139,13 @@ router.post("/attempt/:attemptId/proctoring-event", authenticateToken, async (re
     }
 
     attempt.proctoring.violationsCount = (attempt.proctoring.violationsCount || 0) + 1;
-    if (type === "TAB_SWITCH" || type === "VISIBILITY_LOST" || type === "WINDOW_BLUR") {
+    if (
+      type === "TAB_SWITCH" ||
+      type === "VISIBILITY_LOST" ||
+      type === "WINDOW_BLUR" ||
+      type === "PAGE_RELOAD" ||
+      type === "PAGE_RELOAD_ATTEMPT"
+    ) {
       attempt.proctoring.tabSwitches = (attempt.proctoring.tabSwitches || 0) + 1;
     } else if (type === "FULLSCREEN_EXIT") {
       attempt.proctoring.fullscreenExits = (attempt.proctoring.fullscreenExits || 0) + 1;
@@ -1027,6 +1155,7 @@ router.post("/attempt/:attemptId/proctoring-event", authenticateToken, async (re
       type: type || "VIOLATION",
       details: details || "Proctoring anomaly recorded",
       timestamp: now,
+      sessionId: sessionId || attempt.attemptId,
     });
 
     // Flag attempt if violations exhaust all 5 chances
@@ -1084,6 +1213,13 @@ router.post("/attempt/:attemptId/finalize", authenticateToken, async (req, res) 
 
     if (!attempt) {
       return res.status(404).json({ error: "Attempt not found" });
+    }
+
+    if (attempt.status === "IN_PROGRESS" && !validateExamSessionToken(attempt, req)) {
+      return res.status(409).json({
+        code: "DUPLICATE_SESSION",
+        error: "This examination attempt is active in another tab or browser session.",
+      });
     }
 
     // Merge any latest client-side submitted MCQ answers if provided in payload
@@ -1558,20 +1694,21 @@ async function buildCertificationReportPayload(attempt, reqUser = null) {
       language: sub.language || "python",
       status: sub.solved ? "passed" : "failed",
       score: Math.round(((sub.passedTests || 0) / Math.max(1, sub.totalTests || 10)) * 100),
-      marksObtained: Math.round(((sub.passedTests || 0) / Math.max(1, sub.totalTests || 10)) * 50),
-      totalMarks: 50,
+      marksObtained: Math.round(((sub.passedTests || 0) / Math.max(1, sub.totalTests || 10)) * 10),
+      totalMarks: 10,
       passedTests: sub.passedTests || 0,
       totalTests: sub.totalTests || 10,
       testResults: tResults.map((tr, tIdx) => ({
         testIndex: tr.testIndex || tIdx + 1,
         passed: Boolean(tr.passed),
-        input: tr.input || (q.testCases?.[tIdx]?.input) || (q.publicTests?.[tIdx]?.input) || "Test input",
-        expectedOutput: tr.expectedOutput || (q.testCases?.[tIdx]?.expectedOutput) || (q.publicTests?.[tIdx]?.expectedOutput) || "Expected output",
-        actualOutput: tr.actualOutput || (tr.passed ? (tr.expectedOutput || "Passed") : "Failed output"),
-        durationMs: tr.durationMs || 12,
-        isHidden: false,
+        input: tr.input ?? q.testCases?.[tIdx]?.input ?? q.publicTests?.[tIdx]?.input ?? "",
+        expectedOutput: tr.expectedOutput ?? tr.expected ?? q.testCases?.[tIdx]?.expectedOutput ?? q.publicTests?.[tIdx]?.expectedOutput ?? "",
+        actualOutput: tr.actualOutput ?? tr.actual ?? "",
+        durationMs: Number(tr.durationMs ?? tr.duration ?? 0),
+        error: tr.error || null,
+        isHidden: Boolean(tr.isHidden),
       })),
-      submittedAt: attempt.submittedAt || new Date(),
+      submittedAt: sub.submittedAt || attempt.submittedAt || null,
     };
   });
 
@@ -1626,9 +1763,14 @@ async function buildCertificationReportPayload(attempt, reqUser = null) {
         : undefined;
     return sel !== undefined && sel !== null && sel !== -1;
   }).length;
-  const answeredCodingCount = codingSubmissions.filter((s) => s.solved || s.passedTests > 0).length;
+  const answeredCodingCount = codingSubmissions.filter((s) => s.solved || s.passedTests > 0 || Boolean(s.submittedAt)).length;
   const totalAttemptedQuestions = answeredMcqsCount + answeredCodingCount;
   const totalQuestionsCount = selectedMcqs.length + selectedCodingQuestions.length;
+
+  const endTimestamp = attempt.submittedAt || attempt.updatedAt || new Date();
+  const actualDurationSeconds = attempt.startTime
+    ? Math.max(1, Math.round((new Date(endTimestamp).getTime() - new Date(attempt.startTime).getTime()) / 1000))
+    : (attempt.durationMinutes || 90) * 60;
 
   return {
     sessionId: attempt.attemptId,
@@ -1645,9 +1787,9 @@ async function buildCertificationReportPayload(attempt, reqUser = null) {
       candidateId: attempt.userId ? `CAND-${attempt.userId.toString().slice(-6).toUpperCase()}` : "CAND-CERT",
     },
     startTime: attempt.startTime,
-    submissionTime: attempt.submittedAt || attempt.updatedAt || new Date(),
-    submittedAt: attempt.submittedAt,
-    durationSeconds: (attempt.durationMinutes || 90) * 60,
+    submissionTime: attempt.submittedAt || attempt.updatedAt || null,
+    submittedAt: attempt.submittedAt || null,
+    durationSeconds: actualDurationSeconds,
     timeLimitMinutes: attempt.durationMinutes || 90,
     status: isPassed ? "passed" : "failed",
     finalVerdict: attempt.finalVerdict,
@@ -1695,9 +1837,15 @@ async function buildCertificationReportPayload(attempt, reqUser = null) {
       violationsCount: attempt.proctoring?.violationsCount || 0,
       tabSwitches: attempt.proctoring?.tabSwitches || 0,
       fullscreenExits: attempt.proctoring?.fullscreenExits || 0,
+      events: Array.isArray(attempt.proctoring?.events) ? attempt.proctoring.events : [],
       candidatePhoto: attempt.proctoring?.candidatePhoto || null,
-      deviceVerified: true,
-      integrityRating: Math.max(50, 100 - (attempt.proctoring?.violationsCount || 0) * 10),
+      recordingId: attempt.proctoring?.recordingId || "",
+      recordingUrl: attempt.proctoring?.recordingUrl || "",
+      recordingStatus: attempt.proctoring?.recordingStatus || "not_recorded",
+      recordingDurationSeconds: attempt.proctoring?.recordingDurationSeconds || 0,
+      deviceInfo: attempt.proctoring?.deviceInfo || null,
+      deviceVerified: Boolean(attempt.proctoring?.deviceInfo || attempt.proctoring?.candidatePhoto),
+      integrityRating: Math.max(0, 100 - (attempt.proctoring?.violationsCount || 0) * 10),
     },
     certificate: certificate
       ? {

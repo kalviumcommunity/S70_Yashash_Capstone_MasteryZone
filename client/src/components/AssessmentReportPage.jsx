@@ -2672,6 +2672,11 @@ function formatLocalReport(matched, uObj, rawId) {
                       >
                         <strong>{(ev.type || "Event").replace(/_/g, " ").toUpperCase()}</strong>:{" "}
                         {ev.detail || ev.reason || "Logged event"} ({formatDateTime(ev.timestamp)})
+                        {ev.sessionId ? (
+                          <span style={{ marginLeft: 8, opacity: 0.78, fontSize: "0.76rem" }}>
+                            [Session: {ev.sessionId}]
+                          </span>
+                        ) : null}
                       </div>
                     )
                   )}

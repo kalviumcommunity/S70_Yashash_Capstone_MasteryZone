@@ -7,6 +7,7 @@ import MasteryZoneCompilerWorkspace from "./MasteryZoneCompilerWorkspace";
 import ThemeToggle from "./ThemeToggle.jsx";
 import useNavigationLock from "../hooks/useNavigationLock";
 import { deduplicatedFetch } from "../utils/apiClient";
+import { ProctoringStreamRecorder } from "../utils/proctoringRecorder";
 import "./CertificationExamWorkspace.css";
 import {
   LuAward,
@@ -461,34 +462,22 @@ export default function CertificationExamWorkspace({
     };
   }, []);
 
-  const toggleFullscreen = () => {
+  // Per-tab unique session token for strict single-tab/single-session enforcement
+  const tabSessionTokenRef = useRef((() => {
     try {
-      if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.mozFullScreenElement && !document.msFullscreenElement) {
-        const docEl = document.documentElement;
-        if (docEl.requestFullscreen) {
-          docEl.requestFullscreen().catch(() => {});
-        } else if (docEl.webkitRequestFullscreen) {
-          docEl.webkitRequestFullscreen();
-        } else if (docEl.mozRequestFullScreen) {
-          docEl.mozRequestFullScreen();
-        } else if (docEl.msRequestFullscreen) {
-          docEl.msRequestFullscreen();
-        }
-      } else {
-        if (document.exitFullscreen) {
-          document.exitFullscreen().catch(() => {});
-        } else if (document.webkitExitFullscreen) {
-          document.webkitExitFullscreen();
-        } else if (document.mozCancelFullScreen) {
-          document.mozCancelFullScreen();
-        } else if (document.msExitFullscreen) {
-          document.msExitFullscreen();
-        }
-      }
-    } catch (err) {
-      console.warn("Fullscreen toggle error:", err);
+      const existing = sessionStorage.getItem("mz_cert_tab_token");
+      if (existing) return existing;
+      const fresh = (typeof crypto !== "undefined" && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : `tab_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      sessionStorage.setItem("mz_cert_tab_token", fresh);
+      return fresh;
+    } catch {
+      return `tab_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
     }
-  };
+  })());
+  const recorderRef = useRef(null);
+  const [duplicateSessionError, setDuplicateSessionError] = useState(null);
 
   // Modals & Finalizing
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -712,24 +701,54 @@ export default function CertificationExamWorkspace({
 
       let data = null;
       try {
-        const res = await fetch(`${API_BASE}/api/certifications/attempt/start`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify({
-            certId,
-            certTitle,
-            forceNew: isStartingFresh,
-            candidatePhoto: securityGateData?.candidatePhoto || null,
-          }),
+        let res;
+        const startBody = JSON.stringify({
+          certId,
+          certTitle,
+          forceNew: isStartingFresh,
+          candidatePhoto: securityGateData?.candidatePhoto || null,
+          clientSessionToken: tabSessionTokenRef.current,
         });
+        const startHeaders = {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        };
+
+        try {
+          res = await fetch(`${API_BASE}/api/certifications/attempt/start`, {
+            method: "POST",
+            headers: startHeaders,
+            body: startBody,
+          });
+        } catch (netErr) {
+          if (API_BASE) {
+            res = await fetch(`/api/certifications/attempt/start`, {
+              method: "POST",
+              headers: startHeaders,
+              body: startBody,
+            });
+          } else {
+            throw netErr;
+          }
+        }
 
         if (res.ok) {
           data = await res.json();
+          if (data.sessionToken) {
+            tabSessionTokenRef.current = data.sessionToken;
+            try {
+              sessionStorage.setItem("mz_cert_tab_token", data.sessionToken);
+            } catch {}
+          }
         } else {
           const err = await res.json().catch(() => ({}));
+          if (res.status === 409 || err.code === "DUPLICATE_SESSION") {
+            setDuplicateSessionError(
+              err.error || "This examination attempt is already active in another tab or browser window."
+            );
+            setIsLoading(false);
+            return;
+          }
           if (err.alreadyCertified || err.isPassed) {
             purgeActiveCertSession();
             setAlreadyCertifiedInfo(err);
@@ -1010,10 +1029,22 @@ export default function CertificationExamWorkspace({
             method: "POST",
             headers: {
               "Content-Type": "application/json",
+              "x-exam-session-token": tabSessionTokenRef.current,
               Authorization: `Bearer ${token}`,
             },
-            body: JSON.stringify({ type, details: message }),
+            body: JSON.stringify({
+              type,
+              details: message,
+              timestamp: now.toISOString(),
+              sessionId: attemptId,
+              sessionToken: tabSessionTokenRef.current,
+            }),
           });
+          if (res.status === 409) {
+            const dup = await res.json().catch(() => ({}));
+            setDuplicateSessionError(dup.error || "This examination attempt is active in another tab or browser session.");
+            return;
+          }
           if (res.ok) {
             const data = await res.json();
             if (data.violationsCount !== undefined) {
@@ -1279,6 +1310,8 @@ export default function CertificationExamWorkspace({
     window.addEventListener("blur", handleWindowBlur);
     document.addEventListener("fullscreenchange", handleFsChange);
     document.addEventListener("webkitfullscreenchange", handleFsChange);
+    document.addEventListener("mozfullscreenchange", handleFsChange);
+    document.addEventListener("MSFullscreenChange", handleFsChange);
     window.addEventListener("keydown", handleKeyDown, true);
     window.addEventListener("beforeunload", handleBeforeUnload);
 
@@ -1287,6 +1320,8 @@ export default function CertificationExamWorkspace({
       window.removeEventListener("blur", handleWindowBlur);
       document.removeEventListener("fullscreenchange", handleFsChange);
       document.removeEventListener("webkitfullscreenchange", handleFsChange);
+      document.removeEventListener("mozfullscreenchange", handleFsChange);
+      document.removeEventListener("MSFullscreenChange", handleFsChange);
       window.removeEventListener("keydown", handleKeyDown, true);
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
@@ -1394,17 +1429,37 @@ export default function CertificationExamWorkspace({
 
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      await fetch(`${API_BASE}/api/certifications/attempt/${attemptId}/save-mcq`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          questionId,
-          selectedOptionIndex: optionIndex,
-        }),
+      const mcqHeaders = {
+        "Content-Type": "application/json",
+        "x-exam-session-token": tabSessionTokenRef.current,
+        Authorization: `Bearer ${token}`,
+      };
+      const mcqBody = JSON.stringify({
+        questionId,
+        selectedOptionIndex: optionIndex,
+        sessionToken: tabSessionTokenRef.current,
       });
+
+      let res;
+      try {
+        res = await fetch(`${API_BASE}/api/certifications/attempt/${attemptId}/save-mcq`, {
+          method: "POST",
+          headers: mcqHeaders,
+          body: mcqBody,
+        });
+      } catch {
+        if (API_BASE) {
+          res = await fetch(`/api/certifications/attempt/${attemptId}/save-mcq`, {
+            method: "POST",
+            headers: mcqHeaders,
+            body: mcqBody,
+          });
+        }
+      }
+      if (res && res.status === 409) {
+        const dup = await res.json().catch(() => ({}));
+        setDuplicateSessionError(dup.error || "This examination attempt is active in another tab or browser session.");
+      }
     } catch {}
   };
 
@@ -1457,19 +1512,42 @@ export default function CertificationExamWorkspace({
     if (!currentCodingQ.questionId && !currentCodingQ.id) return { error: "No question selected" };
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const res = await fetch(`${API_BASE}/api/certifications/attempt/${attemptId}/run-code`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          questionIndex: codingIndex,
-          code: code || currentSubmission.code,
-          language: lang || currentSubmission.language,
-          customInput,
-        }),
+      let res;
+      const runBody = JSON.stringify({
+        questionIndex: codingIndex,
+        code: code || currentSubmission.code,
+        language: lang || currentSubmission.language,
+        customInput,
+        sessionToken: tabSessionTokenRef.current,
       });
+      const runHeaders = {
+        "Content-Type": "application/json",
+        "x-exam-session-token": tabSessionTokenRef.current,
+        Authorization: `Bearer ${token}`,
+      };
+
+      try {
+        res = await fetch(`${API_BASE}/api/certifications/attempt/${attemptId}/run-code`, {
+          method: "POST",
+          headers: runHeaders,
+          body: runBody,
+        });
+      } catch (directErr) {
+        if (API_BASE) {
+          res = await fetch(`/api/certifications/attempt/${attemptId}/run-code`, {
+            method: "POST",
+            headers: runHeaders,
+            body: runBody,
+          });
+        } else {
+          throw directErr;
+        }
+      }
+      if (res.status === 409) {
+        const dup = await res.json().catch(() => ({}));
+        setDuplicateSessionError(dup.error || "This examination attempt is active in another tab or browser session.");
+        return { error: dup.error || "Duplicate session blocked" };
+      }
 
       const data = await res.json();
       if (data.isCustom) {
@@ -1491,18 +1569,41 @@ export default function CertificationExamWorkspace({
     if (!currentCodingQ.questionId && !currentCodingQ.id) return { error: "No question selected" };
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const res = await fetch(`${API_BASE}/api/certifications/attempt/${attemptId}/submit-code`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          questionIndex: codingIndex,
-          code: code || currentSubmission.code,
-          language: lang || currentSubmission.language,
-        }),
+      let res;
+      const submitBody = JSON.stringify({
+        questionIndex: codingIndex,
+        code: code || currentSubmission.code,
+        language: lang || currentSubmission.language,
+        sessionToken: tabSessionTokenRef.current,
       });
+      const submitHeaders = {
+        "Content-Type": "application/json",
+        "x-exam-session-token": tabSessionTokenRef.current,
+        Authorization: `Bearer ${token}`,
+      };
+
+      try {
+        res = await fetch(`${API_BASE}/api/certifications/attempt/${attemptId}/submit-code`, {
+          method: "POST",
+          headers: submitHeaders,
+          body: submitBody,
+        });
+      } catch (directErr) {
+        if (API_BASE) {
+          res = await fetch(`/api/certifications/attempt/${attemptId}/submit-code`, {
+            method: "POST",
+            headers: submitHeaders,
+            body: submitBody,
+          });
+        } else {
+          throw directErr;
+        }
+      }
+      if (res.status === 409) {
+        const dup = await res.json().catch(() => ({}));
+        setDuplicateSessionError(dup.error || "This examination attempt is active in another tab or browser session.");
+        return { error: dup.error || "Duplicate session blocked" };
+      }
 
       const data = await res.json();
       const resultsArray = data.results || data.testResults || [];
@@ -1643,11 +1744,114 @@ export default function CertificationExamWorkspace({
     };
   }, [stopAllProctoringMedia]);
 
+  // Multi-tab / duplicate session lock + server heartbeat
+  useEffect(() => {
+    if (stage !== "active" || !attemptId || duplicateSessionError) return;
+    const myToken = tabSessionTokenRef.current;
+    const lockKey = `mz_cert_lock_${attemptId}`;
+
+    const claimLock = () => {
+      try {
+        const raw = localStorage.getItem(lockKey);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed.token && parsed.token !== myToken && Date.now() - (parsed.ts || 0) < 20000) {
+            setDuplicateSessionError("This examination attempt is already open in another browser tab or window.");
+            return false;
+          }
+        }
+        localStorage.setItem(lockKey, JSON.stringify({ token: myToken, ts: Date.now() }));
+      } catch {}
+      return true;
+    };
+
+    if (!claimLock()) return;
+
+    let bc = null;
+    try {
+      if (typeof BroadcastChannel !== "undefined") {
+        bc = new BroadcastChannel("mz_cert_exam_session");
+        bc.postMessage({ type: "EXAM_HEARTBEAT", attemptId, token: myToken });
+        bc.onmessage = (msg) => {
+          if (msg?.data?.attemptId === attemptId && msg?.data?.token && msg.data.token !== myToken) {
+            if (msg.data.type === "EXAM_HEARTBEAT" || msg.data.type === "EXAM_PING") {
+              setDuplicateSessionError("This examination attempt is already active in another browser tab.");
+            }
+          }
+        };
+      }
+    } catch {}
+
+    const handleStorageLock = (e) => {
+      if (e.key === lockKey && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (parsed.token && parsed.token !== myToken) {
+            setDuplicateSessionError("This examination attempt was opened in another tab.");
+          }
+        } catch {}
+      }
+    };
+    window.addEventListener("storage", handleStorageLock);
+
+    const beatInterval = setInterval(async () => {
+      if (isSubmittedRef.current || isFinalizingRef.current) return;
+      try {
+        localStorage.setItem(lockKey, JSON.stringify({ token: myToken, ts: Date.now() }));
+        if (bc) bc.postMessage({ type: "EXAM_HEARTBEAT", attemptId, token: myToken });
+      } catch {}
+      const authToken = localStorage.getItem("token") || sessionStorage.getItem("token");
+      if (authToken) {
+        try {
+          const hbRes = await fetch(`${API_BASE}/api/certifications/attempt/${attemptId}/heartbeat`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-exam-session-token": myToken,
+              Authorization: `Bearer ${authToken}`,
+            },
+            body: JSON.stringify({ sessionToken: myToken }),
+          });
+          if (hbRes.status === 409) {
+            const dup = await hbRes.json().catch(() => ({}));
+            setDuplicateSessionError(dup.error || "This examination attempt is active in another tab or browser session.");
+          }
+        } catch {}
+      }
+    }, 10000);
+
+    return () => {
+      clearInterval(beatInterval);
+      window.removeEventListener("storage", handleStorageLock);
+      if (bc) {
+        try { bc.close(); } catch {}
+      }
+      try {
+        const raw = localStorage.getItem(lockKey);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed.token === myToken) localStorage.removeItem(lockKey);
+        }
+      } catch {}
+    };
+  }, [stage, attemptId, duplicateSessionError]);
+
+  // Start ProctoringStreamRecorder when exam is active and streams are available
+  useEffect(() => {
+    if (stage !== "active" || !attemptId || duplicateSessionError) return;
+    if (!cameraStream && !screenStream) return;
+    if (recorderRef.current?.isRecording) return;
+
+    const recorder = new ProctoringStreamRecorder({ sessionId: attemptId, apiBase: API_BASE });
+    recorderRef.current = recorder;
+    recorder.start({ screenStream, cameraStream, micStream }).catch(() => {});
+  }, [stage, attemptId, cameraStream, screenStream, micStream, duplicateSessionError]);
+
   // -------------------------------------------------------------
   // 7. Final Combined Assessment Submission (MCQs + Coding >= 80%)
   // -------------------------------------------------------------
   const handleFinalSubmit = async () => {
-    if (isSubmittedRef.current && isFinalizing) return;
+    if (isFinalizingRef.current) return;
     isSubmittedRef.current = true;
     isFinalizingRef.current = true;
     setIsFinalizing(true);
@@ -1657,23 +1861,58 @@ export default function CertificationExamWorkspace({
     isRecoveryModalOpenRef.current = false;
     immunityUntilRef.current = Date.now() + 60000;
     try {
+      // Complete any active recording upload before finalizing
+      if (recorderRef.current && recorderRef.current.isRecording) {
+        try {
+          await Promise.race([
+            recorderRef.current.stopAndUpload(),
+            new Promise((resolve) => setTimeout(resolve, 6000)),
+          ]);
+        } catch (recErr) {
+          console.warn("Recording upload warning during submit:", recErr);
+        }
+      }
+
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
       const currentMcqs = mcqAnswersRef.current || mcqAnswers;
       const currentCoding = codingSubmissionsRef.current || codingSubmissions;
       const currentViols = violationsCountRef.current !== undefined ? violationsCountRef.current : violationsCount;
 
-      const res = await fetch(`${API_BASE}/api/certifications/attempt/${attemptId}/finalize`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          mcqAnswers: currentMcqs,
-          codingSubmissions: currentCoding,
-          violationsCount: currentViols,
-        }),
+      let res;
+      const finalizePayload = JSON.stringify({
+        mcqAnswers: currentMcqs,
+        codingSubmissions: currentCoding,
+        violationsCount: currentViols,
+        sessionToken: tabSessionTokenRef.current,
       });
+      const finalizeHeaders = {
+        "Content-Type": "application/json",
+        "x-exam-session-token": tabSessionTokenRef.current || "",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      };
+
+      try {
+        res = await fetch(`${API_BASE}/api/certifications/attempt/${attemptId}/finalize`, {
+          method: "POST",
+          headers: finalizeHeaders,
+          body: finalizePayload,
+        });
+      } catch (directErr) {
+        // Fallback to relative endpoint if API_BASE threw TypeError / Failed to fetch (e.g. CORS preflight)
+        if (API_BASE) {
+          try {
+            res = await fetch(`/api/certifications/attempt/${attemptId}/finalize`, {
+              method: "POST",
+              headers: finalizeHeaders,
+              body: finalizePayload,
+            });
+          } catch (fallbackErr) {
+            throw new Error("Assessment server connection interrupted. Your answers are saved—please retry submission.");
+          }
+        } else {
+          throw new Error("Assessment server connection interrupted. Your answers are saved—please retry submission.");
+        }
+      }
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -1689,6 +1928,7 @@ export default function CertificationExamWorkspace({
       localStorage.setItem(`mz_${uKey}_cert_${certId}_submitted`, "true");
       if (attemptId) {
         localStorage.setItem(`mz_${uKey}_cert_${attemptId}_submitted`, "true");
+        try { localStorage.removeItem(`mz_cert_lock_${attemptId}`); } catch {}
       }
       const targetReportUrl = `/assessment-report/${attemptId}`;
       localStorage.setItem(`mz_${uKey}_cert_${certId}_report_url`, targetReportUrl);
@@ -1696,7 +1936,7 @@ export default function CertificationExamWorkspace({
       purgeActiveCertSession();
       sessionStorage.removeItem("mz_cert_pending_refresh_violation");
 
-      // Stop ALL proctoring tracks (camera, microphone, screen) automatically upon submission
+      // Stop ALL proctoring tracks (camera, microphone, screen) and exit fullscreen automatically upon submission
       stopAllProctoringMedia();
 
       toast.dismiss();
@@ -1745,7 +1985,16 @@ export default function CertificationExamWorkspace({
         } else {
           existing = JSON.parse(sessionStorage.getItem("mz_guest_assessment_reports") || "[]");
         }
-        const localReportEntry = {
+        const fullscreenExitCount = (violationsLog || []).filter((e) => e.type === "FULLSCREEN_EXIT").length;
+        const tabSwitchCount = (violationsLog || []).filter((e) => e.type !== "FULLSCREEN_EXIT").length;
+        const localReportEntry = data.report
+          ? {
+              ...data.report,
+              sessionId: attemptId,
+              attemptId,
+              id: attemptId,
+            }
+          : {
           sessionId: attemptId,
           attemptId,
           id: attemptId,
@@ -1792,10 +2041,11 @@ export default function CertificationExamWorkspace({
           proctoring: {
             status: currentViols === 0 ? "Compliant" : "Audit Flagged",
             violationsCount: currentViols,
-            tabSwitches: currentViols,
-            fullscreenExits: 0,
+            tabSwitches: tabSwitchCount,
+            fullscreenExits: fullscreenExitCount,
             deviceVerified: true,
             integrityRating: Math.max(50, 100 - currentViols * 10),
+            events: violationsLog || [],
           },
           reviewBreakdown: (selectedMcqs || []).map((m) => {
             const userAns = currentMcqs[m.id];
@@ -1858,10 +2108,13 @@ export default function CertificationExamWorkspace({
         onCompleted(data);
       }
 
-      // Replace history entry so browser Back button cannot re-enter the completed exam workspace
-      window.history.replaceState({ submitted: true, certId, attemptId }, "", targetReportUrl);
+      // Navigate automatically to the generated examination report only after successful finalization
+      navigate(targetReportUrl, { replace: true });
     } catch (err) {
-      toast.error(err.message);
+      // Preserve saved work and allow the candidate to retry submission
+      isSubmittedRef.current = false;
+      isFinalizingRef.current = false;
+      toast.error(err.message || "Submission failed. Your answers are preserved—please try again.");
     } finally {
       setIsFinalizing(false);
     }
@@ -1875,6 +2128,37 @@ export default function CertificationExamWorkspace({
   const answeredMcqCount = Object.keys(mcqAnswers).length;
   const totalPassedCodingTests = codingSubmissions.reduce((acc, s) => acc + (s.passedTests || 0), 0);
   const totalAttemptedCount = answeredMcqCount + (codingSubmissions.filter((s) => s.solved || s.passedTests > 0).length);
+
+  // -------------------------------------------------------------
+  // STAGE -1: DUPLICATE SESSION BLOCKER
+  // -------------------------------------------------------------
+  if (duplicateSessionError) {
+    return (
+      <div className="mz-cert-exam-shell">
+        <div className="mz-cert-gate-backdrop" style={{ padding: "2rem", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div className="mz-cert-gate-card" style={{ maxWidth: 520, width: "100%", textAlign: "center" }}>
+            <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 56, height: 56, borderRadius: 16, background: "rgba(239, 68, 68, 0.14)", color: "#ef4444", marginBottom: "1rem" }}>
+              <LuShieldAlert size={28} />
+            </div>
+            <h2 style={{ margin: "0 0 0.75rem", fontSize: "1.35rem" }}>Examination Session Locked</h2>
+            <p style={{ margin: "0 0 1.5rem", opacity: 0.85, lineHeight: 1.55 }}>
+              {duplicateSessionError}
+            </p>
+            <button
+              type="button"
+              className="mz-cert-primary-btn"
+              onClick={() => {
+                stopAllProctoringMedia();
+                navigate("/coding?tab=certification");
+              }}
+            >
+              Back to Coding Hub
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // -------------------------------------------------------------
   // STAGE 0: CANDIDATE ALREADY PASSED & EARNED CERTIFICATE
@@ -2210,16 +2494,7 @@ export default function CertificationExamWorkspace({
             </div>
           </div>
 
-          <button
-            type="button"
-            className={`mz-cert-top-ctrl-btn ${isFullscreen ? "active" : ""}`}
-            onClick={toggleFullscreen}
-            title={isFullscreen ? "Exit Fullscreen (Esc)" : "Enter Fullscreen (F11)"}
-            aria-label={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
-          >
-            {isFullscreen ? <LuMinimize2 size={15} /> : <LuMaximize2 size={15} />}
-            <span>{isFullscreen ? "Exit Fullscreen" : "Full Screen"}</span>
-          </button>
+
 
           <button
             type="button"
@@ -2247,83 +2522,156 @@ export default function CertificationExamWorkspace({
       </header>
 
       {/* 2. UNIFIED QUESTION NAVIGATION STRIP */}
-      <div className="mz-cert-palette-bar">
-        <div className="mz-palette-left-section">
-          <span className="mz-palette-section-label">MCQs (1-20)</span>
-          <div className="mz-palette-mcq-circles">
-            {Array.from({ length: 20 }).map((_, idx) => {
-              const q = selectedMcqs[idx];
-              const isAnswered = q && mcqAnswers[q.id] !== undefined;
-              const isFlagged = flaggedMcqs.has(idx);
-              const isCurrent = currentQuestionIndex === idx;
+      {isMcqMode ? (
+        <div className="mz-cert-palette-bar">
+          <div className="mz-palette-left-section">
+            <span className="mz-palette-section-label">MCQs (1-20)</span>
+            <div className="mz-palette-mcq-circles">
+              {Array.from({ length: 20 }).map((_, idx) => {
+                const q = selectedMcqs[idx];
+                const isAnswered = q && mcqAnswers[q.id] !== undefined;
+                const isFlagged = flaggedMcqs.has(idx);
+                const isCurrent = currentQuestionIndex === idx;
 
-              let cls = "mz-palette-circle-btn";
-              if (isCurrent) cls += " active";
-              else if (isAnswered) cls += " answered";
-              else if (isFlagged) cls += " flagged";
+                let cls = "mz-palette-circle-btn";
+                if (isCurrent) cls += " active";
+                else if (isAnswered) cls += " answered";
+                else if (isFlagged) cls += " flagged";
 
-              return (
-                <button
-                  key={idx}
-                  type="button"
-                  className={cls}
-                  onClick={() => setCurrentQuestionIndex(idx)}
-                  title={`Question ${idx + 1}`}
-                >
-                  {idx + 1}
-                </button>
-              );
-            })}
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    className={cls}
+                    onClick={() => setCurrentQuestionIndex(idx)}
+                    title={`Question ${idx + 1}`}
+                  >
+                    {idx + 1}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mz-palette-strip-divider" />
+
+            <span className="mz-palette-section-label">CODING (21-22)</span>
+            <div className="mz-palette-coding-pills">
+              <button
+                type="button"
+                className={`mz-palette-coding-pill ${currentQuestionIndex === 20 ? "active" : ""}`}
+                onClick={() => setCurrentQuestionIndex(20)}
+                title="Coding Question 21"
+              >
+                <span className="mz-coding-pill-icon">&lt;/&gt;</span>
+                <span>Q21</span>
+              </button>
+
+              <button
+                type="button"
+                className={`mz-palette-coding-pill ${currentQuestionIndex === 21 ? "active" : ""}`}
+                onClick={() => setCurrentQuestionIndex(21)}
+                title="Coding Question 22"
+              >
+                <LuFileCode size={13} style={{ marginRight: 3 }} />
+                <span>Q22</span>
+              </button>
+            </div>
           </div>
 
-          <div className="mz-palette-strip-divider" />
+          {/* Right Stats: MCQs count, Coding count, Combined Cutoff Badge */}
+          <div className="mz-palette-right-section">
+            <div className="mz-stat-item">
+              <span className="mz-dot-indicator green">●</span>
+              <span className="mz-stat-label">
+                MCQs: <strong>{answeredMcqCount}/20</strong>
+              </span>
+            </div>
 
-          <span className="mz-palette-section-label">CODING (21-22)</span>
-          <div className="mz-palette-coding-pills">
-            <button
-              type="button"
-              className={`mz-palette-coding-pill ${currentQuestionIndex === 20 ? "active" : ""}`}
-              onClick={() => setCurrentQuestionIndex(20)}
-              title="Coding Question 21"
-            >
-              <span className="mz-coding-pill-icon">&lt;/&gt;</span>
-              <span>Q21</span>
-            </button>
+            <div className="mz-stat-item">
+              <span className="mz-dot-indicator purple">●</span>
+              <span className="mz-stat-label">
+                Coding Tests: <strong>{totalPassedCodingTests}/20</strong>
+              </span>
+            </div>
 
-            <button
-              type="button"
-              className={`mz-palette-coding-pill ${currentQuestionIndex === 21 ? "active" : ""}`}
-              onClick={() => setCurrentQuestionIndex(21)}
-              title="Coding Question 22"
-            >
-              <LuFileCode size={13} style={{ marginRight: 3 }} />
-              <span>Q22</span>
-            </button>
+            <div className="mz-cutoff-pill-badge">
+              <LuAward size={14} color="#d97706" />
+              <span>Combined Cutoff: ≥80% (32/40)</span>
+            </div>
           </div>
         </div>
+      ) : (
+        <div className="mz-cert-coding-nav-bar">
+          <div className="mz-coding-nav-left">
+            <button
+              type="button"
+              className="mz-coding-back-to-mcq-btn"
+              onClick={() => setCurrentQuestionIndex(19)}
+              title="Return to MCQ Section"
+            >
+              <LuChevronLeft size={16} />
+              <span>Back to MCQs ({answeredMcqCount}/20 Answered)</span>
+            </button>
 
-        {/* Right Stats: MCQs count, Coding count, Combined Cutoff Badge */}
-        <div className="mz-palette-right-section">
-          <div className="mz-stat-item">
-            <span className="mz-dot-indicator green">●</span>
-            <span className="mz-stat-label">
-              MCQs: <strong>{answeredMcqCount}/20</strong>
-            </span>
+            <div className="mz-palette-strip-divider" />
+
+            <div className="mz-coding-nav-tabs">
+              <button
+                type="button"
+                className={`mz-coding-tab-pill ${currentQuestionIndex === 20 ? "active" : ""}`}
+                onClick={() => setCurrentQuestionIndex(20)}
+                title={selectedCodingQuestions[0]?.title || "Problem 1"}
+              >
+                <span className="mz-coding-tab-num">Q21</span>
+                <span className="mz-coding-tab-title">
+                  {selectedCodingQuestions[0]?.title || "Problem 1"}
+                </span>
+                <span className="mz-coding-tab-status">
+                  {codingSubmissions[0]?.passedTests !== undefined
+                    ? `${codingSubmissions[0].passedTests}/10 Tests`
+                    : "10 Marks"}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                className={`mz-coding-tab-pill ${currentQuestionIndex === 21 ? "active" : ""}`}
+                onClick={() => setCurrentQuestionIndex(21)}
+                title={selectedCodingQuestions[1]?.title || "Problem 2"}
+              >
+                <span className="mz-coding-tab-num">Q22</span>
+                <span className="mz-coding-tab-title">
+                  {selectedCodingQuestions[1]?.title || "Problem 2"}
+                </span>
+                <span className="mz-coding-tab-status">
+                  {codingSubmissions[1]?.passedTests !== undefined
+                    ? `${codingSubmissions[1].passedTests}/10 Tests`
+                    : "10 Marks"}
+                </span>
+              </button>
+            </div>
           </div>
 
-          <div className="mz-stat-item">
-            <span className="mz-dot-indicator purple">●</span>
-            <span className="mz-stat-label">
-              Coding Tests: <strong>{totalPassedCodingTests}/20</strong>
-            </span>
-          </div>
-
-          <div className="mz-cutoff-pill-badge">
-            <LuAward size={14} color="#d97706" />
-            <span>Combined Cutoff: ≥80% (32/40)</span>
+          <div className="mz-coding-nav-right">
+            <div className="mz-stat-item">
+              <span className="mz-dot-indicator green">●</span>
+              <span className="mz-stat-label">
+                MCQs: <strong>{answeredMcqCount}/20</strong>
+              </span>
+            </div>
+            <div className="mz-stat-item">
+              <span className="mz-dot-indicator purple">●</span>
+              <span className="mz-stat-label">
+                Coding Passed: <strong>{totalPassedCodingTests}/20</strong>
+              </span>
+            </div>
+            <div className="mz-cutoff-pill-badge">
+              <LuAward size={14} color="#d97706" />
+              <span>Cutoff: ≥80% (32/40)</span>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* 3. MAIN WORKSPACE LAYOUT (2 COLUMNS IN MCQ, FULL-WIDTH IN CODING) */}
       <div className={`mz-cert-main-layout ${!isMcqMode ? "is-coding-mode" : ""} ${!isMcqMode && !isProctoringSidebarOpen ? "is-coding-fullwidth" : ""}`}>
