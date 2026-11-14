@@ -1299,6 +1299,11 @@ router.delete("/users/:id", async (req, res) => {
     await Promise.all([
       CodingProgress.deleteMany({ userId: user._id }),
       SubjectProgress.deleteMany({ userId: user._id }),
+      ChallengeSubmission.deleteMany({ userId: user._id }),
+      ModuleAssessmentAttempt.deleteMany({ userId: user._id }),
+      CertificationAttempt.deleteMany({ userId: user._id }),
+      ProjectSubmission.deleteMany({ userId: user._id }),
+      Recording.deleteMany({ userId: user._id }),
       AdminNotification.deleteMany({ targetId: String(user._id) }),
       User.deleteOne({ _id: user._id }),
     ]);
