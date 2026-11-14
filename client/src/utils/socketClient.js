@@ -46,6 +46,41 @@ export function getSharedSocket(targetUrl, options = {}) {
     auth: { ...options.auth, token },
   });
 
+  // Track tokens that failed administrator authentication to prevent repeated unauthorized attempts
+  socket._rejectedAdminTokens = new Set();
+
+  socket.on("admin_auth_error", (err) => {
+    const currentToken = socket.auth?.token || localStorage.getItem("token") || "";
+    if (currentToken) {
+      socket._rejectedAdminTokens.add(currentToken);
+    }
+    console.warn("[SocketClient] Admin room authorization rejected:", err?.message || "Access denied");
+  });
+
+  // Ensure latest token from storage is used on reconnect attempts
+  if (socket.io) {
+    socket.io.on("reconnect_attempt", () => {
+      const freshToken = localStorage.getItem("token") || "";
+      if (freshToken) {
+        socket.auth = { ...socket.auth, token: freshToken };
+      }
+    });
+  }
+
+  // Intercept admin join requests to avoid spamming the server with known expired/unauthorized tokens
+  const originalEmit = socket.emit.bind(socket);
+  socket.emit = (event, ...args) => {
+    if (event === "join_admin_monitoring" || event === "join_admin_feed") {
+      const payload = args[0];
+      const attemptToken = (payload && typeof payload === "object" ? payload.token : payload) || socket.auth?.token || localStorage.getItem("token") || "";
+      if (attemptToken && socket._rejectedAdminTokens && socket._rejectedAdminTokens.has(attemptToken)) {
+        // Suppress redundant join request for an expired or rejected token
+        return socket;
+      }
+    }
+    return originalEmit(event, ...args);
+  };
+
   entry = {
     socket,
     key,

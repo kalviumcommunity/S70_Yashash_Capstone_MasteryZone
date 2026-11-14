@@ -101,7 +101,7 @@ const AdminProctoringAuditDetail = () => {
       socket.emit("leave_proctoring_audit", { sessionId });
       socket.off("connect", handleConnect);
       socket.off("proctoring_session_updated", handleSessionUpdate);
-      releaseSharedSocket();
+      releaseSharedSocket(socket);
     };
   }, [sessionId]);
 

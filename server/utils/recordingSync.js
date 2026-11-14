@@ -13,7 +13,7 @@ const {
   getRecordingsGridFSBucket,
   saveFileToGridFS,
   getFileFromGridFS,
-  pipeGridFSToFile,
+  downloadGridFSToDisk,
 } = require("../config/recordingStorage");
 const { cleanInvalidRecordings } = require("./recordingCleanup");
 
@@ -63,8 +63,12 @@ async function syncRecordingsToGridFS() {
 
         if (!onDisk && inGrid) {
           // Re-hydrate local disk file from GridFS for fast local streaming
-          await pipeGridFSToFile(inGrid._id, targetFilePath);
-          console.log(`[RecordingSync] Re-hydrated recording from GridFS: ${fn}`);
+          const restored = await downloadGridFSToDisk(fn, targetFilePath);
+          if (restored && fs.existsSync(targetFilePath)) {
+            console.log(`[RecordingSync] Re-hydrated recording from GridFS: ${fn}`);
+          } else {
+            console.warn(`[RecordingSync] Failed to re-hydrate recording from GridFS: ${fn}`);
+          }
         } else if (!onDisk && !inGrid) {
           // Genuinely missing file; mark as error / unavailable, never synthesize fake media
           await Recording.updateOne({ _id: rec._id }, { $set: { status: "error" } });

@@ -87,9 +87,12 @@ const AdminLayout = () => {
   // Real-time Admin Socket Synchronization & Cache Invalidation
   useEffect(() => {
     const socket = getSharedSocket();
-    const token = localStorage.getItem("token") || "";
     const joinAdminRoom = () => {
-      if (token) socket.emit("join_admin_monitoring", { token });
+      const currentToken = localStorage.getItem("token") || "";
+      if (currentToken) socket.emit("join_admin_monitoring", { token: currentToken });
+    };
+    const handleAdminAuthError = (err) => {
+      console.warn("[AdminLayout] Admin socket authorization error:", err?.message || "Access denied");
     };
     const invalidateAdminCaches = () => {
       invalidateCachePattern("/api/admin");
@@ -114,11 +117,13 @@ const AdminLayout = () => {
     ];
     joinAdminRoom();
     socket.on("connect", joinAdminRoom);
+    socket.on("admin_auth_error", handleAdminAuthError);
     events.forEach((ev) => socket.on(ev, invalidateAdminCaches));
     return () => {
       socket.off("connect", joinAdminRoom);
+      socket.off("admin_auth_error", handleAdminAuthError);
       events.forEach((ev) => socket.off(ev, invalidateAdminCaches));
-      releaseSharedSocket();
+      releaseSharedSocket(socket);
     };
   }, []);
 
