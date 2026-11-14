@@ -220,7 +220,7 @@ export function NotificationProvider({ children }) {
       window.location.hostname.includes("vercel.app") ||
       window.location.hostname.includes("netlify.app")
     );
-    const socketTarget = import.meta.env.VITE_API_URL || (isCloudHosted ? "https://mastery-zone.onrender.com" : window.location.origin);
+    const socketTarget = import.meta.env.VITE_API_URL || (isCloudHosted ? "https://mastery-zone-api.onrender.com" : window.location.origin);
     const socket = getSharedSocket(socketTarget, {
       auth: { token: authToken },
     });
