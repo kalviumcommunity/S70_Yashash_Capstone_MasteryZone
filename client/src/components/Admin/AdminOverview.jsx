@@ -313,11 +313,6 @@ const AdminOverview = () => {
     fetchOverview("custom", customStart, customEnd);
   };
 
-  // If initial load with no cached data, display shimmer skeleton
-  if (loading && !overviewData) {
-    return <AdminOverviewSkeleton />;
-  }
-
   const stats = overviewData?.stats || {};
   const trendPoints = overviewData?.activityTrend || [];
   const trackDistribution = overviewData?.learningTrackDistribution || [
@@ -397,6 +392,11 @@ const AdminOverview = () => {
       areaD: aD,
     };
   }, [trendPoints]);
+
+  // If initial load with no cached data, display shimmer skeleton
+  if (loading && !overviewData) {
+    return <AdminOverviewSkeleton />;
+  }
 
   const formatYLabel = (val) => {
     if (val >= 1000) return `${(val / 1000).toFixed(val % 1000 === 0 ? 0 : 1)}k`;
