@@ -19,6 +19,7 @@ import {
   LuSlidersHorizontal,
   LuTrendingUp,
   LuCheck,
+  LuCircleAlert,
 } from "react-icons/lu";
 import { deduplicatedFetch, isDocumentVisible } from "../../utils/apiClient";
 
@@ -61,10 +62,10 @@ const Sparkline = ({ stroke = "#3b82f6", data, d }) => {
       viewBox="0 0 160 36"
       style={{
         width: "100%",
-        height: 32,
+        height: 30,
         display: "block",
         overflow: "visible",
-        marginTop: 8,
+        marginTop: 6,
       }}
       preserveAspectRatio="none"
     >
@@ -80,6 +81,82 @@ const Sparkline = ({ stroke = "#3b82f6", data, d }) => {
   );
 };
 
+// Skeleton Loader Component for Seamless First Load
+const AdminOverviewSkeleton = () => (
+  <div style={{ display: "flex", flexDirection: "column", gap: 24, maxWidth: 1280, margin: "0 auto", paddingBottom: 48, width: "100%" }}>
+    {/* Header Skeleton */}
+    <div className="mz-admin-page-header">
+      <div className="mz-admin-page-title-box">
+        <div className="mz-skeleton-text" style={{ width: 40, height: 40, borderRadius: 12 }} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div className="mz-skeleton-text" style={{ width: 180, height: 26 }} />
+          <div className="mz-skeleton-text" style={{ width: 280, height: 14 }} />
+        </div>
+      </div>
+      <div className="mz-skeleton-text" style={{ width: 140, height: 38, borderRadius: 12 }} />
+    </div>
+
+    {/* 6 Metric Cards Skeleton */}
+    <div className="mz-admin-metrics-row">
+      {[1, 2, 3, 4, 5, 6].map((i) => (
+        <div key={i} className="mz-admin-metric-card" style={{ minHeight: 156 }}>
+          <div className="mz-skeleton-text" style={{ width: 36, height: 36, borderRadius: 10, marginBottom: 12 }} />
+          <div className="mz-skeleton-text" style={{ width: 80, height: 14, marginBottom: 6 }} />
+          <div className="mz-skeleton-text" style={{ width: 100, height: 28, marginBottom: 8 }} />
+          <div className="mz-skeleton-text" style={{ width: 120, height: 12, marginBottom: 10 }} />
+          <div className="mz-skeleton-text" style={{ width: "100%", height: 28, borderRadius: 4 }} />
+        </div>
+      ))}
+    </div>
+
+    {/* Middle Row Skeleton */}
+    <div className="mz-admin-middle-row">
+      <div className="mz-admin-card" style={{ height: 310 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20 }}>
+          <div className="mz-skeleton-text" style={{ width: 160, height: 20 }} />
+          <div className="mz-skeleton-text" style={{ width: 100, height: 24, borderRadius: 8 }} />
+        </div>
+        <div className="mz-skeleton-text" style={{ width: "100%", height: 220, borderRadius: 12 }} />
+      </div>
+
+      <div className="mz-admin-card" style={{ height: 310 }}>
+        <div className="mz-skeleton-text" style={{ width: 180, height: 20, marginBottom: 24 }} />
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 140 }}>
+          <div className="mz-skeleton-text" style={{ width: 120, height: 120, borderRadius: "50%" }} />
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 16 }}>
+          <div className="mz-skeleton-text" style={{ width: "100%", height: 14 }} />
+          <div className="mz-skeleton-text" style={{ width: "90%", height: 14 }} />
+        </div>
+      </div>
+
+      <div className="mz-admin-card" style={{ height: 310 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 24 }}>
+          <div className="mz-skeleton-text" style={{ width: 140, height: 20 }} />
+          <div className="mz-skeleton-text" style={{ width: 80, height: 22, borderRadius: 12 }} />
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+          <div className="mz-skeleton-text" style={{ width: "100%", height: 42, borderRadius: 8 }} />
+          <div className="mz-skeleton-text" style={{ width: "100%", height: 42, borderRadius: 8 }} />
+          <div className="mz-skeleton-text" style={{ width: "100%", height: 42, borderRadius: 8 }} />
+        </div>
+      </div>
+    </div>
+
+    {/* Bottom Row Skeleton */}
+    <div className="mz-admin-bottom-row">
+      <div className="mz-admin-card" style={{ height: 280, padding: 20 }}>
+        <div className="mz-skeleton-text" style={{ width: 200, height: 20, marginBottom: 16 }} />
+        <div className="mz-skeleton-text" style={{ width: "100%", height: 190, borderRadius: 10 }} />
+      </div>
+      <div className="mz-admin-card" style={{ height: 280, padding: 20 }}>
+        <div className="mz-skeleton-text" style={{ width: 140, height: 20, marginBottom: 16 }} />
+        <div className="mz-skeleton-text" style={{ width: "100%", height: 190, borderRadius: 10 }} />
+      </div>
+    </div>
+  </div>
+);
+
 const AdminOverview = () => {
   const [filterRange, setFilterRange] = useState("30d"); // "today" | "yesterday" | "30d" | "3m" | "custom"
   const [customStart, setCustomStart] = useState("");
@@ -88,14 +165,22 @@ const AdminOverview = () => {
   const [dateLabel, setDateLabel] = useState("Last 30 Days");
 
   const [loading, setLoading] = useState(true);
+  const [isFetching, setIsFetching] = useState(false);
   const [overviewData, setOverviewData] = useState(null);
   const [hoveredPoint, setHoveredPoint] = useState(null);
   const [activeTab, setActiveTab] = useState("30d");
+  const [errorState, setErrorState] = useState(null);
   const datePickerRef = useRef(null);
 
-  const fetchOverview = async (range = filterRange, start = customStart, end = customEnd) => {
+  const fetchOverview = async (range = filterRange, start = customStart, end = customEnd, isBackground = false) => {
     try {
-      setLoading(true);
+      if (!isBackground && !overviewData) {
+        setLoading(true);
+      } else {
+        setIsFetching(true);
+      }
+      setErrorState(null);
+
       const token = localStorage.getItem("token");
       let url = `${API_BASE}/api/admin/overview?range=${range}`;
       if (range === "custom" && start && end) {
@@ -104,19 +189,25 @@ const AdminOverview = () => {
 
       const res = await deduplicatedFetch(url, {
         headers: { Authorization: `Bearer ${token}` },
-        cacheTtlMs: 4000,
+        cacheTtlMs: 5000,
       });
 
       if (res.ok) {
         const json = await res.json();
         if (json.success && json.data) {
           setOverviewData(json.data);
+        } else {
+          setErrorState(json.message || "Failed to load dashboard metrics");
         }
+      } else {
+        setErrorState("Server returned an error while loading overview metrics.");
       }
     } catch (err) {
       console.error("Overview fetch error:", err);
+      setErrorState(err.message || "Network error loading overview");
     } finally {
       setLoading(false);
+      setIsFetching(false);
     }
   };
 
@@ -125,7 +216,7 @@ const AdminOverview = () => {
     const interval = setInterval(() => {
       // Pause automatic polling when tab/page is hidden
       if (isDocumentVisible()) {
-        fetchOverview(filterRange, customStart, customEnd);
+        fetchOverview(filterRange, customStart, customEnd, true);
       }
     }, 20000); // 20s auto-refresh for real-time live data
 
@@ -148,7 +239,7 @@ const AdminOverview = () => {
     setDateLabel(label);
     if (rangeKey !== "custom") {
       setShowDatePicker(false);
-      fetchOverview(rangeKey);
+      fetchOverview(rangeKey, customStart, customEnd);
     }
   };
 
@@ -163,28 +254,35 @@ const AdminOverview = () => {
     fetchOverview("custom", customStart, customEnd);
   };
 
+  // If initial load with no cached data, display shimmer skeleton
+  if (loading && !overviewData) {
+    return <AdminOverviewSkeleton />;
+  }
+
   const stats = overviewData?.stats || {};
   const trendPoints = overviewData?.activityTrend || [];
   const trackDistribution = overviewData?.learningTrackDistribution || [
-    { name: "Python", percentage: 0, color: "#3b82f6" },
-    { name: "DSA", percentage: 0, color: "#10b981" },
-    { name: "Web Development", percentage: 0, color: "#f59e0b" },
-    { name: "C++ & Systems", percentage: 0, color: "#8b5cf6" },
-    { name: "Java Development", percentage: 0, color: "#ec4899" },
+    { name: "Python Programming", count: 0, percentage: 0, color: "#3b82f6" },
+    { name: "Web Development", count: 0, percentage: 0, color: "#10b981" },
+    { name: "Data Structures & Algorithms", count: 0, percentage: 0, color: "#8b5cf6" },
+    { name: "C++ & Systems", count: 0, percentage: 0, color: "#6366f1" },
+    { name: "Java Development", count: 0, percentage: 0, color: "#f59e0b" },
   ];
   const recentAssessments = overviewData?.recentAssessmentResults || [];
   const liveSessions = overviewData?.liveSessions || [];
   const proctoring = overviewData?.proctoringStatus || {
-    overall: "All Systems Online",
-    camera: { status: "Active" },
-    microphone: { status: "Active" },
-    screenSharing: { status: "Active" },
+    overall: "Standby (Ready)",
+    camera: { status: "Standby", count: 0, label: "Idle (Standby)" },
+    microphone: { status: "Standby", count: 0, label: "Idle (Standby)" },
+    screenSharing: { status: "Standby", count: 0, label: "Idle (Standby)" },
+    activeProctoredSessions: 0,
   };
 
   // Top track calculation for center of donut
+  const totalTrackUsers = trackDistribution.reduce((acc, t) => acc + (t.count || 0), 0);
   const topTrack = trackDistribution.reduce(
     (max, t) => (t.percentage > (max?.percentage || 0) ? t : max),
-    trackDistribution[0] || { name: "Python", percentage: 0 }
+    trackDistribution[0] || { name: "Python Programming", count: 0, percentage: 0 }
   );
 
   // Dynamic SVG Trend Chart Calculations
@@ -264,7 +362,7 @@ const AdminOverview = () => {
     setHoverPixel(null);
   };
 
-  // Milestone labels along the bottom (clean 5 spaced dates matching reference)
+  // Milestone labels along the bottom (5 evenly spaced dates)
   const milestoneLabels = [];
   if (svgCoords.length <= 5) {
     svgCoords.forEach((p) => milestoneLabels.push(p));
@@ -293,8 +391,24 @@ const AdminOverview = () => {
     return `${dateFormatted} • ${timeFormatted}`;
   };
 
+  const hasAnyActiveStream =
+    (proctoring.camera?.count > 0 ||
+     proctoring.microphone?.count > 0 ||
+     proctoring.screenSharing?.count > 0);
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24, maxWidth: 1280, margin: "0 auto", paddingBottom: 48 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 24, maxWidth: 1280, margin: "0 auto", paddingBottom: 48, position: "relative" }}>
+      {/* Background Fetching Indicator */}
+      {isFetching && <div className="mz-top-loading-bar" />}
+
+      {/* Error Banner if any */}
+      {errorState && (
+        <div style={{ padding: "10px 16px", borderRadius: 10, background: "var(--mz-red-bg)", color: "#dc2626", border: "1px solid #fca5a5", fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}>
+          <LuCircleAlert size={16} />
+          <span>{errorState}</span>
+        </div>
+      )}
+
       {/* ────────────────── 1. HEADER SECTION & DATE FILTER ────────────────── */}
       <div className="mz-admin-page-header">
         <div className="mz-admin-page-title-box">
@@ -304,7 +418,7 @@ const AdminOverview = () => {
           <div>
             <h1 className="mz-admin-page-title">Platform Overview</h1>
             <p className="mz-admin-page-subtitle">
-              Monitor, analyze and manage your MasteryZone platform
+              Real-time platform telemetry, user metrics, and verified database statistics
             </p>
           </div>
         </div>
@@ -403,104 +517,122 @@ const AdminOverview = () => {
         </div>
       </div>
 
-      {/* ────────────────── 2. SIX METRIC CARDS (MATCHING REFERENCE) ────────────────── */}
+      {/* ────────────────── 2. SIX METRIC CARDS (UNIFORM DIMENSIONS & REAL DB NUMBERS) ────────────────── */}
       <div className="mz-admin-metrics-row">
         {/* Card 1: Total Users */}
-        <div className="mz-admin-metric-card">
-          <div className="mz-admin-metric-icon" style={{ background: "var(--mz-blue-bg)", color: "#3b82f6" }}>
-            <LuUsers style={{ width: 20, height: 20 }} />
+        <div className="mz-admin-metric-card" style={{ minHeight: 156 }}>
+          <div>
+            <div className="mz-admin-metric-icon" style={{ background: "var(--mz-blue-bg)", color: "#3b82f6" }}>
+              <LuUsers style={{ width: 20, height: 20 }} />
+            </div>
+            <p className="mz-admin-metric-label">Total Users</p>
+            <h3 className="mz-admin-metric-value">
+              {Number(stats.totalUsers?.value || 0).toLocaleString()}
+            </h3>
+            <p style={{ margin: "2px 0 0", fontSize: 11.5, fontWeight: 600, color: "#10b981", display: "flex", alignItems: "center", gap: 4 }}>
+              <span>↑</span>
+              <span>{stats.totalUsers?.trend || "Registered & Verified"}</span>
+            </p>
           </div>
-          <p className="mz-admin-metric-label">Total Users</p>
-          <h3 className="mz-admin-metric-value">
-            {loading ? <span className="mz-skeleton-text" style={{ width: 64, height: 26 }} /> : Number(stats.totalUsers?.value || 0).toLocaleString()}
-          </h3>
-          <p style={{ margin: "4px 0 0", fontSize: 11.5, fontWeight: 600, color: "#10b981", display: "flex", alignItems: "center", gap: 3 }}>
-            <span>↑</span>
-            <span>{stats.totalUsers?.trend || "Registered & Verified"}</span>
-          </p>
           <Sparkline stroke="#3b82f6" data={trendValues} />
         </div>
 
         {/* Card 2: Active Today */}
-        <div className="mz-admin-metric-card">
-          <div className="mz-admin-metric-icon" style={{ background: "var(--mz-green-bg)", color: "#10b981" }}>
-            <LuUserCheck style={{ width: 20, height: 20 }} />
+        <div className="mz-admin-metric-card" style={{ minHeight: 156 }}>
+          <div>
+            <div className="mz-admin-metric-icon" style={{ background: "var(--mz-green-bg)", color: "#10b981" }}>
+              <LuUserCheck style={{ width: 20, height: 20 }} />
+            </div>
+            <p className="mz-admin-metric-label">Active Today</p>
+            <h3 className="mz-admin-metric-value">
+              {Number(stats.activeToday?.value || 0).toLocaleString()}
+            </h3>
+            <p style={{ margin: "2px 0 0", fontSize: 11.5, fontWeight: 600, color: "#10b981", display: "flex", alignItems: "center", gap: 4 }}>
+              <span>↑</span>
+              <span>{stats.activeToday?.trend || "Active in range"}</span>
+            </p>
           </div>
-          <p className="mz-admin-metric-label">Active Today</p>
-          <h3 className="mz-admin-metric-value">
-            {loading ? <span className="mz-skeleton-text" style={{ width: 48, height: 26 }} /> : Number(stats.activeToday?.value || 0).toLocaleString()}
-          </h3>
-          <p style={{ margin: "4px 0 0", fontSize: 11.5, fontWeight: 600, color: "#10b981", display: "flex", alignItems: "center", gap: 3 }}>
-            <span>↑</span>
-            <span>{stats.activeToday?.trend || "Active within range"}</span>
-          </p>
           <Sparkline stroke="#10b981" data={trendValues} />
         </div>
 
         {/* Card 3: Active Sessions */}
-        <div className="mz-admin-metric-card">
-          <div className="mz-admin-metric-icon" style={{ background: "var(--mz-purple-bg)", color: "#8b5cf6" }}>
-            <LuZap style={{ width: 20, height: 20 }} />
+        <div className="mz-admin-metric-card" style={{ minHeight: 156 }}>
+          <div>
+            <div className="mz-admin-metric-icon" style={{ background: "var(--mz-purple-bg)", color: "#8b5cf6" }}>
+              <LuZap style={{ width: 20, height: 20 }} />
+            </div>
+            <p className="mz-admin-metric-label">Active Sessions</p>
+            <h3 className="mz-admin-metric-value" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span>{Number(stats.activeSessions?.value || 0).toLocaleString()}</span>
+              {Number(stats.activeSessions?.value || 0) > 0 && (
+                <span className="mz-status-pulsing-dot" style={{ width: 8, height: 8 }} />
+              )}
+            </h3>
+            <p style={{ margin: "2px 0 0", fontSize: 11.5, fontWeight: 600, color: Number(stats.activeSessions?.value || 0) > 0 ? "#10b981" : "var(--mz-text-muted)", display: "flex", alignItems: "center", gap: 4 }}>
+              <span>●</span>
+              <span>{stats.activeSessions?.trend || "Live socket sessions"}</span>
+            </p>
           </div>
-          <p className="mz-admin-metric-label">Active Sessions</p>
-          <h3 className="mz-admin-metric-value">
-            {loading ? <span className="mz-skeleton-text" style={{ width: 36, height: 26 }} /> : Number(stats.activeSessions?.value || 0).toLocaleString()}
-          </h3>
-          <p style={{ margin: "4px 0 0", fontSize: 11.5, fontWeight: 600, color: "#10b981", display: "flex", alignItems: "center", gap: 3 }}>
-            <span>↑</span>
-            <span>{stats.activeSessions?.trend || "Live socket sessions"}</span>
-          </p>
           <Sparkline stroke="#8b5cf6" data={trendValues} />
         </div>
 
         {/* Card 4: Assessments */}
-        <div className="mz-admin-metric-card">
-          <div className="mz-admin-metric-icon" style={{ background: "var(--mz-amber-bg)", color: "#f59e0b" }}>
-            <LuFileText style={{ width: 20, height: 20 }} />
+        <div className="mz-admin-metric-card" style={{ minHeight: 156 }}>
+          <div>
+            <div className="mz-admin-metric-icon" style={{ background: "var(--mz-amber-bg)", color: "#f59e0b" }}>
+              <LuFileText style={{ width: 20, height: 20 }} />
+            </div>
+            <p className="mz-admin-metric-label">Assessments</p>
+            <h3 className="mz-admin-metric-value">
+              {Number(stats.assessments?.value || 0).toLocaleString()}
+            </h3>
+            <p style={{ margin: "2px 0 0", fontSize: 11.5, fontWeight: 600, color: "#f59e0b", display: "flex", alignItems: "center", gap: 4 }}>
+              <span>↑</span>
+              <span>{stats.assessments?.trend || "Completed exams"}</span>
+            </p>
           </div>
-          <p className="mz-admin-metric-label">Assessments</p>
-          <h3 className="mz-admin-metric-value">
-            {loading ? <span className="mz-skeleton-text" style={{ width: 54, height: 26 }} /> : Number(stats.assessments?.value || 0).toLocaleString()}
-          </h3>
-          <p style={{ margin: "4px 0 0", fontSize: 11.5, fontWeight: 600, color: "#f59e0b", display: "flex", alignItems: "center", gap: 3 }}>
-            <span>↑</span>
-            <span>{stats.assessments?.trend || "Completed exams"}</span>
-          </p>
           <Sparkline stroke="#f59e0b" data={trendValues} />
         </div>
 
         {/* Card 5: Coding Submissions */}
-        <div className="mz-admin-metric-card">
-          <div className="mz-admin-metric-icon" style={{ background: "var(--mz-green-bg)", color: "#10b981" }}>
-            <LuCode style={{ width: 20, height: 20 }} />
+        <div className="mz-admin-metric-card" style={{ minHeight: 156 }}>
+          <div>
+            <div className="mz-admin-metric-icon" style={{ background: "var(--mz-indigo-bg, #e0e7ff)", color: "#6366f1" }}>
+              <LuCode style={{ width: 20, height: 20 }} />
+            </div>
+            <p className="mz-admin-metric-label">Coding Submissions</p>
+            <h3 className="mz-admin-metric-value">
+              {Number(stats.codingSubmissions?.value || 0).toLocaleString()}
+            </h3>
+            <p style={{ margin: "2px 0 0", fontSize: 11.5, fontWeight: 600, color: "#10b981", display: "flex", alignItems: "center", gap: 4 }}>
+              <span>↑</span>
+              <span>{stats.codingSubmissions?.trend || "Compiler evaluations"}</span>
+            </p>
           </div>
-          <p className="mz-admin-metric-label">Coding Submissions</p>
-          <h3 className="mz-admin-metric-value">
-            {loading ? <span className="mz-skeleton-text" style={{ width: 58, height: 26 }} /> : Number(stats.codingSubmissions?.value || 0).toLocaleString()}
-          </h3>
-          <p style={{ margin: "4px 0 0", fontSize: 11.5, fontWeight: 600, color: "#10b981", display: "flex", alignItems: "center", gap: 3 }}>
-            <span>↑</span>
-            <span>{stats.codingSubmissions?.trend || "Compiler evaluations"}</span>
-          </p>
-          <Sparkline stroke="#10b981" data={trendValues} />
+          <Sparkline stroke="#6366f1" data={trendValues} />
         </div>
 
         {/* Card 6: Storage Used */}
-        <div className="mz-admin-metric-card">
-          <div className="mz-admin-metric-icon" style={{ background: "var(--mz-purple-bg)", color: "#8b5cf6" }}>
-            <LuDatabase style={{ width: 20, height: 20 }} />
+        <div className="mz-admin-metric-card" style={{ minHeight: 156 }}>
+          <div>
+            <div className="mz-admin-metric-icon" style={{ background: "var(--mz-purple-bg)", color: "#a855f7" }}>
+              <LuDatabase style={{ width: 20, height: 20 }} />
+            </div>
+            <p className="mz-admin-metric-label">Storage Used</p>
+            <h3 className="mz-admin-metric-value">
+              {`${stats.storageUsed?.percentage || 0}%`}
+            </h3>
+            <p style={{ margin: "2px 0 0", fontSize: 11.5, fontWeight: 600, color: "var(--mz-text-muted)" }}>
+              {`${stats.storageUsed?.consumedMB || "0.0"} MB of 10 GB`}
+            </p>
           </div>
-          <p className="mz-admin-metric-label">Storage Used</p>
-          <h3 className="mz-admin-metric-value">
-            {loading ? <span className="mz-skeleton-text" style={{ width: 44, height: 26 }} /> : `${stats.storageUsed?.percentage || 0}%`}
-          </h3>
-          <div style={{ marginTop: 14 }}>
-            <div style={{ height: 7, background: "var(--mz-surface-muted)", borderRadius: 9999, overflow: "hidden" }}>
+          <div style={{ marginTop: 12 }}>
+            <div style={{ height: 8, background: "var(--mz-surface-muted)", borderRadius: 9999, overflow: "hidden" }}>
               <div
                 style={{
-                  width: `${stats.storageUsed?.percentage || 0}%`,
+                  width: `${Math.max(2, Math.min(100, stats.storageUsed?.percentage || 0))}%`,
                   height: "100%",
-                  background: "#6366f1",
+                  background: "linear-gradient(90deg, #6366f1 0%, #a855f7 100%)",
                   borderRadius: 9999,
                   transition: "width 0.4s ease",
                 }}
@@ -601,7 +733,7 @@ const AdminOverview = () => {
                 <linearGradient id="trendGradientFill" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#6366f1" stopOpacity="0.22" />
                   <stop offset="70%" stopColor="#818cf8" stopOpacity="0.06" />
-                  <stop offset="100%" stopColor="var(--mz-indigo-border)" stopOpacity="0.0" />
+                  <stop offset="100%" stopColor="#6366f1" stopOpacity="0.0" />
                 </linearGradient>
 
                 <filter id="trendGlowFilter" x="-20%" y="-20%" width="140%" height="140%">
@@ -638,7 +770,7 @@ const AdminOverview = () => {
                   y1={0}
                   x2={activeHighlightedPoint.x}
                   y2={chartHeight}
-                  stroke="var(--mz-indigo-border)"
+                  stroke="var(--mz-indigo-border, #a5b4fc)"
                   strokeWidth="1.5"
                   strokeDasharray="4 4"
                   opacity="0.8"
@@ -681,7 +813,7 @@ const AdminOverview = () => {
               )}
             </svg>
 
-            {/* Floating Interactive Tooltip matching reference */}
+            {/* Floating Interactive Tooltip */}
             {activeHighlightedPoint && (
               <div
                 className="mz-chart-tooltip"
@@ -691,18 +823,18 @@ const AdminOverview = () => {
                 }}
               >
                 <div style={{ fontSize: 10.5, fontWeight: 600, color: "var(--mz-text-muted)", marginBottom: 2 }}>
-                  {activeHighlightedPoint.date || "Oct 21"}
+                  {activeHighlightedPoint.date || "Active Period"}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                   <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#6366f1", display: "inline-block" }} />
                   <span style={{ fontSize: 12.5, fontWeight: 800, color: "var(--mz-text-primary)" }}>
-                    {activeHighlightedPoint?.activeUsers != null ? `${activeHighlightedPoint.activeUsers.toLocaleString()} Active Users` : "0 Active Users"}
+                    {activeHighlightedPoint?.activeUsers != null ? `${activeHighlightedPoint.activeUsers.toLocaleString()} Active User${activeHighlightedPoint.activeUsers === 1 ? "" : "s"}` : "0 Active Users"}
                   </span>
                 </div>
               </div>
             )}
 
-            {/* Clean Milestone X-Axis Labels: Oct 1, Oct 7, Oct 14, Oct 21, Oct 30 */}
+            {/* Clean Milestone X-Axis Labels */}
             <div
               style={{
                 display: "flex",
@@ -721,23 +853,25 @@ const AdminOverview = () => {
           </div>
         </div>
 
-        {/* B. Learning Track Distribution Donut Chart */}
+        {/* B. Learning Track Distribution Donut Chart with User Counts & Proportions */}
         <div className="mz-admin-card" style={{ display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
           <div className="mz-admin-card-header">
             <h3 className="mz-admin-card-title">
               <LuSlidersHorizontal style={{ width: 18, height: 18, color: "#6366f1" }} />
-              <span>Learning Track Distribution</span>
+              <span>Track Distribution</span>
             </h3>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20, padding: "18px 4px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, padding: "12px 2px" }}>
             {/* SVG Donut */}
-            <div style={{ position: "relative", width: 128, height: 128, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ position: "relative", width: 124, height: 124, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
               <svg style={{ width: "100%", height: "100%", transform: "rotate(-90deg)" }} viewBox="0 0 100 100">
                 <circle cx="50" cy="50" r="38" fill="transparent" stroke="var(--mz-surface-muted)" strokeWidth="12" />
                 {(() => {
                   let accumulated = 0;
                   const circumference = 238.76;
+                  const hasData = trackDistribution.some((t) => t.percentage > 0);
+                  if (!hasData) return null;
                   return trackDistribution.map((t, idx) => {
                     const strokeLen = (t.percentage / 100) * circumference;
                     const dashArray = `${strokeLen} ${circumference - strokeLen}`;
@@ -754,31 +888,39 @@ const AdminOverview = () => {
                         strokeWidth="12"
                         strokeDasharray={dashArray}
                         strokeDashoffset={offset}
+                        style={{ transition: "stroke-dashoffset 0.4s ease, stroke-dasharray 0.4s ease" }}
                       />
                     );
                   });
                 })()}
               </svg>
 
-              <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
+              <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: 6 }}>
                 <span style={{ fontSize: 20, fontWeight: 800, color: "var(--mz-text-primary)", lineHeight: 1 }}>
-                  {topTrack?.percentage || 0}%
+                  {totalTrackUsers > 0 ? `${topTrack?.percentage || 0}%` : "0%"}
                 </span>
-                <span style={{ fontSize: 11, color: "var(--mz-text-muted)", fontWeight: 600, marginTop: 3 }}>
-                  {topTrack?.name || "Python"}
+                <span style={{ fontSize: 10.5, color: "var(--mz-text-muted)", fontWeight: 600, marginTop: 3, maxWidth: 84, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {totalTrackUsers > 0 ? (topTrack?.name?.split(" ")[0] || "Active") : "No Activity"}
                 </span>
               </div>
             </div>
 
-            {/* Legend List matching reference */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: 12.5, flex: 1 }}>
+            {/* Legend List with Track Name, User Count & Percentage */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12, flex: 1, minWidth: 0 }}>
               {trackDistribution.map((t) => (
-                <div key={t.name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: t.color, display: "inline-block" }} />
-                    <span style={{ color: "var(--mz-text-secondary)", fontWeight: 500 }}>{t.name}</span>
+                <div key={t.name} className="mz-donut-legend-item">
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: t.color, flexShrink: 0 }} />
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ color: "var(--mz-text-secondary)", fontWeight: 600, fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {t.name}
+                      </div>
+                      <div style={{ color: "var(--mz-text-muted)", fontSize: 10.5 }}>
+                        {t.count != null ? `${t.count} student${t.count === 1 ? "" : "s"}` : "0 enrolled"}
+                      </div>
+                    </div>
                   </div>
-                  <span style={{ fontWeight: 700, color: "var(--mz-text-primary)" }}>
+                  <span style={{ fontWeight: 800, color: "var(--mz-text-primary)", fontSize: 12, flexShrink: 0, marginLeft: 6 }}>
                     {t.percentage}%
                   </span>
                 </div>
@@ -787,56 +929,85 @@ const AdminOverview = () => {
           </div>
         </div>
 
-        {/* C. Proctoring Status matching reference */}
+        {/* C. Proctoring Status — Dynamic Real-Time Verification */}
         <div className="mz-admin-card" style={{ display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
           <div className="mz-admin-card-header">
             <h3 className="mz-admin-card-title">
               <LuShield style={{ width: 18, height: 18, color: "#3b82f6" }} />
               <span>Proctoring Status</span>
             </h3>
-            <span style={{ fontSize: 11, fontWeight: 600, color: "#059669", background: "var(--mz-green-bg)", padding: "4px 10px", borderRadius: 9999 }}>
-              All Systems Online
+            <span
+              className={
+                hasAnyActiveStream
+                  ? "mz-admin-proctoring-badge-active"
+                  : "mz-admin-proctoring-badge-standby"
+              }
+            >
+              {hasAnyActiveStream && <span className="mz-status-pulsing-dot" />}
+              {proctoring.overall || "Standby (Ready)"}
             </span>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: "14px 4px 10px" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <LuCamera style={{ width: 18, height: 18, color: "var(--mz-text-muted)" }} />
-                <span style={{ fontSize: 13, fontWeight: 500, color: "var(--mz-text-secondary)" }}>Camera</span>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "10px 2px 4px" }}>
+            {/* Camera */}
+            <div className="mz-admin-proctor-row">
+              <div className="mz-admin-proctor-item-left">
+                <div className="mz-admin-proctor-icon">
+                  <LuCamera style={{ width: 16, height: 16 }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--mz-text-primary)" }}>Camera</div>
+                  <div style={{ fontSize: 10.5, color: "var(--mz-text-muted)" }}>Live stream monitoring</div>
+                </div>
               </div>
-              <span style={{ fontSize: 12, fontWeight: 600, color: "#059669", display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981", display: "inline-block" }} />
-                Active
+              <span className={proctoring.camera?.status === "Active" ? "mz-admin-status-dot-active" : "mz-admin-status-dot-standby"}>
+                {proctoring.camera?.label || (proctoring.camera?.status === "Active" ? `${proctoring.camera?.count || 1} Active` : "Idle (Standby)")}
               </span>
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <LuMic style={{ width: 18, height: 18, color: "var(--mz-text-muted)" }} />
-                <span style={{ fontSize: 13, fontWeight: 500, color: "var(--mz-text-secondary)" }}>Microphone</span>
+            {/* Microphone */}
+            <div className="mz-admin-proctor-row">
+              <div className="mz-admin-proctor-item-left">
+                <div className="mz-admin-proctor-icon">
+                  <LuMic style={{ width: 16, height: 16 }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--mz-text-primary)" }}>Microphone</div>
+                  <div style={{ fontSize: 10.5, color: "var(--mz-text-muted)" }}>Audio capture feed</div>
+                </div>
               </div>
-              <span style={{ fontSize: 12, fontWeight: 600, color: "#059669", display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981", display: "inline-block" }} />
-                Active
+              <span className={proctoring.microphone?.status === "Active" ? "mz-admin-status-dot-active" : "mz-admin-status-dot-standby"}>
+                {proctoring.microphone?.label || (proctoring.microphone?.status === "Active" ? `${proctoring.microphone?.count || 1} Active` : "Idle (Standby)")}
               </span>
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <LuMonitor style={{ width: 18, height: 18, color: "var(--mz-text-muted)" }} />
-                <span style={{ fontSize: 13, fontWeight: 500, color: "var(--mz-text-secondary)" }}>Screen Sharing</span>
+            {/* Screen Sharing */}
+            <div className="mz-admin-proctor-row">
+              <div className="mz-admin-proctor-item-left">
+                <div className="mz-admin-proctor-icon">
+                  <LuMonitor style={{ width: 16, height: 16 }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--mz-text-primary)" }}>Screen Sharing</div>
+                  <div style={{ fontSize: 10.5, color: "var(--mz-text-muted)" }}>Display capture stream</div>
+                </div>
               </div>
-              <span style={{ fontSize: 12, fontWeight: 600, color: "#059669", display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981", display: "inline-block" }} />
-                Active
+              <span className={proctoring.screenSharing?.status === "Active" ? "mz-admin-status-dot-active" : "mz-admin-status-dot-standby"}>
+                {proctoring.screenSharing?.label || (proctoring.screenSharing?.status === "Active" ? `${proctoring.screenSharing?.count || 1} Active` : "Idle (Standby)")}
               </span>
             </div>
+          </div>
+
+          <div style={{ borderTop: "1px solid var(--mz-border-subtle)", paddingTop: 10, marginTop: 4, display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 11.5, color: "var(--mz-text-muted)" }}>
+            <span>Active Exams:</span>
+            <span style={{ fontWeight: 700, color: "var(--mz-text-primary)" }}>
+              {proctoring.activeProctoredSessions != null ? proctoring.activeProctoredSessions : 0} Session{proctoring.activeProctoredSessions === 1 ? "" : "s"}
+            </span>
           </div>
         </div>
       </div>
 
-      {/* ────────────────── 4. BOTTOM ROW: TABLES MATCHING REFERENCE ────────────────── */}
+      {/* ────────────────── 4. BOTTOM ROW: TABLES ────────────────── */}
       <div className="mz-admin-bottom-row">
         {/* Table 1: Recent Assessment Results */}
         <div className="mz-admin-card" style={{ padding: 0 }}>

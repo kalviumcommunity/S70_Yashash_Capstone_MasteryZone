@@ -636,6 +636,93 @@
 }
 
 /* Proctoring Status Pill & Items */
+.mz-admin-proctoring-badge-active {
+  background: var(--mz-green-bg, #ecfdf5);
+  color: #059669;
+  border: 1px solid var(--mz-green-border, #a7f3d0);
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mz-admin-proctoring-badge-standby {
+  background: var(--mz-surface-subtle, #f1f5f9);
+  color: var(--mz-text-muted, #64748b);
+  border: 1px solid var(--mz-border, #cbd5e1);
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mz-status-pulsing-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #10b981;
+  display: inline-block;
+  animation: mzPulseGlow 1.8s infinite ease-in-out;
+}
+
+.mz-admin-status-dot-standby {
+  color: var(--mz-text-muted, #64748b);
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mz-admin-status-dot-standby::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: var(--mz-text-subtle, #94a3b8);
+}
+
+.mz-donut-legend-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  border-radius: 8px;
+  transition: background-color 0.15s ease;
+}
+
+.mz-donut-legend-item:hover {
+  background-color: var(--mz-surface-subtle);
+}
+
+.mz-top-loading-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #6366f1, #3b82f6, #10b981);
+  background-size: 200% 100%;
+  animation: mzTopBarSlide 1.2s infinite linear;
+  z-index: 100;
+}
+
+@keyframes mzTopBarSlide {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes mzPulseGlow {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(1.2); }
+}
+
 .mz-admin-proctoring-badge {
   background: var(--mz-green-bg);
   color: var(--mz-green-text);
@@ -1522,3 +1609,215 @@
   background-color: var(--mz-surface-elevated);
   color: var(--mz-text-primary);
 }
+
+/* ────────────────── USER MANAGEMENT MODERN REDESIGN STYLES ────────────────── */
+.mz-admin-user-modal-header {
+  position: relative;
+  padding: 22px 28px 18px;
+  background: var(--mz-surface);
+  border-bottom: 1px solid var(--mz-border);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.mz-admin-modal-close-btn {
+  position: absolute;
+  top: 18px;
+  right: 20px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--mz-surface-muted);
+  color: var(--mz-text-muted);
+  border: 1px solid var(--mz-border);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  z-index: 10;
+}
+
+.mz-admin-modal-close-btn:hover {
+  background: var(--mz-red-bg);
+  color: #ef4444;
+  border-color: var(--mz-red-border);
+  transform: scale(1.05);
+}
+
+.mz-admin-quick-stats-bar {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+  padding: 14px 24px;
+  background: var(--mz-surface-subtle);
+  border-bottom: 1px solid var(--mz-border);
+}
+
+@media (max-width: 960px) {
+  .mz-admin-quick-stats-bar {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .mz-admin-quick-stats-bar {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.mz-admin-quick-stat-box {
+  background: var(--mz-surface);
+  border: 1px solid var(--mz-border);
+  border-radius: 12px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.mz-admin-quick-stat-box:hover {
+  border-color: #6366f1;
+  transform: translateY(-1px);
+}
+
+.mz-admin-quick-stat-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--mz-text-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mz-admin-quick-stat-value {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--mz-text-primary);
+  line-height: 1.2;
+}
+
+.mz-admin-quick-stat-sub {
+  font-size: 11px;
+  color: var(--mz-text-muted);
+}
+
+.mz-admin-detail-card {
+  background: var(--mz-surface);
+  border: 1px solid var(--mz-border);
+  border-radius: 16px;
+  padding: 20px 22px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.mz-admin-detail-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--mz-border-subtle);
+  padding-bottom: 12px;
+}
+
+.mz-admin-detail-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--mz-text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0;
+}
+
+.mz-admin-detail-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 640px) {
+  .mz-admin-detail-field-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.mz-admin-detail-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mz-admin-detail-field-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--mz-text-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.mz-admin-detail-field-val {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--mz-text-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  word-break: break-word;
+}
+
+.mz-admin-empty-pill {
+  font-size: 11.5px;
+  color: var(--mz-text-subtle);
+  background: var(--mz-surface-muted);
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-style: italic;
+  font-weight: 500;
+  display: inline-block;
+}
+
+.mz-admin-role-select {
+  padding: 6px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--mz-border);
+  background: var(--mz-surface);
+  color: var(--mz-text-primary);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+.mz-admin-role-select:hover,
+.mz-admin-role-select:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+}
+
+.mz-admin-kpi-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 1024px) {
+  .mz-admin-kpi-summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .mz-admin-kpi-summary-grid {
+    grid-template-columns: 1fr;
+  }
+}
+

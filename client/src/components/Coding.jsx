@@ -429,6 +429,9 @@ export default function Coding() {
   // Filter states inside Challenges tab
   const [challengeDifficulty, setChallengeDifficulty] = useState("all");
   const [challengeCategory, setChallengeCategory] = useState("all");
+  const [challengePage, setChallengePage] = useState(1);
+  const challengesGridRef = useRef(null);
+  const CHALLENGES_PER_PAGE = 10;
 
   // Modals & Active Workspaces
   const [selectedChallengeModal, setSelectedChallengeModal] = useState(null);
@@ -1228,6 +1231,51 @@ export default function Coding() {
 
     return list;
   }, [challenges, searchQuery, challengeDifficulty, challengeCategory]);
+
+  // Reset to page 1 whenever difficulty filter, topic filter, or search query changes
+  useEffect(() => {
+    setChallengePage(1);
+  }, [challengeDifficulty, challengeCategory, searchQuery]);
+
+  const totalChallengesCount = filteredChallenges.length;
+  const totalChallengePages = Math.max(1, Math.ceil(totalChallengesCount / CHALLENGES_PER_PAGE));
+
+  // Clamp current page if filtered results shrink and current page is out of bounds
+  useEffect(() => {
+    if (challengePage > totalChallengePages) {
+      setChallengePage(1);
+    }
+  }, [challengePage, totalChallengePages]);
+
+  const startChallengeIndex = (challengePage - 1) * CHALLENGES_PER_PAGE;
+  const endChallengeIndex = Math.min(startChallengeIndex + CHALLENGES_PER_PAGE, totalChallengesCount);
+
+  const paginatedChallenges = useMemo(() => {
+    return filteredChallenges.slice(startChallengeIndex, startChallengeIndex + CHALLENGES_PER_PAGE);
+  }, [filteredChallenges, startChallengeIndex]);
+
+  const getPageNumbers = (current, total) => {
+    if (total <= 7) {
+      return Array.from({ length: total }, (_, i) => i + 1);
+    }
+    if (current <= 4) {
+      return [1, 2, 3, 4, 5, "...", total];
+    }
+    if (current >= total - 3) {
+      return [1, "...", total - 4, total - 3, total - 2, total - 1, total];
+    }
+    return [1, "...", current - 1, current, current + 1, "...", total];
+  };
+
+  const handleChallengePageChange = (newPage) => {
+    if (newPage < 1 || newPage > totalChallengePages || newPage === challengePage) return;
+    setChallengePage(newPage);
+    if (challengesGridRef.current) {
+      const yOffset = -90;
+      const y = challengesGridRef.current.getBoundingClientRect().top + window.pageYOffset + yOffset;
+      window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
+    }
+  };
 
   const filteredVideoCourses = useMemo(() => {
     return (videoCourses || []).filter((vid) => {
@@ -2778,7 +2826,7 @@ export default function Coding() {
             </div>
 
             {/* Challenges Grid */}
-            <div className="mz-c-challenges-grid">
+            <div className="mz-c-challenges-grid" ref={challengesGridRef}>
               {filteredChallenges.length === 0 ? (
                 <div className="mz-c-challenges-empty-state" style={{ gridColumn: "1 / -1" }}>
                   <LuCode size={40} style={{ color: "#94a3b8", marginBottom: "12px" }} />
@@ -2795,7 +2843,7 @@ export default function Coding() {
                   </button>
                 </div>
               ) : (
-                filteredChallenges.map((ch, idx) => {
+                paginatedChallenges.map((ch, idx) => {
                   const isLocallySolved =
                     (currentUserId && currentUserId !== "guest" && typeof window !== "undefined" && window.localStorage?.getItem(`mz_${currentUserId}_ch_solved_${ch.id}`) === "true") ||
                     (typeof window !== "undefined" && window.localStorage?.getItem(`mz_ch_solved_${ch.id}`) === "true");
@@ -2857,7 +2905,7 @@ export default function Coding() {
                                 boxShadow: "0 2px 5px rgba(15, 23, 42, 0.15)",
                               }}
                             >
-                              #{ch.questionNumber || idx + 1}
+                              #{ch.questionNumber || (startChallengeIndex + idx + 1)}
                             </span>
                             <span
                               style={{
@@ -3017,6 +3065,73 @@ export default function Coding() {
                 })
               )}
             </div>
+
+            {/* Pagination Controls */}
+            {filteredChallenges.length > 0 && (
+              <div className="mz-c-challenges-pagination-container">
+                <div className="mz-c-challenges-pagination-info">
+                  <span>
+                    Showing <strong className="mz-c-page-count-highlight">{startChallengeIndex + 1}–{endChallengeIndex}</strong> of{" "}
+                    <strong className="mz-c-page-count-highlight">{totalChallengesCount}</strong> challenges
+                  </span>
+                  <span className="mz-c-page-total-badge">
+                    Page {challengePage} of {totalChallengePages} ({totalChallengePages} {totalChallengePages === 1 ? "page" : "pages"} total)
+                  </span>
+                </div>
+
+                <div className="mz-c-pagination-controls">
+                  {/* Previous Button */}
+                  <button
+                    type="button"
+                    className="mz-c-pagination-btn mz-c-pagination-prev"
+                    onClick={() => handleChallengePageChange(challengePage - 1)}
+                    disabled={challengePage <= 1}
+                    aria-label="Previous Page"
+                  >
+                    <LuChevronLeft size={16} />
+                    <span>Previous</span>
+                  </button>
+
+                  {/* Page Numbers */}
+                  <div className="mz-c-pagination-numbers">
+                    {getPageNumbers(challengePage, totalChallengePages).map((pageNum, pIdx) => {
+                      if (pageNum === "...") {
+                        return (
+                          <span key={`ellipsis-${pIdx}`} className="mz-c-pagination-ellipsis" aria-hidden="true">
+                            ...
+                          </span>
+                        );
+                      }
+                      const isActive = challengePage === pageNum;
+                      return (
+                        <button
+                          key={`page-${pageNum}`}
+                          type="button"
+                          className={`mz-c-pagination-num-btn ${isActive ? "active" : ""}`}
+                          onClick={() => handleChallengePageChange(pageNum)}
+                          aria-label={`Page ${pageNum}`}
+                          aria-current={isActive ? "page" : undefined}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Next Button */}
+                  <button
+                    type="button"
+                    className="mz-c-pagination-btn mz-c-pagination-next"
+                    onClick={() => handleChallengePageChange(challengePage + 1)}
+                    disabled={challengePage >= totalChallengePages}
+                    aria-label="Next Page"
+                  >
+                    <span>Next</span>
+                    <LuChevronRight size={16} />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

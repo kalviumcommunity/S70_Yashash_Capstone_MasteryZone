@@ -68,6 +68,65 @@ const AdminUserDetailModal = ({
   // Local state for user details so edits update immediately
   const [localData, setLocalData] = useState(userDetail);
 
+  // Copy helper with visual feedback
+  const [copiedKey, setCopiedKey] = useState(null);
+  const handleCopy = (text, key) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopiedKey(key);
+    toast.success("Copied to clipboard!");
+    setTimeout(() => setCopiedKey(null), 2000);
+  };
+
+  // Safe Date & Time Helpers
+  const formatFullDate = (d) => {
+    if (!d) return "Not recorded";
+    try {
+      return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    } catch {
+      return "Not recorded";
+    }
+  };
+
+  const formatRelativeTime = (d) => {
+    if (!d) return "";
+    try {
+      const date = new Date(d);
+      if (isNaN(date.getTime())) return "";
+      const now = new Date();
+      const diffSec = Math.floor((now - date) / 1000);
+      if (diffSec < 60) return "Just now";
+      const diffMin = Math.floor(diffSec / 60);
+      if (diffMin < 60) return `${diffMin}m ago`;
+      const diffHours = Math.floor(diffMin / 60);
+      if (diffHours < 24) return `${diffHours}h ago`;
+      const diffDays = Math.floor(diffHours / 24);
+      if (diffDays < 30) return `${diffDays}d ago`;
+      const diffMonths = Math.floor(diffDays / 30);
+      if (diffMonths < 12) return `${diffMonths}mo ago`;
+      return `${Math.floor(diffDays / 365)}y ago`;
+    } catch {
+      return "";
+    }
+  };
+
+  const getRoleBadge = (role) => {
+    switch (role) {
+      case "SUPER_ADMIN":
+        return { label: "Super Admin", className: "mz-admin-badge-purple" };
+      case "admin":
+        return { label: "Administrator", className: "mz-admin-badge-blue" };
+      case "mentor":
+        return { label: "Mentor", className: "mz-admin-badge-green" };
+      case "instructor":
+        return { label: "Instructor", className: "mz-admin-badge-purple" };
+      case "student":
+      case "user":
+      default:
+        return { label: "Student", className: "mz-admin-badge-gray" };
+    }
+  };
+
   if (!localData) return null;
   const {
     user = {},
@@ -76,10 +135,25 @@ const AdminUserDetailModal = ({
     moduleAttempts = [],
     certificates = [],
     timeline = [],
+    projects = [],
+    proctoredSessions = [],
   } = localData;
 
-  const displayName = user.fullName || user.username || "Student";
+  const displayName = user.fullName || user.username || "User";
   const initial = (displayName[0] || "U").toUpperCase();
+  const roleBadge = getRoleBadge(user.role);
+
+  // Computed academic metrics
+  const totalAssessments = certAttempts.length + moduleAttempts.length;
+  const passedCertAttempts = certAttempts.filter(c => c.status === "PASSED" || (c.percentage != null && c.percentage >= 70)).length;
+  const passedModuleAttempts = moduleAttempts.filter(m => m.passed || (m.percentage != null && m.percentage >= 70)).length;
+  const totalPassed = passedCertAttempts + passedModuleAttempts;
+  const passRate = totalAssessments > 0 ? Math.round((totalPassed / totalAssessments) * 100) : 0;
+  const totalViolations = proctoredSessions.reduce((acc, ps) => acc + (ps.violationsCount || 0), 0);
+  const currentStreak = userDetail.activityStats?.currentStreak !== undefined ? userDetail.activityStats.currentStreak : user.streak || 0;
+  const longestStreak = userDetail.activityStats?.longestStreak || currentStreak || 0;
+  const totalSubmissionsCount = userDetail.activityStats?.totalSubmissions !== undefined ? userDetail.activityStats.totalSubmissions : submissions.length;
+  const totalSolvedCount = userDetail.activityStats?.totalProblemsSolved || 0;
 
   // Handler to open full report modal for any attempt or submission
   const handleOpenReport = async (itemType, itemId, fallbackData = {}) => {
@@ -229,36 +303,40 @@ const AdminUserDetailModal = ({
       <div
         className="mz-admin-modal-card"
         style={{
-          maxWidth: 900,
-          height: "88vh",
+          maxWidth: 960,
+          height: "90vh",
           display: "flex",
           flexDirection: "column",
           borderRadius: 20,
           overflow: "hidden",
         }}
       >
-        {/* ────────────────── 1. MODAL HEADER WITH AVATAR & FULL PHOTO VIEW ────────────────── */}
-        <div
-          className="mz-admin-modal-header"
-          style={{
-            padding: "20px 24px",
-            borderBottom: "1px solid var(--mz-border)",
-            background: "var(--mz-surface)",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            {/* Clickable Profile Photo with Full View Lightbox Trigger */}
+        {/* ────────────────── 1. MODAL HEADER & ACTIONS ────────────────── */}
+        <div className="mz-admin-user-modal-header">
+          {/* Pinned Top-Right Close Button */}
+          <button
+            type="button"
+            onClick={onClose}
+            className="mz-admin-modal-close-btn"
+            title="Close Profile (Esc)"
+          >
+            <LuX style={{ width: 18, height: 18 }} />
+          </button>
+
+          {/* User Identity Top Row */}
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 16, paddingRight: 44 }}>
+            {/* Clickable Profile Avatar with Lightbox Preview */}
             <div
               className="mz-admin-photo-trigger"
               onClick={() => setShowPhotoModal(true)}
-              title="Click to view full profile photo"
+              title="Click to inspect full photo"
               style={{
-                width: 60,
-                height: 60,
+                width: 64,
+                height: 64,
                 borderRadius: 16,
                 background: "linear-gradient(135deg, #6366f1 0%, #3b82f6 100%)",
                 color: "#ffffff",
-                fontSize: 22,
+                fontSize: 24,
                 fontWeight: 800,
                 display: "flex",
                 alignItems: "center",
@@ -267,6 +345,8 @@ const AdminUserDetailModal = ({
                 overflow: "hidden",
                 flexShrink: 0,
                 border: "2px solid var(--mz-surface)",
+                cursor: "pointer",
+                position: "relative",
               }}
             >
               {user.avatarUrl ? (
@@ -278,140 +358,246 @@ const AdminUserDetailModal = ({
               ) : (
                 initial
               )}
-              {/* Zoom Hover Overlay */}
               <div className="mz-admin-photo-hover-overlay">
                 <LuZoomIn />
               </div>
             </div>
 
-            <div>
+            {/* Name, Badges & Metadata */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "var(--mz-text-primary)" }}>
+                <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: "var(--mz-text-primary)", letterSpacing: "-0.01em" }}>
                   {displayName}
-                </h3>
+                </h2>
+
+                {/* Status Badge */}
                 <span className={user.isSuspended ? "mz-admin-badge-suspended" : "mz-admin-badge-active"}>
                   {user.isSuspended ? "Suspended" : "Active"}
                 </span>
-                <span
-                  className={user.role === "SUPER_ADMIN" ? "mz-admin-badge-gray" : "mz-admin-badge-blue"}
-                  style={{ textTransform: "capitalize", fontSize: 11, fontWeight: 700 }}
-                >
-                  {user.role === "SUPER_ADMIN" ? "Super Admin" : user.role || "Student"}
+
+                {/* Role Badge */}
+                <span className={roleBadge.className} style={{ textTransform: "capitalize", fontSize: 11, fontWeight: 700 }}>
+                  {roleBadge.label}
                 </span>
-                <span className="mz-admin-badge-blue" style={{ fontSize: 10 }}>
-                  {user.authProvider === "google" ? "Google Account" : "Email & Password"}
+
+                {/* Auth Provider Badge */}
+                <span className="mz-admin-badge-blue" style={{ fontSize: 10.5 }}>
+                  {user.authProvider === "google" ? "Google OAuth" : "Email & Password"}
+                </span>
+
+                {/* Verification Status */}
+                {user.isEmailVerified ? (
+                  <span className="mz-admin-badge-green" style={{ fontSize: 10.5 }}>
+                    <LuCircleCheck style={{ width: 12, height: 12 }} />
+                    <span>Verified</span>
+                  </span>
+                ) : (
+                  <span className="mz-admin-badge-amber" style={{ fontSize: 10.5 }}>
+                    <LuTriangleAlert style={{ width: 12, height: 12 }} />
+                    <span>Unverified</span>
+                  </span>
+                )}
+              </div>
+
+              {/* Subtitle Details: Email, Username, ID, Joined */}
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", fontSize: 12.5, color: "var(--mz-text-muted)" }}>
+                {/* Email with copy */}
+                <span
+                  onClick={() => handleCopy(user.email, "email")}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 5, cursor: "pointer", color: "var(--mz-text-primary)", fontWeight: 600 }}
+                  title="Click to copy email address"
+                >
+                  <LuMail style={{ width: 14, height: 14, color: "#6366f1" }} />
+                  <span>{user.email}</span>
+                  {copiedKey === "email" ? (
+                    <LuCheck style={{ width: 13, height: 13, color: "#10b981" }} />
+                  ) : (
+                    <LuCopy style={{ width: 12, height: 12, color: "var(--mz-text-subtle)" }} />
+                  )}
+                </span>
+
+                <span style={{ color: "var(--mz-border)" }}>|</span>
+
+                {/* Username */}
+                <span style={{ fontWeight: 600, color: "var(--mz-text-secondary)" }}>
+                  @{user.username}
+                </span>
+
+                <span style={{ color: "var(--mz-border)" }}>|</span>
+
+                {/* User ID with copy */}
+                <span
+                  onClick={() => handleCopy(user._id, "id")}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 4, cursor: "pointer", fontFamily: "monospace", fontSize: 11.5, color: "var(--mz-text-subtle)" }}
+                  title="Click to copy User ID"
+                >
+                  <span>ID: {user._id ? `${String(user._id).substring(0, 8)}...` : "N/A"}</span>
+                  {copiedKey === "id" ? (
+                    <LuCheck style={{ width: 12, height: 12, color: "#10b981" }} />
+                  ) : (
+                    <LuCopy style={{ width: 11, height: 11 }} />
+                  )}
+                </span>
+
+                <span style={{ color: "var(--mz-border)" }}>|</span>
+
+                {/* Joined Date */}
+                <span style={{ fontSize: 12, color: "var(--mz-text-subtle)", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  <LuCalendar style={{ width: 13, height: 13 }} />
+                  <span>Joined {formatFullDate(user.createdAt)} ({formatRelativeTime(user.createdAt)})</span>
                 </span>
               </div>
-              <p style={{ margin: "4px 0 0", fontSize: 12.5, color: "var(--mz-text-muted)", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <LuMail style={{ width: 14, height: 14, color: "var(--mz-text-subtle)" }} />
-                  <strong>{user.email}</strong>
-                </span>
-                <span>•</span>
-                <span>@{user.username}</span>
-                <span>•</span>
-                <span style={{ fontFamily: "monospace", fontSize: 11, color: "var(--mz-text-subtle)" }}>
-                  ID: {user._id}
-                </span>
-              </p>
             </div>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            {user.role !== "SUPER_ADMIN" && (
-              <>
-                <button
-                  onClick={() => {
-                    const temp = window.prompt(
-                      `Enter temporary password for ${user.email} (or leave blank to dispatch reset email):`,
-                      ""
-                    );
-                    if (temp === null) return;
-                    onResetPassword && onResetPassword(user._id, temp.trim() || null);
-                  }}
-                  className="mz-admin-btn-action"
-                  title="Reset user password"
-                >
-                  <LuKey style={{ width: 14, height: 14 }} />
-                  <span>Reset Password</span>
-                </button>
+          {/* Action Toolbar Row */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, paddingTop: 4, borderTop: "1px solid var(--mz-border-subtle)" }}>
+            {/* Quick Role Switcher */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--mz-text-subtle)", textTransform: "uppercase" }}>
+                Role Level:
+              </span>
+              <select
+                className="mz-admin-role-select"
+                value={user.role || "student"}
+                onChange={(e) => onRoleChange && onRoleChange(user._id, e.target.value)}
+                disabled={user.role === "SUPER_ADMIN"}
+                title={user.role === "SUPER_ADMIN" ? "Super Admin role is locked" : "Change user account role"}
+              >
+                <option value="user">Student (Default)</option>
+                <option value="student">Student / Learner</option>
+                <option value="mentor">Platform Mentor</option>
+                <option value="instructor">Course Instructor</option>
+                <option value="admin">Administrator</option>
+                {user.role === "SUPER_ADMIN" && <option value="SUPER_ADMIN">Super Admin</option>}
+              </select>
+            </div>
 
-                <button
-                  onClick={() => onToggleStatus(user._id, !user.isSuspended)}
-                  className={user.isSuspended ? "mz-admin-btn-restore" : "mz-admin-btn-suspend"}
-                >
-                  {user.isSuspended ? "Restore Account" : "Suspend Account"}
-                </button>
+            {/* Quick Action Buttons */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              {user.role !== "SUPER_ADMIN" && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const temp = window.prompt(
+                        `Enter temporary password for ${user.email} (or leave blank to dispatch reset email):`,
+                        ""
+                      );
+                      if (temp === null) return;
+                      onResetPassword && onResetPassword(user._id, temp.trim() || null);
+                    }}
+                    className="mz-admin-btn-action"
+                    title="Send password reset email or assign temporary password"
+                  >
+                    <LuKey style={{ width: 14, height: 14 }} />
+                    <span>Reset Password</span>
+                  </button>
 
-                <button
-                  onClick={() => onDeleteUser && onDeleteUser(user._id, user.email)}
-                  className="mz-admin-btn-suspend"
-                  style={{ background: "#ef4444", color: "#fff", borderColor: "#dc2626" }}
-                  title="Permanently Delete Account"
-                >
-                  <LuTrash2 style={{ width: 14, height: 14 }} />
-                  <span>Delete</span>
-                </button>
-              </>
-            )}
-            <button
-              onClick={onClose}
-              style={{
-                background: "var(--mz-surface-muted)",
-                border: "none",
-                fontSize: 16,
-                color: "var(--mz-text-muted)",
-                cursor: "pointer",
-                padding: "8px 12px",
-                borderRadius: 10,
-                fontWeight: 700,
-              }}
-              title="Close Profile"
-            >
-              ✕
-            </button>
+                  <button
+                    type="button"
+                    onClick={() => onToggleStatus(user._id, !user.isSuspended)}
+                    className={user.isSuspended ? "mz-admin-btn-restore" : "mz-admin-btn-suspend"}
+                  >
+                    {user.isSuspended ? (
+                      <>
+                        <LuShieldCheck style={{ width: 14, height: 14 }} />
+                        <span>Restore Account</span>
+                      </>
+                    ) : (
+                      <>
+                        <LuShieldAlert style={{ width: 14, height: 14 }} />
+                        <span>Suspend Account</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => onDeleteUser && onDeleteUser(user._id, user.email)}
+                    className="mz-admin-btn-suspend"
+                    style={{ background: "rgba(239, 68, 68, 0.08)", color: "#ef4444", borderColor: "rgba(239, 68, 68, 0.3)" }}
+                    title="Permanently Delete Account"
+                  >
+                    <LuTrash2 style={{ width: 14, height: 14 }} />
+                    <span>Delete</span>
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* ────────────────── 2. QUICK STATS ROW ────────────────── */}
-        <div
-          className="mz-admin-grid-4"
-          style={{
-            padding: "12px 24px",
-            background: "var(--mz-surface-subtle)",
-            borderBottom: "1px solid var(--mz-border)",
-            gap: 12,
-          }}
-        >
-          <div style={{ padding: "8px 12px", background: "var(--mz-surface)", borderRadius: 10, border: "1px solid var(--mz-border)", textAlign: "center" }}>
-            <span style={{ fontSize: 10.5, color: "var(--mz-text-subtle)", fontWeight: 700, textTransform: "uppercase" }}>Activity Streak</span>
-            <div style={{ fontSize: 16, fontWeight: 800, color: "var(--mz-text-primary)", marginTop: 2 }}>
-              🔥 {userDetail.activityStats?.currentStreak !== undefined ? userDetail.activityStats.currentStreak : user.streak || 0} { (userDetail.activityStats?.currentStreak || user.streak) === 1 ? "Day" : "Days"}
-            </div>
+        {/* ────────────────── 2. QUICK STATS ROW (6 BALANCED METRICS) ────────────────── */}
+        <div className="mz-admin-quick-stats-bar">
+          <div className="mz-admin-quick-stat-box">
+            <span className="mz-admin-quick-stat-label">
+              <LuFlame style={{ width: 13, height: 13, color: "#f97316" }} />
+              Active Streak
+            </span>
+            <span className="mz-admin-quick-stat-value">
+              {currentStreak} {currentStreak === 1 ? "Day" : "Days"}
+            </span>
+            <span className="mz-admin-quick-stat-sub">
+              {currentStreak > 0 ? "Currently consistent" : "No active streak"}
+            </span>
           </div>
-          <div style={{ padding: "8px 12px", background: "var(--mz-surface)", borderRadius: 10, border: "1px solid var(--mz-border)", textAlign: "center" }}>
-            <span style={{ fontSize: 10.5, color: "var(--mz-text-subtle)", fontWeight: 700, textTransform: "uppercase" }}>Longest Streak</span>
-            <div style={{ fontSize: 16, fontWeight: 800, color: "var(--mz-text-primary)", marginTop: 2 }}>
-              ⚡ {userDetail.activityStats?.longestStreak || 0} Days
-            </div>
+
+          <div className="mz-admin-quick-stat-box">
+            <span className="mz-admin-quick-stat-label">
+              <LuSparkles style={{ width: 13, height: 13, color: "#eab308" }} />
+              Longest Streak
+            </span>
+            <span className="mz-admin-quick-stat-value">
+              {longestStreak} {longestStreak === 1 ? "Day" : "Days"}
+            </span>
+            <span className="mz-admin-quick-stat-sub">All-time record</span>
           </div>
-          <div style={{ padding: "8px 12px", background: "var(--mz-surface)", borderRadius: 10, border: "1px solid var(--mz-border)", textAlign: "center" }}>
-            <span style={{ fontSize: 10.5, color: "var(--mz-text-subtle)", fontWeight: 700, textTransform: "uppercase" }}>Code Submissions</span>
-            <div style={{ fontSize: 16, fontWeight: 800, color: "var(--mz-text-primary)", marginTop: 2 }}>
-              💻 {userDetail.activityStats?.totalSubmissions !== undefined ? userDetail.activityStats.totalSubmissions : submissions.length}
-            </div>
+
+          <div className="mz-admin-quick-stat-box">
+            <span className="mz-admin-quick-stat-label">
+              <LuCode style={{ width: 13, height: 13, color: "#6366f1" }} />
+              Submissions
+            </span>
+            <span className="mz-admin-quick-stat-value">
+              {totalSubmissionsCount}
+            </span>
+            <span className="mz-admin-quick-stat-sub">Code executions</span>
           </div>
-          <div style={{ padding: "8px 12px", background: "var(--mz-surface)", borderRadius: 10, border: "1px solid var(--mz-border)", textAlign: "center" }}>
-            <span style={{ fontSize: 10.5, color: "var(--mz-text-subtle)", fontWeight: 700, textTransform: "uppercase" }}>Problems Solved</span>
-            <div style={{ fontSize: 16, fontWeight: 800, color: "var(--mz-text-primary)", marginTop: 2 }}>
-              🎯 {userDetail.activityStats?.totalProblemsSolved || 0}
-            </div>
+
+          <div className="mz-admin-quick-stat-box">
+            <span className="mz-admin-quick-stat-label">
+              <LuCircleCheck style={{ width: 13, height: 13, color: "#10b981" }} />
+              Solved
+            </span>
+            <span className="mz-admin-quick-stat-value">
+              {totalSolvedCount}
+            </span>
+            <span className="mz-admin-quick-stat-sub">Challenges completed</span>
           </div>
-          <div style={{ padding: "8px 12px", background: "var(--mz-surface)", borderRadius: 10, border: "1px solid var(--mz-border)", textAlign: "center" }}>
-            <span style={{ fontSize: 10.5, color: "var(--mz-text-subtle)", fontWeight: 700, textTransform: "uppercase" }}>Certifications</span>
-            <div style={{ fontSize: 16, fontWeight: 800, color: "var(--mz-text-primary)", marginTop: 2 }}>
-              🏆 {certificates.length}
-            </div>
+
+          <div className="mz-admin-quick-stat-box">
+            <span className="mz-admin-quick-stat-label">
+              <LuAward style={{ width: 13, height: 13, color: "#f59e0b" }} />
+              Certifications
+            </span>
+            <span className="mz-admin-quick-stat-value">
+              {certificates.length}
+            </span>
+            <span className="mz-admin-quick-stat-sub">Credentials earned</span>
+          </div>
+
+          <div className="mz-admin-quick-stat-box">
+            <span className="mz-admin-quick-stat-label">
+              <LuFileText style={{ width: 13, height: 13, color: "#8b5cf6" }} />
+              Assessments
+            </span>
+            <span className="mz-admin-quick-stat-value">
+              {totalAssessments}
+            </span>
+            <span className="mz-admin-quick-stat-sub">
+              {totalAssessments > 0 ? `${passRate}% pass rate` : "No attempts yet"}
+            </span>
           </div>
         </div>
 
@@ -423,15 +609,17 @@ const AdminUserDetailModal = ({
             gap: 20,
             borderBottom: "1px solid var(--mz-border)",
             background: "var(--mz-surface)",
+            overflowX: "auto",
           }}
         >
           {[
-            { id: "profile", label: "Profile Details" },
-            { id: "activity", label: "Streak & Heatmap 🔥" },
-            { id: "timeline", label: `Timeline (${timeline.length})` },
-            { id: "submissions", label: `Submissions (${submissions.length})` },
-            { id: "assessments", label: `Assessments (${certAttempts.length + moduleAttempts.length})` },
-            { id: "devices", label: `Devices (${user.knownDevices?.length || 1})` },
+            { id: "profile", label: "Profile & Account", icon: <LuUser size={14} /> },
+            { id: "activity", label: "Streak & Heatmap 🔥", icon: <LuFlame size={14} /> },
+            { id: "timeline", label: `Timeline (${timeline.length})`, icon: <LuHistory size={14} /> },
+            { id: "submissions", label: `Submissions (${submissions.length})`, icon: <LuCode size={14} /> },
+            { id: "assessments", label: `Assessments (${totalAssessments})`, icon: <LuAward size={14} /> },
+            { id: "projects", label: `Projects (${projects.length})`, icon: <LuFileText size={14} /> },
+            { id: "devices", label: `Devices (${user.knownDevices?.length || 1})`, icon: <LuShieldCheck size={14} /> },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -439,167 +627,226 @@ const AdminUserDetailModal = ({
               style={{
                 border: "none",
                 background: "transparent",
-                padding: "12px 2px",
+                padding: "12px 4px",
                 borderBottom: activeTab === tab.id ? "2.5px solid #6366f1" : "2.5px solid transparent",
                 color: activeTab === tab.id ? "#6366f1" : "var(--mz-text-muted)",
                 fontSize: 13,
                 fontWeight: activeTab === tab.id ? 700 : 500,
                 cursor: "pointer",
-                transition: "all 0.2s ease",
+                transition: "all 0.15s ease",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                whiteSpace: "nowrap",
               }}
             >
-              {tab.label}
+              {tab.icon}
+              <span>{tab.label}</span>
             </button>
           ))}
         </div>
 
         {/* ────────────────── 4. TAB CONTENT AREA ────────────────── */}
-        <div style={{ flex: 1, overflowY: "auto", padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
-          {/* TAB 1: PROFILE DETAILS */}
+        <div style={{ flex: 1, overflowY: "auto", padding: 24, display: "flex", flexDirection: "column", gap: 18 }}>
+          {/* TAB 1: PROFILE & ACCOUNT DETAILS */}
           {activeTab === "profile" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              {/* Personal & Contact Grid */}
-              <div
-                style={{
-                  background: "var(--mz-surface)",
-                  border: "1px solid var(--mz-border)",
-                  borderRadius: 14,
-                  padding: "18px 20px",
-                }}
-              >
-                <h4 style={{ margin: "0 0 14px", fontSize: 13.5, fontWeight: 700, color: "var(--mz-text-primary)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                  Student Information & Contact
-                </h4>
+            <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+              {/* Card 1: Student Information & Contact Details */}
+              <div className="mz-admin-detail-card">
+                <div className="mz-admin-detail-card-header">
+                  <h4 className="mz-admin-detail-card-title">
+                    <LuUser style={{ width: 16, height: 16, color: "#6366f1" }} />
+                    <span>Personal Information & Contact</span>
+                  </h4>
+                  <span style={{ fontSize: 11, color: "var(--mz-text-subtle)" }}>Primary Identity</span>
+                </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
-                  <div>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: "var(--mz-text-subtle)" }}>FULL NAME</label>
-                    <p style={{ margin: "2px 0 0", fontSize: 13.5, fontWeight: 600, color: "var(--mz-text-primary)" }}>
-                      {user.fullName || "Not Provided"}
-                    </p>
+                <div className="mz-admin-detail-field-grid">
+                  <div className="mz-admin-detail-field">
+                    <span className="mz-admin-detail-field-label">Full Name</span>
+                    <span className="mz-admin-detail-field-val">
+                      {user.fullName ? (
+                        user.fullName
+                      ) : (
+                        <span className="mz-admin-empty-pill">Not configured</span>
+                      )}
+                    </span>
                   </div>
 
-                  <div>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: "var(--mz-text-subtle)" }}>USERNAME</label>
-                    <p style={{ margin: "2px 0 0", fontSize: 13.5, fontWeight: 600, color: "var(--mz-text-primary)" }}>
-                      @{user.username}
-                    </p>
+                  <div className="mz-admin-detail-field">
+                    <span className="mz-admin-detail-field-label">Username</span>
+                    <span className="mz-admin-detail-field-val">
+                      @{user.username || "student"}
+                    </span>
                   </div>
 
-                  <div>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: "var(--mz-text-subtle)" }}>EMAIL ADDRESS</label>
-                    <p style={{ margin: "2px 0 0", fontSize: 13.5, fontWeight: 600, color: "var(--mz-text-primary)", display: "flex", alignItems: "center", gap: 6 }}>
+                  <div className="mz-admin-detail-field">
+                    <span className="mz-admin-detail-field-label">Email Address</span>
+                    <span className="mz-admin-detail-field-val">
                       <LuMail style={{ width: 14, height: 14, color: "#6366f1" }} />
                       <span>{user.email}</span>
-                    </p>
+                      <button
+                        type="button"
+                        onClick={() => handleCopy(user.email, "email_field")}
+                        style={{ border: "none", background: "transparent", cursor: "pointer", padding: "0 2px", color: "var(--mz-text-subtle)" }}
+                        title="Copy email"
+                      >
+                        {copiedKey === "email_field" ? <LuCheck size={12} color="#10b981" /> : <LuCopy size={12} />}
+                      </button>
+                    </span>
                   </div>
 
-                  <div>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: "var(--mz-text-subtle)" }}>PHONE NUMBER</label>
-                    <p style={{ margin: "2px 0 0", fontSize: 13.5, fontWeight: 600, color: "var(--mz-text-primary)", display: "flex", alignItems: "center", gap: 6 }}>
+                  <div className="mz-admin-detail-field">
+                    <span className="mz-admin-detail-field-label">Phone Number</span>
+                    <span className="mz-admin-detail-field-val">
                       <LuPhone style={{ width: 14, height: 14, color: "#10b981" }} />
-                      <span>{user.phoneNumber || "Not Provided"}</span>
-                    </p>
+                      {user.phoneNumber && user.phoneNumber !== "Not Provided" ? (
+                        user.phoneNumber
+                      ) : (
+                        <span className="mz-admin-empty-pill">Not configured</span>
+                      )}
+                    </span>
                   </div>
 
-                  <div>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: "var(--mz-text-subtle)" }}>LOCATION</label>
-                    <p style={{ margin: "2px 0 0", fontSize: 13.5, fontWeight: 600, color: "var(--mz-text-primary)", display: "flex", alignItems: "center", gap: 6 }}>
+                  <div className="mz-admin-detail-field">
+                    <span className="mz-admin-detail-field-label">Location / Region</span>
+                    <span className="mz-admin-detail-field-val">
                       <LuMapPin style={{ width: 14, height: 14, color: "#f97316" }} />
-                      <span>{user.location || "Not Provided"}</span>
-                    </p>
+                      {user.location && user.location !== "Not Provided" ? (
+                        user.location
+                      ) : (
+                        <span className="mz-admin-empty-pill">Not configured</span>
+                      )}
+                    </span>
                   </div>
 
-                  <div>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: "var(--mz-text-subtle)" }}>OCCUPATION / TITLE</label>
-                    <p style={{ margin: "2px 0 0", fontSize: 13.5, fontWeight: 600, color: "var(--mz-text-primary)", display: "flex", alignItems: "center", gap: 6 }}>
+                  <div className="mz-admin-detail-field">
+                    <span className="mz-admin-detail-field-label">Occupation / Title</span>
+                    <span className="mz-admin-detail-field-val">
                       <LuBriefcase style={{ width: 14, height: 14, color: "#8b5cf6" }} />
-                      <span>{user.occupation || "Not Provided"}</span>
-                    </p>
+                      {user.occupation && user.occupation !== "Not Provided" ? (
+                        user.occupation
+                      ) : (
+                        <span className="mz-admin-empty-pill">Learner / Student</span>
+                      )}
+                    </span>
                   </div>
 
-                  <div>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: "var(--mz-text-subtle)" }}>REGISTERED ON</label>
-                    <p style={{ margin: "2px 0 0", fontSize: 13.5, fontWeight: 600, color: "var(--mz-text-primary)", display: "flex", alignItems: "center", gap: 6 }}>
+                  <div className="mz-admin-detail-field">
+                    <span className="mz-admin-detail-field-label">Registered Date</span>
+                    <span className="mz-admin-detail-field-val">
                       <LuCalendar style={{ width: 14, height: 14, color: "var(--mz-text-muted)" }} />
-                      <span>{new Date(user.createdAt).toLocaleDateString("en-US", { dateStyle: "long" })}</span>
-                    </p>
+                      <span>{formatFullDate(user.createdAt)}</span>
+                      <small style={{ fontSize: 11, color: "var(--mz-text-subtle)" }}>({formatRelativeTime(user.createdAt)})</small>
+                    </span>
                   </div>
 
-                  <div>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: "var(--mz-text-subtle)" }}>LAST ACTIVE TIMESTAMP</label>
-                    <p style={{ margin: "2px 0 0", fontSize: 13.5, fontWeight: 600, color: "var(--mz-text-primary)", display: "flex", alignItems: "center", gap: 6 }}>
+                  <div className="mz-admin-detail-field">
+                    <span className="mz-admin-detail-field-label">Last Active Timestamp</span>
+                    <span className="mz-admin-detail-field-val">
                       <LuClock style={{ width: 14, height: 14, color: "var(--mz-text-muted)" }} />
                       <span>{new Date(user.lastActiveDate || user.createdAt).toLocaleString()}</span>
-                    </p>
+                      <small style={{ fontSize: 11, color: "var(--mz-text-subtle)" }}>({formatRelativeTime(user.lastActiveDate || user.createdAt)})</small>
+                    </span>
                   </div>
                 </div>
               </div>
 
-              {/* Bio Statement */}
-              <div
-                style={{
-                  background: "var(--mz-surface)",
-                  border: "1px solid var(--mz-border)",
-                  borderRadius: 14,
-                  padding: "16px 20px",
-                }}
-              >
-                <h4 style={{ margin: "0 0 8px", fontSize: 13.5, fontWeight: 700, color: "var(--mz-text-primary)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                  Biography & Profile Statement
-                </h4>
-                <p style={{ margin: 0, fontSize: 13, color: user.bio ? "var(--mz-text-secondary)" : "var(--mz-text-subtle)", lineHeight: 1.6, fontStyle: user.bio ? "normal" : "italic" }}>
-                  {user.bio || "No biography provided by the student."}
-                </p>
-              </div>
+              {/* Card 2: Account Standing, Security & Role Access */}
+              <div className="mz-admin-detail-card">
+                <div className="mz-admin-detail-card-header">
+                  <h4 className="mz-admin-detail-card-title">
+                    <LuShieldCheck style={{ width: 16, height: 16, color: "#10b981" }} />
+                    <span>Security, Standing & Access Level</span>
+                  </h4>
+                  <span style={{ fontSize: 11, color: "var(--mz-text-subtle)" }}>Access Credentials</span>
+                </div>
 
-              {/* Interests & Tracks */}
-              <div
-                style={{
-                  background: "var(--mz-surface)",
-                  border: "1px solid var(--mz-border)",
-                  borderRadius: 14,
-                  padding: "16px 20px",
-                }}
-              >
-                <h4 style={{ margin: "0 0 12px", fontSize: 13.5, fontWeight: 700, color: "var(--mz-text-primary)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                  Learning Interests & Explored Tracks
-                </h4>
-
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  <div>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: "var(--mz-text-subtle)", display: "block", marginBottom: 6 }}>
-                      SELECTED INTERESTS
-                    </span>
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      {user.interests && user.interests.length > 0 && user.interests[0] !== "Not Provided" ? (
-                        user.interests.map((it, i) => (
-                          <span
-                            key={i}
-                            style={{
-                              padding: "4px 10px",
-                              borderRadius: 6,
-                              background: "var(--mz-blue-bg)",
-                              color: "#2563eb",
-                              fontSize: 12,
-                              fontWeight: 700,
-                              border: "1px solid var(--mz-blue-bg)",
-                            }}
-                          >
-                            #{it}
-                          </span>
-                        ))
-                      ) : (
-                        <span style={{ fontSize: 12, color: "var(--mz-text-subtle)", fontStyle: "italic" }}>
-                          No specific interests selected.
+                <div className="mz-admin-detail-field-grid">
+                  <div className="mz-admin-detail-field">
+                    <span className="mz-admin-detail-field-label">Account Standing</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>
+                      <span className={user.isSuspended ? "mz-admin-badge-suspended" : "mz-admin-badge-active"}>
+                        {user.isSuspended ? "Suspended" : "Active & In Good Standing"}
+                      </span>
+                      {user.suspendedReason && (
+                        <span style={{ fontSize: 11, color: "#ef4444" }}>
+                          (Reason: {user.suspendedReason})
                         </span>
                       )}
                     </div>
                   </div>
 
+                  <div className="mz-admin-detail-field">
+                    <span className="mz-admin-detail-field-label">Assigned Role</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>
+                      <span className={roleBadge.className}>
+                        {roleBadge.label}
+                      </span>
+                      <span style={{ fontSize: 11, color: "var(--mz-text-subtle)" }}>
+                        {user.role === "SUPER_ADMIN" ? "All Platform Powers" : user.role === "admin" ? "Administrative Access" : "Standard Student Rights"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mz-admin-detail-field">
+                    <span className="mz-admin-detail-field-label">Authentication Method</span>
+                    <span className="mz-admin-detail-field-val">
+                      <LuKey style={{ width: 14, height: 14, color: "#6366f1" }} />
+                      <span>{user.authProvider === "google" ? "Google OAuth 2.0 Single Sign-On" : "Email & Salted BCrypt Password"}</span>
+                    </span>
+                  </div>
+
+                  <div className="mz-admin-detail-field">
+                    <span className="mz-admin-detail-field-label">Email Verification</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>
+                      {user.isEmailVerified ? (
+                        <span className="mz-admin-badge-green">
+                          <LuCircleCheck size={12} />
+                          <span>Email Verified</span>
+                        </span>
+                      ) : (
+                        <span className="mz-admin-badge-amber">
+                          <LuTriangleAlert size={12} />
+                          <span>Pending Verification</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mz-admin-detail-field">
+                    <span className="mz-admin-detail-field-label">Last Known Login Device</span>
+                    <span className="mz-admin-detail-field-val">
+                      <LuSmartphone style={{ width: 14, height: 14, color: "var(--mz-text-muted)" }} />
+                      <span>{user.lastLoginDevice || "Desktop Browser"}</span>
+                    </span>
+                  </div>
+
+                  <div className="mz-admin-detail-field">
+                    <span className="mz-admin-detail-field-label">Last Known IP Address</span>
+                    <span className="mz-admin-detail-field-val">
+                      <span style={{ fontFamily: "monospace", fontSize: 12.5 }}>
+                        {user.lastLoginIp || "127.0.0.1 (Local / Trusted)"}
+                      </span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 3: Learning Tracks, Interests & Performance */}
+              <div className="mz-admin-detail-card">
+                <div className="mz-admin-detail-card-header">
+                  <h4 className="mz-admin-detail-card-title">
+                    <LuSparkles style={{ width: 16, height: 16, color: "#eab308" }} />
+                    <span>Learning Progress & Academic Standing</span>
+                  </h4>
+                  <span style={{ fontSize: 11, color: "var(--mz-text-subtle)" }}>Platform Analytics</span>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                   <div>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: "var(--mz-text-subtle)", display: "block", marginBottom: 6 }}>
-                      EXPLORED LEARNING TRACKS
+                    <span className="mz-admin-detail-field-label" style={{ display: "block", marginBottom: 6 }}>
+                      Explored Learning Tracks
                     </span>
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                       {user.exploredTracks && user.exploredTracks.length > 0 ? (
@@ -620,17 +867,97 @@ const AdminUserDetailModal = ({
                           </span>
                         ))
                       ) : (
-                        <span style={{ fontSize: 12, color: "var(--mz-text-subtle)", fontStyle: "italic" }}>
-                          No tracks explored yet.
-                        </span>
+                        <span className="mz-admin-empty-pill">General Software Engineering Track</span>
                       )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="mz-admin-detail-field-label" style={{ display: "block", marginBottom: 6 }}>
+                      Selected Learning Interests
+                    </span>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      {user.interests && user.interests.length > 0 && user.interests[0] !== "Not Provided" ? (
+                        user.interests.map((it, i) => (
+                          <span
+                            key={i}
+                            style={{
+                              padding: "4px 10px",
+                              borderRadius: 6,
+                              background: "var(--mz-blue-bg)",
+                              color: "#2563eb",
+                              fontSize: 12,
+                              fontWeight: 700,
+                              border: "1px solid var(--mz-blue-border)",
+                            }}
+                          >
+                            #{it}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="mz-admin-empty-pill">General Coding, Algorithms & Data Structures</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mz-admin-detail-field-grid" style={{ paddingTop: 6, borderTop: "1px solid var(--mz-border-subtle)" }}>
+                    <div className="mz-admin-detail-field">
+                      <span className="mz-admin-detail-field-label">Learning Hours Logged</span>
+                      <span className="mz-admin-detail-field-val">
+                        ⏱️ {user.learningHours || 0} Hours logged
+                      </span>
+                    </div>
+
+                    <div className="mz-admin-detail-field">
+                      <span className="mz-admin-detail-field-label">Assessment Success Rate</span>
+                      <span className="mz-admin-detail-field-val">
+                        📊 {passRate}% ({totalPassed} of {totalAssessments} passed)
+                      </span>
+                    </div>
+
+                    <div className="mz-admin-detail-field">
+                      <span className="mz-admin-detail-field-label">Proctored Sessions</span>
+                      <span className="mz-admin-detail-field-val">
+                        🛡️ {proctoredSessions.length} sessions recorded
+                      </span>
+                    </div>
+
+                    <div className="mz-admin-detail-field">
+                      <span className="mz-admin-detail-field-label">Integrity & Violations</span>
+                      <span className="mz-admin-detail-field-val">
+                        {totalViolations === 0 ? (
+                          <span style={{ color: "#10b981", fontWeight: 700 }}>✅ 0 Violations (Clean Audit)</span>
+                        ) : (
+                          <span style={{ color: "#ef4444", fontWeight: 700 }}>⚠️ {totalViolations} Violations Flagged</span>
+                        )}
+                      </span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Student Daily Activity Streak Calendar & Heatmap */}
-              <div style={{ marginTop: 4 }}>
+              {/* Card 4: Biography & Profile Statement */}
+              <div className="mz-admin-detail-card">
+                <div className="mz-admin-detail-card-header">
+                  <h4 className="mz-admin-detail-card-title">
+                    <LuFileText style={{ width: 16, height: 16, color: "#8b5cf6" }} />
+                    <span>Biography & Student Statement</span>
+                  </h4>
+                </div>
+
+                {user.bio && user.bio !== "Not Provided" ? (
+                  <p style={{ margin: 0, fontSize: 13.5, color: "var(--mz-text-secondary)", lineHeight: 1.6 }}>
+                    &ldquo;{user.bio}&rdquo;
+                  </p>
+                ) : (
+                  <p style={{ margin: 0, fontSize: 12.5, color: "var(--mz-text-subtle)", fontStyle: "italic" }}>
+                    No personal biography provided yet. The student has not customized their bio statement.
+                  </p>
+                )}
+              </div>
+
+              {/* Card 5: Student Activity Streak Calendar & Heatmap Preview */}
+              <div style={{ marginTop: 2 }}>
                 <LeetCodeActivityCalendar
                   userId={user._id || user.id}
                   initialData={userDetail.activityStats}
@@ -882,7 +1209,60 @@ const AdminUserDetailModal = ({
             </div>
           )}
 
-          {/* TAB 5: DEVICES & LOGINS */}
+          {/* TAB 5: PRACTICAL PROJECTS */}
+          {activeTab === "projects" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {projects.length === 0 ? (
+                <p style={{ margin: 0, color: "var(--mz-text-subtle)", fontSize: 13, textAlign: "center", padding: "40px 0" }}>
+                  No practical project submissions recorded yet.
+                </p>
+              ) : (
+                projects.map((p) => {
+                  const scoreVal = p.marksObtained != null ? p.marksObtained : 0;
+                  const total = p.totalMarks || 100;
+                  const pct = p.percentage != null ? p.percentage : Math.round((scoreVal / total) * 100);
+                  return (
+                    <div
+                      key={p._id}
+                      style={{
+                        padding: "16px 18px",
+                        borderRadius: 14,
+                        border: "1px solid var(--mz-border)",
+                        background: "var(--mz-surface)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontWeight: 700, color: "var(--mz-text-primary)", fontSize: 14 }}>
+                          {p.projectTitle || "Practical Project Submission"}
+                        </div>
+                        <div style={{ fontSize: 12, color: "var(--mz-text-muted)", marginTop: 2 }}>
+                          Score: <strong>{scoreVal} / {total}</strong> ({pct}%) • Submitted {new Date(p.submittedAt || p.createdAt).toLocaleDateString()}
+                        </div>
+                      </div>
+
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span className={pct >= 70 ? "mz-admin-pill-pass" : "mz-admin-pill-fail"}>
+                          {p.status || (pct >= 70 ? "PASSED" : "NEEDS_IMPROVEMENT")}
+                        </span>
+                        <button
+                          onClick={() => handleOpenReport("project", p._id, p)}
+                          className="mz-admin-btn-report"
+                        >
+                          <LuFileText style={{ width: 14, height: 14 }} />
+                          <span>View Report</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
+
+          {/* TAB 6: DEVICES & SECURITY */}
           {activeTab === "devices" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {(user.knownDevices && user.knownDevices.length > 0) ? (
@@ -894,7 +1274,9 @@ const AdminUserDetailModal = ({
                       </div>
                       <div>
                         <p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: "var(--mz-text-primary)" }}>{dev.deviceString || dev.browser || "Web Browser"}</p>
-                        <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--mz-text-subtle)" }}>IP: {dev.ip || "Unknown"}</p>
+                        <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--mz-text-subtle)" }}>
+                          IP: {dev.ip || "Unknown"} • OS: {dev.os || "Desktop OS"}
+                        </p>
                       </div>
                     </div>
                     <span style={{ fontSize: 12, color: "var(--mz-text-muted)" }}>
@@ -914,7 +1296,7 @@ const AdminUserDetailModal = ({
                     </div>
                   </div>
                   <span style={{ fontSize: 12, color: "var(--mz-text-muted)" }}>
-                    Last Seen: {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleDateString() : "N/A"}
+                    Last Seen: {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleDateString() : "Active"}
                   </span>
                 </div>
               ) : (

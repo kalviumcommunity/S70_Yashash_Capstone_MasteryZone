@@ -106,17 +106,24 @@ const AdminNotificationDropdown = () => {
       socket = getSharedSocket(socketTarget);
 
       handleConnect = () => {
-        if (socket) socket.emit("join_admin_monitoring");
+        const token = localStorage.getItem("token");
+        if (socket && token) {
+          socket.emit("join_admin_monitoring", { token });
+        }
         fetchNotifications();
       };
 
       socket.on("connect", handleConnect);
 
       if (socket.connected) {
-        socket.emit("join_admin_monitoring");
+        const token = localStorage.getItem("token");
+        if (token) {
+          socket.emit("join_admin_monitoring", { token });
+        }
       }
 
       socket.on("admin_notification_received", handleAdminNotif);
+      socket.on("admin_notifications_updated", fetchNotifications);
     } catch (e) {
       console.warn("Admin notification socket connection error:", e);
     }
