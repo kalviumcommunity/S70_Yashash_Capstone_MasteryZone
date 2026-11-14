@@ -31,7 +31,13 @@ const {
   dispatchMailBackground,
   isGuestAccount,
 } = require("../utils/mailer");
-const { getRecordingsDir, resolveRecordingFilePath } = require("../config/recordingStorage");
+const {
+  getRecordingsDir,
+  resolveRecordingFilePath,
+  saveFileToGridFS,
+  deleteFileFromGridFS,
+  safeDeleteRecordingFile,
+} = require("../config/recordingStorage");
 
 const router = express.Router();
 
@@ -4657,41 +4663,268 @@ router.get("/recordings", async (req, res) => {
   }
 });
 
+// Upload / Add Video directly in Admin Recordings
+router.post("/recordings/upload", async (req, res) => {
+  const Busboy = require("busboy");
+  const { execFile } = require("child_process");
+  let tempFilePath = null;
+  let finalFilePath = null;
+
+  try {
+    const recordingsDir = getRecordingsDir();
+    const recordingId = `rec_admin_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+
+    const parsed = await new Promise((resolve, reject) => {
+      const busboy = Busboy({
+        headers: req.headers,
+        limits: { fileSize: 500 * 1024 * 1024, files: 1 },
+      });
+
+      const fields = {};
+      let fileInfo = null;
+      let fileWritePromise = null;
+
+      busboy.on("field", (name, val) => {
+        fields[name] = val;
+      });
+
+      busboy.on("file", (fieldname, file, info) => {
+        const origName = info?.filename || "video.mp4";
+        const mimeType = info?.mimeType || "video/mp4";
+        const extMatch = path.extname(origName).toLowerCase();
+        const allowedExts = [".mp4", ".webm", ".mov", ".mkv", ".ogg", ".avi", ".m4v"];
+        const ext = allowedExts.includes(extMatch)
+          ? extMatch
+          : mimeType.includes("mp4")
+          ? ".mp4"
+          : mimeType.includes("quicktime")
+          ? ".mov"
+          : ".webm";
+
+        const filename = `${recordingId}${ext}`;
+        tempFilePath = path.join(recordingsDir, `${recordingId}.tmp${ext}`);
+        finalFilePath = path.join(recordingsDir, filename);
+
+        let bytesWritten = 0;
+        let limitExceeded = false;
+        const out = fs.createWriteStream(tempFilePath);
+
+        file.on("data", (chunk) => {
+          bytesWritten += chunk.length;
+        });
+        file.on("limit", () => {
+          limitExceeded = true;
+          out.destroy();
+          reject(Object.assign(new Error("Video file exceeds 500MB maximum limit."), { status: 413 }));
+        });
+
+        fileWritePromise = new Promise((resWrite, rejWrite) => {
+          out.on("finish", () => {
+            if (limitExceeded) return;
+            fileInfo = { filename, ext, mimeType, bytesWritten, origName };
+            resWrite();
+          });
+          out.on("error", rejWrite);
+        });
+
+        file.pipe(out);
+      });
+
+      busboy.on("finish", async () => {
+        try {
+          if (fileWritePromise) await fileWritePromise;
+          if (!fileInfo || !tempFilePath || !fs.existsSync(tempFilePath)) {
+            return reject(Object.assign(new Error("No video file was provided."), { status: 400 }));
+          }
+          if (fileInfo.bytesWritten < 100) {
+            return reject(Object.assign(new Error("Uploaded video file is empty or too small."), { status: 400 }));
+          }
+          fs.renameSync(tempFilePath, finalFilePath);
+          tempFilePath = null;
+          resolve({ fields, fileInfo });
+        } catch (err) {
+          reject(err);
+        }
+      });
+
+      busboy.on("error", reject);
+      req.pipe(busboy);
+    });
+
+    const { fields, fileInfo } = parsed;
+    const allowedTypes = ["Meeting", "Screen Share", "Proctoring"];
+    const recordingType = allowedTypes.includes(fields.recordingType) ? fields.recordingType : "Meeting";
+    const cleanTitle =
+      String(fields.title || "").trim() ||
+      path.basename(fileInfo.origName, path.extname(fileInfo.origName)) ||
+      "Admin Uploaded Video";
+
+    let durationSeconds = Math.max(0, Math.round(Number(fields.durationSeconds) || 0));
+    if (durationSeconds <= 0) {
+      try {
+        const ffprobePath = require("@ffprobe-installer/ffprobe").path;
+        const probed = await new Promise((resolveProbe) => {
+          execFile(
+            ffprobePath,
+            ["-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", finalFilePath],
+            { timeout: 10000 },
+            (err, stdout) => {
+              if (err) return resolveProbe(0);
+              const val = parseFloat(String(stdout || "").trim());
+              resolveProbe(Number.isFinite(val) && val > 0 ? Math.round(val) : 0);
+            }
+          );
+        });
+        if (probed > 0) durationSeconds = probed;
+      } catch {}
+    }
+
+    const hostUserId = String(req.user?._id || req.user?.userId || req.user?.id || "admin");
+    const hostName = req.user?.fullName || req.user?.name || "Admin";
+    const hostEmail = req.user?.email || "";
+
+    await saveFileToGridFS(fileInfo.filename, finalFilePath, {
+      recordingId,
+      recordingType,
+      hostUserId,
+      mimeType: fileInfo.mimeType,
+      durationSeconds,
+    }).catch((err) => {
+      console.warn("[AdminRecordings] GridFS backup warning:", err.message);
+    });
+
+    const doc = await Recording.create({
+      recordingId,
+      meetingId: `admin_upload_${Date.now()}`,
+      title: cleanTitle,
+      hostUserId,
+      hostName,
+      hostEmail,
+      recordingType,
+      durationSeconds,
+      filePath: finalFilePath,
+      fileUrl: `/recordings/${fileInfo.filename}`,
+      streamUrl: `/api/recordings/stream/${fileInfo.filename}`,
+      fileSize: fileInfo.bytesWritten,
+      mimeType: fileInfo.mimeType,
+      participantsCount: 1,
+      participantUserIds: [hostUserId],
+      participantNames: [hostName],
+      status: "ready",
+      startTime: new Date(),
+      endTime: new Date(),
+    });
+
+    const io = req.app.get("io");
+    if (io) {
+      io.emit("NEW_RECORDING_SAVED", {
+        recordingId: doc.recordingId,
+        title: doc.title,
+        recordingType: doc.recordingType,
+      });
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: "Video uploaded and added to recordings successfully",
+      recording: doc,
+    });
+  } catch (err) {
+    if (tempFilePath && fs.existsSync(tempFilePath)) {
+      try { fs.unlinkSync(tempFilePath); } catch {}
+    }
+    if (finalFilePath && fs.existsSync(finalFilePath)) {
+      try { fs.unlinkSync(finalFilePath); } catch {}
+    }
+    return res.status(err.status || 500).json({
+      success: false,
+      message: err.message || "Failed to upload video",
+    });
+  }
+});
+
+// Helper to permanently delete a recording by id/filename from DB, disk, GridFS, and proctoring links
+async function permanentlyDeleteSingleRecording(recordingId, recordingsDir) {
+  const query = {
+    $or: [
+      { recordingId },
+      ...(mongoose.Types.ObjectId.isValid(recordingId) ? [{ _id: recordingId }] : []),
+      { filePath: new RegExp(recordingId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i") },
+      { fileUrl: new RegExp(recordingId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i") },
+    ],
+  };
+
+  const recs = await Recording.find(query);
+  for (const rec of recs) {
+    await safeDeleteRecordingFile(rec);
+    const fname = rec.fileUrl ? path.basename(rec.fileUrl) : `${rec.recordingId}.webm`;
+    await deleteFileFromGridFS(fname).catch(() => {});
+    if (rec.recordingId) {
+      await deleteFileFromGridFS(`${rec.recordingId}.webm`).catch(() => {});
+      await deleteFileFromGridFS(`${rec.recordingId}.mp4`).catch(() => {});
+    }
+    await Recording.deleteOne({ _id: rec._id });
+  }
+
+  // Unlink from ProctoredCodingSession if this was a proctoring recording
+  await ProctoredCodingSession.updateMany(
+    { $or: [{ sessionId: recordingId }, { recordingId }] },
+    {
+      $set: {
+        recordingUrl: "",
+        recordingId: "",
+        recordingStatus: "not_recorded",
+        recordingFileSize: 0,
+        recordingDurationSeconds: 0,
+      },
+    }
+  ).catch(() => {});
+
+  // Clean up any matching physical disk files and GridFS by bare ID
+  const cleanId = recordingId.replace(/\.[^/.]+$/, "");
+  await deleteFileFromGridFS(recordingId).catch(() => {});
+  if (fs.existsSync(recordingsDir)) {
+    const files = fs.readdirSync(recordingsDir);
+    for (const f of files) {
+      if (f === recordingId || f.startsWith(cleanId)) {
+        try {
+          fs.unlinkSync(path.join(recordingsDir, f));
+        } catch {}
+        await deleteFileFromGridFS(f).catch(() => {});
+      }
+    }
+  }
+}
+
+router.post("/recordings/bulk-delete", async (req, res) => {
+  try {
+    const ids = Array.isArray(req.body?.recordingIds) ? req.body.recordingIds.filter(Boolean) : [];
+    if (ids.length === 0) {
+      return res.status(400).json({ success: false, message: "No recordingIds provided" });
+    }
+    const recordingsDir = getRecordingsDir();
+    for (const id of ids) {
+      await permanentlyDeleteSingleRecording(String(id), recordingsDir);
+    }
+    const io = req.app.get("io");
+    if (io) {
+      io.emit("RECORDING_DELETED", { recordingIds: ids });
+    }
+    return res.status(200).json({
+      success: true,
+      deletedCount: ids.length,
+      message: `${ids.length} recording(s) permanently deleted`,
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 router.delete("/recordings/:recordingId", async (req, res) => {
   try {
     const { recordingId } = req.params;
     const recordingsDir = getRecordingsDir();
-    
-    // 1. Search in DB
-    const query = {
-      $or: [
-        { recordingId },
-        ...(mongoose.Types.ObjectId.isValid(recordingId) ? [{ _id: recordingId }] : []),
-        { filePath: new RegExp(recordingId, "i") },
-        { fileUrl: new RegExp(recordingId, "i") },
-      ],
-    };
-    const rec = await Recording.findOne(query);
-    if (rec) {
-      const p = resolveRecordingFilePath(rec.fileName || rec.recordingId, rec);
-      if (p && fs.existsSync(p)) {
-        try { fs.unlinkSync(p); } catch (e) {}
-      }
-      await Recording.deleteOne({ _id: rec._id });
-    }
-
-    // 2. Also check physical disk files
-    const cleanId = recordingId.replace(/\.[^/.]+$/, "");
-    if (fs.existsSync(recordingsDir)) {
-      const files = fs.readdirSync(recordingsDir);
-      files.forEach((f) => {
-        if (f === recordingId || f.startsWith(cleanId)) {
-          try {
-            fs.unlinkSync(path.join(recordingsDir, f));
-          } catch (e) {}
-        }
-      });
-    }
+    await permanentlyDeleteSingleRecording(recordingId, recordingsDir);
 
     // Broadcast deletion to admin feeds
     const io = req.app.get("io");
@@ -4699,7 +4932,7 @@ router.delete("/recordings/:recordingId", async (req, res) => {
       io.emit("RECORDING_DELETED", { recordingId });
     }
 
-    res.status(200).json({ success: true, message: "Recording permanently removed from database and disk storage" });
+    res.status(200).json({ success: true, message: "Recording permanently removed from database and storage" });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

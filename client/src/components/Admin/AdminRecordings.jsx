@@ -21,6 +21,8 @@ import {
   LuExternalLink,
   LuTrash2,
   LuPencil,
+  LuUpload,
+  LuPlus,
 } from "react-icons/lu";
 import { getSharedSocket, releaseSharedSocket } from "../../utils/socketClient";
 import { toast } from "react-toastify";
@@ -57,6 +59,20 @@ const AdminRecordings = () => {
   const [renameModalRecording, setRenameModalRecording] = useState(null);
   const [renameInput, setRenameInput] = useState("");
   const [isRenaming, setIsRenaming] = useState(false);
+
+  // Add / Upload Video Modal state
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadFile, setUploadFile] = useState(null);
+  const [uploadTitle, setUploadTitle] = useState("");
+  const [uploadType, setUploadType] = useState("Meeting");
+  const [uploadDuration, setUploadDuration] = useState(0);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+
+  // Delete & Bulk-Delete state
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [deleteConfirmTarget, setDeleteConfirmTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const handleRenameRecording = async (e) => {
     e?.preventDefault?.();
@@ -98,7 +114,7 @@ const AdminRecordings = () => {
     }
   };
 
-  const fetchRecordings = async (selectedPage = page, selectedSearch = searchTerm, selectedType = typeFilter) => {
+  const fetchRecordings = async (selectedPage = page, selectedSearch = searchTerm, selectedType = typeFilter, forceRefresh = false) => {
     try {
       setLoading(true);
       const token = localStorage.getItem("token");
@@ -111,7 +127,7 @@ const AdminRecordings = () => {
 
       const res = await deduplicatedFetch(`${API_BASE}/api/admin/recordings?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
-        cacheTtlMs: 2500,
+        cacheTtlMs: forceRefresh ? 0 : 2500,
       });
       if (res.ok) {
         const json = await res.json();
@@ -199,30 +215,133 @@ const AdminRecordings = () => {
     };
   }, []);
 
-  const handleDeleteRecording = async (rec) => {
-    const recId = rec.id || rec.recordingId;
-    if (!window.confirm(`Are you sure you want to permanently delete "${rec.title}"?\n\nThis will remove the file from storage and audit records.`)) {
-      return;
-    }
+  const handleDeleteRecording = (rec) => {
+    setDeleteConfirmTarget({ mode: "single", rec });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirmTarget) return;
+    setDeleting(true);
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`${API_BASE}/api/admin/recordings/${recId}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const json = await res.json();
-      if (json.success) {
-        toast.success("Recording permanently deleted");
-        if (activeRecording && (activeRecording.id === recId || activeRecording.recordingId === recId)) {
-          setActiveRecording(null);
+      if (deleteConfirmTarget.mode === "single" && deleteConfirmTarget.rec) {
+        const rec = deleteConfirmTarget.rec;
+        const recId = rec.id || rec.recordingId;
+        const res = await fetch(`${API_BASE}/api/admin/recordings/${encodeURIComponent(recId)}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const json = await res.json();
+        if (json.success) {
+          toast.success("Recording permanently deleted");
+          setSelectedIds((prev) => prev.filter((id) => id !== recId));
+          if (activeRecording && (activeRecording.id === recId || activeRecording.recordingId === recId)) {
+            setActiveRecording(null);
+          }
+          fetchRecordings(page, searchTerm, typeFilter, true);
+        } else {
+          toast.error(json.message || "Failed to delete recording");
         }
-        fetchRecordings();
-      } else {
-        toast.error(json.message || "Failed to delete recording");
+      } else if (deleteConfirmTarget.mode === "bulk" && Array.isArray(deleteConfirmTarget.ids)) {
+        const ids = deleteConfirmTarget.ids;
+        const res = await fetch(`${API_BASE}/api/admin/recordings/bulk-delete`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ recordingIds: ids }),
+        });
+        const json = await res.json();
+        if (json.success) {
+          toast.success(`${json.deletedCount || ids.length} recording(s) permanently deleted`);
+          setSelectedIds([]);
+          fetchRecordings(page, searchTerm, typeFilter, true);
+        } else {
+          toast.error(json.message || "Bulk delete failed");
+        }
       }
+      setDeleteConfirmTarget(null);
     } catch (err) {
       toast.error(`Delete failed: ${err.message}`);
+    } finally {
+      setDeleting(false);
     }
+  };
+
+  const handleSelectVideoFile = (file) => {
+    if (!file) return;
+    setUploadFile(file);
+    if (!uploadTitle.trim()) {
+      setUploadTitle(file.name.replace(/\.[^/.]+$/, ""));
+    }
+    try {
+      const tempVideo = document.createElement("video");
+      tempVideo.preload = "metadata";
+      const objUrl = URL.createObjectURL(file);
+      tempVideo.onloadedmetadata = () => {
+        if (Number.isFinite(tempVideo.duration) && tempVideo.duration > 0) {
+          setUploadDuration(Math.round(tempVideo.duration));
+        }
+        URL.revokeObjectURL(objUrl);
+      };
+      tempVideo.onerror = () => URL.revokeObjectURL(objUrl);
+      tempVideo.src = objUrl;
+    } catch {}
+  };
+
+  const handleUploadVideo = (e) => {
+    e?.preventDefault?.();
+    if (!uploadFile) {
+      toast.error("Please select a video file to upload.");
+      return;
+    }
+    setUploading(true);
+    setUploadProgress(0);
+    const token = localStorage.getItem("token");
+    const formData = new FormData();
+    formData.append("title", uploadTitle.trim() || uploadFile.name.replace(/\.[^/.]+$/, ""));
+    formData.append("recordingType", uploadType);
+    formData.append("durationSeconds", String(uploadDuration || 0));
+    formData.append("video", uploadFile);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${API_BASE}/api/admin/recordings/upload`);
+    if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+
+    xhr.upload.onprogress = (evt) => {
+      if (evt.lengthComputable) {
+        setUploadProgress(Math.round((evt.loaded / evt.total) * 100));
+      }
+    };
+    xhr.onload = () => {
+      setUploading(false);
+      try {
+        const json = JSON.parse(xhr.responseText || "{}");
+        if (xhr.status >= 200 && xhr.status < 300 && json.success) {
+          toast.success("Video uploaded and added to recordings");
+          setShowUploadModal(false);
+          setUploadFile(null);
+          setUploadTitle("");
+          setUploadDuration(0);
+          setUploadProgress(0);
+          fetchRecordings(1, searchTerm, typeFilter, true);
+        } else {
+          toast.error(json.message || "Failed to upload video");
+        }
+      } catch {
+        toast.error("Failed to parse upload response");
+      }
+    };
+    xhr.onerror = () => {
+      setUploading(false);
+      toast.error("Network error while uploading video");
+    };
+    xhr.send(formData);
+  };
+
+  const toggleSelectId = (id) => {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
   const handlePurgeCorrupted = async () => {
@@ -355,7 +474,30 @@ const AdminRecordings = () => {
           )}
 
           <button
-            onClick={() => fetchRecordings(page, searchTerm, typeFilter)}
+            onClick={() => setShowUploadModal(true)}
+            title="Upload / Add a new video"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "9px 16px",
+              borderRadius: 10,
+              fontSize: 13,
+              fontWeight: 700,
+              color: "#ffffff",
+              background: "#4f46e5",
+              border: "none",
+              cursor: "pointer",
+              boxShadow: "0 2px 6px rgba(79, 70, 229, 0.25)",
+              transition: "all 0.15s ease",
+            }}
+          >
+            <LuPlus style={{ width: 15, height: 15 }} />
+            <span>Add Video</span>
+          </button>
+
+          <button
+            onClick={() => fetchRecordings(page, searchTerm, typeFilter, true)}
             title="Refresh database records"
             style={{
               display: "inline-flex",
@@ -738,7 +880,28 @@ const AdminRecordings = () => {
             Authentic recorded media captured from authorized sessions
           </p>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          {selectedIds.length > 0 && (
+            <button
+              onClick={() => setDeleteConfirmTarget({ mode: "bulk", ids: selectedIds })}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "5px 12px",
+                borderRadius: 8,
+                border: "1px solid var(--mz-red-border)",
+                background: "var(--mz-red-bg)",
+                color: "#dc2626",
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              <LuTrash2 style={{ width: 13, height: 13 }} />
+              <span>Delete Selected ({selectedIds.length})</span>
+            </button>
+          )}
           <span
             style={{
               display: "inline-flex",
@@ -811,6 +974,13 @@ const AdminRecordings = () => {
                   {/* Card Header Badges */}
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(r.id || r.recordingId)}
+                        onChange={() => toggleSelectId(r.id || r.recordingId)}
+                        title="Select recording"
+                        style={{ width: 15, height: 15, cursor: "pointer", accentColor: "#4f46e5" }}
+                      />
                       <span
                         style={{
                           display: "inline-flex",
@@ -1419,6 +1589,236 @@ const AdminRecordings = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add / Upload Video Modal */}
+      {showUploadModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15, 23, 42, 0.55)",
+            backdropFilter: "blur(3px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 100000,
+            padding: 20,
+          }}
+          onClick={() => !uploading && setShowUploadModal(false)}
+        >
+          <div
+            style={{
+              background: "var(--mz-surface)",
+              borderRadius: 16,
+              maxWidth: 480,
+              width: "100%",
+              padding: 24,
+              boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
+              border: "1px solid var(--mz-border)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--mz-text-primary)" }}>
+                Add Video Recording
+              </h3>
+              <button
+                type="button"
+                disabled={uploading}
+                onClick={() => setShowUploadModal(false)}
+                style={{ background: "none", border: "none", color: "var(--mz-text-muted)", cursor: "pointer" }}
+              >
+                <LuX style={{ width: 18, height: 18 }} />
+              </button>
+            </div>
+
+            <form onSubmit={handleUploadVideo} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div>
+                <label style={{ display: "block", fontSize: 12.5, fontWeight: 600, color: "var(--mz-text-secondary)", marginBottom: 6 }}>
+                  Video File (.mp4, .webm, .mov, .mkv)
+                </label>
+                <label
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "22px 16px",
+                    borderRadius: 10,
+                    border: "2px dashed var(--mz-border-strong)",
+                    background: "var(--mz-surface-subtle)",
+                    cursor: uploading ? "not-allowed" : "pointer",
+                    textAlign: "center",
+                    gap: 6,
+                  }}
+                >
+                  <LuUpload style={{ width: 24, height: 24, color: "#4f46e5" }} />
+                  <span style={{ fontSize: 13, fontWeight: 600, color: "var(--mz-text-primary)" }}>
+                    {uploadFile ? uploadFile.name : "Click to choose a video file"}
+                  </span>
+                  <span style={{ fontSize: 11.5, color: "var(--mz-text-muted)" }}>
+                    {uploadFile
+                      ? `${(uploadFile.size / (1024 * 1024)).toFixed(2)} MB${uploadDuration ? ` • ${uploadDuration}s` : ""}`
+                      : "Max size 500 MB"}
+                  </span>
+                  <input
+                    type="file"
+                    accept="video/*,.mp4,.webm,.mov,.mkv,.ogg"
+                    disabled={uploading}
+                    onChange={(e) => handleSelectVideoFile(e.target.files?.[0])}
+                    style={{ display: "none" }}
+                  />
+                </label>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: 12.5, fontWeight: 600, color: "var(--mz-text-secondary)", marginBottom: 6 }}>
+                  Title
+                </label>
+                <input
+                  type="text"
+                  value={uploadTitle}
+                  onChange={(e) => setUploadTitle(e.target.value)}
+                  placeholder="e.g. Python Live Session Recording"
+                  disabled={uploading}
+                  required
+                  style={{
+                    width: "100%",
+                    padding: "9px 12px",
+                    borderRadius: 8,
+                    border: "1px solid var(--mz-border-strong)",
+                    background: "var(--mz-surface)",
+                    color: "var(--mz-text-primary)",
+                    fontSize: 13.5,
+                    boxSizing: "border-box",
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: 12.5, fontWeight: 600, color: "var(--mz-text-secondary)", marginBottom: 6 }}>
+                  Recording Category
+                </label>
+                <select
+                  value={uploadType}
+                  onChange={(e) => setUploadType(e.target.value)}
+                  disabled={uploading}
+                  style={{
+                    width: "100%",
+                    padding: "9px 12px",
+                    borderRadius: 8,
+                    border: "1px solid var(--mz-border-strong)",
+                    background: "var(--mz-surface)",
+                    color: "var(--mz-text-primary)",
+                    fontSize: 13.5,
+                  }}
+                >
+                  <option value="Meeting">Meeting</option>
+                  <option value="Screen Share">Screen Share</option>
+                  <option value="Proctoring">Proctoring</option>
+                </select>
+              </div>
+
+              {uploading && (
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4, color: "var(--mz-text-secondary)" }}>
+                    <span>Uploading &amp; saving to cloud storage...</span>
+                    <strong>{uploadProgress}%</strong>
+                  </div>
+                  <div style={{ width: "100%", height: 6, borderRadius: 4, background: "var(--mz-surface-muted)", overflow: "hidden" }}>
+                    <div style={{ width: `${uploadProgress}%`, height: "100%", background: "#4f46e5", transition: "width 0.15s ease" }} />
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 6 }}>
+                <button
+                  type="button"
+                  disabled={uploading}
+                  onClick={() => setShowUploadModal(false)}
+                  className="mz-admin-btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={uploading || !uploadFile}
+                  className="mz-admin-btn-primary"
+                >
+                  {uploading ? `Uploading ${uploadProgress}%...` : "Upload Video"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmTarget && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15, 23, 42, 0.55)",
+            backdropFilter: "blur(3px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 100000,
+            padding: 20,
+          }}
+          onClick={() => !deleting && setDeleteConfirmTarget(null)}
+        >
+          <div
+            style={{
+              background: "var(--mz-surface)",
+              borderRadius: 16,
+              maxWidth: 420,
+              width: "100%",
+              padding: 24,
+              boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
+              border: "1px solid var(--mz-border)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ margin: "0 0 8px", fontSize: 17, fontWeight: 700, color: "#dc2626" }}>
+              Permanently Delete {deleteConfirmTarget.mode === "bulk" ? `${deleteConfirmTarget.ids.length} Videos` : "Video"}?
+            </h3>
+            <p style={{ margin: "0 0 18px", fontSize: 13.5, color: "var(--mz-text-secondary)", lineHeight: 1.5 }}>
+              {deleteConfirmTarget.mode === "bulk"
+                ? `This will permanently remove ${deleteConfirmTarget.ids.length} selected recording(s) from database, disk, and cloud storage.`
+                : `This will permanently remove "${deleteConfirmTarget.rec?.title || "this recording"}" from database, disk, and cloud storage.`}
+            </p>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={() => setDeleteConfirmTarget(null)}
+                className="mz-admin-btn-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={handleConfirmDelete}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: 8,
+                  border: "none",
+                  background: "#dc2626",
+                  color: "#ffffff",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                {deleting ? "Deleting..." : "Delete Permanently"}
+              </button>
+            </div>
           </div>
         </div>
       )}
