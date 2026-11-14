@@ -4,6 +4,12 @@ import Editor from "@monaco-editor/react";
 import { toast } from "react-toastify";
 import useNavigationLock from "../hooks/useNavigationLock";
 import {
+  collectLiveDeviceTelemetry,
+  captureVideoSnapshot,
+  uploadViolationEvidence,
+  ProctoringStreamRecorder,
+} from "../utils/proctoringRecorder";
+import {
   LuPlay,
   LuX,
   LuRotateCcw,
@@ -1346,6 +1352,7 @@ export default function MasteryZoneCompilerWorkspace({
   const procAnalyserRef = useRef(null);
   const procAnimFrameRef = useRef(null);
   const heartbeatIntervalRef = useRef(null);
+  const procRecorderRef = useRef(null);
   const violationCooldownRef = useRef(false);
 
   // Quick 1-click camera connection
@@ -1795,6 +1802,13 @@ export default function MasteryZoneCompilerWorkspace({
 
     try {
       const token = localStorage.getItem("token");
+      const liveDeviceInfo = collectLiveDeviceTelemetry({
+        cameraStream: gateData.cameraStream,
+        micStream: gateData.micStream,
+        screenStream: gateData.screenStream,
+        batteryInfo: gateData.batteryInfo || batteryInfo,
+        displaySurface: gateData.displaySurface,
+      });
       const res = await fetch(`${API_BASE}/api/coding/proctored-session/start`, {
         method: "POST",
         headers: {
@@ -1807,19 +1821,26 @@ export default function MasteryZoneCompilerWorkspace({
           assessmentTitle: questionDetails?.title,
           problemData: questionDetails,
           candidateDetails: gateData.candidateDetails,
-          deviceInfo: {
-            camera: true,
-            microphone: true,
-            screenShare: true,
-            fullscreen: true,
-            displaySurface: gateData.displaySurface || "monitor",
-          },
+          deviceInfo: liveDeviceInfo,
         }),
       });
       if (res.ok) {
         const sData = await res.json();
+        const activeSid = sData.sessionId || gateData.sessionId;
         if (sData.sessionId) {
           setProctoredSessionId(sData.sessionId);
+        }
+        if (activeSid && !procRecorderRef.current) {
+          const recorder = new ProctoringStreamRecorder({
+            apiBase: API_BASE,
+            sessionId: activeSid,
+          });
+          procRecorderRef.current = recorder;
+          recorder.start({
+            screenStream: gateData.screenStream,
+            cameraStream: gateData.cameraStream,
+            micStream: gateData.micStream,
+          });
         }
       }
     } catch (err) {
@@ -1898,10 +1919,29 @@ export default function MasteryZoneCompilerWorkspace({
         setRecoveryChancesRemaining(rem);
         setViolationsCount(data.chancesUsed || (5 - rem));
 
+        // Capture genuine violation screenshot only if a live video stream exists
+        const snapshot = await captureVideoSnapshot(
+          procScreenRef.current || procCameraRef.current,
+          screenStreamRef.current || cameraStreamRef.current
+        );
+        if (snapshot.captured && snapshot.imageBase64) {
+          uploadViolationEvidence({
+            apiBase: API_BASE,
+            sessionId: sid,
+            eventId: data.eventId,
+            imageBase64: snapshot.imageBase64,
+            reason: message,
+            severity: "warning",
+          });
+        }
+
         if (data.isTerminated || rem <= 0) {
           isSubmittedRef.current = true;
           setIsTerminated(true);
           setIsSubmittedReadOnly(true);
+          if (procRecorderRef.current) {
+            await procRecorderRef.current.stopAndUpload().catch(() => {});
+          }
           cleanupAllMediaAndProctoring();
           broadcastSessionSubmitted(sid);
 
@@ -2020,13 +2060,13 @@ export default function MasteryZoneCompilerWorkspace({
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
           body: JSON.stringify({
-            deviceInfo: {
-              camera: true,
-              microphone: true,
-              screenShare: true,
-              fullscreen: true,
-              displaySurface: "monitor",
-            },
+            deviceInfo: collectLiveDeviceTelemetry({
+              cameraStream: cStream,
+              micStream: cStream,
+              screenStream: sStream,
+              batteryInfo,
+              displaySurface: sStream?.getVideoTracks?.()?.[0]?.getSettings?.()?.displaySurface || "monitor",
+            }),
           }),
         });
 
@@ -2297,6 +2337,12 @@ export default function MasteryZoneCompilerWorkspace({
             batteryLevel: batteryInfo.percentage,
             draftCode: codeRef.current,
             language: selectedLangRef.current,
+            deviceInfo: collectLiveDeviceTelemetry({
+              cameraStream: cameraStreamRef.current,
+              micStream: micStreamRef.current,
+              screenStream: screenStreamRef.current,
+              batteryInfo,
+            }),
           }),
         });
         if (res.ok) {
@@ -3058,6 +3104,11 @@ export default function MasteryZoneCompilerWorkspace({
         }
       } catch (e) {
         console.warn("Could not save report to localStorage:", e);
+      }
+
+      // Finalize and upload genuine proctoring recording before closing streams
+      if (procRecorderRef.current) {
+        await procRecorderRef.current.stopAndUpload().catch(() => {});
       }
 
       // Record in ProctoredCodingSession database and await completion so report is immediately ready

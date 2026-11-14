@@ -151,10 +151,13 @@ const recordAdminAudit = async (adminIdOrObj, actionArg, targetIdArg = null, not
       note = noteArg;
     }
 
+    const mongoose = require("mongoose");
+    const validTargetId = targetId && mongoose.Types.ObjectId.isValid(targetId) ? targetId : null;
+
     await AdminActivityLog.create({
       adminId,
       action,
-      targetId,
+      targetId: validTargetId,
       note,
       timestamp: new Date(),
     });

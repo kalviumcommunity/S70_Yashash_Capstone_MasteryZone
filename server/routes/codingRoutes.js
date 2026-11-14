@@ -3748,7 +3748,7 @@ router.post("/proctored-session/init", optionalAuthenticateToken, async (req, re
         marksObtained: 0,
         totalMarks: marksPerQ,
         passedTests: 0,
-        totalTests: qTestCases.length || 10,
+        totalTests: qTestCases.length,
         testResults: [],
         attempted: false,
       };
@@ -3918,7 +3918,7 @@ router.post("/proctored-session/start", optionalAuthenticateToken, async (req, r
         marksObtained: 0,
         totalMarks: 100,
         passedTests: 0,
-        totalTests: qTestCases.length || 10,
+        totalTests: qTestCases.length,
         testResults: [],
         attempted: false,
       };
@@ -3956,23 +3956,16 @@ router.post("/proctored-session/start", optionalAuthenticateToken, async (req, r
         timeLimitSeconds: durationSec,
         maxRecoveryChances: 5,
         recoveryChancesUsed: 0,
-        deviceInfo: {
-          battery: {
-            percentage: deviceInfo?.battery?.percentage ?? (typeof batteryLevel === "number" ? batteryLevel : 100),
-            charging: !!deviceInfo?.battery?.charging,
-            supported: deviceInfo?.battery?.supported !== false,
-          },
-          camera: !!deviceInfo?.camera,
-          microphone: !!deviceInfo?.microphone,
-          screenShare: !!deviceInfo?.screenShare,
-          displaySurface: deviceInfo?.displaySurface || "monitor",
-          fullscreen: !!deviceInfo?.fullscreen,
-        },
+        deviceInfo: require("../utils/proctoringSync").mergeDeviceInfo({}, {
+          ...(deviceInfo || {}),
+          ...(typeof batteryLevel === "number" ? { battery: { ...(deviceInfo?.battery || {}), percentage: batteryLevel, supported: true } } : {}),
+          monitoringActive: true,
+        }),
         violationsCount: 0,
         violationsLog: [
           {
             type: "session_initialized",
-            detail: "Device permissions verified. Fullscreen proctoring commenced.",
+            detail: "Proctored session started.",
             timestamp: now,
           },
         ],
@@ -3984,26 +3977,34 @@ router.post("/proctored-session/start", optionalAuthenticateToken, async (req, r
       if (candidateDetails) {
         session.candidateDetails = { ...session.candidateDetails, ...candidateDetails };
       }
-      if (deviceInfo) {
-        if (deviceInfo.camera !== undefined) session.deviceInfo.camera = !!deviceInfo.camera;
-        if (deviceInfo.microphone !== undefined) session.deviceInfo.microphone = !!deviceInfo.microphone;
-        if (deviceInfo.screenShare !== undefined) session.deviceInfo.screenShare = !!deviceInfo.screenShare;
-        if (deviceInfo.fullscreen !== undefined) session.deviceInfo.fullscreen = !!deviceInfo.fullscreen;
-        if (deviceInfo.displaySurface) session.deviceInfo.displaySurface = deviceInfo.displaySurface;
+      if (deviceInfo || typeof batteryLevel === "number") {
+        session.deviceInfo = require("../utils/proctoringSync").mergeDeviceInfo(session.deviceInfo, {
+          ...(deviceInfo || {}),
+          ...(typeof batteryLevel === "number" ? { battery: { ...(session.deviceInfo?.battery || {}), percentage: batteryLevel, supported: true } } : {}),
+          monitoringActive: true,
+        });
+        session.markModified("deviceInfo");
       }
       session.violationsLog.push({
         type: "session_initialized",
-        detail: "Device verification complete. Assessment active in full screen.",
+        detail: "Proctored session started.",
         timestamp: now,
       });
       session.markModified("questions");
-    session.markModified("questionDrafts");
-    session.markModified("submissionResult");
-    session.markModified("violationsLog");
-    await session.save();
+      session.markModified("questionDrafts");
+      session.markModified("submissionResult");
+      session.markModified("violationsLog");
+      await session.save();
     } else {
       return res.status(400).json({ error: "Invalid session configuration" });
     }
+
+    require("../utils/proctoringSync").emitProctoringSessionUpdate(
+      req.app.get("io"),
+      session.sessionId,
+      "session_started",
+      { status: session.status }
+    );
 
     logActivityAndBroadcast({
       userId: mongoose.Types.ObjectId.isValid(userId) ? userId : null,
@@ -4216,9 +4217,9 @@ router.get("/proctored-session/:sessionId", authenticateToken, async (req, res) 
 // 4. POST /api/coding/proctored-session/heartbeat (and with :sessionId)
 router.post(["/proctored-session/:sessionId/heartbeat", "/proctored-session/heartbeat"], authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.userId || req.user.id || req.user._id;
+    const userId = String(req.user.userId || req.user.id || req.user._id);
     const sessionId = req.params.sessionId || req.body.sessionId;
-    const { draftCode, language, batteryLevel, deviceInfo } = req.body;
+    const { draftCode, language, batteryLevel, deviceInfo, questionDrafts } = req.body;
 
     const session = await ProctoredCodingSession.findOne({ sessionId, userId });
     if (!session) {
@@ -4234,14 +4235,23 @@ router.post(["/proctored-session/:sessionId/heartbeat", "/proctored-session/hear
     if (language) {
       session.draftLanguage = language;
     }
-    if (deviceInfo) {
-      if (deviceInfo.camera !== undefined) session.deviceInfo.camera = !!deviceInfo.camera;
-      if (deviceInfo.microphone !== undefined) session.deviceInfo.microphone = !!deviceInfo.microphone;
-      if (deviceInfo.screenShare !== undefined) session.deviceInfo.screenShare = !!deviceInfo.screenShare;
-      if (deviceInfo.fullscreen !== undefined) session.deviceInfo.fullscreen = !!deviceInfo.fullscreen;
+    if (questionDrafts && typeof questionDrafts === "object") {
+      Object.entries(questionDrafts).forEach(([qId, qData]) => {
+        if (session.questionDrafts && typeof session.questionDrafts.set === "function") {
+          session.questionDrafts.set(qId, qData);
+        }
+      });
+      session.markModified("questionDrafts");
     }
-    if (typeof batteryLevel === "number") {
-      session.deviceInfo.battery.percentage = batteryLevel;
+
+    if (deviceInfo || typeof batteryLevel === "number") {
+      const { mergeDeviceInfo } = require("../utils/proctoringSync");
+      session.deviceInfo = mergeDeviceInfo(session.deviceInfo, {
+        ...(deviceInfo || {}),
+        ...(typeof batteryLevel === "number" ? { battery: { ...(session.deviceInfo?.battery || {}), percentage: batteryLevel, supported: true } } : {}),
+        monitoringActive: session.status === "active",
+      });
+      session.markModified("deviceInfo");
     }
 
     let timeRemaining = 0;
@@ -4260,27 +4270,16 @@ router.post(["/proctored-session/:sessionId/heartbeat", "/proctored-session/hear
     session.markModified("violationsLog");
     await session.save();
 
-    logActivityAndBroadcast({
-      userId: mongoose.Types.ObjectId.isValid(session.userId) ? session.userId : null,
-      userEmail: session.candidateDetails?.email || "",
-      userName: session.candidateDetails?.fullName || "Candidate",
-      type: isTerminated ? "PROCTORING_TERMINATED" : "PROCTORING_VIOLATION",
-      title: isTerminated ? "Proctored Exam Terminated" : `Proctoring Security Alert (Chance ${chanceNumber}/5)`,
-      detail: isTerminated
-        ? `${session.candidateDetails?.fullName || "Candidate"} terminated from "${session.assessmentTitle}" — all recovery chances exhausted.`
-        : `${session.candidateDetails?.fullName || "Candidate"} triggered ${resolvedType}: ${resolvedDetail}`,
-      category: "proctoring",
-      severity: isTerminated ? "danger" : "warning",
-      metadata: {
-        sessionId: session.sessionId,
-        assessmentTitle: session.assessmentTitle,
-        violationType: resolvedType,
-        chanceNumber,
-        isTerminated,
+    require("../utils/proctoringSync").emitProctoringSessionUpdate(
+      req.app.get("io"),
+      session.sessionId,
+      "heartbeat",
+      {
         status: session.status,
-      },
-      io: req.app.get("io"),
-    }).catch(() => {});
+        lastHeartbeat: now.toISOString(),
+        deviceInfo: session.deviceInfo,
+      }
+    );
 
     res.json({
       success: true,
@@ -4342,6 +4341,10 @@ router.post(["/proctored-session/:sessionId/interruption", "/proctored-session/i
 
     const resolvedType = (violationType || type || eventType || "anomaly").toLowerCase();
     const resolvedDetail = details || message || "Proctoring anomaly detected";
+    const eventId = `evt_${Date.now()}_${crypto.randomBytes(3).toString("hex")}`;
+    const resolvedSeverity = resolvedType.includes("terminat") || resolvedType.includes("camera") || resolvedType.includes("screen") || resolvedType.includes("fullscreen")
+      ? "critical"
+      : "warning";
 
     session.recoveryChancesUsed = (session.recoveryChancesUsed || 0) + 1;
     const chanceNumber = session.recoveryChancesUsed;
@@ -4354,12 +4357,40 @@ router.post(["/proctored-session/:sessionId/interruption", "/proctored-session/i
     });
 
     session.violationsLog.push({
+      eventId,
       type: resolvedType,
       detail: `[Chance ${chanceNumber}/5 Used] ${resolvedDetail}`,
+      severity: resolvedSeverity,
       timestamp: now,
+      screenshotCaptured: false,
+      screenshotReason: "Pending capture",
     });
+
+    // Update honest hardware interruption counters
+    session.deviceInfo = session.deviceInfo || {};
+    if (resolvedType.includes("camera")) {
+      session.deviceInfo.cameraDisconnections = (session.deviceInfo.cameraDisconnections || 0) + 1;
+      session.deviceInfo.camera = false;
+      session.deviceInfo.cameraStreamStatus = "Disconnected";
+    } else if (resolvedType.includes("mic")) {
+      session.deviceInfo.microphoneDisconnections = (session.deviceInfo.microphoneDisconnections || 0) + 1;
+      session.deviceInfo.microphone = false;
+      session.deviceInfo.microphoneStreamStatus = "Disconnected";
+    } else if (resolvedType.includes("screen")) {
+      session.deviceInfo.screenShare = false;
+      session.deviceInfo.screenShareStreamStatus = "Ended";
+    } else if (resolvedType.includes("fullscreen")) {
+      session.deviceInfo.fullscreen = false;
+      session.deviceInfo.fullscreenExitsCount = (session.deviceInfo.fullscreenExitsCount || 0) + 1;
+    } else if (resolvedType.includes("blur") || resolvedType.includes("tab") || resolvedType.includes("focus")) {
+      session.deviceInfo.windowFocused = false;
+      session.deviceInfo.focusLossCount = (session.deviceInfo.focusLossCount || 0) + 1;
+    }
+    session.deviceInfo.telemetryUpdatedAt = now;
+    session.markModified("deviceInfo");
+
     session.violationsCount = session.violationsLog.filter(
-      (v) => v.type !== "session_created" && v.type !== "session_initialized" && v.type !== "heartbeat"
+      (v) => v.type !== "session_created" && v.type !== "session_initialized" && v.type !== "session_resumed" && v.type !== "heartbeat"
     ).length;
 
     // Dispatch real-time security alert to Super Admin
@@ -4452,8 +4483,21 @@ router.post(["/proctored-session/:sessionId/interruption", "/proctored-session/i
       io: req.app.get("io"),
     }).catch(() => {});
 
+    require("../utils/proctoringSync").emitProctoringSessionUpdate(
+      req.app.get("io"),
+      session.sessionId,
+      isTerminated ? "session_terminated" : "violation_logged",
+      {
+        eventId,
+        violationType: resolvedType,
+        violationsCount: session.violationsCount,
+        status: session.status,
+      }
+    );
+
     res.json({
       success: true,
+      eventId,
       status: session.status,
       chanceNumber,
       chancesUsed: session.recoveryChancesUsed,
@@ -4510,11 +4554,12 @@ router.post("/proctored-session/:sessionId/resume", authenticateToken, async (re
     session.status = "active";
 
     if (deviceInfo) {
-      if (deviceInfo.camera !== undefined) session.deviceInfo.camera = !!deviceInfo.camera;
-      if (deviceInfo.microphone !== undefined) session.deviceInfo.microphone = !!deviceInfo.microphone;
-      if (deviceInfo.screenShare !== undefined) session.deviceInfo.screenShare = !!deviceInfo.screenShare;
-      if (deviceInfo.fullscreen !== undefined) session.deviceInfo.fullscreen = !!deviceInfo.fullscreen;
-      if (deviceInfo.displaySurface) session.deviceInfo.displaySurface = deviceInfo.displaySurface;
+      const { mergeDeviceInfo } = require("../utils/proctoringSync");
+      session.deviceInfo = mergeDeviceInfo(session.deviceInfo, {
+        ...deviceInfo,
+        monitoringActive: true,
+      });
+      session.markModified("deviceInfo");
     }
 
     session.violationsLog.push({
@@ -4528,6 +4573,13 @@ router.post("/proctored-session/:sessionId/resume", authenticateToken, async (re
     session.markModified("submissionResult");
     session.markModified("violationsLog");
     await session.save();
+
+    require("../utils/proctoringSync").emitProctoringSessionUpdate(
+      req.app.get("io"),
+      session.sessionId,
+      "session_resumed",
+      { status: "active", deviceInfo: session.deviceInfo }
+    );
 
     const timeRemaining = Math.max(0, Math.round((session.serverDeadline - now) / 1000));
 
@@ -4544,6 +4596,149 @@ router.post("/proctored-session/:sessionId/resume", authenticateToken, async (re
   } catch (err) {
     console.error("Failed to resume session:", err);
     res.status(500).json({ error: err.message });
+  }
+});
+
+// 6b. POST /api/coding/proctored-session/:sessionId/evidence
+// Captures and persists a genuine screenshot tied strictly to this session & violation event
+router.post("/proctored-session/:sessionId/evidence", authenticateToken, async (req, res) => {
+  try {
+    const userId = String(req.user.userId || req.user.id || req.user._id);
+    const { sessionId } = req.params;
+    const { imageBase64, eventId, reason, severity = "warning", timestamp } = req.body;
+
+    const session = await ProctoredCodingSession.findOne({ sessionId });
+    if (!session) {
+      return res.status(404).json({ error: "Session not found" });
+    }
+    const isAdmin = Boolean(req.user?.role === "admin" || req.user?.role === "SUPER_ADMIN" || req.user?.isMainAdmin);
+    if (!isAdmin && String(session.userId) !== userId) {
+      return res.status(403).json({ error: "Forbidden: You do not own this proctoring session" });
+    }
+
+    if (!imageBase64 || typeof imageBase64 !== "string") {
+      return res.status(400).json({ error: "imageBase64 is required" });
+    }
+
+    const match = imageBase64.match(/^data:image\/(jpeg|jpg|png|webp);base64,(.+)$/i);
+    if (!match) {
+      return res.status(400).json({ error: "Invalid image data URL format. Expected JPEG, PNG, or WebP." });
+    }
+
+    const ext = match[1].toLowerCase() === "jpeg" ? "jpg" : match[1].toLowerCase();
+    const buffer = Buffer.from(match[2], "base64");
+    if (!buffer || buffer.length < 200 || buffer.length > 5 * 1024 * 1024) {
+      return res.status(400).json({ error: "Evidence image size out of valid bounds (200B - 5MB)." });
+    }
+
+    const safeSession = sessionId.replace(/[^a-zA-Z0-9_-]/g, "");
+    const safeEvt = (eventId || `ev_${Date.now()}`).replace(/[^a-zA-Z0-9_-]/g, "");
+    const filename = `${safeSession}_${safeEvt}.${ext}`;
+    const evidenceDir = path.join(__dirname, "../uploads/evidence");
+    if (!fs.existsSync(evidenceDir)) {
+      fs.mkdirSync(evidenceDir, { recursive: true });
+    }
+    const filePath = path.join(evidenceDir, filename);
+    fs.writeFileSync(filePath, buffer);
+
+    // Persist in MongoDB Atlas GridFS for durability across server restarts/redeploys
+    const { saveEvidenceToGridFS, emitProctoringSessionUpdate } = require("../utils/proctoringSync");
+    try {
+      await saveEvidenceToGridFS(filename, buffer, {
+        sessionId: session.sessionId,
+        userId: String(session.userId),
+        eventId: safeEvt,
+      });
+    } catch (gridErr) {
+      console.warn("Evidence GridFS backup warning:", gridErr.message);
+    }
+
+    const screenshotUrl = `/proctoring-evidence/${filename}`;
+    const capturedAt = timestamp ? new Date(timestamp) : new Date();
+
+    session.evidenceScreenshots = session.evidenceScreenshots || [];
+    session.evidenceScreenshots.push({
+      url: screenshotUrl,
+      filename,
+      violationEventId: eventId || "",
+      timestamp: capturedAt,
+      reason: reason || "Proctoring violation snapshot",
+      severity,
+    });
+
+    // Link strictly to the exact matching violation event in violationsLog
+    if (eventId && Array.isArray(session.violationsLog)) {
+      const targetLog = session.violationsLog.find((v) => v.eventId === eventId);
+      if (targetLog) {
+        targetLog.screenshotUrl = screenshotUrl;
+        targetLog.screenshotCaptured = true;
+        targetLog.screenshotReason = "Captured";
+      }
+    }
+
+    session.markModified("evidenceScreenshots");
+    session.markModified("violationsLog");
+    await session.save();
+
+    emitProctoringSessionUpdate(req.app.get("io"), session.sessionId, "evidence_uploaded", {
+      eventId: eventId || "",
+      screenshotUrl,
+    });
+
+    return res.status(201).json({
+      success: true,
+      screenshotUrl,
+      filename,
+      eventId: eventId || "",
+    });
+  } catch (err) {
+    console.error("Failed to save proctoring evidence:", err);
+    return res.status(500).json({ error: err.message || "Failed to save evidence" });
+  }
+});
+
+// 6c. PATCH /api/coding/proctored-session/:sessionId/recording-status
+// Honestly records stream recording lifecycle state (recording | uploading | processing | available | failed | not_recorded)
+router.patch("/proctored-session/:sessionId/recording-status", authenticateToken, async (req, res) => {
+  try {
+    const userId = String(req.user.userId || req.user.id || req.user._id);
+    const { sessionId } = req.params;
+    const { recordingStatus, recordingMimeType, recordingStartedAt, recordingUploadError } = req.body;
+
+    const allowedStatuses = ["not_recorded", "recording", "uploading", "processing", "available", "failed"];
+    if (!allowedStatuses.includes(recordingStatus)) {
+      return res.status(400).json({ error: "Invalid recordingStatus" });
+    }
+
+    const session = await ProctoredCodingSession.findOne({ sessionId });
+    if (!session) {
+      return res.status(404).json({ error: "Session not found" });
+    }
+    const isAdmin = Boolean(req.user?.role === "admin" || req.user?.role === "SUPER_ADMIN" || req.user?.isMainAdmin);
+    if (!isAdmin && String(session.userId) !== userId) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    session.recordingStatus = recordingStatus;
+    if (recordingMimeType) session.recordingMimeType = String(recordingMimeType);
+    if (recordingStartedAt) session.recordingStartedAt = new Date(recordingStartedAt);
+    if (recordingUploadError !== undefined) session.recordingUploadError = String(recordingUploadError || "");
+    await session.save();
+
+    require("../utils/proctoringSync").emitProctoringSessionUpdate(
+      req.app.get("io"),
+      session.sessionId,
+      "recording_status",
+      {
+        recordingStatus: session.recordingStatus,
+        recordingMimeType: session.recordingMimeType,
+        recordingUploadError: session.recordingUploadError,
+      }
+    );
+
+    return res.json({ success: true, recordingStatus: session.recordingStatus });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
   }
 });
 
@@ -4830,6 +5025,17 @@ router.post(["/proctored-session/:sessionId/submit", "/proctored-session/submit"
     const feedback = generateFeedback(overallPercentage, totalPassedTests, totalTestCases, durationSec * 1000, primaryQ.language || "python");
 
     session.status = "submitted";
+    session.score = overallPercentage;
+    session.maxScore = totalMarks || 100;
+    session.percentage = overallPercentage;
+    session.evaluationVerdict = isAccepted ? "PASSED" : "FAILED";
+    session.durationSeconds = durationSec;
+    session.submittedAt = now;
+    if (session.deviceInfo) {
+      session.deviceInfo.monitoringActive = false;
+      session.deviceInfo.telemetryUpdatedAt = now;
+      session.markModified("deviceInfo");
+    }
     session.submissionResult = {
       code: primaryQ.submittedCode,
       language: primaryQ.language,
@@ -4864,6 +5070,18 @@ router.post(["/proctored-session/:sessionId/submit", "/proctored-session/submit"
     session.markModified("submissionResult");
     session.markModified("violationsLog");
     await session.save();
+
+    require("../utils/proctoringSync").emitProctoringSessionUpdate(
+      req.app.get("io"),
+      session.sessionId,
+      "session_submitted",
+      {
+        status: session.status,
+        score: session.score,
+        durationSeconds: session.durationSeconds,
+        submittedAt: now.toISOString(),
+      }
+    );
 
     // Sync with CodingProgress and SubjectProgress:
     let parsedTrack = session.trackId || "python";

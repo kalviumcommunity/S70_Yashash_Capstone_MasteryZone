@@ -146,8 +146,17 @@ const certificationAttemptSchema = new mongoose.Schema(
           severity: { type: String, default: "warning" },
         },
       ],
+      recordingId: { type: String, default: "" },
       recordingUrl: { type: String, default: "" },
       recordingDurationSeconds: { type: Number, default: 0 },
+      recordingFileSize: { type: Number, default: 0 },
+      recordingMimeType: { type: String, default: "" },
+      recordingStatus: {
+        type: String,
+        enum: ["not_recorded", "recording", "uploading", "processing", "available", "failed", "completed"],
+        default: "not_recorded",
+      },
+      deviceInfo: { type: Object, default: null },
       evidenceScreenshots: [
         {
           url: { type: String },

@@ -57,6 +57,7 @@ const AdminReports = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
   const [filterType, setFilterType] = useState("all"); // "all" | "Certification Report" | "Assessment Report" | "MCQ Assessment Report"
+  const [dateRange, setDateRange] = useState("all"); // "all" | "today" | "yesterday" | "7d" | "30d" | "90d"
   const [copiedCodeId, setCopiedCodeId] = useState(null);
 
   // Modal State for Inspecting / Modifying Report
@@ -73,7 +74,13 @@ const AdminReports = () => {
   const [savingMarks, setSavingMarks] = useState(false);
 
   // Fetch Reports
-  const fetchReports = async (selectedPage = page, selectedSearch = search, selectedType = filterType, showToast = false) => {
+  const fetchReports = async (
+    selectedPage = page,
+    selectedSearch = search,
+    selectedType = filterType,
+    selectedRange = dateRange,
+    showToast = false
+  ) => {
     try {
       if (showToast) setLoading(true);
       const token = localStorage.getItem("token");
@@ -83,6 +90,7 @@ const AdminReports = () => {
       });
       if (selectedSearch.trim()) params.append("search", selectedSearch.trim());
       if (selectedType !== "all") params.append("type", selectedType);
+      if (selectedRange && selectedRange !== "all") params.append("range", selectedRange);
 
       const res = await deduplicatedFetch(`${API_BASE}/api/admin/reports?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -109,20 +117,24 @@ const AdminReports = () => {
     }
   };
 
-  const prevFiltersRef = useRef({ search, filterType });
+  const prevFiltersRef = useRef({ search, filterType, dateRange });
   useEffect(() => {
-    if (prevFiltersRef.current.search !== search || prevFiltersRef.current.filterType !== filterType) {
-      prevFiltersRef.current = { search, filterType };
+    if (
+      prevFiltersRef.current.search !== search ||
+      prevFiltersRef.current.filterType !== filterType ||
+      prevFiltersRef.current.dateRange !== dateRange
+    ) {
+      prevFiltersRef.current = { search, filterType, dateRange };
       if (page !== 1) {
         setPage(1);
         return;
       }
     }
     const timer = setTimeout(() => {
-      fetchReports(page, search, filterType);
+      fetchReports(page, search, filterType, dateRange);
     }, 200);
     return () => clearTimeout(timer);
-  }, [page, search, filterType]);
+  }, [page, search, filterType, dateRange]);
 
   useEffect(() => {
     fetchReports();
@@ -237,6 +249,7 @@ const AdminReports = () => {
       });
       if (search.trim()) params.append("search", search.trim());
       if (filterType !== "all") params.append("type", filterType);
+      if (dateRange && dateRange !== "all") params.append("range", dateRange);
 
       let exportItems = filteredReports;
       const res = await deduplicatedFetch(`${API_BASE}/api/admin/reports?${params.toString()}`, {
@@ -707,6 +720,33 @@ const AdminReports = () => {
               </button>
             );
           })}
+        </div>
+
+        {/* Date Range Selector */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 12, color: "var(--mz-text-muted)", fontWeight: 600 }}>Date Range:</span>
+          <select
+            value={dateRange}
+            onChange={(e) => setDateRange(e.target.value)}
+            style={{
+              padding: "7px 12px",
+              borderRadius: 8,
+              border: "1px solid var(--mz-border-strong)",
+              fontSize: 12.5,
+              fontWeight: 600,
+              background: "var(--mz-surface)",
+              color: "var(--mz-text-secondary)",
+              outline: "none",
+              cursor: "pointer",
+            }}
+          >
+            <option value="all">All Time</option>
+            <option value="today">Today</option>
+            <option value="yesterday">Yesterday</option>
+            <option value="7d">Last 7 Days</option>
+            <option value="30d">Last 30 Days</option>
+            <option value="90d">Last 90 Days</option>
+          </select>
         </div>
       </div>
 
@@ -1273,6 +1313,31 @@ const AdminReports = () => {
               </div>
 
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.print();
+                  }}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: 8,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: "#059669",
+                    background: "var(--mz-green-bg)",
+                    border: "1px solid var(--mz-green-border)",
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    transition: "all 0.15s ease",
+                  }}
+                  title="Print or save official PDF scorecard"
+                >
+                  <LuDownload style={{ width: 13, height: 13 }} />
+                  <span>Download PDF Scorecard</span>
+                </button>
+
                 {Boolean(activeReport.reportUrl || activeReport.sessionId || activeReport.attemptId) && (
                   <button
                     type="button"

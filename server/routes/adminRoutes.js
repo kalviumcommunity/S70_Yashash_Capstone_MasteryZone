@@ -2413,15 +2413,17 @@ router.put("/modify-marks", async (req, res) => {
       const parsedPct = Math.max(0, Math.min(100, Math.round((parsedScore / maxScore) * 100)));
       const passed = parsedPct >= 70;
       const finalStatus = newStatus || (passed ? "submitted" : "terminated");
-      const prevScore = session.score != null ? session.score : 0;
+      const prevScore = session.score != null ? session.score : (session.submissionResult?.score ?? 0);
       const prevStatus = session.status || "active";
 
       if (!session.marksHistory) session.marksHistory = [];
       session.marksHistory.push({
         oldScore: prevScore,
+        originalScore: prevScore,
         newScore: parsedScore,
         maxScore,
         oldStatus: prevStatus,
+        originalStatus: prevStatus,
         newStatus: finalStatus,
         adminNote,
         modifiedBy: req.user?.email || "Super Admin",
@@ -2437,10 +2439,19 @@ router.put("/modify-marks", async (req, res) => {
       session.adminModifiedAt = new Date();
       session.adminModifiedBy = req.user?.email || "Super Admin";
 
-      // Synchronize linked certification attempt if available
+      if (session.submissionResult && typeof session.submissionResult === "object") {
+        session.submissionResult.score = parsedPct;
+        session.submissionResult.marksObtained = parsedScore;
+        session.submissionResult.totalMarks = maxScore;
+        session.submissionResult.passed = passed;
+        session.submissionResult.status = passed ? "PASSED" : "FAILED";
+        session.markModified("submissionResult");
+      }
+
+      // Synchronize linked certification attempt strictly by exact sessionId
       try {
         const linkedCert = await CertificationAttempt.findOne({
-          $or: [{ proctoringSessionId: session.sessionId }, { userId: session.userId, trackId: session.trackId }]
+          proctoringSessionId: session.sessionId,
         });
         if (linkedCert) {
           linkedCert.score = parsedPct;
@@ -2510,6 +2521,18 @@ router.put("/modify-marks", async (req, res) => {
         session.notificationEmailSent = !!(emailRes && emailRes.success);
       }
       await session.save();
+
+      require("../utils/proctoringSync").emitProctoringSessionUpdate(
+        req.app.get("io"),
+        session.sessionId,
+        "marks_updated",
+        {
+          score: session.score,
+          status: session.status,
+          notificationSent: session.notificationSent,
+          notificationEmailSent: session.notificationEmailSent,
+        }
+      );
 
       updatedResult = {
         id: session._id,
@@ -3638,7 +3661,7 @@ router.get("/proctoring", async (req, res) => {
     const totalPages = Math.ceil(totalFiltered / limitNum) || 1;
 
     const sessions = await ProctoredCodingSession.find(query)
-      .select("_id sessionId userId assessmentTitle questionId status durationSeconds score violationsCount deviceInfo violationFlags recordingUrl submittedAt createdAt candidateDetails")
+      .select("_id sessionId userId assessmentTitle questionId status durationSeconds score maxScore submissionResult violationsCount deviceInfo violationFlags recordingUrl recordingStatus submittedAt createdAt serverStartTime candidateDetails")
       .populate("userId", "fullName username email")
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -3652,15 +3675,6 @@ router.get("/proctoring", async (req, res) => {
       usersMap[String(u._id)] = u;
     });
 
-    // Check available recordings in uploads/recordings
-    const recordingsDir = getRecordingsDir();
-    let availableRecFiles = [];
-    if (fs.existsSync(recordingsDir)) {
-      availableRecFiles = fs
-        .readdirSync(recordingsDir)
-        .filter((f) => f.endsWith(".webm") || f.endsWith(".mp4"));
-    }
-
     const enrichedSessions = sessions.map((s) => {
       const userObj = s.userId && typeof s.userId === "object" ? s.userId : usersMap[String(s.userId)];
       const candidate = {
@@ -3669,23 +3683,21 @@ router.get("/proctoring", async (req, res) => {
         avatar: userObj?.avatar || "",
       };
 
-      const cameraGranted = s.deviceInfo?.camera !== false;
-      const screenShareGranted = s.deviceInfo?.screenShare !== false;
-
-      let recordingUrl = s.recordingUrl || "";
-      if (!recordingUrl && s.sessionId && availableRecFiles.length > 0) {
-        const matchedRec = availableRecFiles.find((f) => f.includes(s.sessionId));
-        if (matchedRec) {
-          recordingUrl = `/recordings/${matchedRec}`;
-        }
-      }
+      const cameraGranted = s.deviceInfo?.camera === true || s.deviceInfo?.cameraPermission === "Granted";
+      const screenShareGranted = s.deviceInfo?.screenShare === true || s.deviceInfo?.screenSharePermission === "Granted";
+      const resolvedScore = s.score != null ? s.score : (s.submissionResult?.score ?? null);
+      const resolvedDuration = s.durationSeconds || s.submissionResult?.durationSeconds || 0;
 
       return {
         ...s,
+        score: resolvedScore,
+        durationSeconds: resolvedDuration,
+        submittedAt: s.submittedAt || s.submissionResult?.submittedAt || null,
         candidateDetails: candidate,
         cameraGranted,
         screenShareGranted,
-        recordingUrl,
+        recordingUrl: s.recordingUrl || "",
+        recordingStatus: s.recordingStatus || (s.recordingUrl ? "available" : "not_recorded"),
       };
     });
 
@@ -3698,9 +3710,9 @@ router.get("/proctoring", async (req, res) => {
 
     enrichedSessions.forEach((s) => {
       totalViolations += Number(s.violationsCount || 0);
-      if (s.deviceInfo?.camera) cameraActiveCount++;
-      if (s.deviceInfo?.microphone) micActiveCount++;
-      if (s.deviceInfo?.screenShare) screenActiveCount++;
+      if (s.deviceInfo?.camera === true) cameraActiveCount++;
+      if (s.deviceInfo?.microphone === true) micActiveCount++;
+      if (s.deviceInfo?.screenShare === true) screenActiveCount++;
     });
 
     res.status(200).json({
@@ -3709,9 +3721,9 @@ router.get("/proctoring", async (req, res) => {
         activeSessions: activeSessionsCount,
         totalMonitored,
         totalViolations,
-        cameraOnline: cameraActiveCount > 0 || activeSessionsCount > 0,
-        microphoneOnline: micActiveCount > 0 || activeSessionsCount > 0,
-        screenSharingOnline: screenActiveCount > 0 || activeSessionsCount > 0,
+        cameraOnline: cameraActiveCount > 0,
+        microphoneOnline: micActiveCount > 0,
+        screenSharingOnline: screenActiveCount > 0,
         cameraActiveCount,
         micActiveCount,
         screenActiveCount,
@@ -3730,7 +3742,7 @@ router.get("/proctoring", async (req, res) => {
   }
 });
 
-// Single Proctoring Session Full Audit Detail
+// Single Proctoring Session Full Audit Detail — Strictly Real, Verified, Zero Fabrication
 router.get("/proctoring/session/:sessionId", async (req, res) => {
   try {
     const { sessionId } = req.params;
@@ -3740,6 +3752,8 @@ router.get("/proctoring/session/:sessionId", async (req, res) => {
     }
 
     const Notification = require("../models/NotificationSchema");
+    const Recording = require("../models/Recording");
+    const { getFileFromGridFS } = require("../config/recordingStorage");
 
     // Lookup user details
     let candidateUser = null;
@@ -3749,73 +3763,172 @@ router.get("/proctoring/session/:sessionId", async (req, res) => {
         .lean();
     }
 
-    // Lookup corresponding attempt / certification / module attempt
+    // Strict Session Linking ONLY — never match broadly by { userId } alone
     let linkedAttempt = await CertificationAttempt.findOne({
-      $or: [
-        { proctoringSessionId: session.sessionId },
-        { userId: session.userId, trackId: session.trackId },
-      ],
+      proctoringSessionId: session.sessionId,
     }).lean();
 
     if (!linkedAttempt) {
       linkedAttempt = await ModuleAssessmentAttempt.findOne({
-        $or: [{ sessionId: session.sessionId }, { userId: session.userId }],
+        sessionId: session.sessionId,
       }).lean();
     }
 
-    // Check recording file on disk
+    // ─── 1. Genuine Recording Verification (Disk + GridFS + DB Recording) ───
     const recordingsDir = getRecordingsDir();
-    let recordingInfo = {
-      url: session.recordingUrl || "",
-      durationSeconds: session.recordingDurationSeconds || session.durationSeconds || 0,
-      fileSize: session.recordingFileSize || 0,
-      status: session.recordingStatus || (session.recordingUrl ? "completed" : "none"),
+    const linkedRecording = await Recording.findOne({
+      $or: [
+        ...(session.recordingId ? [{ recordingId: session.recordingId }] : []),
+        { meetingId: session.sessionId, recordingType: "Proctoring" },
+      ],
+    }).lean();
+
+    let resolvedUrl = session.recordingUrl || linkedRecording?.streamUrl || linkedRecording?.fileUrl || "";
+    let resolvedFileSize = session.recordingFileSize || linkedRecording?.fileSize || 0;
+    let resolvedDuration = session.recordingDurationSeconds || linkedRecording?.durationSeconds || 0;
+    let resolvedMimeType = session.recordingMimeType || linkedRecording?.mimeType || "";
+    let resolvedStatus = session.recordingStatus || "not_recorded";
+    let recordingExistsInStorage = false;
+    let recordingError = session.recordingUploadError || "";
+
+    if (resolvedUrl) {
+      const recFilename = path.basename(resolvedUrl.split("?")[0]);
+      const localPath = path.join(recordingsDir, recFilename);
+      if (fs.existsSync(localPath)) {
+        try {
+          const stat = fs.statSync(localPath);
+          if (stat.size > 0) {
+            recordingExistsInStorage = true;
+            if (!resolvedFileSize) resolvedFileSize = stat.size;
+          }
+        } catch {}
+      }
+      if (!recordingExistsInStorage) {
+        try {
+          const gridFile = await getFileFromGridFS(recFilename);
+          if (gridFile && gridFile.length > 0) {
+            recordingExistsInStorage = true;
+            if (!resolvedFileSize) resolvedFileSize = gridFile.length;
+          }
+        } catch {}
+      }
+
+      if (recordingExistsInStorage) {
+        resolvedStatus = "available";
+      } else if (["completed", "available"].includes(resolvedStatus)) {
+        resolvedStatus = "failed";
+        recordingError = recordingError || "Recording file is missing from persistent storage.";
+      }
+    } else if (resolvedStatus === "completed") {
+      // Fix legacy default "completed" when no recording URL ever existed
+      resolvedStatus = "not_recorded";
+    }
+
+    const recordingInfo = {
+      recordingId: session.recordingId || linkedRecording?.recordingId || "",
+      url: recordingExistsInStorage ? resolvedUrl : "",
+      durationSeconds: resolvedDuration,
+      fileSize: resolvedFileSize,
+      mimeType: resolvedMimeType,
+      startedAt: session.recordingStartedAt || linkedRecording?.startTime || null,
+      completedAt: session.recordingCompletedAt || linkedRecording?.endTime || null,
+      status: resolvedStatus, // "not_recorded" | "recording" | "uploading" | "processing" | "available" | "failed"
+      verifiedInStorage: recordingExistsInStorage,
+      error: recordingError,
     };
 
-    if (fs.existsSync(recordingsDir)) {
-      const recFiles = fs.readdirSync(recordingsDir).filter((f) => f.endsWith(".webm") || f.endsWith(".mp4"));
-      if (!recordingInfo.url && recFiles.length > 0 && session.sessionId) {
-        const bestMatch = recFiles.find((f) => f.includes(session.sessionId));
-        if (bestMatch) {
-          try {
-            const stat = fs.statSync(path.join(recordingsDir, bestMatch));
-            recordingInfo.url = `/recordings/${bestMatch}`;
-            recordingInfo.fileSize = stat.size;
-          } catch (e) {}
-        }
-      }
-    }
+    // ─── 2. Strict Violations vs Lifecycle Events & Evidence Linking ───
+    const LIFECYCLE_TYPES = new Set([
+      "session_created",
+      "session_initialized",
+      "session_resumed",
+      "assessment_finalized",
+      "heartbeat",
+    ]);
 
-    // Check evidence directory
-    const evidenceDir = path.join(__dirname, "../uploads/evidence");
-    let evidenceFiles = [];
-    if (fs.existsSync(evidenceDir)) {
-      evidenceFiles = fs
-        .readdirSync(evidenceDir)
-        .filter((f) => f.endsWith(".jpg") || f.endsWith(".png") || f.endsWith(".webp"));
-    }
-
-    // Enrich violations log with screenshots if genuinely matching this session
-    const enrichedViolationsLog = (session.violationsLog || []).map((v) => {
-      let screenshotUrl = v.screenshotUrl || "";
-      if (!screenshotUrl && evidenceFiles.length > 0 && session.sessionId) {
-        const matchedEvidence = evidenceFiles.find((f) => f.includes(session.sessionId));
-        if (matchedEvidence) {
-          screenshotUrl = `/proctoring-evidence/${matchedEvidence}`;
-        }
+    const evidenceMapByEventId = {};
+    (session.evidenceScreenshots || []).forEach((ev) => {
+      if (ev.violationEventId && ev.url) {
+        evidenceMapByEventId[ev.violationEventId] = ev.url;
       }
-      return {
-        ...v,
-        type: v.type || "Focus Interruption",
-        detail: v.detail || "Candidate triggered an anomalous focus loss or tab navigation",
-        severity: v.severity || (String(v.type).toLowerCase().includes("term") || String(v.type).toLowerCase().includes("fullscreen") ? "critical" : "warning"),
-        durationSeconds: v.durationSeconds || 0,
-        screenshotUrl: screenshotUrl || null,
-        timestamp: v.timestamp || session.createdAt,
-      };
     });
 
-    // Check in-app notification read status
+    const rawLogs = Array.isArray(session.violationsLog) ? session.violationsLog : [];
+    const lifecycleEvents = [];
+    const genuineViolations = [];
+
+    for (const v of rawLogs) {
+      const normalizedType = String(v.type || "").toLowerCase();
+      if (LIFECYCLE_TYPES.has(normalizedType)) {
+        lifecycleEvents.push({
+          type: v.type,
+          detail: v.detail || "",
+          timestamp: v.timestamp || null,
+        });
+        continue;
+      }
+
+      // Only attach screenshotUrl if explicitly linked to this event or violationEventId
+      const linkedScreenshotUrl = v.screenshotUrl || (v.eventId ? evidenceMapByEventId[v.eventId] : "") || null;
+      genuineViolations.push({
+        eventId: v.eventId || "",
+        type: v.type || "unspecified_event",
+        detail: v.detail || "",
+        severity: v.severity || "warning",
+        durationSeconds: v.durationSeconds || 0,
+        screenshotUrl: linkedScreenshotUrl,
+        screenshotCaptured: Boolean(linkedScreenshotUrl),
+        screenshotReason: v.screenshotReason || (linkedScreenshotUrl ? "Captured" : "Not captured"),
+        timestamp: v.timestamp || null,
+      });
+    }
+
+    // ─── 3. Honest Hardware & Browser Telemetry ───
+    const dev = session.deviceInfo || {};
+    const resolveBoolState = (val, perm, stream) => {
+      if (perm) return perm;
+      if (val === true) return "Granted";
+      if (val === false) return "Denied";
+      if (stream && stream !== "Not Recorded") return stream;
+      return "Not Recorded";
+    };
+
+    const hardware = {
+      camera: resolveBoolState(dev.camera, dev.cameraPermission, dev.cameraStreamStatus),
+      cameraPermission: dev.cameraPermission || (dev.camera === true ? "Granted" : dev.camera === false ? "Denied" : "Not Recorded"),
+      cameraStreamStatus: dev.cameraStreamStatus || (dev.camera === true ? "Active" : dev.camera === false ? "Inactive" : "Not Recorded"),
+      cameraLabel: dev.cameraLabel || "",
+      cameraDisconnections: typeof dev.cameraDisconnections === "number" ? dev.cameraDisconnections : null,
+
+      microphone: resolveBoolState(dev.microphone, dev.microphonePermission, dev.microphoneStreamStatus),
+      microphonePermission: dev.microphonePermission || (dev.microphone === true ? "Granted" : dev.microphone === false ? "Denied" : "Not Recorded"),
+      microphoneStreamStatus: dev.microphoneStreamStatus || (dev.microphone === true ? "Active" : dev.microphone === false ? "Inactive" : "Not Recorded"),
+      microphoneLabel: dev.microphoneLabel || "",
+      microphoneDisconnections: typeof dev.microphoneDisconnections === "number" ? dev.microphoneDisconnections : null,
+
+      screenShare: resolveBoolState(dev.screenShare, dev.screenSharePermission, dev.screenShareStreamStatus),
+      screenSharePermission: dev.screenSharePermission || (dev.screenShare === true ? "Granted" : dev.screenShare === false ? "Denied" : "Not Recorded"),
+      screenShareStreamStatus: dev.screenShareStreamStatus || (dev.screenShare === true ? "Active" : dev.screenShare === false ? "Inactive" : "Not Recorded"),
+      displaySurface: dev.displaySurface || "",
+
+      fullscreen: dev.fullscreen === true ? "Enforced" : dev.fullscreen === false ? "Exited" : "Not Recorded",
+      windowFocused: dev.windowFocused === true ? "Focused" : dev.windowFocused === false ? "Focus Lost" : "Not Recorded",
+      fullscreenExitsCount: typeof dev.fullscreenExitsCount === "number" ? dev.fullscreenExitsCount : null,
+      focusLossCount: typeof dev.focusLossCount === "number" ? dev.focusLossCount : null,
+
+      batterySupported: dev.battery?.supported === true ? true : dev.battery?.supported === false ? false : null,
+      batteryPercentage: dev.battery?.supported === true && typeof dev.battery?.percentage === "number" ? dev.battery.percentage : null,
+      batteryCharging: dev.battery?.supported === true && typeof dev.battery?.charging === "boolean" ? dev.battery.charging : null,
+
+      browser: dev.browser || "",
+      platform: dev.platform || "",
+      screenResolution: dev.screenResolution || "",
+      connectionType: dev.connectionType || "",
+      monitoringActive: Boolean(dev.monitoringActive),
+      telemetryUpdatedAt: dev.telemetryUpdatedAt || session.lastHeartbeat || null,
+    };
+
+    // ─── 4. In-App Notification Read Status ───
     let notificationViewed = session.notificationViewed || false;
     let notificationViewedAt = session.notificationViewedAt || null;
     if (session.notificationInAppId) {
@@ -3823,68 +3936,101 @@ router.get("/proctoring/session/:sessionId", async (req, res) => {
         const notifDoc = await Notification.findById(session.notificationInAppId).lean();
         if (notifDoc && notifDoc.isRead) {
           notificationViewed = true;
-          notificationViewedAt = notifDoc.readAt || new Date();
+          notificationViewedAt = notifDoc.readAt || notifDoc.updatedAt || null;
         }
       } catch (nErr) {
         console.warn("Notification read check error:", nErr.message);
       }
     }
 
-    // Questions breakdown
-    const questionsBreakdown =
-      session.questions && session.questions.length > 0
-        ? session.questions
-        : linkedAttempt?.questions && linkedAttempt.questions.length > 0
-        ? linkedAttempt.questions
-        : [
-            {
-              questionId: session.questionId || "Q1",
-              title: session.problemData?.title || session.assessmentTitle || "Data Structures & Algorithms Challenge",
-              difficulty: session.problemData?.difficulty || "Medium",
-              category: session.problemData?.category || "Algorithms",
-              description:
-                session.problemData?.description ||
-                "Implement an optimal algorithmic solution meeting the constraints.",
-              submittedCode:
-                session.submissionResult?.code ||
-                session.draftCode ||
-                session.problemData?.starterCode?.python ||
-                "# Python candidate submission\ndef solution():\n    pass",
-              language: session.submissionResult?.language || session.draftLanguage || "python",
-              status: session.status === "submitted" ? "PASSED" : "FAILED",
-              score: session.score || 0,
-              totalMarks: session.maxScore || 100,
-              passedTests: session.status === "submitted" ? 10 : 0,
-              totalTests: 10,
-              attempted: true,
-            },
-          ];
+    // ─── 5. Genuine Questions & Submitted Code Breakdown (ZERO Fabrication) ───
+    let questionsBreakdown = [];
+    if (Array.isArray(session.questions) && session.questions.length > 0) {
+      questionsBreakdown = session.questions.map((q) => {
+        const hasRealCode = Boolean(q.submittedCode && String(q.submittedCode).trim().length > 0);
+        const wasAttempted = Boolean(q.attempted || q.submittedAt || (q.testResults && q.testResults.length > 0));
+        return {
+          questionId: q.questionId,
+          title: q.title,
+          difficulty: q.difficulty || "",
+          category: q.category || "",
+          description: q.description || "",
+          submittedCode: hasRealCode ? q.submittedCode : "",
+          language: q.language || "",
+          status: wasAttempted ? (q.status || "EVALUATED") : "NO_SUBMISSION",
+          score: q.score ?? null,
+          marksObtained: q.marksObtained ?? null,
+          totalMarks: q.totalMarks ?? null,
+          passedTests: wasAttempted ? (q.passedTests ?? 0) : 0,
+          totalTests: Array.isArray(q.testResults) && q.testResults.length > 0 ? q.testResults.length : (q.totalTests ?? 0),
+          testResults: Array.isArray(q.testResults) ? q.testResults : [],
+          runtimeMs: q.runtimeMs ?? null,
+          memoryMb: q.memoryMb ?? null,
+          submittedAt: q.submittedAt || null,
+          attempted: wasAttempted,
+        };
+      });
+    } else if (session.submissionResult && session.submissionResult.submittedAt) {
+      questionsBreakdown = [
+        {
+          questionId: session.questionId || "",
+          title: session.problemData?.title || session.assessmentTitle || "Proctored Assessment",
+          difficulty: session.problemData?.difficulty || "",
+          category: session.problemData?.category || "",
+          description: session.problemData?.description || "",
+          submittedCode: session.submissionResult.code || "",
+          language: session.submissionResult.language || "",
+          status: session.submissionResult.status || "SUBMITTED",
+          score: session.submissionResult.score ?? null,
+          marksObtained: session.submissionResult.marksObtained ?? session.submissionResult.score ?? null,
+          totalMarks: session.submissionResult.totalMarks ?? 100,
+          passedTests: session.submissionResult.passedTests ?? 0,
+          totalTests: session.submissionResult.totalTests ?? 0,
+          testResults: Array.isArray(session.submissionResult.testResults) ? session.submissionResult.testResults : [],
+          submittedAt: session.submissionResult.submittedAt,
+          attempted: true,
+        },
+      ];
+    }
+
+    // ─── 6. Accurate Session Duration & Score ───
+    const resolvedScore = session.score != null ? session.score : (session.submissionResult?.score ?? null);
+    const resolvedMaxScore = session.maxScore || session.submissionResult?.totalMarks || 100;
+    let resolvedSessionDuration = session.durationSeconds || session.submissionResult?.durationSeconds || 0;
+    if (!resolvedSessionDuration && session.submittedAt && session.serverStartTime) {
+      resolvedSessionDuration = Math.max(
+        1,
+        Math.round((new Date(session.submittedAt).getTime() - new Date(session.serverStartTime).getTime()) / 1000) -
+          (session.totalPauseDurationSeconds || 0)
+      );
+    }
 
     res.status(200).json({
       success: true,
       session: {
         ...session,
-        violationsLog: enrichedViolationsLog,
+        score: resolvedScore,
+        maxScore: resolvedMaxScore,
+        durationSeconds: resolvedSessionDuration,
+        submittedAt: session.submittedAt || session.submissionResult?.submittedAt || null,
+        violationsCount: genuineViolations.length,
+        violationsLog: genuineViolations,
+        lifecycleEvents,
+        evidenceScreenshots: session.evidenceScreenshots || [],
         recordingUrl: recordingInfo.url,
+        recordingStatus: recordingInfo.status,
         notificationViewed,
         notificationViewedAt,
       },
       candidate: {
         fullName: session.candidateDetails?.fullName || candidateUser?.fullName || candidateUser?.username || "Candidate",
         email: session.candidateDetails?.email || candidateUser?.email || "",
-        username: candidateUser?.username || "candidate",
+        username: candidateUser?.username || "",
         avatar: candidateUser?.avatar || "",
         role: candidateUser?.role || "student",
         userId: session.userId,
       },
-      hardware: {
-        camera: session.deviceInfo?.camera !== false ? "Granted & Verified" : "Denied",
-        microphone: session.deviceInfo?.microphone !== false ? "Granted & Active" : "Denied",
-        screenShare: session.deviceInfo?.screenShare !== false ? "Granted & Locked" : "Denied",
-        fullscreen: session.deviceInfo?.fullscreen ? "Enforced" : "Exited",
-        batteryPercentage: session.deviceInfo?.battery?.percentage ?? 95,
-        batteryCharging: session.deviceInfo?.battery?.charging ?? true,
-      },
+      hardware,
       recording: recordingInfo,
       questionsBreakdown,
       marksHistory: session.marksHistory || [],
@@ -3915,6 +4061,16 @@ router.patch("/proctoring/session/:sessionId/mark-viewed", async (req, res) => {
       } catch (e) {}
     }
 
+    require("../utils/proctoringSync").emitProctoringSessionUpdate(
+      req.app.get("io"),
+      session.sessionId,
+      "notification_viewed",
+      {
+        notificationViewed: true,
+        notificationViewedAt: session.notificationViewedAt,
+      }
+    );
+
     res.status(200).json({
       success: true,
       message: "Notification marked as viewed",
@@ -3936,67 +4092,89 @@ router.get("/reports", async (req, res) => {
       limit = 10,
       search = "",
       type = "all",
+      range = "all",
+      startDate: qStart,
+      endDate: qEnd,
       all = "false",
     } = req.query;
 
-    const genuineUsers = await User.find(REAL_USER_FILTER).select("_id email fullName username").limit(1500).lean();
+    const { startDate, endDate } = range && range !== "all"
+      ? parseDateRange(range, qStart, qEnd)
+      : { startDate: new Date(0), endDate: new Date(Date.now() + 86400000) };
+
+    const genuineUsers = await User.find(REAL_USER_FILTER).select("_id email fullName username").limit(2000).lean();
     const genuineUserIds = genuineUsers.map((u) => u._id);
     const genuineUserEmails = genuineUsers.map((u) => (u.email || "").toLowerCase()).filter(Boolean);
 
+    const dateFilter = { createdAt: { $gte: startDate, $lte: endDate } };
+
     const [certs, attempts, moduleAttempts, projectSubs, codingSessions, challengeSubs] = await Promise.all([
       IssuedCertificate.find({
-        $or: [{ userId: { $in: genuineUserIds } }, { candidateEmail: { $in: genuineUserEmails } }],
+        $and: [
+          dateFilter,
+          { $or: [{ userId: { $in: genuineUserIds } }, { candidateEmail: { $in: genuineUserEmails } }] },
+        ],
       })
         .select("_id attemptId certificateId verificationCode certificationTitle certTitle recipientName candidateEmail userId mcqScorePercentage percentage issueDate issuedAt createdAt status")
         .populate("userId", "fullName username email")
         .sort({ issueDate: -1, issuedAt: -1, createdAt: -1 })
         .lean(),
       CertificationAttempt.find({
-        $or: [{ userId: { $in: genuineUserIds } }, { candidateEmail: { $in: genuineUserEmails } }],
+        $and: [
+          dateFilter,
+          { $or: [{ userId: { $in: genuineUserIds } }, { candidateEmail: { $in: genuineUserEmails } }] },
+        ],
       })
         .select("_id attemptId userId candidateName candidateEmail certTitle percentage score passed status finalVerdict certificateId submittedAt createdAt")
         .populate("userId", "fullName username email")
         .sort({ createdAt: -1 })
-        .limit(150)
         .lean(),
       ModuleAssessmentAttempt.find({
-        $or: [
-          { userId: { $in: genuineUserIds } },
-          { candidateEmail: { $in: genuineUserEmails } },
-          { userEmail: { $in: genuineUserEmails } },
+        $and: [
+          dateFilter,
+          {
+            $or: [
+              { userId: { $in: genuineUserIds } },
+              { candidateEmail: { $in: genuineUserEmails } },
+              { userEmail: { $in: genuineUserEmails } },
+            ],
+          },
         ],
       })
-        .select("_id sessionId userId assessmentTitle moduleTitle totalQuestions score percentage passed submittedAt createdAt")
+        .select("_id sessionId userId assessmentTitle moduleTitle totalQuestions score percentage passed submittedAt createdAt timeSpentSeconds accuracy")
         .populate("userId", "fullName username email")
         .sort({ createdAt: -1 })
-        .limit(150)
         .lean(),
       ProjectSubmission.find({
-        $or: [{ userId: { $in: genuineUserIds } }, { "candidateDetails.email": { $in: genuineUserEmails } }],
+        $and: [
+          dateFilter,
+          { $or: [{ userId: { $in: genuineUserIds } }, { "candidateDetails.email": { $in: genuineUserEmails } }] },
+        ],
       })
         .select("_id sessionId projectId projectTitle projectCategory difficulty userId candidateDetails marksObtained totalMarks percentage grade passed status badgeAwarded passedTests totalTests submittedAt createdAt")
         .populate("userId", "fullName username email")
         .sort({ submittedAt: -1, createdAt: -1 })
-        .limit(150)
         .lean(),
       ProctoredCodingSession.find({
         $and: [
+          dateFilter,
           { $or: [{ status: "submitted" }, { "submissionResult.submittedAt": { $exists: true } }] },
           { $or: [{ userId: { $in: genuineUserIds } }, { "candidateDetails.email": { $in: genuineUserEmails } }] },
         ],
       })
-        .select("_id sessionId questionId assessmentTitle trackId userId candidateDetails status submissionResult questions updatedAt createdAt")
+        .select("_id sessionId questionId assessmentTitle trackId userId candidateDetails status submissionResult questions updatedAt createdAt violationsCount")
         .populate("userId", "fullName username email")
         .sort({ updatedAt: -1 })
-        .limit(150)
         .lean(),
       ChallengeSubmission.find({
-        userId: { $in: genuineUserIds },
+        $and: [
+          dateFilter,
+          { userId: { $in: genuineUserIds } },
+        ],
       })
-        .select("_id userId challengeTitle challengeId totalTests passedTests score status createdAt runtimeMs adminNote")
+        .select("_id userId challengeTitle challengeId totalTests passedTests score status createdAt runtimeMs adminNote language")
         .populate("userId", "fullName username email")
         .sort({ createdAt: -1 })
-        .limit(150)
         .lean(),
     ]);
 
@@ -4240,13 +4418,29 @@ router.get("/recordings", async (req, res) => {
     let totalBytes = 0;
 
     // 1. Fetch genuine database recording records
-    const dbRecords = await Recording.find().sort({ createdAt: -1 }).lean();
+    const genuineUsers = await User.find(REAL_USER_FILTER).select("_id email fullName username").limit(2000).lean();
+    const genuineUserIds = genuineUsers.map((u) => u._id);
+    const genuineUserEmails = genuineUsers.map((u) => (u.email || "").toLowerCase()).filter(Boolean);
 
-    // 2. Fetch proctoring sessions with recordings
-    const proctoredSessions = await ProctoredCodingSession.find({
+    const dbRecords = await Recording.find({
       $or: [
+        { hostUserId: { $in: genuineUserIds } },
+        { hostEmail: { $in: genuineUserEmails } },
+      ],
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // 2. Fetch proctoring sessions with authentic video recordings
+    const proctoredSessions = await ProctoredCodingSession.find({
+      $and: [
         { recordingUrl: { $exists: true, $ne: "" } },
-        { violationsCount: { $gt: 0 } },
+        {
+          $or: [
+            { userId: { $in: genuineUserIds } },
+            { "candidateDetails.email": { $in: genuineUserEmails } },
+          ],
+        },
       ],
     })
       .sort({ createdAt: -1 })
@@ -4297,15 +4491,23 @@ router.get("/recordings", async (req, res) => {
     dbRecords.forEach((r) => {
       const filename = path.basename(r.filePath || r.fileUrl || "");
       const diskInfo = diskFiles[filename];
-      const actualSize = diskInfo ? diskInfo.sizeBytes : r.fileSize || 0;
-      const isCorrupt = actualSize <= 0;
+      const actualSize = diskInfo ? diskInfo.sizeBytes : (r.fileSize || 0);
       const matchedUser = usersMap[String(r.hostUserId)];
 
       const isScreenShare =
         r.title?.toLowerCase().includes("screen") || r.recordingType === "Screen Share";
 
-      // Genuine activity timeline directly from database record
       const timeline = Array.isArray(r.activityTimeline) ? r.activityTimeline : [];
+      const durationSec = r.durationSeconds || 0;
+      const hasFile = actualSize > 0 || (r.gridfsId && r.gridfsId !== "");
+      let status = "ready";
+      if (r.status === "uploading" || r.status === "processing") {
+        status = "processing";
+      } else if (!hasFile || actualSize <= 0) {
+        status = "error";
+      } else {
+        status = r.status || "ready";
+      }
 
       unifiedRecordings.push({
         id: r._id,
@@ -4313,14 +4515,14 @@ router.get("/recordings", async (req, res) => {
         meetingId: r.meetingId || "",
         title: r.title || `Meeting Recording (${new Date(r.createdAt).toLocaleDateString()})`,
         recordingType: isScreenShare ? "Screen Share" : "Meeting",
-        hostName: r.hostName || matchedUser?.fullName || "Host",
+        hostName: r.hostName || matchedUser?.fullName || matchedUser?.username || "Host",
         hostEmail: r.hostEmail || matchedUser?.email || "",
-        durationSeconds: r.durationSeconds || Math.max(30, Math.round(actualSize / 50000)),
+        durationSeconds: durationSec,
         fileSizeMB: (actualSize / (1024 * 1024)).toFixed(2),
         fileSizeBytes: actualSize,
         fileUrl: `/recordings/${filename}`,
-        streamUrl: `/api/recordings/stream/${filename}`,
-        status: isCorrupt ? "error" : r.status || "ready",
+        streamUrl: `/api/recordings/stream/${filename || r.recordingId}`,
+        status,
         participantsCount: r.participantsCount || 1,
         participantNames:
           r.participantNames && r.participantNames.length > 0 ? r.participantNames : [r.hostName || "Host"],
@@ -4333,60 +4535,36 @@ router.get("/recordings", async (req, res) => {
     // Map Proctored Examination Sessions with Recordings
     proctoredSessions.forEach((p) => {
       let filename = p.recordingUrl ? path.basename(p.recordingUrl) : "";
-      if (!filename || !diskFiles[filename]) {
-        const matchedDisk = Object.keys(diskFiles).find((df) => p.sessionId && df.includes(p.sessionId));
+      if (!filename && p.sessionId) {
+        const matchedDisk = Object.keys(diskFiles).find((df) => df.includes(p.sessionId));
         if (matchedDisk) filename = matchedDisk;
       }
 
       const diskInfo = diskFiles[filename];
       const actualSize = diskInfo ? diskInfo.sizeBytes : (p.recordingFileSize || 0);
+      if (actualSize <= 0 && (!p.recordingUrl || p.recordingUrl.trim() === "")) return;
+
       const matchedUser = usersMap[String(p.userId)];
       const candidateName = p.candidateDetails?.fullName || matchedUser?.fullName || matchedUser?.username || "Candidate";
       const candidateEmail = p.candidateDetails?.email || matchedUser?.email || "";
+      const durationSec = p.recordingDurationSeconds || p.durationSeconds || 0;
 
-      const startT = p.createdAt || new Date();
-      const durationSec = p.recordingDurationSeconds || p.durationSeconds || (actualSize > 0 ? Math.max(30, Math.round(actualSize / 50000)) : 0);
-
-      const proctorTimeline = [
-        {
-          type: "session_initialized",
-          event: "Proctored Examination Initialized",
-          description: `Candidate authenticated for "${p.assessmentTitle || "Credential Assessment"}".`,
-          timestamp: new Date(new Date(startT).getTime() - 10000),
-          user: candidateName,
-          role: "Candidate",
-        },
-        {
-          type: "hardware_verified",
-          event: "Camera, Mic & Screen Lock Verified",
-          description: "Biometric face tracking and primary display surface locked.",
-          timestamp: new Date(startT),
-          user: candidateName,
-          role: "Candidate",
-        },
-        ...(p.violationsLog || []).map((v) => ({
-          type: "violation_detected",
-          event: `Security Event: ${v.type || "Focus Interruption"}`,
-          description: v.detail || "Candidate triggered an anomalous focus loss or tab navigation",
-          timestamp: v.timestamp || new Date(),
-          user: candidateName,
-          role: "Security Sentinel",
-        })),
-        {
-          type: "exam_submitted",
-          event: "Examination Submitted & Media Finalized",
-          description: `Candidate completed proctored session with score ${p.score || 0}/${p.maxScore || 100}.`,
-          timestamp: p.updatedAt || new Date(),
-          user: candidateName,
-          role: "Candidate",
-        },
-      ];
+      const timeline = Array.isArray(p.violationsLog) && p.violationsLog.length > 0
+        ? p.violationsLog.map((v) => ({
+            type: "violation_detected",
+            event: `Security Event: ${v.type || "Focus Interruption"}`,
+            description: v.detail || "Candidate triggered an anomalous focus loss or tab navigation",
+            timestamp: v.timestamp || new Date(),
+            user: candidateName,
+            role: "Security Sentinel",
+          }))
+        : [];
 
       unifiedRecordings.push({
         id: p._id,
         recordingId: p.sessionId || `proc_${p._id}`,
         meetingId: p.sessionId || "",
-        title: `${p.assessmentTitle || "Proctored Credential Examination"} — Candidate Audit`,
+        title: `${p.assessmentTitle || "Proctored Examination"} — Candidate Audit`,
         recordingType: "Proctoring",
         hostName: candidateName,
         hostEmail: candidateEmail,
@@ -4394,111 +4572,72 @@ router.get("/recordings", async (req, res) => {
         fileSizeMB: (actualSize / (1024 * 1024)).toFixed(2),
         fileSizeBytes: actualSize,
         fileUrl: `/recordings/${filename}`,
-        streamUrl: `/api/recordings/stream/${filename}`,
+        streamUrl: `/api/recordings/stream/${filename || p.sessionId}`,
         status: actualSize > 0 ? "ready" : "error",
         participantsCount: 1,
         participantNames: [candidateName],
-        chapters: [
-          { timestampSeconds: 0, title: "Hardware Check & Instructions" },
-          { timestampSeconds: Math.floor(durationSec / 2), title: "Exam Execution & Coding" },
-        ],
-        activityTimeline: proctorTimeline,
+        chapters: [],
+        activityTimeline: timeline,
         createdAt: p.createdAt || new Date(),
       });
-    });
-
-    // Also include any physical disk recordings that were captured
-    Object.keys(diskFiles).forEach((df) => {
-      const alreadyMapped = unifiedRecordings.some((ur) => ur.fileUrl.includes(df));
-      if (!alreadyMapped && diskFiles[df].sizeBytes > 0) {
-        const fileStat = diskFiles[df];
-        const isScreen = df.includes("screen");
-        const cleanName = df.replace(/\.[^/.]+$/, "");
-        unifiedRecordings.push({
-          id: df,
-          recordingId: cleanName,
-          meetingId: cleanName,
-          title: isScreen
-            ? `Captured Screen Recording (${new Date(fileStat.createdAt).toLocaleDateString()})`
-            : `Captured Media Session (${new Date(fileStat.createdAt).toLocaleDateString()})`,
-          recordingType: isScreen ? "Screen Share" : "Meeting",
-          hostName: "System Recording",
-          hostEmail: "",
-          durationSeconds: Math.max(15, Math.round(fileStat.sizeBytes / 50000)),
-          fileSizeMB: fileStat.sizeMB,
-          fileSizeBytes: fileStat.sizeBytes,
-          fileUrl: `/recordings/${df}`,
-          streamUrl: `/api/recordings/stream/${df}`,
-          status: "ready",
-          participantsCount: 1,
-          participantNames: ["System Recording"],
-          chapters: [
-            { timestampSeconds: 0, title: "Recording Initialized" },
-          ],
-          activityTimeline: [
-            {
-              type: "recording_captured",
-              event: "Media Recording Captured",
-              description: `Raw media file captured to server disk (${fileStat.sizeMB} MB).`,
-              timestamp: new Date(fileStat.createdAt),
-              user: "System",
-              role: "Recorder",
-            },
-          ],
-          createdAt: fileStat.createdAt,
-        });
-      }
     });
 
     // SORT: Newest FIRST (requirement 1)
     unifiedRecordings.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
+    const allRecordings = unifiedRecordings;
+
+    // Compute overall stats before filtering
+    let meetingsCount = 0;
+    let screenSharesCount = 0;
+    let proctoringCount = 0;
+    let totalSecs = 0;
+    let totalDiskBytes = 0;
+
+    allRecordings.forEach((r) => {
+      totalSecs += r.durationSeconds || 0;
+      totalDiskBytes += r.fileSizeBytes || 0;
+      if (r.recordingType === "Meeting") meetingsCount++;
+      else if (r.recordingType === "Screen Share") screenSharesCount++;
+      else if (r.recordingType === "Proctoring") proctoringCount++;
+    });
+
+    let filteredRecordings = allRecordings;
+
     // Filter by search
     if (q && q.trim()) {
       const regex = new RegExp(q.trim(), "i");
-      unifiedRecordings = unifiedRecordings.filter(
+      filteredRecordings = filteredRecordings.filter(
         (r) =>
           regex.test(r.title) ||
           regex.test(r.hostName) ||
           regex.test(r.hostEmail) ||
-          regex.test(r.recordingId)
+          regex.test(r.recordingId) ||
+          regex.test(r.meetingId)
       );
     }
 
     // Filter by type
     if (type && type !== "all") {
-      unifiedRecordings = unifiedRecordings.filter(
+      filteredRecordings = filteredRecordings.filter(
         (r) =>
           r.recordingType.toLowerCase().replace(/\s+/g, "") ===
           type.toLowerCase().replace(/\s+/g, "")
       );
     }
 
-    // Compute stats
-    const totalRecordings = unifiedRecordings.length;
-    let meetingsCount = 0;
-    let screenSharesCount = 0;
-    let proctoringCount = 0;
-    let totalSecs = 0;
-
-    unifiedRecordings.forEach((r) => {
-      totalSecs += r.durationSeconds || 0;
-      if (r.recordingType === "Meeting") meetingsCount++;
-      else if (r.recordingType === "Screen Share") screenSharesCount++;
-      else if (r.recordingType === "Proctoring") proctoringCount++;
-    });
-
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
-    const limitNum = all === "true" || all === "1" ? totalRecordings || 1 : Math.max(1, parseInt(limit, 10) || 10);
-    const totalPages = Math.ceil(totalRecordings / limitNum) || 1;
+    const limitNum = all === "true" || all === "1" ? filteredRecordings.length || 1 : Math.max(1, parseInt(limit, 10) || 10);
+    const totalFiltered = filteredRecordings.length;
+    const totalPages = Math.ceil(totalFiltered / limitNum) || 1;
     const skip = (pageNum - 1) * limitNum;
-    const pagedRecordings = unifiedRecordings.slice(skip, skip + limitNum);
+    const pagedRecordings = filteredRecordings.slice(skip, skip + limitNum);
 
     res.status(200).json({
       success: true,
       stats: {
-        totalRecordings,
-        totalDiskSizeMB: (totalBytes / (1024 * 1024)).toFixed(1),
+        totalRecordings: allRecordings.length,
+        totalDiskSizeMB: (totalDiskBytes / (1024 * 1024)).toFixed(1),
         totalDurationMinutes: Math.round(totalSecs / 60),
         meetingsCount,
         screenSharesCount,
@@ -4507,7 +4646,7 @@ router.get("/recordings", async (req, res) => {
       pagination: {
         page: pageNum,
         limit: limitNum,
-        total: totalRecordings,
+        total: totalFiltered,
         totalPages,
       },
       recordings: pagedRecordings,

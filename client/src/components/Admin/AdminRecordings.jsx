@@ -260,28 +260,7 @@ const AdminRecordings = () => {
   const filteredRecordings = useMemo(() => {
     let list = [...rawList];
 
-    // Search filter
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
-      list = list.filter(
-        (r) =>
-          r.title?.toLowerCase().includes(term) ||
-          r.hostName?.toLowerCase().includes(term) ||
-          r.hostEmail?.toLowerCase().includes(term) ||
-          r.recordingId?.toLowerCase().includes(term)
-      );
-    }
-
-    // Type filter
-    if (typeFilter !== "all") {
-      list = list.filter(
-        (r) =>
-          r.recordingType?.toLowerCase().replace(/\s+/g, "") ===
-          typeFilter.toLowerCase().replace(/\s+/g, "")
-      );
-    }
-
-    // Sort order: Newest FIRST (requirement 1)
+    // Sort order: Newest FIRST by default
     if (sortBy === "newest") {
       list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     } else if (sortBy === "oldest") {
@@ -293,7 +272,7 @@ const AdminRecordings = () => {
     }
 
     return list;
-  }, [rawList, searchTerm, typeFilter, sortBy]);
+  }, [rawList, sortBy]);
 
   const handleOpenPlayback = (rec) => {
     setActiveRecording(rec);
@@ -303,7 +282,7 @@ const AdminRecordings = () => {
   };
 
   const formatDuration = (secs) => {
-    if (!secs || isNaN(secs)) return "1m 15s";
+    if (!secs || isNaN(secs) || secs <= 0) return "0s";
     const m = Math.floor(secs / 60);
     const s = Math.floor(secs % 60);
     return m > 0 ? `${m}m ${s < 10 ? "0" : ""}${s}s` : `${s}s`;
@@ -507,7 +486,7 @@ const AdminRecordings = () => {
         {/* Filter Pills */}
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
           {[
-            { key: "all", label: `All (${rawList.length})` },
+            { key: "all", label: `All (${stats.totalRecordings || 0})` },
             { key: "meeting", label: `Meetings (${stats.meetingsCount || 0})` },
             { key: "screenshare", label: `Screen Shares (${stats.screenSharesCount || 0})` },
             { key: "proctoring", label: `Proctoring (${stats.proctoringCount || 0})` },

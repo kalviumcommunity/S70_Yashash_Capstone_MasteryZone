@@ -232,7 +232,7 @@ function inspectMediaBinary(buffer, expectedDuration = null) {
   return { valid: false, error: "Unrecognized or corrupted video container" };
 }
 
-async function validateMediaIntegrity(filePath, buffer, expectedDuration = null) {
+async function validateMediaIntegrity(filePath, buffer, expectedDuration = null, { requireAudio = true } = {}) {
   const probeData = await probeWithFfprobe(filePath);
   if (probeData) {
     if (probeData.error) {
@@ -244,7 +244,7 @@ async function validateMediaIntegrity(filePath, buffer, expectedDuration = null)
       if (!hasVideo) {
         return { valid: false, error: "Recording missing required video stream. Audio-only uploads are not accepted as meeting video recordings." };
       }
-      if (!hasAudio) {
+      if (requireAudio && !hasAudio) {
         return { valid: false, error: "Recording missing required audio stream. Meeting recordings require both audio and video streams." };
       }
       const rawDur = probeData.format?.duration !== undefined ? probeData.format.duration : expectedDuration;
@@ -860,6 +860,200 @@ router.post(
       }
       console.error("Recording upload error:", err);
       res.status(500).json({ error: err.message || "Failed to save recording" });
+    }
+  }
+);
+
+// 1b. Upload a Proctoring Session Recording (Strict Session Ownership + GridFS Cloud Persistence)
+router.post(
+  "/proctoring/upload",
+  authenticateToken,
+  async (req, res) => {
+    let createdFilePath = null;
+    const ProctoredCodingSession = require("../models/ProctoredCodingSession");
+    const CertificationAttempt = require("../models/CertificationAttempt");
+    const { emitProctoringSessionUpdate } = require("../utils/proctoringSync");
+
+    const sessionId = String(
+      req.headers["x-session-id"] ||
+      req.query.sessionId ||
+      (req.body && typeof req.body === "object" ? req.body.sessionId : "") ||
+      ""
+    ).trim();
+
+    if (!sessionId) {
+      return res.status(400).json({ error: "sessionId is required to upload a proctoring recording." });
+    }
+
+    try {
+      const reqUserId = String(req.user?.userId || req.user?._id || req.user?.id || "");
+      const isAdmin = Boolean(
+        req.user?.role === "admin" ||
+        req.user?.role === "SUPER_ADMIN" ||
+        req.user?.isMainAdmin
+      );
+
+      const procSession = await ProctoredCodingSession.findOne({ sessionId });
+      const certAttempt = !procSession
+        ? await CertificationAttempt.findOne({ attemptId: sessionId })
+        : null;
+
+      if (!procSession && !certAttempt) {
+        return res.status(404).json({ error: "Proctoring session not found." });
+      }
+
+      const ownerId = String(procSession?.userId || certAttempt?.userId || "");
+      if (!isAdmin && ownerId && ownerId !== reqUserId) {
+        return res.status(403).json({ error: "Forbidden: You do not own this proctoring session." });
+      }
+
+      const recordingId = `proc_rec_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      const targetDir = getRecordingsDir();
+
+      let uploadResult;
+      try {
+        uploadResult = await streamUploadToTempFile(req, targetDir, recordingId);
+      } catch (uploadErr) {
+        if (procSession) {
+          procSession.recordingStatus = "failed";
+          procSession.recordingUploadError = uploadErr.message || "Stream upload failed";
+          await procSession.save();
+          emitProctoringSessionUpdate(req.app.get("io"), sessionId, "recording_failed", {
+            recordingStatus: "failed",
+            error: procSession.recordingUploadError,
+          });
+        }
+        return res.status(uploadErr.status || 400).json({ error: uploadErr.message || "Failed to upload recording stream" });
+      }
+
+      const {
+        tempFilePath,
+        fileSize,
+        mimeType = "video/webm",
+        durationSeconds = 0,
+        startTime,
+        endTime,
+      } = uploadResult;
+
+      createdFilePath = tempFilePath;
+
+      const parsedDuration = Math.max(1, Math.round(Number(durationSeconds) || Number(req.query.durationSeconds) || 0));
+      const mediaCheck = await validateMediaIntegrity(tempFilePath, null, parsedDuration, { requireAudio: false });
+      if (!mediaCheck.valid) {
+        try { fs.unlinkSync(tempFilePath); } catch {}
+        createdFilePath = null;
+        if (procSession) {
+          procSession.recordingStatus = "failed";
+          procSession.recordingUploadError = mediaCheck.error || "Invalid or corrupted video stream";
+          await procSession.save();
+          emitProctoringSessionUpdate(req.app.get("io"), sessionId, "recording_failed", {
+            recordingStatus: "failed",
+            error: procSession.recordingUploadError,
+          });
+        }
+        return res.status(400).json({ error: mediaCheck.error || "Corrupted proctoring media file." });
+      }
+
+      const ext = mimeType.includes("mp4") ? "mp4" : "webm";
+      const fileName = `${recordingId}.${ext}`;
+      const filePath = path.join(targetDir, fileName);
+
+      fs.renameSync(tempFilePath, filePath);
+      createdFilePath = filePath;
+
+      // Persist in MongoDB Atlas GridFS for durability across restarts/redeploys
+      try {
+        const { saveFileToGridFS } = require("../config/recordingStorage");
+        await saveFileToGridFS(fileName, filePath, {
+          recordingId,
+          proctoringSessionId: sessionId,
+          hostUserId: ownerId || reqUserId,
+          mimeType,
+          durationSeconds: parsedDuration,
+        });
+      } catch (gridErr) {
+        console.warn("[Proctoring Recording] GridFS backup warning:", gridErr.message);
+      }
+
+      const streamUrl = `/api/recordings/stream/${fileName}`;
+      const fileUrl = `/recordings/${fileName}`;
+      const recStart = startTime ? new Date(startTime) : new Date(Date.now() - parsedDuration * 1000);
+      const recEnd = endTime ? new Date(endTime) : new Date();
+
+      const recording = new Recording({
+        recordingId,
+        meetingId: sessionId,
+        title: `Proctoring Stream - ${procSession?.assessmentTitle || certAttempt?.certTitle || sessionId}`,
+        hostUserId: ownerId || reqUserId,
+        hostName: procSession?.candidateDetails?.fullName || certAttempt?.candidateName || req.user?.fullName || "Candidate",
+        hostEmail: procSession?.candidateDetails?.email || certAttempt?.candidateEmail || req.user?.email || "",
+        recordingType: "Proctoring",
+        durationSeconds: parsedDuration,
+        filePath,
+        fileUrl,
+        streamUrl,
+        fileSize,
+        mimeType,
+        status: "ready",
+        startTime: recStart,
+        endTime: recEnd,
+        participantsCount: 1,
+        participantUserIds: [ownerId || reqUserId].filter(Boolean),
+        participantNames: [procSession?.candidateDetails?.fullName || certAttempt?.candidateName || "Candidate"],
+      });
+
+      await recording.save();
+
+      if (procSession) {
+        procSession.recordingId = recordingId;
+        procSession.recordingUrl = streamUrl;
+        procSession.recordingDurationSeconds = parsedDuration;
+        procSession.recordingFileSize = fileSize;
+        procSession.recordingMimeType = mimeType;
+        procSession.recordingStartedAt = recStart;
+        procSession.recordingCompletedAt = recEnd;
+        procSession.recordingStatus = "available";
+        procSession.recordingUploadError = "";
+        await procSession.save();
+      }
+
+      if (certAttempt) {
+        certAttempt.proctoring = certAttempt.proctoring || {};
+        certAttempt.proctoring.recordingId = recordingId;
+        certAttempt.proctoring.recordingUrl = streamUrl;
+        certAttempt.proctoring.recordingDurationSeconds = parsedDuration;
+        certAttempt.proctoring.recordingFileSize = fileSize;
+        certAttempt.proctoring.recordingMimeType = mimeType;
+        certAttempt.proctoring.recordingStatus = "available";
+        await certAttempt.save();
+      }
+
+      const io = req.app.get("io");
+      emitProctoringSessionUpdate(io, sessionId, "recording_available", {
+        recordingId,
+        recordingUrl: streamUrl,
+        recordingStatus: "available",
+        recordingDurationSeconds: parsedDuration,
+        recordingFileSize: fileSize,
+        recordingMimeType: mimeType,
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: "Proctoring recording uploaded and persisted successfully",
+        recording,
+        recordingUrl: streamUrl,
+        recordingStatus: "available",
+        durationSeconds: parsedDuration,
+        fileSize,
+        mimeType,
+      });
+    } catch (err) {
+      if (createdFilePath && fs.existsSync(createdFilePath)) {
+        try { fs.unlinkSync(createdFilePath); } catch {}
+      }
+      console.error("Proctoring recording upload error:", err);
+      return res.status(500).json({ error: err.message || "Failed to save proctoring recording" });
     }
   }
 );
