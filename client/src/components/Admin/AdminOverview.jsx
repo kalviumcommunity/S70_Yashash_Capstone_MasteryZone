@@ -168,9 +168,11 @@ const AdminOverview = () => {
   const [isFetching, setIsFetching] = useState(false);
   const [overviewData, setOverviewData] = useState(null);
   const [hoveredPoint, setHoveredPoint] = useState(null);
+  const [hoverPixel, setHoverPixel] = useState(null);
   const [activeTab, setActiveTab] = useState("30d");
   const [errorState, setErrorState] = useState(null);
   const datePickerRef = useRef(null);
+  const chartSvgRef = useRef(null);
 
   const fetchOverview = async (range = filterRange, start = customStart, end = customEnd, isBackground = false) => {
     try {
@@ -286,9 +288,6 @@ const AdminOverview = () => {
   );
 
   // Dynamic SVG Trend Chart Calculations
-  const chartSvgRef = useRef(null);
-  const [hoverPixel, setHoverPixel] = useState(null);
-
   // Scale Y max nicely (e.g. 1.5k or calculated max)
   const rawMax = Math.max(1, ...trendPoints.map((p) => Number(p.activeUsers || 0)));
   const maxActive = rawMax > 500 ? 1500 : rawMax > 50 ? 100 : Math.max(10, rawMax);
