@@ -21,6 +21,7 @@ import { toast } from "react-toastify";
 import AdminUserDetailModal from "./AdminUserDetailModal.jsx";
 import AdminPagination from "./AdminPagination.jsx";
 import { deduplicatedFetch } from "../../utils/apiClient";
+import { getSharedSocket, releaseSharedSocket } from "../../utils/socketClient";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -116,6 +117,31 @@ const AdminUsers = () => {
     }, 250);
     return () => clearTimeout(timer);
   }, [page, status, search, roleFilter]);
+
+  // Real-time Socket.IO synchronization for User directory
+  useEffect(() => {
+    const socket = getSharedSocket();
+    const handleUsersUpdate = () => {
+      fetchUsers();
+    };
+
+    socket.on("ADMIN_USERS_UPDATED", handleUsersUpdate);
+    socket.on("NEW_USER_REGISTERED", handleUsersUpdate);
+    socket.on("USER_STATUS_UPDATED", handleUsersUpdate);
+    socket.on("USER_ROLE_UPDATED", handleUsersUpdate);
+    socket.on("ASSESSMENT_MARKS_UPDATED", handleUsersUpdate);
+    socket.on("NEW_SUBMISSION", handleUsersUpdate);
+
+    return () => {
+      socket.off("ADMIN_USERS_UPDATED", handleUsersUpdate);
+      socket.off("NEW_USER_REGISTERED", handleUsersUpdate);
+      socket.off("USER_STATUS_UPDATED", handleUsersUpdate);
+      socket.off("USER_ROLE_UPDATED", handleUsersUpdate);
+      socket.off("ASSESSMENT_MARKS_UPDATED", handleUsersUpdate);
+      socket.off("NEW_SUBMISSION", handleUsersUpdate);
+      releaseSharedSocket(socket);
+    };
+  }, []);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();

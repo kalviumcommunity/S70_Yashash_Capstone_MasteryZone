@@ -22,6 +22,7 @@ import {
   LuCircleAlert,
 } from "react-icons/lu";
 import { deduplicatedFetch, isDocumentVisible } from "../../utils/apiClient";
+import { getSharedSocket, releaseSharedSocket } from "../../utils/socketClient";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -265,9 +266,29 @@ const AdminOverview = () => {
     };
     document.addEventListener("mousedown", handleOutside);
 
+    // Socket real-time synchronization
+    const socket = getSharedSocket();
+    const handleRealTimeEvent = () => {
+      fetchOverview(filterRange, customStart, customEnd, true);
+    };
+
+    socket.on("live_session_update", handleRealTimeEvent);
+    socket.on("live_session_ended", handleRealTimeEvent);
+    socket.on("NEW_SUBMISSION", handleRealTimeEvent);
+    socket.on("ASSESSMENT_MARKS_UPDATED", handleRealTimeEvent);
+    socket.on("NEW_REPORT", handleRealTimeEvent);
+    socket.on("ADMIN_USERS_UPDATED", handleRealTimeEvent);
+
     return () => {
       clearInterval(interval);
       document.removeEventListener("mousedown", handleOutside);
+      socket.off("live_session_update", handleRealTimeEvent);
+      socket.off("live_session_ended", handleRealTimeEvent);
+      socket.off("NEW_SUBMISSION", handleRealTimeEvent);
+      socket.off("ASSESSMENT_MARKS_UPDATED", handleRealTimeEvent);
+      socket.off("NEW_REPORT", handleRealTimeEvent);
+      socket.off("ADMIN_USERS_UPDATED", handleRealTimeEvent);
+      releaseSharedSocket(socket);
     };
   }, [filterRange]);
 

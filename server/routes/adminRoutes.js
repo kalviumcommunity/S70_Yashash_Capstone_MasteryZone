@@ -1064,14 +1064,21 @@ router.put("/users/:id/status", async (req, res) => {
       ip: req.ip,
     });
 
-    // Disconnect active socket session if user is suspended
-    if (isSuspended) {
-      const io = req.app.get("io");
-      if (io) {
+    clearAdminCache();
+
+    // Broadcast status change to socket & disconnect active socket session if user is suspended
+    const io = req.app.get("io");
+    if (io) {
+      io.to(`user_${user._id}`).emit("USER_STATUS_UPDATED", {
+        isSuspended: user.isSuspended,
+        suspendedReason: user.suspendedReason,
+      });
+      if (isSuspended) {
         io.to(`user_${user._id}`).emit("account_suspended", {
           reason: reason || "Your account has been suspended by administration.",
         });
       }
+      io.emit("ADMIN_USERS_UPDATED", { userId: user._id, isSuspended: user.isSuspended });
     }
 
     // In-app notification
@@ -1161,6 +1168,8 @@ router.put("/users/:id/role", async (req, res) => {
     const io = req.app.get("io");
     if (io) {
       io.to(`user_${user._id}`).emit("role_updated", { role: user.role });
+      io.to(`user_${user._id}`).emit("USER_ROLE_UPDATED", { role: user.role });
+      io.emit("ADMIN_USERS_UPDATED", { userId: user._id, role: user.role });
     }
 
     // In-app notification
@@ -2005,12 +2014,66 @@ router.put("/modify-marks", async (req, res) => {
 
       await attempt.save();
 
+      clearAdminCache();
+
+      const io = req.app.get("io");
+      if (io) {
+        const certPayload = {
+          id: attempt._id,
+          rawId: attempt._id,
+          itemId: attempt._id,
+          attemptId: attempt.attemptId,
+          sessionId: attempt.attemptId,
+          itemType: "certification",
+          score: `${parsedPct}%`,
+          rawScore: parsedPct,
+          newScore: parsedPct,
+          percentage: parsedPct,
+          status: statusVerdict,
+          newStatus: statusVerdict,
+          verdict: statusVerdict,
+          adminNote: attempt.adminNote,
+          adminModifiedAt: attempt.adminModifiedAt,
+          adminModifiedBy: attempt.adminModifiedBy,
+          userId: String(studentUser?._id || targetUserId),
+          studentId: String(studentUser?._id || targetUserId),
+          notificationSent: attempt.notificationSent,
+          notificationViewed: attempt.notificationViewed,
+        };
+        io.emit("ASSESSMENT_MARKS_UPDATED", certPayload);
+        io.emit("NEW_REPORT", {
+          id: attempt._id,
+          rawId: attempt._id,
+          itemType: "certification",
+          sessionId: attempt.attemptId,
+          title: `${attempt.certTitle || "Official Certification"} — Examination Report`,
+          type: "Official Certification Examination Report",
+          recipient: recipientName,
+          email: recipientEmail,
+          score: `${parsedPct}%`,
+          rawScore: parsedPct,
+          maxScore: 100,
+          grade: statusVerdict === "PASSED" ? "Distinction" : "Not Qualified",
+          verificationCode: attempt.certificateId || String(attempt.attemptId || attempt._id).slice(-8).toUpperCase(),
+          date: attempt.adminModifiedAt || new Date(),
+          status: statusVerdict,
+          reportUrl: `/assessment-report/${attempt.attemptId}`,
+        });
+      }
+
       updatedResult = {
         id: attempt._id,
+        rawId: attempt._id,
+        itemId: attempt._id,
+        attemptId: attempt.attemptId,
+        sessionId: attempt.attemptId,
         itemType: "certification",
         score: `${parsedPct}/100`,
+        rawScore: parsedPct,
+        newScore: parsedPct,
         percentage: parsedPct,
         status: statusVerdict,
+        newStatus: statusVerdict,
         adminNote: attempt.adminNote,
         notificationSent: attempt.notificationSent,
         notificationEmailSent: attempt.notificationEmailSent,
@@ -2138,12 +2201,69 @@ router.put("/modify-marks", async (req, res) => {
 
       await attempt.save();
 
+      clearAdminCache();
+
+      const io = req.app.get("io");
+      if (io) {
+        const modPayload = {
+          id: attempt._id,
+          rawId: attempt._id,
+          itemId: attempt._id,
+          attemptId: attempt._id,
+          sessionId: attempt.sessionId || `attempt_${attempt._id}`,
+          itemType: "module",
+          score: `${parsedScore} / ${totalQ} (${parsedPct}%)`,
+          rawScore: parsedScore,
+          newScore: parsedScore,
+          maxScore: totalQ,
+          percentage: parsedPct,
+          status: passed ? "Passed" : "Failed",
+          newStatus: passed ? "Passed" : "Failed",
+          verdict: passed ? "Passed" : "Failed",
+          passed,
+          adminNote: attempt.adminNote,
+          adminModifiedAt: attempt.adminModifiedAt,
+          adminModifiedBy: attempt.adminModifiedBy,
+          userId: String(studentUser?._id || targetUserId),
+          studentId: String(studentUser?._id || targetUserId),
+          notificationSent: attempt.notificationSent,
+          notificationViewed: attempt.notificationViewed,
+        };
+        io.emit("ASSESSMENT_MARKS_UPDATED", modPayload);
+        io.emit("NEW_REPORT", {
+          id: attempt._id,
+          rawId: attempt._id,
+          itemType: "module",
+          sessionId: attempt.sessionId || `attempt_${attempt._id}`,
+          title: `${attempt.assessmentTitle || attempt.moduleTitle || "Module Assessment"} — Assessment Report`,
+          type: "Module Assessment Report",
+          recipient: recipientName,
+          email: recipientEmail,
+          score: `${parsedScore}/${totalQ} (${parsedPct}%)`,
+          rawScore: parsedScore,
+          maxScore: totalQ,
+          grade: attempt.grade,
+          verificationCode: String(attempt.sessionId || attempt._id).slice(-8).toUpperCase(),
+          date: attempt.adminModifiedAt || new Date(),
+          status: passed ? "PASSED" : "FAILED",
+          reportUrl: repUrl,
+        });
+      }
+
       updatedResult = {
         id: attempt._id,
+        rawId: attempt._id,
+        itemId: attempt._id,
+        attemptId: attempt._id,
+        sessionId: attempt.sessionId || `attempt_${attempt._id}`,
         itemType: "module",
         score: `${parsedScore} / ${totalQ} (${parsedPct}%)`,
+        rawScore: parsedScore,
+        newScore: parsedScore,
+        maxScore: totalQ,
         percentage: parsedPct,
         status: passed ? "Passed" : "Failed",
+        newStatus: passed ? "Passed" : "Failed",
         adminNote: attempt.adminNote,
         notificationSent: attempt.notificationSent,
         notificationEmailSent: attempt.notificationEmailSent,
@@ -2316,23 +2436,33 @@ router.put("/modify-marks", async (req, res) => {
           const updatePayload = {
             id: sub._id,
             rawId: sub._id,
+            itemId: sub._id,
+            attemptId: sub._id,
+            sessionId: String(sub._id),
             itemType: "coding",
             challengeId: sub.challengeId,
             userId: String(sub.userId),
             studentId: String(sub.userId),
             score: `${parsedScore}/100`,
             rawScore: parsedScore,
+            newScore: parsedScore,
+            percentage: parsedScore,
             status: sub.status,
+            newStatus: sub.status,
+            verdict: sub.status,
             passedTests: sub.passedTests,
             totalTests: totalT,
             adminNote: cleanRemarks,
             adminModifiedAt: sub.adminModifiedAt,
             adminModifiedBy: sub.adminModifiedBy,
+            notificationSent: sub.notificationSent,
+            notificationViewed: sub.notificationViewed,
           };
 
           io.emit("ASSESSMENT_MARKS_UPDATED", updatePayload);
           io.emit("CODING_SUBMISSION_EVALUATED", updatePayload);
           io.to(`user_${sub.userId}`).emit("USER_SUBMISSION_UPDATED", updatePayload);
+          io.to(`user_${sub.userId}`).emit("ASSESSMENT_MARKS_UPDATED", updatePayload);
 
           io.emit("NEW_REPORT", {
             id: sub._id,
@@ -2503,6 +2633,54 @@ router.put("/modify-marks", async (req, res) => {
       }
       await session.save();
 
+      clearAdminCache();
+
+      const io = req.app.get("io");
+      if (io) {
+        const procPayload = {
+          id: session._id,
+          rawId: session._id,
+          itemId: session._id,
+          sessionId: session.sessionId,
+          itemType: "proctoring",
+          score: `${parsedScore} / ${maxScore} (${parsedPct}%)`,
+          rawScore: parsedScore,
+          newScore: parsedScore,
+          maxScore,
+          percentage: parsedPct,
+          status: session.status,
+          newStatus: session.status,
+          verdict: session.status,
+          passed,
+          adminNote: session.adminNote,
+          adminModifiedAt: session.adminModifiedAt,
+          adminModifiedBy: session.adminModifiedBy,
+          userId: String(studentUser?._id || targetUserId),
+          studentId: String(studentUser?._id || targetUserId),
+          notificationSent: session.notificationSent,
+          notificationViewed: session.notificationViewed,
+        };
+        io.emit("ASSESSMENT_MARKS_UPDATED", procPayload);
+        io.emit("NEW_REPORT", {
+          id: session._id,
+          rawId: session._id,
+          itemType: "coding",
+          sessionId: session.sessionId,
+          title: `${session.assessmentTitle || "Algorithmic Challenge"} — Coding Assessment Report`,
+          type: "Coding Challenge Report",
+          recipient: recipientName,
+          email: recipientEmail,
+          score: `${parsedPct}%`,
+          rawScore: parsedScore,
+          maxScore,
+          grade: passed ? "Accepted" : "Failed",
+          verificationCode: String(session.sessionId || session._id).slice(-8).toUpperCase(),
+          date: session.adminModifiedAt || new Date(),
+          status: passed ? "ACCEPTED" : "FAILED",
+          reportUrl: repUrl,
+        });
+      }
+
       require("../utils/proctoringSync").emitProctoringSessionUpdate(
         req.app.get("io"),
         session.sessionId,
@@ -2517,13 +2695,17 @@ router.put("/modify-marks", async (req, res) => {
 
       updatedResult = {
         id: session._id,
+        rawId: session._id,
+        itemId: session._id,
         sessionId: session.sessionId,
         itemType: "proctoring",
         score: `${parsedScore} / ${maxScore} (${parsedPct}%)`,
         rawScore: parsedScore,
+        newScore: parsedScore,
         maxScore,
         percentage: parsedPct,
         status: session.status,
+        newStatus: session.status,
         evaluationVerdict: session.evaluationVerdict,
         adminNote: session.adminNote,
         notificationSent: session.notificationSent,
@@ -2645,6 +2827,8 @@ router.put("/modify-marks", async (req, res) => {
 
       await sub.save();
 
+      clearAdminCache();
+
       // Emit real-time socket events for marks update & reports sync
       try {
         const io = req.app.get("io");
@@ -2652,17 +2836,24 @@ router.put("/modify-marks", async (req, res) => {
           io.emit("ASSESSMENT_MARKS_UPDATED", {
             id: sub._id,
             rawId: sub._id,
+            itemId: sub._id,
             sessionId: sub.sessionId,
             itemType: "project",
             score: `${parsedScore} / ${maxScore} (${parsedPct}%)`,
             rawScore: parsedScore,
+            newScore: parsedScore,
             maxScore,
             percentage: parsedPct,
             status: finalStatus,
+            newStatus: finalStatus,
             passed: isPassed,
             adminNote: sub.adminNote,
             adminModifiedAt: sub.adminModifiedAt,
             adminModifiedBy: sub.adminModifiedBy,
+            userId: String(studentUser?._id || targetUserId),
+            studentId: String(studentUser?._id || targetUserId),
+            notificationSent: sub.notificationSent,
+            notificationViewed: sub.notificationViewed,
           });
           io.emit("NEW_REPORT", {
             id: sub._id,
@@ -2687,13 +2878,17 @@ router.put("/modify-marks", async (req, res) => {
 
       updatedResult = {
         id: sub._id,
+        rawId: sub._id,
+        itemId: sub._id,
         sessionId: sub.sessionId,
         itemType: "project",
         score: `${parsedScore} / ${maxScore} (${parsedPct}%)`,
         rawScore: parsedScore,
+        newScore: parsedScore,
         maxScore,
         percentage: parsedPct,
         status: finalStatus,
+        newStatus: finalStatus,
         passed: isPassed,
         grade: sub.grade,
         adminNote: sub.adminNote,
@@ -2710,12 +2905,13 @@ router.put("/modify-marks", async (req, res) => {
     // Emit real-time synchronization event across application via Socket.io
     try {
       const io = req.app.get("io");
-      if (io && targetUserId) {
-        io.to(`user_${targetUserId}`).emit("ASSESSMENT_MARKS_UPDATED", {
-          itemType,
-          itemId,
-          updatedResult,
-        });
+      if (io) {
+        if (targetUserId) {
+          io.to(`user_${targetUserId}`).emit("ASSESSMENT_MARKS_UPDATED", updatedResult);
+          io.to(`user_${targetUserId}`).emit("USER_SUBMISSION_UPDATED", updatedResult);
+        }
+        io.to("super_admin_room").emit("ADMIN_MARKS_UPDATED", updatedResult);
+        io.emit("REPORTS_UPDATED", { itemType, itemId });
       }
     } catch (socketErr) {
       console.warn("Socket notification broadcast warning:", socketErr.message);

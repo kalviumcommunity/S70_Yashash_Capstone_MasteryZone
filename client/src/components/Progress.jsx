@@ -314,7 +314,18 @@ const Progress = () => {
     // Listen to real-time events across windows or modules
     const handleProgressUpdate = () => fetchDashboardData(true);
     window.addEventListener("mz_progress_updated", handleProgressUpdate);
-    return () => window.removeEventListener("mz_progress_updated", handleProgressUpdate);
+    window.addEventListener("mz_marks_updated", handleProgressUpdate);
+    window.addEventListener("mz_submission_updated", handleProgressUpdate);
+    window.addEventListener("mz_cert_updated", handleProgressUpdate);
+    window.addEventListener("mz_socket_reconnected", handleProgressUpdate);
+
+    return () => {
+      window.removeEventListener("mz_progress_updated", handleProgressUpdate);
+      window.removeEventListener("mz_marks_updated", handleProgressUpdate);
+      window.removeEventListener("mz_submission_updated", handleProgressUpdate);
+      window.removeEventListener("mz_cert_updated", handleProgressUpdate);
+      window.removeEventListener("mz_socket_reconnected", handleProgressUpdate);
+    };
   }, []);
 
   // Trigger floating green toast notification matching screenshot
