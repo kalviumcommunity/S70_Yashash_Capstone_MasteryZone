@@ -291,30 +291,53 @@ const AdminRecordings = () => {
   const getVideoSrc = (rec, opts) => getRecordingStreamUrl(rec, opts);
 
   return (
-    <div className="mz-admin-view-container" style={{ paddingBottom: 60 }}>
-      {/* Header */}
-      <div className="mz-admin-page-header">
-        <div className="mz-admin-page-title-box">
-          <div className="mz-admin-page-icon">
-            <LuVideo style={{ width: 22, height: 22 }} />
+    <div style={{ padding: "28px 36px", background: "var(--mz-surface-subtle)", minHeight: "100vh", fontFamily: "inherit" }}>
+      {/* Top Header */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: 24,
+          flexWrap: "wrap",
+          gap: 16,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <div
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 14,
+              background: "var(--mz-purple-bg)",
+              color: "#6366f1",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: "0 2px 8px rgba(99, 102, 241, 0.15)",
+            }}
+          >
+            <LuVideo style={{ width: 24, height: 24 }} />
           </div>
           <div>
-            <h1 className="mz-admin-page-title">Authorized Recordings Management</h1>
-            <p className="mz-admin-page-subtitle">
+            <h1 style={{ fontSize: 24, fontWeight: 700, color: "var(--mz-text-primary)", margin: 0, letterSpacing: "-0.02em" }}>
+              Authorized Recordings Management
+            </h1>
+            <p style={{ fontSize: 13, color: "var(--mz-text-muted)", margin: "4px 0 0 0" }}>
               Audit, stream, and inspect meeting screen shares, participant audio recordings, and proctored attempts in real time.
             </p>
           </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           {rawList.some((r) => Number(r.fileSizeMB) <= 0 || r.status === "error") && (
             <button
               onClick={handlePurgeCorrupted}
               style={{
-                display: "flex",
+                display: "inline-flex",
                 alignItems: "center",
                 gap: 6,
-                padding: "8px 14px",
+                padding: "9px 14px",
                 background: "var(--mz-red-bg)",
                 border: "1px solid var(--mz-red-border)",
                 borderRadius: 10,
@@ -322,6 +345,7 @@ const AdminRecordings = () => {
                 fontWeight: 700,
                 color: "#dc2626",
                 cursor: "pointer",
+                transition: "all 0.15s ease",
               }}
               title="Purge empty and corrupted recordings"
             >
@@ -331,73 +355,219 @@ const AdminRecordings = () => {
           )}
 
           <button
-            onClick={fetchRecordings}
+            onClick={() => fetchRecordings(page, searchTerm, typeFilter)}
+            title="Refresh database records"
             style={{
-              display: "flex",
+              display: "inline-flex",
               alignItems: "center",
-              gap: 6,
-              padding: "8px 14px",
-              background: "var(--mz-surface)",
-              border: "1px solid var(--mz-border)",
+              gap: 8,
+              padding: "9px 14px",
               borderRadius: 10,
               fontSize: 13,
               fontWeight: 600,
               color: "var(--mz-text-secondary)",
+              background: "var(--mz-surface)",
+              border: "1px solid var(--mz-border)",
               cursor: "pointer",
+              transition: "all 0.15s ease",
             }}
           >
             <LuRefreshCw style={{ width: 14, height: 14 }} />
             <span>Sync</span>
           </button>
+        </div>
+      </div>
 
+      {/* KPI Stat Cards Row */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+          gap: 16,
+          marginBottom: 20,
+        }}
+      >
+        {/* Card 1: Total Recordings */}
+        <div
+          style={{
+            background: "var(--mz-surface)",
+            borderRadius: 16,
+            padding: "18px 22px",
+            border: "1px solid var(--mz-border)",
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
+            boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
+          }}
+        >
           <div
             style={{
+              width: 48,
+              height: 48,
+              borderRadius: 12,
+              background: "var(--mz-purple-bg)",
+              color: "#6366f1",
               display: "flex",
               alignItems: "center",
-              gap: 12,
-              padding: "8px 16px",
-              background: "var(--mz-surface-subtle)",
-              border: "1px solid var(--mz-border)",
-              borderRadius: 12,
-              color: "var(--mz-text-secondary)",
-              fontSize: 13,
-              fontWeight: 700,
+              justifyContent: "center",
+              flexShrink: 0,
             }}
           >
-            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <LuHardDrive style={{ width: 14, height: 14, color: "#6366f1" }} />
-              <span>Disk Consumed: {stats.totalDiskSizeMB} MB</span>
+            <LuVideo style={{ width: 22, height: 22 }} />
+          </div>
+          <div>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--mz-text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+              Total Recordings
             </span>
-            <span>•</span>
-            <span style={{ color: "#4f46e5" }}>{stats.totalRecordings} Recordings</span>
+            <p style={{ fontSize: 24, fontWeight: 800, color: "var(--mz-text-primary)", margin: "2px 0 0 0" }}>
+              {stats.totalRecordings ?? 0}
+            </p>
+          </div>
+        </div>
+
+        {/* Card 2: Meetings */}
+        <div
+          style={{
+            background: "var(--mz-surface)",
+            borderRadius: 16,
+            padding: "18px 22px",
+            border: "1px solid var(--mz-border)",
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
+            boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
+          }}
+        >
+          <div
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 12,
+              background: "var(--mz-blue-bg)",
+              color: "#2563eb",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <LuUsers style={{ width: 22, height: 22 }} />
+          </div>
+          <div>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--mz-text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+              Meeting Sessions
+            </span>
+            <p style={{ fontSize: 24, fontWeight: 800, color: "var(--mz-text-primary)", margin: "2px 0 0 0" }}>
+              {stats.meetingsCount ?? 0}
+            </p>
+          </div>
+        </div>
+
+        {/* Card 3: Screen Shares */}
+        <div
+          style={{
+            background: "var(--mz-surface)",
+            borderRadius: 16,
+            padding: "18px 22px",
+            border: "1px solid var(--mz-border)",
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
+            boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
+          }}
+        >
+          <div
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 12,
+              background: "var(--mz-green-bg)",
+              color: "#059669",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <LuMonitor style={{ width: 22, height: 22 }} />
+          </div>
+          <div>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--mz-text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+              Screen Shares
+            </span>
+            <p style={{ fontSize: 24, fontWeight: 800, color: "var(--mz-text-primary)", margin: "2px 0 0 0" }}>
+              {stats.screenSharesCount ?? 0}
+            </p>
+          </div>
+        </div>
+
+        {/* Card 4: Storage Consumed */}
+        <div
+          style={{
+            background: "var(--mz-surface)",
+            borderRadius: 16,
+            padding: "18px 22px",
+            border: "1px solid var(--mz-border)",
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
+            boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
+          }}
+        >
+          <div
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 12,
+              background: "var(--mz-indigo-bg)",
+              color: "#4f46e5",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <LuHardDrive style={{ width: 22, height: 22 }} />
+          </div>
+          <div>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--mz-text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+              Storage Consumed
+            </span>
+            <p style={{ fontSize: 24, fontWeight: 800, color: "var(--mz-text-primary)", margin: "2px 0 0 0" }}>
+              {stats.totalDiskSizeMB ?? "0.0"} MB
+            </p>
           </div>
         </div>
       </div>
 
       {/* Control & Filter Bar */}
       <div
-        className="mz-admin-card"
         style={{
-          padding: 16,
-          marginBottom: 20,
+          background: "var(--mz-surface)",
+          borderRadius: 16,
+          padding: "16px 20px",
+          border: "1px solid var(--mz-border)",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
+          marginBottom: 24,
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           flexWrap: "wrap",
-          gap: 14,
+          gap: 16,
         }}
       >
         {/* Search Input */}
-        <div ref={searchContainerRef} style={{ position: "relative", minWidth: 280, flex: "1 1 300px" }}>
+        <div ref={searchContainerRef} style={{ position: "relative", flex: "1 1 300px", maxWidth: 440 }}>
           <LuSearch
             style={{
               position: "absolute",
-              left: 12,
+              left: 14,
               top: "50%",
               transform: "translateY(-50%)",
               color: "var(--mz-text-subtle)",
-              width: 15,
-              height: 15,
+              width: 16,
+              height: 16,
+              pointerEvents: "none",
             }}
           />
           <input
@@ -413,15 +583,18 @@ const AdminRecordings = () => {
             onKeyDown={(e) => {
               if (e.key === "Escape") setShowSearchDropdown(false);
             }}
-            placeholder="Search..."
+            placeholder="Search by title, host, email, or recording ID..."
             style={{
               width: "100%",
-              padding: "9px 12px 9px 36px",
+              padding: "10px 14px 10px 40px",
               fontSize: 13,
-              border: "1px solid var(--mz-border-strong)",
-              borderRadius: 8,
+              border: "1px solid var(--mz-border)",
+              borderRadius: 10,
               outline: "none",
               boxSizing: "border-box",
+              background: "var(--mz-surface-subtle)",
+              color: "var(--mz-text-body)",
+              transition: "all 0.15s ease",
             }}
           />
           {searchTerm && (
@@ -432,7 +605,7 @@ const AdminRecordings = () => {
               }}
               style={{
                 position: "absolute",
-                right: 10,
+                right: 12,
                 top: "50%",
                 transform: "translateY(-50%)",
                 background: "none",
@@ -471,7 +644,7 @@ const AdminRecordings = () => {
                       <div className="mz-global-search-item-content">
                         <div className="mz-global-search-item-title">{rec.title || "Untitled Session"}</div>
                         <div className="mz-global-search-item-sub">
-                          {rec.hostName || "Host"} • {rec.durationFormatted || "00:00"}
+                          {rec.hostName || "Host"} • {formatDuration(rec.durationSeconds)}
                         </div>
                       </div>
                       <span className="mz-global-search-item-action">Play →</span>
@@ -483,13 +656,13 @@ const AdminRecordings = () => {
           )}
         </div>
 
-        {/* Filter Pills */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+        {/* Filter Pills & Sort Selector */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           {[
-            { key: "all", label: `All (${stats.totalRecordings || 0})` },
-            { key: "meeting", label: `Meetings (${stats.meetingsCount || 0})` },
-            { key: "screenshare", label: `Screen Shares (${stats.screenSharesCount || 0})` },
-            { key: "proctoring", label: `Proctoring (${stats.proctoringCount || 0})` },
+            { key: "all", label: "All Sessions", count: stats.totalRecordings || 0 },
+            { key: "meeting", label: "Meetings", count: stats.meetingsCount || 0 },
+            { key: "screenshare", label: "Screen Shares", count: stats.screenSharesCount || 0 },
+            { key: "proctoring", label: "Proctored Exams", count: stats.proctoringCount || 0 },
           ].map((tab) => {
             const isActive = typeFilter === tab.key;
             return (
@@ -497,58 +670,117 @@ const AdminRecordings = () => {
                 key={tab.key}
                 onClick={() => setTypeFilter(tab.key)}
                 style={{
-                  padding: "6px 14px",
-                  borderRadius: 8,
-                  border: "none",
-                  fontSize: 12.5,
-                  fontWeight: isActive ? 700 : 500,
-                  background: isActive ? "#4f46e5" : "var(--mz-surface-muted)",
-                  color: isActive ? "#ffffff" : "var(--mz-text-secondary)",
+                  padding: "8px 16px",
+                  borderRadius: 20,
+                  fontSize: 12,
+                  fontWeight: 600,
                   cursor: "pointer",
                   transition: "all 0.15s ease",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  border: isActive ? "1px solid #4f46e5" : "1px solid var(--mz-border)",
+                  background: isActive ? "#4f46e5" : "var(--mz-surface)",
+                  color: isActive ? "#ffffff" : "var(--mz-text-muted)",
+                  boxShadow: isActive ? "0 2px 6px rgba(79, 70, 229, 0.2)" : "none",
                 }}
               >
-                {tab.label}
+                <span>{tab.label}</span>
+                <span
+                  style={{
+                    fontSize: 10,
+                    padding: "2px 6px",
+                    borderRadius: 10,
+                    background: isActive ? "rgba(255,255,255,0.22)" : "var(--mz-surface-muted)",
+                    color: isActive ? "#ffffff" : "var(--mz-text-secondary)",
+                    fontWeight: 700,
+                  }}
+                >
+                  {tab.count}
+                </span>
               </button>
             );
           })}
-        </div>
 
-        {/* Sort Selector */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: 6 }}>
+            <span style={{ fontSize: 12, color: "var(--mz-text-muted)", fontWeight: 600 }}>Sort:</span>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              style={{
+                padding: "7px 12px",
+                borderRadius: 8,
+                border: "1px solid var(--mz-border)",
+                fontSize: 12.5,
+                fontWeight: 600,
+                background: "var(--mz-surface)",
+                color: "var(--mz-text-secondary)",
+                outline: "none",
+                cursor: "pointer",
+              }}
+            >
+              <option value="newest">Newest First</option>
+              <option value="oldest">Oldest First</option>
+              <option value="size">Largest Size</option>
+              <option value="duration">Longest Duration</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Section Subheader */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
+        <div>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "var(--mz-text-primary)" }}>
+            Verified Session Recordings
+          </h3>
+          <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--mz-text-muted)" }}>
+            Authentic recorded media captured from authorized sessions
+          </p>
+        </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 12, color: "var(--mz-text-muted)", fontWeight: 600 }}>Sort:</span>
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
+          <span
             style={{
-              padding: "6px 10px",
-              borderRadius: 8,
-              border: "1px solid var(--mz-border-strong)",
-              fontSize: 12.5,
-              fontWeight: 600,
-              background: "var(--mz-surface)",
-              color: "var(--mz-text-secondary)",
-              outline: "none",
-              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              fontSize: 11.5,
+              fontWeight: 700,
+              color: "#059669",
+              background: "var(--mz-green-bg)",
+              padding: "4px 10px",
+              borderRadius: 20,
+              border: "1px solid var(--mz-green-border)",
             }}
           >
-            <option value="newest">Newest First</option>
-            <option value="oldest">Oldest First</option>
-            <option value="size">Largest Size</option>
-            <option value="duration">Longest Duration</option>
-          </select>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#059669" }} />
+            Live Sync Active
+          </span>
+          <span
+            style={{
+              fontSize: 11.5,
+              fontWeight: 700,
+              color: "var(--mz-text-secondary)",
+              background: "var(--mz-surface)",
+              padding: "4px 10px",
+              borderRadius: 8,
+              border: "1px solid var(--mz-border)",
+            }}
+          >
+            {data?.pagination?.total ?? (stats.totalRecordings || filteredRecordings.length || 0)} Records
+          </span>
         </div>
       </div>
 
       {/* Recordings Grid (Newest first) */}
-      <div className="mz-admin-grid-3">
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(350px, 1fr))", gap: 20 }}>
         {loading ? (
-          <div className="mz-admin-card" style={{ gridColumn: "span 3", textAlign: "center", padding: "60px 20px", color: "var(--mz-text-subtle)" }}>
+          <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: "60px 20px", background: "var(--mz-surface)", borderRadius: 16, border: "1px solid var(--mz-border)", color: "var(--mz-text-subtle)" }}>
             <LuRefreshCw className="animate-spin" style={{ width: 28, height: 28, color: "#6366f1", margin: "0 auto 12px" }} />
             <div>Loading verified recordings from database...</div>
           </div>
         ) : filteredRecordings.length === 0 ? (
-          <div className="mz-admin-card" style={{ gridColumn: "span 3", textAlign: "center", padding: "60px 20px", color: "var(--mz-text-subtle)" }}>
+          <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: "60px 20px", background: "var(--mz-surface)", borderRadius: 16, border: "1px solid var(--mz-border)", color: "var(--mz-text-subtle)" }}>
             <LuVideo style={{ width: 36, height: 36, color: "var(--mz-border-strong)", margin: "0 auto 12px" }} />
             <h4 style={{ margin: "0 0 4px", color: "var(--mz-text-primary)" }}>No Recordings Found</h4>
             <span style={{ fontSize: 13 }}>No meeting or proctoring recordings match the current filter.</span>
@@ -563,8 +795,10 @@ const AdminRecordings = () => {
             return (
               <div
                 key={r.id || r.recordingId || i}
-                className="mz-admin-card"
                 style={{
+                  background: "var(--mz-surface)",
+                  borderRadius: 16,
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
                   display: "flex",
                   flexDirection: "column",
                   justifyContent: "space-between",
@@ -757,7 +991,7 @@ const AdminRecordings = () => {
       </div>
 
       {/* Standardized 10-per-page Pagination Footer */}
-      <div style={{ marginTop: 20, borderRadius: 12, overflow: "hidden", border: "1px solid var(--mz-border)" }}>
+      <div style={{ marginTop: 24, borderRadius: 16, overflow: "hidden", background: "var(--mz-surface)", border: "1px solid var(--mz-border)" }}>
         <AdminPagination
           page={page}
           totalPages={data?.pagination?.totalPages || 1}
