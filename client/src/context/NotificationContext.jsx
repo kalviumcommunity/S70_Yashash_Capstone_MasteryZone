@@ -227,21 +227,47 @@ export function NotificationProvider({ children }) {
 
     socketRef.current = socket;
 
+    const getAccurateDeviceInfo = () => {
+      if (typeof navigator === "undefined") return "Web Browser";
+      const ua = navigator.userAgent || "";
+      let os = "Desktop";
+      if (/Windows/i.test(ua)) os = "Windows";
+      else if (/Macintosh|Mac OS X/i.test(ua)) os = "macOS";
+      else if (/Linux/i.test(ua) && !/Android/i.test(ua)) os = "Linux";
+      else if (/Android/i.test(ua)) os = "Android";
+      else if (/iPhone|iPad|iPod/i.test(ua)) os = "iOS";
+
+      let browser = "Browser";
+      if (/Edg\//i.test(ua)) browser = "Edge";
+      else if (/Chrome\//i.test(ua) && !/Edg\//i.test(ua)) browser = "Chrome";
+      else if (/Safari\//i.test(ua) && !/Chrome\//i.test(ua)) browser = "Safari";
+      else if (/Firefox\//i.test(ua)) browser = "Firefox";
+
+      return `${os} / ${browser}`;
+    };
+
     const sendActivityHeartbeat = () => {
       if (!socket || !socket.connected) return;
-      const path = typeof window !== "undefined" ? window.location.pathname : "/home";
-      let act = "Learning Dashboard";
+      const path = typeof window !== "undefined" ? window.location.pathname : "";
+      let act = "Active";
       if (path.startsWith("/coding")) act = "Coding Challenges & IDE";
       else if (path.startsWith("/live") || path.startsWith("/meeting")) act = "Live Video Meeting";
-      else if (path.startsWith("/assessments") || path.startsWith("/exam")) act = "Proctored Assessment";
-      else if (path.startsWith("/reports")) act = "Viewing Assessment Reports";
-      else if (path.startsWith("/courses") || path.startsWith("/learn")) act = "Concept Learning";
-      else if (path.startsWith("/support") || path.startsWith("/help")) act = "Support Desk";
+      else if (path.startsWith("/assessment") || path.startsWith("/exam") || path.startsWith("/proctored")) act = "Proctored Assessment";
+      else if (path.startsWith("/reports") || path.startsWith("/assessment-report")) act = "Viewing Assessment Reports";
+      else if (path.startsWith("/courses") || path.startsWith("/learn") || path.startsWith("/concept-learning")) act = "Concept Learning";
+      else if (path.startsWith("/project")) act = "Project Workspace";
+      else if (path.startsWith("/profile")) act = "Student Profile";
+      else if (path.startsWith("/support") || path.startsWith("/help")) act = "Help & Support";
+      else if (path.startsWith("/progress") || path.startsWith("/track")) act = "Learning Track Progress";
+      else if (path === "/home" || path === "/") act = "Learning Dashboard";
+      else if (path.startsWith("/admin")) act = "Admin Portal";
+      else if (path) act = path;
 
       socket.emit("user_activity_heartbeat", {
+        token: authToken,
         page: path,
         activity: act,
-        device: typeof navigator !== "undefined" ? `${navigator.platform || "Desktop"} / Chrome` : "Desktop",
+        device: getAccurateDeviceInfo(),
       });
     };
 
@@ -256,8 +282,9 @@ export function NotificationProvider({ children }) {
       refreshNotifications();
     };
 
-    const heartbeatInterval = setInterval(sendActivityHeartbeat, 25000);
+    const heartbeatInterval = setInterval(sendActivityHeartbeat, 20000);
     window.addEventListener("popstate", sendActivityHeartbeat);
+    window.addEventListener("hashchange", sendActivityHeartbeat);
 
     const handleDisconnect = () => {
       setIsSocketConnected(false);
@@ -351,6 +378,7 @@ export function NotificationProvider({ children }) {
     return () => {
       clearInterval(heartbeatInterval);
       window.removeEventListener("popstate", sendActivityHeartbeat);
+      window.removeEventListener("hashchange", sendActivityHeartbeat);
       socket.off("connect", handleConnect);
       socket.off("disconnect", handleDisconnect);
       socket.off("new_notification", handleNewNotification);
@@ -364,6 +392,32 @@ export function NotificationProvider({ children }) {
       }
     };
   }, [authToken, refreshNotifications, dismissLiveToast]);
+
+  // Send instant activity telemetry heartbeat on route transition
+  useEffect(() => {
+    if (socketRef.current && socketRef.current.connected && authToken) {
+      const path = location.pathname;
+      let act = "Active";
+      if (path.startsWith("/coding")) act = "Coding Challenges & IDE";
+      else if (path.startsWith("/live") || path.startsWith("/meeting")) act = "Live Video Meeting";
+      else if (path.startsWith("/assessment") || path.startsWith("/exam") || path.startsWith("/proctored")) act = "Proctored Assessment";
+      else if (path.startsWith("/reports") || path.startsWith("/assessment-report")) act = "Viewing Assessment Reports";
+      else if (path.startsWith("/courses") || path.startsWith("/learn") || path.startsWith("/concept-learning")) act = "Concept Learning";
+      else if (path.startsWith("/project")) act = "Project Workspace";
+      else if (path.startsWith("/profile")) act = "Student Profile";
+      else if (path.startsWith("/support") || path.startsWith("/help")) act = "Help & Support";
+      else if (path.startsWith("/progress") || path.startsWith("/track")) act = "Learning Track Progress";
+      else if (path === "/home" || path === "/") act = "Learning Dashboard";
+      else if (path.startsWith("/admin")) act = "Admin Portal";
+      else if (path) act = path;
+
+      socketRef.current.emit("user_activity_heartbeat", {
+        token: authToken,
+        page: path,
+        activity: act,
+      });
+    }
+  }, [location.pathname, authToken]);
 
   const markAsRead = useCallback(async (notificationId) => {
     if (!notificationId) return;

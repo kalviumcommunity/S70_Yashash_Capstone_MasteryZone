@@ -163,27 +163,47 @@ const AdminLiveActivity = () => {
 
       handleSnapshot = (snapshot) => {
         if (isMountedRef.current && Array.isArray(snapshot)) {
-          setSessions(snapshot);
-          setOnlineCount(snapshot.length);
+          // Deduplicate by userId
+          const seen = new Set();
+          const unique = [];
+          for (const s of snapshot) {
+            const uId = String(s.userId || s.socketId);
+            if (!seen.has(uId)) {
+              seen.add(uId);
+              unique.push(s);
+            }
+          }
+          setSessions(unique);
+          setOnlineCount(unique.length);
         }
       };
 
       handleUpdate = (sessionObj) => {
-        if (!isMountedRef.current) return;
+        if (!isMountedRef.current || !sessionObj) return;
+        const uId = String(sessionObj.userId || sessionObj.socketId);
         setSessions((prev) => {
-          const idx = prev.findIndex((s) => s.socketId === sessionObj.socketId);
+          const idx = prev.findIndex((s) => String(s.userId || s.socketId) === uId);
           if (idx >= 0) {
             const next = [...prev];
-            next[idx] = sessionObj;
+            next[idx] = { ...next[idx], ...sessionObj };
             return next;
           }
-          return [sessionObj, ...prev];
+          const next = [sessionObj, ...prev];
+          setOnlineCount(next.length);
+          return next;
         });
       };
 
-      handleEnded = ({ socketId }) => {
+      handleEnded = ({ userId, socketId }) => {
         if (!isMountedRef.current) return;
-        setSessions((prev) => prev.filter((s) => s.socketId !== socketId));
+        const targetId = String(userId || socketId);
+        setSessions((prev) => {
+          const next = prev.filter(
+            (s) => String(s.userId || s.socketId) !== targetId && s.socketId !== socketId
+          );
+          setOnlineCount(next.length);
+          return next;
+        });
       };
 
       // Real-time historical activity feed
@@ -327,7 +347,7 @@ const AdminLiveActivity = () => {
                 display: "inline-block",
               }}
             />
-            <span>{Math.max(onlineCount, sessions.length)} Active Users Online</span>
+            <span>{sessions.length} Active Users Online</span>
           </div>
 
           <button
@@ -446,18 +466,45 @@ const AdminLiveActivity = () => {
                 </tr>
               ) : (
                 sessions.map((s, idx) => (
-                  <tr key={s.socketId || idx}>
+                  <tr key={s.userId || s.socketId || idx}>
                     <td>
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                         <div className="mz-admin-user-avatar-sm">
                           {(s.fullName || s.username || "U")[0].toUpperCase()}
                         </div>
                         <div>
-                          <div style={{ fontWeight: 700, color: "var(--mz-text-primary)" }}>
-                            {s.fullName || s.username || "Candidate"}
+                          <div style={{ fontWeight: 700, color: "var(--mz-text-primary)", display: "flex", alignItems: "center", gap: 6 }}>
+                            <span>{s.fullName || s.username || "Registered Candidate"}</span>
+                            {s.tabCount > 1 && (
+                              <span
+                                style={{
+                                  fontSize: 10,
+                                  padding: "1px 6px",
+                                  borderRadius: 10,
+                                  background: "var(--mz-blue-bg)",
+                                  color: "#2563eb",
+                                  fontWeight: 700,
+                                }}
+                                title={`${s.tabCount} active browser tabs`}
+                              >
+                                {s.tabCount} tabs
+                              </span>
+                            )}
                           </div>
-                          <div style={{ fontSize: 11, color: "var(--mz-text-subtle)" }}>
-                            {s.email || "Web Session"}
+                          <div style={{ fontSize: 11, color: "var(--mz-text-subtle)", display: "flex", alignItems: "center", gap: 6 }}>
+                            <span>{s.email || "—"}</span>
+                            {s.userId && (
+                              <span
+                                style={{
+                                  fontSize: 10,
+                                  fontFamily: "monospace",
+                                  color: "var(--mz-text-muted)",
+                                }}
+                                title={`User ID: ${s.userId}`}
+                              >
+                                • {String(s.userId).slice(-6)}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -476,19 +523,19 @@ const AdminLiveActivity = () => {
                           fontWeight: 600,
                         }}
                       >
-                        {s.currentPage || "/home"}
+                        {s.currentPage || "—"}
                       </span>
                     </td>
 
                     <td>
-                      <span className="mz-admin-badge-blue">{s.activity || "Learning Path"}</span>
+                      <span className="mz-admin-badge-blue">{s.activity || "Active Session"}</span>
                     </td>
 
                     <td style={{ color: "var(--mz-text-muted)" }}>
-                      {new Date(s.startedAt || Date.now()).toLocaleTimeString([], {
+                      {s.startedAt ? new Date(s.startedAt).toLocaleTimeString([], {
                         hour: "2-digit",
                         minute: "2-digit",
-                      })}
+                      }) : "—"}
                     </td>
 
                     <td style={{ fontWeight: 700, color: "var(--mz-text-primary)" }}>
@@ -496,8 +543,15 @@ const AdminLiveActivity = () => {
                         `${Math.max(1, Math.round((Date.now() - new Date(s.startedAt || Date.now())) / 60000))}m`}
                     </td>
 
-                    <td style={{ color: "var(--mz-text-muted)", fontSize: 12 }}>
-                      {s.device || "Desktop / Chrome"}
+                    <td>
+                      <div style={{ color: "var(--mz-text-muted)", fontSize: 12 }}>
+                        <div>{s.device || "—"}</div>
+                        {s.lastHeartbeat && (
+                          <div style={{ fontSize: 10.5, color: "var(--mz-text-subtle)", marginTop: 2 }}>
+                            Seen {timeAgo(s.lastHeartbeat)}
+                          </div>
+                        )}
+                      </div>
                     </td>
 
                     <td>
@@ -551,7 +605,22 @@ const AdminLiveActivity = () => {
                     </td>
 
                     <td>
-                      <span className="mz-admin-badge-active">Online</span>
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 5,
+                          padding: "3px 10px",
+                          borderRadius: 12,
+                          background: "var(--mz-green-bg, #dcfce7)",
+                          color: "#15803d",
+                          fontSize: 11.5,
+                          fontWeight: 700,
+                        }}
+                      >
+                        <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#16a34a" }} />
+                        Connected
+                      </span>
                     </td>
                   </tr>
                 ))

@@ -189,52 +189,40 @@ router.get("/overview", async (req, res) => {
     ]);
 
     // 2. Live Active Sessions (genuine registered students)
-    const activeSessionsMap = req.app.get("activeUserSessions");
+    const sessionManager = req.app.get("sessionManager") || require("../utils/sessionManager");
+    const activeSessionsList = await sessionManager.getActiveSessions();
     let realLiveSessions = [];
     let activeCameraCount = 0;
     let activeMicCount = 0;
     let activeScreenCount = 0;
 
-    if (activeSessionsMap && activeSessionsMap.size > 0) {
-      activeSessionsMap.forEach((sess) => {
-        if (
-          sess.userId &&
-          sess.userId !== "guest" &&
-          !String(sess.email || "").includes("@masteryzone.com") &&
-          !String(sess.email || "").includes("@example.com") &&
-          !String(sess.email || "").includes("yashashyash1@gmail.com") &&
-          !String(sess.username || "").startsWith("guest_")
-        ) {
-          // Track verified real-time media streams
-          const media = sess.mediaState;
-          if (media) {
-            if (media.isVideoOff === false) activeCameraCount++;
-            if (media.isMuted === false) activeMicCount++;
-            if (media.isScreenSharing === true) activeScreenCount++;
-          }
+    activeSessionsList.forEach((sess) => {
+      // Track verified real-time media streams
+      const media = sess.mediaState;
+      if (media) {
+        if (media.isVideoOff === false) activeCameraCount++;
+        if (media.isMuted === false) activeMicCount++;
+        if (media.isScreenSharing === true) activeScreenCount++;
+      }
 
-          realLiveSessions.push({
-            socketId: sess.socketId,
-            user: sess.fullName || sess.username || "Registered Student",
-            email: sess.email || "",
-            activity: sess.activity || "Learning Path",
-            started: new Date(sess.startedAt).toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            }),
-            duration: `${Math.max(
-              1,
-              Math.round((Date.now() - (sess.startedAt || Date.now())) / 60000)
-            )}m`,
-            status: sess.activity?.includes("Coding")
-              ? "Coding"
-              : sess.activity?.includes("Assess")
-              ? "Assessment"
-              : "Learning",
-          });
-        }
+      realLiveSessions.push({
+        userId: sess.userId,
+        user: sess.fullName || sess.username || "Registered Candidate",
+        email: sess.email || "",
+        activity: sess.activity || "Active Session",
+        started: sess.startedAt
+          ? new Date(sess.startedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+          : "—",
+        duration: sess.duration || "1m",
+        status: sess.activity?.toLowerCase().includes("coding")
+          ? "Coding"
+          : sess.activity?.toLowerCase().includes("assess") || sess.activity?.toLowerCase().includes("exam")
+          ? "Assessment"
+          : sess.activity?.toLowerCase().includes("meet") || sess.activity?.toLowerCase().includes("live")
+          ? "Meeting"
+          : "Active",
       });
-    }
+    });
 
     // 3. Database-Side MongoDB Aggregations Joining Genuine Users
     const genuineUserLookup = {
@@ -2864,40 +2852,16 @@ router.get("/live-activity", async (req, res) => {
 
     const { startDate, endDate } = parseDateRange(range, qStart, qEnd);
 
-    // 1. Live Connected Active Sockets
-    const activeSessionsMap = req.app.get("activeUserSessions");
-    const activeList = [];
-
-    if (activeSessionsMap && activeSessionsMap.size > 0) {
-      activeSessionsMap.forEach((sess) => {
-        if (
-          sess.userId &&
-          sess.userId !== "guest" &&
-          !String(sess.email || "").includes("@masteryzone.com") &&
-          !String(sess.username || "").startsWith("guest_")
-        ) {
-          activeList.push({
-            socketId: sess.socketId,
-            userId: sess.userId,
-            fullName: sess.fullName || sess.username || "Registered Candidate",
-            username: sess.username || "student",
-            email: sess.email || "",
-            currentPage: sess.currentPage || "/home",
-            activity: sess.activity || "Learning Path",
-            startedAt: sess.startedAt,
-            lastHeartbeat: sess.lastHeartbeat,
-            duration: `${Math.max(
-              1,
-              Math.round((Date.now() - (sess.startedAt || Date.now())) / 60000)
-            )}m`,
-            device: sess.device || "Desktop / Chrome",
-          });
-        }
-      });
-    }
+    // 1. Live Connected Active Users (Deduplicated, genuine registered accounts)
+    const sessionManager = req.app.get("sessionManager") || require("../utils/sessionManager");
+    const activeList = await sessionManager.getActiveSessions();
 
     // 2. Build Query for Genuine Historical & Live-Persisted Activities
+    const realUsers = await User.find(REAL_USER_FILTER).select("_id").lean();
+    const realUserIds = realUsers.map((u) => u._id);
+
     const activityQuery = {
+      userId: { $in: realUserIds },
       createdAt: { $gte: startDate, $lte: endDate },
     };
 
@@ -2926,7 +2890,7 @@ router.get("/live-activity", async (req, res) => {
     const limitNum = Math.max(1, Math.min(100, parseInt(limit, 10) || 10));
     const skip = (pageNum - 1) * limitNum;
 
-    const [activities, totalActivities, todayCount, codingCount, procCount, assessCount] =
+    const [activities, totalActivities, todayCount, codingCount, procCount, assessCount, authCount] =
       await Promise.all([
         ActivityLog.find(activityQuery)
           .sort({ createdAt: -1 })
@@ -2935,11 +2899,13 @@ router.get("/live-activity", async (req, res) => {
           .lean(),
         ActivityLog.countDocuments(activityQuery),
         ActivityLog.countDocuments({
+          userId: { $in: realUserIds },
           createdAt: { $gte: new Date(new Date().setHours(0, 0, 0, 0)) },
         }),
-        ActivityLog.countDocuments({ category: "coding" }),
-        ActivityLog.countDocuments({ category: "proctoring" }),
-        ActivityLog.countDocuments({ category: "assessment" }),
+        ActivityLog.countDocuments({ userId: { $in: realUserIds }, category: "coding" }),
+        ActivityLog.countDocuments({ userId: { $in: realUserIds }, category: "proctoring" }),
+        ActivityLog.countDocuments({ userId: { $in: realUserIds }, category: "assessment" }),
+        ActivityLog.countDocuments({ userId: { $in: realUserIds }, category: "auth" }),
       ]);
 
     res.status(200).json({
@@ -2956,6 +2922,8 @@ router.get("/live-activity", async (req, res) => {
         coding: codingCount,
         proctoring: procCount,
         assessment: assessCount,
+        auth: authCount,
+        total: totalActivities,
       },
     });
   } catch (error) {
