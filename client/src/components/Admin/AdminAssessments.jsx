@@ -26,6 +26,7 @@ import {
   LuExternalLink,
 } from "react-icons/lu";
 import { toast } from "react-toastify";
+import AdminPagination from "./AdminPagination.jsx";
 import { getSharedSocket, releaseSharedSocket } from "../../utils/socketClient";
 import { deduplicatedFetch } from "../../utils/apiClient";
 
@@ -36,8 +37,10 @@ const AdminAssessments = () => {
   const [assessments, setAssessments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState("30d");
-  const [filterType, setFilterType] = useState("all"); // "all" | "Certification" | "MCQ Assessment" | "Coding Assessment" | "Project Assignment"
+  const [filterType, setFilterType] = useState("all"); // "all" | "Certification" | "MCQ Assessment" | "Coding Assessment" | "Project Assignment" | "Proctored Exam"
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 });
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const searchContainerRef = useRef(null);
 
@@ -66,11 +69,25 @@ const AdminAssessments = () => {
   const [editAdminNote, setEditAdminNote] = useState("");
   const [savingMarks, setSavingMarks] = useState(false);
 
-  const fetchAssessments = async (selectedRange = range, showToast = false) => {
+  const fetchAssessments = async (
+    selectedRange = range,
+    selectedPage = page,
+    selectedSearch = search,
+    selectedCategory = filterType,
+    showToast = false
+  ) => {
     try {
       if (showToast) setLoading(true);
       const token = localStorage.getItem("token");
-      const res = await deduplicatedFetch(`${API_BASE}/api/admin/assessments?range=${selectedRange}`, {
+      const params = new URLSearchParams({
+        range: selectedRange,
+        page: selectedPage,
+        limit: 10,
+      });
+      if (selectedSearch.trim()) params.append("search", selectedSearch.trim());
+      if (selectedCategory && selectedCategory !== "all") params.append("category", selectedCategory);
+
+      const res = await deduplicatedFetch(`${API_BASE}/api/admin/assessments?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
         cacheTtlMs: 3000,
       });
@@ -78,61 +95,9 @@ const AdminAssessments = () => {
         const json = await res.json();
         if (json.success) {
           setData(json);
-          // Backend returns sorted 'assessments' array
-          if (json.assessments && Array.isArray(json.assessments)) {
-            setAssessments(json.assessments);
-          } else {
-            // Fallback mapper if old format
-            const certs = (json.certificationAttempts || []).map((c) => {
-              const pct = c.percentage != null ? c.percentage : (c.score != null ? c.score : 0);
-              const isPassed = c.status === "PASSED" || c.finalVerdict === "PASSED" || pct >= 70;
-              return {
-                id: c._id,
-                rawId: c._id,
-                itemType: "certification",
-                attemptId: c.attemptId,
-                user: c.candidateName || c.userId?.fullName || c.userId?.username || "Candidate",
-                email: c.candidateEmail || c.userId?.email || "",
-                title: c.certTitle || "Data Structures & Algorithms (DSA)",
-                type: "Certification",
-                category: "Certification",
-                score: `${pct}%`,
-                rawScore: pct,
-                maxScore: 100,
-                status: isPassed ? "Passed" : c.status === "IN_PROGRESS" ? "In Progress" : "Failed",
-                passed: isPassed,
-                date: c.submittedAt || c.createdAt,
-                timeSpent: c.durationMinutes ? `${c.durationMinutes}m` : "N/A",
-                verificationCode: c.certificateId || String(c.attemptId || c._id).slice(-8).toUpperCase(),
-                raw: c,
-              };
-            });
-            const mcqs = (json.moduleAttempts || []).map((m) => {
-              const totalQ = m.totalQuestions || 10;
-              const scoreVal = m.score != null ? m.score : 0;
-              const pct = m.percentage != null ? m.percentage : Math.round((scoreVal / totalQ) * 100);
-              return {
-                id: m._id,
-                rawId: m._id,
-                itemType: "module",
-                attemptId: m.sessionId || m._id,
-                user: m.userId?.fullName || m.userId?.username || "Candidate",
-                email: m.userId?.email || "",
-                title: m.assessmentTitle || m.moduleTitle || "Module MCQ Test",
-                type: "MCQ Assessment",
-                category: "MCQ Assessment",
-                score: `${scoreVal}/${totalQ} (${pct}%)`,
-                rawScore: scoreVal,
-                maxScore: totalQ,
-                status: m.passed ? "Passed" : "Failed",
-                passed: Boolean(m.passed),
-                date: m.submittedAt || m.createdAt,
-                timeSpent: m.timeSpentSeconds ? `${Math.round(m.timeSpentSeconds / 60)}m` : "N/A",
-                verificationCode: String(m.sessionId || m._id).slice(-8).toUpperCase(),
-                raw: m,
-              };
-            });
-            setAssessments([...certs, ...mcqs].sort((a, b) => new Date(b.date) - new Date(a.date)));
+          setAssessments(json.assessments || []);
+          if (json.pagination) {
+            setPagination(json.pagination);
           }
           if (showToast) toast.success("Assessments synchronized with database");
         }
@@ -145,14 +110,24 @@ const AdminAssessments = () => {
     }
   };
 
-  const rangeRef = useRef(range);
+  const prevFiltersRef = useRef({ range, search, filterType });
   useEffect(() => {
-    rangeRef.current = range;
-  }, [range]);
-
-  useEffect(() => {
-    fetchAssessments(range);
-  }, [range]);
+    if (
+      prevFiltersRef.current.range !== range ||
+      prevFiltersRef.current.search !== search ||
+      prevFiltersRef.current.filterType !== filterType
+    ) {
+      prevFiltersRef.current = { range, search, filterType };
+      if (page !== 1) {
+        setPage(1);
+        return;
+      }
+    }
+    const timer = setTimeout(() => {
+      fetchAssessments(range, page, search, filterType);
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [range, page, search, filterType]);
 
   useEffect(() => {
     // Socket.io real-time listener for assessment submissions and marks updates
@@ -232,69 +207,78 @@ const AdminAssessments = () => {
     mcqCount: assessments.filter((a) => a.type === "MCQ Assessment").length,
     codingCount: assessments.filter((a) => a.type === "Coding Assessment").length,
     projectCount: assessments.filter((a) => a.type === "Project Assignment").length,
+    proctoredCount: assessments.filter((a) => a.type === "Proctored Exam").length,
   };
 
-  // Filtered List
-  const filteredList = assessments.filter((item) => {
-    const q = search.trim().toLowerCase();
-    const matchSearch =
-      !q ||
-      item.user?.toLowerCase().includes(q) ||
-      item.email?.toLowerCase().includes(q) ||
-      item.title?.toLowerCase().includes(q) ||
-      item.verificationCode?.toLowerCase().includes(q) ||
-      item.score?.toLowerCase().includes(q);
+  // Filtered List for active page view
+  const filteredList = assessments;
 
-    let matchType = true;
-    if (filterType === "Certification") matchType = item.type === "Certification";
-    else if (filterType === "MCQ Assessment") matchType = item.type === "MCQ Assessment";
-    else if (filterType === "Coding Assessment") matchType = item.type === "Coding Assessment";
-    else if (filterType === "Project Assignment") matchType = item.type === "Project Assignment";
+  // Export to CSV across entire matching dataset
+  const exportToCSV = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const params = new URLSearchParams({
+        range,
+        all: "true",
+      });
+      if (search.trim()) params.append("search", search.trim());
+      if (filterType !== "all") params.append("category", filterType);
 
-    return matchSearch && matchType;
-  });
+      let exportItems = filteredList;
+      const res = await deduplicatedFetch(`${API_BASE}/api/admin/assessments?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cacheTtlMs: 2000,
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.assessments && Array.isArray(json.assessments)) {
+          exportItems = json.assessments;
+        }
+      }
 
-  // Export to CSV
-  const exportToCSV = () => {
-    if (filteredList.length === 0) {
-      toast.info("No assessments available to export");
-      return;
+      if (!exportItems || exportItems.length === 0) {
+        toast.info("No assessments available to export");
+        return;
+      }
+      const headers = [
+        "Candidate Name",
+        "Email Address",
+        "Assessment Title",
+        "Category",
+        "Score",
+        "Status",
+        "Verification Code",
+        "Completed At",
+      ];
+
+      const rows = exportItems.map((item) => [
+        `"${(item.user || "").replace(/"/g, '""')}"`,
+        `"${(item.email || "").replace(/"/g, '""')}"`,
+        `"${(item.title || "").replace(/"/g, '""')}"`,
+        `"${(item.type || "").replace(/"/g, '""')}"`,
+        `"${(item.score || "").replace(/"/g, '""')}"`,
+        `"${(item.status || "").replace(/"/g, '""')}"`,
+        `"${(item.verificationCode || "").replace(/"/g, '""')}"`,
+        `"${item.date ? new Date(item.date).toLocaleString() : "N/A"}"`,
+      ]);
+
+      const csvContent =
+        "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute(
+        "download",
+        `masteryzone_assessments_${filterType.toLowerCase().replace(/\s+/g, "_")}_${new Date().toISOString().split("T")[0]}.csv`
+      );
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success(`Exported ${exportItems.length} assessment records to CSV!`);
+    } catch (err) {
+      console.error("CSV Export error:", err);
+      toast.error("Failed to generate CSV export");
     }
-    const headers = [
-      "Candidate Name",
-      "Email Address",
-      "Assessment Title",
-      "Category",
-      "Score",
-      "Status",
-      "Verification Code",
-      "Completed At",
-    ];
-
-    const rows = filteredList.map((item) => [
-      `"${(item.user || "").replace(/"/g, '""')}"`,
-      `"${(item.email || "").replace(/"/g, '""')}"`,
-      `"${(item.title || "").replace(/"/g, '""')}"`,
-      `"${(item.type || "").replace(/"/g, '""')}"`,
-      `"${(item.score || "").replace(/"/g, '""')}"`,
-      `"${(item.status || "").replace(/"/g, '""')}"`,
-      `"${(item.verificationCode || "").replace(/"/g, '""')}"`,
-      `"${item.date ? new Date(item.date).toLocaleString() : "N/A"}"`,
-    ]);
-
-    const csvContent =
-      "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute(
-      "download",
-      `masteryzone_assessments_${filterType.toLowerCase().replace(/\s+/g, "_")}_${new Date().toISOString().split("T")[0]}.csv`
-    );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success(`Exported ${filteredList.length} assessment records to CSV!`);
   };
 
   // Open Full Details Report Modal
@@ -401,7 +385,7 @@ const AdminAssessments = () => {
           ],
         }));
 
-        fetchAssessments(range);
+        fetchAssessments(range, page, search, filterType);
       } else {
         toast.error(data.message || "Failed to update marks");
       }
@@ -812,6 +796,7 @@ const AdminAssessments = () => {
             { id: "MCQ Assessment", label: "MCQ Assessments", count: stats.mcqCount },
             { id: "Coding Assessment", label: "Coding Challenges", count: stats.codingCount },
             { id: "Project Assignment", label: "Projects", count: stats.projectCount },
+            { id: "Proctored Exam", label: "Proctored Exams", count: stats.proctoredCount || 0 },
           ].map((tab) => {
             const isActive = filterType === tab.id;
             return (
@@ -917,7 +902,7 @@ const AdminAssessments = () => {
                 borderRadius: 20,
               }}
             >
-              {filteredList.length} Records
+              {Number(pagination?.total ?? stats.total ?? filteredList.length).toLocaleString()} Records
             </span>
           </div>
         </div>
@@ -1224,6 +1209,16 @@ const AdminAssessments = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Standardized 10-per-page Pagination Footer */}
+        <AdminPagination
+          page={page}
+          totalPages={pagination?.totalPages || 1}
+          totalRecords={pagination?.total ?? (stats.total || filteredList.length || 0)}
+          limit={10}
+          onPageChange={(newPage) => setPage(newPage)}
+          itemName="assessment submissions"
+        />
       </div>
 
       {/* ─────────────────────────────────────────────────────────────────────────────

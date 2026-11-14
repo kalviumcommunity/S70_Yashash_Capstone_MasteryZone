@@ -19,6 +19,7 @@ import {
   LuCircleAlert,
 } from "react-icons/lu";
 import "./Admin.css";
+import AdminPagination from "./AdminPagination.jsx";
 import { deduplicatedFetch } from "../../utils/apiClient";
 import { getSharedSocket, releaseSharedSocket } from "../../utils/socketClient";
 
@@ -29,6 +30,7 @@ const AdminCodingAnalytics = () => {
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState("30d");
   const [selectedLanguage, setSelectedLanguage] = useState("ALL");
+  const [page, setPage] = useState(1);
   const [inspectedCode, setInspectedCode] = useState(null);
 
   // Evaluation & Marks Modification form state
@@ -41,11 +43,18 @@ const AdminCodingAnalytics = () => {
   const [updateErrorMsg, setUpdateErrorMsg] = useState("");
   const [copiedCode, setCopiedCode] = useState(false);
 
-  const fetchCodingAnalytics = async (selectedRange = range) => {
+  const fetchCodingAnalytics = async (selectedRange = range, selectedPage = page, selectedLang = selectedLanguage) => {
     try {
       setLoading(true);
       const token = localStorage.getItem("token");
-      const res = await deduplicatedFetch(`${API_BASE}/api/admin/coding-analytics?range=${selectedRange}`, {
+      const params = new URLSearchParams({
+        range: selectedRange,
+        page: selectedPage,
+        limit: 10,
+      });
+      if (selectedLang !== "ALL") params.append("language", selectedLang.toLowerCase());
+
+      const res = await deduplicatedFetch(`${API_BASE}/api/admin/coding-analytics?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
         cacheTtlMs: 2500,
       });
@@ -60,9 +69,19 @@ const AdminCodingAnalytics = () => {
     }
   };
 
+  const prevFiltersRef = useRef({ range, selectedLanguage });
   useEffect(() => {
-    fetchCodingAnalytics(range);
+    if (prevFiltersRef.current.range !== range || prevFiltersRef.current.selectedLanguage !== selectedLanguage) {
+      prevFiltersRef.current = { range, selectedLanguage };
+      if (page !== 1) {
+        setPage(1);
+        return;
+      }
+    }
+    fetchCodingAnalytics(range, page, selectedLanguage);
+  }, [range, page, selectedLanguage]);
 
+  useEffect(() => {
     // Socket.IO real-time listener for live submission updates
     let socket = null;
     let handleConnect = null;
@@ -594,6 +613,16 @@ const AdminCodingAnalytics = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Standardized 10-per-page Pagination Footer */}
+        <AdminPagination
+          page={page}
+          totalPages={data?.pagination?.totalPages || 1}
+          totalRecords={data?.pagination?.total ?? (data?.metrics?.totalSubmissions || filteredSubmissions.length || 0)}
+          limit={10}
+          onPageChange={(newPage) => setPage(newPage)}
+          itemName="coding submissions"
+        />
       </div>
 
       {/* 5. Complete Code Inspector, Marks Modification & Notification Tracking Modal */}
