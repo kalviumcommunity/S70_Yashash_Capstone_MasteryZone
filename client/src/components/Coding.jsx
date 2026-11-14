@@ -1018,6 +1018,12 @@ export default function Coding() {
     window.addEventListener("mz_assignment_passed", handleCustomEvent);
     window.addEventListener("mz_exam_completed", handleCustomEvent);
     window.addEventListener("mz_learning_progress_reset", handleCustomEvent);
+    window.addEventListener("mz_marks_updated", handleCustomEvent);
+    window.addEventListener("mz_submission_updated", handleCustomEvent);
+    window.addEventListener("mz_submission_created", handleCustomEvent);
+    window.addEventListener("mz_progress_updated", handleCustomEvent);
+    window.addEventListener("mz_cert_updated", handleCustomEvent);
+    window.addEventListener("mz_socket_reconnected", handleCustomEvent);
 
     return () => {
       window.removeEventListener("storage", handleStorage);
@@ -1027,6 +1033,12 @@ export default function Coding() {
       window.removeEventListener("mz_assignment_passed", handleCustomEvent);
       window.removeEventListener("mz_exam_completed", handleCustomEvent);
       window.removeEventListener("mz_learning_progress_reset", handleCustomEvent);
+      window.removeEventListener("mz_marks_updated", handleCustomEvent);
+      window.removeEventListener("mz_submission_updated", handleCustomEvent);
+      window.removeEventListener("mz_submission_created", handleCustomEvent);
+      window.removeEventListener("mz_progress_updated", handleCustomEvent);
+      window.removeEventListener("mz_cert_updated", handleCustomEvent);
+      window.removeEventListener("mz_socket_reconnected", handleCustomEvent);
       if (bc) {
         try {
           bc.close();

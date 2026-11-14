@@ -958,6 +958,12 @@ router.put('/avatar', verifyToken, async (req, res) => {
     user.avatarUrl = avatarUrl;
     await user.save();
 
+    const io = req.app.get("io");
+    if (io) {
+      io.to(`user_${user._id}`).emit("user_profile_updated", { avatarUrl: user.avatarUrl });
+      io.emit("ADMIN_USERS_UPDATED", { userId: user._id, avatarUrl: user.avatarUrl });
+    }
+
     res.status(200).json({ message: 'Avatar updated successfully', avatarUrl: user.avatarUrl });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
@@ -1067,6 +1073,12 @@ router.put('/profile', verifyToken, async (req, res) => {
     delete safeUser.resetPasswordExpires;
     delete safeUser.otpCodeHash;
     delete safeUser.otpExpires;
+
+    const io = req.app.get("io");
+    if (io) {
+      io.to(`user_${user._id}`).emit("user_profile_updated", { user: safeUser });
+      io.emit("ADMIN_USERS_UPDATED", { userId: user._id, user: safeUser });
+    }
 
     res.status(200).json({ 
       message: 'Profile updated successfully', 

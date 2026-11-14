@@ -1037,6 +1037,21 @@ router.post("/challenges/:id/submit", optionalAuthenticateToken, async (req, res
           score,
           userId,
         });
+        io.to(`user_${userId}`).emit("USER_SUBMISSION_CREATED", {
+          id: submission._id,
+          challengeId: challenge.id,
+          challengeTitle: challenge.title,
+          status: submission.status,
+          score,
+          passedTests: passedCount,
+          totalTests: allTests.length,
+        });
+        io.to(`user_${userId}`).emit("coding_progress_updated", {
+          type: "challenge_solved",
+          challengeId: challenge.id,
+          status: submission.status,
+          score,
+        });
         io.emit("NEW_REPORT", {
           id: submission._id,
           rawId: submission._id,

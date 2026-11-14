@@ -176,26 +176,31 @@ const AdminReports = () => {
     // Handle marks modified across system
     const handleMarksUpdated = (updateData) => {
       if (!updateData) return;
+      const resolvedScore = updateData.newScore != null ? updateData.newScore : (updateData.rawScore != null ? updateData.rawScore : updateData.percentage);
+      const rawStatus = updateData.newStatus || updateData.status || updateData.verdict;
+      const isPassed = rawStatus === "PASSED" || rawStatus === "Passed" || rawStatus === "QUALIFIED" || rawStatus === "ACCEPTED" || rawStatus === "COMPLETED";
+
       setReports((prev) =>
         prev.map((r) => {
           const match =
             r.id === updateData.id ||
             r.rawId === updateData.id ||
             r.attemptId === updateData.id ||
+            r.sessionId === updateData.sessionId ||
             (updateData.itemType === r.itemType && String(r.id) === String(updateData.id));
           if (match) {
             const newScoreFormatted =
               r.itemType === "module"
-                ? `${updateData.newScore}/${r.maxScore || 10} (${Math.round((updateData.newScore / (r.maxScore || 10)) * 100)}%)`
-                : `${updateData.newScore}%`;
+                ? `${resolvedScore}/${r.maxScore || 10} (${Math.round((resolvedScore / (r.maxScore || 10)) * 100)}%)`
+                : `${resolvedScore}%`;
             return {
               ...r,
               score: newScoreFormatted,
-              rawScore: updateData.newScore,
-              status: updateData.newStatus || r.status,
+              rawScore: resolvedScore,
+              status: rawStatus || r.status,
               grade:
-                updateData.newStatus === "PASSED" || updateData.newStatus === "QUALIFIED"
-                  ? updateData.newScore >= 90
+                isPassed
+                  ? resolvedScore >= 90
                     ? "Distinction"
                     : "First Class"
                   : "Not Qualified",

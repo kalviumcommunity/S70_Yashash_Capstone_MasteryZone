@@ -243,6 +243,19 @@ const Profile = () => {
 
   useEffect(() => {
     fetchUserProfile();
+    const handleProfileUpdate = () => fetchUserProfile();
+    window.addEventListener("mz_profile_updated", handleProfileUpdate);
+    window.addEventListener("mz_marks_updated", handleProfileUpdate);
+    window.addEventListener("mz_progress_updated", handleProfileUpdate);
+    window.addEventListener("mz_streak_updated", handleProfileUpdate);
+    window.addEventListener("mz_socket_reconnected", handleProfileUpdate);
+    return () => {
+      window.removeEventListener("mz_profile_updated", handleProfileUpdate);
+      window.removeEventListener("mz_marks_updated", handleProfileUpdate);
+      window.removeEventListener("mz_progress_updated", handleProfileUpdate);
+      window.removeEventListener("mz_streak_updated", handleProfileUpdate);
+      window.removeEventListener("mz_socket_reconnected", handleProfileUpdate);
+    };
   }, [navigate]);
 
   // Fetch user recordings for real-time profile showcase

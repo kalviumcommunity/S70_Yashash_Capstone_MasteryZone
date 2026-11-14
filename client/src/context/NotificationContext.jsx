@@ -278,8 +278,12 @@ export function NotificationProvider({ children }) {
         token: authToken,
         userId,
       });
+      socket.emit("authenticate_user_session", {
+        token: authToken,
+      });
       sendActivityHeartbeat();
       refreshNotifications();
+      window.dispatchEvent(new CustomEvent("mz_socket_reconnected", { detail: { userId } }));
     };
 
     const heartbeatInterval = setInterval(sendActivityHeartbeat, 20000);
@@ -365,6 +369,51 @@ export function NotificationProvider({ children }) {
     socket.on("new_notification", handleNewNotification);
     socket.on("notifications_updated", handleNotificationsUpdated);
 
+    const handleMarksUpdated = (data) => {
+      window.dispatchEvent(new CustomEvent("mz_marks_updated", { detail: data }));
+    };
+    const handleSubmissionUpdated = (data) => {
+      window.dispatchEvent(new CustomEvent("mz_submission_updated", { detail: data }));
+    };
+    const handleSubmissionCreated = (data) => {
+      window.dispatchEvent(new CustomEvent("mz_submission_created", { detail: data }));
+    };
+    const handleProgressUpdated = (data) => {
+      window.dispatchEvent(new CustomEvent("mz_progress_updated", { detail: data }));
+    };
+    const handleCertAwarded = (data) => {
+      window.dispatchEvent(new CustomEvent("mz_cert_updated", { detail: data }));
+      window.dispatchEvent(new CustomEvent("mz_certificate_awarded", { detail: data }));
+    };
+    const handleProfileUpdated = (data) => {
+      window.dispatchEvent(new CustomEvent("mz_profile_updated", { detail: data }));
+    };
+    const handleStatusUpdated = (data) => {
+      window.dispatchEvent(new CustomEvent("mz_status_updated", { detail: data }));
+      if (data?.isSuspended) {
+        window.dispatchEvent(new CustomEvent("mz_account_suspended", { detail: data }));
+      }
+    };
+    const handleRoleUpdated = (data) => {
+      window.dispatchEvent(new CustomEvent("mz_role_updated", { detail: data }));
+    };
+    const handleSuspended = (data) => {
+      window.dispatchEvent(new CustomEvent("mz_account_suspended", { detail: data }));
+    };
+
+    socket.on("ASSESSMENT_MARKS_UPDATED", handleMarksUpdated);
+    socket.on("USER_SUBMISSION_UPDATED", handleSubmissionUpdated);
+    socket.on("USER_SUBMISSION_CREATED", handleSubmissionCreated);
+    socket.on("coding_progress_updated", handleProgressUpdated);
+    socket.on("progress_updated", handleProgressUpdated);
+    socket.on("streak_updated", handleProgressUpdated);
+    socket.on("NEW_CERTIFICATE", handleCertAwarded);
+    socket.on("user_profile_updated", handleProfileUpdated);
+    socket.on("USER_STATUS_UPDATED", handleStatusUpdated);
+    socket.on("account_suspended", handleSuspended);
+    socket.on("USER_ROLE_UPDATED", handleRoleUpdated);
+    socket.on("role_updated", handleRoleUpdated);
+
     socket.on("RECORDING_SAVED", (recording) => {
       window.dispatchEvent(new CustomEvent("mz_recording_saved", { detail: recording }));
     });
@@ -383,6 +432,18 @@ export function NotificationProvider({ children }) {
       socket.off("disconnect", handleDisconnect);
       socket.off("new_notification", handleNewNotification);
       socket.off("notifications_updated", handleNotificationsUpdated);
+      socket.off("ASSESSMENT_MARKS_UPDATED", handleMarksUpdated);
+      socket.off("USER_SUBMISSION_UPDATED", handleSubmissionUpdated);
+      socket.off("USER_SUBMISSION_CREATED", handleSubmissionCreated);
+      socket.off("coding_progress_updated", handleProgressUpdated);
+      socket.off("progress_updated", handleProgressUpdated);
+      socket.off("streak_updated", handleProgressUpdated);
+      socket.off("NEW_CERTIFICATE", handleCertAwarded);
+      socket.off("user_profile_updated", handleProfileUpdated);
+      socket.off("USER_STATUS_UPDATED", handleStatusUpdated);
+      socket.off("account_suspended", handleSuspended);
+      socket.off("USER_ROLE_UPDATED", handleRoleUpdated);
+      socket.off("role_updated", handleRoleUpdated);
       socket.off("RECORDING_SAVED");
       socket.off("RECORDING_UPDATED");
       socket.off("RECORDING_DELETED");

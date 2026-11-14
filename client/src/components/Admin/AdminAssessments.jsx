@@ -144,23 +144,27 @@ const AdminAssessments = () => {
     // Handle marks modified across system
     const handleMarksUpdated = (updateData) => {
       if (!updateData) return;
+      const resolvedScore = updateData.newScore != null ? updateData.newScore : (updateData.rawScore != null ? updateData.rawScore : updateData.percentage);
+      const rawStatus = updateData.newStatus || updateData.status || updateData.verdict;
+      const isPassed = rawStatus === "PASSED" || rawStatus === "Passed" || rawStatus === "QUALIFIED" || rawStatus === "ACCEPTED" || rawStatus === "COMPLETED";
+
       setAssessments((prev) =>
         prev.map((item) => {
           const match =
             item.id === updateData.id ||
             item.rawId === updateData.id ||
             item.attemptId === updateData.id ||
+            item.sessionId === updateData.sessionId ||
             (updateData.itemType === item.itemType && String(item.id) === String(updateData.id));
           if (match) {
             const newScoreFormatted =
               item.itemType === "module"
-                ? `${updateData.newScore}/${item.maxScore || 10} (${Math.round((updateData.newScore / (item.maxScore || 10)) * 100)}%)`
-                : `${updateData.newScore}%`;
-            const isPassed = updateData.newStatus === "PASSED" || updateData.newStatus === "Passed" || updateData.newStatus === "QUALIFIED";
+                ? `${resolvedScore}/${item.maxScore || 10} (${Math.round((resolvedScore / (item.maxScore || 10)) * 100)}%)`
+                : `${resolvedScore}%`;
             return {
               ...item,
               score: newScoreFormatted,
-              rawScore: updateData.newScore,
+              rawScore: resolvedScore,
               status: isPassed ? "Passed" : "Failed",
               passed: isPassed,
             };

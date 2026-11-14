@@ -143,6 +143,30 @@ export default function AssessmentReportPage() {
 
   useEffect(() => {
     fetchImmutableReport();
+    const handleMarksUpdated = (e) => {
+      const data = e?.detail;
+      const rawId = (sessionId || "").trim();
+      if (!data) {
+        fetchImmutableReport();
+        return;
+      }
+      if (
+        data.id === rawId ||
+        data.rawId === rawId ||
+        data.itemId === rawId ||
+        data.attemptId === rawId ||
+        data.sessionId === rawId ||
+        String(data.submissionId) === rawId
+      ) {
+        fetchImmutableReport();
+      }
+    };
+    window.addEventListener("mz_marks_updated", handleMarksUpdated);
+    window.addEventListener("mz_socket_reconnected", handleMarksUpdated);
+    return () => {
+      window.removeEventListener("mz_marks_updated", handleMarksUpdated);
+      window.removeEventListener("mz_socket_reconnected", handleMarksUpdated);
+    };
   }, [sessionId]);
 
   // Security guard against back navigation/gesture swiping into completed assessment
